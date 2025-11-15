@@ -23,8 +23,8 @@ type Tenant = {
 };
 
 const mockTenants: Tenant[] = [
-  { id: "1", name: "The Synozur Alliance LLC", color: "hsl(277, 98%, 53%)" },
   { id: "2", name: "Acme Corporation", color: "hsl(220, 85%, 38%)" },
+  { id: "1", name: "The Synozur Alliance LLC", color: "hsl(277, 98%, 53%)" },
   { id: "3", name: "TechStart Inc", color: "hsl(328, 94%, 45%)" },
   { id: "4", name: "Global Ventures", color: "hsl(200, 75%, 45%)" },
 ];

@@ -97,7 +97,7 @@ Preferred communication style: Simple, everyday language.
 
 **Multi-Tenant System**:
 - TenantSwitcher component allows switching between organizations
-- Available tenants: The Synozur Alliance LLC (default), Acme Corporation, TechStart Inc, Global Ventures
+- Available tenants: Acme Corporation (default), The Synozur Alliance LLC, TechStart Inc, Global Ventures
 - Each tenant has a unique color for visual identification
 - Tenant selection stored in component state (future: persist in user profile)
 
