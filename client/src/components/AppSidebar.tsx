@@ -1,4 +1,4 @@
-import { Building2, Target, TrendingUp, Calendar, Settings, Sparkles } from "lucide-react";
+import { Building2, Target, TrendingUp, Calendar, Settings } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -11,6 +11,7 @@ import {
   SidebarHeader,
 } from "@/components/ui/sidebar";
 import { useLocation } from "wouter";
+import { SynozurLogo } from "./SynozurLogo";
 
 const menuItems = [
   {
@@ -50,9 +51,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <Sparkles className="h-5 w-5 text-primary-foreground" />
-          </div>
+          <SynozurLogo variant="mark" className="h-8 w-8" />
           <span className="font-bold text-lg">Vega</span>
         </div>
       </SidebarHeader>

@@ -10,6 +10,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
 import { AIChatPanel } from "@/components/AIChatPanel";
 import { ConsultingModeToggle } from "@/components/ConsultingModeToggle";
+import { SynozurLogo } from "@/components/SynozurLogo";
 import { Sparkles } from "lucide-react";
 import { useState } from "react";
 
@@ -31,10 +32,8 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
         <header className="flex items-center justify-between p-4 border-b gap-4">
           <div className="flex items-center gap-4">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                <Sparkles className="h-5 w-5 text-primary-foreground" />
-              </div>
+            <div className="flex items-center gap-3">
+              <SynozurLogo variant="mark" className="h-8 w-8" />
               <span className="font-bold text-lg hidden md:block">Vega</span>
             </div>
           </div>

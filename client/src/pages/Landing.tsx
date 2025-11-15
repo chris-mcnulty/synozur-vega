@@ -3,17 +3,15 @@ import { FeaturesSection } from "@/components/FeaturesSection";
 import { M365IntegrationSection } from "@/components/M365IntegrationSection";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { Sparkles } from "lucide-react";
+import { SynozurLogo } from "@/components/SynozurLogo";
 
 export default function Landing() {
   return (
     <div className="min-h-screen">
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Sparkles className="h-5 w-5 text-primary-foreground" />
-            </div>
+          <div className="flex items-center gap-3">
+            <SynozurLogo variant="mark" className="h-8 w-8" />
             <span className="font-bold text-xl">Vega</span>
           </div>
           <div className="flex items-center gap-4">
@@ -48,14 +46,12 @@ export default function Landing() {
           <div className="max-w-7xl mx-auto px-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
               <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                    <Sparkles className="h-5 w-5 text-primary-foreground" />
-                  </div>
+                <div className="flex items-center gap-3 mb-4">
+                  <SynozurLogo variant="mark" className="h-8 w-8" />
                   <span className="font-bold text-lg">Vega</span>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Your AI-Augmented Company OS
+                  Powered by Synozur Alliance
                 </p>
               </div>
               <div>
@@ -84,7 +80,7 @@ export default function Landing() {
               </div>
             </div>
             <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
-              © 2024 Vega. All rights reserved.
+              © 2025 Vega by Synozur Alliance. All rights reserved.
             </div>
           </div>
         </footer>
