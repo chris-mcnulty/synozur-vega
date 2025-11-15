@@ -1,11 +1,55 @@
+import { useState } from "react";
 import { LandingHero } from "@/components/LandingHero";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { M365IntegrationSection } from "@/components/M365IntegrationSection";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SynozurLogo } from "@/components/SynozurLogo";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 export default function Landing() {
+  const [showPasswordDialog, setShowPasswordDialog] = useState(false);
+  const [password, setPassword] = useState("");
+  const { toast } = useToast();
+  const [, setLocation] = useLocation();
+
+  const handleLoginClick = () => {
+    setShowPasswordDialog(true);
+    setPassword("");
+  };
+
+  const handlePasswordSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const demoPassword = import.meta.env.VITE_DEMO_PASSWORD;
+    
+    if (password === demoPassword) {
+      setShowPasswordDialog(false);
+      setLocation("/dashboard");
+      toast({
+        title: "Welcome!",
+        description: "Successfully logged in to Vega",
+      });
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Access Denied",
+        description: "Incorrect password. Please try again.",
+      });
+      setPassword("");
+    }
+  };
+
   return (
     <div className="min-h-screen">
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b">
@@ -15,15 +59,58 @@ export default function Landing() {
             <span className="font-bold text-xl">Vega</span>
           </div>
           <div className="flex items-center gap-4">
-            <a href="/dashboard">
-              <Button variant="ghost" data-testid="button-nav-login">
-                Login
-              </Button>
-            </a>
+            <Button 
+              variant="ghost" 
+              data-testid="button-nav-login"
+              onClick={handleLoginClick}
+            >
+              Login
+            </Button>
             <ThemeToggle />
           </div>
         </div>
       </nav>
+
+      <Dialog open={showPasswordDialog} onOpenChange={setShowPasswordDialog}>
+        <DialogContent data-testid="dialog-password-challenge">
+          <DialogHeader>
+            <DialogTitle>Demo Access</DialogTitle>
+            <DialogDescription>
+              Enter the challenge password to access the Vega prototype
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handlePasswordSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter password"
+                autoFocus
+                data-testid="input-demo-password"
+              />
+            </div>
+            <div className="flex gap-2 justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setShowPasswordDialog(false);
+                  setPassword("");
+                }}
+                data-testid="button-cancel-login"
+              >
+                Cancel
+              </Button>
+              <Button type="submit" data-testid="button-submit-password">
+                Login
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <div className="pt-16">
         <LandingHero />
