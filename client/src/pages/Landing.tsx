@@ -51,8 +51,16 @@ export default function Landing() {
                   <span className="font-bold text-lg">Vega</span>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Powered by Synozur Alliance
+                  Powered by The Synozur Alliance LLC
                 </p>
+                <a 
+                  href="https://www.synozur.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="text-sm text-primary hover:underline mt-1 inline-block"
+                >
+                  www.synozur.com
+                </a>
               </div>
               <div>
                 <h4 className="font-semibold mb-3">Product</h4>
@@ -65,22 +73,22 @@ export default function Landing() {
               <div>
                 <h4 className="font-semibold mb-3">Company</h4>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li><a href="#" className="hover:text-foreground">About</a></li>
-                  <li><a href="#" className="hover:text-foreground">Blog</a></li>
-                  <li><a href="#" className="hover:text-foreground">Careers</a></li>
+                  <li><a href="https://www.synozur.com" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">About</a></li>
+                  <li><a href="https://www.synozur.com" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Synozur.com</a></li>
+                  <li><a href="https://www.synozur.com" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Contact</a></li>
                 </ul>
               </div>
               <div>
                 <h4 className="font-semibold mb-3">Legal</h4>
                 <ul className="space-y-2 text-sm text-muted-foreground">
-                  <li><a href="#" className="hover:text-foreground">Privacy</a></li>
-                  <li><a href="#" className="hover:text-foreground">Terms</a></li>
-                  <li><a href="#" className="hover:text-foreground">Security</a></li>
+                  <li><a href="https://www.synozur.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Privacy Policy</a></li>
+                  <li><a href="https://www.synozur.com" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Terms of Service</a></li>
+                  <li><a href="https://www.synozur.com" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Security</a></li>
                 </ul>
               </div>
             </div>
             <div className="mt-8 pt-8 border-t text-center text-sm text-muted-foreground">
-              © 2025 Vega by Synozur Alliance. All rights reserved.
+              © 2025 The Synozur Alliance LLC. All rights reserved.
             </div>
           </div>
         </footer>
