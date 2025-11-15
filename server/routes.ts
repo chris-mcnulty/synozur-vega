@@ -72,7 +72,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/strategies/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const strategy = await storage.updateStrategy(id, req.body);
+      const validatedData = insertStrategySchema.partial().parse(req.body);
+      const strategy = await storage.updateStrategy(id, validatedData);
+      if (!strategy) {
+        return res.status(404).json({ error: "Strategy not found" });
+      }
       res.json(strategy);
     } catch (error) {
       console.error("Error updating strategy:", error);
@@ -122,7 +126,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/okrs/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const okr = await storage.updateOkr(id, req.body);
+      const validatedData = insertOkrSchema.partial().parse(req.body);
+      const okr = await storage.updateOkr(id, validatedData);
+      if (!okr) {
+        return res.status(404).json({ error: "OKR not found" });
+      }
       res.json(okr);
     } catch (error) {
       console.error("Error updating OKR:", error);
@@ -172,7 +180,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/kpis/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const kpi = await storage.updateKpi(id, req.body);
+      const validatedData = insertKpiSchema.partial().parse(req.body);
+      const kpi = await storage.updateKpi(id, validatedData);
+      if (!kpi) {
+        return res.status(404).json({ error: "KPI not found" });
+      }
       res.json(kpi);
     } catch (error) {
       console.error("Error updating KPI:", error);
@@ -222,7 +234,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/rocks/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const rock = await storage.updateRock(id, req.body);
+      const validatedData = insertRockSchema.partial().parse(req.body);
+      const rock = await storage.updateRock(id, validatedData);
+      if (!rock) {
+        return res.status(404).json({ error: "Rock not found" });
+      }
       res.json(rock);
     } catch (error) {
       console.error("Error updating rock:", error);
@@ -267,7 +283,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/meetings/:id", async (req, res) => {
     try {
       const { id } = req.params;
-      const meeting = await storage.updateMeeting(id, req.body);
+      const validatedData = insertMeetingSchema.partial().parse(req.body);
+      const meeting = await storage.updateMeeting(id, validatedData);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
       res.json(meeting);
     } catch (error) {
       console.error("Error updating meeting:", error);

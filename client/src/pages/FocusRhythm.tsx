@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Video, Users, Pencil, Trash2, Plus, Target } from "lucide-react";
+import { Calendar, Users, Pencil, Trash2, Plus, Target, CheckCircle2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -40,15 +40,13 @@ const meetingTypes = [
 
 interface MeetingFormData {
   title: string;
-  type: string;
+  meetingType: string;
   date: string;
-  time: string;
-  duration: number;
   attendees: string[];
-  teamsLink: string;
-  agenda: string[];
-  outcomes: string;
-  nextSteps: string;
+  summary: string;
+  decisions: string[];
+  actionItems: string[];
+  nextMeetingDate: string;
 }
 
 export default function FocusRhythm() {
@@ -61,15 +59,13 @@ export default function FocusRhythm() {
 
   const [formData, setFormData] = useState<MeetingFormData>({
     title: "",
-    type: "weekly",
+    meetingType: "weekly",
     date: "",
-    time: "",
-    duration: 60,
     attendees: [],
-    teamsLink: "",
-    agenda: [],
-    outcomes: "",
-    nextSteps: "",
+    summary: "",
+    decisions: [],
+    actionItems: [],
+    nextMeetingDate: "",
   });
 
   const { data: meetings = [], isLoading } = useQuery<Meeting[]>({
@@ -81,6 +77,8 @@ export default function FocusRhythm() {
       return apiRequest("POST", "/api/meetings", {
         tenantId: CURRENT_TENANT_ID,
         ...data,
+        date: data.date ? new Date(data.date).toISOString() : null,
+        nextMeetingDate: data.nextMeetingDate ? new Date(data.nextMeetingDate).toISOString() : null,
         updatedBy: "Current User",
       });
     },
@@ -106,6 +104,8 @@ export default function FocusRhythm() {
     mutationFn: async ({ id, data }: { id: string; data: Partial<MeetingFormData> }) => {
       return apiRequest("PATCH", `/api/meetings/${id}`, {
         ...data,
+        date: data.date ? new Date(data.date).toISOString() : undefined,
+        nextMeetingDate: data.nextMeetingDate ? new Date(data.nextMeetingDate).toISOString() : undefined,
         updatedBy: "Current User",
       });
     },
@@ -152,31 +152,36 @@ export default function FocusRhythm() {
   const resetForm = () => {
     setFormData({
       title: "",
-      type: "weekly",
+      meetingType: "weekly",
       date: "",
-      time: "",
-      duration: 60,
       attendees: [],
-      teamsLink: "",
-      agenda: [],
-      outcomes: "",
-      nextSteps: "",
+      summary: "",
+      decisions: [],
+      actionItems: [],
+      nextMeetingDate: "",
     });
   };
 
   const openEditDialog = (meeting: Meeting) => {
     setSelectedMeeting(meeting);
+    const formatDateForInput = (date: Date | null) => {
+      if (!date) return "";
+      try {
+        return format(new Date(date), "yyyy-MM-dd");
+      } catch {
+        return "";
+      }
+    };
+
     setFormData({
       title: meeting.title,
-      type: meeting.type || "weekly",
-      date: meeting.date || "",
-      time: meeting.time || "",
-      duration: meeting.duration || 60,
+      meetingType: meeting.meetingType || "weekly",
+      date: formatDateForInput(meeting.date),
       attendees: meeting.attendees || [],
-      teamsLink: meeting.teamsLink || "",
-      agenda: meeting.agenda || [],
-      outcomes: meeting.outcomes || "",
-      nextSteps: meeting.nextSteps || "",
+      summary: meeting.summary || "",
+      decisions: meeting.decisions || [],
+      actionItems: meeting.actionItems || [],
+      nextMeetingDate: formatDateForInput(meeting.nextMeetingDate),
     });
     setEditDialogOpen(true);
   };
@@ -227,20 +232,35 @@ export default function FocusRhythm() {
     deleteMutation.mutate(selectedMeeting.id);
   };
 
-  const [newAgendaItem, setNewAgendaItem] = useState("");
+  const [newDecision, setNewDecision] = useState("");
+  const [newActionItem, setNewActionItem] = useState("");
   const [newAttendee, setNewAttendee] = useState("");
 
-  const addAgendaItem = () => {
-    if (newAgendaItem.trim()) {
-      setFormData({ ...formData, agenda: [...formData.agenda, newAgendaItem] });
-      setNewAgendaItem("");
+  const addDecision = () => {
+    if (newDecision.trim()) {
+      setFormData({ ...formData, decisions: [...formData.decisions, newDecision] });
+      setNewDecision("");
     }
   };
 
-  const removeAgendaItem = (index: number) => {
+  const removeDecision = (index: number) => {
     setFormData({
       ...formData,
-      agenda: formData.agenda.filter((_, i) => i !== index),
+      decisions: formData.decisions.filter((_, i) => i !== index),
+    });
+  };
+
+  const addActionItem = () => {
+    if (newActionItem.trim()) {
+      setFormData({ ...formData, actionItems: [...formData.actionItems, newActionItem] });
+      setNewActionItem("");
+    }
+  };
+
+  const removeActionItem = (index: number) => {
+    setFormData({
+      ...formData,
+      actionItems: formData.actionItems.filter((_, i) => i !== index),
     });
   };
 
@@ -270,13 +290,13 @@ export default function FocusRhythm() {
 
   const filteredMeetings = selectedType === "all"
     ? meetings
-    : meetings.filter(m => m.type === selectedType);
+    : meetings.filter(m => m.meetingType === selectedType);
 
   const groupedMeetings = {
     all: meetings,
-    weekly: meetings.filter(m => m.type === "weekly"),
-    monthly: meetings.filter(m => m.type === "monthly"),
-    quarterly: meetings.filter(m => m.type === "quarterly"),
+    weekly: meetings.filter(m => m.meetingType === "weekly"),
+    monthly: meetings.filter(m => m.meetingType === "monthly"),
+    quarterly: meetings.filter(m => m.meetingType === "quarterly"),
   };
 
   if (isLoading) {
@@ -333,8 +353,8 @@ export default function FocusRhythm() {
                   <div>
                     <Label htmlFor="type">Meeting Type</Label>
                     <Select
-                      value={formData.type}
-                      onValueChange={(value) => setFormData({ ...formData, type: value })}
+                      value={formData.meetingType}
+                      onValueChange={(value) => setFormData({ ...formData, meetingType: value })}
                     >
                       <SelectTrigger data-testid="select-meeting-type">
                         <SelectValue />
@@ -350,19 +370,6 @@ export default function FocusRhythm() {
                   </div>
 
                   <div>
-                    <Label htmlFor="duration">Duration (minutes)</Label>
-                    <Input
-                      id="duration"
-                      type="number"
-                      value={formData.duration}
-                      onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 60 })}
-                      data-testid="input-duration"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
                     <Label htmlFor="date">Date *</Label>
                     <Input
                       id="date"
@@ -372,27 +379,16 @@ export default function FocusRhythm() {
                       data-testid="input-date"
                     />
                   </div>
-
-                  <div>
-                    <Label htmlFor="time">Time</Label>
-                    <Input
-                      id="time"
-                      type="time"
-                      value={formData.time}
-                      onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                      data-testid="input-time"
-                    />
-                  </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="teamsLink">Teams Link</Label>
+                  <Label htmlFor="nextMeetingDate">Next Meeting Date</Label>
                   <Input
-                    id="teamsLink"
-                    placeholder="https://teams.microsoft.com/..."
-                    value={formData.teamsLink}
-                    onChange={(e) => setFormData({ ...formData, teamsLink: e.target.value })}
-                    data-testid="input-teams-link"
+                    id="nextMeetingDate"
+                    type="date"
+                    value={formData.nextMeetingDate}
+                    onChange={(e) => setFormData({ ...formData, nextMeetingDate: e.target.value })}
+                    data-testid="input-next-meeting-date"
                   />
                 </div>
 
@@ -426,56 +422,73 @@ export default function FocusRhythm() {
                 </div>
 
                 <div>
-                  <Label>Agenda Items</Label>
+                  <Label htmlFor="summary">Meeting Summary</Label>
+                  <Textarea
+                    id="summary"
+                    placeholder="Key points and discussion summary..."
+                    value={formData.summary}
+                    onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
+                    rows={3}
+                    data-testid="textarea-summary"
+                  />
+                </div>
+
+                <div>
+                  <Label>Key Decisions</Label>
                   <div className="flex gap-2 mt-2">
                     <Input
-                      placeholder="Enter agenda item"
-                      value={newAgendaItem}
-                      onChange={(e) => setNewAgendaItem(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && addAgendaItem()}
-                      data-testid="input-agenda-item"
+                      placeholder="Enter a decision"
+                      value={newDecision}
+                      onChange={(e) => setNewDecision(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addDecision()}
+                      data-testid="input-decision"
                     />
-                    <Button onClick={addAgendaItem} data-testid="button-add-agenda">
+                    <Button onClick={addDecision} data-testid="button-add-decision">
                       Add
                     </Button>
                   </div>
                   <div className="flex flex-wrap gap-2 mt-2">
-                    {formData.agenda.map((item, index) => (
+                    {formData.decisions.map((decision, index) => (
                       <Badge
                         key={index}
                         variant="secondary"
                         className="cursor-pointer"
-                        onClick={() => removeAgendaItem(index)}
-                        data-testid={`badge-agenda-${index}`}
+                        onClick={() => removeDecision(index)}
+                        data-testid={`badge-decision-${index}`}
                       >
-                        {item} ×
+                        {decision} ×
                       </Badge>
                     ))}
                   </div>
                 </div>
 
                 <div>
-                  <Label htmlFor="outcomes">Outcomes</Label>
-                  <Textarea
-                    id="outcomes"
-                    placeholder="Key outcomes and decisions..."
-                    value={formData.outcomes}
-                    onChange={(e) => setFormData({ ...formData, outcomes: e.target.value })}
-                    rows={3}
-                    data-testid="textarea-outcomes"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="nextSteps">Next Steps</Label>
-                  <Textarea
-                    id="nextSteps"
-                    placeholder="Action items and next steps..."
-                    value={formData.nextSteps}
-                    onChange={(e) => setFormData({ ...formData, nextSteps: e.target.value })}
-                    rows={3}
-                    data-testid="textarea-next-steps"
-                  />
+                  <Label>Action Items</Label>
+                  <div className="flex gap-2 mt-2">
+                    <Input
+                      placeholder="Enter an action item"
+                      value={newActionItem}
+                      onChange={(e) => setNewActionItem(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && addActionItem()}
+                      data-testid="input-action-item"
+                    />
+                    <Button onClick={addActionItem} data-testid="button-add-action-item">
+                      Add
+                    </Button>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {formData.actionItems.map((item, index) => (
+                      <Badge
+                        key={index}
+                        variant="secondary"
+                        className="cursor-pointer"
+                        onClick={() => removeActionItem(index)}
+                        data-testid={`badge-action-item-${index}`}
+                      >
+                        {item} ×
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
               </div>
               <DialogFooter>
@@ -566,8 +579,8 @@ export default function FocusRhythm() {
                 <div>
                   <Label>Meeting Type</Label>
                   <Select
-                    value={formData.type}
-                    onValueChange={(value) => setFormData({ ...formData, type: value })}
+                    value={formData.meetingType}
+                    onValueChange={(value) => setFormData({ ...formData, meetingType: value })}
                   >
                     <SelectTrigger data-testid="select-edit-type">
                       <SelectValue />
@@ -583,18 +596,6 @@ export default function FocusRhythm() {
                 </div>
 
                 <div>
-                  <Label>Duration (minutes)</Label>
-                  <Input
-                    type="number"
-                    value={formData.duration}
-                    onChange={(e) => setFormData({ ...formData, duration: parseInt(e.target.value) || 60 })}
-                    data-testid="input-edit-duration"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
                   <Label>Date *</Label>
                   <Input
                     type="date"
@@ -603,24 +604,15 @@ export default function FocusRhythm() {
                     data-testid="input-edit-date"
                   />
                 </div>
-
-                <div>
-                  <Label>Time</Label>
-                  <Input
-                    type="time"
-                    value={formData.time}
-                    onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                    data-testid="input-edit-time"
-                  />
-                </div>
               </div>
 
               <div>
-                <Label>Teams Link</Label>
+                <Label>Next Meeting Date</Label>
                 <Input
-                  value={formData.teamsLink}
-                  onChange={(e) => setFormData({ ...formData, teamsLink: e.target.value })}
-                  data-testid="input-edit-teams-link"
+                  type="date"
+                  value={formData.nextMeetingDate}
+                  onChange={(e) => setFormData({ ...formData, nextMeetingDate: e.target.value })}
+                  data-testid="input-edit-next-meeting-date"
                 />
               </div>
 
@@ -653,51 +645,69 @@ export default function FocusRhythm() {
               </div>
 
               <div>
-                <Label>Agenda Items</Label>
+                <Label>Meeting Summary</Label>
+                <Textarea
+                  value={formData.summary}
+                  onChange={(e) => setFormData({ ...formData, summary: e.target.value })}
+                  rows={3}
+                  data-testid="textarea-edit-summary"
+                />
+              </div>
+
+              <div>
+                <Label>Key Decisions</Label>
                 <div className="flex gap-2 mt-2">
                   <Input
-                    placeholder="Enter agenda item"
-                    value={newAgendaItem}
-                    onChange={(e) => setNewAgendaItem(e.target.value)}
-                    onKeyDown={(e) => e.key === "Enter" && addAgendaItem()}
-                    data-testid="input-edit-agenda"
+                    placeholder="Enter a decision"
+                    value={newDecision}
+                    onChange={(e) => setNewDecision(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addDecision()}
+                    data-testid="input-edit-decision"
                   />
-                  <Button onClick={addAgendaItem} data-testid="button-edit-add-agenda">
+                  <Button onClick={addDecision} data-testid="button-edit-add-decision">
                     Add
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.agenda.map((item, index) => (
+                  {formData.decisions.map((decision, index) => (
                     <Badge
                       key={index}
                       variant="secondary"
                       className="cursor-pointer"
-                      onClick={() => removeAgendaItem(index)}
+                      onClick={() => removeDecision(index)}
                     >
-                      {item} ×
+                      {decision} ×
                     </Badge>
                   ))}
                 </div>
               </div>
 
               <div>
-                <Label>Outcomes</Label>
-                <Textarea
-                  value={formData.outcomes}
-                  onChange={(e) => setFormData({ ...formData, outcomes: e.target.value })}
-                  rows={3}
-                  data-testid="textarea-edit-outcomes"
-                />
-              </div>
-
-              <div>
-                <Label>Next Steps</Label>
-                <Textarea
-                  value={formData.nextSteps}
-                  onChange={(e) => setFormData({ ...formData, nextSteps: e.target.value })}
-                  rows={3}
-                  data-testid="textarea-edit-next-steps"
-                />
+                <Label>Action Items</Label>
+                <div className="flex gap-2 mt-2">
+                  <Input
+                    placeholder="Enter an action item"
+                    value={newActionItem}
+                    onChange={(e) => setNewActionItem(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && addActionItem()}
+                    data-testid="input-edit-action-item"
+                  />
+                  <Button onClick={addActionItem} data-testid="button-edit-add-action-item">
+                    Add
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {formData.actionItems.map((item, index) => (
+                    <Badge
+                      key={index}
+                      variant="secondary"
+                      className="cursor-pointer"
+                      onClick={() => removeActionItem(index)}
+                    >
+                      {item} ×
+                    </Badge>
+                  ))}
+                </div>
               </div>
             </div>
             <DialogFooter>
@@ -763,11 +773,12 @@ interface MeetingCardProps {
 }
 
 function MeetingCard({ meeting, onEdit, onDelete, getMeetingTypeVariant }: MeetingCardProps) {
-  const formatDate = (dateString: string) => {
+  const formatDate = (date: Date | null) => {
+    if (!date) return "";
     try {
-      return format(new Date(dateString), "MMM d, yyyy");
+      return format(new Date(date), "MMM d, yyyy");
     } catch {
-      return dateString;
+      return "";
     }
   };
 
@@ -777,37 +788,24 @@ function MeetingCard({ meeting, onEdit, onDelete, getMeetingTypeVariant }: Meeti
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-2">
-              <Badge variant={getMeetingTypeVariant(meeting.type || "weekly")}>
-                {meeting.type || "Weekly"}
+              <Badge variant={getMeetingTypeVariant(meeting.meetingType || "weekly")}>
+                {meeting.meetingType || "Weekly"}
               </Badge>
               {meeting.date && (
                 <span className="text-sm text-muted-foreground flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
                   {formatDate(meeting.date)}
-                  {meeting.time && ` at ${meeting.time}`}
                 </span>
               )}
             </div>
             <CardTitle className="text-xl">{meeting.title}</CardTitle>
-            {meeting.duration && (
+            {meeting.nextMeetingDate && (
               <CardDescription className="mt-1">
-                Duration: {meeting.duration} minutes
+                Next: {formatDate(meeting.nextMeetingDate)}
               </CardDescription>
             )}
           </div>
           <div className="flex gap-2">
-            {meeting.teamsLink && (
-              <Button
-                variant="ghost"
-                size="icon"
-                asChild
-                data-testid={`button-teams-${meeting.id}`}
-              >
-                <a href={meeting.teamsLink} target="_blank" rel="noopener noreferrer">
-                  <Video className="w-4 h-4" />
-                </a>
-              </Button>
-            )}
             <Button
               variant="ghost"
               size="icon"
@@ -844,31 +842,38 @@ function MeetingCard({ meeting, onEdit, onDelete, getMeetingTypeVariant }: Meeti
           </div>
         )}
 
-        {meeting.agenda && meeting.agenda.length > 0 && (
+        {meeting.summary && (
           <div>
-            <h4 className="text-sm font-medium mb-2">Agenda</h4>
+            <h4 className="text-sm font-medium mb-1">Summary</h4>
+            <p className="text-sm text-muted-foreground">{meeting.summary}</p>
+          </div>
+        )}
+
+        {meeting.decisions && meeting.decisions.length > 0 && (
+          <div>
+            <h4 className="text-sm font-medium mb-2">Key Decisions</h4>
             <ul className="space-y-1">
-              {meeting.agenda.map((item, index) => (
+              {meeting.decisions.map((decision, index) => (
                 <li key={index} className="text-sm flex items-start gap-2">
-                  <Target className="w-4 h-4 text-muted-foreground mt-0.5" />
-                  <span>{item}</span>
+                  <CheckCircle2 className="w-4 h-4 text-muted-foreground mt-0.5" />
+                  <span>{decision}</span>
                 </li>
               ))}
             </ul>
           </div>
         )}
 
-        {meeting.outcomes && (
+        {meeting.actionItems && meeting.actionItems.length > 0 && (
           <div>
-            <h4 className="text-sm font-medium mb-1">Outcomes</h4>
-            <p className="text-sm text-muted-foreground">{meeting.outcomes}</p>
-          </div>
-        )}
-
-        {meeting.nextSteps && (
-          <div>
-            <h4 className="text-sm font-medium mb-1">Next Steps</h4>
-            <p className="text-sm text-muted-foreground whitespace-pre-line">{meeting.nextSteps}</p>
+            <h4 className="text-sm font-medium mb-2">Action Items</h4>
+            <ul className="space-y-1">
+              {meeting.actionItems.map((item, index) => (
+                <li key={index} className="text-sm flex items-start gap-2">
+                  <Target className="w-4 h-4 text-muted-foreground mt-0.5" />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </CardContent>
