@@ -1,17 +1,19 @@
 import { useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Sparkles, GripVertical, Download, Upload, History, MessageSquare, Target, Link2 } from "lucide-react";
+import { Plus, Sparkles, Trash2, Pencil, Target, Link2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -22,15 +24,10 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { queryClient, apiRequest } from "@/lib/queryClient";
+import type { Strategy } from "@shared/schema";
 
-type Priority = {
-  id: string;
-  title: string;
-  description: string;
-  category: "critical" | "high" | "medium" | "low";
-  linkedGoals: string[];
-  comments: string;
-};
+const CURRENT_TENANT_ID = "f7229583-c9c9-4e80-88cf-5bbfd2819770";
 
 const availableGoals = [
   "Increase revenue by 30%",
@@ -43,552 +40,749 @@ const availableGoals = [
   "Foster sustainable practices",
 ];
 
-type TimelineEntry = {
-  period: string;
-  year: number;
-  quarter?: number;
-  priorities: Priority[];
-  notes: string;
-  updatedBy: string;
-  updatedAt: string;
-};
-
-const mockTimeline: TimelineEntry[] = [
-  {
-    period: "Q1 2025",
-    year: 2025,
-    quarter: 1,
-    priorities: [
-      {
-        id: "1",
-        title: "Launch New Product Line",
-        description: "Develop and launch innovative AI-powered analytics suite",
-        category: "critical",
-        linkedGoals: ["Launch innovative products", "Increase revenue by 30%"],
-        comments: "Focus on market differentiation and customer feedback integration",
-      },
-    ],
-    notes: "Quarterly strategic focus on product innovation and market expansion",
-    updatedBy: "Sarah Chen",
-    updatedAt: "2025-01-15",
-  },
-  {
-    period: "2024",
-    year: 2024,
-    priorities: [
-      {
-        id: "2",
-        title: "Expand Market Presence",
-        description: "Enter three new geographic markets in EMEA region",
-        category: "high",
-        linkedGoals: ["Expand to new markets", "Strengthen brand presence"],
-        comments: "Target Germany, France, and UK initially",
-      },
-      {
-        id: "3",
-        title: "Improve Customer Retention",
-        description: "Implement customer success program to reduce churn",
-        category: "high",
-        linkedGoals: ["Improve customer satisfaction"],
-        comments: "Achieved 15% reduction in churn rate",
-      },
-    ],
-    notes: "Annual focus on market expansion and customer retention",
-    updatedBy: "Michael Torres",
-    updatedAt: "2024-12-31",
-  },
-];
-
-const mockPriorities: Priority[] = [
-  {
-    id: "1",
-    title: "Launch New Product Line",
-    description: "Develop and launch innovative AI-powered analytics suite",
-    category: "critical",
-    linkedGoals: ["Launch innovative products", "Increase revenue by 30%"],
-    comments: "Focus on market differentiation and customer feedback integration",
-  },
-  {
-    id: "2",
-    title: "Expand Market Presence",
-    description: "Enter three new geographic markets in EMEA region",
-    category: "high",
-    linkedGoals: ["Expand to new markets", "Strengthen brand presence"],
-    comments: "Target Germany, France, and UK initially",
-  },
-  {
-    id: "3",
-    title: "Improve Customer Retention",
-    description: "Implement customer success program to reduce churn",
-    category: "high",
-    linkedGoals: ["Improve customer satisfaction"],
-    comments: "Implement proactive outreach and quarterly business reviews",
-  },
-];
-
-const categories = [
-  { key: "critical", label: "Critical", color: "destructive" },
-  { key: "high", label: "High Priority", color: "default" },
-  { key: "medium", label: "Medium Priority", color: "secondary" },
-  { key: "low", label: "Low Priority", color: "outline" },
+const priorityLevels = [
+  { value: "critical", label: "Critical", variant: "destructive" },
+  { value: "high", label: "High Priority", variant: "default" },
+  { value: "medium", label: "Medium Priority", variant: "secondary" },
+  { value: "low", label: "Low Priority", variant: "outline" },
 ] as const;
+
+const statusOptions = [
+  { value: "not-started", label: "Not Started" },
+  { value: "in-progress", label: "In Progress" },
+  { value: "on-track", label: "On Track" },
+  { value: "at-risk", label: "At Risk" },
+  { value: "completed", label: "Completed" },
+];
+
+interface StrategyFormData {
+  title: string;
+  description: string;
+  priority: string;
+  status: string;
+  owner: string;
+  timeline: string;
+  linkedGoals: string[];
+}
 
 export default function Strategy() {
   const { toast } = useToast();
-  const [priorities, setPriorities] = useState<Priority[]>(mockPriorities);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedPriority, setSelectedPriority] = useState<Priority | null>(null);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedStrategy, setSelectedStrategy] = useState<Strategy | null>(null);
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  
+  const [formData, setFormData] = useState<StrategyFormData>({
+    title: "",
+    description: "",
+    priority: "medium",
+    status: "not-started",
+    owner: "",
+    timeline: "",
+    linkedGoals: [],
+  });
 
-  const exportToCSV = () => {
-    const csvContent = [
-      ["Title", "Description", "Category", "Linked Goals", "Comments"],
-      ...priorities.map((p) => [
-        p.title,
-        p.description,
-        p.category,
-        p.linkedGoals.join("; "),
-        p.comments,
-      ]),
-    ]
-      .map((row) => row.map((cell) => `"${cell}"`).join(","))
-      .join("\n");
+  const { data: strategies = [], isLoading } = useQuery<Strategy[]>({
+    queryKey: [`/api/strategies/${CURRENT_TENANT_ID}`],
+  });
 
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `strategy_priorities_${new Date().toISOString().split("T")[0]}.csv`;
-    link.click();
-    URL.revokeObjectURL(url);
+  const createMutation = useMutation({
+    mutationFn: async (data: StrategyFormData) => {
+      return apiRequest("POST", "/api/strategies", {
+        tenantId: CURRENT_TENANT_ID,
+        ...data,
+        updatedBy: "Current User",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/strategies/${CURRENT_TENANT_ID}`] });
+      setCreateDialogOpen(false);
+      resetForm();
+      toast({
+        title: "Strategy Created",
+        description: "Your strategic priority has been created successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create strategy. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
-    toast({
-      title: "Export Successful",
-      description: `${priorities.length} priorities exported to CSV`,
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<StrategyFormData> }) => {
+      return apiRequest("PATCH", `/api/strategies/${id}`, {
+        ...data,
+        updatedBy: "Current User",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/strategies/${CURRENT_TENANT_ID}`] });
+      setEditDialogOpen(false);
+      setSelectedStrategy(null);
+      toast({
+        title: "Strategy Updated",
+        description: "Your changes have been saved successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update strategy. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/strategies/${id}`, undefined);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/strategies/${CURRENT_TENANT_ID}`] });
+      setDeleteDialogOpen(false);
+      setSelectedStrategy(null);
+      toast({
+        title: "Strategy Deleted",
+        description: "The strategic priority has been removed.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete strategy. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resetForm = () => {
+    setFormData({
+      title: "",
+      description: "",
+      priority: "medium",
+      status: "not-started",
+      owner: "",
+      timeline: "",
+      linkedGoals: [],
     });
   };
 
-  const importFromCSV = () => {
-    const input = document.createElement("input");
-    input.type = "file";
-    input.accept = ".csv";
-    input.onchange = (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = (event) => {
-          const text = event.target?.result as string;
-          const rows = text.split("\n").slice(1);
-          const imported = rows
-            .map((row) => {
-              const matches = row.match(/"([^"]*)"/g);
-              if (!matches || matches.length < 5) return null;
-              return {
-                id: Date.now().toString() + Math.random(),
-                title: matches[0].replace(/"/g, ""),
-                description: matches[1].replace(/"/g, ""),
-                category: matches[2].replace(/"/g, "") as Priority["category"],
-                linkedGoals: matches[3].replace(/"/g, "").split("; ").filter(Boolean),
-                comments: matches[4].replace(/"/g, ""),
-              };
-            })
-            .filter(Boolean) as Priority[];
-          
-          setPriorities([...priorities, ...imported]);
-          toast({
-            title: "Import Successful",
-            description: `${imported.length} priorities imported`,
-          });
-        };
-        reader.readAsText(file);
-      }
-    };
-    input.click();
-  };
-
-  const openEditDialog = (priority: Priority) => {
-    setSelectedPriority(priority);
+  const openEditDialog = (strategy: Strategy) => {
+    setSelectedStrategy(strategy);
+    setFormData({
+      title: strategy.title,
+      description: strategy.description || "",
+      priority: strategy.priority || "medium",
+      status: strategy.status || "not-started",
+      owner: strategy.owner || "",
+      timeline: strategy.timeline || "",
+      linkedGoals: strategy.linkedGoals || [],
+    });
     setEditDialogOpen(true);
   };
 
-  const updatePriority = (updates: Partial<Priority>) => {
-    if (!selectedPriority) return;
-    setPriorities(
-      priorities.map((p) =>
-        p.id === selectedPriority.id ? { ...p, ...updates } : p
-      )
-    );
-    toast({
-      title: "Priority Updated",
-      description: "Strategic priority has been saved",
+  const openDeleteDialog = (strategy: Strategy) => {
+    setSelectedStrategy(strategy);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleCreate = () => {
+    if (!formData.title.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a strategy title.",
+        variant: "destructive",
+      });
+      return;
+    }
+    createMutation.mutate(formData);
+  };
+
+  const handleUpdate = () => {
+    if (!selectedStrategy) return;
+    if (!formData.title.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Please enter a strategy title.",
+        variant: "destructive",
+      });
+      return;
+    }
+    updateMutation.mutate({
+      id: selectedStrategy.id,
+      data: formData,
     });
   };
 
+  const handleDelete = () => {
+    if (!selectedStrategy) return;
+    deleteMutation.mutate(selectedStrategy.id);
+  };
+
+  const toggleGoal = (goal: string) => {
+    setFormData(prev => ({
+      ...prev,
+      linkedGoals: prev.linkedGoals.includes(goal)
+        ? prev.linkedGoals.filter(g => g !== goal)
+        : [...prev.linkedGoals, goal],
+    }));
+  };
+
+  const handleAiDraft = () => {
+    toast({
+      title: "AI Feature",
+      description: "AI drafting will be available in a future update.",
+    });
+    setAiDialogOpen(false);
+    setAiPrompt("");
+  };
+
+  const getPriorityVariant = (priority: string) => {
+    const level = priorityLevels.find(p => p.value === priority);
+    return level?.variant || "secondary";
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "completed": return "text-green-600 dark:text-green-400";
+      case "on-track": return "text-blue-600 dark:text-blue-400";
+      case "in-progress": return "text-yellow-600 dark:text-yellow-400";
+      case "at-risk": return "text-orange-600 dark:text-orange-400";
+      default: return "text-muted-foreground";
+    }
+  };
+
+  const groupedStrategies = {
+    critical: strategies.filter(s => s.priority === "critical"),
+    high: strategies.filter(s => s.priority === "high"),
+    medium: strategies.filter(s => s.priority === "medium"),
+    low: strategies.filter(s => s.priority === "low"),
+  };
+
+  if (isLoading) {
+    return (
+      <div className="p-8">
+        <div className="max-w-6xl mx-auto">
+          <div className="animate-pulse space-y-4">
+            <div className="h-8 bg-muted rounded w-1/3"></div>
+            <div className="h-4 bg-muted rounded w-1/2"></div>
+            <div className="grid gap-4 mt-8">
+              <div className="h-32 bg-muted rounded"></div>
+              <div className="h-32 bg-muted rounded"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="max-w-7xl mx-auto">
-      <Tabs defaultValue="priorities" className="w-full">
-        <div className="mb-6 flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex-1">
-            <h1 className="text-3xl font-bold mb-2">Strategy</h1>
-            <p className="text-muted-foreground">
-              Manage your strategic priorities and initiatives
+    <div className="p-8">
+      <div className="max-w-6xl mx-auto space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold">Strategic Priorities</h1>
+            <p className="text-muted-foreground mt-1">
+              Define and manage your organization's strategic priorities
             </p>
           </div>
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={exportToCSV}
-              data-testid="button-export-strategy"
-            >
-              <Download className="h-4 w-4" />
-              Export CSV
-            </Button>
-            <Button
-              variant="outline"
-              className="gap-2"
-              onClick={importFromCSV}
-              data-testid="button-import-strategy"
-            >
-              <Upload className="h-4 w-4" />
-              Import CSV
-            </Button>
-            <Button variant="outline" className="gap-2" data-testid="button-ai-draft">
-              <Sparkles className="h-4 w-4" />
-              Generate Draft
-            </Button>
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <div className="flex gap-2">
+            <Dialog open={aiDialogOpen} onOpenChange={setAiDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="gap-2" data-testid="button-add-priority">
-                  <Plus className="h-4 w-4" />
-                  Add Priority
+                <Button variant="outline" data-testid="button-ai-draft">
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  AI Draft
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Create Strategic Priority</DialogTitle>
+                  <DialogTitle>AI Strategy Drafting</DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4 pt-4">
+                <div className="space-y-4">
                   <div>
-                    <Label htmlFor="title">Title</Label>
-                    <Input
-                      id="title"
-                      placeholder="Enter priority title..."
-                      data-testid="input-priority-title"
+                    <Label>Describe your strategic goal</Label>
+                    <Textarea
+                      placeholder="E.g., Expand into European markets with focus on SaaS products..."
+                      value={aiPrompt}
+                      onChange={(e) => setAiPrompt(e.target.value)}
+                      rows={4}
+                      data-testid="textarea-ai-prompt"
                     />
                   </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setAiDialogOpen(false)}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleAiDraft} data-testid="button-generate-draft">
+                    Generate Draft
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+            
+            <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+              <DialogTrigger asChild>
+                <Button data-testid="button-add-strategy">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Strategy
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                <DialogHeader>
+                  <DialogTitle>Create Strategic Priority</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="title">Strategy Title *</Label>
+                    <Input
+                      id="title"
+                      placeholder="E.g., Launch New Product Line"
+                      value={formData.title}
+                      onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                      data-testid="input-strategy-title"
+                    />
+                  </div>
+                  
                   <div>
                     <Label htmlFor="description">Description</Label>
                     <Textarea
                       id="description"
-                      placeholder="Describe the strategic priority..."
+                      placeholder="Describe the strategic priority in detail..."
+                      value={formData.description}
+                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       rows={3}
-                      data-testid="input-priority-description"
+                      data-testid="textarea-strategy-description"
                     />
                   </div>
-                  <div>
-                    <Label htmlFor="category">Category</Label>
-                    <Select>
-                      <SelectTrigger data-testid="select-category">
-                        <SelectValue placeholder="Select priority level" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="critical">Critical</SelectItem>
-                        <SelectItem value="high">High Priority</SelectItem>
-                        <SelectItem value="medium">Medium Priority</SelectItem>
-                        <SelectItem value="low">Low Priority</SelectItem>
-                      </SelectContent>
-                    </Select>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="priority">Priority Level</Label>
+                      <Select
+                        value={formData.priority}
+                        onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                      >
+                        <SelectTrigger data-testid="select-priority">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {priorityLevels.map((level) => (
+                            <SelectItem key={level.value} value={level.value}>
+                              {level.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="status">Status</Label>
+                      <Select
+                        value={formData.status}
+                        onValueChange={(value) => setFormData({ ...formData, status: value })}
+                      >
+                        <SelectTrigger data-testid="select-status">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {statusOptions.map((status) => (
+                            <SelectItem key={status.value} value={status.value}>
+                              {status.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <Button className="w-full" data-testid="button-save-priority">
-                    Create Priority
-                  </Button>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="owner">Owner</Label>
+                      <Input
+                        id="owner"
+                        placeholder="E.g., Sarah Chen"
+                        value={formData.owner}
+                        onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
+                        data-testid="input-owner"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="timeline">Timeline</Label>
+                      <Input
+                        id="timeline"
+                        placeholder="E.g., Q1 2025"
+                        value={formData.timeline}
+                        onChange={(e) => setFormData({ ...formData, timeline: e.target.value })}
+                        data-testid="input-timeline"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Linked Annual Goals</Label>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {availableGoals.map((goal) => (
+                        <Badge
+                          key={goal}
+                          variant={formData.linkedGoals.includes(goal) ? "default" : "outline"}
+                          className="cursor-pointer"
+                          onClick={() => toggleGoal(goal)}
+                          data-testid={`badge-goal-${goal.toLowerCase().replace(/\s+/g, '-')}`}
+                        >
+                          {goal}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
                 </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setCreateDialogOpen(false);
+                      resetForm();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleCreate}
+                    disabled={createMutation.isPending}
+                    data-testid="button-save-strategy"
+                  >
+                    {createMutation.isPending ? "Creating..." : "Create Strategy"}
+                  </Button>
+                </DialogFooter>
               </DialogContent>
             </Dialog>
           </div>
         </div>
 
-        <TabsList className="grid w-full grid-cols-2 mb-6">
-          <TabsTrigger value="priorities" data-testid="tab-priorities">
-            Current Priorities
-          </TabsTrigger>
-          <TabsTrigger value="timeline" data-testid="tab-timeline">
-            <History className="h-4 w-4 mr-2" />
-            Quarterly/Annual View
-          </TabsTrigger>
-        </TabsList>
+        <Tabs defaultValue="all" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="all" data-testid="tab-all">
+              All Strategies ({strategies.length})
+            </TabsTrigger>
+            <TabsTrigger value="critical" data-testid="tab-critical">
+              Critical ({groupedStrategies.critical.length})
+            </TabsTrigger>
+            <TabsTrigger value="high" data-testid="tab-high">
+              High ({groupedStrategies.high.length})
+            </TabsTrigger>
+            <TabsTrigger value="medium" data-testid="tab-medium">
+              Medium ({groupedStrategies.medium.length})
+            </TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="priorities">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {categories.map((category) => (
-              <div key={category.key}>
-                <h2 className="font-semibold mb-4 flex items-center gap-2">
-                  {category.label}
-                  <Badge variant={category.color as any}>
-                    {priorities.filter((p) => p.category === category.key).length}
-                  </Badge>
-                </h2>
-                <div className="space-y-3">
-                  {priorities
-                    .filter((p) => p.category === category.key)
-                    .map((priority) => (
-                      <Card
-                        key={priority.id}
-                        className="hover-elevate cursor-pointer"
-                        onClick={() => openEditDialog(priority)}
-                        data-testid={`priority-card-${priority.id}`}
-                      >
-                        <CardHeader className="pb-3">
-                          <div className="flex items-start gap-3">
-                            <GripVertical className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
-                            <div className="flex-1">
-                              <CardTitle className="text-base">{priority.title}</CardTitle>
-                              {priority.linkedGoals.length > 0 && (
-                                <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                  <Link2 className="h-3 w-3 text-muted-foreground" />
-                                  {priority.linkedGoals.map((goal, idx) => (
-                                    <Badge key={idx} variant="outline" className="text-xs">
-                                      <Target className="h-3 w-3 mr-1" />
-                                      {goal}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm text-muted-foreground">
-                            {priority.description}
-                          </p>
-                          {priority.comments && (
-                            <div className="mt-3 pt-3 border-t">
-                              <div className="flex items-start gap-2">
-                                <MessageSquare className="h-4 w-4 text-muted-foreground mt-0.5" />
-                                <p className="text-xs text-muted-foreground">
-                                  {priority.comments}
-                                </p>
-                              </div>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  {priorities.filter((p) => p.category === category.key).length === 0 && (
-                    <Card className="border-dashed">
-                      <CardContent className="py-8 text-center text-sm text-muted-foreground">
-                        No priorities in this category
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
+          <TabsContent value="all" className="space-y-4">
+            {strategies.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <Target className="w-12 h-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold mb-2">No Strategies Yet</h3>
+                  <p className="text-muted-foreground text-center mb-4">
+                    Get started by creating your first strategic priority
+                  </p>
+                  <Button onClick={() => setCreateDialogOpen(true)} data-testid="button-create-first">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Strategy
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4">
+                {strategies.map((strategy) => (
+                  <StrategyCard
+                    key={strategy.id}
+                    strategy={strategy}
+                    onEdit={openEditDialog}
+                    onDelete={openDeleteDialog}
+                    getPriorityVariant={getPriorityVariant}
+                    getStatusColor={getStatusColor}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
-        </TabsContent>
+            )}
+          </TabsContent>
 
-        <TabsContent value="timeline">
-          <div className="space-y-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">Strategic Timeline</h2>
-              <Badge variant="outline">{mockTimeline.length} periods</Badge>
-            </div>
-            <div className="space-y-6">
-              {mockTimeline.map((entry, index) => (
-                <Card key={index} data-testid={`timeline-entry-${index}`}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between gap-4 flex-wrap">
-                      <div>
-                        <CardTitle className="text-xl">{entry.period}</CardTitle>
-                        <CardDescription className="mt-1">
-                          Updated by {entry.updatedBy} on {entry.updatedAt}
-                        </CardDescription>
-                      </div>
-                      <Badge variant={index === 0 ? "default" : "secondary"}>
-                        {index === 0 ? "Current" : "Archive"}
-                      </Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
-                    {entry.notes && (
-                      <div className="bg-muted/50 rounded-lg p-4">
-                        <p className="text-sm font-medium mb-1">Period Notes:</p>
-                        <p className="text-sm text-muted-foreground">{entry.notes}</p>
-                      </div>
-                    )}
-                    <div>
-                      <p className="text-sm font-medium mb-3">
-                        Strategic Priorities ({entry.priorities.length}):
-                      </p>
-                      <div className="space-y-3">
-                        {entry.priorities.map((priority) => (
-                          <Card key={priority.id} className="bg-background">
-                            <CardContent className="p-4">
-                              <div className="flex items-start justify-between gap-4 mb-2">
-                                <h4 className="font-semibold">{priority.title}</h4>
-                                <Badge variant={
-                                  priority.category === "critical" ? "destructive" :
-                                  priority.category === "high" ? "default" :
-                                  priority.category === "medium" ? "secondary" : "outline"
-                                }>
-                                  {priority.category}
-                                </Badge>
-                              </div>
-                              <p className="text-sm text-muted-foreground mb-2">
-                                {priority.description}
-                              </p>
-                              {priority.linkedGoals.length > 0 && (
-                                <div className="flex flex-wrap gap-2 mb-2">
-                                  {priority.linkedGoals.map((goal, idx) => (
-                                    <Badge key={idx} variant="outline" className="text-xs">
-                                      <Target className="h-3 w-3 mr-1" />
-                                      {goal}
-                                    </Badge>
-                                  ))}
-                                </div>
-                              )}
-                              {priority.comments && (
-                                <div className="mt-2 pt-2 border-t">
-                                  <p className="text-xs text-muted-foreground">
-                                    <MessageSquare className="h-3 w-3 inline mr-1" />
-                                    {priority.comments}
-                                  </p>
-                                </div>
-                              )}
-                            </CardContent>
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
+          {["critical", "high", "medium"].map((priority) => (
+            <TabsContent key={priority} value={priority} className="space-y-4">
+              {groupedStrategies[priority as keyof typeof groupedStrategies].length === 0 ? (
+                <Card>
+                  <CardContent className="flex flex-col items-center justify-center py-12">
+                    <p className="text-muted-foreground">No {priority} priority strategies</p>
                   </CardContent>
                 </Card>
-              ))}
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
+              ) : (
+                <div className="grid gap-4">
+                  {groupedStrategies[priority as keyof typeof groupedStrategies].map((strategy) => (
+                    <StrategyCard
+                      key={strategy.id}
+                      strategy={strategy}
+                      onEdit={openEditDialog}
+                      onDelete={openDeleteDialog}
+                      getPriorityVariant={getPriorityVariant}
+                      getStatusColor={getStatusColor}
+                    />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          ))}
+        </Tabs>
 
-      {/* Edit Priority Dialog */}
-      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Strategic Priority</DialogTitle>
-          </DialogHeader>
-          {selectedPriority && (
-            <div className="space-y-4 pt-4">
+        <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Edit Strategic Priority</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
               <div>
-                <Label htmlFor="edit-title">Title</Label>
+                <Label htmlFor="edit-title">Strategy Title *</Label>
                 <Input
                   id="edit-title"
-                  value={selectedPriority.title}
-                  onChange={(e) =>
-                    setSelectedPriority({ ...selectedPriority, title: e.target.value })
-                  }
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                   data-testid="input-edit-title"
                 />
               </div>
+              
               <div>
                 <Label htmlFor="edit-description">Description</Label>
                 <Textarea
                   id="edit-description"
-                  value={selectedPriority.description}
-                  onChange={(e) =>
-                    setSelectedPriority({ ...selectedPriority, description: e.target.value })
-                  }
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   rows={3}
-                  data-testid="input-edit-description"
+                  data-testid="textarea-edit-description"
                 />
               </div>
-              <div>
-                <Label htmlFor="edit-category">Category</Label>
-                <Select
-                  value={selectedPriority.category}
-                  onValueChange={(value) =>
-                    setSelectedPriority({
-                      ...selectedPriority,
-                      category: value as Priority["category"],
-                    })
-                  }
-                >
-                  <SelectTrigger data-testid="select-edit-category">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="critical">Critical</SelectItem>
-                    <SelectItem value="high">High Priority</SelectItem>
-                    <SelectItem value="medium">Medium Priority</SelectItem>
-                    <SelectItem value="low">Low Priority</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Linked Goals</Label>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Connect this priority to strategic goals from Foundations
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {availableGoals.map((goal) => {
-                    const isLinked = selectedPriority.linkedGoals.includes(goal);
-                    return (
-                      <Badge
-                        key={goal}
-                        variant={isLinked ? "default" : "outline"}
-                        className="cursor-pointer"
-                        onClick={() => {
-                          const updated = isLinked
-                            ? selectedPriority.linkedGoals.filter((g) => g !== goal)
-                            : [...selectedPriority.linkedGoals, goal];
-                          setSelectedPriority({ ...selectedPriority, linkedGoals: updated });
-                        }}
-                        data-testid={`goal-badge-${goal}`}
-                      >
-                        <Target className="h-3 w-3 mr-1" />
-                        {goal}
-                      </Badge>
-                    );
-                  })}
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Priority Level</Label>
+                  <Select
+                    value={formData.priority}
+                    onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                  >
+                    <SelectTrigger data-testid="select-edit-priority">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {priorityLevels.map((level) => (
+                        <SelectItem key={level.value} value={level.value}>
+                          {level.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label>Status</Label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value) => setFormData({ ...formData, status: value })}
+                  >
+                    <SelectTrigger data-testid="select-edit-status">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map((status) => (
+                        <SelectItem key={status.value} value={status.value}>
+                          {status.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-              <div>
-                <Label htmlFor="edit-comments">Comments & Notes</Label>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Add context, progress updates, or additional notes
-                </p>
-                <Textarea
-                  id="edit-comments"
-                  value={selectedPriority.comments}
-                  onChange={(e) =>
-                    setSelectedPriority({ ...selectedPriority, comments: e.target.value })
-                  }
-                  rows={4}
-                  placeholder="Enter comments..."
-                  data-testid="input-edit-comments"
-                />
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Owner</Label>
+                  <Input
+                    value={formData.owner}
+                    onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
+                    data-testid="input-edit-owner"
+                  />
+                </div>
+
+                <div>
+                  <Label>Timeline</Label>
+                  <Input
+                    value={formData.timeline}
+                    onChange={(e) => setFormData({ ...formData, timeline: e.target.value })}
+                    data-testid="input-edit-timeline"
+                  />
+                </div>
               </div>
-              <div className="flex gap-2">
-                <Button
-                  className="flex-1"
-                  onClick={() => {
-                    updatePriority(selectedPriority);
-                    setEditDialogOpen(false);
-                  }}
-                  data-testid="button-update-priority"
-                >
-                  Save Changes
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setEditDialogOpen(false)}
-                  data-testid="button-cancel-edit"
-                >
-                  Cancel
-                </Button>
+
+              <div>
+                <Label>Linked Annual Goals</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {availableGoals.map((goal) => (
+                    <Badge
+                      key={goal}
+                      variant={formData.linkedGoals.includes(goal) ? "default" : "outline"}
+                      className="cursor-pointer"
+                      onClick={() => toggleGoal(goal)}
+                      data-testid={`badge-edit-goal-${goal.toLowerCase().replace(/\s+/g, '-')}`}
+                    >
+                      {goal}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditDialogOpen(false);
+                  setSelectedStrategy(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleUpdate}
+                disabled={updateMutation.isPending}
+                data-testid="button-update-strategy"
+              >
+                {updateMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete Strategy</DialogTitle>
+            </DialogHeader>
+            <p>
+              Are you sure you want to delete "{selectedStrategy?.title}"? This action cannot be undone.
+            </p>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setDeleteDialogOpen(false);
+                  setSelectedStrategy(null);
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                onClick={handleDelete}
+                disabled={deleteMutation.isPending}
+                data-testid="button-confirm-delete"
+              >
+                {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </div>
+  );
+}
+
+interface StrategyCardProps {
+  strategy: Strategy;
+  onEdit: (strategy: Strategy) => void;
+  onDelete: (strategy: Strategy) => void;
+  getPriorityVariant: (priority: string) => "destructive" | "default" | "secondary" | "outline";
+  getStatusColor: (status: string) => string;
+}
+
+function StrategyCard({ strategy, onEdit, onDelete, getPriorityVariant, getStatusColor }: StrategyCardProps) {
+  return (
+    <Card className="hover-elevate" data-testid={`card-strategy-${strategy.id}`}>
+      <CardHeader>
+        <div className="flex items-start justify-between">
+          <div className="flex-1">
+            <div className="flex items-center gap-2 mb-2">
+              <Badge variant={getPriorityVariant(strategy.priority || "medium")}>
+                {strategy.priority || "Medium"}
+              </Badge>
+              {strategy.status && (
+                <span className={`text-sm font-medium ${getStatusColor(strategy.status)}`}>
+                  {statusOptions.find(s => s.value === strategy.status)?.label}
+                </span>
+              )}
+            </div>
+            <CardTitle className="text-xl">{strategy.title}</CardTitle>
+            {strategy.description && (
+              <CardDescription className="mt-2">{strategy.description}</CardDescription>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onEdit(strategy)}
+              data-testid={`button-edit-${strategy.id}`}
+            >
+              <Pencil className="w-4 h-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => onDelete(strategy)}
+              data-testid={`button-delete-${strategy.id}`}
+            >
+              <Trash2 className="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-4">
+          {(strategy.owner || strategy.timeline) && (
+            <div className="flex gap-6 text-sm">
+              {strategy.owner && (
+                <div>
+                  <span className="text-muted-foreground">Owner:</span>{" "}
+                  <span className="font-medium">{strategy.owner}</span>
+                </div>
+              )}
+              {strategy.timeline && (
+                <div>
+                  <span className="text-muted-foreground">Timeline:</span>{" "}
+                  <span className="font-medium">{strategy.timeline}</span>
+                </div>
+              )}
+            </div>
+          )}
+          
+          {strategy.linkedGoals && strategy.linkedGoals.length > 0 && (
+            <div>
+              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                <Link2 className="w-4 h-4" />
+                <span>Linked Annual Goals</span>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {strategy.linkedGoals.map((goal, index) => (
+                  <Badge key={index} variant="secondary">
+                    {goal}
+                  </Badge>
+                ))}
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-    </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
