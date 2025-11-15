@@ -33,13 +33,18 @@ import {
   Upload,
   History,
   Edit,
+  Sparkles,
+  Users,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useToast } from "@/hooks/use-toast";
 
 type OKR = {
   id: string;
   objective: string;
   progress: number;
+  department: string;
+  assignedTo?: string;
   linkedGoals: string[];
   linkedStrategies: string[];
   keyResults: KeyResult[];
@@ -105,6 +110,14 @@ const availableStrategies = [
   "Improve Customer Retention",
 ];
 
+const availablePeople = [
+  "Sarah Chen",
+  "Michael Torres",
+  "Alex Kim",
+  "Jordan Lee",
+  "Taylor Swift",
+];
+
 const mockCheckIns: CheckIn[] = [
   { date: "2025-01-15", value: 65, notes: "On track, exceeded target", updatedBy: "Sarah Chen" },
   { date: "2025-01-08", value: 58, notes: "Good progress", updatedBy: "Sarah Chen" },
@@ -116,6 +129,8 @@ const mockOKRs: OKR[] = [
     id: "1",
     objective: "Increase Market Share",
     progress: 65,
+    department: "Sales",
+    assignedTo: "Sarah Chen",
     linkedGoals: ["Increase revenue by 30%", "Expand to new markets"],
     linkedStrategies: ["Expand Market Presence"],
     keyResults: [
@@ -129,12 +144,44 @@ const mockOKRs: OKR[] = [
     id: "2",
     objective: "Build World-Class Product",
     progress: 45,
+    department: "Engineering",
+    assignedTo: "Michael Torres",
     linkedGoals: ["Launch innovative products", "Achieve operational excellence"],
     linkedStrategies: ["Launch New Product Line"],
     keyResults: [
       { text: "Ship 5 major features", progress: 40, target: "5 features" },
       { text: "Reduce bugs by 50%", progress: 55, target: "50% reduction" },
       { text: "Improve performance by 30%", progress: 40, target: "30% improvement" },
+    ],
+    checkIns: mockCheckIns,
+  },
+  {
+    id: "3",
+    objective: "Improve Customer Retention",
+    progress: 72,
+    department: "Customer Success",
+    assignedTo: "Alex Kim",
+    linkedGoals: ["Improve customer satisfaction"],
+    linkedStrategies: ["Improve Customer Retention"],
+    keyResults: [
+      { text: "Reduce churn to <2%", progress: 75, target: "2%" },
+      { text: "Increase NPS to 70+", progress: 68, target: "70" },
+      { text: "Launch loyalty program", progress: 80, target: "Launch" },
+    ],
+    checkIns: mockCheckIns,
+  },
+  {
+    id: "4",
+    objective: "Scale Marketing Operations",
+    progress: 58,
+    department: "Marketing",
+    assignedTo: "Jordan Lee",
+    linkedGoals: ["Expand to new markets", "Increase revenue by 30%"],
+    linkedStrategies: ["Expand Market Presence"],
+    keyResults: [
+      { text: "Generate 10K qualified leads", progress: 60, target: "10K leads" },
+      { text: "Achieve 5% conversion rate", progress: 55, target: "5%" },
+      { text: "Launch 3 campaigns", progress: 60, target: "3 campaigns" },
     ],
     checkIns: mockCheckIns,
   },
@@ -239,6 +286,21 @@ export default function Planning() {
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [itemType, setItemType] = useState<"okr" | "kpi" | "rock">("okr");
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardStep, setWizardStep] = useState(1);
+  const [selectedQuarter, setSelectedQuarter] = useState("");
+  const [selectedOKRs, setSelectedOKRs] = useState<string[]>([]);
+  const [selectedRocks, setSelectedRocks] = useState<string[]>([]);
+  const [proposedOKRs, setProposedOKRs] = useState<string[]>([]);
+  const [proposedRocks, setProposedRocks] = useState<string[]>([]);
+
+  const groupedOKRs = okrs.reduce((acc, okr) => {
+    if (!acc[okr.department]) {
+      acc[okr.department] = [];
+    }
+    acc[okr.department].push(okr);
+    return acc;
+  }, {} as Record<string, OKR[]>);
 
   const exportToCSV = () => {
     const csvContent = [
@@ -297,6 +359,94 @@ export default function Planning() {
     setEditDialogOpen(true);
   };
 
+  const startWizard = () => {
+    setWizardStep(1);
+    setSelectedQuarter("");
+    setSelectedOKRs([]);
+    setSelectedRocks([]);
+    setProposedOKRs([]);
+    setProposedRocks([]);
+    setWizardOpen(true);
+  };
+
+  const nextWizardStep = () => {
+    if (wizardStep >= 4) return;
+    
+    if (wizardStep === 1 && !selectedQuarter) {
+      toast({
+        title: "Quarter Required",
+        description: "Please select a quarter before continuing",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (wizardStep === 2) {
+      const aiProposedOKRs = [
+        "Expand into Asia-Pacific region",
+        "Launch mobile app v2.0",
+        "Achieve ISO 27001 certification",
+      ];
+      const aiProposedRocks = [
+        "Implement AI-powered analytics",
+        "Open regional offices in APAC",
+        "Complete security audit",
+      ];
+      setProposedOKRs(aiProposedOKRs);
+      setProposedRocks(aiProposedRocks);
+    }
+    setWizardStep(wizardStep + 1);
+  };
+
+  const previousWizardStep = () => {
+    if (wizardStep <= 1) return;
+    setWizardStep(wizardStep - 1);
+  };
+
+  const completeWizard = () => {
+    if (!selectedQuarter) {
+      toast({
+        title: "Quarter Required",
+        description: "Please select a quarter before completing the plan",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const totalOKRs = selectedOKRs.length + proposedOKRs.length;
+    const totalRocks = selectedRocks.length + proposedRocks.length;
+    
+    toast({
+      title: "Quarterly Plan Created",
+      description: `Successfully created plan for ${selectedQuarter}${totalOKRs > 0 ? ` with ${totalOKRs} OKR${totalOKRs === 1 ? '' : 's'}` : ''}${totalRocks > 0 ? ` and ${totalRocks} Rock${totalRocks === 1 ? '' : 's'}` : ''}`,
+    });
+    setWizardOpen(false);
+  };
+
+  const toggleOKRSelection = (okrId: string) => {
+    setSelectedOKRs(prev =>
+      prev.includes(okrId) ? prev.filter(id => id !== okrId) : [...prev, okrId]
+    );
+  };
+
+  const toggleRockSelection = (rockId: string) => {
+    setSelectedRocks(prev =>
+      prev.includes(rockId) ? prev.filter(id => id !== rockId) : [...prev, rockId]
+    );
+  };
+
+  const toggleProposedOKR = (okr: string) => {
+    setProposedOKRs(prev =>
+      prev.includes(okr) ? prev.filter(o => o !== okr) : [...prev, okr]
+    );
+  };
+
+  const toggleProposedRock = (rock: string) => {
+    setProposedRocks(prev =>
+      prev.includes(rock) ? prev.filter(r => r !== rock) : [...prev, rock]
+    );
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
       <Tabs defaultValue="current" className="w-full">
@@ -312,6 +462,16 @@ export default function Planning() {
               <CheckCircle2 className="h-3 w-3" />
               Planner Synced
             </Badge>
+            <Button
+              variant="default"
+              size="sm"
+              className="gap-2"
+              onClick={startWizard}
+              data-testid="button-quarterly-wizard"
+            >
+              <Sparkles className="h-4 w-4" />
+              Quarterly Wizard
+            </Button>
             <Button
               variant="outline"
               size="sm"
@@ -412,7 +572,16 @@ export default function Planning() {
                   Add OKR
                 </Button>
               </div>
-              {okrs.map((okr) => (
+              {Object.entries(groupedOKRs).map(([department, deptOKRs]) => (
+                <div key={department} className="space-y-3">
+                  <div className="flex items-center gap-2 mt-4">
+                    <Users className="h-4 w-4 text-muted-foreground" />
+                    <h3 className="font-semibold text-lg">{department}</h3>
+                    <Badge variant="outline" className="ml-2">
+                      {deptOKRs.length} {deptOKRs.length === 1 ? 'OKR' : 'OKRs'}
+                    </Badge>
+                  </div>
+                  {deptOKRs.map((okr) => (
                 <Card
                   key={okr.id}
                   className="hover-elevate cursor-pointer"
@@ -421,7 +590,14 @@ export default function Planning() {
                 >
                   <CardHeader>
                     <div className="flex items-start justify-between gap-4">
-                      <CardTitle className="text-lg">{okr.objective}</CardTitle>
+                      <div className="flex-1">
+                        <CardTitle className="text-lg">{okr.objective}</CardTitle>
+                        {okr.assignedTo && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            Assigned to: {okr.assignedTo}
+                          </p>
+                        )}
+                      </div>
                       <Badge variant="secondary">{okr.progress}%</Badge>
                     </div>
                     <Progress value={okr.progress} className="mt-2" />
@@ -479,6 +655,8 @@ export default function Planning() {
                     )}
                   </CardContent>
                 </Card>
+              ))}
+                </div>
               ))}
             </div>
 
@@ -767,6 +945,32 @@ export default function Planning() {
                 </div>
               )}
 
+              {itemType === "okr" && (
+                <div>
+                  <Label htmlFor="assign-person">Assign To</Label>
+                  <p className="text-sm text-muted-foreground mb-2">
+                    Assign this OKR to a team member
+                  </p>
+                  <Select
+                    value={selectedItem.assignedTo || ""}
+                    onValueChange={(value) =>
+                      setSelectedItem({ ...selectedItem, assignedTo: value })
+                    }
+                  >
+                    <SelectTrigger id="assign-person" data-testid="select-assigned-to">
+                      <SelectValue placeholder="Select person..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availablePeople.map((person) => (
+                        <SelectItem key={person} value={person}>
+                          {person}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <Button
                 className="w-full"
                 onClick={() => {
@@ -782,6 +986,344 @@ export default function Planning() {
               </Button>
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Quarterly Planning Wizard */}
+      <Dialog open={wizardOpen} onOpenChange={setWizardOpen}>
+        <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-primary" />
+              <DialogTitle>Quarterly Planning Wizard</DialogTitle>
+            </div>
+            <p className="text-sm text-muted-foreground mt-2">
+              Step {wizardStep} of 4
+            </p>
+            <Progress value={(wizardStep / 4) * 100} className="mt-2" />
+          </DialogHeader>
+
+          <div className="space-y-6 pt-4">
+            {/* Step 1: Select Quarter */}
+            {wizardStep === 1 && (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Select Quarter</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Choose the quarter you want to plan for
+                  </p>
+                  <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
+                    <SelectTrigger data-testid="select-quarter">
+                      <SelectValue placeholder="Select a quarter..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Q2 2025">Q2 2025</SelectItem>
+                      <SelectItem value="Q3 2025">Q3 2025</SelectItem>
+                      <SelectItem value="Q4 2025">Q4 2025</SelectItem>
+                      <SelectItem value="Q1 2026">Q1 2026</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {!selectedQuarter && (
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Please select a quarter to continue
+                    </p>
+                  )}
+                </div>
+                <div className="flex justify-end gap-2">
+                  <Button
+                    onClick={() => setWizardOpen(false)}
+                    variant="outline"
+                    data-testid="button-wizard-cancel"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={nextWizardStep}
+                    disabled={!selectedQuarter}
+                    data-testid="button-wizard-next-1"
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 2: Copy from Prior Quarter */}
+            {wizardStep === 2 && (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Copy from Prior Quarter</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Select OKRs and Rocks from Q1 2025{selectedQuarter ? ` to continue in ${selectedQuarter}` : ''}
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-3">OKRs from Q1 2025</h4>
+                  <div className="space-y-2">
+                    {mockOKRs.map((okr) => (
+                      <Card key={okr.id} className="p-4">
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            checked={selectedOKRs.includes(okr.id)}
+                            onCheckedChange={() => toggleOKRSelection(okr.id)}
+                            data-testid={`checkbox-okr-${okr.id}`}
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium">{okr.objective}</p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {okr.department} • Progress: {okr.progress}%
+                            </p>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-3">Rocks from Q1 2025</h4>
+                  <div className="space-y-2">
+                    {mockRocks.map((rock) => (
+                      <Card key={rock.id} className="p-4">
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            checked={selectedRocks.includes(rock.id)}
+                            onCheckedChange={() => toggleRockSelection(rock.id)}
+                            data-testid={`checkbox-rock-${rock.id}`}
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium">{rock.title}</p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              Owner: {rock.owner} • Status: {rock.status}
+                            </p>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-between gap-2">
+                  <Button
+                    onClick={previousWizardStep}
+                    variant="outline"
+                    data-testid="button-wizard-back-2"
+                  >
+                    Back
+                  </Button>
+                  <Button onClick={nextWizardStep} data-testid="button-wizard-next-2">
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: AI Proposals */}
+            {wizardStep === 3 && (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-primary" />
+                    AI-Generated Proposals
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Based on your company's goals and prior quarter performance, we recommend:
+                  </p>
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-3">Proposed New OKRs</h4>
+                  <div className="space-y-2">
+                    {[
+                      "Expand into Asia-Pacific region",
+                      "Launch mobile app v2.0",
+                      "Achieve ISO 27001 certification",
+                    ].map((okr) => (
+                      <Card key={okr} className="p-4">
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            checked={proposedOKRs.includes(okr)}
+                            onCheckedChange={() => toggleProposedOKR(okr)}
+                            data-testid={`checkbox-proposed-okr-${okr}`}
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium">{okr}</p>
+                            <Badge variant="secondary" className="mt-2">
+                              <Sparkles className="h-3 w-3 mr-1" />
+                              AI Suggested
+                            </Badge>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 className="font-medium mb-3">Proposed New Rocks</h4>
+                  <div className="space-y-2">
+                    {[
+                      "Implement AI-powered analytics",
+                      "Open regional offices in APAC",
+                      "Complete security audit",
+                    ].map((rock) => (
+                      <Card key={rock} className="p-4">
+                        <div className="flex items-start gap-3">
+                          <Checkbox
+                            checked={proposedRocks.includes(rock)}
+                            onCheckedChange={() => toggleProposedRock(rock)}
+                            data-testid={`checkbox-proposed-rock-${rock}`}
+                          />
+                          <div className="flex-1">
+                            <p className="font-medium">{rock}</p>
+                            <Badge variant="secondary" className="mt-2">
+                              <Sparkles className="h-3 w-3 mr-1" />
+                              AI Suggested
+                            </Badge>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex justify-between gap-2">
+                  <Button
+                    onClick={previousWizardStep}
+                    variant="outline"
+                    data-testid="button-wizard-back-3"
+                  >
+                    Back
+                  </Button>
+                  <Button onClick={nextWizardStep} data-testid="button-wizard-next-3">
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 4: Review & Finalize */}
+            {wizardStep === 4 && (
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Review & Finalize</h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Review your selections{selectedQuarter ? ` for ${selectedQuarter}` : ''}
+                  </p>
+                </div>
+
+                <Card className="p-4 bg-muted/50">
+                  <div className="space-y-4">
+                    <div>
+                      <h4 className="font-semibold mb-2">Summary</h4>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <p className="text-muted-foreground">Quarter:</p>
+                          <p className="font-medium">{selectedQuarter || 'Not selected'}</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Total OKRs:</p>
+                          <p className="font-medium">
+                            {selectedOKRs.length + proposedOKRs.length}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">From Prior Quarter:</p>
+                          <p className="font-medium">{selectedOKRs.length} OKRs</p>
+                        </div>
+                        <div>
+                          <p className="text-muted-foreground">Total Rocks:</p>
+                          <p className="font-medium">
+                            {selectedRocks.length + proposedRocks.length}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+
+                {selectedOKRs.length > 0 && (
+                  <div>
+                    <h4 className="font-medium mb-3">Continued OKRs</h4>
+                    <div className="space-y-2">
+                      {mockOKRs
+                        .filter((okr) => selectedOKRs.includes(okr.id))
+                        .map((okr) => (
+                          <Card key={okr.id} className="p-3">
+                            <p className="font-medium text-sm">{okr.objective}</p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {okr.department}
+                            </p>
+                          </Card>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {proposedOKRs.length > 0 && (
+                  <div>
+                    <h4 className="font-medium mb-3">New OKRs</h4>
+                    <div className="space-y-2">
+                      {proposedOKRs.map((okr) => (
+                        <Card key={okr} className="p-3">
+                          <div className="flex items-center justify-between">
+                            <p className="font-medium text-sm">{okr}</p>
+                            <Badge variant="secondary" className="text-xs">
+                              <Sparkles className="h-3 w-3 mr-1" />
+                              AI
+                            </Badge>
+                          </div>
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selectedRocks.length > 0 && (
+                  <div>
+                    <h4 className="font-medium mb-3">Continued Rocks</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {mockRocks
+                        .filter((rock) => selectedRocks.includes(rock.id))
+                        .map((rock) => (
+                          <Badge key={rock.id} variant="outline">
+                            {rock.title}
+                          </Badge>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+                {proposedRocks.length > 0 && (
+                  <div>
+                    <h4 className="font-medium mb-3">New Rocks</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {proposedRocks.map((rock) => (
+                        <Badge key={rock} variant="secondary">
+                          <Sparkles className="h-3 w-3 mr-1" />
+                          {rock}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex justify-between gap-2 pt-4">
+                  <Button
+                    onClick={previousWizardStep}
+                    variant="outline"
+                    data-testid="button-wizard-back-4"
+                  >
+                    Back
+                  </Button>
+                  <Button onClick={completeWizard} data-testid="button-wizard-complete">
+                    Create Quarterly Plan
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         </DialogContent>
       </Dialog>
     </div>
