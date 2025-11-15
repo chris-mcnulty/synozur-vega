@@ -6,7 +6,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sparkles, ExternalLink, Check, Download, Upload, History, MessageSquare } from "lucide-react";
+import { Sparkles, ExternalLink, Check, Download, Upload, History, MessageSquare, Eye, Edit } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const missionOptions = [
@@ -49,7 +49,10 @@ const goalOptions = [
 
 type HistoryEntry = {
   year: number;
-  items: string[];
+  mission: string[];
+  vision: string[];
+  values: string[];
+  goals: string[];
   comments: string;
   updatedBy: string;
   updatedAt: string;
@@ -58,21 +61,30 @@ type HistoryEntry = {
 const mockHistory: HistoryEntry[] = [
   {
     year: 2025,
-    items: ["Current selections"],
-    comments: "Updated for strategic alignment with Q1 goals",
+    mission: ["Empower organizations with AI-driven insights", "Transform strategy into actionable results"],
+    vision: ["A world where every organization operates with clarity", "Data-driven decision-making at every level"],
+    values: ["Innovation", "Integrity", "Collaboration", "Excellence", "Customer Success"],
+    goals: ["Increase revenue by 30%", "Expand to new markets", "Improve customer satisfaction"],
+    comments: "Updated for strategic alignment with Q1 goals and market expansion",
     updatedBy: "Sarah Chen",
     updatedAt: "2025-01-15",
   },
   {
     year: 2024,
-    items: ["Innovation", "Customer Success", "Excellence"],
+    mission: ["Empower organizations with AI-driven insights"],
+    vision: ["A world where every organization operates with clarity"],
+    values: ["Innovation", "Customer Success", "Excellence"],
+    goals: ["Increase revenue by 30%", "Launch innovative products"],
     comments: "Refined values based on team feedback and market positioning",
     updatedBy: "Michael Torres",
     updatedAt: "2024-03-20",
   },
   {
     year: 2023,
-    items: ["Innovation", "Collaboration"],
+    mission: ["Transform strategy into actionable results"],
+    vision: ["Data-driven decision-making at every level"],
+    values: ["Innovation", "Collaboration"],
+    goals: ["Improve customer satisfaction"],
     comments: "Initial foundation establishment",
     updatedBy: "Alex Kim",
     updatedAt: "2023-01-10",
@@ -81,15 +93,39 @@ const mockHistory: HistoryEntry[] = [
 
 export default function Foundations() {
   const { toast } = useToast();
-  const [selectedMission, setSelectedMission] = useState<string[]>([]);
-  const [selectedVision, setSelectedVision] = useState<string[]>([]);
-  const [selectedValues, setSelectedValues] = useState<string[]>([]);
-  const [selectedGoals, setSelectedGoals] = useState<string[]>([]);
+  const [selectedMission, setSelectedMission] = useState<string[]>([
+    "Empower organizations with AI-driven insights",
+    "Transform strategy into actionable results",
+  ]);
+  const [selectedVision, setSelectedVision] = useState<string[]>([
+    "A world where every organization operates with clarity",
+    "Data-driven decision-making at every level",
+  ]);
+  const [selectedValues, setSelectedValues] = useState<string[]>([
+    "Innovation",
+    "Integrity",
+    "Collaboration",
+    "Excellence",
+    "Customer Success",
+  ]);
+  const [selectedGoals, setSelectedGoals] = useState<string[]>([
+    "Increase revenue by 30%",
+    "Expand to new markets",
+    "Improve customer satisfaction",
+  ]);
 
-  const [missionComments, setMissionComments] = useState("");
-  const [visionComments, setVisionComments] = useState("");
-  const [valuesComments, setValuesComments] = useState("");
-  const [goalsComments, setGoalsComments] = useState("");
+  const [missionComments, setMissionComments] = useState(
+    "Our mission reflects our commitment to empowering organizations through AI-driven solutions and actionable insights."
+  );
+  const [visionComments, setVisionComments] = useState(
+    "We envision a future where clarity and data-driven decisions are the norm for all organizations."
+  );
+  const [valuesComments, setValuesComments] = useState(
+    "These core values guide every decision we make and shape our company culture."
+  );
+  const [goalsComments, setGoalsComments] = useState(
+    "Strategic goals aligned with our 2025 growth objectives and market expansion plans."
+  );
 
   const toggleSelection = (
     item: string,
@@ -143,7 +179,7 @@ export default function Foundations() {
         const reader = new FileReader();
         reader.onload = (event) => {
           const text = event.target?.result as string;
-          const rows = text.split("\n").slice(1); // Skip header
+          const rows = text.split("\n").slice(1);
           const items = rows
             .map((row) => {
               const match = row.match(/"([^"]+)"/g);
@@ -217,17 +253,13 @@ export default function Foundations() {
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="selection" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-4">
+          <TabsList className="grid w-full grid-cols-2 mb-4">
             <TabsTrigger value="selection" data-testid={`tab-selection-${sectionKey}`}>
               Selection
             </TabsTrigger>
             <TabsTrigger value="comments" data-testid={`tab-comments-${sectionKey}`}>
               <MessageSquare className="h-4 w-4 mr-2" />
               Comments
-            </TabsTrigger>
-            <TabsTrigger value="history" data-testid={`tab-history-${sectionKey}`}>
-              <History className="h-4 w-4 mr-2" />
-              History
             </TabsTrigger>
           </TabsList>
 
@@ -302,9 +334,7 @@ export default function Foundations() {
           <TabsContent value="comments">
             <div className="space-y-4">
               <div>
-                <Label htmlFor={`comments-${sectionKey}`}>
-                  Comments & Notes
-                </Label>
+                <Label htmlFor={`comments-${sectionKey}`}>Comments & Notes</Label>
                 <p className="text-sm text-muted-foreground mb-2">
                   Add context, rationale, or additional notes for this section
                 </p>
@@ -330,61 +360,13 @@ export default function Foundations() {
               </Button>
             </div>
           </TabsContent>
-
-          <TabsContent value="history">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold">Annual History</h3>
-                <Badge variant="outline">{mockHistory.length} years</Badge>
-              </div>
-              <div className="space-y-4">
-                {mockHistory.map((entry, index) => (
-                  <Card key={index} data-testid={`history-entry-${sectionKey}-${index}`}>
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <CardTitle className="text-lg">{entry.year}</CardTitle>
-                          <CardDescription className="mt-1">
-                            Updated by {entry.updatedBy} on {entry.updatedAt}
-                          </CardDescription>
-                        </div>
-                        <Badge variant={index === 0 ? "default" : "secondary"}>
-                          {index === 0 ? "Current" : "Archive"}
-                        </Badge>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      <div>
-                        <p className="text-sm font-medium mb-2">Selected Items:</p>
-                        <div className="flex flex-wrap gap-2">
-                          {entry.items.map((item, idx) => (
-                            <Badge key={idx} variant="outline">
-                              {item}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                      {entry.comments && (
-                        <div>
-                          <p className="text-sm font-medium mb-1">Comments:</p>
-                          <p className="text-sm text-muted-foreground">
-                            {entry.comments}
-                          </p>
-                        </div>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          </TabsContent>
         </Tabs>
       </CardContent>
     </Card>
   );
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto">
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">Foundations</h1>
         <p className="text-muted-foreground">
@@ -392,117 +374,310 @@ export default function Foundations() {
         </p>
       </div>
 
-      {renderSection(
-        "Mission Statement",
-        "What is your organization's fundamental purpose?",
-        missionOptions,
-        selectedMission,
-        setSelectedMission,
-        missionComments,
-        setMissionComments,
-        "mission"
-      )}
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsTrigger value="overview" data-testid="tab-overview">
+            <Eye className="h-4 w-4 mr-2" />
+            Master View
+          </TabsTrigger>
+          <TabsTrigger value="edit" data-testid="tab-edit">
+            <Edit className="h-4 w-4 mr-2" />
+            Edit Sections
+          </TabsTrigger>
+          <TabsTrigger value="annual" data-testid="tab-annual-view">
+            <History className="h-4 w-4 mr-2" />
+            Annual History
+          </TabsTrigger>
+        </TabsList>
 
-      {renderSection(
-        "Vision Statement",
-        "What future do you aspire to create?",
-        visionOptions,
-        selectedVision,
-        setSelectedVision,
-        visionComments,
-        setVisionComments,
-        "vision"
-      )}
-
-      {renderSection(
-        "Core Values",
-        "What principles guide your organization? (Select multiple)",
-        valueOptions,
-        selectedValues,
-        setSelectedValues,
-        valuesComments,
-        setValuesComments,
-        "values",
-        true
-      )}
-
-      {renderSection(
-        "Strategic Goals",
-        "What are your key organizational objectives? (Select multiple)",
-        goalOptions,
-        selectedGoals,
-        setSelectedGoals,
-        goalsComments,
-        setGoalsComments,
-        "goals"
-      )}
-
-      <Separator className="my-8" />
-
-      {/* Summary Section */}
-      {(selectedMission.length > 0 ||
-        selectedVision.length > 0 ||
-        selectedValues.length > 0 ||
-        selectedGoals.length > 0) && (
-        <Card data-testid="card-summary">
-          <CardHeader>
-            <CardTitle>Foundations Summary</CardTitle>
-            <CardDescription>
-              Your selected organizational foundations
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {selectedMission.length > 0 && (
-              <div>
-                <h3 className="font-semibold mb-2">Mission Components</h3>
-                <ul className="list-disc list-inside text-muted-foreground space-y-1">
-                  {selectedMission.map((item, index) => (
-                    <li key={index} className="text-sm">
-                      {item}
-                    </li>
-                  ))}
-                </ul>
+        {/* Master Overview - Read-only */}
+        <TabsContent value="overview" className="space-y-6">
+          <Card className="bg-gradient-to-br from-primary/5 to-secondary/5 border-2">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-2xl">Organizational Foundations</CardTitle>
+                <Badge variant="default">Current - 2025</Badge>
               </div>
-            )}
-            {selectedVision.length > 0 && (
+              <CardDescription>
+                A comprehensive view of your organization's mission, vision, values, and strategic goals
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-8">
+              {/* Mission */}
               <div>
-                <h3 className="font-semibold mb-2">Vision Components</h3>
-                <ul className="list-disc list-inside text-muted-foreground space-y-1">
-                  {selectedVision.map((item, index) => (
-                    <li key={index} className="text-sm">
-                      {item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {selectedValues.length > 0 && (
-              <div>
-                <h3 className="font-semibold mb-2">Core Values</h3>
-                <div className="flex flex-wrap gap-2">
-                  {selectedValues.map((item, index) => (
-                    <Badge key={index} variant="secondary">
-                      {item}
-                    </Badge>
-                  ))}
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="h-1 w-12 bg-primary rounded" />
+                  <h2 className="text-xl font-bold">Mission Statement</h2>
+                </div>
+                <div className="bg-background rounded-lg p-6 space-y-3">
+                  {selectedMission.length > 0 ? (
+                    selectedMission.map((item, index) => (
+                      <div key={index} className="flex items-start gap-3">
+                        <div className="h-2 w-2 rounded-full bg-primary mt-2 flex-shrink-0" />
+                        <p className="text-base leading-relaxed">{item}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground italic">No mission components selected</p>
+                  )}
+                  {missionComments && (
+                    <div className="mt-4 pt-4 border-t">
+                      <p className="text-sm text-muted-foreground italic">{missionComments}</p>
+                    </div>
+                  )}
                 </div>
               </div>
-            )}
-            {selectedGoals.length > 0 && (
+
+              <Separator />
+
+              {/* Vision */}
               <div>
-                <h3 className="font-semibold mb-2">Strategic Goals</h3>
-                <ul className="list-disc list-inside text-muted-foreground space-y-1">
-                  {selectedGoals.map((item, index) => (
-                    <li key={index} className="text-sm">
-                      {item}
-                    </li>
-                  ))}
-                </ul>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="h-1 w-12 bg-secondary rounded" />
+                  <h2 className="text-xl font-bold">Vision Statement</h2>
+                </div>
+                <div className="bg-background rounded-lg p-6 space-y-3">
+                  {selectedVision.length > 0 ? (
+                    selectedVision.map((item, index) => (
+                      <div key={index} className="flex items-start gap-3">
+                        <div className="h-2 w-2 rounded-full bg-secondary mt-2 flex-shrink-0" />
+                        <p className="text-base leading-relaxed">{item}</p>
+                      </div>
+                    ))
+                  ) : (
+                    <p className="text-muted-foreground italic">No vision components selected</p>
+                  )}
+                  {visionComments && (
+                    <div className="mt-4 pt-4 border-t">
+                      <p className="text-sm text-muted-foreground italic">{visionComments}</p>
+                    </div>
+                  )}
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
+
+              <Separator />
+
+              {/* Values */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="h-1 w-12 bg-primary rounded" />
+                  <h2 className="text-xl font-bold">Core Values</h2>
+                </div>
+                <div className="bg-background rounded-lg p-6">
+                  {selectedValues.length > 0 ? (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                      {selectedValues.map((value, index) => (
+                        <div
+                          key={index}
+                          className="bg-primary/10 rounded-lg p-4 text-center font-medium"
+                        >
+                          {value}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground italic">No values selected</p>
+                  )}
+                  {valuesComments && (
+                    <div className="mt-4 pt-4 border-t">
+                      <p className="text-sm text-muted-foreground italic">{valuesComments}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Strategic Goals */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="h-1 w-12 bg-secondary rounded" />
+                  <h2 className="text-xl font-bold">Strategic Goals</h2>
+                </div>
+                <div className="bg-background rounded-lg p-6 space-y-3">
+                  {selectedGoals.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {selectedGoals.map((goal, index) => (
+                        <Card key={index} className="bg-secondary/10">
+                          <CardContent className="p-4 flex items-start gap-3">
+                            <Badge variant="secondary" className="mt-0.5">
+                              {index + 1}
+                            </Badge>
+                            <p className="text-sm leading-relaxed">{goal}</p>
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground italic">No goals selected</p>
+                  )}
+                  {goalsComments && (
+                    <div className="mt-4 pt-4 border-t">
+                      <p className="text-sm text-muted-foreground italic">{goalsComments}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Edit Sections */}
+        <TabsContent value="edit" className="space-y-6">
+          {renderSection(
+            "Mission Statement",
+            "What is your organization's fundamental purpose?",
+            missionOptions,
+            selectedMission,
+            setSelectedMission,
+            missionComments,
+            setMissionComments,
+            "mission"
+          )}
+
+          {renderSection(
+            "Vision Statement",
+            "What future do you aspire to create?",
+            visionOptions,
+            selectedVision,
+            setSelectedVision,
+            visionComments,
+            setVisionComments,
+            "vision"
+          )}
+
+          {renderSection(
+            "Core Values",
+            "What principles guide your organization? (Select multiple)",
+            valueOptions,
+            selectedValues,
+            setSelectedValues,
+            valuesComments,
+            setValuesComments,
+            "values",
+            true
+          )}
+
+          {renderSection(
+            "Strategic Goals",
+            "What are your key organizational objectives? (Select multiple)",
+            goalOptions,
+            selectedGoals,
+            setSelectedGoals,
+            goalsComments,
+            setGoalsComments,
+            "goals"
+          )}
+        </TabsContent>
+
+        {/* Annual History View */}
+        <TabsContent value="annual">
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-semibold">Annual Foundation History</h2>
+              <Badge variant="outline">{mockHistory.length} years</Badge>
+            </div>
+            <div className="space-y-6">
+              {mockHistory.map((entry, index) => (
+                <Card key={index} data-testid={`history-entry-${index}`}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <CardTitle className="text-2xl">{entry.year}</CardTitle>
+                        <CardDescription className="mt-1">
+                          Updated by {entry.updatedBy} on {entry.updatedAt}
+                        </CardDescription>
+                      </div>
+                      <Badge variant={index === 0 ? "default" : "secondary"}>
+                        {index === 0 ? "Current" : "Archive"}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    {entry.comments && (
+                      <div className="bg-muted/50 rounded-lg p-4">
+                        <p className="text-sm font-medium mb-1">Annual Notes:</p>
+                        <p className="text-sm text-muted-foreground">{entry.comments}</p>
+                      </div>
+                    )}
+
+                    {/* Mission */}
+                    {entry.mission.length > 0 && (
+                      <div>
+                        <h3 className="font-semibold mb-2 flex items-center gap-2">
+                          <div className="h-1 w-8 bg-primary rounded" />
+                          Mission
+                        </h3>
+                        <ul className="list-disc list-inside space-y-1">
+                          {entry.mission.map((item, idx) => (
+                            <li key={idx} className="text-sm text-muted-foreground">
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Vision */}
+                    {entry.vision.length > 0 && (
+                      <div>
+                        <h3 className="font-semibold mb-2 flex items-center gap-2">
+                          <div className="h-1 w-8 bg-secondary rounded" />
+                          Vision
+                        </h3>
+                        <ul className="list-disc list-inside space-y-1">
+                          {entry.vision.map((item, idx) => (
+                            <li key={idx} className="text-sm text-muted-foreground">
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Values */}
+                    {entry.values.length > 0 && (
+                      <div>
+                        <h3 className="font-semibold mb-2 flex items-center gap-2">
+                          <div className="h-1 w-8 bg-primary rounded" />
+                          Core Values
+                        </h3>
+                        <div className="flex flex-wrap gap-2">
+                          {entry.values.map((value, idx) => (
+                            <Badge key={idx} variant="outline">
+                              {value}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Goals */}
+                    {entry.goals.length > 0 && (
+                      <div>
+                        <h3 className="font-semibold mb-2 flex items-center gap-2">
+                          <div className="h-1 w-8 bg-secondary rounded" />
+                          Strategic Goals
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                          {entry.goals.map((goal, idx) => (
+                            <div key={idx} className="flex items-start gap-2">
+                              <Badge variant="secondary" className="mt-0.5">
+                                {idx + 1}
+                              </Badge>
+                              <span className="text-sm text-muted-foreground">{goal}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
