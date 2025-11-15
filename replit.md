@@ -37,7 +37,13 @@ Preferred communication style: Simple, everyday language.
 **Module Structure**:
 - Landing page with hero section and feature showcase
 - Dashboard with quarter-based views and progress tracking
-- Foundations module for mission, vision, values, and annual goals
+- Foundations module for mission, vision, values, and annual goals with full CRUD capabilities
+  - Master View: Read-only display of current tenant's foundation elements
+  - Edit Sections: Interactive editing interface with custom input fields
+  - Quick Suggestions: Pre-populated suggestion badges for rapid selection
+  - Custom Elements: Input fields for creating custom mission/vision/values/goals
+  - Delete Functionality: Individual element removal and clear all option
+  - Database Persistence: All changes saved to PostgreSQL and persist across sessions
 - Strategy module for strategic priorities with AI drafting
 - Planning module for OKRs, KPIs, and quarterly rocks
 - Focus Rhythm module for meeting management and summaries
