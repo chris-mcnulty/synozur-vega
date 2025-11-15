@@ -18,7 +18,7 @@ Preferred communication style: Simple, everyday language.
 - Single Page Application (SPA) using Wouter for client-side routing
 - Component-based architecture with reusable UI components from shadcn/ui (Radix UI primitives)
 - State management through React hooks and TanStack Query for server state
-- Theme support with light/dark mode toggle via ThemeProvider context
+- Theme support with light/dark mode toggle via ThemeProvider context (defaults to dark mode)
 
 **Styling Approach**:
 - TailwindCSS with custom configuration for consistent design system
