@@ -65,21 +65,30 @@ Preferred communication style: Simple, everyday language.
 
 ### Data Storage Solutions
 
-**Current State**: PostgreSQL database with persistent storage
+**Current State**: PostgreSQL database with persistent storage (production-ready)
 - Neon PostgreSQL database connected and configured
 - Comprehensive schema with 8 tables: users, tenants, foundations, strategies, okrs, kpis, rocks, meetings
-- All tables use UUID-based primary keys
-- Foreign key relationships properly configured for tenant-scoped data
+- All tables use UUID-based primary keys with proper unique constraints
+- Foreign key relationships configured for tenant-scoped data integrity
 - Demo data seeded for Acme Corporation and The Synozur Alliance LLC
 - Database storage layer (DatabaseStorage) implemented in server/storage.ts
+- Password hashing implemented using bcryptjs (10 salt rounds)
+- Idempotent seed script - can be run multiple times safely
 
 **Database Implementation**: 
-- Drizzle ORM configured for PostgreSQL
-- Schema definition in shared/schema.ts using drizzle-orm
-- Migration executed via npm run db:push
-- Neon Database serverless client for connection pooling
-- Seed script (server/seed.ts) populates demo data for both companies
-- All organizational data (OKRs, KPIs, Rocks, Strategies, Foundations, Meetings) persists across sessions
+- Drizzle ORM configured for PostgreSQL with Neon serverless driver
+- Schema definition in shared/schema.ts with compound unique constraints:
+  - tenants.name: UNIQUE (prevents duplicate tenant names)
+  - foundations.tenant_id: UNIQUE (one foundation per tenant)
+  - strategies: UNIQUE(tenant_id, title)
+  - okrs: UNIQUE(tenant_id, objective, quarter, year)
+  - kpis: UNIQUE(tenant_id, label, quarter, year)
+  - rocks: UNIQUE(tenant_id, title, quarter, year)
+  - meetings: UNIQUE(tenant_id, title, date)
+- Migration executed via `npm run db:push` (use --force if needed)
+- Seed script (server/seed.ts) populates demo data with onConflictDoNothing for idempotency
+- Password hashing utility (server/auth.ts) for secure credential storage
+- All organizational data persists across sessions with data integrity guarantees
 
 **Data Models**:
 - Zod schemas for runtime validation (drizzle-zod integration)
