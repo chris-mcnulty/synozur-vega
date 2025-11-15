@@ -272,7 +272,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/meetings", async (req, res) => {
     try {
       const validatedData = insertMeetingSchema.parse(req.body);
-      const meeting = await storage.createMeeting(validatedData);
+      const dataToInsert = {
+        ...validatedData,
+        date: validatedData.date ? new Date(validatedData.date) : null,
+        nextMeetingDate: validatedData.nextMeetingDate ? new Date(validatedData.nextMeetingDate) : null,
+      };
+      const meeting = await storage.createMeeting(dataToInsert);
       res.json(meeting);
     } catch (error) {
       console.error("Error creating meeting:", error);
@@ -284,7 +289,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { id } = req.params;
       const validatedData = insertMeetingSchema.partial().parse(req.body);
-      const meeting = await storage.updateMeeting(id, validatedData);
+      const dataToUpdate = {
+        ...validatedData,
+        date: validatedData.date ? new Date(validatedData.date) : undefined,
+        nextMeetingDate: validatedData.nextMeetingDate ? new Date(validatedData.nextMeetingDate) : undefined,
+      };
+      const meeting = await storage.updateMeeting(id, dataToUpdate);
       if (!meeting) {
         return res.status(404).json({ error: "Meeting not found" });
       }

@@ -170,6 +170,9 @@ export const meetings = pgTable("meetings", {
 export const insertMeetingSchema = createInsertSchema(meetings).omit({
   id: true,
   updatedAt: true,
+}).extend({
+  date: z.string().datetime().or(z.date()).nullable().optional(),
+  nextMeetingDate: z.string().datetime().or(z.date()).nullable().optional(),
 });
 
 export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
