@@ -1,0 +1,65 @@
+Build Vega – AI-Augmented Company OS Platform
+Description:
+Create a responsive web application called Vega that delivers the Company Operating System (Company OS) experience. The design should mirror the aesthetic and UX of Orion.synozur.com, using its exact color palette and typography.
+
+---
+
+Core Requirements
+• Tech Stack:
+    • Frontend: React (with TailwindCSS or styled-components for styling)
+    • Backend: Node.js with Express
+    • Database: PostgreSQL or MongoDB
+    • AI Integration: Placeholder for GPT-based API calls (mock endpoints for now)
+
+---
+
+Modules & Features
+1. Landing Page
+    • Hero section with Vega branding and tagline: “Your AI-Augmented Company OS”
+    • Call-to-action buttons: Start Now, Learn More
+2. Foundations Module
+    • Form wizard for mission, vision, values
+    • AI suggestion panel (mocked for prototype)
+3. Strategy Module
+    • Interactive board for strategic priorities
+    • AI-powered draft generator (placeholder)
+4. Planning Module (formerly Execution Module)
+    • Dashboard for OKRs, KPIs, and quarterly rocks
+    • Progress visualization (charts using Chart.js or D3.js)
+5. Focus Rhythm Module (NEW)
+    • Capture weekly and monthly meeting schedules
+    • Link back to OKR updates
+    • Include clickable links to Teams meetings
+    • Display AI-generated meeting summaries (mocked for prototype)
+6. Consulting Mode Toggle
+    • Switch between Consultant-led and Self-Service workflows
+7. Help & AI Chat Panel
+    • Sidebar for AI guidance (mock chat interface)
+
+---
+
+Design Guidelines
+• Use Orion’s exact colors and fonts:
+    • Primary: #810FFB
+    • Secondary: #E60CB3
+
+    • Typography: Avenir Next LT Pro
+• Layout: minimalistic, lots of whitespace, responsive grid
+• Include subtle animations for transitions and hover states
+
+---
+
+Authentication
+• Simple login/signup with JWT (mocked for prototype)
+Will ultimately use OAith 2.0 from Orion
+---
+
+Stretch Goals
+• Role-based access (Consultant vs Client)
+• Basic AI text generation using OpenAI API
+• Sample data for dashboards
+
+---
+
+Deliverable:
+A working prototype with navigation between all five modules, placeholder AI panels, and a polished UI consistent with Orion.synozur.com
