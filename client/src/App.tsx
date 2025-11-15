@@ -15,6 +15,7 @@ import { Sparkles } from "lucide-react";
 import { useState } from "react";
 
 import Landing from "@/pages/Landing";
+import Dashboard from "@/pages/Dashboard";
 import Foundations from "@/pages/Foundations";
 import Strategy from "@/pages/Strategy";
 import Planning from "@/pages/Planning";
@@ -66,6 +67,11 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Landing} />
+      <Route path="/dashboard">
+        <ModuleLayout>
+          <Dashboard />
+        </ModuleLayout>
+      </Route>
       <Route path="/foundations">
         <ModuleLayout>
           <Foundations />

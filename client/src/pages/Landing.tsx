@@ -15,7 +15,7 @@ export default function Landing() {
             <span className="font-bold text-xl">Vega</span>
           </div>
           <div className="flex items-center gap-4">
-            <a href="/foundations">
+            <a href="/dashboard">
               <Button variant="ghost" data-testid="button-nav-login">
                 Login
               </Button>

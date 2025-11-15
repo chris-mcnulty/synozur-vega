@@ -1,4 +1,4 @@
-import { Building2, Target, TrendingUp, Calendar, Settings } from "lucide-react";
+import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -14,6 +14,11 @@ import { useLocation } from "wouter";
 import { SynozurLogo } from "./SynozurLogo";
 
 const menuItems = [
+  {
+    title: "Company OS",
+    url: "/dashboard",
+    icon: LayoutDashboard,
+  },
   {
     title: "Foundations",
     url: "/foundations",
