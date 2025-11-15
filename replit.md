@@ -95,6 +95,12 @@ Preferred communication style: Simple, everyday language.
 - User lookup by username for authentication
 - Multi-tenant support through TenantSwitcher component
 
+**Multi-Tenant System**:
+- TenantSwitcher component allows switching between organizations
+- Available tenants: The Synozur Alliance LLC (default), Acme Corporation, TechStart Inc, Global Ventures
+- Each tenant has a unique color for visual identification
+- Tenant selection stored in component state (future: persist in user profile)
+
 ### External Dependencies
 
 **Microsoft 365 Integration**:
