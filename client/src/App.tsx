@@ -93,7 +93,7 @@ function Router() {
           <FocusRhythm />
         </ModuleLayout>
       </Route>
-      <Route path="/admin">
+      <Route path="/tenant-admin">
         <ModuleLayout>
           <TenantAdmin />
         </ModuleLayout>

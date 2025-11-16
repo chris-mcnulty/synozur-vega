@@ -44,7 +44,7 @@ const menuItems = [
 const adminItems = [
   {
     title: "Tenant Admin",
-    url: "/admin",
+    url: "/tenant-admin",
     icon: Settings,
   },
 ];

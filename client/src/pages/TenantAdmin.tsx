@@ -71,7 +71,7 @@ export default function TenantAdmin() {
 
   const createTenantMutation = useMutation({
     mutationFn: (data: { name: string; color: string }) =>
-      apiRequest("/api/tenants", "POST", data),
+      apiRequest("POST", "/api/tenants", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tenants"] });
       setTenantDialogOpen(false);
@@ -88,7 +88,7 @@ export default function TenantAdmin() {
 
   const updateTenantMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: { name?: string; color?: string } }) =>
-      apiRequest(`/api/tenants/${id}`, "PATCH", data),
+      apiRequest("PATCH", `/api/tenants/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tenants"] });
       setTenantDialogOpen(false);
@@ -105,7 +105,7 @@ export default function TenantAdmin() {
   });
 
   const deleteTenantMutation = useMutation({
-    mutationFn: (id: string) => apiRequest(`/api/tenants/${id}`, "DELETE"),
+    mutationFn: (id: string) => apiRequest("DELETE", `/api/tenants/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tenants"] });
       toast({ title: "Organization deleted successfully" });
