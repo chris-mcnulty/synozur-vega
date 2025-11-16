@@ -6,7 +6,11 @@ import {
   okrs, type Okr, type InsertOkr,
   kpis, type Kpi, type InsertKpi,
   rocks, type Rock, type InsertRock,
-  meetings, type Meeting, type InsertMeeting
+  meetings, type Meeting, type InsertMeeting,
+  objectives, type Objective, type InsertObjective,
+  keyResults, type KeyResult, type InsertKeyResult,
+  bigRocks, type BigRock, type InsertBigRock,
+  checkIns, type CheckIn, type InsertCheckIn
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and } from "drizzle-orm";
@@ -56,6 +60,33 @@ export interface IStorage {
   createMeeting(meeting: InsertMeeting): Promise<Meeting>;
   updateMeeting(id: string, meeting: Partial<InsertMeeting>): Promise<Meeting>;
   deleteMeeting(id: string): Promise<void>;
+  
+  // Enhanced OKR Methods
+  getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number): Promise<Objective[]>;
+  getObjectiveById(id: string): Promise<Objective | undefined>;
+  getChildObjectives(parentId: string): Promise<Objective[]>;
+  createObjective(objective: InsertObjective): Promise<Objective>;
+  updateObjective(id: string, objective: Partial<InsertObjective>): Promise<Objective>;
+  deleteObjective(id: string): Promise<void>;
+  
+  getKeyResultsByObjectiveId(objectiveId: string): Promise<KeyResult[]>;
+  getKeyResultById(id: string): Promise<KeyResult | undefined>;
+  createKeyResult(keyResult: InsertKeyResult): Promise<KeyResult>;
+  updateKeyResult(id: string, keyResult: Partial<InsertKeyResult>): Promise<KeyResult>;
+  deleteKeyResult(id: string): Promise<void>;
+  promoteKeyResultToKpi(keyResultId: string, userId: string): Promise<Kpi>;
+  
+  getBigRocksByTenantId(tenantId: string, quarter?: number, year?: number): Promise<BigRock[]>;
+  getBigRockById(id: string): Promise<BigRock | undefined>;
+  getBigRocksByObjectiveId(objectiveId: string): Promise<BigRock[]>;
+  getBigRocksByKeyResultId(keyResultId: string): Promise<BigRock[]>;
+  createBigRock(bigRock: InsertBigRock): Promise<BigRock>;
+  updateBigRock(id: string, bigRock: Partial<InsertBigRock>): Promise<BigRock>;
+  deleteBigRock(id: string): Promise<void>;
+  
+  getCheckInsByEntityId(entityType: string, entityId: string): Promise<CheckIn[]>;
+  createCheckIn(checkIn: InsertCheckIn): Promise<CheckIn>;
+  getLatestCheckIn(entityType: string, entityId: string): Promise<CheckIn | undefined>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -356,6 +387,226 @@ export class DatabaseStorage implements IStorage {
 
   async deleteMeeting(id: string): Promise<void> {
     await db.delete(meetings).where(eq(meetings.id, id));
+  }
+
+  // Enhanced OKR Method Implementations
+  async getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number): Promise<Objective[]> {
+    let query = db.select().from(objectives).where(eq(objectives.tenantId, tenantId));
+    
+    if (quarter !== undefined && year !== undefined) {
+      query = query.where(and(
+        eq(objectives.tenantId, tenantId),
+        eq(objectives.quarter, quarter),
+        eq(objectives.year, year)
+      ));
+    }
+    
+    return await query;
+  }
+
+  async getObjectiveById(id: string): Promise<Objective | undefined> {
+    const [objective] = await db.select().from(objectives).where(eq(objectives.id, id));
+    return objective || undefined;
+  }
+
+  async getChildObjectives(parentId: string): Promise<Objective[]> {
+    return await db.select().from(objectives).where(eq(objectives.parentId, parentId));
+  }
+
+  async createObjective(insertObjective: InsertObjective): Promise<Objective> {
+    const [objective] = await db
+      .insert(objectives)
+      .values({
+        ...insertObjective,
+        coOwnerIds: insertObjective.coOwnerIds ? [...insertObjective.coOwnerIds] : null,
+        linkedStrategies: insertObjective.linkedStrategies ? [...insertObjective.linkedStrategies] : null,
+        linkedGoals: insertObjective.linkedGoals ? [...insertObjective.linkedGoals] : null,
+      })
+      .returning();
+    return objective;
+  }
+
+  async updateObjective(id: string, updateData: Partial<InsertObjective>): Promise<Objective> {
+    const [objective] = await db
+      .update(objectives)
+      .set({
+        ...updateData,
+        coOwnerIds: updateData.coOwnerIds ? [...updateData.coOwnerIds] : undefined,
+        linkedStrategies: updateData.linkedStrategies ? [...updateData.linkedStrategies] : undefined,
+        linkedGoals: updateData.linkedGoals ? [...updateData.linkedGoals] : undefined,
+      })
+      .where(eq(objectives.id, id))
+      .returning();
+    return objective;
+  }
+
+  async deleteObjective(id: string): Promise<void> {
+    // Delete child key results and big rocks first
+    await db.delete(keyResults).where(eq(keyResults.objectiveId, id));
+    await db.delete(bigRocks).where(eq(bigRocks.objectiveId, id));
+    // Delete the objective
+    await db.delete(objectives).where(eq(objectives.id, id));
+  }
+
+  async getKeyResultsByObjectiveId(objectiveId: string): Promise<KeyResult[]> {
+    return await db.select().from(keyResults).where(eq(keyResults.objectiveId, objectiveId));
+  }
+
+  async getKeyResultById(id: string): Promise<KeyResult | undefined> {
+    const [keyResult] = await db.select().from(keyResults).where(eq(keyResults.id, id));
+    return keyResult || undefined;
+  }
+
+  async createKeyResult(insertKeyResult: InsertKeyResult): Promise<KeyResult> {
+    const [keyResult] = await db
+      .insert(keyResults)
+      .values(insertKeyResult)
+      .returning();
+    return keyResult;
+  }
+
+  async updateKeyResult(id: string, updateData: Partial<InsertKeyResult>): Promise<KeyResult> {
+    const [keyResult] = await db
+      .update(keyResults)
+      .set(updateData)
+      .where(eq(keyResults.id, id))
+      .returning();
+    return keyResult;
+  }
+
+  async deleteKeyResult(id: string): Promise<void> {
+    // Delete associated big rocks first
+    await db.delete(bigRocks).where(eq(bigRocks.keyResultId, id));
+    // Delete the key result
+    await db.delete(keyResults).where(eq(keyResults.id, id));
+  }
+
+  async promoteKeyResultToKpi(keyResultId: string, userId: string): Promise<Kpi> {
+    // Get the key result
+    const keyResult = await this.getKeyResultById(keyResultId);
+    if (!keyResult) {
+      throw new Error(`Key Result with id ${keyResultId} not found`);
+    }
+
+    // Create a KPI from the key result
+    const [kpi] = await db
+      .insert(kpis)
+      .values({
+        tenantId: keyResult.tenantId,
+        label: keyResult.title,
+        value: Math.floor(keyResult.currentValue || 0),
+        target: Math.floor(keyResult.targetValue),
+        linkedGoals: [],
+        quarter: null,
+        year: null,
+        updatedBy: userId,
+      })
+      .returning();
+
+    // Mark the key result as promoted
+    await db
+      .update(keyResults)
+      .set({
+        isPromotedToKpi: 'true',
+        promotedKpiId: kpi.id,
+        promotedAt: new Date(),
+        promotedBy: userId,
+      })
+      .where(eq(keyResults.id, keyResultId));
+
+    return kpi;
+  }
+
+  async getBigRocksByTenantId(tenantId: string, quarter?: number, year?: number): Promise<BigRock[]> {
+    let query = db.select().from(bigRocks).where(eq(bigRocks.tenantId, tenantId));
+    
+    if (quarter !== undefined && year !== undefined) {
+      query = query.where(and(
+        eq(bigRocks.tenantId, tenantId),
+        eq(bigRocks.quarter, quarter),
+        eq(bigRocks.year, year)
+      ));
+    }
+    
+    return await query;
+  }
+
+  async getBigRockById(id: string): Promise<BigRock | undefined> {
+    const [bigRock] = await db.select().from(bigRocks).where(eq(bigRocks.id, id));
+    return bigRock || undefined;
+  }
+
+  async getBigRocksByObjectiveId(objectiveId: string): Promise<BigRock[]> {
+    return await db.select().from(bigRocks).where(eq(bigRocks.objectiveId, objectiveId));
+  }
+
+  async getBigRocksByKeyResultId(keyResultId: string): Promise<BigRock[]> {
+    return await db.select().from(bigRocks).where(eq(bigRocks.keyResultId, keyResultId));
+  }
+
+  async createBigRock(insertBigRock: InsertBigRock): Promise<BigRock> {
+    const [bigRock] = await db
+      .insert(bigRocks)
+      .values({
+        ...insertBigRock,
+        blockedBy: insertBigRock.blockedBy ? [...insertBigRock.blockedBy] : null,
+        tasks: insertBigRock.tasks ? [...insertBigRock.tasks] : null,
+      })
+      .returning();
+    return bigRock;
+  }
+
+  async updateBigRock(id: string, updateData: Partial<InsertBigRock>): Promise<BigRock> {
+    const [bigRock] = await db
+      .update(bigRocks)
+      .set({
+        ...updateData,
+        blockedBy: updateData.blockedBy ? [...updateData.blockedBy] : undefined,
+        tasks: updateData.tasks ? [...updateData.tasks] : undefined,
+      })
+      .where(eq(bigRocks.id, id))
+      .returning();
+    return bigRock;
+  }
+
+  async deleteBigRock(id: string): Promise<void> {
+    await db.delete(bigRocks).where(eq(bigRocks.id, id));
+  }
+
+  async getCheckInsByEntityId(entityType: string, entityId: string): Promise<CheckIn[]> {
+    return await db
+      .select()
+      .from(checkIns)
+      .where(and(
+        eq(checkIns.entityType, entityType),
+        eq(checkIns.entityId, entityId)
+      ));
+  }
+
+  async createCheckIn(insertCheckIn: InsertCheckIn): Promise<CheckIn> {
+    const [checkIn] = await db
+      .insert(checkIns)
+      .values({
+        ...insertCheckIn,
+        achievements: insertCheckIn.achievements ? [...insertCheckIn.achievements] : null,
+        challenges: insertCheckIn.challenges ? [...insertCheckIn.challenges] : null,
+        nextSteps: insertCheckIn.nextSteps ? [...insertCheckIn.nextSteps] : null,
+      })
+      .returning();
+    return checkIn;
+  }
+
+  async getLatestCheckIn(entityType: string, entityId: string): Promise<CheckIn | undefined> {
+    const [checkIn] = await db
+      .select()
+      .from(checkIns)
+      .where(and(
+        eq(checkIns.entityType, entityType),
+        eq(checkIns.entityId, entityId)
+      ))
+      .orderBy(checkIns.createdAt)
+      .limit(1);
+    return checkIn || undefined;
   }
 }
 

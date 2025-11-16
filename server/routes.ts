@@ -530,6 +530,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Import and use enhanced OKR routes
+  const { okrRouter } = await import("./routes-okr");
+  app.use("/api/okr", okrRouter);
+
   const httpServer = createServer(app);
 
   return httpServer;
