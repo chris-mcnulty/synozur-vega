@@ -38,8 +38,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [data, isLoading]);
 
   const loginMutation = useMutation({
-    mutationFn: (credentials: { email: string; password: string; isDemo?: boolean }) =>
-      apiRequest("POST", "/api/auth/login", credentials),
+    mutationFn: async (credentials: { email: string; password: string; isDemo?: boolean }) => {
+      const res = await apiRequest("POST", "/api/auth/login", credentials);
+      return await res.json();
+    },
     onSuccess: (data: { user: User }) => {
       setUser(data.user);
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
@@ -47,8 +49,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const signupMutation = useMutation({
-    mutationFn: (data: { email: string; password: string; name?: string }) =>
-      apiRequest("POST", "/api/auth/signup", data),
+    mutationFn: async (data: { email: string; password: string; name?: string }) => {
+      const res = await apiRequest("POST", "/api/auth/signup", data);
+      return await res.json();
+    },
     onSuccess: (data: { user: User }) => {
       setUser(data.user);
       queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
