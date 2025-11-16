@@ -530,6 +530,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Import and use setup routes (REMOVE AFTER INITIAL PRODUCTION SETUP!)
+  const { registerSetupRoutes } = await import("./routes-setup");
+  registerSetupRoutes(app);
+  
   // Import and use enhanced OKR routes
   const { okrRouter } = await import("./routes-okr");
   app.use("/api/okr", okrRouter);
