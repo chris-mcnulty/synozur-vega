@@ -188,7 +188,7 @@ export function registerSetupRoutes(app: Express) {
         .insert(tenants)
         .values({
           name: "The Synozur Alliance LLC",
-          brandColor: "hsl(270, 100%, 50%)",
+          color: "hsl(270, 100%, 50%)",
         })
         .returning();
 
@@ -201,7 +201,7 @@ export function registerSetupRoutes(app: Express) {
       // Create Chris McNulty admin
       await db.insert(users).values({
         email: "chris.mcnulty@synozur.com",
-        username: "chris.mcnulty",
+        name: "Chris McNulty",
         password: chrisPasswordHash,
         role: "global_admin",
         tenantId: null, // Global admins don't belong to specific tenant
@@ -210,7 +210,7 @@ export function registerSetupRoutes(app: Express) {
       // Create generic admin account
       await db.insert(users).values({
         email: "admin@synozur.com", 
-        username: "admin",
+        name: "System Admin",
         password: adminPasswordHash,
         role: "global_admin",
         tenantId: null,
@@ -227,11 +227,11 @@ export function registerSetupRoutes(app: Express) {
         warning: "CHANGE THESE PASSWORDS IMMEDIATELY!"
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Setup error:", error);
       res.status(500).json({ 
         message: "Setup failed", 
-        error: error.message 
+        error: error?.message || "Unknown error" 
       });
     }
   });
@@ -240,12 +240,12 @@ export function registerSetupRoutes(app: Express) {
   app.get("/api/setup/status", async (req, res) => {
     try {
       const adminCount = await db
-        .select({ count: sql`count(*)` })
+        .select({ count: sql<number>`count(*)::int` })
         .from(users)
         .where(sql`${users.role} IN ('global_admin', 'vega_admin')`);
 
       const tenantCount = await db
-        .select({ count: sql`count(*)` })
+        .select({ count: sql<number>`count(*)::int` })
         .from(tenants);
 
       res.json({
@@ -253,8 +253,9 @@ export function registerSetupRoutes(app: Express) {
         admins: adminCount[0].count,
         tenants: tenantCount[0].count
       });
-    } catch (error) {
-      res.status(500).json({ message: "Status check failed" });
+    } catch (error: any) {
+      console.error("Status check error:", error);
+      res.status(500).json({ message: "Status check failed", error: error?.message });
     }
   });
 }
