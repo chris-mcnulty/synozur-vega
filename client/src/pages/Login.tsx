@@ -1,12 +1,14 @@
 import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
+import { ArrowLeft } from "lucide-react";
+import starTrailsBg from "@assets/star-trails-bg.jpg";
 
 export default function Login() {
   const { login, signup } = useAuth();
@@ -105,11 +107,31 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="w-full max-w-md space-y-6">
+    <div className="relative min-h-screen flex items-center justify-center p-4">
+      {/* Star trails background with purple overlay */}
+      <div 
+        className="fixed inset-0 z-0"
+        style={{
+          backgroundImage: `url(${starTrailsBg})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundAttachment: 'fixed'
+        }}
+      />
+      <div className="fixed inset-0 z-0 bg-gradient-to-br from-primary/40 via-purple-900/30 to-background/80" />
+      
+      <div className="relative z-10 w-full max-w-md space-y-6">
+        {/* Back to Home Link */}
+        <Link href="/">
+          <Button variant="ghost" className="text-white hover:bg-white/10">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Home
+          </Button>
+        </Link>
+        
         <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight">Vega</h1>
-          <p className="text-muted-foreground">Your AI-Augmented Company OS</p>
+          <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-xl">Vega</h1>
+          <p className="text-gray-200">Your AI-Augmented Company OS</p>
         </div>
 
         <Tabs defaultValue="demo" className="w-full">
@@ -120,7 +142,7 @@ export default function Login() {
           </TabsList>
 
           <TabsContent value="demo">
-            <Card>
+            <Card className="backdrop-blur-md bg-background/95 border-white/20">
               <CardHeader>
                 <CardTitle>Demo Access</CardTitle>
                 <CardDescription>
@@ -158,7 +180,7 @@ export default function Login() {
           </TabsContent>
 
           <TabsContent value="login">
-            <Card>
+            <Card className="backdrop-blur-md bg-background/95 border-white/20">
               <CardHeader>
                 <CardTitle>Email Login</CardTitle>
                 <CardDescription>
@@ -205,7 +227,7 @@ export default function Login() {
           </TabsContent>
 
           <TabsContent value="signup">
-            <Card>
+            <Card className="backdrop-blur-md bg-background/95 border-white/20">
               <CardHeader>
                 <CardTitle>Create Account</CardTitle>
                 <CardDescription>
