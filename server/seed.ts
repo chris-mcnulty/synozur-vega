@@ -5,21 +5,25 @@ import { eq } from "drizzle-orm";
 async function seed() {
   console.log("Seeding database...");
 
-  // Insert tenants
+  // Insert tenants with explicit IDs to match frontend
   await db.insert(tenants).values([
     {
+      id: "f7229583-c9c9-4e80-88cf-5bbfd2819770",
       name: "Acme Corporation",
       color: "hsl(220, 85%, 38%)",
     },
     {
+      id: "f328cd4e-0fe1-4893-a637-941684749c55",
       name: "The Synozur Alliance LLC",
       color: "hsl(277, 98%, 53%)",
     },
     {
+      id: "33c48024-917b-4045-a1ef-0542c2da57ca",
       name: "TechStart Inc",
       color: "hsl(328, 94%, 45%)",
     },
     {
+      id: "f689f005-63ff-40d8-ac04-79e476615c9b",
       name: "Global Ventures",
       color: "hsl(200, 75%, 45%)",
     },
@@ -27,15 +31,9 @@ async function seed() {
 
   console.log("✓ Seeded tenants");
 
-  // Get Acme Corporation tenant ID
-  const [acmeTenant] = await db.select().from(tenants).where(eq(tenants.name, "Acme Corporation"));
-  
-  if (!acmeTenant) {
-    throw new Error("Acme Corporation tenant not found");
-  }
-
-  const acmeTenantId = acmeTenant.id;
-  console.log(`Found Acme Corporation tenant with ID: ${acmeTenantId}`);
+  // Use explicit Acme Corporation tenant ID
+  const acmeTenantId = "f7229583-c9c9-4e80-88cf-5bbfd2819770";
+  console.log(`Using Acme Corporation tenant ID: ${acmeTenantId}`);
 
   // Insert Foundation
   await db.insert(foundations).values({
