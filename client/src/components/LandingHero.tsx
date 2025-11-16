@@ -11,7 +11,7 @@ export function LandingHero() {
       />
       <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/50 to-transparent" />
       
-      <div className="relative z-10 max-w-7xl mx-auto px-6 text-white">
+      <div className="relative z-10 max-w-7xl 2xl:max-w-[1600px] mx-auto px-6 text-white">
         <div className="max-w-3xl">
           <div className="flex items-center gap-2 mb-6">
             <Sparkles className="h-6 w-6 text-primary" />
