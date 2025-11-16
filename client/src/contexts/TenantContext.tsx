@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 export type Tenant = {
   id: string;
@@ -10,32 +11,37 @@ type TenantContextType = {
   currentTenant: Tenant;
   setCurrentTenant: (tenant: Tenant) => void;
   tenants: Tenant[];
+  isLoading: boolean;
 };
 
 const DEFAULT_TENANT: Tenant = {
-  id: "f7229583-c9c9-4e80-88cf-5bbfd2819770",
-  name: "Acme Corporation",
-  color: "hsl(220, 85%, 38%)",
+  id: "f328cd4e-0fe1-4893-a637-941684749c55",
+  name: "The Synozur Alliance LLC",
+  color: "hsl(277, 98%, 53%)",
 };
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export function TenantProvider({ children }: { children: ReactNode }) {
   const [currentTenant, setCurrentTenant] = useState<Tenant>(DEFAULT_TENANT);
-  const [tenants] = useState<Tenant[]>([
-    { id: "f7229583-c9c9-4e80-88cf-5bbfd2819770", name: "Acme Corporation", color: "hsl(220, 85%, 38%)" },
-    { id: "f328cd4e-0fe1-4893-a637-941684749c55", name: "The Synozur Alliance LLC", color: "hsl(277, 98%, 53%)" },
-    { id: "33c48024-917b-4045-a1ef-0542c2da57ca", name: "TechStart Inc", color: "hsl(328, 94%, 45%)" },
-    { id: "f689f005-63ff-40d8-ac04-79e476615c9b", name: "Global Ventures", color: "hsl(200, 75%, 45%)" },
-  ]);
+
+  const { data: tenants = [], isLoading } = useQuery<Tenant[]>({
+    queryKey: ["/api/tenants"],
+  });
 
   useEffect(() => {
+    if (tenants.length === 0) return;
+    
     const savedTenantId = localStorage.getItem("currentTenantId");
     if (savedTenantId) {
       const savedTenant = tenants.find((t) => t.id === savedTenantId);
       if (savedTenant) {
         setCurrentTenant(savedTenant);
+      } else {
+        setCurrentTenant(tenants[0]);
       }
+    } else {
+      setCurrentTenant(tenants[0]);
     }
   }, [tenants]);
 
@@ -50,6 +56,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         currentTenant,
         setCurrentTenant: handleSetCurrentTenant,
         tenants,
+        isLoading,
       }}
     >
       {children}

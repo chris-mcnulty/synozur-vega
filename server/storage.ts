@@ -1,5 +1,6 @@
 import { 
-  users, type User, type InsertUser, 
+  users, type User, type InsertUser,
+  tenants, type Tenant, type InsertTenant,
   foundations, type Foundation, type InsertFoundation,
   strategies, type Strategy, type InsertStrategy,
   okrs, type Okr, type InsertOkr,
@@ -15,6 +16,12 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  
+  getAllTenants(): Promise<Tenant[]>;
+  getTenantById(id: string): Promise<Tenant | undefined>;
+  createTenant(tenant: InsertTenant): Promise<Tenant>;
+  updateTenant(id: string, tenant: Partial<InsertTenant>): Promise<Tenant>;
+  deleteTenant(id: string): Promise<void>;
   
   getFoundationByTenantId(tenantId: string): Promise<Foundation | undefined>;
   upsertFoundation(foundation: InsertFoundation): Promise<Foundation>;
@@ -71,6 +78,38 @@ export class DatabaseStorage implements IStorage {
       })
       .returning();
     return user;
+  }
+
+  async getAllTenants(): Promise<Tenant[]> {
+    return await db.select().from(tenants);
+  }
+
+  async getTenantById(id: string): Promise<Tenant | undefined> {
+    const [tenant] = await db.select().from(tenants).where(eq(tenants.id, id));
+    return tenant || undefined;
+  }
+
+  async createTenant(insertTenant: InsertTenant): Promise<Tenant> {
+    const [tenant] = await db.insert(tenants).values(insertTenant).returning();
+    return tenant;
+  }
+
+  async updateTenant(id: string, updateData: Partial<InsertTenant>): Promise<Tenant> {
+    const [tenant] = await db
+      .update(tenants)
+      .set(updateData)
+      .where(eq(tenants.id, id))
+      .returning();
+    
+    if (!tenant) {
+      throw new Error(`Tenant with id ${id} not found`);
+    }
+    
+    return tenant;
+  }
+
+  async deleteTenant(id: string): Promise<void> {
+    await db.delete(tenants).where(eq(tenants.id, id));
   }
 
   async getFoundationByTenantId(tenantId: string): Promise<Foundation | undefined> {

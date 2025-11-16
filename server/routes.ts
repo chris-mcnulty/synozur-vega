@@ -3,6 +3,7 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { z } from "zod";
 import { 
+  insertTenantSchema,
   insertFoundationSchema,
   insertStrategySchema,
   insertOkrSchema,
@@ -18,46 +19,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // use storage to perform CRUD operations on the storage interface
   // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
 
-  // Admin endpoint to seed tenants (safe to call multiple times)
-  app.post("/api/admin/seed-tenants", async (req, res) => {
+  // Tenant CRUD endpoints
+  app.get("/api/tenants", async (req, res) => {
     try {
-      const { db } = await import("./db");
-      const { tenants } = await import("@shared/schema");
-
-      await db.insert(tenants).values([
-        {
-          id: "f7229583-c9c9-4e80-88cf-5bbfd2819770",
-          name: "Acme Corporation",
-          color: "hsl(220, 85%, 38%)",
-        },
-        {
-          id: "f328cd4e-0fe1-4893-a637-941684749c55",
-          name: "The Synozur Alliance LLC",
-          color: "hsl(277, 98%, 53%)",
-        },
-        {
-          id: "33c48024-917b-4045-a1ef-0542c2da57ca",
-          name: "TechStart Inc",
-          color: "hsl(328, 94%, 45%)",
-        },
-        {
-          id: "f689f005-63ff-40d8-ac04-79e476615c9b",
-          name: "Global Ventures",
-          color: "hsl(200, 75%, 45%)",
-        },
-      ]).onConflictDoNothing();
-
-      res.json({ 
-        success: true, 
-        message: "Tenants seeded successfully" 
-      });
+      const allTenants = await storage.getAllTenants();
+      res.json(allTenants);
     } catch (error) {
-      console.error("Error seeding tenants:", error);
-      res.status(500).json({ 
-        success: false,
-        error: "Failed to seed tenants",
-        message: error instanceof Error ? error.message : String(error)
-      });
+      console.error("Error fetching tenants:", error);
+      res.status(500).json({ error: "Failed to fetch tenants" });
+    }
+  });
+
+  app.get("/api/tenants/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const tenant = await storage.getTenantById(id);
+      
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      
+      res.json(tenant);
+    } catch (error) {
+      console.error("Error fetching tenant:", error);
+      res.status(500).json({ error: "Failed to fetch tenant" });
+    }
+  });
+
+  app.post("/api/tenants", async (req, res) => {
+    try {
+      const validatedData = insertTenantSchema.parse(req.body);
+      const tenant = await storage.createTenant(validatedData);
+      res.json(tenant);
+    } catch (error) {
+      console.error("Error creating tenant:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: error.errors 
+        });
+      }
+      res.status(500).json({ error: "Failed to create tenant" });
+    }
+  });
+
+  app.patch("/api/tenants/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const partialSchema = insertTenantSchema.partial();
+      const validatedData = partialSchema.parse(req.body);
+      
+      const tenant = await storage.updateTenant(id, validatedData);
+      res.json(tenant);
+    } catch (error) {
+      console.error("Error updating tenant:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: error.errors 
+        });
+      }
+      res.status(500).json({ error: "Failed to update tenant" });
+    }
+  });
+
+  app.delete("/api/tenants/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      await storage.deleteTenant(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting tenant:", error);
+      res.status(500).json({ error: "Failed to delete tenant" });
     }
   });
 
