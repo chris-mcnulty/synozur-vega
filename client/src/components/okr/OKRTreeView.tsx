@@ -30,6 +30,7 @@ interface Objective {
   title: string;
   description: string;
   level: string;
+  parentId?: string;
   progress: number;
   status: string;
   ownerEmail?: string;

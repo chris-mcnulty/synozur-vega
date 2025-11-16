@@ -22,7 +22,7 @@ import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
 import Foundations from "@/pages/Foundations";
 import Strategy from "@/pages/Strategy";
-import Planning from "@/pages/Planning";
+import PlanningEnhanced from "@/pages/PlanningEnhanced";
 import FocusRhythm from "@/pages/FocusRhythm";
 import TenantAdmin from "@/pages/TenantAdmin";
 import NotFound from "@/pages/not-found";
@@ -120,7 +120,7 @@ function Router() {
       <Route path="/planning">
         <ProtectedRoute>
           <ModuleLayout>
-            <Planning />
+            <PlanningEnhanced />
           </ModuleLayout>
         </ProtectedRoute>
       </Route>
