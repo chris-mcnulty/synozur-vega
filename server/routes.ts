@@ -18,6 +18,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // use storage to perform CRUD operations on the storage interface
   // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
 
+  // Admin endpoint to seed tenants (safe to call multiple times)
+  app.post("/api/admin/seed-tenants", async (req, res) => {
+    try {
+      const { db } = await import("./db");
+      const { tenants } = await import("@shared/schema");
+
+      await db.insert(tenants).values([
+        {
+          id: "f7229583-c9c9-4e80-88cf-5bbfd2819770",
+          name: "Acme Corporation",
+          color: "hsl(220, 85%, 38%)",
+        },
+        {
+          id: "f328cd4e-0fe1-4893-a637-941684749c55",
+          name: "The Synozur Alliance LLC",
+          color: "hsl(277, 98%, 53%)",
+        },
+        {
+          id: "33c48024-917b-4045-a1ef-0542c2da57ca",
+          name: "TechStart Inc",
+          color: "hsl(328, 94%, 45%)",
+        },
+        {
+          id: "f689f005-63ff-40d8-ac04-79e476615c9b",
+          name: "Global Ventures",
+          color: "hsl(200, 75%, 45%)",
+        },
+      ]).onConflictDoNothing();
+
+      res.json({ 
+        success: true, 
+        message: "Tenants seeded successfully" 
+      });
+    } catch (error) {
+      console.error("Error seeding tenants:", error);
+      res.status(500).json({ 
+        success: false,
+        error: "Failed to seed tenants",
+        message: error instanceof Error ? error.message : String(error)
+      });
+    }
+  });
+
   // Get foundation for a tenant
   app.get("/api/foundations/:tenantId", async (req, res) => {
     try {
