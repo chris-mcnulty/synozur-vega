@@ -187,3 +187,204 @@ export const insertMeetingSchema = createInsertSchema(meetings).omit({
 
 export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
 export type Meeting = typeof meetings.$inferSelect;
+
+// Enhanced OKRs tables
+export const objectives = pgTable("objectives", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  title: text("title").notNull(),
+  description: text("description"),
+  
+  // Hierarchical fields
+  parentId: varchar("parent_id"),
+  level: text("level").notNull(), // 'organization', 'team', 'individual'
+  
+  // Ownership and alignment
+  ownerId: varchar("owner_id").references(() => users.id),
+  ownerEmail: text("owner_email"),
+  teamId: varchar("team_id"),
+  coOwnerIds: jsonb("co_owner_ids").$type<string[]>(),
+  checkInOwnerId: varchar("check_in_owner_id").references(() => users.id),
+  
+  // Progress tracking
+  progress: integer("progress").default(0),
+  progressMode: text("progress_mode").default('rollup'), // 'rollup' or 'manual'
+  status: text("status").default('not_started'),
+  statusOverride: varchar("status_override").default('false'),
+  
+  // Time period
+  quarter: integer("quarter"),
+  year: integer("year"),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  
+  // Alignment and linking
+  linkedStrategies: jsonb("linked_strategies").$type<string[]>(),
+  linkedGoals: jsonb("linked_goals").$type<string[]>(),
+  
+  // Metadata
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  lastCheckInAt: timestamp("last_check_in_at"),
+  lastCheckInNote: text("last_check_in_note"),
+}, (table) => ({
+  uniqueTenantObjective: unique().on(table.tenantId, table.title, table.quarter, table.year),
+}));
+
+export const keyResults = pgTable("key_results", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  objectiveId: varchar("objective_id").notNull().references(() => objectives.id),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  
+  title: text("title").notNull(),
+  description: text("description"),
+  
+  // Metric tracking
+  metricType: text("metric_type").notNull(), // 'increase', 'decrease', 'maintain', 'complete'
+  currentValue: integer("current_value").default(0),
+  targetValue: integer("target_value").notNull(),
+  initialValue: integer("initial_value").default(0),
+  unit: text("unit"),
+  
+  // Progress and weight
+  progress: integer("progress").default(0),
+  weight: integer("weight").default(25),
+  
+  // KPI Promotion
+  isPromotedToKpi: varchar("is_promoted_to_kpi").default('false'),
+  promotedKpiId: varchar("promoted_kpi_id"),
+  promotedAt: timestamp("promoted_at"),
+  promotedBy: varchar("promoted_by").references(() => users.id),
+  
+  // Status
+  status: text("status").default('not_started'),
+  
+  // Ownership
+  ownerId: varchar("owner_id").references(() => users.id),
+  
+  // Metadata
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  lastCheckInAt: timestamp("last_check_in_at"),
+  lastCheckInNote: text("last_check_in_note"),
+});
+
+export const bigRocks = pgTable("big_rocks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  
+  title: text("title").notNull(),
+  description: text("description"),
+  
+  // Link to objectives or key results
+  objectiveId: varchar("objective_id").references(() => objectives.id),
+  keyResultId: varchar("key_result_id").references(() => keyResults.id),
+  
+  // Status and progress
+  status: text("status").default('not_started'),
+  completionPercentage: integer("completion_percentage").default(0),
+  
+  // Ownership
+  ownerId: varchar("owner_id").references(() => users.id),
+  ownerEmail: text("owner_email"),
+  teamId: varchar("team_id"),
+  
+  // Time period
+  quarter: integer("quarter"),
+  year: integer("year"),
+  startDate: timestamp("start_date"),
+  dueDate: timestamp("due_date"),
+  completedAt: timestamp("completed_at"),
+  
+  // Priority and dependencies
+  priority: text("priority"),
+  blockedBy: jsonb("blocked_by").$type<string[]>(),
+  
+  // Tasks breakdown
+  tasks: jsonb("tasks").$type<{id: string, title: string, completed: boolean}[]>(),
+  
+  // Metadata
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueTenantBigRock: unique().on(table.tenantId, table.title, table.quarter, table.year),
+}));
+
+export const checkIns = pgTable("check_ins", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  
+  // What is being checked in
+  entityType: text("entity_type").notNull(), // 'objective', 'key_result', 'big_rock'
+  entityId: varchar("entity_id").notNull(),
+  
+  // Progress update
+  previousValue: integer("previous_value"),
+  newValue: integer("new_value"),
+  previousProgress: integer("previous_progress"),
+  newProgress: integer("new_progress"),
+  
+  // Status update
+  previousStatus: text("previous_status"),
+  newStatus: text("new_status"),
+  statusManuallySet: varchar("status_manually_set").default('false'),
+  
+  // Context
+  note: text("note"),
+  achievements: jsonb("achievements").$type<string[]>(),
+  challenges: jsonb("challenges").$type<string[]>(),
+  nextSteps: jsonb("next_steps").$type<string[]>(),
+  
+  // Integration source
+  source: text("source").default('manual'),
+  integrationId: varchar("integration_id"),
+  
+  // User tracking
+  userId: varchar("user_id").notNull().references(() => users.id),
+  userEmail: text("user_email"),
+  
+  // Timestamp
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Export insert schemas and types for new tables
+export const insertObjectiveSchema = createInsertSchema(objectives).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertObjective = z.infer<typeof insertObjectiveSchema>;
+export type Objective = typeof objectives.$inferSelect;
+
+export const insertKeyResultSchema = createInsertSchema(keyResults).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertKeyResult = z.infer<typeof insertKeyResultSchema>;
+export type KeyResult = typeof keyResults.$inferSelect;
+
+export const insertBigRockSchema = createInsertSchema(bigRocks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertBigRock = z.infer<typeof insertBigRockSchema>;
+export type BigRock = typeof bigRocks.$inferSelect;
+
+export const insertCheckInSchema = createInsertSchema(checkIns).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertCheckIn = z.infer<typeof insertCheckInSchema>;
+export type CheckIn = typeof checkIns.$inferSelect;
