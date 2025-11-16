@@ -5,13 +5,15 @@ import { z } from "zod";
 
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  username: text("username").notNull().unique(),
+  email: text("email").notNull().unique(),
   password: text("password").notNull(),
+  name: text("name"),
+  role: text("role").notNull(),
+  tenantId: varchar("tenant_id").references(() => tenants.id),
 });
 
-export const insertUserSchema = createInsertSchema(users).pick({
-  username: true,
-  password: true,
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -22,6 +24,7 @@ export const tenants = pgTable("tenants", {
   name: text("name").notNull().unique(),
   color: text("color"),
   logoUrl: text("logo_url"),
+  allowedDomains: jsonb("allowed_domains").$type<string[]>(),
 });
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({

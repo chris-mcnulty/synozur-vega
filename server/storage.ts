@@ -14,8 +14,9 @@ import { hashPassword } from "./auth";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  getTenantByDomain(domain: string): Promise<Tenant | undefined>;
   
   getAllTenants(): Promise<Tenant[]>;
   getTenantById(id: string): Promise<Tenant | undefined>;
@@ -63,9 +64,17 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
     return user || undefined;
+  }
+
+  async getTenantByDomain(domain: string): Promise<Tenant | undefined> {
+    const allTenants = await db.select().from(tenants);
+    const tenant = allTenants.find(t => 
+      t.allowedDomains && Array.isArray(t.allowedDomains) && t.allowedDomains.includes(domain)
+    );
+    return tenant || undefined;
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {

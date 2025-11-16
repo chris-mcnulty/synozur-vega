@@ -1,31 +1,36 @@
 import { db } from "./db";
-import { tenants, foundations, strategies, okrs, kpis, rocks, meetings } from "@shared/schema";
+import { tenants, foundations, strategies, okrs, kpis, rocks, meetings, users } from "@shared/schema";
 import { eq } from "drizzle-orm";
+import { hashPassword } from "./auth";
 
 async function seed() {
   console.log("Seeding database...");
 
-  // Insert tenants with explicit IDs to match frontend
+  // Insert tenants with explicit IDs and allowed domains
   await db.insert(tenants).values([
     {
       id: "f7229583-c9c9-4e80-88cf-5bbfd2819770",
       name: "Acme Corporation",
-      color: "hsl(220, 85%, 38%)",
+      color: "#3B82F6",
+      allowedDomains: ["acme.com", "acme.org"],
     },
     {
       id: "f328cd4e-0fe1-4893-a637-941684749c55",
       name: "The Synozur Alliance LLC",
-      color: "hsl(277, 98%, 53%)",
+      color: "#810FFB",
+      allowedDomains: ["synozur.com", "synozuralliance.com"],
     },
     {
       id: "33c48024-917b-4045-a1ef-0542c2da57ca",
       name: "TechStart Inc",
-      color: "hsl(328, 94%, 45%)",
+      color: "#E60CB3",
+      allowedDomains: ["techstart.io", "techstart.com"],
     },
     {
       id: "f689f005-63ff-40d8-ac04-79e476615c9b",
       name: "Global Ventures",
-      color: "hsl(200, 75%, 45%)",
+      color: "#06B6D4",
+      allowedDomains: ["globalventures.com", "gv.com"],
     },
   ]).onConflictDoNothing();
 
@@ -33,7 +38,44 @@ async function seed() {
 
   // Use explicit Acme Corporation tenant ID
   const acmeTenantId = "f7229583-c9c9-4e80-88cf-5bbfd2819770";
+  const synozurTenantId = "f328cd4e-0fe1-4893-a637-941684749c55";
   console.log(`Using Acme Corporation tenant ID: ${acmeTenantId}`);
+
+  // Create demo users for each tenant
+  const demoPassword = "demo123"; // Simple password for demo purposes
+  
+  await db.insert(users).values([
+    {
+      email: "demo@acme.com",
+      password: await hashPassword(demoPassword),
+      name: "Demo User",
+      role: "tenant_user",
+      tenantId: acmeTenantId,
+    },
+    {
+      email: "admin@acme.com",
+      password: await hashPassword("admin123"),
+      name: "Acme Admin",
+      role: "tenant_admin",
+      tenantId: acmeTenantId,
+    },
+    {
+      email: "consultant@synozur.com",
+      password: await hashPassword("consultant123"),
+      name: "Synozur Consultant",
+      role: "vega_consultant",
+      tenantId: synozurTenantId,
+    },
+    {
+      email: "superadmin@vega.com",
+      password: await hashPassword("vega123"),
+      name: "Vega Administrator",
+      role: "vega_admin",
+      tenantId: null,
+    },
+  ]).onConflictDoNothing();
+
+  console.log("✓ Seeded users");
 
   // Insert Foundation
   await db.insert(foundations).values({
@@ -306,15 +348,8 @@ async function seed() {
 
   console.log("✓ Seeded meetings");
 
-  // Get The Synozur Alliance LLC tenant ID and seed the same data
-  const [synozurTenant] = await db.select().from(tenants).where(eq(tenants.name, "The Synozur Alliance LLC"));
-  
-  if (!synozurTenant) {
-    throw new Error("The Synozur Alliance LLC tenant not found");
-  }
-
-  const synozurTenantId = synozurTenant.id;
-  console.log(`Found The Synozur Alliance LLC tenant with ID: ${synozurTenantId}`);
+  // Use The Synozur Alliance LLC tenant ID to seed data
+  console.log(`Using The Synozur Alliance LLC tenant ID: ${synozurTenantId}`);
 
   // Insert Foundation for Synozur
   await db.insert(foundations).values({

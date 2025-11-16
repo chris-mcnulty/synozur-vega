@@ -1,6 +1,7 @@
-import type { Express } from "express";
+import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { verifyPassword } from "./auth";
 import { z } from "zod";
 import { 
   insertTenantSchema,
@@ -9,15 +10,141 @@ import {
   insertOkrSchema,
   insertKpiSchema,
   insertRockSchema,
-  insertMeetingSchema
+  insertMeetingSchema,
+  insertUserSchema
 } from "@shared/schema";
 
-export async function registerRoutes(app: Express): Promise<Server> {
-  // put application routes here
-  // prefix all routes with /api
+// Authentication middleware
+function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+  next();
+}
 
-  // use storage to perform CRUD operations on the storage interface
-  // e.g. storage.insertUser(user) or storage.getUserByUsername(username)
+export async function registerRoutes(app: Express): Promise<Server> {
+  // Authentication routes
+  app.post("/api/auth/login", async (req, res) => {
+    try {
+      const { email, password, isDemo } = req.body;
+
+      // Demo login handling
+      if (isDemo) {
+        const demoPassword = process.env.VITE_DEMO_PASSWORD;
+        if (password === demoPassword) {
+          // Get Acme tenant and demo user
+          const acmeTenant = (await storage.getAllTenants()).find(t => t.name === "Acme Corporation");
+          if (!acmeTenant) {
+            return res.status(500).json({ error: "Acme tenant not found" });
+          }
+
+          const demoUser = await storage.getUserByEmail("demo@acme.com");
+          if (!demoUser) {
+            return res.status(500).json({ error: "Demo user not found" });
+          }
+
+          req.session.userId = demoUser.id;
+          return res.json({ user: demoUser });
+        } else {
+          return res.status(401).json({ error: "Invalid demo password" });
+        }
+      }
+
+      // Regular email/password login
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password required" });
+      }
+
+      const user = await storage.getUserByEmail(email);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      const isValid = await verifyPassword(password, user.password);
+      if (!isValid) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      req.session.userId = user.id;
+      res.json({ user });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  app.post("/api/auth/signup", async (req, res) => {
+    try {
+      const { email, password, name } = req.body;
+
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password required" });
+      }
+
+      // Extract domain from email
+      const domain = email.split('@')[1];
+      if (!domain) {
+        return res.status(400).json({ error: "Invalid email format" });
+      }
+
+      // Find tenant by domain
+      const tenant = await storage.getTenantByDomain(domain);
+      if (!tenant) {
+        return res.status(403).json({ 
+          error: `No organization found for domain ${domain}. Contact your administrator.` 
+        });
+      }
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(409).json({ error: "User already exists" });
+      }
+
+      // Create user with "tenant_user" role by default
+      const user = await storage.createUser({
+        email,
+        password,
+        name: name || email.split('@')[0],
+        role: "tenant_user",
+        tenantId: tenant.id,
+      });
+
+      req.session.userId = user.id;
+      res.json({ user });
+    } catch (error) {
+      console.error("Signup error:", error);
+      res.status(500).json({ error: "Signup failed" });
+    }
+  });
+
+  app.get("/api/auth/me", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user) {
+        req.session.userId = undefined;
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      res.json({ user });
+    } catch (error) {
+      console.error("Get current user error:", error);
+      res.status(500).json({ error: "Failed to get current user" });
+    }
+  });
+
+  app.post("/api/auth/logout", (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Logout failed" });
+      }
+      res.json({ message: "Logged out successfully" });
+    });
+  });
 
   // Tenant CRUD endpoints
   app.get("/api/tenants", async (req, res) => {
