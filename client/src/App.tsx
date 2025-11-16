@@ -12,10 +12,12 @@ import { AIChatPanel } from "@/components/AIChatPanel";
 import { ConsultingModeToggle } from "@/components/ConsultingModeToggle";
 import { SynozurLogo } from "@/components/SynozurLogo";
 import { TenantProvider } from "@/contexts/TenantContext";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Sparkles } from "lucide-react";
 import { useState } from "react";
+import { useLocation } from "wouter";
 
-import Landing from "@/pages/Landing";
+import Login from "@/pages/Login";
 import Dashboard from "@/pages/Dashboard";
 import Foundations from "@/pages/Foundations";
 import Strategy from "@/pages/Strategy";
@@ -23,6 +25,30 @@ import Planning from "@/pages/Planning";
 import FocusRhythm from "@/pages/FocusRhythm";
 import TenantAdmin from "@/pages/TenantAdmin";
 import NotFound from "@/pages/not-found";
+
+// Protected route wrapper
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+  const [, setLocation] = useLocation();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    setLocation("/login");
+    return null;
+  }
+
+  return <>{children}</>;
+}
 
 function ModuleLayout({ children }: { children: React.ReactNode }) {
   const [chatOpen, setChatOpen] = useState(false);
@@ -67,36 +93,49 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Landing} />
+      <Route path="/" component={Login} />
+      <Route path="/login" component={Login} />
       <Route path="/dashboard">
-        <ModuleLayout>
-          <Dashboard />
-        </ModuleLayout>
+        <ProtectedRoute>
+          <ModuleLayout>
+            <Dashboard />
+          </ModuleLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/foundations">
-        <ModuleLayout>
-          <Foundations />
-        </ModuleLayout>
+        <ProtectedRoute>
+          <ModuleLayout>
+            <Foundations />
+          </ModuleLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/strategy">
-        <ModuleLayout>
-          <Strategy />
-        </ModuleLayout>
+        <ProtectedRoute>
+          <ModuleLayout>
+            <Strategy />
+          </ModuleLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/planning">
-        <ModuleLayout>
-          <Planning />
-        </ModuleLayout>
+        <ProtectedRoute>
+          <ModuleLayout>
+            <Planning />
+          </ModuleLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/focus-rhythm">
-        <ModuleLayout>
-          <FocusRhythm />
-        </ModuleLayout>
+        <ProtectedRoute>
+          <ModuleLayout>
+            <FocusRhythm />
+          </ModuleLayout>
+        </ProtectedRoute>
       </Route>
       <Route path="/tenant-admin">
-        <ModuleLayout>
-          <TenantAdmin />
-        </ModuleLayout>
+        <ProtectedRoute>
+          <ModuleLayout>
+            <TenantAdmin />
+          </ModuleLayout>
+        </ProtectedRoute>
       </Route>
       <Route component={NotFound} />
     </Switch>
@@ -112,14 +151,16 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <TenantProvider>
-          <TooltipProvider>
-            <SidebarProvider style={style as React.CSSProperties}>
-              <Router />
-            </SidebarProvider>
-            <Toaster />
-          </TooltipProvider>
-        </TenantProvider>
+        <AuthProvider>
+          <TenantProvider>
+            <TooltipProvider>
+              <SidebarProvider style={style as React.CSSProperties}>
+                <Router />
+              </SidebarProvider>
+              <Toaster />
+            </TooltipProvider>
+          </TenantProvider>
+        </AuthProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );
