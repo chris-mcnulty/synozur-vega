@@ -47,7 +47,10 @@ Preferred communication style: Simple, everyday language.
 - Strategy module for strategic priorities with AI drafting
 - Planning module for OKRs, KPIs, and quarterly rocks
 - Focus Rhythm module for meeting management and summaries
-- Tenant Admin for M365 service integration management
+- Tenant Admin for organization management and M365 service integration
+  - Organizations Section: Complete tenant CRUD with dialogs for create/edit
+  - M365 Service Connections: Mock integration status for Excel, Outlook, Planner
+  - Visual tenant cards with avatar, name, and action buttons
 
 ### Backend Architecture
 
@@ -64,10 +67,12 @@ Preferred communication style: Simple, everyday language.
 - Separate build processes for client (Vite) and server (esbuild)
 
 **API Design Pattern**:
-- Storage interface (IStorage) defines CRUD operations
-- Current implementation uses MemStorage for development
-- Prepared for database integration via storage interface abstraction
-- User management with UUID-based IDs and username/password fields
+- Storage interface (IStorage) defines CRUD operations for all entities
+- DatabaseStorage implementation for PostgreSQL persistence
+- RESTful endpoints for all resources (users, tenants, foundations, strategies, OKRs, KPIs, rocks, meetings)
+- Tenant endpoints: GET /api/tenants, POST /api/tenants, PATCH /api/tenants/:id, DELETE /api/tenants/:id
+- UUID-based primary keys for all entities
+- Request validation using Zod schemas from drizzle-zod
 
 ### Data Storage Solutions
 
@@ -116,17 +121,23 @@ Preferred communication style: Simple, everyday language.
 
 **Multi-Tenant System**:
 - TenantContext provides global tenant state management via React Context
-- TenantSwitcher component allows switching between organizations
-- Available tenants:
-  - Acme Corporation (f7229583-c9c9-4e80-88cf-5bbfd2819770) - Blue
-  - The Synozur Alliance LLC (f328cd4e-0fe1-4893-a637-941684749c55) - Purple  
-  - TechStart Inc (33c48024-917b-4045-a1ef-0542c2da57ca) - Pink
-  - Global Ventures (f689f005-63ff-40d8-ac04-79e476615c9b) - Light Blue
-- Each tenant has unique color for visual identification
+- TenantSwitcher component dynamically fetches tenants from API and allows switching
+- Full tenant CRUD operations available in Tenant Admin module:
+  - Create: Add new organizations with custom name and brand color
+  - Read: View all organizations with visual identification
+  - Update: Edit organization name and brand color
+  - Delete: Remove organizations with confirmation prompt
+- Seeded demo tenants:
+  - Acme Corporation - Blue
+  - The Synozur Alliance LLC - Purple  
+  - TechStart Inc - Pink
+  - Global Ventures - Light Blue
+- Each tenant has unique color for visual identification (HSL format support)
 - Tenant selection persisted to localStorage across sessions
 - All pages (Foundations, Strategy, Planning, FocusRhythm) use useTenant() hook
 - Data completely isolated per tenant - foundations, strategies, OKRs, KPIs, rocks, meetings all scoped by tenant ID
-- Switching tenants triggers automatic data refresh via React Query
+- Switching tenants triggers automatic data refresh via React Query cache invalidation
+- New tenants start with empty organizational data (no foundations, strategies, etc.)
 
 ### External Dependencies
 
