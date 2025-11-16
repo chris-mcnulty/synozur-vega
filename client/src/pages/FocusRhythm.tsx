@@ -373,11 +373,11 @@ export default function FocusRhythm() {
               Schedule Meeting
             </Button>
           </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Schedule New Meeting</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Schedule New Meeting</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
                 <div>
                   <Label htmlFor="title">Meeting Title *</Label>
                   <Input
@@ -551,7 +551,6 @@ export default function FocusRhythm() {
               </DialogFooter>
             </DialogContent>
           </Dialog>
-        </div>
 
         <Tabs value={selectedType} onValueChange={setSelectedType} className="space-y-6">
           <TabsList>
