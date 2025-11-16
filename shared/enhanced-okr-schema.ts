@@ -2,6 +2,7 @@ import { sql } from "drizzle-orm";
 import { pgTable, text, varchar, integer, timestamp, jsonb, numeric, boolean, unique, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { tenants, users } from "./schema";
 
 // Enhanced OKRs table with hierarchical support
 export const objectives = pgTable("objectives", {
