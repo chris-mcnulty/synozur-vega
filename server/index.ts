@@ -79,12 +79,33 @@ app.use((req, res, next) => {
 (async () => {
   const server = await registerRoutes(app);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
+    
+    console.error("Error:", err);
+    
+    // For API routes, return JSON error
+    if (req.path.startsWith('/api')) {
+      return res.status(status).json({ 
+        error: message,
+        status: status 
+      });
+    }
+    
+    // For other routes, return HTML error page
+    return res.status(status).send(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Error ${status}</title>
+        </head>
+        <body>
+          <h1>Error ${status}</h1>
+          <p>${message}</p>
+        </body>
+      </html>
+    `);
   });
 
   // importantly only setup vite in development and after
