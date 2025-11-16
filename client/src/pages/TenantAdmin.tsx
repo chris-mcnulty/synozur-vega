@@ -10,6 +10,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CheckCircle2, AlertCircle, Calendar, FileSpreadsheet, Mail, Plus, Pencil, Trash2, Building2 } from "lucide-react";
@@ -53,6 +60,17 @@ const permissions = [
   { id: "create-meetings", label: "Create Meetings", enabled: true },
 ];
 
+const standardColors = [
+  { name: "Blue", value: "#3B82F6" },
+  { name: "Purple", value: "#A855F7" },
+  { name: "Pink", value: "#EC4899" },
+  { name: "Green", value: "#10B981" },
+  { name: "Orange", value: "#F97316" },
+  { name: "Red", value: "#EF4444" },
+  { name: "Teal", value: "#14B8A6" },
+  { name: "Indigo", value: "#6366F1" },
+];
+
 export default function TenantAdmin() {
   const { toast } = useToast();
   const [permissionStates, setPermissionStates] = useState(
@@ -62,7 +80,8 @@ export default function TenantAdmin() {
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [tenantFormData, setTenantFormData] = useState({
     name: "",
-    color: "hsl(220, 85%, 38%)",
+    color: "#3B82F6",
+    logoUrl: "",
   });
 
   const { data: tenants = [], isLoading: tenantsLoading } = useQuery<Tenant[]>({
@@ -70,12 +89,12 @@ export default function TenantAdmin() {
   });
 
   const createTenantMutation = useMutation({
-    mutationFn: (data: { name: string; color: string }) =>
+    mutationFn: (data: { name: string; color: string; logoUrl?: string }) =>
       apiRequest("POST", "/api/tenants", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tenants"] });
       setTenantDialogOpen(false);
-      setTenantFormData({ name: "", color: "hsl(220, 85%, 38%)" });
+      setTenantFormData({ name: "", color: "#3B82F6", logoUrl: "" });
       toast({ title: "Organization created successfully" });
     },
     onError: () => {
@@ -87,13 +106,13 @@ export default function TenantAdmin() {
   });
 
   const updateTenantMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name?: string; color?: string } }) =>
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; color?: string; logoUrl?: string } }) =>
       apiRequest("PATCH", `/api/tenants/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tenants"] });
       setTenantDialogOpen(false);
       setEditingTenant(null);
-      setTenantFormData({ name: "", color: "hsl(220, 85%, 38%)" });
+      setTenantFormData({ name: "", color: "#3B82F6", logoUrl: "" });
       toast({ title: "Organization updated successfully" });
     },
     onError: () => {
@@ -120,7 +139,7 @@ export default function TenantAdmin() {
 
   const handleOpenCreateDialog = () => {
     setEditingTenant(null);
-    setTenantFormData({ name: "", color: "hsl(220, 85%, 38%)" });
+    setTenantFormData({ name: "", color: "#3B82F6", logoUrl: "" });
     setTenantDialogOpen(true);
   };
 
@@ -128,7 +147,8 @@ export default function TenantAdmin() {
     setEditingTenant(tenant);
     setTenantFormData({
       name: tenant.name,
-      color: tenant.color || "hsl(220, 85%, 38%)",
+      color: tenant.color || "#3B82F6",
+      logoUrl: tenant.logoUrl || "",
     });
     setTenantDialogOpen(true);
   };
@@ -178,12 +198,20 @@ export default function TenantAdmin() {
                   <CardHeader>
                     <div className="flex items-start justify-between">
                       <div className="flex items-center gap-3">
-                        <div 
-                          className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold"
-                          style={{ backgroundColor: tenant.color || "hsl(220, 85%, 38%)" }}
-                        >
-                          {tenant.name.substring(0, 2).toUpperCase()}
-                        </div>
+                        {tenant.logoUrl ? (
+                          <img 
+                            src={tenant.logoUrl} 
+                            alt={`${tenant.name} logo`}
+                            className="w-10 h-10 rounded-lg object-cover"
+                          />
+                        ) : (
+                          <div 
+                            className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold"
+                            style={{ backgroundColor: tenant.color || "#3B82F6" }}
+                          >
+                            {tenant.name.substring(0, 2).toUpperCase()}
+                          </div>
+                        )}
                         <CardTitle className="text-lg">{tenant.name}</CardTitle>
                       </div>
                     </div>
@@ -358,13 +386,49 @@ export default function TenantAdmin() {
                 data-testid="input-tenant-name"
               />
             </div>
+            
             <div className="space-y-2">
-              <Label htmlFor="color">Brand Color</Label>
+              <Label htmlFor="color-preset">Brand Color</Label>
+              <Select
+                value={tenantFormData.color}
+                onValueChange={(value) =>
+                  setTenantFormData({ ...tenantFormData, color: value })
+                }
+              >
+                <SelectTrigger data-testid="select-tenant-color">
+                  <SelectValue placeholder="Select a color">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-4 h-4 rounded"
+                        style={{ backgroundColor: tenantFormData.color }}
+                      />
+                      {standardColors.find(c => c.value === tenantFormData.color)?.name || "Custom"}
+                    </div>
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {standardColors.map((color) => (
+                    <SelectItem key={color.value} value={color.value}>
+                      <div className="flex items-center gap-2">
+                        <div
+                          className="w-4 h-4 rounded"
+                          style={{ backgroundColor: color.value }}
+                        />
+                        {color.name}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="color">Custom Hex Color (Optional)</Label>
               <div className="flex gap-2">
                 <Input
                   id="color"
                   type="text"
-                  placeholder="hsl(220, 85%, 38%)"
+                  placeholder="#3B82F6"
                   value={tenantFormData.color}
                   onChange={(e) =>
                     setTenantFormData({ ...tenantFormData, color: e.target.value })
@@ -377,7 +441,24 @@ export default function TenantAdmin() {
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                Use HSL format: hsl(hue, saturation%, lightness%)
+                Use hex format: #3B82F6 or select from presets above
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="logoUrl">Logo URL (Optional)</Label>
+              <Input
+                id="logoUrl"
+                type="url"
+                placeholder="https://example.com/logo.png"
+                value={tenantFormData.logoUrl}
+                onChange={(e) =>
+                  setTenantFormData({ ...tenantFormData, logoUrl: e.target.value })
+                }
+                data-testid="input-tenant-logo"
+              />
+              <p className="text-xs text-muted-foreground">
+                Enter a URL to your organization's logo image
               </p>
             </div>
           </div>

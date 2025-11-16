@@ -5,6 +5,7 @@ export type Tenant = {
   id: string;
   name: string;
   color: string | null;
+  logoUrl?: string | null;
 };
 
 type TenantContextType = {
@@ -17,7 +18,7 @@ type TenantContextType = {
 const DEFAULT_TENANT: Tenant = {
   id: "f328cd4e-0fe1-4893-a637-941684749c55",
   name: "The Synozur Alliance LLC",
-  color: "hsl(277, 98%, 53%)",
+  color: "#A855F7",
 };
 
 const TenantContext = createContext<TenantContextType | undefined>(undefined);

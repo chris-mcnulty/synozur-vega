@@ -14,7 +14,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useTenant } from "@/contexts/TenantContext";
 
 export function TenantSwitcher() {
@@ -33,9 +33,10 @@ export function TenantSwitcher() {
         >
           <div className="flex items-center gap-2">
             <Avatar className="h-5 w-5">
+              {currentTenant.logoUrl && <AvatarImage src={currentTenant.logoUrl} alt={currentTenant.name} />}
               <AvatarFallback
                 className="text-xs"
-                style={{ backgroundColor: currentTenant.color || "hsl(220, 85%, 38%)" }}
+                style={{ backgroundColor: currentTenant.color || "#3B82F6" }}
               >
                 {currentTenant.name.substring(0, 2).toUpperCase()}
               </AvatarFallback>
@@ -63,9 +64,10 @@ export function TenantSwitcher() {
                 >
                   <div className="flex items-center gap-2 flex-1">
                     <Avatar className="h-5 w-5">
+                      {tenant.logoUrl && <AvatarImage src={tenant.logoUrl} alt={tenant.name} />}
                       <AvatarFallback
                         className="text-xs"
-                        style={{ backgroundColor: tenant.color || "hsl(220, 85%, 38%)" }}
+                        style={{ backgroundColor: tenant.color || "#3B82F6" }}
                       >
                         {tenant.name.substring(0, 2).toUpperCase()}
                       </AvatarFallback>

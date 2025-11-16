@@ -21,6 +21,7 @@ export const tenants = pgTable("tenants", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull().unique(),
   color: text("color"),
+  logoUrl: text("logo_url"),
 });
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({
