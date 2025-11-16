@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { z } from "zod";
 import { 
   insertFoundationSchema,
   insertStrategySchema,
@@ -42,7 +43,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(foundation);
     } catch (error) {
       console.error("Error upserting foundation:", error);
-      res.status(400).json({ error: "Failed to save foundation" });
+      if (error instanceof z.ZodError) {
+        console.error("Validation errors:", JSON.stringify(error.errors, null, 2));
+        return res.status(400).json({ 
+          error: "Validation failed", 
+          details: error.errors 
+        });
+      }
+      res.status(500).json({ 
+        error: "Failed to save foundation",
+        message: error instanceof Error ? error.message : String(error)
+      });
     }
   });
 
