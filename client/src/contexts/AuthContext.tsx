@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react";
 import type { User } from "@shared/schema";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient, apiRequest, getQueryFn } from "@/lib/queryClient";
 
 interface AuthContextType {
   user: User | null;
@@ -18,16 +18,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
 
   // Fetch current user on mount
-  const { data, isLoading } = useQuery<{ user: User }>({
+  // Use returnNull on 401 to avoid throwing errors when not authenticated
+  const { data, isLoading } = useQuery<{ user: User } | null>({
     queryKey: ["/api/auth/me"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
     retry: false,
   });
 
   useEffect(() => {
-    if (data?.user) {
-      setUser(data.user);
+    // Only update user state when we're not loading
+    if (!isLoading) {
+      if (data?.user) {
+        setUser(data.user);
+      } else {
+        // Clear user if query completed but no user data
+        setUser(null);
+      }
     }
-  }, [data]);
+  }, [data, isLoading]);
 
   const loginMutation = useMutation({
     mutationFn: (credentials: { email: string; password: string; isDemo?: boolean }) =>

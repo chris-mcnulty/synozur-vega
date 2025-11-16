@@ -4,6 +4,7 @@ import connectPgSimple from "connect-pg-simple";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { pool } from "./db";
+import { initializeDatabase } from "./init";
 
 const app = express();
 const PgStore = connectPgSimple(session);
@@ -77,6 +78,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Initialize database with seed data if empty (for production deployments)
+  await initializeDatabase();
+
   const server = await registerRoutes(app);
 
   app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
