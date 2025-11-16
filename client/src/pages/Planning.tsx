@@ -36,9 +36,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Okr, Kpi, Rock } from "@shared/schema";
 import { useTenant } from "@/contexts/TenantContext";
-
-const CURRENT_QUARTER = 1;
-const CURRENT_YEAR = 2025;
+import { getCurrentQuarter } from "@/lib/quarters";
 
 const availableGoals = [
   "Increase revenue by 30%",
@@ -66,8 +64,11 @@ export default function Planning() {
   const { toast } = useToast();
   const { currentTenant } = useTenant();
   const [selectedTab, setSelectedTab] = useState("okrs");
-  const [quarter, setQuarter] = useState(CURRENT_QUARTER);
-  const [year, setYear] = useState(CURRENT_YEAR);
+  
+  // Get current quarter dynamically
+  const currentPeriod = getCurrentQuarter();
+  const [quarter, setQuarter] = useState(currentPeriod.quarter);
+  const [year, setYear] = useState(currentPeriod.year);
 
   const { data: okrs = [], isLoading: loadingOkrs } = useQuery<Okr[]>({
     queryKey: [`/api/okrs/${currentTenant.id}`, { quarter, year }],

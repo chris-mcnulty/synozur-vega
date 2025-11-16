@@ -28,6 +28,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Meeting } from "@shared/schema";
 import { useTenant } from "@/contexts/TenantContext";
 import { format } from "date-fns";
+import { getCurrentQuarter, getQuarterDateRange } from "@/lib/quarters";
 
 const meetingTypes = [
   { value: "weekly", label: "Weekly" },
@@ -52,6 +53,12 @@ export default function FocusRhythm() {
   const { toast } = useToast();
   const { currentTenant } = useTenant();
   const [selectedType, setSelectedType] = useState<string>("all");
+  
+  // Get current quarter dynamically
+  const currentPeriod = getCurrentQuarter();
+  const [quarter, setQuarter] = useState(currentPeriod.quarter);
+  const [year, setYear] = useState(currentPeriod.year);
+  
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -288,9 +295,17 @@ export default function FocusRhythm() {
     }
   };
 
+  // Filter meetings by quarter date range
+  const quarterRange = getQuarterDateRange(quarter, year);
+  const meetingsInQuarter = meetings.filter(meeting => {
+    if (!meeting.date) return false;
+    const meetingDate = new Date(meeting.date);
+    return meetingDate >= quarterRange.start && meetingDate <= quarterRange.end;
+  });
+
   const filteredMeetings = selectedType === "all"
-    ? meetings
-    : meetings.filter(m => m.meetingType === selectedType);
+    ? meetingsInQuarter
+    : meetingsInQuarter.filter(m => m.meetingType === selectedType);
 
   const groupedMeetings = {
     all: meetings,
@@ -323,16 +338,41 @@ export default function FocusRhythm() {
           <div>
             <h1 className="text-3xl font-bold">Focus Rhythm</h1>
             <p className="text-muted-foreground mt-1">
-              Manage your organizational meeting cadence and outcomes
+              Meetings for Q{quarter} {year}
             </p>
           </div>
-          <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button data-testid="button-add-meeting">
-                <Plus className="w-4 h-4 mr-2" />
-                Schedule Meeting
-              </Button>
-            </DialogTrigger>
+          <div className="flex gap-2 items-center">
+            <Select value={quarter.toString()} onValueChange={(v) => setQuarter(parseInt(v))}>
+              <SelectTrigger className="w-32" data-testid="select-quarter">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Q1</SelectItem>
+                <SelectItem value="2">Q2</SelectItem>
+                <SelectItem value="3">Q3</SelectItem>
+                <SelectItem value="4">Q4</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={year.toString()} onValueChange={(v) => setYear(parseInt(v))}>
+              <SelectTrigger className="w-32" data-testid="select-year">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="2024">2024</SelectItem>
+                <SelectItem value="2025">2025</SelectItem>
+                <SelectItem value="2026">2026</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+          <DialogTrigger asChild>
+            <Button data-testid="button-add-meeting">
+              <Plus className="w-4 h-4 mr-2" />
+              Schedule Meeting
+            </Button>
+          </DialogTrigger>
             <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Schedule New Meeting</DialogTitle>
