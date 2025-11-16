@@ -26,9 +26,8 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Meeting } from "@shared/schema";
+import { useTenant } from "@/contexts/TenantContext";
 import { format } from "date-fns";
-
-const CURRENT_TENANT_ID = "f7229583-c9c9-4e80-88cf-5bbfd2819770";
 
 const meetingTypes = [
   { value: "weekly", label: "Weekly" },
@@ -51,6 +50,7 @@ interface MeetingFormData {
 
 export default function FocusRhythm() {
   const { toast } = useToast();
+  const { currentTenant } = useTenant();
   const [selectedType, setSelectedType] = useState<string>("all");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -69,13 +69,13 @@ export default function FocusRhythm() {
   });
 
   const { data: meetings = [], isLoading } = useQuery<Meeting[]>({
-    queryKey: [`/api/meetings/${CURRENT_TENANT_ID}`],
+    queryKey: [`/api/meetings/${currentTenant.id}`],
   });
 
   const createMutation = useMutation({
     mutationFn: async (data: MeetingFormData) => {
       return apiRequest("POST", "/api/meetings", {
-        tenantId: CURRENT_TENANT_ID,
+        tenantId: currentTenant.id,
         ...data,
         date: data.date ? new Date(data.date).toISOString() : null,
         nextMeetingDate: data.nextMeetingDate ? new Date(data.nextMeetingDate).toISOString() : null,
@@ -83,7 +83,7 @@ export default function FocusRhythm() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${CURRENT_TENANT_ID}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant.id}`] });
       setCreateDialogOpen(false);
       resetForm();
       toast({
@@ -110,7 +110,7 @@ export default function FocusRhythm() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${CURRENT_TENANT_ID}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant.id}`] });
       setEditDialogOpen(false);
       setSelectedMeeting(null);
       toast({
@@ -132,7 +132,7 @@ export default function FocusRhythm() {
       return apiRequest("DELETE", `/api/meetings/${id}`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${CURRENT_TENANT_ID}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant.id}`] });
       setDeleteDialogOpen(false);
       setSelectedMeeting(null);
       toast({

@@ -10,10 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Eye, Edit, X, Plus, Save, Trash2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useTenant } from "@/contexts/TenantContext";
 import type { Foundation } from "@shared/schema";
-
-// Hardcoded tenant ID for Acme Corporation (in production, this would come from context)
-const CURRENT_TENANT_ID = "f7229583-c9c9-4e80-88cf-5bbfd2819770";
 
 // Suggested options for quick selection
 const missionSuggestions = [
@@ -56,6 +54,7 @@ const goalSuggestions = [
 
 export default function Foundations() {
   const { toast } = useToast();
+  const { currentTenant } = useTenant();
   const [customMission, setCustomMission] = useState("");
   const [customVision, setCustomVision] = useState("");
   const [customValue, setCustomValue] = useState("");
@@ -68,25 +67,36 @@ export default function Foundations() {
 
   // Fetch foundation data
   const { data: foundation, isLoading } = useQuery<Foundation>({
-    queryKey: [`/api/foundations/${CURRENT_TENANT_ID}`],
+    queryKey: [`/api/foundations/${currentTenant.id}`],
     retry: false,
   });
 
-  // Initialize state from database
+  // Initialize state from database or reset when tenant changes
   useEffect(() => {
     if (foundation) {
       setMission(foundation.mission || "");
       setVision(foundation.vision || "");
       setValues(foundation.values || []);
       setGoals(foundation.annualGoals || []);
+    } else {
+      // Reset to empty state when no foundation exists for this tenant
+      setMission("");
+      setVision("");
+      setValues([]);
+      setGoals([]);
     }
-  }, [foundation]);
+    // Clear custom input fields when tenant changes
+    setCustomMission("");
+    setCustomVision("");
+    setCustomValue("");
+    setCustomGoal("");
+  }, [foundation, currentTenant.id]);
 
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: async () => {
       return apiRequest("POST", "/api/foundations", {
-        tenantId: CURRENT_TENANT_ID,
+        tenantId: currentTenant.id,
         mission,
         vision,
         values,
@@ -96,7 +106,7 @@ export default function Foundations() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/foundations/${CURRENT_TENANT_ID}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/foundations/${currentTenant.id}`] });
       toast({
         title: "Changes Saved",
         description: "Your foundation elements have been updated successfully",

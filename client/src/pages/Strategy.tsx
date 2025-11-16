@@ -25,9 +25,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { useTenant } from "@/contexts/TenantContext";
 import type { Strategy } from "@shared/schema";
-
-const CURRENT_TENANT_ID = "f7229583-c9c9-4e80-88cf-5bbfd2819770";
 
 const availableGoals = [
   "Increase revenue by 30%",
@@ -67,6 +66,7 @@ interface StrategyFormData {
 
 export default function Strategy() {
   const { toast } = useToast();
+  const { currentTenant } = useTenant();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -85,19 +85,19 @@ export default function Strategy() {
   });
 
   const { data: strategies = [], isLoading } = useQuery<Strategy[]>({
-    queryKey: [`/api/strategies/${CURRENT_TENANT_ID}`],
+    queryKey: [`/api/strategies/${currentTenant.id}`],
   });
 
   const createMutation = useMutation({
     mutationFn: async (data: StrategyFormData) => {
       return apiRequest("POST", "/api/strategies", {
-        tenantId: CURRENT_TENANT_ID,
+        tenantId: currentTenant.id,
         ...data,
         updatedBy: "Current User",
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/strategies/${CURRENT_TENANT_ID}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/strategies/${currentTenant.id}`] });
       setCreateDialogOpen(false);
       resetForm();
       toast({
@@ -122,7 +122,7 @@ export default function Strategy() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/strategies/${CURRENT_TENANT_ID}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/strategies/${currentTenant.id}`] });
       setEditDialogOpen(false);
       setSelectedStrategy(null);
       toast({
@@ -144,7 +144,7 @@ export default function Strategy() {
       return apiRequest("DELETE", `/api/strategies/${id}`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/strategies/${CURRENT_TENANT_ID}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/strategies/${currentTenant.id}`] });
       setDeleteDialogOpen(false);
       setSelectedStrategy(null);
       toast({

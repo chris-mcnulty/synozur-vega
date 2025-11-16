@@ -115,10 +115,18 @@ Preferred communication style: Simple, everyday language.
 - Multi-tenant support through TenantSwitcher component
 
 **Multi-Tenant System**:
+- TenantContext provides global tenant state management via React Context
 - TenantSwitcher component allows switching between organizations
-- Available tenants: Acme Corporation (default), The Synozur Alliance LLC, TechStart Inc, Global Ventures
-- Each tenant has a unique color for visual identification
-- Tenant selection stored in component state (future: persist in user profile)
+- Available tenants:
+  - Acme Corporation (f7229583-c9c9-4e80-88cf-5bbfd2819770) - Blue
+  - The Synozur Alliance LLC (f328cd4e-0fe1-4893-a637-941684749c55) - Purple  
+  - TechStart Inc (33c48024-917b-4045-a1ef-0542c2da57ca) - Pink
+  - Global Ventures (f689f005-63ff-40d8-ac04-79e476615c9b) - Light Blue
+- Each tenant has unique color for visual identification
+- Tenant selection persisted to localStorage across sessions
+- All pages (Foundations, Strategy, Planning, FocusRhythm) use useTenant() hook
+- Data completely isolated per tenant - foundations, strategies, OKRs, KPIs, rocks, meetings all scoped by tenant ID
+- Switching tenants triggers automatic data refresh via React Query
 
 ### External Dependencies
 

@@ -11,6 +11,7 @@ import { TenantSwitcher } from "@/components/TenantSwitcher";
 import { AIChatPanel } from "@/components/AIChatPanel";
 import { ConsultingModeToggle } from "@/components/ConsultingModeToggle";
 import { SynozurLogo } from "@/components/SynozurLogo";
+import { TenantProvider } from "@/contexts/TenantContext";
 import { Sparkles } from "lucide-react";
 import { useState } from "react";
 
@@ -111,12 +112,14 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <TooltipProvider>
-          <SidebarProvider style={style as React.CSSProperties}>
-            <Router />
-          </SidebarProvider>
-          <Toaster />
-        </TooltipProvider>
+        <TenantProvider>
+          <TooltipProvider>
+            <SidebarProvider style={style as React.CSSProperties}>
+              <Router />
+            </SidebarProvider>
+            <Toaster />
+          </TooltipProvider>
+        </TenantProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

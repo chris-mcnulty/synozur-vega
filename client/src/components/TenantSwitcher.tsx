@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Building2, Check, ChevronsUpDown } from "lucide-react";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Command,
@@ -15,23 +15,11 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-
-type Tenant = {
-  id: string;
-  name: string;
-  color: string;
-};
-
-const mockTenants: Tenant[] = [
-  { id: "2", name: "Acme Corporation", color: "hsl(220, 85%, 38%)" },
-  { id: "1", name: "The Synozur Alliance LLC", color: "hsl(277, 98%, 53%)" },
-  { id: "3", name: "TechStart Inc", color: "hsl(328, 94%, 45%)" },
-  { id: "4", name: "Global Ventures", color: "hsl(200, 75%, 45%)" },
-];
+import { useTenant } from "@/contexts/TenantContext";
 
 export function TenantSwitcher() {
   const [open, setOpen] = useState(false);
-  const [selectedTenant, setSelectedTenant] = useState<Tenant>(mockTenants[0]);
+  const { currentTenant, setCurrentTenant, tenants } = useTenant();
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -47,12 +35,12 @@ export function TenantSwitcher() {
             <Avatar className="h-5 w-5">
               <AvatarFallback
                 className="text-xs"
-                style={{ backgroundColor: selectedTenant.color }}
+                style={{ backgroundColor: currentTenant.color || "hsl(220, 85%, 38%)" }}
               >
-                {selectedTenant.name.substring(0, 2).toUpperCase()}
+                {currentTenant.name.substring(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <span className="truncate">{selectedTenant.name}</span>
+            <span className="truncate">{currentTenant.name}</span>
           </div>
           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
@@ -63,12 +51,12 @@ export function TenantSwitcher() {
           <CommandList>
             <CommandEmpty>No tenant found.</CommandEmpty>
             <CommandGroup>
-              {mockTenants.map((tenant) => (
+              {tenants.map((tenant) => (
                 <CommandItem
                   key={tenant.id}
                   value={tenant.name}
                   onSelect={() => {
-                    setSelectedTenant(tenant);
+                    setCurrentTenant(tenant);
                     setOpen(false);
                   }}
                   data-testid={`tenant-option-${tenant.id}`}
@@ -77,14 +65,14 @@ export function TenantSwitcher() {
                     <Avatar className="h-5 w-5">
                       <AvatarFallback
                         className="text-xs"
-                        style={{ backgroundColor: tenant.color }}
+                        style={{ backgroundColor: tenant.color || "hsl(220, 85%, 38%)" }}
                       >
                         {tenant.name.substring(0, 2).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <span>{tenant.name}</span>
                   </div>
-                  {selectedTenant.id === tenant.id && (
+                  {currentTenant.id === tenant.id && (
                     <Check className="ml-2 h-4 w-4" />
                   )}
                 </CommandItem>
