@@ -14,7 +14,7 @@ import { SynozurLogo } from "@/components/SynozurLogo";
 import { TenantProvider } from "@/contexts/TenantContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Sparkles } from "lucide-react";
-import { useState } from "react";
+import React, { useState } from "react";
 import { useLocation } from "wouter";
 
 import Login from "@/pages/Login";
@@ -31,10 +31,24 @@ import NotFound from "@/pages/not-found";
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading } = useAuth();
   const [, setLocation] = useLocation();
+  const [shouldRedirect, setShouldRedirect] = useState(false);
+
+  // Use effect to handle redirect to avoid state update during render
+  React.useEffect(() => {
+    if (!isLoading && !isAuthenticated) {
+      setShouldRedirect(true);
+    }
+  }, [isLoading, isAuthenticated]);
+
+  React.useEffect(() => {
+    if (shouldRedirect) {
+      setLocation("/login");
+    }
+  }, [shouldRedirect, setLocation]);
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Loading...</p>
@@ -44,8 +58,13 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
-    setLocation("/login");
-    return null;
+    return (
+      <div className="flex items-center justify-center h-screen bg-background">
+        <div className="text-center">
+          <p className="text-muted-foreground">Redirecting to login...</p>
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;

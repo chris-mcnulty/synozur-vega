@@ -38,7 +38,10 @@ export default function Login() {
         title: "Welcome!",
         description: "Successfully logged in as demo user",
       });
-      setLocation("/dashboard");
+      // Add a small delay to ensure auth state is updated
+      setTimeout(() => {
+        setLocation("/dashboard");
+      }, 100);
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -60,7 +63,10 @@ export default function Login() {
         title: "Welcome Back!",
         description: "Successfully logged in",
       });
-      setLocation("/dashboard");
+      // Add a small delay to ensure auth state is updated
+      setTimeout(() => {
+        setLocation("/dashboard");
+      }, 100);
     } catch (error: any) {
       toast({
         variant: "destructive",
