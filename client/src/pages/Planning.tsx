@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -34,7 +34,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Okr, Kpi, Rock } from "@shared/schema";
+import type { Okr, Kpi, Rock, Foundation } from "@shared/schema";
 import { useTenant } from "@/contexts/TenantContext";
 import { getCurrentQuarter } from "@/lib/quarters";
 
@@ -65,10 +65,23 @@ export default function Planning() {
   const { currentTenant } = useTenant();
   const [selectedTab, setSelectedTab] = useState("okrs");
   
-  // Get current quarter dynamically
-  const currentPeriod = getCurrentQuarter();
-  const [quarter, setQuarter] = useState(currentPeriod.quarter);
-  const [year, setYear] = useState(currentPeriod.year);
+  // Fetch foundation to get fiscal year start month
+  const { data: foundation } = useQuery<Foundation>({
+    queryKey: [`/api/foundations/${currentTenant.id}`],
+  });
+  
+  const [quarter, setQuarter] = useState(1);
+  const [year, setYear] = useState(new Date().getFullYear());
+  
+  // Set initial quarter/year based on tenant's fiscal year when foundation loads
+  useEffect(() => {
+    if (foundation) {
+      const fiscalYearStartMonth = foundation.fiscalYearStartMonth || 1;
+      const currentPeriod = getCurrentQuarter(fiscalYearStartMonth);
+      setQuarter(currentPeriod.quarter);
+      setYear(currentPeriod.year);
+    }
+  }, [foundation?.fiscalYearStartMonth]);
 
   const { data: okrs = [], isLoading: loadingOkrs } = useQuery<Okr[]>({
     queryKey: [`/api/okrs/${currentTenant.id}`, { quarter, year }],

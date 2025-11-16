@@ -26,6 +26,9 @@ export const tenants = pgTable("tenants", {
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({
   id: true,
+}).extend({
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex color (e.g., #3B82F6)").optional().nullable(),
+  logoUrl: z.string().url("Logo URL must be a valid URL").optional().nullable(),
 });
 
 export type InsertTenant = z.infer<typeof insertTenantSchema>;

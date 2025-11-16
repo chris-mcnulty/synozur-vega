@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Meeting } from "@shared/schema";
+import type { Meeting, Foundation } from "@shared/schema";
 import { useTenant } from "@/contexts/TenantContext";
 import { format } from "date-fns";
 import { getCurrentQuarter, getQuarterDateRange } from "@/lib/quarters";
@@ -54,10 +54,23 @@ export default function FocusRhythm() {
   const { currentTenant } = useTenant();
   const [selectedType, setSelectedType] = useState<string>("all");
   
-  // Get current quarter dynamically
-  const currentPeriod = getCurrentQuarter();
-  const [quarter, setQuarter] = useState(currentPeriod.quarter);
-  const [year, setYear] = useState(currentPeriod.year);
+  // Fetch foundation to get fiscal year start month
+  const { data: foundation } = useQuery<Foundation>({
+    queryKey: [`/api/foundations/${currentTenant.id}`],
+  });
+  
+  const [quarter, setQuarter] = useState(1);
+  const [year, setYear] = useState(new Date().getFullYear());
+  
+  // Set initial quarter/year based on tenant's fiscal year when foundation loads
+  useEffect(() => {
+    if (foundation) {
+      const fiscalYearStartMonth = foundation.fiscalYearStartMonth || 1;
+      const currentPeriod = getCurrentQuarter(fiscalYearStartMonth);
+      setQuarter(currentPeriod.quarter);
+      setYear(currentPeriod.year);
+    }
+  }, [foundation?.fiscalYearStartMonth]);
   
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -295,8 +308,9 @@ export default function FocusRhythm() {
     }
   };
 
-  // Filter meetings by quarter date range
-  const quarterRange = getQuarterDateRange(quarter, year);
+  // Filter meetings by quarter date range using tenant's fiscal year
+  const fiscalYearStartMonth = foundation?.fiscalYearStartMonth || 1;
+  const quarterRange = getQuarterDateRange(quarter, year, fiscalYearStartMonth);
   const meetingsInQuarter = meetings.filter(meeting => {
     if (!meeting.date) return false;
     const meetingDate = new Date(meeting.date);
