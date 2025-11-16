@@ -18,6 +18,7 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 
 import Login from "@/pages/Login";
+import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
 import Foundations from "@/pages/Foundations";
 import Strategy from "@/pages/Strategy";
@@ -93,7 +94,7 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
 function Router() {
   return (
     <Switch>
-      <Route path="/" component={Login} />
+      <Route path="/" component={Landing} />
       <Route path="/login" component={Login} />
       <Route path="/dashboard">
         <ProtectedRoute>
