@@ -27,12 +27,14 @@ export async function initializeDatabase() {
 }
 
 /**
- * Ensure global admin users exist.
- * Safe to run on existing databases - uses onConflictDoNothing.
+ * Ensure global admin users exist with correct credentials.
+ * Safe to run on existing databases - upserts users with current password and role.
  */
 async function ensureGlobalAdmins() {
   try {
-    // Get Synozur tenant ID (or null if it doesn't exist yet)
+    console.log("Ensuring global admin users...");
+    
+    // Get Synozur tenant ID (or use default if tenant doesn't exist yet)
     const synozurTenant = await db
       .select()
       .from(tenants)
@@ -41,28 +43,55 @@ async function ensureGlobalAdmins() {
     
     const synozurTenantId = synozurTenant[0]?.id || "f328cd4e-0fe1-4893-a637-941684749c55";
 
-    // Create global admin users if they don't exist
-    await db.insert(users).values([
-      {
+    // Hash the admin password once
+    const hashedPassword = await hashPassword("NorthStar2025!");
+    
+    // Upsert consultant@synozur.com
+    await db
+      .insert(users)
+      .values({
         email: "consultant@synozur.com",
-        password: await hashPassword("NorthStar2025!"),
+        password: hashedPassword,
         name: "Synozur Consultant",
         role: "vega_consultant",
         tenantId: synozurTenantId,
-      },
-      {
+      })
+      .onConflictDoUpdate({
+        target: users.email,
+        set: {
+          password: hashedPassword,
+          role: "vega_consultant",
+          tenantId: synozurTenantId,
+          name: "Synozur Consultant",
+        },
+      });
+    console.log("  ✓ Verified consultant@synozur.com");
+    
+    // Upsert superadmin@vega.com
+    await db
+      .insert(users)
+      .values({
         email: "superadmin@vega.com",
-        password: await hashPassword("NorthStar2025!"),
+        password: hashedPassword,
         name: "Vega Administrator",
         role: "vega_admin",
         tenantId: null,
-      },
-    ]).onConflictDoNothing();
+      })
+      .onConflictDoUpdate({
+        target: users.email,
+        set: {
+          password: hashedPassword,
+          role: "vega_admin",
+          tenantId: null,
+          name: "Vega Administrator",
+        },
+      });
+    console.log("  ✓ Verified superadmin@vega.com");
 
-    console.log("✓ Global admin users verified");
+    console.log("✓ Global admin users initialized successfully");
   } catch (error) {
-    console.error("Error ensuring global admins:", error);
-    // Don't throw - this is not critical enough to crash the server
+    console.error("❌ Error ensuring global admins:", error);
+    console.error("   This is not critical - server will continue");
   }
 }
 
