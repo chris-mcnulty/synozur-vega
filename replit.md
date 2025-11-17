@@ -129,6 +129,42 @@ Preferred communication style: Simple, everyday language.
 - User lookup by email for authentication
 - Multi-tenant support through TenantSwitcher component
 
+**User Roles & Tenant Assignment Model**:
+The system supports 6 distinct user roles with different organizational scopes:
+
+1. **tenant_user** - Regular user scoped to a specific organization
+   - Must have tenantId assigned
+   - Access limited to their organization's data
+
+2. **tenant_admin** - Administrator scoped to a specific organization  
+   - Must have tenantId assigned
+   - Manages their organization only
+
+3. **admin** - General administrator role
+   - Can be assigned to a specific tenant or global (tenantId = null)
+   - Flexible scope based on tenant assignment
+
+4. **global_admin** - Platform-wide administrator
+   - Typically global (tenantId = null) but MAY have a "home" organization
+   - When assigned to a tenant, that's their home org but can work across all clients
+   - Example: admin@synozur.com belongs to Synozur but manages all organizations
+
+5. **vega_consultant** - Synozur consultant facilitating Company OS for clients
+   - Typically assigned to Synozur tenant as their "home" organization
+   - Can facilitate and access any client organization in the system
+   - Example: consultant@synozur.com belongs to Synozur but works with all clients
+
+6. **vega_admin** - Vega platform super administrator (highest level)
+   - Typically global (tenantId = null) but MAY have a "home" organization  
+   - Full platform access regardless of tenant assignment
+   - Example: superadmin@vega.com may belong to Synozur internally but manages entire platform
+
+**Key Architectural Notes**:
+- Roles are currently stored but **not enforced** (RBAC in backlog for future implementation)
+- Cross-tenant roles (global_admin, vega_consultant, vega_admin) can have a home organization while maintaining cross-client access
+- Tenant assignment (tenantId) indicates organizational affiliation, not access restriction
+- Future RBAC will enforce permissions while preserving this flexible home-org + cross-client model
+
 **Multi-Tenant System**:
 - TenantContext provides global tenant state management via React Context
 - TenantSwitcher component dynamically fetches tenants from API and allows switching
