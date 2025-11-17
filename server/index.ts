@@ -9,8 +9,8 @@ import { initializeDatabase } from "./init";
 const app = express();
 const PgStore = connectPgSimple(session);
 
-// Trust first proxy (required for secure cookies behind Replit's reverse proxy)
-app.set('trust proxy', 1);
+// Trust entire proxy chain (required for secure cookies behind Replit's reverse proxy)
+app.set('trust proxy', true);
 
 declare module 'http' {
   interface IncomingMessage {
