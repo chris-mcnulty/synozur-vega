@@ -26,8 +26,13 @@ Preferred communication style: Simple, everyday language.
 - **API Design**: `IStorage` interface for CRUD operations, implemented by `DatabaseStorage` for PostgreSQL.
 - **Authentication**: Session-based authentication using Express sessions and `connect-pg-simple`.
     - Secure password hashing with bcryptjs.
-    - Email verification and password reset flows via SendGrid.
-    - Global admin and consultant users are automatically initialized.
+    - **Email Verification System**: New users must verify email before login access is granted.
+        - Verification tokens generated with crypto.randomBytes and hashed using SHA-256 before database storage.
+        - Reset tokens follow same secure pattern (plaintext sent via email, hash stored in database).
+        - Tokens expire after 24 hours for security.
+        - Email templates use professional HTML formatting with Vega branding.
+        - SendGrid integration via Replit connector (no hardcoded API keys).
+    - Global admin and consultant users are automatically initialized and pre-verified.
 - **Authorization**: Supports 6 user roles (tenant_user, tenant_admin, admin, global_admin, vega_consultant, vega_admin) with flexible tenant assignment, though RBAC enforcement is a future feature.
 - **Multi-Tenancy**: Data isolation per tenant, managed via `TenantContext` and `TenantSwitcher` component. Tenant-specific branding (color) and email domain management. Authentication persistence across navigation.
 
