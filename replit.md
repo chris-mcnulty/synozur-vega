@@ -45,7 +45,9 @@ Preferred communication style: Simple, everyday language.
   - Delete Functionality: Individual element removal and clear all option
   - Database Persistence: All changes saved to PostgreSQL and persist across sessions
 - Strategy module for strategic priorities with AI drafting
-- Planning module for OKRs, KPIs, and quarterly rocks
+- Planning module for OKRs, KPIs, and quarterly rocks (initiatives called "big rocks")
+  - **Bug Fix** (November 2025): Empty FK values (parentId, objectiveId, keyResultId) now properly converted to null before database insertion, preventing FK constraint violations
+  - Objectives and big rocks can now be created successfully with proper null handling
 - Focus Rhythm module for meeting management and summaries
 - Tenant Admin for organization management and M365 service integration
   - Organizations Section: Complete tenant CRUD with dialogs for create/edit
@@ -133,8 +135,21 @@ Preferred communication style: Simple, everyday language.
 - Full tenant CRUD operations available in Tenant Admin module:
   - Create: Add new organizations with custom name and brand color
   - Read: View all organizations with visual identification
-  - Update: Edit organization name and brand color
+  - Update: Edit organization name, brand color, and allowed email domains
   - Delete: Remove organizations with confirmation prompt
+- **Domain Management** (November 2025):
+  - Each tenant can specify allowed email domains (stored in `allowedDomains` JSONB field)
+  - "Manage Domains" button on each tenant card shows domain count
+  - Dialog interface for adding/removing domains with real-time updates
+  - Designed for future SendGrid email validation integration
+  - API: PATCH /api/tenants/:id with { allowedDomains: string[] }
+- **User Management** (November 2025):
+  - Complete user CRUD interface in Tenant Admin module
+  - Table view showing email, name, role, and organization for all users
+  - Create/Edit/Delete operations with validation
+  - Users can be assigned to specific tenants or set as Global (no organization)
+  - Password show/hide toggles on all password input fields
+  - API endpoints: GET/POST/PATCH/DELETE /api/users
 - Seeded demo tenants:
   - Acme Corporation - Blue
   - The Synozur Alliance LLC - Purple  
@@ -146,6 +161,10 @@ Preferred communication style: Simple, everyday language.
 - Data completely isolated per tenant - foundations, strategies, OKRs, KPIs, rocks, meetings all scoped by tenant ID
 - Switching tenants triggers automatic data refresh via React Query cache invalidation
 - New tenants start with empty organizational data (no foundations, strategies, etc.)
+- **Navigation Stability** (November 2025):
+  - sessionStorage-based authentication persistence prevents unwanted redirects during page navigation
+  - `vega_was_authenticated` flag tracks authentication state across component unmounts
+  - Flag cleared on explicit logout to ensure security
 
 ### External Dependencies
 

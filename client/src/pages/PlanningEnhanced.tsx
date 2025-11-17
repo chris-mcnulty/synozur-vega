@@ -197,20 +197,25 @@ export default function PlanningEnhanced() {
   // Mutations
   const createObjectiveMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("POST", "/api/okr/objectives", {
+      console.log('[Planning] Creating objective with data:', data);
+      // Convert empty parentId to null
+      const cleanedData = {
         ...data,
+        parentId: data.parentId || null,
         tenantId: currentTenant.id,
         quarter,
         year,
-      });
+      };
+      return apiRequest("POST", "/api/okr/objectives", cleanedData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
       setObjectiveDialogOpen(false);
       toast({ title: "Success", description: "Objective created successfully" });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to create objective", variant: "destructive" });
+    onError: (error: any) => {
+      console.error('[Planning] Error creating objective:', error);
+      toast({ title: "Error", description: error.message || "Failed to create objective", variant: "destructive" });
     },
   });
 
@@ -233,20 +238,26 @@ export default function PlanningEnhanced() {
 
   const createBigRockMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("POST", "/api/okr/big-rocks", {
+      console.log('[Planning] Creating big rock with data:', data);
+      // Convert empty objectiveId/keyResultId to null
+      const cleanedData = {
         ...data,
+        objectiveId: data.objectiveId || null,
+        keyResultId: data.keyResultId || null,
         tenantId: currentTenant.id,
         quarter,
         year,
-      });
+      };
+      return apiRequest("POST", "/api/okr/big-rocks", cleanedData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`] });
       setBigRockDialogOpen(false);
       toast({ title: "Success", description: "Big Rock created successfully" });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to create big rock", variant: "destructive" });
+    onError: (error: any) => {
+      console.error('[Planning] Error creating big rock:', error);
+      toast({ title: "Error", description: error.message || "Failed to create big rock", variant: "destructive" });
     },
   });
 

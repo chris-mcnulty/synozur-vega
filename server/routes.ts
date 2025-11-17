@@ -256,6 +256,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/users", async (req, res) => {
     try {
       const validatedData = insertUserSchema.parse(req.body);
+      // Normalize tenantId: convert "NONE" or empty string to null
+      if (validatedData.tenantId === "NONE" || validatedData.tenantId === "") {
+        validatedData.tenantId = null;
+      }
       const user = await storage.createUser(validatedData);
       // Don't send password hash
       const { password, ...sanitizedUser } = user;
@@ -277,6 +281,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const partialSchema = insertUserSchema.partial();
       const validatedData = partialSchema.parse(req.body);
+      
+      // Normalize tenantId: convert "NONE" or empty string to null
+      if (validatedData.tenantId === "NONE" || validatedData.tenantId === "") {
+        validatedData.tenantId = null;
+      }
       
       const user = await storage.updateUser(id, validatedData);
       // Don't send password hash
