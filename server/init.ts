@@ -47,7 +47,7 @@ async function ensureGlobalAdmins() {
     const hashedPassword = await hashPassword("NorthStar2025!");
     
     // Upsert consultant@synozur.com
-    await db
+    const consultantResult = await db
       .insert(users)
       .values({
         email: "consultant@synozur.com",
@@ -64,11 +64,12 @@ async function ensureGlobalAdmins() {
           tenantId: synozurTenantId,
           name: "Synozur Consultant",
         },
-      });
-    console.log("  ✓ Verified consultant@synozur.com");
+      })
+      .returning();
+    console.log("  ✓ Verified consultant@synozur.com", consultantResult.length > 0 ? "(updated/created)" : "(no change)");
     
     // Upsert superadmin@vega.com
-    await db
+    const superadminResult = await db
       .insert(users)
       .values({
         email: "superadmin@vega.com",
@@ -85,13 +86,24 @@ async function ensureGlobalAdmins() {
           tenantId: null,
           name: "Vega Administrator",
         },
-      });
-    console.log("  ✓ Verified superadmin@vega.com");
+      })
+      .returning();
+    console.log("  ✓ Verified superadmin@vega.com", superadminResult.length > 0 ? "(updated/created)" : "(no change)");
 
-    console.log("✓ Global admin users initialized successfully");
+    // Verify users were created by querying them back
+    const verifyConsultant = await db.select().from(users).where(eq(users.email, "consultant@synozur.com")).limit(1);
+    const verifySuperadmin = await db.select().from(users).where(eq(users.email, "superadmin@vega.com")).limit(1);
+    
+    if (verifyConsultant.length === 0 || verifySuperadmin.length === 0) {
+      console.error("⚠️ WARNING: Admin users not found in database after initialization!");
+      console.error(`  consultant@synozur.com: ${verifyConsultant.length > 0 ? 'EXISTS' : 'MISSING'}`);
+      console.error(`  superadmin@vega.com: ${verifySuperadmin.length > 0 ? 'EXISTS' : 'MISSING'}`);
+    } else {
+      console.log("✓ Global admin users initialized and verified in database");
+    }
   } catch (error) {
     console.error("❌ Error ensuring global admins:", error);
-    console.error("   This is not critical - server will continue");
+    console.error("   Database initialization may have failed - check production database connection");
   }
 }
 
