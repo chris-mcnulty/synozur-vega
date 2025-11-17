@@ -17,7 +17,8 @@ import {
   sendVerificationEmail, 
   sendPasswordResetEmail, 
   generateVerificationToken, 
-  generateResetToken 
+  generateResetToken,
+  hashToken 
 } from "./email";
 
 // Authentication middleware
@@ -115,10 +116,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ error: "User already exists" });
       }
 
-      // Generate verification token
-      const verificationToken = generateVerificationToken();
+      // Generate verification token (returns plaintext and hash)
+      const { plaintext: verificationTokenPlaintext, hash: verificationTokenHash } = generateVerificationToken();
 
       // Create user with "tenant_user" role by default (unverified)
+      // Store ONLY the hash in the database for security
       const user = await storage.createUser({
         email,
         password,
@@ -126,12 +128,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         role: "tenant_user",
         tenantId: tenant.id,
         emailVerified: false,
-        verificationToken,
+        verificationToken: verificationTokenHash,
       });
 
-      // Send verification email
+      // Send verification email with plaintext token
       try {
-        await sendVerificationEmail(email, verificationToken, user.name || undefined);
+        await sendVerificationEmail(email, verificationTokenPlaintext, user.name || undefined);
       } catch (emailError) {
         console.error("Failed to send verification email:", emailError);
         // Continue anyway - user is created, they can request resend
@@ -184,7 +186,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Verification token required" });
       }
 
-      const user = await storage.getUserByVerificationToken(token);
+      // Hash the incoming token to compare with stored hash
+      const tokenHash = hashToken(token);
+      const user = await storage.getUserByVerificationToken(tokenHash);
       if (!user) {
         return res.status(400).json({ error: "Invalid or expired verification token" });
       }
@@ -221,13 +225,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Email already verified" });
       }
 
-      // Generate new verification token
-      const verificationToken = generateVerificationToken();
-      await storage.updateUser(user.id, { verificationToken });
+      // Generate new verification token (plaintext and hash)
+      const { plaintext: verificationTokenPlaintext, hash: verificationTokenHash } = generateVerificationToken();
+      await storage.updateUser(user.id, { verificationToken: verificationTokenHash });
 
-      // Send verification email
+      // Send verification email with plaintext token
       try {
-        await sendVerificationEmail(email, verificationToken, user.name || undefined);
+        await sendVerificationEmail(email, verificationTokenPlaintext, user.name || undefined);
       } catch (emailError) {
         console.error("Failed to send verification email:", emailError);
         return res.status(500).json({ error: "Failed to send verification email" });
@@ -255,18 +259,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ message: "If the email exists, a password reset link has been sent." });
       }
 
-      // Generate reset token and set expiry (1 hour from now)
-      const resetToken = generateResetToken();
+      // Generate reset token (plaintext and hash) and set expiry (1 hour from now)
+      const { plaintext: resetTokenPlaintext, hash: resetTokenHash } = generateResetToken();
       const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
 
       await storage.updateUser(user.id, {
-        resetToken,
+        resetToken: resetTokenHash,
         resetTokenExpiry,
       });
 
-      // Send password reset email
+      // Send password reset email with plaintext token
       try {
-        await sendPasswordResetEmail(email, resetToken, user.name || undefined);
+        await sendPasswordResetEmail(email, resetTokenPlaintext, user.name || undefined);
       } catch (emailError) {
         console.error("Failed to send password reset email:", emailError);
         return res.status(500).json({ error: "Failed to send password reset email" });
@@ -288,7 +292,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Token and new password required" });
       }
 
-      const user = await storage.getUserByResetToken(token);
+      // Hash the incoming token to compare with stored hash
+      const tokenHash = hashToken(token);
+      const user = await storage.getUserByResetToken(tokenHash);
       if (!user) {
         return res.status(400).json({ error: "Invalid or expired reset token" });
       }

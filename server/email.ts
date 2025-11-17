@@ -1,4 +1,5 @@
 import sgMail from '@sendgrid/mail';
+import crypto from 'crypto';
 
 let connectionSettings: any;
 
@@ -235,10 +236,26 @@ export async function sendPasswordResetEmail(to: string, resetToken: string, use
   await client.send(msg);
 }
 
-export function generateVerificationToken(): string {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+// Hash a token for secure storage (similar to password hashing)
+export function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
 }
 
-export function generateResetToken(): string {
-  return Math.random().toString(36).substring(2) + Date.now().toString(36) + Math.random().toString(36).substring(2);
+// Generate a cryptographically secure random token
+export function generateSecureToken(length: number = 32): string {
+  return crypto.randomBytes(length).toString('hex');
+}
+
+// Generate verification token - returns both plaintext (for email) and hash (for DB)
+export function generateVerificationToken(): { plaintext: string; hash: string } {
+  const plaintext = generateSecureToken(32);
+  const hash = hashToken(plaintext);
+  return { plaintext, hash };
+}
+
+// Generate reset token - returns both plaintext (for email) and hash (for DB)
+export function generateResetToken(): { plaintext: string; hash: string } {
+  const plaintext = generateSecureToken(32);
+  const hash = hashToken(plaintext);
+  return { plaintext, hash };
 }

@@ -1,0 +1,90 @@
+2025-11-17 13:42:29.42
+633b9cbc
+User
+9:42:29 PM [express] GET /api/auth/me 401 in 2ms :: {"error":"Not authenticated"}
+2025-11-17 13:42:29.47
+633b9cbc
+User
+9:42:29 PM [express] GET /api/tenants 304 in 23ms :: [{"id":"8ebd7efe-32ed-4546-b0be-0112b8feed9f","…
+2025-11-17 13:42:38.74
+633b9cbc
+User
+9:42:38 PM [express] POST /api/auth/login 200 in 178ms :: {"user":{"id":"3c54d88c-ae80-4380-a618-cbe…
+2025-11-17 13:42:41.60
+633b9cbc
+User
+9:42:41 PM [express] GET /api/auth/me 401 in 2ms :: {"error":"Not authenticated"}
+2025-11-17 13:42:41.68
+633b9cbc
+User
+9:42:41 PM [express] GET /api/tenants 304 in 23ms :: [{"id":"8ebd7efe-32ed-4546-b0be-0112b8feed9f","…
+2025-11-17 13:43:04.08
+633b9cbc
+User
+9:43:04 PM [express] GET /api/auth/me 401 in 1ms :: {"error":"Not authenticated"}
+2025-11-17 13:43:04.17
+633b9cbc
+User
+9:43:04 PM [express] GET /api/tenants 304 in 106ms :: [{"id":"8ebd7efe-32ed-4546-b0be-0112b8feed9f",…
+2025-11-17 13:46:15.51
+633b9cbc
+User
+9:46:15 PM [express] GET /api/auth/me 401 in 0ms :: {"error":"Not authenticated"}
+2025-11-17 13:46:15.98
+633b9cbc
+User
+9:46:15 PM [express] GET /api/tenants 304 in 473ms :: [{"id":"8ebd7efe-32ed-4546-b0be-0112b8feed9f",…
+2025-11-17 13:54:07.28
+633b9cbc
+User
+9:54:07 PM [express] GET /api/auth/me 401 in 0ms :: {"error":"Not authenticated"}
+2025-11-17 13:54:07.75
+633b9cbc
+User
+9:54:07 PM [express] GET /api/tenants 304 in 478ms :: [{"id":"8ebd7efe-32ed-4546-b0be-0112b8feed9f",…
+2025-11-17 13:54:16.74
+633b9cbc
+User
+9:54:16 PM [express] POST /api/auth/login 200 in 174ms :: {"user":{"id":"3c54d88c-ae80-4380-a618-cbe…
+2025-11-17 13:54:26.39
+633b9cbc
+User
+9:54:26 PM [express] GET /api/auth/me 401 in 1ms :: {"error":"Not authenticated"}
+2025-11-17 13:54:26.41
+633b9cbc
+User
+9:54:26 PM [express] GET /api/tenants 304 in 25ms :: [{"id":"8ebd7efe-32ed-4546-b0be-0112b8feed9f","…
+2025-11-17 14:00:17.78
+633b9cbc
+User
+10:00:17 PM [express] GET /api/auth/me 401 in 0ms :: {"error":"Not authenticated"}
+2025-11-17 14:00:18.27
+633b9cbc
+User
+10:00:18 PM [express] GET /api/tenants 304 in 501ms :: [{"id":"8ebd7efe-32ed-4546-b0be-0112b8feed9f",…
+2025-11-17 14:00:23.73
+633b9cbc
+User
+10:00:23 PM [express] GET /api/auth/me 401 in 1ms :: {"error":"Not authenticated"}
+2025-11-17 14:00:23.73
+633b9cbc
+User
+10:00:23 PM [express] GET /api/tenants 304 in 25ms :: [{"id":"8ebd7efe-32ed-4546-b0be-0112b8feed9f","…
+2025-11-17 14:00:30.15
+633b9cbc
+User
+10:00:30 PM [express] POST /api/auth/login 200 in 170ms :: {"user":{"id":"3c54d88c-ae80-4380-a618-cbe…
+2025-11-17 14:00:34.14
+633b9cbc
+User
+10:00:34 PM [express] GET /api/tenants 304 in 24ms :: [{"id":"8ebd7efe-32ed-4546-b0be-0112b8feed9f","…
+2025-11-17 14:00:34.89
+633b9cbc
+User
+10:00:34 PM [express] GET /api/auth/me 401 in 1ms :: {"error":"Not authenticated"}
+
+Collapse
+
+Wrap
+
+Colors
