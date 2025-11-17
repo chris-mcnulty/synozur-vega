@@ -95,9 +95,13 @@ export default function Login() {
       });
       toast({
         title: "Account Created!",
-        description: "Welcome to Vega",
+        description: "Please check your email to verify your account. You'll receive a verification link shortly.",
+        duration: 8000,
       });
-      setLocation("/dashboard");
+      // Clear form
+      setSignupName("");
+      setSignupEmail("");
+      setSignupPassword("");
     } catch (error: any) {
       toast({
         variant: "destructive",
@@ -219,14 +223,15 @@ export default function Login() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="login-password">Password</Label>
-                      <button
-                        type="button"
-                        onClick={() => {/* Password reset placeholder */}}
-                        className="text-xs text-primary hover:underline"
-                        data-testid="link-forgot-password"
-                      >
-                        Forgot password?
-                      </button>
+                      <Link href="/forgot-password">
+                        <button
+                          type="button"
+                          className="text-xs text-primary hover:underline"
+                          data-testid="link-forgot-password"
+                        >
+                          Forgot password?
+                        </button>
+                      </Link>
                     </div>
                     <div className="relative">
                       <Input

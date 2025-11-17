@@ -25,6 +25,9 @@ import Strategy from "@/pages/Strategy";
 import PlanningEnhanced from "@/pages/PlanningEnhanced";
 import FocusRhythm from "@/pages/FocusRhythm";
 import TenantAdmin from "@/pages/TenantAdmin";
+import VerifyEmail from "@/pages/VerifyEmail";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "@/pages/not-found";
 
 // Protected route wrapper
@@ -138,6 +141,9 @@ function Router() {
     <Switch>
       <Route path="/" component={Landing} />
       <Route path="/login" component={Login} />
+      <Route path="/verify-email" component={VerifyEmail} />
+      <Route path="/forgot-password" component={ForgotPassword} />
+      <Route path="/reset-password" component={ResetPassword} />
       <Route path="/dashboard">
         <ProtectedRoute>
           <ModuleLayout>

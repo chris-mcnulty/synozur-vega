@@ -60,11 +60,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const res = await apiRequest("POST", "/api/auth/signup", data);
       return await res.json();
     },
-    onSuccess: (data: { user: User }) => {
-      setUser(data.user);
-      // Set the query data directly instead of invalidating to avoid refetch race conditions
-      queryClient.setQueryData(["/api/auth/me"], { user: data.user });
-    },
+    // No onSuccess - user needs to verify email before logging in
   });
 
   const logoutMutation = useMutation({
