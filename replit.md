@@ -22,6 +22,7 @@ Preferred communication style: Simple, everyday language.
 
 ### Backend
 - **Server**: Express.js with Node.js, RESTful API (prefixed with `/api`).
+    - **Production Configuration**: Trust proxy setting enabled for secure session cookies behind reverse proxy.
 - **Data Storage**: PostgreSQL with Drizzle ORM, UUID-based primary keys, and foreign key relationships for tenant-scoped data.
 - **API Design**: `IStorage` interface for CRUD operations, implemented by `DatabaseStorage` for PostgreSQL.
 - **Authentication**: Session-based authentication using Express sessions and `connect-pg-simple`.
