@@ -19,7 +19,7 @@ export function LandingHero() {
             <Sparkles className="h-6 w-6 text-primary" />
             <span className="text-sm font-medium tracking-wide uppercase">AI-Powered Company OS</span>
           </div>
-          <h1 className="text-7xl md:text-8xl font-bold leading-tight mb-4 bg-gradient-to-r from-white via-purple-200 to-primary bg-clip-text text-transparent">
+          <h1 className="text-7xl md:text-8xl font-bold leading-normal mb-8 pb-2 bg-gradient-to-r from-primary via-purple-400 to-secondary bg-clip-text text-transparent">
             Vega
           </h1>
           <h2 className="text-4xl md:text-5xl font-bold leading-tight mb-6 bg-gradient-to-r from-white via-purple-200 to-primary bg-clip-text text-transparent">
