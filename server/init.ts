@@ -29,24 +29,16 @@ export async function initializeDatabase() {
 /**
  * Ensure global admin users exist with correct credentials.
  * Safe to run on existing databases - upserts users with current password and role.
+ * Global admins are not tied to any specific tenant (tenantId = null).
  */
 async function ensureGlobalAdmins() {
   try {
     console.log("Ensuring global admin users...");
     
-    // Get Synozur tenant ID (or use default if tenant doesn't exist yet)
-    const synozurTenant = await db
-      .select()
-      .from(tenants)
-      .where(eq(tenants.name, "The Synozur Alliance LLC"))
-      .limit(1);
-    
-    const synozurTenantId = synozurTenant[0]?.id || "f328cd4e-0fe1-4893-a637-941684749c55";
-
     // Hash the admin password once
     const hashedPassword = await hashPassword("NorthStar2025!");
     
-    // Upsert consultant@synozur.com
+    // Upsert consultant@synozur.com (global consultant - no tenant)
     const consultantResult = await db
       .insert(users)
       .values({
@@ -54,21 +46,21 @@ async function ensureGlobalAdmins() {
         password: hashedPassword,
         name: "Synozur Consultant",
         role: "vega_consultant",
-        tenantId: synozurTenantId,
+        tenantId: null, // Global user - not tied to specific tenant
       })
       .onConflictDoUpdate({
         target: users.email,
         set: {
           password: hashedPassword,
           role: "vega_consultant",
-          tenantId: synozurTenantId,
+          tenantId: null,
           name: "Synozur Consultant",
         },
       })
       .returning();
     console.log("  ✓ Verified consultant@synozur.com", consultantResult.length > 0 ? "(updated/created)" : "(no change)");
     
-    // Upsert superadmin@vega.com
+    // Upsert superadmin@vega.com (global admin - no tenant)
     const superadminResult = await db
       .insert(users)
       .values({
@@ -76,7 +68,7 @@ async function ensureGlobalAdmins() {
         password: hashedPassword,
         name: "Vega Administrator",
         role: "vega_admin",
-        tenantId: null,
+        tenantId: null, // Global user - not tied to specific tenant
       })
       .onConflictDoUpdate({
         target: users.email,

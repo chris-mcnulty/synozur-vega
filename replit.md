@@ -108,15 +108,23 @@ Preferred communication style: Simple, everyday language.
 
 ### Authentication and Authorization
 
-**Current State**: Basic user model prepared
-- User schema with username/password fields
-- No active authentication implementation yet
-- Session infrastructure prepared (connect-pg-simple for PostgreSQL sessions)
+**Current State**: Session-based authentication active
+- User schema with email/password fields
+- Password hashing using bcryptjs (10 salt rounds)
+- Session management with connect-pg-simple for PostgreSQL persistence
+- Automatic global admin user initialization on server startup
 
-**Planned Approach**:
+**Global Admin Users** (created automatically on every server startup):
+- `superadmin@vega.com` - vega_admin role, password: `NorthStar2025!`
+- `consultant@synozur.com` - vega_consultant role, password: `NorthStar2025!`
+- Both users have `tenantId = null` (global access, not tied to specific tenants)
+- Upsert pattern ensures users exist with current credentials even in production
+- Initialization in `server/init.ts` runs before routes are registered
+
+**Authentication Flow**:
 - Session-based authentication using Express sessions
-- Credential storage in database with secure password hashing
-- User lookup by username for authentication
+- Secure password hashing and verification
+- User lookup by email for authentication
 - Multi-tenant support through TenantSwitcher component
 
 **Multi-Tenant System**:
