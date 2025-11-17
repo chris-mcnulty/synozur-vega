@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Link } from "wouter";
-import starTrailsBg from "@assets/star-trails-bg.jpg";
+import starTrailsBg from "@assets/AdobeStock_362805421_1763398687511.jpeg";
 
 export function LandingHero() {
   return (
@@ -19,9 +19,12 @@ export function LandingHero() {
             <Sparkles className="h-6 w-6 text-primary" />
             <span className="text-sm font-medium tracking-wide uppercase">AI-Powered Company OS</span>
           </div>
-          <h1 className="text-5xl md:text-6xl font-bold leading-tight mb-6">
-            Your AI-Augmented Company OS
+          <h1 className="text-7xl md:text-8xl font-bold leading-tight mb-4 bg-gradient-to-r from-white via-purple-200 to-primary bg-clip-text text-transparent">
+            Vega
           </h1>
+          <h2 className="text-4xl md:text-5xl font-bold leading-tight mb-6 bg-gradient-to-r from-white via-purple-200 to-primary bg-clip-text text-transparent">
+            Your AI-Augmented Company OS
+          </h2>
           <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed">
             Transform your organization with intelligent foundations, strategic planning, 
             and seamless M365 integration—all in one powerful platform.
