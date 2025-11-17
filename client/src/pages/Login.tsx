@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft } from "lucide-react";
-import starTrailsBg from "@assets/star-trails-bg.jpg";
+import starTrailsBg from "@assets/AdobeStock_362805421_1763398687511.jpeg";
 
 export default function Login() {
   const { login, signup } = useAuth();
