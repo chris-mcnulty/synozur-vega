@@ -47,6 +47,7 @@ async function ensureGlobalAdmins() {
         name: "Synozur Consultant",
         role: "vega_consultant",
         tenantId: null, // Global user - not tied to specific tenant
+        emailVerified: true, // Pre-verified admin account
       })
       .onConflictDoUpdate({
         target: users.email,
@@ -55,6 +56,7 @@ async function ensureGlobalAdmins() {
           role: "vega_consultant",
           tenantId: null,
           name: "Synozur Consultant",
+          emailVerified: true, // Ensure always verified
         },
       })
       .returning();
@@ -69,6 +71,7 @@ async function ensureGlobalAdmins() {
         name: "Vega Administrator",
         role: "vega_admin",
         tenantId: null, // Global user - not tied to specific tenant
+        emailVerified: true, // Pre-verified admin account
       })
       .onConflictDoUpdate({
         target: users.email,
@@ -77,6 +80,7 @@ async function ensureGlobalAdmins() {
           role: "vega_admin",
           tenantId: null,
           name: "Vega Administrator",
+          emailVerified: true, // Ensure always verified
         },
       })
       .returning();
