@@ -23,17 +23,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     queryKey: ["/api/auth/me"],
     queryFn: getQueryFn({ on401: "returnNull" }),
     retry: false,
+    staleTime: 60 * 1000, // Consider data fresh for 1 minute
+    gcTime: 5 * 60 * 1000, // Keep in cache for 5 minutes
   });
 
   useEffect(() => {
     // Only update user state when we're not loading
     if (!isLoading) {
       if (data?.user) {
+        console.log('[AuthContext] Setting user from query data:', data.user.email);
         setUser(data.user);
       } else {
-        // Clear user if query completed but no user data
+        console.log('[AuthContext] Clearing user - no data from query');
         setUser(null);
       }
+    } else {
+      console.log('[AuthContext] Still loading user data...');
     }
   }, [data, isLoading]);
 
@@ -44,7 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (data: { user: User }) => {
       setUser(data.user);
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      // Set the query data directly instead of invalidating to avoid refetch race conditions
+      queryClient.setQueryData(["/api/auth/me"], { user: data.user });
     },
   });
 
@@ -55,7 +61,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     },
     onSuccess: (data: { user: User }) => {
       setUser(data.user);
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      // Set the query data directly instead of invalidating to avoid refetch race conditions
+      queryClient.setQueryData(["/api/auth/me"], { user: data.user });
     },
   });
 
@@ -63,7 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     mutationFn: () => apiRequest("POST", "/api/auth/logout", {}),
     onSuccess: () => {
       setUser(null);
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      // Set query data to null and clear all other queries
+      queryClient.setQueryData(["/api/auth/me"], null);
       queryClient.clear();
     },
   });

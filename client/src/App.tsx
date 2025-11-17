@@ -29,24 +29,31 @@ import NotFound from "@/pages/not-found";
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
   const [, setLocation] = useLocation();
-  const [shouldRedirect, setShouldRedirect] = useState(false);
 
-  // Use effect to handle redirect to avoid state update during render
+  // Debug logging
+  React.useEffect(() => {
+    console.log('[ProtectedRoute] Auth state:', {
+      isAuthenticated,
+      isLoading,
+      hasUser: !!user,
+      userEmail: user?.email
+    });
+  }, [isAuthenticated, isLoading, user]);
+
+  // Handle redirect in a single useEffect to prevent race conditions
   React.useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      setShouldRedirect(true);
-    }
-  }, [isLoading, isAuthenticated]);
-
-  React.useEffect(() => {
-    if (shouldRedirect) {
+      console.log('[ProtectedRoute] Redirecting to login - not authenticated');
       setLocation("/login");
+    } else if (!isLoading && isAuthenticated) {
+      console.log('[ProtectedRoute] User is authenticated, allowing access');
     }
-  }, [shouldRedirect, setLocation]);
+  }, [isLoading, isAuthenticated, setLocation]);
 
   if (isLoading) {
+    console.log('[ProtectedRoute] Still loading auth state...');
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center">
@@ -58,6 +65,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   }
 
   if (!isAuthenticated) {
+    console.log('[ProtectedRoute] Not authenticated, showing redirect message');
     return (
       <div className="flex items-center justify-center h-screen bg-background">
         <div className="text-center">
@@ -67,6 +75,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
     );
   }
 
+  console.log('[ProtectedRoute] Rendering protected content');
   return <>{children}</>;
 }
 
