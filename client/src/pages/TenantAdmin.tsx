@@ -853,8 +853,10 @@ export default function TenantAdmin() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="tenant_user">Tenant User</SelectItem>
+                  <SelectItem value="tenant_admin">Tenant Admin</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="global_admin">Global Admin</SelectItem>
                   <SelectItem value="vega_consultant">Vega Consultant</SelectItem>
                   <SelectItem value="vega_admin">Vega Admin</SelectItem>
                 </SelectContent>
