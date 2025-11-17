@@ -19,9 +19,12 @@ import { hashPassword } from "./auth";
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByVerificationToken(token: string): Promise<User | undefined>;
+  getUserByResetToken(token: string): Promise<User | undefined>;
   getAllUsers(tenantId?: string): Promise<User[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User>;
+  updateUserPassword(id: string, newPassword: string): Promise<void>;
   deleteUser(id: string): Promise<void>;
   getTenantByDomain(domain: string): Promise<Tenant | undefined>;
   
@@ -103,6 +106,16 @@ export class DatabaseStorage implements IStorage {
     return user || undefined;
   }
 
+  async getUserByVerificationToken(token: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.verificationToken, token));
+    return user || undefined;
+  }
+
+  async getUserByResetToken(token: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.resetToken, token));
+    return user || undefined;
+  }
+
   async getTenantByDomain(domain: string): Promise<Tenant | undefined> {
     const allTenants = await db.select().from(tenants);
     const tenant = allTenants.find(t => 
@@ -149,6 +162,14 @@ export class DatabaseStorage implements IStorage {
     }
     
     return user;
+  }
+
+  async updateUserPassword(id: string, newPassword: string): Promise<void> {
+    const hashedPassword = await hashPassword(newPassword);
+    await db
+      .update(users)
+      .set({ password: hashedPassword })
+      .where(eq(users.id, id));
   }
 
   async deleteUser(id: string): Promise<void> {

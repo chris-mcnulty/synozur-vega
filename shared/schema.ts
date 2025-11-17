@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, jsonb, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, jsonb, unique, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -10,6 +10,10 @@ export const users = pgTable("users", {
   name: text("name"),
   role: text("role").notNull(),
   tenantId: varchar("tenant_id").references(() => tenants.id),
+  emailVerified: boolean("email_verified").notNull().default(false),
+  verificationToken: text("verification_token"),
+  resetToken: text("reset_token"),
+  resetTokenExpiry: timestamp("reset_token_expiry"),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
