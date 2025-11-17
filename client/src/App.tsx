@@ -31,12 +31,14 @@ import NotFound from "@/pages/not-found";
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [, setLocation] = useLocation();
-  const wasAuthenticatedRef = React.useRef(false);
 
-  // Track if user was ever authenticated in this session
+  // Track if user was ever authenticated in this browser tab session
+  const wasAuthenticated = sessionStorage.getItem('vega_was_authenticated') === 'true';
+
+  // Update session storage when user becomes authenticated
   React.useEffect(() => {
     if (isAuthenticated) {
-      wasAuthenticatedRef.current = true;
+      sessionStorage.setItem('vega_was_authenticated', 'true');
     }
   }, [isAuthenticated]);
 
@@ -47,20 +49,22 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       isLoading,
       hasUser: !!user,
       userEmail: user?.email,
-      wasAuthenticated: wasAuthenticatedRef.current
+      wasAuthenticated
     });
-  }, [isAuthenticated, isLoading, user]);
+  }, [isAuthenticated, isLoading, user, wasAuthenticated]);
 
-  // Handle redirect - but only if we were never authenticated OR loading is complete
+  // Handle redirect - but only if we were never authenticated in this session
   React.useEffect(() => {
     // Don't redirect if we were previously authenticated (navigation in progress)
-    if (!isLoading && !isAuthenticated && !wasAuthenticatedRef.current) {
+    if (!isLoading && !isAuthenticated && !wasAuthenticated) {
       console.log('[ProtectedRoute] Redirecting to login - not authenticated');
       setLocation("/login");
     } else if (!isLoading && isAuthenticated) {
       console.log('[ProtectedRoute] User is authenticated, allowing access');
+    } else if (!isLoading && !isAuthenticated && wasAuthenticated) {
+      console.log('[ProtectedRoute] Waiting for auth state to restore...');
     }
-  }, [isLoading, isAuthenticated, setLocation]);
+  }, [isLoading, isAuthenticated, wasAuthenticated, setLocation]);
 
   if (isLoading) {
     console.log('[ProtectedRoute] Still loading auth state...');

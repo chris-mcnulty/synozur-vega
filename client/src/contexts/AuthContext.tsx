@@ -74,6 +74,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Set query data to null and clear all other queries
       queryClient.setQueryData(["/api/auth/me"], null);
       queryClient.clear();
+      // Clear session storage flag
+      sessionStorage.removeItem('vega_was_authenticated');
     },
   });
 
