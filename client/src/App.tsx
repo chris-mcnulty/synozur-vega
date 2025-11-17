@@ -31,6 +31,14 @@ import NotFound from "@/pages/not-found";
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, isLoading, user } = useAuth();
   const [, setLocation] = useLocation();
+  const wasAuthenticatedRef = React.useRef(false);
+
+  // Track if user was ever authenticated in this session
+  React.useEffect(() => {
+    if (isAuthenticated) {
+      wasAuthenticatedRef.current = true;
+    }
+  }, [isAuthenticated]);
 
   // Debug logging
   React.useEffect(() => {
@@ -38,13 +46,15 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
       isAuthenticated,
       isLoading,
       hasUser: !!user,
-      userEmail: user?.email
+      userEmail: user?.email,
+      wasAuthenticated: wasAuthenticatedRef.current
     });
   }, [isAuthenticated, isLoading, user]);
 
-  // Handle redirect in a single useEffect to prevent race conditions
+  // Handle redirect - but only if we were never authenticated OR loading is complete
   React.useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
+    // Don't redirect if we were previously authenticated (navigation in progress)
+    if (!isLoading && !isAuthenticated && !wasAuthenticatedRef.current) {
       console.log('[ProtectedRoute] Redirecting to login - not authenticated');
       setLocation("/login");
     } else if (!isLoading && isAuthenticated) {

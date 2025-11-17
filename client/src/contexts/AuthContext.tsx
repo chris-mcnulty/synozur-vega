@@ -30,15 +30,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   useEffect(() => {
-    // Only update user state when we're not loading
-    if (!isLoading) {
-      if (data?.user) {
-        console.log('[AuthContext] Setting user from query data:', data.user.email);
-        setUser(data.user);
-      } else {
-        console.log('[AuthContext] Clearing user - no data from query');
-        setUser(null);
-      }
+    // Only update user state when we have data
+    if (data?.user) {
+      console.log('[AuthContext] Setting user from query data:', data.user.email);
+      setUser(data.user);
+    } else if (!isLoading && !data) {
+      // Only clear user if we're not loading AND we have no data
+      console.log('[AuthContext] Clearing user - no data from query');
+      setUser(null);
     } else {
       console.log('[AuthContext] Still loading user data...');
     }
