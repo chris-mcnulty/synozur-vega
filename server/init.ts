@@ -1,28 +1,68 @@
 import { db } from "./db";
 import { tenants, foundations, strategies, okrs, kpis, rocks, meetings, users } from "@shared/schema";
 import { hashPassword } from "./auth";
+import { eq } from "drizzle-orm";
 
 /**
- * Initialize database with seed data if empty.
- * This runs automatically on server startup to ensure production
- * deployments have the necessary demo data.
+ * Initialize database with essential admin users and optionally seed demo data.
+ * This runs automatically on server startup.
  */
 export async function initializeDatabase() {
   try {
-    // Check if database already has data
+    // Always ensure global admin users exist (safe with existing data)
+    await ensureGlobalAdmins();
+
+    // Check if database is completely empty - if so, seed demo data
     const existingTenants = await db.select().from(tenants).limit(1);
     
-    if (existingTenants.length > 0) {
-      console.log("Database already initialized, skipping seed.");
-      return;
+    if (existingTenants.length === 0) {
+      console.log("Empty database detected. Initializing with seed data...");
+      await seedDatabase();
+      console.log("✓ Database initialization complete");
     }
-
-    console.log("Empty database detected. Initializing with seed data...");
-    await seedDatabase();
-    console.log("✓ Database initialization complete");
   } catch (error) {
     console.error("Database initialization error:", error);
     throw error;
+  }
+}
+
+/**
+ * Ensure global admin users exist.
+ * Safe to run on existing databases - uses onConflictDoNothing.
+ */
+async function ensureGlobalAdmins() {
+  try {
+    // Get Synozur tenant ID (or null if it doesn't exist yet)
+    const synozurTenant = await db
+      .select()
+      .from(tenants)
+      .where(eq(tenants.name, "The Synozur Alliance LLC"))
+      .limit(1);
+    
+    const synozurTenantId = synozurTenant[0]?.id || "f328cd4e-0fe1-4893-a637-941684749c55";
+
+    // Create global admin users if they don't exist
+    await db.insert(users).values([
+      {
+        email: "consultant@synozur.com",
+        password: await hashPassword("NorthStar2025!"),
+        name: "Synozur Consultant",
+        role: "vega_consultant",
+        tenantId: synozurTenantId,
+      },
+      {
+        email: "superadmin@vega.com",
+        password: await hashPassword("NorthStar2025!"),
+        name: "Vega Administrator",
+        role: "vega_admin",
+        tenantId: null,
+      },
+    ]).onConflictDoNothing();
+
+    console.log("✓ Global admin users verified");
+  } catch (error) {
+    console.error("Error ensuring global admins:", error);
+    // Don't throw - this is not critical enough to crash the server
   }
 }
 
