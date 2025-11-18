@@ -26,18 +26,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
-import type { Strategy } from "@shared/schema";
-
-const availableGoals = [
-  "Increase revenue by 30%",
-  "Expand to new markets",
-  "Improve customer satisfaction",
-  "Launch innovative products",
-  "Build high-performing teams",
-  "Achieve operational excellence",
-  "Strengthen brand presence",
-  "Foster sustainable practices",
-];
+import type { Strategy, Foundation } from "@shared/schema";
 
 const priorityLevels = [
   { value: "critical", label: "Critical", variant: "destructive" },
@@ -87,6 +76,14 @@ export default function Strategy() {
   const { data: strategies = [], isLoading } = useQuery<Strategy[]>({
     queryKey: [`/api/strategies/${currentTenant.id}`],
   });
+
+  // Fetch foundation to get actual annual goals
+  const { data: foundation } = useQuery<Foundation>({
+    queryKey: [`/api/foundations/${currentTenant.id}`],
+  });
+
+  // Use actual annual goals from Foundations, with fallback
+  const availableGoals = foundation?.annualGoals || [];
 
   const createMutation = useMutation({
     mutationFn: async (data: StrategyFormData) => {
