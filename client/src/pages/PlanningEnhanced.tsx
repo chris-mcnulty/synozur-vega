@@ -182,8 +182,10 @@ export default function PlanningEnhanced() {
     metricType: "increase",
     targetValue: 100,
     currentValue: 0,
+    initialValue: 0,
     unit: "%",
     weight: 25,
+    objectiveId: "",
   });
 
   const [bigRockForm, setBigRockForm] = useState({
@@ -238,7 +240,8 @@ export default function PlanningEnhanced() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
       setKeyResultDialogOpen(false);
       toast({ title: "Success", description: "Key Result created successfully" });
     },
@@ -252,7 +255,8 @@ export default function PlanningEnhanced() {
       return apiRequest("PATCH", `/api/okr/key-results/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
       setKeyResultDialogOpen(false);
       setSelectedKeyResult(null);
       toast({ title: "Success", description: "Key Result updated successfully" });
@@ -267,7 +271,8 @@ export default function PlanningEnhanced() {
       return apiRequest("DELETE", `/api/okr/key-results/${id}`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
       toast({ title: "Success", description: "Key Result deleted successfully" });
     },
     onError: () => {
@@ -464,8 +469,10 @@ export default function PlanningEnhanced() {
         metricType: "increase",
         targetValue: 100,
         currentValue: 0,
+        initialValue: 0,
         unit: "%",
         weight: 25,
+        objectiveId: objectiveId,
       });
       setSelectedKeyResult(null);
       setKeyResultDialogOpen(true);
@@ -484,8 +491,10 @@ export default function PlanningEnhanced() {
       metricType: keyResult.metricType || "increase",
       targetValue: keyResult.targetValue,
       currentValue: keyResult.currentValue,
+      initialValue: keyResult.initialValue || 0,
       unit: keyResult.unit,
       weight: keyResult.weight,
+      objectiveId: objectiveId,
     });
     setKeyResultDialogOpen(true);
   };
@@ -858,11 +867,8 @@ export default function PlanningEnhanced() {
                 onClick={() => {
                   if (selectedKeyResult) {
                     updateKeyResultMutation.mutate({ id: selectedKeyResult.id, data: keyResultForm });
-                  } else if (selectedObjective) {
-                    createKeyResultMutation.mutate({
-                      ...keyResultForm,
-                      objectiveId: selectedObjective.id,
-                    });
+                  } else {
+                    createKeyResultMutation.mutate(keyResultForm);
                   }
                 }}
                 disabled={createKeyResultMutation.isPending || updateKeyResultMutation.isPending}
