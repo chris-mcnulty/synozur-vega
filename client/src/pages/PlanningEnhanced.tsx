@@ -127,6 +127,11 @@ export default function PlanningEnhanced() {
   
   useEffect(() => {
     const enrichData = async () => {
+      if (objectives.length === 0) {
+        setEnrichedObjectives([]);
+        return;
+      }
+      
       const enriched = await Promise.all(objectives.map(async (obj) => {
         // Fetch key results for this objective
         const krRes = await fetch(`/api/okr/objectives/${obj.id}/key-results`);
@@ -144,9 +149,7 @@ export default function PlanningEnhanced() {
       setEnrichedObjectives(enriched);
     };
     
-    if (objectives.length > 0) {
-      enrichData();
-    }
+    enrichData();
   }, [objectives, bigRocks]);
 
   // Dialog states

@@ -16,7 +16,10 @@ Preferred communication style: Simple, everyday language.
 - **Modules**:
     - **Foundations**: CRUD for mission, vision, values, and annual goals with AI suggestions.
     - **Strategy**: Strategic priorities with AI drafting capabilities.
-    - **Planning**: OKRs, KPIs, and "big rocks" (initiatives), including null handling for parent/objective/key result IDs.
+    - **Planning**: Enhanced OKR system with hierarchical objectives, Key Results with weighted rollup progress tracking, and "big rocks" (initiatives).
+        - **Key Result Features**: Metric type selector (increase/decrease/maintain/complete), progress visualization, and KPI promotion.
+        - **UI Enhancements**: Quick-add buttons for Key Results, count badges showing KR/Big Rock counts on collapsed objectives.
+        - **Weighted Rollup**: Key Result progress × weight aggregates to parent objective progress.
     - **Focus Rhythm**: Meeting management and summaries.
     - **Tenant Admin**: Organization management, M365 service integration status, tenant CRUD, user CRUD, and allowed email domain management.
 
