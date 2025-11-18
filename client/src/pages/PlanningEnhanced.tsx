@@ -40,8 +40,10 @@ interface KeyResult {
   objectiveId: string;
   title: string;
   description?: string;
+  metricType: string;
   currentValue: number;
   targetValue: number;
+  initialValue?: number;
   unit: string;
   progress: number;
   weight: number;
@@ -245,6 +247,34 @@ export default function PlanningEnhanced() {
     },
   });
 
+  const updateKeyResultMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return apiRequest("PATCH", `/api/okr/key-results/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      setKeyResultDialogOpen(false);
+      setSelectedKeyResult(null);
+      toast({ title: "Success", description: "Key Result updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update Key Result", variant: "destructive" });
+    },
+  });
+
+  const deleteKeyResultMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/okr/key-results/${id}`, undefined);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      toast({ title: "Success", description: "Key Result deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete Key Result", variant: "destructive" });
+    },
+  });
+
   const createBigRockMutation = useMutation({
     mutationFn: async (data: any) => {
       console.log('[Planning] Creating big rock with data:', data);
@@ -437,7 +467,32 @@ export default function PlanningEnhanced() {
         unit: "%",
         weight: 25,
       });
+      setSelectedKeyResult(null);
       setKeyResultDialogOpen(true);
+    }
+  };
+
+  const handleEditKeyResult = (keyResult: KeyResult, objectiveId: string) => {
+    setSelectedKeyResult(keyResult);
+    const objective = objectives.find(o => o.id === objectiveId);
+    if (objective) {
+      setSelectedObjective(objective);
+    }
+    setKeyResultForm({
+      title: keyResult.title,
+      description: keyResult.description || "",
+      metricType: keyResult.metricType || "increase",
+      targetValue: keyResult.targetValue,
+      currentValue: keyResult.currentValue,
+      unit: keyResult.unit,
+      weight: keyResult.weight,
+    });
+    setKeyResultDialogOpen(true);
+  };
+
+  const handleDeleteKeyResult = (id: string, objectiveId: string) => {
+    if (window.confirm("Are you sure you want to delete this Key Result? Associated Big Rocks will also be deleted.")) {
+      deleteKeyResultMutation.mutate(id);
     }
   };
 
@@ -561,6 +616,8 @@ export default function PlanningEnhanced() {
               onEditObjective={handleEditObjective}
               onDeleteObjective={handleDeleteObjective}
               onCreateKeyResult={handleCreateKeyResult}
+              onEditKeyResult={handleEditKeyResult}
+              onDeleteKeyResult={handleDeleteKeyResult}
               onPromoteKeyResult={(id) => promoteKeyResultMutation.mutate(id)}
               onUnpromoteKeyResult={(id) => unpromoteKeyResultMutation.mutate(id)}
               onCreateBigRock={handleCreateBigRock}
@@ -701,11 +758,11 @@ export default function PlanningEnhanced() {
           </DialogContent>
         </Dialog>
 
-        {/* Create Key Result Dialog */}
+        {/* Create/Edit Key Result Dialog */}
         <Dialog open={keyResultDialogOpen} onOpenChange={setKeyResultDialogOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Create Key Result</DialogTitle>
+              <DialogTitle>{selectedKeyResult ? "Edit" : "Create"} Key Result</DialogTitle>
               <DialogDescription>
                 {selectedObjective && `For: ${selectedObjective.title}`}
               </DialogDescription>
@@ -799,17 +856,19 @@ export default function PlanningEnhanced() {
               </Button>
               <Button
                 onClick={() => {
-                  if (selectedObjective) {
+                  if (selectedKeyResult) {
+                    updateKeyResultMutation.mutate({ id: selectedKeyResult.id, data: keyResultForm });
+                  } else if (selectedObjective) {
                     createKeyResultMutation.mutate({
                       ...keyResultForm,
                       objectiveId: selectedObjective.id,
                     });
                   }
                 }}
-                disabled={createKeyResultMutation.isPending}
+                disabled={createKeyResultMutation.isPending || updateKeyResultMutation.isPending}
                 data-testid="button-save-kr"
               >
-                {createKeyResultMutation.isPending ? "Creating..." : "Create Key Result"}
+                {(createKeyResultMutation.isPending || updateKeyResultMutation.isPending) ? "Saving..." : selectedKeyResult ? "Save Changes" : "Create Key Result"}
               </Button>
             </DialogFooter>
           </DialogContent>
