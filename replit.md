@@ -62,3 +62,14 @@ Preferred communication style: Simple, everyday language.
 - **UI Component Library**: shadcn/ui (built on Radix UI primitives) for accessible and customizable components.
 - **Database**: Neon PostgreSQL.
 - **Transactional Email**: SendGrid (via Replit connector) for email verification and password reset.
+
+## Future Features / Backlog
+
+### Snapshot System for Company OS
+- **Purpose**: Capture point-in-time snapshots of Big Rocks and OKRs for documentation rhythm
+- **Use Case**: Historical tracking and reporting, especially for board meetings, quarterly reviews, and audit trails
+- **Scope**: 
+  - As-of date snapshots for Objectives, Key Results, and Big Rocks
+  - Snapshot metadata (created date, quarter, year, created by)
+  - Read-only views of historical snapshots
+  - Comparison views between snapshots
