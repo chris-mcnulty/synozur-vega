@@ -22,8 +22,10 @@ import {
   Sparkles,
   ChevronRight,
   Loader2,
+  AlertCircle,
 } from "lucide-react";
 import { Link } from "wouter";
+import { useTenant } from "@/contexts/TenantContext";
 import type { Foundation, Strategy, Objective, BigRock, Meeting } from "@shared/schema";
 
 type Quarter = {
@@ -49,42 +51,60 @@ const quarters: Quarter[] = [
 ];
 
 export default function Dashboard() {
+  const { currentTenant } = useTenant();
   const [selectedFiscalYear, setSelectedFiscalYear] = useState("fy2025");
   const [selectedQuarter, setSelectedQuarter] = useState("q1-2025");
 
   const currentQuarter = quarters.find((q) => q.id === selectedQuarter);
 
   // Fetch real data from APIs
-  const { data: foundations, isLoading: loadingFoundations } = useQuery<Foundation>({
-    queryKey: ["/api/foundations"],
+  const { data: foundations, isLoading: loadingFoundations, error: foundationsError } = useQuery<Foundation>({
+    queryKey: [`/api/foundations/${currentTenant.id}`],
+    enabled: !!currentTenant.id,
   });
 
-  const { data: strategies, isLoading: loadingStrategies } = useQuery<Strategy[]>({
-    queryKey: ["/api/strategy"],
+  const { data: strategies, isLoading: loadingStrategies, error: strategiesError } = useQuery<Strategy[]>({
+    queryKey: [`/api/strategies/${currentTenant.id}`],
+    enabled: !!currentTenant.id,
   });
 
-  const { data: objectives, isLoading: loadingObjectives } = useQuery<Objective[]>({
-    queryKey: ["/api/okr/objectives"],
+  const { data: objectives, isLoading: loadingObjectives, error: objectivesError } = useQuery<Objective[]>({
+    queryKey: ["/api/okr/objectives", currentTenant.id, currentQuarter?.quarter, currentQuarter?.year],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        tenantId: currentTenant.id,
+        ...(currentQuarter?.quarter && { quarter: String(currentQuarter.quarter) }),
+        ...(currentQuarter?.year && { year: String(currentQuarter.year) }),
+      });
+      const res = await fetch(`/api/okr/objectives?${params}`);
+      if (!res.ok) throw new Error('Failed to fetch objectives');
+      return res.json();
+    },
+    enabled: !!currentTenant.id && !!currentQuarter,
   });
 
-  const { data: bigRocks, isLoading: loadingBigRocks } = useQuery<BigRock[]>({
-    queryKey: ["/api/okr/big-rocks"],
+  const { data: bigRocks, isLoading: loadingBigRocks, error: bigRocksError } = useQuery<BigRock[]>({
+    queryKey: ["/api/okr/big-rocks", currentTenant.id, currentQuarter?.quarter, currentQuarter?.year],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        tenantId: currentTenant.id,
+        ...(currentQuarter?.quarter && { quarter: String(currentQuarter.quarter) }),
+        ...(currentQuarter?.year && { year: String(currentQuarter.year) }),
+      });
+      const res = await fetch(`/api/okr/big-rocks?${params}`);
+      if (!res.ok) throw new Error('Failed to fetch big rocks');
+      return res.json();
+    },
+    enabled: !!currentTenant.id && !!currentQuarter,
   });
 
-  const { data: meetings, isLoading: loadingMeetings } = useQuery<Meeting[]>({
-    queryKey: ["/api/meetings"],
+  const { data: meetings, isLoading: loadingMeetings, error: meetingsError } = useQuery<Meeting[]>({
+    queryKey: [`/api/meetings/${currentTenant.id}`],
+    enabled: !!currentTenant.id,
   });
-
-  // Filter data by selected quarter
-  const quarterlyObjectives = (objectives || []).filter(
-    (obj) => obj.quarter === currentQuarter?.quarter && obj.year === currentQuarter?.year
-  );
-
-  const quarterlyBigRocks = (bigRocks || []).filter(
-    (rock) => rock.quarter === currentQuarter?.quarter && rock.year === currentQuarter?.year
-  );
 
   const isLoading = loadingFoundations || loadingStrategies || loadingObjectives || loadingBigRocks || loadingMeetings;
+  const hasError = foundationsError || strategiesError || objectivesError || bigRocksError || meetingsError;
 
   if (isLoading) {
     return (
@@ -93,6 +113,30 @@ export default function Dashboard() {
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
           <p className="mt-4 text-muted-foreground">Loading Company OS...</p>
         </div>
+      </div>
+    );
+  }
+
+  if (hasError) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <Card className="max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center space-y-4">
+              <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Error Loading Dashboard</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {foundationsError?.message || strategiesError?.message || objectivesError?.message || 
+                   bigRocksError?.message || meetingsError?.message || "Failed to load dashboard data"}
+                </p>
+                <Button onClick={() => window.location.reload()} data-testid="button-retry">
+                  Retry
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -152,13 +196,13 @@ export default function Dashboard() {
                 <p className="text-sm text-muted-foreground">Active Strategies</p>
               </div>
               <div className="text-center">
-                <p className="text-3xl font-bold text-primary">{quarterlyObjectives.length}</p>
+                <p className="text-3xl font-bold text-primary">{objectives?.length || 0}</p>
                 <p className="text-sm text-muted-foreground">OKRs</p>
               </div>
               <div className="text-center">
                 <p className="text-3xl font-bold text-primary">
-                  {quarterlyBigRocks.filter((r) => r.status === "completed").length}/
-                  {quarterlyBigRocks.length}
+                  {bigRocks?.filter((r) => r.status === "completed").length || 0}/
+                  {bigRocks?.length || 0}
                 </p>
                 <p className="text-sm text-muted-foreground">Rocks Complete</p>
               </div>
@@ -317,8 +361,8 @@ export default function Dashboard() {
           </div>
           <Card>
             <CardContent className="pt-6 space-y-3">
-              {quarterlyBigRocks && quarterlyBigRocks.length > 0 ? (
-                quarterlyBigRocks.map((rock) => (
+              {bigRocks && bigRocks.length > 0 ? (
+                bigRocks.map((rock) => (
                   <div key={rock.id} className="flex items-start gap-3">
                     {rock.status === "completed" ? (
                       <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
@@ -370,8 +414,8 @@ export default function Dashboard() {
           </div>
           <Card>
             <CardContent className="pt-6 space-y-4">
-              {quarterlyObjectives && quarterlyObjectives.length > 0 ? (
-                quarterlyObjectives.map((okr) => (
+              {objectives && objectives.length > 0 ? (
+                objectives.map((okr) => (
                   <div key={okr.id} className="space-y-2">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
