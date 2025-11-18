@@ -81,6 +81,7 @@ export function OKRTreeView({
   onEditKeyResult,
   onDeleteKeyResult,
   onPromoteKeyResult,
+  onUnpromoteKeyResult,
   onCreateBigRock,
   onEditBigRock,
   onDeleteBigRock,
