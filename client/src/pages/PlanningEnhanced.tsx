@@ -14,6 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentQuarter } from "@/lib/quarters";
 import { OKRTreeView } from "@/components/okr/OKRTreeView";
 import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
@@ -82,6 +83,7 @@ interface CheckIn {
 export default function PlanningEnhanced() {
   const { toast } = useToast();
   const { currentTenant } = useTenant();
+  const { user } = useAuth();
   const [selectedTab, setSelectedTab] = useState("enhanced-okrs");
   const [quarter, setQuarter] = useState(1);
   const [year, setYear] = useState(new Date().getFullYear());
@@ -263,9 +265,9 @@ export default function PlanningEnhanced() {
 
   const promoteKeyResultMutation = useMutation({
     mutationFn: async (keyResultId: string) => {
-      return apiRequest("POST", `/api/okr/key-results/${keyResultId}/promote-to-kpi`, {
-        userId: "current-user", // TODO: Get from auth context
-      });
+      // Don't send userId if not available - backend will use session
+      const body = user?.id ? { userId: user.id } : {};
+      return apiRequest("POST", `/api/okr/key-results/${keyResultId}/promote-to-kpi`, body);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });

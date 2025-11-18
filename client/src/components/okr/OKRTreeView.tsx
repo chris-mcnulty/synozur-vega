@@ -136,7 +136,7 @@ export function OKRTreeView({
               </Button>
 
               <div className="flex-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Target className="h-5 w-5 text-muted-foreground" />
                   <h3 className="font-medium text-lg">{objective.title}</h3>
                   <Badge variant="secondary" className="ml-2">
@@ -153,6 +153,16 @@ export function OKRTreeView({
                       <TooltipContent>Current status of this objective</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
+                  {objective.keyResults && objective.keyResults.length > 0 && (
+                    <Badge variant="outline" className="gap-1">
+                      {objective.keyResults.length} KR{objective.keyResults.length > 1 ? "s" : ""}
+                    </Badge>
+                  )}
+                  {objective.bigRocks && objective.bigRocks.length > 0 && (
+                    <Badge variant="outline" className="gap-1">
+                      {objective.bigRocks.length} Big Rock{objective.bigRocks.length > 1 ? "s" : ""}
+                    </Badge>
+                  )}
                 </div>
 
                 {objective.description && (
@@ -183,6 +193,23 @@ export function OKRTreeView({
               </div>
               
               <div className="flex gap-1">
+                {onCreateKeyResult && (
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => onCreateKeyResult(objective.id)}
+                          data-testid={`button-add-kr-quick-${objective.id}`}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>Add Key Result</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
                 {onCheckIn && (
                   <Button
                     variant="ghost"
