@@ -17,7 +17,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentQuarter } from "@/lib/quarters";
 import { OKRTreeView } from "@/components/okr/OKRTreeView";
-import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2 } from "lucide-react";
 import type { Foundation } from "@shared/schema";
 
 interface Objective {
@@ -267,6 +267,34 @@ export default function PlanningEnhanced() {
     },
   });
 
+  const updateBigRockMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return apiRequest("PATCH", `/api/okr/big-rocks/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`] });
+      setBigRockDialogOpen(false);
+      setSelectedBigRock(null);
+      toast({ title: "Success", description: "Big Rock updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update Big Rock", variant: "destructive" });
+    },
+  });
+
+  const deleteBigRockMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/okr/big-rocks/${id}`, undefined);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`] });
+      toast({ title: "Success", description: "Big Rock deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete Big Rock", variant: "destructive" });
+    },
+  });
+
   const promoteKeyResultMutation = useMutation({
     mutationFn: async (keyResultId: string) => {
       // Don't send userId if not available - backend will use session
@@ -280,6 +308,20 @@ export default function PlanningEnhanced() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to promote key result", variant: "destructive" });
+    },
+  });
+
+  const unpromoteKeyResultMutation = useMutation({
+    mutationFn: async (keyResultId: string) => {
+      return apiRequest("POST", `/api/okr/key-results/${keyResultId}/unpromote-from-kpi`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/kpis`] });
+      toast({ title: "Success", description: "Key Result removed from KPI dashboard" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to remove from KPI dashboard", variant: "destructive" });
     },
   });
 
@@ -329,6 +371,7 @@ export default function PlanningEnhanced() {
   };
 
   const handleCreateBigRock = (objectiveId: string, keyResultId?: string) => {
+    setSelectedBigRock(null);
     setBigRockForm({
       title: "",
       description: "",
@@ -337,6 +380,24 @@ export default function PlanningEnhanced() {
       completionPercentage: 0,
     });
     setBigRockDialogOpen(true);
+  };
+
+  const handleEditBigRock = (bigRock: BigRock) => {
+    setSelectedBigRock(bigRock);
+    setBigRockForm({
+      title: bigRock.title,
+      description: bigRock.description || "",
+      objectiveId: bigRock.objectiveId || "",
+      keyResultId: bigRock.keyResultId || "",
+      completionPercentage: bigRock.completionPercentage,
+    });
+    setBigRockDialogOpen(true);
+  };
+
+  const handleDeleteBigRock = (id: string) => {
+    if (window.confirm("Are you sure you want to delete this Big Rock?")) {
+      deleteBigRockMutation.mutate(id);
+    }
   };
 
   const handleCheckIn = (entityType: string, entityId: string) => {
@@ -428,13 +489,20 @@ export default function PlanningEnhanced() {
               onCreateObjective={handleCreateObjective}
               onCreateKeyResult={handleCreateKeyResult}
               onPromoteKeyResult={(id) => promoteKeyResultMutation.mutate(id)}
+              onUnpromoteKeyResult={(id) => unpromoteKeyResultMutation.mutate(id)}
               onCreateBigRock={handleCreateBigRock}
               onCheckIn={handleCheckIn}
             />
           </TabsContent>
 
           <TabsContent value="big-rocks">
-            <BigRocksSection bigRocks={bigRocks} objectives={objectives} onCreateBigRock={handleCreateBigRock} />
+            <BigRocksSection 
+              bigRocks={bigRocks} 
+              objectives={objectives} 
+              onCreateBigRock={handleCreateBigRock}
+              onEditBigRock={handleEditBigRock}
+              onDeleteBigRock={handleDeleteBigRock}
+            />
           </TabsContent>
 
           <TabsContent value="progress">
@@ -632,13 +700,13 @@ export default function PlanningEnhanced() {
           </DialogContent>
         </Dialog>
 
-        {/* Create Big Rock Dialog */}
+        {/* Create/Edit Big Rock Dialog */}
         <Dialog open={bigRockDialogOpen} onOpenChange={setBigRockDialogOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Create Big Rock (Initiative)</DialogTitle>
+              <DialogTitle>{selectedBigRock ? "Edit" : "Create"} Big Rock (Initiative)</DialogTitle>
               <DialogDescription>
-                Define a strategic initiative for {quarter === 0 ? 'Annual' : `Q${quarter}`} {year}
+                {selectedBigRock ? "Update your strategic initiative" : `Define a strategic initiative for ${quarter === 0 ? 'Annual' : `Q${quarter}`} ${year}`}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -664,7 +732,7 @@ export default function PlanningEnhanced() {
                 />
               </div>
               <div>
-                <Label htmlFor="br-progress">Initial Progress ({bigRockForm.completionPercentage}%)</Label>
+                <Label htmlFor="br-progress">{selectedBigRock ? "Completion" : "Initial Progress"} ({bigRockForm.completionPercentage}%)</Label>
                 <Slider
                   id="br-progress"
                   value={[bigRockForm.completionPercentage]}
@@ -680,11 +748,23 @@ export default function PlanningEnhanced() {
                 Cancel
               </Button>
               <Button
-                onClick={() => createBigRockMutation.mutate(bigRockForm)}
-                disabled={createBigRockMutation.isPending}
+                onClick={() => {
+                  if (selectedBigRock) {
+                    updateBigRockMutation.mutate({
+                      id: selectedBigRock.id,
+                      data: bigRockForm
+                    });
+                  } else {
+                    createBigRockMutation.mutate(bigRockForm);
+                  }
+                }}
+                disabled={createBigRockMutation.isPending || updateBigRockMutation.isPending}
                 data-testid="button-save-bigrock"
               >
-                {createBigRockMutation.isPending ? "Creating..." : "Create Big Rock"}
+                {selectedBigRock 
+                  ? (updateBigRockMutation.isPending ? "Updating..." : "Update Big Rock")
+                  : (createBigRockMutation.isPending ? "Creating..." : "Create Big Rock")
+                }
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -773,7 +853,7 @@ export default function PlanningEnhanced() {
 }
 
 // Big Rocks Section Component
-function BigRocksSection({ bigRocks, objectives, onCreateBigRock }: any) {
+function BigRocksSection({ bigRocks, objectives, onCreateBigRock, onEditBigRock, onDeleteBigRock }: any) {
   const getObjectiveTitle = (objId: string) => {
     const obj = objectives.find((o: Objective) => o.id === objId);
     return obj?.title || "Unknown Objective";
@@ -803,12 +883,34 @@ function BigRocksSection({ bigRocks, objectives, onCreateBigRock }: any) {
           {bigRocks.map((rock: BigRock) => (
             <Card key={rock.id} className="hover-elevate" data-testid={`card-bigrock-${rock.id}`}>
               <CardHeader>
-                <CardTitle className="text-lg">{rock.title}</CardTitle>
-                {rock.objectiveId && (
-                  <p className="text-sm text-muted-foreground">
-                    Linked to: {getObjectiveTitle(rock.objectiveId)}
-                  </p>
-                )}
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <CardTitle className="text-lg">{rock.title}</CardTitle>
+                    {rock.objectiveId && (
+                      <p className="text-sm text-muted-foreground mt-1">
+                        Linked to: {getObjectiveTitle(rock.objectiveId)}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-1">
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => onEditBigRock(rock)}
+                      data-testid={`button-edit-bigrock-${rock.id}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => onDeleteBigRock(rock.id)}
+                      data-testid={`button-delete-bigrock-${rock.id}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent>
                 {rock.description && (

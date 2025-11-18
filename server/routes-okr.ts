@@ -150,6 +150,15 @@ okrRouter.post("/key-results/:id/promote-to-kpi", async (req, res) => {
   }
 });
 
+okrRouter.post("/key-results/:id/unpromote-from-kpi", async (req, res) => {
+  try {
+    const keyResult = await storage.unpromoteKeyResultFromKpi(req.params.id);
+    res.json(keyResult);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Big Rocks (Initiatives)
 okrRouter.get("/big-rocks", async (req, res) => {
   try {

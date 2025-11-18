@@ -81,6 +81,7 @@ export interface IStorage {
   updateKeyResult(id: string, keyResult: Partial<InsertKeyResult>): Promise<KeyResult>;
   deleteKeyResult(id: string): Promise<void>;
   promoteKeyResultToKpi(keyResultId: string, userId: string): Promise<Kpi>;
+  unpromoteKeyResultFromKpi(keyResultId: string): Promise<KeyResult>;
   
   getBigRocksByTenantId(tenantId: string, quarter?: number, year?: number): Promise<BigRock[]>;
   getBigRockById(id: string): Promise<BigRock | undefined>;
@@ -571,6 +572,33 @@ export class DatabaseStorage implements IStorage {
       .where(eq(keyResults.id, keyResultId));
 
     return kpi;
+  }
+
+  async unpromoteKeyResultFromKpi(keyResultId: string): Promise<KeyResult> {
+    // Get the key result
+    const keyResult = await this.getKeyResultById(keyResultId);
+    if (!keyResult) {
+      throw new Error(`Key Result with id ${keyResultId} not found`);
+    }
+
+    // Delete the associated KPI if it exists
+    if (keyResult.promotedKpiId) {
+      await db.delete(kpis).where(eq(kpis.id, keyResult.promotedKpiId));
+    }
+
+    // Un-mark the key result as promoted
+    const [updated] = await db
+      .update(keyResults)
+      .set({
+        isPromotedToKpi: 'false',
+        promotedKpiId: null,
+        promotedAt: null,
+        promotedBy: null,
+      })
+      .where(eq(keyResults.id, keyResultId))
+      .returning();
+
+    return updated;
   }
 
   async getBigRocksByTenantId(tenantId: string, quarter?: number, year?: number): Promise<BigRock[]> {

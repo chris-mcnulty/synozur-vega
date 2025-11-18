@@ -49,6 +49,7 @@ interface OKRTreeViewProps {
   onEditKeyResult?: (keyResult: KeyResult, objectiveId: string) => void;
   onDeleteKeyResult?: (id: string, objectiveId: string) => void;
   onPromoteKeyResult?: (keyResultId: string) => void;
+  onUnpromoteKeyResult?: (keyResultId: string) => void;
   onCreateBigRock?: (objectiveId: string, keyResultId?: string) => void;
   onEditBigRock?: (bigRock: BigRock) => void;
   onDeleteBigRock?: (id: string) => void;
@@ -313,6 +314,16 @@ export function OKRTreeView({
                                 data-testid={`button-promote-kr-${kr.id}`}
                               >
                                 Promote to KPI
+                              </Button>
+                            )}
+                            {onUnpromoteKeyResult && kr.isPromotedToKpi && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => onUnpromoteKeyResult(kr.id)}
+                                data-testid={`button-unpromote-kr-${kr.id}`}
+                              >
+                                Remove from KPI
                               </Button>
                             )}
                             {onCheckIn && (
