@@ -164,6 +164,8 @@ export function WeightManager<T extends WeightedItem>({
                       disabled={disabled}
                       className="h-8 w-8"
                       title={isLocked ? "Unlock weight" : "Lock weight"}
+                      aria-pressed={isLocked}
+                      aria-label={isLocked ? "Unlock weight" : "Lock weight"}
                       data-testid={`button-lock-${index}`}
                     >
                       {isLocked ? (

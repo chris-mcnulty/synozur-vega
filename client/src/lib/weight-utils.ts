@@ -13,9 +13,10 @@ export interface WeightedItem {
 
 /**
  * Calculate the total weight across all items
+ * Treats undefined or null weights as 0
  */
 export function calculateTotalWeight(items: WeightedItem[]): number {
-  return items.reduce((sum, item) => sum + item.weight, 0);
+  return items.reduce((sum, item) => sum + (item.weight || 0), 0);
 }
 
 /**
@@ -82,8 +83,8 @@ export function autoBalanceWeights<T extends WeightedItem>(items: T[]): T[] {
     return items;
   }
   
-  // Calculate remaining weight after locked items
-  const lockedTotal = locked.reduce((sum, item) => sum + item.weight, 0);
+  // Calculate remaining weight after locked items (default to 0 for undefined weights)
+  const lockedTotal = locked.reduce((sum, item) => sum + (item.weight || 0), 0);
   const remainingWeight = 100 - lockedTotal;
   
   // Distribute remaining weight equally among unlocked items
@@ -93,7 +94,7 @@ export function autoBalanceWeights<T extends WeightedItem>(items: T[]): T[] {
   return items.map(item => {
     const isLocked = item.isWeightLocked === true;
     if (isLocked) {
-      return item;
+      return { ...item, weight: item.weight || 0 }; // Ensure weight is defined
     } else {
       return { ...item, weight: Math.round(weightPerUnlocked * 100) / 100 };
     }
@@ -127,19 +128,20 @@ export function normalizeWeights<T extends WeightedItem>(items: T[]): T[] {
     return items;
   }
   
-  // Apply proportional scaling to unlocked items
-  const unlockedTotal = unlocked.reduce((sum, item) => sum + item.weight, 0);
+  // Apply proportional scaling to unlocked items (default undefined weights to 0)
+  const unlockedTotal = unlocked.reduce((sum, item) => sum + (item.weight || 0), 0);
   const lockedTotal = total - unlockedTotal;
   const targetUnlockedTotal = 100 - lockedTotal;
-  const scaleFactor = targetUnlockedTotal / unlockedTotal;
+  const scaleFactor = unlockedTotal > 0 ? targetUnlockedTotal / unlockedTotal : 1;
   
   // Scale unlocked items
   const scaled = items.map(item => {
     const isLocked = item.isWeightLocked === true;
     if (isLocked) {
-      return item;
+      return { ...item, weight: item.weight || 0 }; // Ensure weight is defined
     } else {
-      return { ...item, weight: Math.round(item.weight * scaleFactor * 100) / 100 };
+      const currentWeight = item.weight || 0;
+      return { ...item, weight: Math.round(currentWeight * scaleFactor * 100) / 100 };
     }
   });
   
@@ -147,16 +149,19 @@ export function normalizeWeights<T extends WeightedItem>(items: T[]): T[] {
   const newTotal = calculateTotalWeight(scaled);
   const diff = 100 - newTotal;
   
-  if (Math.abs(diff) > 0.01) {
-    // Find largest unlocked item
-    const largestUnlocked = scaled
-      .filter(item => item.isWeightLocked !== true)
-      .reduce((max, item) => (item.weight > max.weight ? item : max), { id: '', weight: 0 });
+  if (Math.abs(diff) > 0.01 && unlocked.length > 0) {
+    // Find largest unlocked item, or first unlocked if all are zero
+    const unlockedItems = scaled.filter(item => item.isWeightLocked !== true);
+    const largestUnlocked = unlockedItems.reduce((max, item) => 
+      ((item.weight || 0) > (max.weight || 0) ? item : max), 
+      unlockedItems[0] // Use first unlocked item as fallback
+    );
     
-    if (largestUnlocked.id) {
+    if (largestUnlocked) {
       return scaled.map(item => {
         if (item.id === largestUnlocked.id) {
-          return { ...item, weight: Math.round((item.weight + diff) * 100) / 100 };
+          const currentWeight = item.weight || 0;
+          return { ...item, weight: Math.round((currentWeight + diff) * 100) / 100 };
         }
         return item;
       });
@@ -177,10 +182,14 @@ export function getSuggestedAdjustments(items: WeightedItem[]): {
 }[] {
   const normalized = normalizeWeights(items);
   
-  return items.map((item, index) => ({
-    itemId: item.id,
-    currentWeight: item.weight,
-    suggestedWeight: normalized[index].weight,
-    adjustment: normalized[index].weight - item.weight,
-  })).filter(suggestion => Math.abs(suggestion.adjustment) > 0.01);
+  return items.map((item, index) => {
+    const currentWeight = item.weight || 0;
+    const suggestedWeight = normalized[index].weight || 0;
+    return {
+      itemId: item.id,
+      currentWeight,
+      suggestedWeight,
+      adjustment: suggestedWeight - currentWeight,
+    };
+  }).filter(suggestion => Math.abs(suggestion.adjustment) > 0.01);
 }

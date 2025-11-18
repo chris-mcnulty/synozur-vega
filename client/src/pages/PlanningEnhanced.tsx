@@ -537,10 +537,20 @@ export default function PlanningEnhanced() {
     }
   };
 
-  const handleManageWeights = (objectiveId: string) => {
+  const handleManageWeights = async (objectiveId: string) => {
+    // Fetch the latest Key Results for this objective
+    const krRes = await fetch(`/api/okr/objectives/${objectiveId}/key-results`);
+    if (!krRes.ok) {
+      toast({ title: "Error", description: "Failed to fetch Key Results", variant: "destructive" });
+      return;
+    }
+    const keyResults = await krRes.json();
+    
+    // Find the objective from the main objectives list
     const objective = objectives.find(o => o.id === objectiveId);
     if (objective) {
-      setSelectedObjective(objective);
+      // Create an enriched objective with the fetched Key Results
+      setSelectedObjective({ ...objective, keyResults } as any);
       setWeightManagementDialogOpen(true);
     }
   };
@@ -986,7 +996,7 @@ export default function PlanningEnhanced() {
                       });
                     });
                   }}
-                  itemNameKey="title"
+                  itemNameKey={"title" as any}
                 />
               )}
             </div>
