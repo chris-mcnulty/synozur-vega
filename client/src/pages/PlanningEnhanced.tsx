@@ -172,6 +172,7 @@ export default function PlanningEnhanced() {
   const [keyResultForm, setKeyResultForm] = useState({
     title: "",
     description: "",
+    metricType: "increase",
     targetValue: 100,
     currentValue: 0,
     unit: "%",
@@ -314,6 +315,7 @@ export default function PlanningEnhanced() {
       setKeyResultForm({
         title: "",
         description: "",
+        metricType: "increase",
         targetValue: 100,
         currentValue: 0,
         unit: "%",
@@ -542,6 +544,23 @@ export default function PlanningEnhanced() {
                   rows={2}
                   data-testid="input-kr-description"
                 />
+              </div>
+              <div>
+                <Label htmlFor="kr-metric-type">Metric Type</Label>
+                <Select
+                  value={keyResultForm.metricType}
+                  onValueChange={(value) => setKeyResultForm({ ...keyResultForm, metricType: value })}
+                >
+                  <SelectTrigger data-testid="select-kr-metric-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="increase">Increase (higher is better)</SelectItem>
+                    <SelectItem value="decrease">Decrease (lower is better)</SelectItem>
+                    <SelectItem value="maintain">Maintain (stay at target)</SelectItem>
+                    <SelectItem value="complete">Complete (binary done/not done)</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid grid-cols-3 gap-4">
                 <div>
