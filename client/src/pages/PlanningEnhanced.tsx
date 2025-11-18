@@ -367,11 +367,13 @@ export default function PlanningEnhanced() {
   const createCheckInMutation = useMutation({
     mutationFn: async (data: any) => {
       // Include userId and userEmail from current user, plus tenantId
+      // Convert asOfDate string to ISO timestamp if present
       const checkInData = {
         ...data,
         userId: user?.id,
         userEmail: user?.email,
         tenantId: currentTenant.id,
+        asOfDate: data.asOfDate ? new Date(data.asOfDate).toISOString() : new Date().toISOString(),
       };
       return apiRequest("POST", "/api/okr/check-ins", checkInData);
     },
