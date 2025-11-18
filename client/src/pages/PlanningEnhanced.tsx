@@ -380,7 +380,7 @@ export default function PlanningEnhanced() {
           <div>
             <h1 className="text-3xl font-bold">Enhanced Planning</h1>
             <p className="text-muted-foreground mt-1">
-              Hierarchical OKRs, Big Rocks, and Progress Tracking for Q{quarter} {year}
+              Hierarchical OKRs, Big Rocks, and Progress Tracking for {quarter === 0 ? 'Annual' : `Q${quarter}`} {year}
             </p>
           </div>
           <div className="flex gap-2">
@@ -389,6 +389,7 @@ export default function PlanningEnhanced() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="0">Annual</SelectItem>
                 <SelectItem value="1">Q1</SelectItem>
                 <SelectItem value="2">Q2</SelectItem>
                 <SelectItem value="3">Q3</SelectItem>
@@ -447,7 +448,7 @@ export default function PlanningEnhanced() {
             <DialogHeader>
               <DialogTitle>Create Objective</DialogTitle>
               <DialogDescription>
-                Define a new objective for Q{quarter} {year}
+                Define a new objective for {quarter === 0 ? 'Annual' : `Q${quarter}`} {year}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -637,7 +638,7 @@ export default function PlanningEnhanced() {
             <DialogHeader>
               <DialogTitle>Create Big Rock (Initiative)</DialogTitle>
               <DialogDescription>
-                Define a strategic initiative for Q{quarter} {year}
+                Define a strategic initiative for {quarter === 0 ? 'Annual' : `Q${quarter}`} {year}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
