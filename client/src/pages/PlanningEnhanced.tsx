@@ -161,6 +161,7 @@ export default function PlanningEnhanced() {
   const [bigRockDialogOpen, setBigRockDialogOpen] = useState(false);
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
   const [weightManagementDialogOpen, setWeightManagementDialogOpen] = useState(false);
+  const [managedWeights, setManagedWeights] = useState<KeyResult[]>([]);
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
   const [selectedKeyResult, setSelectedKeyResult] = useState<KeyResult | null>(null);
   const [selectedBigRock, setSelectedBigRock] = useState<BigRock | null>(null);
@@ -549,9 +550,36 @@ export default function PlanningEnhanced() {
     // Find the objective from the main objectives list
     const objective = objectives.find(o => o.id === objectiveId);
     if (objective) {
-      // Create an enriched objective with the fetched Key Results
-      setSelectedObjective({ ...objective, keyResults } as any);
+      setSelectedObjective(objective);
+      setManagedWeights(keyResults); // Initialize local state
       setWeightManagementDialogOpen(true);
+    }
+  };
+
+  const handleSaveWeights = async () => {
+    // Batch update all Key Results
+    try {
+      await Promise.all(
+        managedWeights.map(kr =>
+          fetch(`/api/okr/key-results/${kr.id}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              weight: kr.weight,
+              isWeightLocked: kr.isWeightLocked,
+            }),
+          })
+        )
+      );
+      
+      // Invalidate cache once after all updates
+      await queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives"] });
+      
+      toast({ title: "Success", description: "Key Result weights updated successfully" });
+      setWeightManagementDialogOpen(false);
+      setManagedWeights([]);
+    } catch (error) {
+      toast({ title: "Error", description: "Failed to update weights", variant: "destructive" });
     }
   };
 
@@ -972,7 +1000,10 @@ export default function PlanningEnhanced() {
         </Dialog>
 
         {/* Weight Management Dialog */}
-        <Dialog open={weightManagementDialogOpen} onOpenChange={setWeightManagementDialogOpen}>
+        <Dialog open={weightManagementDialogOpen} onOpenChange={(open) => {
+          setWeightManagementDialogOpen(open);
+          if (!open) setManagedWeights([]); // Clear local state on close
+        }}>
           <DialogContent className="max-w-3xl">
             <DialogHeader>
               <DialogTitle>Manage Key Result Weights</DialogTitle>
@@ -981,28 +1012,30 @@ export default function PlanningEnhanced() {
               </DialogDescription>
             </DialogHeader>
             <div className="mt-4">
-              {selectedObjective && enrichedObjectives.find(o => o.id === selectedObjective.id)?.keyResults && (
+              {managedWeights.length > 0 && (
                 <WeightManager
-                  items={enrichedObjectives.find(o => o.id === selectedObjective.id)?.keyResults || []}
-                  onChange={(updatedKRs) => {
-                    // Update each Key Result's weight
-                    updatedKRs.forEach(kr => {
-                      updateKeyResultMutation.mutate({
-                        id: kr.id,
-                        data: {
-                          weight: kr.weight,
-                          isWeightLocked: kr.isWeightLocked,
-                        }
-                      });
-                    });
-                  }}
+                  items={managedWeights}
+                  onChange={setManagedWeights} // Update local state only
                   itemNameKey={"title" as any}
                 />
               )}
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setWeightManagementDialogOpen(false)}>
-                Close
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setWeightManagementDialogOpen(false);
+                  setManagedWeights([]);
+                }}
+                data-testid="button-cancel-weights"
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={handleSaveWeights}
+                data-testid="button-save-weights"
+              >
+                Save Changes
               </Button>
             </DialogFooter>
           </DialogContent>
