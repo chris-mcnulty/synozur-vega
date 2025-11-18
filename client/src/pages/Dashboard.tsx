@@ -104,7 +104,6 @@ export default function Dashboard() {
   });
 
   const isLoading = loadingFoundations || loadingStrategies || loadingObjectives || loadingBigRocks || loadingMeetings;
-  const hasError = foundationsError || strategiesError || objectivesError || bigRocksError || meetingsError;
 
   if (isLoading) {
     return (
@@ -113,30 +112,6 @@ export default function Dashboard() {
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
           <p className="mt-4 text-muted-foreground">Loading Company OS...</p>
         </div>
-      </div>
-    );
-  }
-
-  if (hasError) {
-    return (
-      <div className="flex items-center justify-center h-96">
-        <Card className="max-w-md">
-          <CardContent className="pt-6">
-            <div className="text-center space-y-4">
-              <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
-              <div>
-                <h3 className="text-lg font-semibold mb-2">Error Loading Dashboard</h3>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {foundationsError?.message || strategiesError?.message || objectivesError?.message || 
-                   bigRocksError?.message || meetingsError?.message || "Failed to load dashboard data"}
-                </p>
-                <Button onClick={() => window.location.reload()} data-testid="button-retry">
-                  Retry
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     );
   }
@@ -227,61 +202,73 @@ export default function Dashboard() {
         </div>
         <Card>
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="font-semibold mb-2 flex items-center gap-2">
-                  <div className="h-1 w-8 bg-primary rounded" />
-                  Mission
-                </h3>
-                {foundations?.mission ? (
-                  <p className="text-sm text-muted-foreground">{foundations.mission}</p>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic">Not yet defined</p>
-                )}
-              </div>
-              <div>
-                <h3 className="font-semibold mb-2 flex items-center gap-2">
-                  <div className="h-1 w-8 bg-secondary rounded" />
-                  Vision
-                </h3>
-                {foundations?.vision ? (
-                  <p className="text-sm text-muted-foreground">{foundations.vision}</p>
-                ) : (
-                  <p className="text-sm text-muted-foreground italic">Not yet defined</p>
-                )}
-              </div>
-            </div>
-            <Separator className="my-4" />
-            <div className="space-y-3">
-              <h3 className="font-semibold">Core Values</h3>
-              {foundations?.values && foundations.values.length > 0 ? (
-                <div className="flex flex-wrap gap-2">
-                  {foundations.values.map((value, idx) => (
-                    <Badge key={idx} variant="secondary">
-                      {value}
-                    </Badge>
-                  ))}
+            {foundationsError ? (
+              <div className="flex items-center gap-3 p-4 text-sm text-muted-foreground">
+                <AlertCircle className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="font-medium">Foundation data not available</p>
+                  <p className="text-xs">Set up your foundation in the Foundations module</p>
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">Not yet defined</p>
-              )}
-            </div>
-            <Separator className="my-4" />
-            <div className="space-y-3">
-              <h3 className="font-semibold">Annual Goals ({currentQuarter?.year})</h3>
-              {foundations?.annualGoals && foundations.annualGoals.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  {foundations.annualGoals.map((goal, idx) => (
-                    <div key={idx} className="flex items-start gap-2 text-sm">
-                      <Target className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                      <span className="text-muted-foreground">{goal}</span>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <h3 className="font-semibold mb-2 flex items-center gap-2">
+                      <div className="h-1 w-8 bg-primary rounded" />
+                      Mission
+                    </h3>
+                    {foundations?.mission ? (
+                      <p className="text-sm text-muted-foreground">{foundations.mission}</p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">Not yet defined</p>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="font-semibold mb-2 flex items-center gap-2">
+                      <div className="h-1 w-8 bg-secondary rounded" />
+                      Vision
+                    </h3>
+                    {foundations?.vision ? (
+                      <p className="text-sm text-muted-foreground">{foundations.vision}</p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">Not yet defined</p>
+                    )}
+                  </div>
+                </div>
+                <Separator className="my-4" />
+                <div className="space-y-3">
+                  <h3 className="font-semibold">Core Values</h3>
+                  {foundations?.values && foundations.values.length > 0 ? (
+                    <div className="flex flex-wrap gap-2">
+                      {foundations.values.map((value, idx) => (
+                        <Badge key={idx} variant="secondary">
+                          {value}
+                        </Badge>
+                      ))}
                     </div>
-                  ))}
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">Not yet defined</p>
+                  )}
                 </div>
-              ) : (
-                <p className="text-sm text-muted-foreground italic">Not yet defined</p>
-              )}
-            </div>
+                <Separator className="my-4" />
+                <div className="space-y-3">
+                  <h3 className="font-semibold">Annual Goals ({currentQuarter?.year})</h3>
+                  {foundations?.annualGoals && foundations.annualGoals.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      {foundations.annualGoals.map((goal, idx) => (
+                        <div key={idx} className="flex items-start gap-2 text-sm">
+                          <Target className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-muted-foreground">{goal}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">Not yet defined</p>
+                  )}
+                </div>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -304,7 +291,12 @@ export default function Dashboard() {
           </div>
           <Card>
             <CardContent className="pt-6 space-y-4">
-              {strategies && strategies.length > 0 ? (
+              {strategiesError ? (
+                <div className="flex items-center gap-3 p-4 text-sm text-muted-foreground">
+                  <AlertCircle className="h-5 w-5 text-muted-foreground" />
+                  <p>Unable to load strategies</p>
+                </div>
+              ) : strategies && strategies.length > 0 ? (
                 strategies.map((strategy) => (
                   <div key={strategy.id} className="space-y-2">
                     <div className="flex items-start justify-between gap-4">
@@ -361,7 +353,12 @@ export default function Dashboard() {
           </div>
           <Card>
             <CardContent className="pt-6 space-y-3">
-              {bigRocks && bigRocks.length > 0 ? (
+              {bigRocksError ? (
+                <div className="flex items-center gap-3 p-4 text-sm text-muted-foreground">
+                  <AlertCircle className="h-5 w-5 text-muted-foreground" />
+                  <p>Unable to load big rocks</p>
+                </div>
+              ) : bigRocks && bigRocks.length > 0 ? (
                 bigRocks.map((rock) => (
                   <div key={rock.id} className="flex items-start gap-3">
                     {rock.status === "completed" ? (
@@ -414,7 +411,12 @@ export default function Dashboard() {
           </div>
           <Card>
             <CardContent className="pt-6 space-y-4">
-              {objectives && objectives.length > 0 ? (
+              {objectivesError ? (
+                <div className="flex items-center gap-3 p-4 text-sm text-muted-foreground">
+                  <AlertCircle className="h-5 w-5 text-muted-foreground" />
+                  <p>Unable to load objectives</p>
+                </div>
+              ) : objectives && objectives.length > 0 ? (
                 objectives.map((okr) => (
                   <div key={okr.id} className="space-y-2">
                     <div className="flex items-start justify-between gap-4">
@@ -457,7 +459,18 @@ export default function Dashboard() {
           </Link>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {meetings && meetings.length > 0 ? (
+          {meetingsError ? (
+            <div className="col-span-full">
+              <Card>
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                    <AlertCircle className="h-5 w-5 text-muted-foreground" />
+                    <p>Unable to load meetings</p>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          ) : meetings && meetings.length > 0 ? (
             meetings.slice(0, 3).map((meeting) => (
               <Card key={meeting.id} className="hover-elevate">
                 <CardContent className="p-4">
