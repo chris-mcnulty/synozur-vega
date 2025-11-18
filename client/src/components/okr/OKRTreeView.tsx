@@ -35,6 +35,9 @@ interface Objective {
   status: string;
   ownerEmail?: string;
   coOwnerIds?: string[];
+  quarter: number;
+  year: number;
+  tenantId: string;
   keyResults?: KeyResult[];
   bigRocks?: BigRock[];
   children?: Objective[];

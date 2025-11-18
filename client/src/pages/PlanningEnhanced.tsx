@@ -170,6 +170,8 @@ export default function PlanningEnhanced() {
     parentId: "",
     ownerEmail: "",
     progressMode: "rollup",
+    quarter: 1,
+    year: new Date().getFullYear(),
   });
 
   const [keyResultForm, setKeyResultForm] = useState({
@@ -204,13 +206,13 @@ export default function PlanningEnhanced() {
   const createObjectiveMutation = useMutation({
     mutationFn: async (data: any) => {
       console.log('[Planning] Creating objective with data:', data);
-      // Convert empty parentId to null
+      // Convert empty parentId to null, use quarter/year from form data
       const cleanedData = {
         ...data,
         parentId: data.parentId || null,
         tenantId: currentTenant.id,
-        quarter,
-        year,
+        quarter: data.quarter,
+        year: data.year,
       };
       return apiRequest("POST", "/api/okr/objectives", cleanedData);
     },
@@ -325,6 +327,42 @@ export default function PlanningEnhanced() {
     },
   });
 
+  const updateObjectiveMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      // Normalize data like create mutation - convert empty parentId to null, include quarter/year and tenantId
+      const cleanedData = {
+        ...data,
+        parentId: data.parentId || null,
+        tenantId: currentTenant.id,
+        quarter: data.quarter,
+        year: data.year,
+      };
+      return apiRequest("PATCH", `/api/okr/objectives/${id}`, cleanedData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      setObjectiveDialogOpen(false);
+      setSelectedObjective(null);
+      toast({ title: "Success", description: "Objective updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update objective", variant: "destructive" });
+    },
+  });
+
+  const deleteObjectiveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/okr/objectives/${id}`, undefined);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      toast({ title: "Success", description: "Objective deleted successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to delete objective", variant: "destructive" });
+    },
+  });
+
   const createCheckInMutation = useMutation({
     mutationFn: async (data: any) => {
       return apiRequest("POST", "/api/okr/check-ins", data);
@@ -348,9 +386,32 @@ export default function PlanningEnhanced() {
       parentId: parentId || "",
       ownerEmail: "",
       progressMode: "rollup",
+      quarter,
+      year,
     });
     setSelectedObjective(null);
     setObjectiveDialogOpen(true);
+  };
+
+  const handleEditObjective = (objective: Objective) => {
+    setObjectiveForm({
+      title: objective.title,
+      description: objective.description,
+      level: objective.level,
+      parentId: objective.parentId || "",
+      ownerEmail: objective.ownerEmail || "",
+      progressMode: "rollup",
+      quarter: objective.quarter,
+      year: objective.year,
+    });
+    setSelectedObjective(objective);
+    setObjectiveDialogOpen(true);
+  };
+
+  const handleDeleteObjective = (id: string) => {
+    if (confirm("Are you sure you want to delete this objective? This will also delete all associated Key Results and Big Rocks.")) {
+      deleteObjectiveMutation.mutate(id);
+    }
   };
 
   const handleCreateKeyResult = (objectiveId: string) => {
@@ -487,6 +548,8 @@ export default function PlanningEnhanced() {
             <OKRTreeView
               objectives={enrichedObjectives}
               onCreateObjective={handleCreateObjective}
+              onEditObjective={handleEditObjective}
+              onDeleteObjective={handleDeleteObjective}
               onCreateKeyResult={handleCreateKeyResult}
               onPromoteKeyResult={(id) => promoteKeyResultMutation.mutate(id)}
               onUnpromoteKeyResult={(id) => unpromoteKeyResultMutation.mutate(id)}
@@ -510,13 +573,13 @@ export default function PlanningEnhanced() {
           </TabsContent>
         </Tabs>
 
-        {/* Create Objective Dialog */}
+        {/* Create/Edit Objective Dialog */}
         <Dialog open={objectiveDialogOpen} onOpenChange={setObjectiveDialogOpen}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Create Objective</DialogTitle>
+              <DialogTitle>{selectedObjective ? "Edit" : "Create"} Objective</DialogTitle>
               <DialogDescription>
-                Define a new objective for {quarter === 0 ? 'Annual' : `Q${quarter}`} {year}
+                {selectedObjective ? "Update the objective details" : `Define a new objective`}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -570,17 +633,59 @@ export default function PlanningEnhanced() {
                   />
                 </div>
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="obj-quarter">Time Period</Label>
+                  <Select
+                    value={String(objectiveForm.quarter)}
+                    onValueChange={(value) => setObjectiveForm({ ...objectiveForm, quarter: parseInt(value) })}
+                  >
+                    <SelectTrigger data-testid="select-objective-quarter">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">Annual</SelectItem>
+                      <SelectItem value="1">Q1</SelectItem>
+                      <SelectItem value="2">Q2</SelectItem>
+                      <SelectItem value="3">Q3</SelectItem>
+                      <SelectItem value="4">Q4</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="obj-year">Year</Label>
+                  <Select
+                    value={String(objectiveForm.year)}
+                    onValueChange={(value) => setObjectiveForm({ ...objectiveForm, year: parseInt(value) })}
+                  >
+                    <SelectTrigger data-testid="select-objective-year">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2024">2024</SelectItem>
+                      <SelectItem value="2025">2025</SelectItem>
+                      <SelectItem value="2026">2026</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setObjectiveDialogOpen(false)}>
                 Cancel
               </Button>
               <Button
-                onClick={() => createObjectiveMutation.mutate(objectiveForm)}
-                disabled={createObjectiveMutation.isPending}
+                onClick={() => {
+                  if (selectedObjective) {
+                    updateObjectiveMutation.mutate({ id: selectedObjective.id, data: objectiveForm });
+                  } else {
+                    createObjectiveMutation.mutate(objectiveForm);
+                  }
+                }}
+                disabled={createObjectiveMutation.isPending || updateObjectiveMutation.isPending}
                 data-testid="button-save-objective"
               >
-                {createObjectiveMutation.isPending ? "Creating..." : "Create Objective"}
+                {(createObjectiveMutation.isPending || updateObjectiveMutation.isPending) ? "Saving..." : selectedObjective ? "Save Changes" : "Create Objective"}
               </Button>
             </DialogFooter>
           </DialogContent>
