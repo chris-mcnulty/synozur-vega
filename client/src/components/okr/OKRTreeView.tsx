@@ -51,6 +51,7 @@ interface OKRTreeViewProps {
   onCreateKeyResult?: (objectiveId: string) => void;
   onEditKeyResult?: (keyResult: KeyResult, objectiveId: string) => void;
   onDeleteKeyResult?: (id: string, objectiveId: string) => void;
+  onManageWeights?: (objectiveId: string) => void;
   onPromoteKeyResult?: (keyResultId: string) => void;
   onUnpromoteKeyResult?: (keyResultId: string) => void;
   onCreateBigRock?: (objectiveId: string, keyResultId?: string) => void;
@@ -83,6 +84,7 @@ export function OKRTreeView({
   onCreateKeyResult,
   onEditKeyResult,
   onDeleteKeyResult,
+  onManageWeights,
   onPromoteKeyResult,
   onUnpromoteKeyResult,
   onCreateBigRock,
@@ -265,17 +267,29 @@ export function OKRTreeView({
                 <div>
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-medium text-sm">Key Results</h4>
-                    {onCreateKeyResult && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onCreateKeyResult(objective.id)}
-                        data-testid={`button-add-kr-${objective.id}`}
-                      >
-                        <Plus className="h-3 w-3 mr-1" />
-                        Add Key Result
-                      </Button>
-                    )}
+                    <div className="flex gap-2">
+                      {onManageWeights && objective.keyResults && objective.keyResults.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onManageWeights(objective.id)}
+                          data-testid={`button-manage-weights-${objective.id}`}
+                        >
+                          Manage Weights
+                        </Button>
+                      )}
+                      {onCreateKeyResult && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => onCreateKeyResult(objective.id)}
+                          data-testid={`button-add-kr-${objective.id}`}
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add Key Result
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-2">
                     {objective.keyResults.map((kr) => {

@@ -17,6 +17,7 @@ import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentQuarter } from "@/lib/quarters";
 import { OKRTreeView } from "@/components/okr/OKRTreeView";
+import { WeightManager } from "@/components/WeightManager";
 import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2 } from "lucide-react";
 import type { Foundation } from "@shared/schema";
 
@@ -159,6 +160,7 @@ export default function PlanningEnhanced() {
   const [keyResultDialogOpen, setKeyResultDialogOpen] = useState(false);
   const [bigRockDialogOpen, setBigRockDialogOpen] = useState(false);
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
+  const [weightManagementDialogOpen, setWeightManagementDialogOpen] = useState(false);
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
   const [selectedKeyResult, setSelectedKeyResult] = useState<KeyResult | null>(null);
   const [selectedBigRock, setSelectedBigRock] = useState<BigRock | null>(null);
@@ -535,6 +537,14 @@ export default function PlanningEnhanced() {
     }
   };
 
+  const handleManageWeights = (objectiveId: string) => {
+    const objective = objectives.find(o => o.id === objectiveId);
+    if (objective) {
+      setSelectedObjective(objective);
+      setWeightManagementDialogOpen(true);
+    }
+  };
+
   const handleCheckIn = (entityType: string, entityId: string) => {
     // Find the entity data for context
     let current = null;
@@ -627,6 +637,7 @@ export default function PlanningEnhanced() {
               onCreateKeyResult={handleCreateKeyResult}
               onEditKeyResult={handleEditKeyResult}
               onDeleteKeyResult={handleDeleteKeyResult}
+              onManageWeights={handleManageWeights}
               onPromoteKeyResult={(id) => promoteKeyResultMutation.mutate(id)}
               onUnpromoteKeyResult={(id) => unpromoteKeyResultMutation.mutate(id)}
               onCreateBigRock={handleCreateBigRock}
@@ -945,6 +956,43 @@ export default function PlanningEnhanced() {
                   ? (updateBigRockMutation.isPending ? "Updating..." : "Update Big Rock")
                   : (createBigRockMutation.isPending ? "Creating..." : "Create Big Rock")
                 }
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Weight Management Dialog */}
+        <Dialog open={weightManagementDialogOpen} onOpenChange={setWeightManagementDialogOpen}>
+          <DialogContent className="max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Manage Key Result Weights</DialogTitle>
+              <DialogDescription>
+                {selectedObjective && `For: ${selectedObjective.title}`}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="mt-4">
+              {selectedObjective && enrichedObjectives.find(o => o.id === selectedObjective.id)?.keyResults && (
+                <WeightManager
+                  items={enrichedObjectives.find(o => o.id === selectedObjective.id)?.keyResults || []}
+                  onChange={(updatedKRs) => {
+                    // Update each Key Result's weight
+                    updatedKRs.forEach(kr => {
+                      updateKeyResultMutation.mutate({
+                        id: kr.id,
+                        data: {
+                          weight: kr.weight,
+                          isWeightLocked: kr.isWeightLocked,
+                        }
+                      });
+                    });
+                  }}
+                  itemNameKey="title"
+                />
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setWeightManagementDialogOpen(false)}>
+                Close
               </Button>
             </DialogFooter>
           </DialogContent>

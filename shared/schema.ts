@@ -255,6 +255,7 @@ export const keyResults = pgTable("key_results", {
   // Progress and weight
   progress: integer("progress").default(0),
   weight: integer("weight").default(25),
+  isWeightLocked: boolean("is_weight_locked").default(false),
   
   // KPI Promotion
   isPromotedToKpi: varchar("is_promoted_to_kpi").default('false'),
