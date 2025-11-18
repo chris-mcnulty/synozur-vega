@@ -14,12 +14,21 @@ Preferred communication style: Simple, everyday language.
 - **Styling**: TailwindCSS with a custom configuration, Avenir Next LT Pro font, CSS variables for design tokens, and responsive design.
 - **Design Principles**: Orion.synozur.com aesthetic, generous whitespace, card-based layouts, and subtle animations.
 - **Modules**:
+    - **Company OS Dashboard**: Real-time overview displaying:
+        - Foundations (mission, vision, values, annual goals)
+        - Strategic priorities with status tracking
+        - Quarterly OKRs and Big Rocks
+        - Upcoming meetings
+        - All data fetched from live database (no mock data)
     - **Foundations**: CRUD for mission, vision, values, and annual goals with AI suggestions.
-    - **Strategy**: Strategic priorities with AI drafting capabilities.
+    - **Strategy**: Strategic priorities with AI drafting capabilities and goal alignment.
+        - **Alignment**: Strategies can link to multiple annual goals (optional many-to-many relationship).
     - **Planning**: Enhanced OKR system with hierarchical objectives, Key Results with weighted rollup progress tracking, and "big rocks" (initiatives).
         - **Key Result Features**: Metric type selector (increase/decrease/maintain/complete), progress visualization, and KPI promotion.
         - **UI Enhancements**: Quick-add buttons for Key Results, count badges showing KR/Big Rock counts on collapsed objectives.
         - **Weighted Rollup**: Key Result progress × weight aggregates to parent objective progress.
+        - **Weight Management**: Interactive dialog for managing Key Result weights with lock/unlock functionality, auto-balance, and normalization.
+        - **Big Rock Alignment**: Big Rocks can link to multiple strategies (optional many-to-many relationship via `linkedStrategies` field).
     - **Focus Rhythm**: Meeting management and summaries.
     - **Tenant Admin**: Organization management, M365 service integration status, tenant CRUD, user CRUD, and allowed email domain management.
 

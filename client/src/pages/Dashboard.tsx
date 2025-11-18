@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,8 +21,10 @@ import {
   Users,
   Sparkles,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { Link } from "wouter";
+import type { Foundation, Strategy, Objective, BigRock, Meeting } from "@shared/schema";
 
 type Quarter = {
   id: string;
@@ -30,49 +33,6 @@ type Quarter = {
   quarter: number;
   startDate: string;
   endDate: string;
-};
-
-type Foundation = {
-  mission: string[];
-  vision: string[];
-  values: string[];
-  annualGoals: string[];
-};
-
-type Strategy = {
-  id: string;
-  title: string;
-  category: "critical" | "high" | "medium";
-  progress: number;
-};
-
-type OKR = {
-  id: string;
-  objective: string;
-  progress: number;
-  department: string;
-};
-
-type Rock = {
-  id: string;
-  title: string;
-  status: "completed" | "in-progress" | "not-started";
-  owner: string;
-};
-
-type Metric = {
-  id: string;
-  label: string;
-  value: string;
-  change: string;
-  trend: "up" | "down" | "neutral";
-};
-
-type Meeting = {
-  id: string;
-  title: string;
-  frequency: string;
-  nextDate: string;
 };
 
 const fiscalYears = [
@@ -88,60 +48,54 @@ const quarters: Quarter[] = [
   { id: "q4-2024", label: "Q4 2024", year: 2024, quarter: 4, startDate: "Oct 1", endDate: "Dec 31" },
 ];
 
-const currentFoundations: Foundation = {
-  mission: [
-    "Empower organizations with AI-driven insights",
-    "Transform strategy into actionable results",
-  ],
-  vision: [
-    "A world where every organization operates with clarity",
-    "Data-driven decision-making at every level",
-  ],
-  values: ["Innovation", "Integrity", "Collaboration", "Excellence", "Customer Success"],
-  annualGoals: [
-    "Increase revenue by 30%",
-    "Expand to new markets",
-    "Improve customer satisfaction",
-  ],
-};
-
-const currentStrategies: Strategy[] = [
-  { id: "1", title: "Launch New Product Line", category: "critical", progress: 65 },
-  { id: "2", title: "Expand Market Presence", category: "high", progress: 72 },
-  { id: "3", title: "Improve Customer Retention", category: "high", progress: 58 },
-];
-
-const currentOKRs: OKR[] = [
-  { id: "1", objective: "Increase Market Share", progress: 65, department: "Sales" },
-  { id: "2", objective: "Build World-Class Product", progress: 45, department: "Engineering" },
-  { id: "3", objective: "Improve Customer Experience", progress: 78, department: "Customer Success" },
-];
-
-const currentRocks: Rock[] = [
-  { id: "1", title: "Complete Product Redesign", status: "in-progress", owner: "Design Team" },
-  { id: "2", title: "Hire 5 Engineers", status: "completed", owner: "HR Team" },
-  { id: "3", title: "Launch Marketing Campaign", status: "in-progress", owner: "Marketing Team" },
-  { id: "4", title: "Integrate Payment Gateway", status: "completed", owner: "Engineering Team" },
-];
-
-const currentMetrics: Metric[] = [
-  { id: "1", label: "Monthly Recurring Revenue", value: "$285K", change: "+12%", trend: "up" },
-  { id: "2", label: "Customer Churn Rate", value: "2.3%", change: "-0.5%", trend: "down" },
-  { id: "3", label: "Net Promoter Score", value: "68", change: "+5", trend: "up" },
-  { id: "4", label: "Feature Adoption Rate", value: "76%", change: "+8%", trend: "up" },
-];
-
-const upcomingMeetings: Meeting[] = [
-  { id: "1", title: "Strategic Planning Review", frequency: "Weekly", nextDate: "Jan 20, 2025" },
-  { id: "2", title: "Monthly Business Review", frequency: "Monthly", nextDate: "Jan 31, 2025" },
-  { id: "3", title: "OKR Progress Check", frequency: "Bi-weekly", nextDate: "Jan 24, 2025" },
-];
-
 export default function Dashboard() {
   const [selectedFiscalYear, setSelectedFiscalYear] = useState("fy2025");
   const [selectedQuarter, setSelectedQuarter] = useState("q1-2025");
 
   const currentQuarter = quarters.find((q) => q.id === selectedQuarter);
+
+  // Fetch real data from APIs
+  const { data: foundations, isLoading: loadingFoundations } = useQuery<Foundation>({
+    queryKey: ["/api/foundations"],
+  });
+
+  const { data: strategies, isLoading: loadingStrategies } = useQuery<Strategy[]>({
+    queryKey: ["/api/strategy"],
+  });
+
+  const { data: objectives, isLoading: loadingObjectives } = useQuery<Objective[]>({
+    queryKey: ["/api/okr/objectives"],
+  });
+
+  const { data: bigRocks, isLoading: loadingBigRocks } = useQuery<BigRock[]>({
+    queryKey: ["/api/okr/big-rocks"],
+  });
+
+  const { data: meetings, isLoading: loadingMeetings } = useQuery<Meeting[]>({
+    queryKey: ["/api/meetings"],
+  });
+
+  // Filter data by selected quarter
+  const quarterlyObjectives = (objectives || []).filter(
+    (obj) => obj.quarter === currentQuarter?.quarter && obj.year === currentQuarter?.year
+  );
+
+  const quarterlyBigRocks = (bigRocks || []).filter(
+    (rock) => rock.quarter === currentQuarter?.quarter && rock.year === currentQuarter?.year
+  );
+
+  const isLoading = loadingFoundations || loadingStrategies || loadingObjectives || loadingBigRocks || loadingMeetings;
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-96">
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <p className="mt-4 text-muted-foreground">Loading Company OS...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
@@ -194,17 +148,17 @@ export default function Dashboard() {
             </div>
             <div className="flex gap-6">
               <div className="text-center">
-                <p className="text-3xl font-bold text-primary">{currentStrategies.length}</p>
+                <p className="text-3xl font-bold text-primary">{(strategies || []).length}</p>
                 <p className="text-sm text-muted-foreground">Active Strategies</p>
               </div>
               <div className="text-center">
-                <p className="text-3xl font-bold text-primary">{currentOKRs.length}</p>
+                <p className="text-3xl font-bold text-primary">{quarterlyObjectives.length}</p>
                 <p className="text-sm text-muted-foreground">OKRs</p>
               </div>
               <div className="text-center">
                 <p className="text-3xl font-bold text-primary">
-                  {currentRocks.filter((r) => r.status === "completed").length}/
-                  {currentRocks.length}
+                  {quarterlyBigRocks.filter((r) => r.status === "completed").length}/
+                  {quarterlyBigRocks.length}
                 </p>
                 <p className="text-sm text-muted-foreground">Rocks Complete</p>
               </div>
@@ -235,52 +189,54 @@ export default function Dashboard() {
                   <div className="h-1 w-8 bg-primary rounded" />
                   Mission
                 </h3>
-                <ul className="space-y-1 text-sm text-muted-foreground">
-                  {currentFoundations.mission.map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 flex-shrink-0" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
+                {foundations?.mission ? (
+                  <p className="text-sm text-muted-foreground">{foundations.mission}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">Not yet defined</p>
+                )}
               </div>
               <div>
                 <h3 className="font-semibold mb-2 flex items-center gap-2">
                   <div className="h-1 w-8 bg-secondary rounded" />
                   Vision
                 </h3>
-                <ul className="space-y-1 text-sm text-muted-foreground">
-                  {currentFoundations.vision.map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-2">
-                      <div className="h-1.5 w-1.5 rounded-full bg-secondary mt-1.5 flex-shrink-0" />
-                      {item}
-                    </li>
-                  ))}
-                </ul>
+                {foundations?.vision ? (
+                  <p className="text-sm text-muted-foreground">{foundations.vision}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">Not yet defined</p>
+                )}
               </div>
             </div>
             <Separator className="my-4" />
             <div className="space-y-3">
               <h3 className="font-semibold">Core Values</h3>
-              <div className="flex flex-wrap gap-2">
-                {currentFoundations.values.map((value, idx) => (
-                  <Badge key={idx} variant="secondary">
-                    {value}
-                  </Badge>
-                ))}
-              </div>
+              {foundations?.values && foundations.values.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {foundations.values.map((value, idx) => (
+                    <Badge key={idx} variant="secondary">
+                      {value}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">Not yet defined</p>
+              )}
             </div>
             <Separator className="my-4" />
             <div className="space-y-3">
-              <h3 className="font-semibold">Annual Goals (2025)</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                {currentFoundations.annualGoals.map((goal, idx) => (
-                  <div key={idx} className="flex items-start gap-2 text-sm">
-                    <Target className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                    <span className="text-muted-foreground">{goal}</span>
-                  </div>
-                ))}
-              </div>
+              <h3 className="font-semibold">Annual Goals ({currentQuarter?.year})</h3>
+              {foundations?.annualGoals && foundations.annualGoals.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                  {foundations.annualGoals.map((goal, idx) => (
+                    <div key={idx} className="flex items-start gap-2 text-sm">
+                      <Target className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{goal}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">Not yet defined</p>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -304,31 +260,43 @@ export default function Dashboard() {
           </div>
           <Card>
             <CardContent className="pt-6 space-y-4">
-              {currentStrategies.map((strategy) => (
-                <div key={strategy.id} className="space-y-2">
-                  <div className="flex items-start justify-between gap-4">
-                    <h3 className="font-medium text-sm">{strategy.title}</h3>
-                    <Badge
-                      variant={
-                        strategy.category === "critical"
-                          ? "destructive"
-                          : strategy.category === "high"
-                          ? "default"
-                          : "secondary"
-                      }
-                      className="text-xs"
-                    >
-                      {strategy.category}
-                    </Badge>
+              {strategies && strategies.length > 0 ? (
+                strategies.map((strategy) => (
+                  <div key={strategy.id} className="space-y-2">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-sm">{strategy.title}</h3>
+                        {strategy.priority && (
+                          <Badge
+                            variant={
+                              strategy.priority === "critical"
+                                ? "destructive"
+                                : strategy.priority === "high"
+                                ? "default"
+                                : "secondary"
+                            }
+                            className="text-xs mt-1"
+                          >
+                            {strategy.priority}
+                          </Badge>
+                        )}
+                      </div>
+                      {strategy.status && (
+                        <Badge variant="outline" className="text-xs">
+                          {strategy.status}
+                        </Badge>
+                      )}
+                    </div>
+                    {strategy.description && (
+                      <p className="text-xs text-muted-foreground">{strategy.description}</p>
+                    )}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Progress value={strategy.progress} className="flex-1" />
-                    <span className="text-xs text-muted-foreground w-12 text-right">
-                      {strategy.progress}%
-                    </span>
-                  </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground italic text-center py-4">
+                  No strategic priorities defined yet
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -349,38 +317,45 @@ export default function Dashboard() {
           </div>
           <Card>
             <CardContent className="pt-6 space-y-3">
-              {currentRocks.map((rock) => (
-                <div key={rock.id} className="flex items-start gap-3">
-                  {rock.status === "completed" ? (
-                    <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                  ) : rock.status === "in-progress" ? (
-                    <div className="h-5 w-5 rounded-full border-2 border-primary shrink-0 mt-0.5 flex items-center justify-center">
-                      <div className="h-2 w-2 rounded-full bg-primary" />
+              {quarterlyBigRocks && quarterlyBigRocks.length > 0 ? (
+                quarterlyBigRocks.map((rock) => (
+                  <div key={rock.id} className="flex items-start gap-3">
+                    {rock.status === "completed" ? (
+                      <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                    ) : rock.status === "in_progress" || rock.status === "in-progress" ? (
+                      <div className="h-5 w-5 rounded-full border-2 border-primary shrink-0 mt-0.5 flex items-center justify-center">
+                        <div className="h-2 w-2 rounded-full bg-primary" />
+                      </div>
+                    ) : (
+                      <div className="h-5 w-5 rounded-full border-2 border-muted-foreground shrink-0 mt-0.5" />
+                    )}
+                    <div className="flex-1">
+                      <p
+                        className={`text-sm ${
+                          rock.status === "completed" ? "line-through text-muted-foreground" : ""
+                        }`}
+                      >
+                        {rock.title}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {rock.ownerEmail || "Unassigned"}
+                      </p>
                     </div>
-                  ) : (
-                    <div className="h-5 w-5 rounded-full border-2 border-muted-foreground shrink-0 mt-0.5" />
-                  )}
-                  <div className="flex-1">
-                    <p
-                      className={`text-sm ${
-                        rock.status === "completed" ? "line-through text-muted-foreground" : ""
-                      }`}
-                    >
-                      {rock.title}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-0.5">{rock.owner}</p>
                   </div>
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground italic text-center py-4">
+                  No quarterly rocks for {currentQuarter?.label}
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
       </div>
 
-      {/* OKRs and Metrics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* OKRs by Department */}
-        <div>
+      {/* OKRs Section */}
+      <div>
+        <div className="mb-6">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Target className="h-5 w-5 text-primary" />
@@ -395,56 +370,32 @@ export default function Dashboard() {
           </div>
           <Card>
             <CardContent className="pt-6 space-y-4">
-              {currentOKRs.map((okr) => (
-                <div key={okr.id} className="space-y-2">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="font-medium text-sm">{okr.objective}</h3>
-                      <p className="text-xs text-muted-foreground">{okr.department}</p>
+              {quarterlyObjectives && quarterlyObjectives.length > 0 ? (
+                quarterlyObjectives.map((okr) => (
+                  <div key={okr.id} className="space-y-2">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="flex-1">
+                        <h3 className="font-medium text-sm">{okr.title}</h3>
+                        {okr.ownerEmail && (
+                          <p className="text-xs text-muted-foreground">{okr.ownerEmail}</p>
+                        )}
+                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        {okr.progress || 0}%
+                      </Badge>
                     </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {okr.progress}%
-                    </Badge>
+                    <Progress value={okr.progress || 0} />
                   </div>
-                  <Progress value={okr.progress} />
-                </div>
-              ))}
+                ))
+              ) : (
+                <p className="text-sm text-muted-foreground italic text-center py-4">
+                  No OKRs for {currentQuarter?.label}
+                </p>
+              )}
             </CardContent>
           </Card>
         </div>
 
-        {/* Key Metrics */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary" />
-              <h2 className="text-xl font-semibold">Key Metrics</h2>
-            </div>
-            <Link href="/planning">
-              <Button variant="ghost" size="sm" className="gap-2" data-testid="link-metrics">
-                View Details
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 gap-3">
-            {currentMetrics.map((metric) => (
-              <Card key={metric.id}>
-                <CardContent className="p-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="text-xs text-muted-foreground mb-1">{metric.label}</p>
-                      <p className="text-xl font-bold">{metric.value}</p>
-                    </div>
-                    <Badge variant={metric.trend === "up" ? "default" : "secondary"}>
-                      {metric.change}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* Focus Rhythm */}
@@ -462,23 +413,35 @@ export default function Dashboard() {
           </Link>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {upcomingMeetings.map((meeting) => (
-            <Card key={meeting.id} className="hover-elevate">
-              <CardContent className="p-4">
-                <div className="flex items-start gap-3">
-                  <Users className="h-5 w-5 text-primary mt-0.5" />
-                  <div className="flex-1">
-                    <h3 className="font-medium text-sm mb-1">{meeting.title}</h3>
-                    <p className="text-xs text-muted-foreground mb-2">{meeting.frequency}</p>
-                    <div className="flex items-center gap-1 text-xs">
-                      <Calendar className="h-3 w-3" />
-                      {meeting.nextDate}
+          {meetings && meetings.length > 0 ? (
+            meetings.slice(0, 3).map((meeting) => (
+              <Card key={meeting.id} className="hover-elevate">
+                <CardContent className="p-4">
+                  <div className="flex items-start gap-3">
+                    <Users className="h-5 w-5 text-primary mt-0.5" />
+                    <div className="flex-1">
+                      <h3 className="font-medium text-sm mb-1">{meeting.title}</h3>
+                      {meeting.meetingType && (
+                        <p className="text-xs text-muted-foreground mb-2">{meeting.meetingType}</p>
+                      )}
+                      {meeting.nextMeetingDate && (
+                        <div className="flex items-center gap-1 text-xs">
+                          <Calendar className="h-3 w-3" />
+                          {new Date(meeting.nextMeetingDate).toLocaleDateString()}
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            ))
+          ) : (
+            <div className="col-span-full">
+              <p className="text-sm text-muted-foreground italic text-center py-4">
+                No upcoming meetings scheduled
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>
