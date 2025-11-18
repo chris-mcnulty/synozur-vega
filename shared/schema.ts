@@ -289,6 +289,9 @@ export const bigRocks = pgTable("big_rocks", {
   objectiveId: varchar("objective_id").references(() => objectives.id),
   keyResultId: varchar("key_result_id").references(() => keyResults.id),
   
+  // Link to strategies (can map to multiple)
+  linkedStrategies: jsonb("linked_strategies").$type<string[]>(),
+  
   // Status and progress
   status: text("status").default('not_started'),
   completionPercentage: integer("completion_percentage").default(0),
