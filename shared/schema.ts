@@ -354,7 +354,8 @@ export const checkIns = pgTable("check_ins", {
   userEmail: text("user_email"),
   
   // Timestamp
-  createdAt: timestamp("created_at").defaultNow(),
+  asOfDate: timestamp("as_of_date").defaultNow(), // When the check-in data is from (user-changeable)
+  createdAt: timestamp("created_at").defaultNow(), // When the check-in was recorded
 });
 
 // Export insert schemas and types for new tables

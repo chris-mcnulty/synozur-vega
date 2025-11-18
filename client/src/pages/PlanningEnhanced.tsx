@@ -200,6 +200,7 @@ export default function PlanningEnhanced() {
     achievements: [""],
     challenges: [""],
     nextSteps: [""],
+    asOfDate: new Date().toISOString().split('T')[0], // Default to today, user-changeable
   });
 
   // Mutations
@@ -365,7 +366,14 @@ export default function PlanningEnhanced() {
 
   const createCheckInMutation = useMutation({
     mutationFn: async (data: any) => {
-      return apiRequest("POST", "/api/okr/check-ins", data);
+      // Include userId and userEmail from current user, plus tenantId
+      const checkInData = {
+        ...data,
+        userId: user?.id,
+        userEmail: user?.email,
+        tenantId: currentTenant.id,
+      };
+      return apiRequest("POST", "/api/okr/check-ins", checkInData);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr`] });
@@ -886,6 +894,19 @@ export default function PlanningEnhanced() {
             </DialogHeader>
             <div className="space-y-4">
               <div>
+                <Label htmlFor="ci-asofdate">As Of Date</Label>
+                <Input
+                  id="ci-asofdate"
+                  type="date"
+                  value={checkInForm.asOfDate}
+                  onChange={(e) => setCheckInForm({ ...checkInForm, asOfDate: e.target.value })}
+                  data-testid="input-checkin-asofdate"
+                />
+                <p className="text-sm text-muted-foreground mt-1">
+                  When does this check-in data apply? (Defaults to today)
+                </p>
+              </div>
+              <div>
                 <Label htmlFor="ci-progress">New Progress ({checkInForm.newProgress}%)</Label>
                 <Slider
                   id="ci-progress"
@@ -940,7 +961,6 @@ export default function PlanningEnhanced() {
                       entityId: checkInEntity.id,
                       ...checkInForm,
                       previousProgress: checkInEntity.current?.progress || 0,
-                      createdBy: "current-user", // TODO: Get from auth context
                     });
                   }
                 }}
