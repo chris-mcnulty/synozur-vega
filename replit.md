@@ -7,6 +7,13 @@ Vega is a responsive web application designed as a comprehensive Company Operati
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
+- **Key Result Check-Ins with Value Input**: Implemented unit-based value input for KR check-ins
+  - Check-in dialog shows value input field with KR-specific unit (e.g., "24 blog posts")
+  - Progress auto-calculates based on metric type (increase/decrease/maintain/complete)
+  - Draft state pattern allows safe editing with real-time validation feedback
+  - Submit button disabled until valid number entered
+  - Robust edge case handling (division by zero, NaN, undefined legacy values)
+- **Login Screen Tab Order**: Changed default tab and order to Login → Sign Up → Demo (was Demo → Login → Sign Up)
 - **Dashboard Resilience**: Implemented per-section error handling - each module (Foundations, Strategies, OKRs, Big Rocks, Meetings) fails independently with helpful error messages instead of breaking the entire dashboard
 - **Schema Cleanup**: Removed deprecated `rocks` table; consolidated to `big_rocks` only for cleaner architecture
 - **Foundation Display**: Fixed foundation data rendering issues in production by improving error handling
