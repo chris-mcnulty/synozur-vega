@@ -18,7 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentQuarter } from "@/lib/quarters";
 import { OKRTreeView } from "@/components/okr/OKRTreeView";
 import { WeightManager } from "@/components/WeightManager";
-import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2 } from "lucide-react";
+import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2, History } from "lucide-react";
 import type { Foundation } from "@shared/schema";
 
 interface Objective {
@@ -161,6 +161,8 @@ export default function PlanningEnhanced() {
   const [keyResultDialogOpen, setKeyResultDialogOpen] = useState(false);
   const [bigRockDialogOpen, setBigRockDialogOpen] = useState(false);
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
+  const [checkInHistoryDialogOpen, setCheckInHistoryDialogOpen] = useState(false);
+  const [selectedKRForHistory, setSelectedKRForHistory] = useState<KeyResult | null>(null);
   const [weightManagementDialogOpen, setWeightManagementDialogOpen] = useState(false);
   const [managedWeights, setManagedWeights] = useState<KeyResult[]>([]);
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
@@ -421,12 +423,25 @@ export default function PlanningEnhanced() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/check-ins`] });
       setCheckInDialogOpen(false);
       toast({ title: "Success", description: "Check-in recorded successfully" });
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to record check-in", variant: "destructive" });
     },
+  });
+
+  // Fetch check-in history for selected Key Result
+  const { data: checkInHistory = [] } = useQuery<CheckIn[]>({
+    queryKey: [`/api/okr/check-ins`, selectedKRForHistory?.id],
+    queryFn: async () => {
+      if (!selectedKRForHistory) return [];
+      const res = await fetch(`/api/okr/check-ins?entityType=key_result&entityId=${selectedKRForHistory.id}`);
+      if (!res.ok) throw new Error("Failed to fetch check-in history");
+      return res.json();
+    },
+    enabled: !!selectedKRForHistory && checkInHistoryDialogOpen,
   });
 
   // Handler functions
@@ -707,6 +722,10 @@ export default function PlanningEnhanced() {
               onUnpromoteKeyResult={(id) => unpromoteKeyResultMutation.mutate(id)}
               onCreateBigRock={handleCreateBigRock}
               onCheckIn={handleCheckIn}
+              onViewHistory={(entityType, entity) => {
+                setSelectedKRForHistory(entity);
+                setCheckInHistoryDialogOpen(true);
+              }}
             />
           </TabsContent>
 
@@ -1264,6 +1283,115 @@ export default function PlanningEnhanced() {
                 data-testid="button-save-checkin"
               >
                 {createCheckInMutation.isPending ? "Recording..." : "Record Check-In"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Check-In History Dialog */}
+        <Dialog open={checkInHistoryDialogOpen} onOpenChange={setCheckInHistoryDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Check-In History</DialogTitle>
+              <DialogDescription>
+                {selectedKRForHistory?.title}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {checkInHistory.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <History className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No check-ins recorded yet</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {checkInHistory.map((checkIn) => (
+                    <Card key={checkIn.id} className="p-4" data-testid={`checkin-${checkIn.id}`}>
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">
+                                {new Date(checkIn.createdAt).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                })}
+                              </span>
+                              <Badge variant={
+                                checkIn.newStatus === 'on_track' ? 'default' :
+                                checkIn.newStatus === 'behind' ? 'secondary' :
+                                checkIn.newStatus === 'at_risk' ? 'destructive' :
+                                checkIn.newStatus === 'completed' ? 'default' :
+                                'outline'
+                              }>
+                                {checkIn.newStatus?.replace('_', ' ').toUpperCase()}
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground mt-1">
+                              by {checkIn.createdBy}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-sm font-medium">
+                              {checkIn.newValue !== undefined && selectedKRForHistory?.unit && (
+                                <span>{checkIn.newValue} {selectedKRForHistory.unit}</span>
+                              )}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              Progress: {checkIn.previousProgress}% → {checkIn.newProgress}%
+                            </div>
+                          </div>
+                        </div>
+                        {checkIn.note && (
+                          <div className="text-sm bg-muted p-3 rounded-md">
+                            <div className="font-medium mb-1">Note:</div>
+                            <div className="whitespace-pre-wrap">{checkIn.note}</div>
+                          </div>
+                        )}
+                        {checkIn.achievements && checkIn.achievements.length > 0 && checkIn.achievements.some(a => a) && (
+                          <div className="text-sm">
+                            <div className="font-medium mb-1 text-green-600 dark:text-green-400">Achievements:</div>
+                            <ul className="list-disc pl-5 space-y-1">
+                              {checkIn.achievements.filter(a => a).map((achievement, idx) => (
+                                <li key={idx}>{achievement}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {checkIn.challenges && checkIn.challenges.length > 0 && checkIn.challenges.some(c => c) && (
+                          <div className="text-sm">
+                            <div className="font-medium mb-1 text-yellow-600 dark:text-yellow-400">Challenges:</div>
+                            <ul className="list-disc pl-5 space-y-1">
+                              {checkIn.challenges.filter(c => c).map((challenge, idx) => (
+                                <li key={idx}>{challenge}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {checkIn.nextSteps && checkIn.nextSteps.length > 0 && checkIn.nextSteps.some(n => n) && (
+                          <div className="text-sm">
+                            <div className="font-medium mb-1 text-blue-600 dark:text-blue-400">Next Steps:</div>
+                            <ul className="list-disc pl-5 space-y-1">
+                              {checkIn.nextSteps.filter(n => n).map((step, idx) => (
+                                <li key={idx}>{step}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setCheckInHistoryDialogOpen(false)}
+                data-testid="button-close-history"
+              >
+                Close
               </Button>
             </DialogFooter>
           </DialogContent>

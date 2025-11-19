@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ChevronDown, ChevronRight, Target, TrendingUp, AlertCircle, CheckCircle, Clock, Pause, Ban, Plus, Edit2, Trash2, Users, User } from "lucide-react";
+import { ChevronDown, ChevronRight, Target, TrendingUp, AlertCircle, CheckCircle, Clock, Pause, Ban, Plus, Edit2, Trash2, Users, User, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -58,6 +58,7 @@ interface OKRTreeViewProps {
   onEditBigRock?: (bigRock: BigRock) => void;
   onDeleteBigRock?: (id: string) => void;
   onCheckIn?: (entityType: string, entityId: string) => void;
+  onViewHistory?: (entityType: string, entity: any) => void;
 }
 
 const statusColors = {
@@ -91,6 +92,7 @@ export function OKRTreeView({
   onEditBigRock,
   onDeleteBigRock,
   onCheckIn,
+  onViewHistory,
 }: OKRTreeViewProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set());
@@ -352,6 +354,16 @@ export function OKRTreeView({
                                 data-testid={`button-checkin-kr-${kr.id}`}
                               >
                                 <TrendingUp className="h-3 w-3" />
+                              </Button>
+                            )}
+                            {onViewHistory && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => onViewHistory("key_result", kr)}
+                                data-testid={`button-history-kr-${kr.id}`}
+                              >
+                                <History className="h-3 w-3" />
                               </Button>
                             )}
                             {onEditKeyResult && (

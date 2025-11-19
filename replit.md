@@ -7,8 +7,14 @@ Vega is a responsive web application designed as a comprehensive Company Operati
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
+- **Check-In History Viewer**: Added ability to view historical check-ins for Key Results
+  - New "View History" button (clock icon) next to check-in button on each Key Result
+  - History dialog shows timeline of all check-ins with dates, values, progress changes, and notes
+  - Displays achievements, challenges, and next steps for each historical check-in
+  - Helpful for tracking KPI trends and reviewing progress over time
 - **Bug Fixes**: Fixed dropdown z-index issues and demo login
   - Dropdowns in new user creation dialog now appear above the modal (z-index: 60)
+  - All dropdowns in OKR/Check-in dialogs fixed to appear above modals
   - Demo login password is NorthStar2025! (same as admin accounts)
   - All seed users marked as email verified for immediate login access
 - **Company Values with Descriptions**: Enhanced values to include both title and description fields
