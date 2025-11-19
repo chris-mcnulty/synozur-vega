@@ -583,23 +583,44 @@ export default function PlanningEnhanced() {
     }
   };
 
-  const handleCheckIn = (entityType: string, entityId: string) => {
+  const handleCheckIn = async (entityType: string, entityId: string) => {
     // Find the entity data for context
     let current = null;
     if (entityType === "objective") {
       current = objectives.find(o => o.id === entityId);
+      setCheckInEntity({ type: entityType, id: entityId, current });
+      setCheckInForm({
+        newValue: 0,
+        newProgress: current?.progress || 0,
+        newStatus: current?.status || "on_track",
+        note: "",
+        achievements: [""],
+        challenges: [""],
+        nextSteps: [""],
+        asOfDate: new Date().toISOString().split('T')[0],
+      });
+    } else if (entityType === "key_result") {
+      // Fetch the full Key Result data to get unit and target
+      try {
+        const res = await fetch(`/api/okr/key-results/${entityId}`);
+        if (res.ok) {
+          current = await res.json();
+          setCheckInEntity({ type: entityType, id: entityId, current });
+          setCheckInForm({
+            newValue: current?.currentValue || 0,
+            newProgress: current?.progress || 0,
+            newStatus: current?.status || "on_track",
+            note: "",
+            achievements: [""],
+            challenges: [""],
+            nextSteps: [""],
+            asOfDate: new Date().toISOString().split('T')[0],
+          });
+        }
+      } catch (error) {
+        console.error("Failed to fetch Key Result data:", error);
+      }
     }
-    
-    setCheckInEntity({ type: entityType, id: entityId, current });
-    setCheckInForm({
-      newValue: 0,
-      newProgress: current?.progress || 0,
-      newStatus: current?.status || "on_track",
-      note: "",
-      achievements: [""],
-      challenges: [""],
-      nextSteps: [""],
-    });
     setCheckInDialogOpen(true);
   };
 
@@ -1064,17 +1085,67 @@ export default function PlanningEnhanced() {
                   When does this check-in data apply? (Defaults to today)
                 </p>
               </div>
-              <div>
-                <Label htmlFor="ci-progress">New Progress ({checkInForm.newProgress}%)</Label>
-                <Slider
-                  id="ci-progress"
-                  value={[checkInForm.newProgress]}
-                  onValueChange={(value) => setCheckInForm({ ...checkInForm, newProgress: value[0] })}
-                  max={100}
-                  step={5}
-                  data-testid="slider-checkin-progress"
-                />
-              </div>
+              
+              {/* For Key Results: Show Value Input with Unit */}
+              {checkInEntity?.type === "key_result" && checkInEntity.current && (
+                <div>
+                  <Label htmlFor="ci-value">
+                    Current Value
+                    {checkInEntity.current.unit && ` (${checkInEntity.current.unit})`}
+                  </Label>
+                  <Input
+                    id="ci-value"
+                    type="number"
+                    value={checkInForm.newValue}
+                    onChange={(e) => {
+                      const newVal = parseInt(e.target.value) || 0;
+                      // Auto-calculate progress based on metric type
+                      const kr = checkInEntity.current;
+                      let progress = 0;
+                      if (kr.metricType === "increase") {
+                        progress = Math.min(100, Math.round(((newVal - kr.initialValue) / (kr.targetValue - kr.initialValue)) * 100));
+                      } else if (kr.metricType === "decrease") {
+                        progress = Math.min(100, Math.round(((kr.initialValue - newVal) / (kr.initialValue - kr.targetValue)) * 100));
+                      } else if (kr.metricType === "maintain") {
+                        // For maintain, check if within ±5% of target
+                        const deviation = Math.abs(newVal - kr.targetValue) / kr.targetValue;
+                        progress = deviation <= 0.05 ? 100 : Math.max(0, 100 - Math.round(deviation * 100));
+                      } else if (kr.metricType === "complete") {
+                        progress = newVal >= kr.targetValue ? 100 : Math.round((newVal / kr.targetValue) * 100);
+                      }
+                      setCheckInForm({ 
+                        ...checkInForm, 
+                        newValue: newVal,
+                        newProgress: Math.max(0, Math.min(100, progress))
+                      });
+                    }}
+                    data-testid="input-checkin-value"
+                  />
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Target: {checkInEntity.current.targetValue} {checkInEntity.current.unit}
+                    {checkInEntity.current.initialValue !== 0 && ` (from ${checkInEntity.current.initialValue})`}
+                  </p>
+                  <div className="mt-2 p-2 bg-secondary/20 rounded-md">
+                    <p className="text-sm font-medium">Calculated Progress: {checkInForm.newProgress}%</p>
+                  </div>
+                </div>
+              )}
+              
+              {/* For Objectives: Show Progress Slider */}
+              {checkInEntity?.type === "objective" && (
+                <div>
+                  <Label htmlFor="ci-progress">New Progress ({checkInForm.newProgress}%)</Label>
+                  <Slider
+                    id="ci-progress"
+                    value={[checkInForm.newProgress]}
+                    onValueChange={(value) => setCheckInForm({ ...checkInForm, newProgress: value[0] })}
+                    max={100}
+                    step={5}
+                    data-testid="slider-checkin-progress"
+                  />
+                </div>
+              )}
+              
               <div>
                 <Label htmlFor="ci-status">Status</Label>
                 <Select
@@ -1119,6 +1190,7 @@ export default function PlanningEnhanced() {
                       entityId: checkInEntity.id,
                       ...checkInForm,
                       previousProgress: checkInEntity.current?.progress || 0,
+                      previousValue: checkInEntity.current?.currentValue || 0,
                     });
                   }
                 }}
