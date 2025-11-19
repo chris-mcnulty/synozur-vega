@@ -7,11 +7,13 @@ import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Eye, Edit, X, Plus, Save, Trash2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
-import type { Foundation } from "@shared/schema";
+import type { Foundation, CompanyValue } from "@shared/schema";
 
 // Suggested options for quick selection
 const missionSuggestions = [
@@ -57,12 +59,17 @@ export default function Foundations() {
   const { currentTenant } = useTenant();
   const [customMission, setCustomMission] = useState("");
   const [customVision, setCustomVision] = useState("");
-  const [customValue, setCustomValue] = useState("");
   const [customGoal, setCustomGoal] = useState("");
+  
+  // Value dialog state
+  const [valueDialogOpen, setValueDialogOpen] = useState(false);
+  const [editingValueIndex, setEditingValueIndex] = useState<number | null>(null);
+  const [valueTitle, setValueTitle] = useState("");
+  const [valueDescription, setValueDescription] = useState("");
   
   const [mission, setMission] = useState<string>("");
   const [vision, setVision] = useState<string>("");
-  const [values, setValues] = useState<string[]>([]);
+  const [values, setValues] = useState<CompanyValue[]>([]);
   const [goals, setGoals] = useState<string[]>([]);
 
   // Fetch foundation data
@@ -88,7 +95,6 @@ export default function Foundations() {
     // Clear custom input fields when tenant changes
     setCustomMission("");
     setCustomVision("");
-    setCustomValue("");
     setCustomGoal("");
   }, [foundation, currentTenant.id]);
 
@@ -135,11 +141,49 @@ export default function Foundations() {
     }
   };
 
-  const handleAddCustomValue = () => {
-    if (customValue.trim() && !values.includes(customValue.trim())) {
-      setValues([...values, customValue.trim()]);
-      setCustomValue("");
+  const handleOpenValueDialog = (index: number | null = null) => {
+    if (index !== null) {
+      // Editing existing value
+      setEditingValueIndex(index);
+      setValueTitle(values[index].title);
+      setValueDescription(values[index].description);
+    } else {
+      // Adding new value
+      setEditingValueIndex(null);
+      setValueTitle("");
+      setValueDescription("");
     }
+    setValueDialogOpen(true);
+  };
+
+  const handleSaveValue = () => {
+    if (!valueTitle.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Value title is required",
+      });
+      return;
+    }
+
+    const newValue: CompanyValue = {
+      title: valueTitle.trim(),
+      description: valueDescription.trim(),
+    };
+
+    if (editingValueIndex !== null) {
+      // Update existing value
+      const updatedValues = [...values];
+      updatedValues[editingValueIndex] = newValue;
+      setValues(updatedValues);
+    } else {
+      // Add new value
+      setValues([...values, newValue]);
+    }
+
+    setValueDialogOpen(false);
+    setValueTitle("");
+    setValueDescription("");
   };
 
   const handleAddCustomGoal = () => {
@@ -155,8 +199,12 @@ export default function Foundations() {
     } else if (type === "vision") {
       setVision(suggestion);
     } else if (type === "value") {
-      if (!values.includes(suggestion)) {
-        setValues([...values, suggestion]);
+      const newValue: CompanyValue = {
+        title: suggestion,
+        description: "",
+      };
+      if (!values.some(v => v.title === suggestion)) {
+        setValues([...values, newValue]);
       }
     } else if (type === "goal") {
       if (!goals.includes(suggestion)) {
@@ -165,8 +213,8 @@ export default function Foundations() {
     }
   };
 
-  const handleRemoveValue = (value: string) => {
-    setValues(values.filter(v => v !== value));
+  const handleRemoveValue = (index: number) => {
+    setValues(values.filter((_, i) => i !== index));
   };
 
   const handleRemoveGoal = (goal: string) => {
@@ -294,13 +342,16 @@ export default function Foundations() {
                 </div>
                 <div className="bg-background rounded-lg p-6">
                   {values.length > 0 ? (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {values.map((value, index) => (
                         <div
                           key={index}
-                          className="bg-primary/10 rounded-lg p-4 text-center font-medium"
+                          className="bg-primary/10 rounded-lg p-4"
                         >
-                          {value}
+                          <div className="font-semibold text-base mb-2">{value.title}</div>
+                          {value.description && (
+                            <p className="text-sm text-muted-foreground">{value.description}</p>
+                          )}
                         </div>
                       ))}
                     </div>
@@ -474,44 +525,49 @@ export default function Foundations() {
               <CardDescription>What principles guide your organization?</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="custom-value">Add Value</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="custom-value"
-                    value={customValue}
-                    onChange={(e) => setCustomValue(e.target.value)}
-                    placeholder="Enter a core value..."
-                    onKeyPress={(e) => e.key === "Enter" && handleAddCustomValue()}
-                    data-testid="input-custom-value"
-                  />
-                  <Button
-                    onClick={handleAddCustomValue}
-                    disabled={!customValue.trim()}
-                    data-testid="button-add-value"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add
-                  </Button>
-                </div>
-              </div>
+              <Button 
+                onClick={() => handleOpenValueDialog()} 
+                variant="outline"
+                className="w-full"
+                data-testid="button-add-value"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add New Value
+              </Button>
 
               {values.length > 0 && (
-                <div className="flex flex-wrap gap-2">
+                <div className="space-y-3">
                   {values.map((value, index) => (
-                    <Badge
+                    <div
                       key={index}
-                      variant="secondary"
-                      className="py-2 px-4 flex items-center gap-2"
-                      data-testid={`badge-value-${index}`}
+                      className="flex items-start justify-between gap-4 p-3 bg-secondary/20 rounded-lg"
+                      data-testid={`value-item-${index}`}
                     >
-                      {value}
-                      <X
-                        className="h-3 w-3 cursor-pointer hover:text-destructive"
-                        onClick={() => handleRemoveValue(value)}
-                        data-testid={`button-remove-value-${index}`}
-                      />
-                    </Badge>
+                      <div className="flex-1">
+                        <div className="font-medium text-sm mb-1">{value.title}</div>
+                        {value.description && (
+                          <p className="text-sm text-muted-foreground">{value.description}</p>
+                        )}
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleOpenValueDialog(index)}
+                          data-testid={`button-edit-value-${index}`}
+                        >
+                          <Edit className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleRemoveValue(index)}
+                          data-testid={`button-remove-value-${index}`}
+                        >
+                          <X className="h-3 w-3 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
@@ -522,7 +578,7 @@ export default function Foundations() {
                   {valueSuggestions.map((suggestion, index) => (
                     <Badge
                       key={index}
-                      variant={values.includes(suggestion) ? "default" : "outline"}
+                      variant={values.some(v => v.title === suggestion) ? "default" : "outline"}
                       className="cursor-pointer py-2 px-4 hover-elevate"
                       onClick={() => handleAddSuggestion("value", suggestion)}
                       data-testid={`suggestion-value-${index}`}
@@ -609,6 +665,56 @@ export default function Foundations() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Value Add/Edit Dialog */}
+      <Dialog open={valueDialogOpen} onOpenChange={setValueDialogOpen}>
+        <DialogContent data-testid="dialog-value">
+          <DialogHeader>
+            <DialogTitle>{editingValueIndex !== null ? "Edit Value" : "Add New Value"}</DialogTitle>
+            <DialogDescription>
+              Define a core value with its title and description
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="value-title">Value Title *</Label>
+              <Input
+                id="value-title"
+                value={valueTitle}
+                onChange={(e) => setValueTitle(e.target.value)}
+                placeholder="e.g., Innovation, Integrity, Excellence"
+                data-testid="input-value-title"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="value-description">Description</Label>
+              <Textarea
+                id="value-description"
+                value={valueDescription}
+                onChange={(e) => setValueDescription(e.target.value)}
+                placeholder="Describe what this value means to your organization..."
+                rows={4}
+                data-testid="input-value-description"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setValueDialogOpen(false)}
+              data-testid="button-cancel-value"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveValue}
+              data-testid="button-save-value"
+            >
+              {editingValueIndex !== null ? "Update" : "Add"} Value
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
