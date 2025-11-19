@@ -264,6 +264,12 @@ okrRouter.post("/check-ins", async (req, res) => {
     console.log('[Check-In] Received body:', JSON.stringify(req.body, null, 2));
     const validatedData = insertCheckInSchema.parse(req.body);
     console.log('[Check-In] Validation passed');
+    
+    // Convert asOfDate from ISO string to Date object for Drizzle
+    if (validatedData.asOfDate && typeof validatedData.asOfDate === 'string') {
+      validatedData.asOfDate = new Date(validatedData.asOfDate) as any;
+    }
+    
     const checkIn = await storage.createCheckIn(validatedData);
     
     // Update the entity with the latest check-in information
