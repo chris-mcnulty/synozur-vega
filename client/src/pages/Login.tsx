@@ -141,11 +141,11 @@ export default function Login() {
           <p className="text-gray-200">Your AI-Augmented Company OS</p>
         </div>
 
-        <Tabs defaultValue="demo" className="w-full">
+        <Tabs defaultValue="login" className="w-full">
           <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="demo" data-testid="tab-demo-login">Demo</TabsTrigger>
             <TabsTrigger value="login" data-testid="tab-email-login">Login</TabsTrigger>
             <TabsTrigger value="signup" data-testid="tab-signup">Sign Up</TabsTrigger>
+            <TabsTrigger value="demo" data-testid="tab-demo-login">Demo</TabsTrigger>
           </TabsList>
 
           <TabsContent value="demo">

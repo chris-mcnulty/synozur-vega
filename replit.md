@@ -76,6 +76,16 @@ Preferred communication style: Simple, everyday language.
 
 ## Future Features / Backlog
 
+### Company OS Export/Import System
+- **Purpose**: Enable export and import of complete Company OS data for a given company and year
+- **Use Case**: Data portability between companies or servers, backups, migrations, testing
+- **Scope**:
+  - Export to JSON file with `.cos` extension
+  - Include all related data: foundations, strategies, OKRs, Key Results, Big Rocks, meetings
+  - Tenant-specific and year-specific filtering
+  - Import capability to different tenant or server
+  - Data validation and conflict resolution during import
+
 ### Snapshot System for Company OS
 - **Purpose**: Capture point-in-time snapshots of Big Rocks and OKRs for documentation rhythm
 - **Use Case**: Historical tracking and reporting, especially for board meetings, quarterly reviews, and audit trails
