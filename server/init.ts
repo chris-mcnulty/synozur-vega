@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { tenants, foundations, strategies, okrs, kpis, meetings, users } from "@shared/schema";
+import { tenants, foundations, strategies, okrs, kpis, meetings, users, big_rocks } from "@shared/schema";
 import { hashPassword } from "./auth";
 import { eq } from "drizzle-orm";
 
@@ -154,6 +154,8 @@ export async function seedDatabase() {
       name: "Bob Smith",
       role: "tenant_user",
       tenantId: acmeTenantId,
+      emailVerified: true,
+      verificationToken: null,
     },
     {
       email: "admin@acme.com",
@@ -161,6 +163,8 @@ export async function seedDatabase() {
       name: "Acme Admin",
       role: "tenant_admin",
       tenantId: acmeTenantId,
+      emailVerified: true,
+      verificationToken: null,
     },
     {
       email: "consultant@synozur.com",
@@ -168,6 +172,8 @@ export async function seedDatabase() {
       name: "Synozur Consultant",
       role: "vega_consultant",
       tenantId: synozurTenantId,
+      emailVerified: true,
+      verificationToken: null,
     },
     {
       email: "superadmin@vega.com",
@@ -175,6 +181,8 @@ export async function seedDatabase() {
       name: "Vega Administrator",
       role: "vega_admin",
       tenantId: null,
+      emailVerified: true,
+      verificationToken: null,
     },
   ]).onConflictDoNothing();
 
@@ -186,11 +194,11 @@ export async function seedDatabase() {
     mission: "Empower organizations with AI-driven insights and transform strategy into actionable results",
     vision: "A world where every organization operates with clarity through data-driven decision-making at every level",
     values: [
-      "Innovation",
-      "Integrity",
-      "Collaboration",
-      "Excellence",
-      "Customer Success"
+      { title: "Innovation", description: "We embrace new ideas and continuously improve through creative problem-solving" },
+      { title: "Integrity", description: "We act with honesty and transparency in everything we do" },
+      { title: "Collaboration", description: "We work together to achieve shared goals and mutual success" },
+      { title: "Excellence", description: "We strive for the highest quality in our products and services" },
+      { title: "Customer Success", description: "We prioritize our customers' needs and help them achieve their goals" }
     ],
     annualGoals: [
       "Increase revenue by 30%",
@@ -300,7 +308,7 @@ export async function seedDatabase() {
   console.log("✓ Seeded KPIs");
 
   // Insert Rocks (Big Rocks) for Acme
-  await db.insert(rocks).values([
+  await db.insert(big_rocks).values([
     {
       tenantId: acmeTenantId,
       title: "Complete Product Redesign",
@@ -380,11 +388,11 @@ export async function seedDatabase() {
     mission: "Transform organizations through strategic consulting and innovative technology solutions",
     vision: "Become the trusted partner for organizational excellence and digital transformation",
     values: [
-      "Client Success",
-      "Innovation",
-      "Expertise",
-      "Integrity",
-      "Partnership"
+      { title: "Client Success", description: "We measure our success by our clients' achievements and growth" },
+      { title: "Innovation", description: "We bring fresh thinking and creative solutions to every challenge" },
+      { title: "Expertise", description: "We deliver deep knowledge and proven methodologies to drive results" },
+      { title: "Integrity", description: "We build trust through honest communication and ethical practices" },
+      { title: "Partnership", description: "We collaborate closely with clients as trusted long-term partners" }
     ],
     annualGoals: [
       "Grow client portfolio by 40%",
