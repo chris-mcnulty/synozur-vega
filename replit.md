@@ -12,6 +12,9 @@ Preferred communication style: Simple, everyday language.
 - **Foundation Display**: Fixed foundation data rendering issues in production by improving error handling
 - **Dashboard Date Selector**: Now defaults to current quarter based on today's date (calculated dynamically)
 - **Annual OKR Filtering**: OKRs for a period now include both quarter-specific OKRs AND annual OKRs (quarter=0) for that year's fiscal period
+  - **Applies everywhere**: Dashboard, Planning module, and all API endpoints that query objectives or big rocks
+  - **Backend implementation**: Filtering logic in `storage.ts` automatically includes annual items (quarter=0) when filtering by quarter/year
+  - **Example**: Viewing Q4 2025 returns both Q4-specific objectives AND annual 2025 objectives
 
 ## System Architecture
 

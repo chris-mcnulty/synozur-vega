@@ -400,12 +400,11 @@ export class DatabaseStorage implements IStorage {
 
   // Enhanced OKR Method Implementations
   async getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number): Promise<Objective[]> {
-    const conditions = [eq(objectives.tenantId, tenantId)];
-    
     if (quarter !== undefined && year !== undefined) {
       // Include both quarterly OKRs AND annual OKRs (quarter=0) for that year
-      conditions.push(
+      return await db.select().from(objectives).where(
         and(
+          eq(objectives.tenantId, tenantId),
           eq(objectives.year, year),
           or(
             eq(objectives.quarter, quarter),
@@ -415,7 +414,7 @@ export class DatabaseStorage implements IStorage {
       );
     }
     
-    return await db.select().from(objectives).where(and(...conditions));
+    return await db.select().from(objectives).where(eq(objectives.tenantId, tenantId));
   }
 
   async getObjectiveById(id: string): Promise<Objective | undefined> {
@@ -559,12 +558,11 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBigRocksByTenantId(tenantId: string, quarter?: number, year?: number): Promise<BigRock[]> {
-    const conditions = [eq(bigRocks.tenantId, tenantId)];
-    
     if (quarter !== undefined && year !== undefined) {
       // Include both quarterly big rocks AND annual big rocks (quarter=0) for that year
-      conditions.push(
+      return await db.select().from(bigRocks).where(
         and(
+          eq(bigRocks.tenantId, tenantId),
           eq(bigRocks.year, year),
           or(
             eq(bigRocks.quarter, quarter),
@@ -574,7 +572,7 @@ export class DatabaseStorage implements IStorage {
       );
     }
     
-    return await db.select().from(bigRocks).where(and(...conditions));
+    return await db.select().from(bigRocks).where(eq(bigRocks.tenantId, tenantId));
   }
 
   async getBigRockById(id: string): Promise<BigRock | undefined> {
