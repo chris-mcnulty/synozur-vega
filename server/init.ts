@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { tenants, foundations, strategies, okrs, kpis, meetings, users, big_rocks } from "@shared/schema";
+import { tenants, foundations, strategies, okrs, kpis, meetings, users, bigRocks } from "@shared/schema";
 import { hashPassword } from "./auth";
 import { eq } from "drizzle-orm";
 
@@ -308,7 +308,7 @@ export async function seedDatabase() {
   console.log("✓ Seeded KPIs");
 
   // Insert Rocks (Big Rocks) for Acme
-  await db.insert(big_rocks).values([
+  await db.insert(bigRocks).values([
     {
       tenantId: acmeTenantId,
       title: "Complete Product Redesign",

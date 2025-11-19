@@ -852,7 +852,7 @@ export default function TenantAdmin() {
                 <SelectTrigger data-testid="select-user-role">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[60]">
                   <SelectItem value="tenant_user">Tenant User</SelectItem>
                   <SelectItem value="tenant_admin">Tenant Admin</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
@@ -874,7 +874,7 @@ export default function TenantAdmin() {
                 <SelectTrigger data-testid="select-user-tenant">
                   <SelectValue placeholder="Select organization (or leave blank for global)" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[60]">
                   <SelectItem value="NONE">Global (No Organization)</SelectItem>
                   {tenants.map((tenant) => (
                     <SelectItem key={tenant.id} value={tenant.id}>
