@@ -766,7 +766,7 @@ export default function PlanningEnhanced() {
                     <SelectTrigger data-testid="select-objective-level">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[60]">
                       <SelectItem value="organization">Organization</SelectItem>
                       <SelectItem value="team">Team</SelectItem>
                       <SelectItem value="individual">Individual</SelectItem>
@@ -795,7 +795,7 @@ export default function PlanningEnhanced() {
                     <SelectTrigger data-testid="select-objective-quarter">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[60]">
                       <SelectItem value="0">Annual</SelectItem>
                       <SelectItem value="1">Q1</SelectItem>
                       <SelectItem value="2">Q2</SelectItem>
@@ -813,7 +813,7 @@ export default function PlanningEnhanced() {
                     <SelectTrigger data-testid="select-objective-year">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="z-[60]">
                       <SelectItem value="2024">2024</SelectItem>
                       <SelectItem value="2025">2025</SelectItem>
                       <SelectItem value="2026">2026</SelectItem>
@@ -883,7 +883,7 @@ export default function PlanningEnhanced() {
                   <SelectTrigger data-testid="select-kr-metric-type">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[60]">
                     <SelectItem value="increase">Increase (higher is better)</SelectItem>
                     <SelectItem value="decrease">Decrease (lower is better)</SelectItem>
                     <SelectItem value="maintain">Maintain (stay at target)</SelectItem>
@@ -1211,7 +1211,7 @@ export default function PlanningEnhanced() {
                   <SelectTrigger data-testid="select-checkin-status">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="z-[60]">
                     <SelectItem value="not_started">Not Started</SelectItem>
                     <SelectItem value="on_track">On Track</SelectItem>
                     <SelectItem value="behind">Behind</SelectItem>

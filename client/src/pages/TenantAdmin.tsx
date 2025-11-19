@@ -636,7 +636,7 @@ export default function TenantAdmin() {
                     </div>
                   </SelectValue>
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[60]">
                   {standardColors.map((color) => (
                     <SelectItem key={color.value} value={color.value}>
                       <div className="flex items-center gap-2">
