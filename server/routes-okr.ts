@@ -261,7 +261,9 @@ okrRouter.get("/check-ins", async (req, res) => {
 
 okrRouter.post("/check-ins", async (req, res) => {
   try {
+    console.log('[Check-In] Received body:', JSON.stringify(req.body, null, 2));
     const validatedData = insertCheckInSchema.parse(req.body);
+    console.log('[Check-In] Validation passed');
     const checkIn = await storage.createCheckIn(validatedData);
     
     // Update the entity with the latest check-in information
@@ -292,8 +294,10 @@ okrRouter.post("/check-ins", async (req, res) => {
     res.json(checkIn);
   } catch (error) {
     if (error instanceof z.ZodError) {
+      console.log('[Check-In] Validation error:', JSON.stringify(error.errors, null, 2));
       return res.status(400).json({ error: error.errors });
     }
+    console.log('[Check-In] Server error:', error);
     res.status(500).json({ error: error.message });
   }
 });

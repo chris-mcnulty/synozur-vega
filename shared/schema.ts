@@ -374,6 +374,8 @@ export type BigRock = typeof bigRocks.$inferSelect;
 export const insertCheckInSchema = createInsertSchema(checkIns).omit({
   id: true,
   createdAt: true,
+}).extend({
+  asOfDate: z.string().datetime().or(z.date()).optional(),
 });
 
 export type InsertCheckIn = z.infer<typeof insertCheckInSchema>;
