@@ -44,12 +44,17 @@ export const insertTenantSchema = createInsertSchema(tenants).omit({
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
 export type Tenant = typeof tenants.$inferSelect;
 
+export type CompanyValue = {
+  title: string;
+  description: string;
+};
+
 export const foundations = pgTable("foundations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
   mission: text("mission"),
   vision: text("vision"),
-  values: jsonb("values").$type<string[]>(),
+  values: jsonb("values").$type<CompanyValue[]>(),
   annualGoals: jsonb("annual_goals").$type<string[]>(),
   fiscalYearStartMonth: integer("fiscal_year_start_month"),
   updatedBy: varchar("updated_by"),

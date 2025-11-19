@@ -245,11 +245,12 @@ export default function Dashboard() {
                 <div className="space-y-3">
                   <h3 className="font-semibold">Core Values</h3>
                   {foundations?.values && foundations.values.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
+                    <div className="space-y-3">
                       {foundations.values.map((value, idx) => (
-                        <Badge key={idx} variant="secondary">
-                          {value}
-                        </Badge>
+                        <div key={idx} className="space-y-1">
+                          <div className="font-medium text-sm">{value.title}</div>
+                          <p className="text-sm text-muted-foreground">{value.description}</p>
+                        </div>
                       ))}
                     </div>
                   ) : (
