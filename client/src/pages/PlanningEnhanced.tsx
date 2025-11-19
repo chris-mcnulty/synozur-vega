@@ -48,6 +48,7 @@ interface KeyResult {
   unit: string;
   progress: number;
   weight: number;
+  isWeightLocked?: boolean;
   status: string;
   isPromotedToKpi?: boolean;
 }
@@ -209,6 +210,9 @@ export default function PlanningEnhanced() {
     nextSteps: [""],
     asOfDate: new Date().toISOString().split('T')[0], // Default to today, user-changeable
   });
+
+  // Separate draft state for value input (allows empty string during editing)
+  const [valueInputDraft, setValueInputDraft] = useState<string>("");
 
   // Mutations
   const createObjectiveMutation = useMutation({
@@ -606,8 +610,9 @@ export default function PlanningEnhanced() {
         if (res.ok) {
           current = await res.json();
           setCheckInEntity({ type: entityType, id: entityId, current });
+          const currentVal = current?.currentValue || 0;
           setCheckInForm({
-            newValue: current?.currentValue || 0,
+            newValue: currentVal,
             newProgress: current?.progress || 0,
             newStatus: current?.status || "on_track",
             note: "",
@@ -616,6 +621,7 @@ export default function PlanningEnhanced() {
             nextSteps: [""],
             asOfDate: new Date().toISOString().split('T')[0],
           });
+          setValueInputDraft(currentVal.toString());
         }
       } catch (error) {
         console.error("Failed to fetch Key Result data:", error);
@@ -1096,27 +1102,73 @@ export default function PlanningEnhanced() {
                   <Input
                     id="ci-value"
                     type="number"
-                    value={checkInForm.newValue}
+                    value={valueInputDraft}
                     onChange={(e) => {
-                      const newVal = parseInt(e.target.value) || 0;
+                      const inputVal = e.target.value;
+                      
+                      // Always update draft to allow editing
+                      setValueInputDraft(inputVal);
+                      
+                      // Only calculate progress if input is a valid number
+                      if (inputVal === "" || inputVal === null) {
+                        // Keep previous progress, just clear the input visually
+                        return;
+                      }
+                      
+                      const newVal = parseFloat(inputVal);
+                      if (isNaN(newVal)) {
+                        return; // Don't update progress if invalid
+                      }
+                      
                       // Auto-calculate progress based on metric type
                       const kr = checkInEntity.current;
+                      
+                      // Default initialValue to 0 if undefined (for legacy records)
+                      const initialValue = kr.initialValue ?? 0;
+                      const targetValue = kr.targetValue ?? 0;
+                      
                       let progress = 0;
+                      
                       if (kr.metricType === "increase") {
-                        progress = Math.min(100, Math.round(((newVal - kr.initialValue) / (kr.targetValue - kr.initialValue)) * 100));
+                        const denominator = targetValue - initialValue;
+                        if (denominator === 0) {
+                          progress = newVal >= targetValue ? 100 : 0;
+                        } else if (denominator > 0) {
+                          progress = ((newVal - initialValue) / denominator) * 100;
+                        } else {
+                          progress = 0;
+                        }
                       } else if (kr.metricType === "decrease") {
-                        progress = Math.min(100, Math.round(((kr.initialValue - newVal) / (kr.initialValue - kr.targetValue)) * 100));
+                        const denominator = initialValue - targetValue;
+                        if (denominator === 0) {
+                          progress = newVal <= targetValue ? 100 : 0;
+                        } else if (denominator > 0) {
+                          progress = ((initialValue - newVal) / denominator) * 100;
+                        } else {
+                          progress = 0;
+                        }
                       } else if (kr.metricType === "maintain") {
-                        // For maintain, check if within ±5% of target
-                        const deviation = Math.abs(newVal - kr.targetValue) / kr.targetValue;
-                        progress = deviation <= 0.05 ? 100 : Math.max(0, 100 - Math.round(deviation * 100));
+                        if (targetValue === 0) {
+                          progress = Math.abs(newVal) <= 0.05 ? 100 : 0;
+                        } else {
+                          const deviation = Math.abs(newVal - targetValue) / Math.abs(targetValue);
+                          progress = deviation <= 0.05 ? 100 : Math.max(0, 100 - (deviation * 100));
+                        }
                       } else if (kr.metricType === "complete") {
-                        progress = newVal >= kr.targetValue ? 100 : Math.round((newVal / kr.targetValue) * 100);
+                        if (targetValue === 0 || targetValue < 0) {
+                          progress = 0;
+                        } else {
+                          progress = newVal >= targetValue ? 100 : (newVal / targetValue) * 100;
+                        }
                       }
+                      
+                      // Clamp progress to 0-100 range and ensure no NaN
+                      const clampedProgress = isNaN(progress) ? 0 : Math.max(0, Math.min(100, Math.round(progress)));
+                      
                       setCheckInForm({ 
                         ...checkInForm, 
                         newValue: newVal,
-                        newProgress: Math.max(0, Math.min(100, progress))
+                        newProgress: clampedProgress
                       });
                     }}
                     data-testid="input-checkin-value"
@@ -1125,9 +1177,13 @@ export default function PlanningEnhanced() {
                     Target: {checkInEntity.current.targetValue} {checkInEntity.current.unit}
                     {checkInEntity.current.initialValue !== 0 && ` (from ${checkInEntity.current.initialValue})`}
                   </p>
-                  <div className="mt-2 p-2 bg-secondary/20 rounded-md">
-                    <p className="text-sm font-medium">Calculated Progress: {checkInForm.newProgress}%</p>
-                  </div>
+                  {valueInputDraft && !isNaN(parseFloat(valueInputDraft)) ? (
+                    <div className="mt-2 p-2 bg-secondary/20 rounded-md">
+                      <p className="text-sm font-medium">Calculated Progress: {checkInForm.newProgress}%</p>
+                    </div>
+                  ) : valueInputDraft !== "" ? (
+                    <p className="text-sm text-destructive mt-1">Please enter a valid number</p>
+                  ) : null}
                 </div>
               )}
               
@@ -1185,6 +1241,13 @@ export default function PlanningEnhanced() {
               <Button
                 onClick={() => {
                   if (checkInEntity) {
+                    // Validate for Key Results: ensure we have a valid number from the draft input
+                    if (checkInEntity.type === "key_result") {
+                      const finalValue = parseFloat(valueInputDraft);
+                      // Use the parsed value from draft
+                      checkInForm.newValue = finalValue;
+                    }
+                    
                     createCheckInMutation.mutate({
                       entityType: checkInEntity.type,
                       entityId: checkInEntity.id,
@@ -1194,7 +1257,10 @@ export default function PlanningEnhanced() {
                     });
                   }
                 }}
-                disabled={createCheckInMutation.isPending}
+                disabled={
+                  createCheckInMutation.isPending || 
+                  (checkInEntity?.type === "key_result" && (valueInputDraft === "" || isNaN(parseFloat(valueInputDraft))))
+                }
                 data-testid="button-save-checkin"
               >
                 {createCheckInMutation.isPending ? "Recording..." : "Record Check-In"}
