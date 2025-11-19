@@ -12,7 +12,7 @@ import {
   checkIns, type CheckIn, type InsertCheckIn
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import { hashPassword } from "./auth";
 
 export interface IStorage {
@@ -400,17 +400,22 @@ export class DatabaseStorage implements IStorage {
 
   // Enhanced OKR Method Implementations
   async getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number): Promise<Objective[]> {
-    let query = db.select().from(objectives).where(eq(objectives.tenantId, tenantId));
+    const conditions = [eq(objectives.tenantId, tenantId)];
     
     if (quarter !== undefined && year !== undefined) {
-      query = query.where(and(
-        eq(objectives.tenantId, tenantId),
-        eq(objectives.quarter, quarter),
-        eq(objectives.year, year)
-      ));
+      // Include both quarterly OKRs AND annual OKRs (quarter=0) for that year
+      conditions.push(
+        and(
+          eq(objectives.year, year),
+          or(
+            eq(objectives.quarter, quarter),
+            eq(objectives.quarter, 0)
+          )
+        )
+      );
     }
     
-    return await query;
+    return await db.select().from(objectives).where(and(...conditions));
   }
 
   async getObjectiveById(id: string): Promise<Objective | undefined> {
@@ -554,17 +559,22 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBigRocksByTenantId(tenantId: string, quarter?: number, year?: number): Promise<BigRock[]> {
-    let query = db.select().from(bigRocks).where(eq(bigRocks.tenantId, tenantId));
+    const conditions = [eq(bigRocks.tenantId, tenantId)];
     
     if (quarter !== undefined && year !== undefined) {
-      query = query.where(and(
-        eq(bigRocks.tenantId, tenantId),
-        eq(bigRocks.quarter, quarter),
-        eq(bigRocks.year, year)
-      ));
+      // Include both quarterly big rocks AND annual big rocks (quarter=0) for that year
+      conditions.push(
+        and(
+          eq(bigRocks.year, year),
+          or(
+            eq(bigRocks.quarter, quarter),
+            eq(bigRocks.quarter, 0)
+          )
+        )
+      );
     }
     
-    return await query;
+    return await db.select().from(bigRocks).where(and(...conditions));
   }
 
   async getBigRockById(id: string): Promise<BigRock | undefined> {

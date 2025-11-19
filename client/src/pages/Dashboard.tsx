@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { useTenant } from "@/contexts/TenantContext";
+import { getCurrentQuarter, generateQuarters } from "@/lib/fiscal-utils";
 import type { Foundation, Strategy, Objective, BigRock, Meeting } from "@shared/schema";
 
 type Quarter = {
@@ -42,18 +43,22 @@ const fiscalYears = [
   { id: "fy2024", label: "FY 2024 (Jan - Dec)", startMonth: 1 },
 ];
 
+// Generate quarters for current and previous year
+const currentYear = new Date().getFullYear();
 const quarters: Quarter[] = [
-  { id: "q1-2025", label: "Q1 2025", year: 2025, quarter: 1, startDate: "Jan 1", endDate: "Mar 31" },
-  { id: "q2-2025", label: "Q2 2025", year: 2025, quarter: 2, startDate: "Apr 1", endDate: "Jun 30" },
-  { id: "q3-2025", label: "Q3 2025", year: 2025, quarter: 3, startDate: "Jul 1", endDate: "Sep 30" },
-  { id: "q4-2025", label: "Q4 2025", year: 2025, quarter: 4, startDate: "Oct 1", endDate: "Dec 31" },
-  { id: "q4-2024", label: "Q4 2024", year: 2024, quarter: 4, startDate: "Oct 1", endDate: "Dec 31" },
+  ...generateQuarters(currentYear),
+  ...generateQuarters(currentYear - 1),
 ];
 
 export default function Dashboard() {
   const { currentTenant } = useTenant();
-  const [selectedFiscalYear, setSelectedFiscalYear] = useState("fy2025");
-  const [selectedQuarter, setSelectedQuarter] = useState("q1-2025");
+  
+  // Default to current quarter
+  const { quarter: currentQuarterNum, year: currentYearNum } = getCurrentQuarter();
+  const defaultQuarterId = `q${currentQuarterNum}-${currentYearNum}`;
+  
+  const [selectedFiscalYear, setSelectedFiscalYear] = useState(`fy${currentYearNum}`);
+  const [selectedQuarter, setSelectedQuarter] = useState(defaultQuarterId);
 
   const currentQuarter = quarters.find((q) => q.id === selectedQuarter);
 

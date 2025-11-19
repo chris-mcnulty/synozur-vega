@@ -10,6 +10,8 @@ Preferred communication style: Simple, everyday language.
 - **Dashboard Resilience**: Implemented per-section error handling - each module (Foundations, Strategies, OKRs, Big Rocks, Meetings) fails independently with helpful error messages instead of breaking the entire dashboard
 - **Schema Cleanup**: Removed deprecated `rocks` table; consolidated to `big_rocks` only for cleaner architecture
 - **Foundation Display**: Fixed foundation data rendering issues in production by improving error handling
+- **Dashboard Date Selector**: Now defaults to current quarter based on today's date (calculated dynamically)
+- **Annual OKR Filtering**: OKRs for a period now include both quarter-specific OKRs AND annual OKRs (quarter=0) for that year's fiscal period
 
 ## System Architecture
 
