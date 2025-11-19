@@ -140,30 +140,6 @@ export const insertKpiSchema = createInsertSchema(kpis).omit({
 export type InsertKpi = z.infer<typeof insertKpiSchema>;
 export type Kpi = typeof kpis.$inferSelect;
 
-export const rocks = pgTable("rocks", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
-  title: text("title").notNull(),
-  status: text("status"),
-  linkedGoals: jsonb("linked_goals").$type<string[]>(),
-  linkedStrategies: jsonb("linked_strategies").$type<string[]>(),
-  owner: text("owner"),
-  quarter: integer("quarter"),
-  year: integer("year"),
-  updatedBy: varchar("updated_by"),
-  updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => ({
-  uniqueTenantRock: unique().on(table.tenantId, table.title, table.quarter, table.year),
-}));
-
-export const insertRockSchema = createInsertSchema(rocks).omit({
-  id: true,
-  updatedAt: true,
-});
-
-export type InsertRock = z.infer<typeof insertRockSchema>;
-export type Rock = typeof rocks.$inferSelect;
-
 export const meetings = pgTable("meetings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").notNull().references(() => tenants.id),

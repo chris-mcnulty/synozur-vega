@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { tenants, foundations, strategies, okrs, kpis, rocks, meetings, users } from "@shared/schema";
+import { tenants, foundations, strategies, okrs, kpis, meetings, users } from "@shared/schema";
 import { hashPassword } from "./auth";
 import { eq } from "drizzle-orm";
 

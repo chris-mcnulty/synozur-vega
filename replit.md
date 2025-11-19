@@ -6,6 +6,11 @@ Vega is a responsive web application designed as a comprehensive Company Operati
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Recent Changes (November 2025)
+- **Dashboard Resilience**: Implemented per-section error handling - each module (Foundations, Strategies, OKRs, Big Rocks, Meetings) fails independently with helpful error messages instead of breaking the entire dashboard
+- **Schema Cleanup**: Removed deprecated `rocks` table; consolidated to `big_rocks` only for cleaner architecture
+- **Foundation Display**: Fixed foundation data rendering issues in production by improving error handling
+
 ## System Architecture
 
 ### Frontend
@@ -20,6 +25,7 @@ Preferred communication style: Simple, everyday language.
         - Quarterly OKRs and Big Rocks
         - Upcoming meetings
         - All data fetched from live database (no mock data)
+        - **Error Handling**: Per-section errors with helpful messages; one failed section doesn't break the entire dashboard
     - **Foundations**: CRUD for mission, vision, values, and annual goals with AI suggestions.
     - **Strategy**: Strategic priorities with AI drafting capabilities and goal alignment.
         - **Alignment**: Strategies can link to multiple annual goals (optional many-to-many relationship).

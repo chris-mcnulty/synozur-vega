@@ -9,7 +9,6 @@ import {
   insertStrategySchema,
   insertOkrSchema,
   insertKpiSchema,
-  insertRockSchema,
   insertMeetingSchema,
   insertUserSchema
 } from "@shared/schema";
@@ -679,60 +678,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting KPI:", error);
       res.status(500).json({ error: "Failed to delete KPI" });
-    }
-  });
-
-  // Rocks routes
-  app.get("/api/rocks/:tenantId", async (req, res) => {
-    try {
-      const { tenantId } = req.params;
-      const { quarter, year } = req.query;
-      const rocks = await storage.getRocksByTenantId(
-        tenantId,
-        quarter ? parseInt(quarter as string) : undefined,
-        year ? parseInt(year as string) : undefined
-      );
-      res.json(rocks);
-    } catch (error) {
-      console.error("Error fetching rocks:", error);
-      res.status(500).json({ error: "Failed to fetch rocks" });
-    }
-  });
-
-  app.post("/api/rocks", async (req, res) => {
-    try {
-      const validatedData = insertRockSchema.parse(req.body);
-      const rock = await storage.createRock(validatedData);
-      res.json(rock);
-    } catch (error) {
-      console.error("Error creating rock:", error);
-      res.status(400).json({ error: "Failed to create rock" });
-    }
-  });
-
-  app.patch("/api/rocks/:id", async (req, res) => {
-    try {
-      const { id } = req.params;
-      const validatedData = insertRockSchema.partial().parse(req.body);
-      const rock = await storage.updateRock(id, validatedData);
-      if (!rock) {
-        return res.status(404).json({ error: "Rock not found" });
-      }
-      res.json(rock);
-    } catch (error) {
-      console.error("Error updating rock:", error);
-      res.status(400).json({ error: "Failed to update rock" });
-    }
-  });
-
-  app.delete("/api/rocks/:id", async (req, res) => {
-    try {
-      const { id } = req.params;
-      await storage.deleteRock(id);
-      res.json({ success: true });
-    } catch (error) {
-      console.error("Error deleting rock:", error);
-      res.status(500).json({ error: "Failed to delete rock" });
     }
   });
 

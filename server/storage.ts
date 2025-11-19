@@ -5,7 +5,6 @@ import {
   strategies, type Strategy, type InsertStrategy,
   okrs, type Okr, type InsertOkr,
   kpis, type Kpi, type InsertKpi,
-  rocks, type Rock, type InsertRock,
   meetings, type Meeting, type InsertMeeting,
   objectives, type Objective, type InsertObjective,
   keyResults, type KeyResult, type InsertKeyResult,
@@ -54,12 +53,6 @@ export interface IStorage {
   createKpi(kpi: InsertKpi): Promise<Kpi>;
   updateKpi(id: string, kpi: Partial<InsertKpi>): Promise<Kpi>;
   deleteKpi(id: string): Promise<void>;
-  
-  getRocksByTenantId(tenantId: string, quarter?: number, year?: number): Promise<Rock[]>;
-  getRockById(id: string): Promise<Rock | undefined>;
-  createRock(rock: InsertRock): Promise<Rock>;
-  updateRock(id: string, rock: Partial<InsertRock>): Promise<Rock>;
-  deleteRock(id: string): Promise<void>;
   
   getMeetingsByTenantId(tenantId: string): Promise<Meeting[]>;
   getMeetingById(id: string): Promise<Meeting | undefined>;
@@ -363,47 +356,6 @@ export class DatabaseStorage implements IStorage {
 
   async deleteKpi(id: string): Promise<void> {
     await db.delete(kpis).where(eq(kpis.id, id));
-  }
-
-  async getRocksByTenantId(tenantId: string, quarter?: number, year?: number): Promise<Rock[]> {
-    const conditions = [eq(rocks.tenantId, tenantId)];
-    if (quarter !== undefined) conditions.push(eq(rocks.quarter, quarter));
-    if (year !== undefined) conditions.push(eq(rocks.year, year));
-    return await db.select().from(rocks).where(and(...conditions));
-  }
-
-  async getRockById(id: string): Promise<Rock | undefined> {
-    const [rock] = await db.select().from(rocks).where(eq(rocks.id, id));
-    return rock || undefined;
-  }
-
-  async createRock(insertRock: InsertRock): Promise<Rock> {
-    const [rock] = await db
-      .insert(rocks)
-      .values({
-        ...insertRock,
-        linkedGoals: insertRock.linkedGoals ? [...insertRock.linkedGoals] : null,
-        linkedStrategies: insertRock.linkedStrategies ? [...insertRock.linkedStrategies] : null,
-      })
-      .returning();
-    return rock;
-  }
-
-  async updateRock(id: string, updateData: Partial<InsertRock>): Promise<Rock> {
-    const [rock] = await db
-      .update(rocks)
-      .set({
-        ...updateData,
-        linkedGoals: updateData.linkedGoals ? [...updateData.linkedGoals] : undefined,
-        linkedStrategies: updateData.linkedStrategies ? [...updateData.linkedStrategies] : undefined,
-      })
-      .where(eq(rocks.id, id))
-      .returning();
-    return rock;
-  }
-
-  async deleteRock(id: string): Promise<void> {
-    await db.delete(rocks).where(eq(rocks.id, id));
   }
 
   async getMeetingsByTenantId(tenantId: string): Promise<Meeting[]> {
