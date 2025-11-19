@@ -83,7 +83,19 @@ export default function Foundations() {
     if (foundation) {
       setMission(foundation.mission || "");
       setVision(foundation.vision || "");
-      setValues(foundation.values || []);
+      
+      // Migrate legacy string values to new CompanyValue format
+      const rawValues = foundation.values || [];
+      const migratedValues: CompanyValue[] = rawValues.map((value: any) => {
+        if (typeof value === "string") {
+          // Legacy format: convert string to object
+          return { title: value, description: "" };
+        }
+        // Already in new format
+        return value;
+      });
+      setValues(migratedValues);
+      
       setGoals(foundation.annualGoals || []);
     } else {
       // Reset to empty state when no foundation exists for this tenant
