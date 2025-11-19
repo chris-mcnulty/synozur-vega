@@ -7,6 +7,12 @@ Vega is a responsive web application designed as a comprehensive Company Operati
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
+- **Company Values with Descriptions**: Enhanced values to include both title and description fields
+  - Values stored as objects with `title` and `description` properties
+  - Dashboard displays values with their descriptions
+  - Foundations page uses dialog for adding/editing values with full details
+  - Automatic migration from legacy string-only values to new format
+  - Backward compatibility maintained for existing data
 - **Key Result Check-Ins with Value Input**: Implemented unit-based value input for KR check-ins
   - Check-in dialog shows value input field with KR-specific unit (e.g., "24 blog posts")
   - Progress auto-calculates based on metric type (increase/decrease/maintain/complete)

@@ -246,12 +246,19 @@ export default function Dashboard() {
                   <h3 className="font-semibold">Core Values</h3>
                   {foundations?.values && foundations.values.length > 0 ? (
                     <div className="space-y-3">
-                      {foundations.values.map((value, idx) => (
-                        <div key={idx} className="space-y-1">
-                          <div className="font-medium text-sm">{value.title}</div>
-                          <p className="text-sm text-muted-foreground">{value.description}</p>
-                        </div>
-                      ))}
+                      {foundations.values.map((value: any, idx) => {
+                        // Handle both legacy string format and new object format
+                        const title = typeof value === "string" ? value : value.title;
+                        const description = typeof value === "string" ? "" : value.description;
+                        return (
+                          <div key={idx} className="space-y-1">
+                            <div className="font-medium text-sm">{title}</div>
+                            {description && (
+                              <p className="text-sm text-muted-foreground">{description}</p>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground italic">Not yet defined</p>
