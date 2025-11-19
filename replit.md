@@ -7,6 +7,10 @@ Vega is a responsive web application designed as a comprehensive Company Operati
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
+- **Bug Fixes**: Fixed dropdown z-index issues and demo login
+  - Dropdowns in new user creation dialog now appear above the modal (z-index: 60)
+  - Demo login password is NorthStar2025! (same as admin accounts)
+  - All seed users marked as email verified for immediate login access
 - **Company Values with Descriptions**: Enhanced values to include both title and description fields
   - Values stored as objects with `title` and `description` properties
   - Dashboard displays values with their descriptions

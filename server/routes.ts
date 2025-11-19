@@ -37,8 +37,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Demo login handling
       if (isDemo) {
         const demoPassword = process.env.VITE_DEMO_PASSWORD;
-        console.log(`[Demo Login] Received password length: ${password?.length}, Expected: ${demoPassword?.length}`);
-        console.log(`[Demo Login] Password match: ${password === demoPassword}`);
         
         if (password === demoPassword) {
           // Get Acme tenant and demo user
@@ -55,7 +53,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           req.session.userId = demoUser.id;
           return res.json({ user: demoUser });
         } else {
-          console.log(`[Demo Login] Password mismatch - treating as invalid`);
           return res.status(401).json({ error: "Invalid demo password" });
         }
       }
