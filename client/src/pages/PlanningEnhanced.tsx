@@ -154,7 +154,8 @@ export default function PlanningEnhanced() {
     };
     
     enrichData();
-  }, [JSON.stringify(objectives.map(o => o.id)), JSON.stringify(bigRocks.map(b => b.id))]);
+    // Use a hash that includes progress to detect data changes, not just ID changes
+  }, [JSON.stringify(objectives.map(o => ({ id: o.id, progress: o.progress }))), JSON.stringify(bigRocks.map(b => ({ id: b.id, completionPercentage: b.completionPercentage })))]);
 
   // Dialog states
   const [objectiveDialogOpen, setObjectiveDialogOpen] = useState(false);
@@ -1108,6 +1109,7 @@ export default function PlanningEnhanced() {
                   type="date"
                   value={checkInForm.asOfDate}
                   onChange={(e) => setCheckInForm({ ...checkInForm, asOfDate: e.target.value })}
+                  className="dark:bg-background dark:text-foreground dark:[color-scheme:dark]"
                   data-testid="input-checkin-asofdate"
                 />
                 <p className="text-sm text-muted-foreground mt-1">
@@ -1316,11 +1318,18 @@ export default function PlanningEnhanced() {
                           <div>
                             <div className="flex items-center gap-2">
                               <span className="font-medium">
-                                {new Date(checkIn.createdAt).toLocaleDateString('en-US', {
-                                  month: 'short',
-                                  day: 'numeric',
-                                  year: 'numeric',
-                                })}
+                                {checkIn.asOfDate 
+                                  ? new Date(checkIn.asOfDate).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                    })
+                                  : new Date(checkIn.createdAt).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                    })
+                                }
                               </span>
                               <Badge variant={
                                 checkIn.newStatus === 'on_track' ? 'default' :

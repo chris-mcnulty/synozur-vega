@@ -7,11 +7,20 @@ Vega is a responsive web application designed as a comprehensive Company Operati
 Preferred communication style: Simple, everyday language.
 
 ## Recent Changes (November 2025)
-- **Check-In History Viewer**: Added ability to view historical check-ins for Key Results
-  - New "View History" button (clock icon) next to check-in button on each Key Result
-  - History dialog shows timeline of all check-ins with dates, values, progress changes, and notes
-  - Displays achievements, challenges, and next steps for each historical check-in
-  - Helpful for tracking KPI trends and reviewing progress over time
+- **Check-In System Enhancements**: Comprehensive improvements to check-in functionality
+  - **Check-In History Viewer**: View historical check-ins for Key Results
+    - New "View History" button (clock icon) next to check-in button on each Key Result
+    - History displays "As Of Date" (not just created date) for accurate historical tracking
+    - Shows timeline with dates, values, progress changes, notes, achievements, challenges, next steps
+    - Helpful for tracking KPI trends and reviewing progress over time
+  - **Automatic Parent Progress Updates**: Backend automatically recalculates parent Objective progress when Key Result is updated via check-in
+    - Uses weighted rollup calculation based on Key Result weights
+    - Only applies to objectives in "rollup" progress mode
+  - **Real-Time UI Updates**: Fixed cache invalidation to refresh UI immediately after check-in
+    - Key Result progress updates instantly (no manual refresh needed)
+    - Parent Objective progress updates instantly
+    - Proper React Query cache invalidation for all affected queries
+  - **Dark Mode Date Picker**: Fixed date picker contrast in dark mode for better visibility
 - **Bug Fixes**: Fixed dropdown z-index issues and demo login
   - Dropdowns in new user creation dialog now appear above the modal (z-index: 60)
   - All dropdowns in OKR/Check-in dialogs fixed to appear above modals
@@ -98,6 +107,15 @@ Preferred communication style: Simple, everyday language.
 - **Transactional Email**: SendGrid (via Replit connector) for email verification and password reset.
 
 ## Future Features / Backlog
+
+### Check-In Editing
+- **Purpose**: Allow users to edit historical check-ins if incorrect data was entered
+- **Use Case**: Correcting data entry errors, updating notes after the fact
+- **Scope**:
+  - Edit button in check-in history dialog
+  - Ability to update value, progress, status, notes, achievements, challenges, next steps
+  - Backend PATCH endpoint for check-ins
+  - Recalculate parent objective progress after edit
 
 ### Company OS Export/Import System
 - **Purpose**: Enable export and import of complete Company OS data for a given company and year
