@@ -128,42 +128,33 @@ export default function PlanningEnhanced() {
 
   // Enrich objectives with their key results and big rocks
   const [enrichedObjectives, setEnrichedObjectives] = useState<any[]>([]);
-  const [isEnriching, setIsEnriching] = useState(false);
   
   useEffect(() => {
     const enrichData = async () => {
-      if (isEnriching) return; // Prevent multiple simultaneous enrichment calls
-      
       if (objectives.length === 0) {
         setEnrichedObjectives([]);
         return;
       }
       
-      setIsEnriching(true);
-      try {
-        const enriched = await Promise.all(objectives.map(async (obj) => {
-          // Fetch key results for this objective
-          const krRes = await fetch(`/api/okr/objectives/${obj.id}/key-results`);
-          const keyResults = krRes.ok ? await krRes.json() : [];
-          
-          // Filter big rocks for this objective
-          const objBigRocks = bigRocks.filter(rock => rock.objectiveId === obj.id);
-          
-          return {
-            ...obj,
-            keyResults,
-            bigRocks: objBigRocks,
-          };
-        }));
-        setEnrichedObjectives(enriched);
-      } finally {
-        setIsEnriching(false);
-      }
+      const enriched = await Promise.all(objectives.map(async (obj) => {
+        // Fetch key results for this objective
+        const krRes = await fetch(`/api/okr/objectives/${obj.id}/key-results`);
+        const keyResults = krRes.ok ? await krRes.json() : [];
+        
+        // Filter big rocks for this objective
+        const objBigRocks = bigRocks.filter(rock => rock.objectiveId === obj.id);
+        
+        return {
+          ...obj,
+          keyResults,
+          bigRocks: objBigRocks,
+        };
+      }));
+      setEnrichedObjectives(enriched);
     };
     
     enrichData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [objectives.length, bigRocks.length, currentTenant.id, quarter, year]);
+  }, [objectives, bigRocks]);
 
   // Dialog states
   const [objectiveDialogOpen, setObjectiveDialogOpen] = useState(false);
@@ -431,8 +422,12 @@ export default function PlanningEnhanced() {
       return apiRequest("POST", "/api/okr/check-ins", checkInData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/okr`] });
+      // Invalidate the specific query keys that need to refresh
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/check-ins`] });
+      // Also invalidate all key-results queries to ensure they refetch
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
       setCheckInDialogOpen(false);
       toast({ title: "Success", description: "Check-in recorded successfully" });
     },
