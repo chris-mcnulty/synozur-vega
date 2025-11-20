@@ -128,33 +128,42 @@ export default function PlanningEnhanced() {
 
   // Enrich objectives with their key results and big rocks
   const [enrichedObjectives, setEnrichedObjectives] = useState<any[]>([]);
+  const [isEnriching, setIsEnriching] = useState(false);
   
   useEffect(() => {
     const enrichData = async () => {
+      if (isEnriching) return; // Prevent multiple simultaneous enrichment calls
+      
       if (objectives.length === 0) {
         setEnrichedObjectives([]);
         return;
       }
       
-      const enriched = await Promise.all(objectives.map(async (obj) => {
-        // Fetch key results for this objective
-        const krRes = await fetch(`/api/okr/objectives/${obj.id}/key-results`);
-        const keyResults = krRes.ok ? await krRes.json() : [];
-        
-        // Filter big rocks for this objective
-        const objBigRocks = bigRocks.filter(rock => rock.objectiveId === obj.id);
-        
-        return {
-          ...obj,
-          keyResults,
-          bigRocks: objBigRocks,
-        };
-      }));
-      setEnrichedObjectives(enriched);
+      setIsEnriching(true);
+      try {
+        const enriched = await Promise.all(objectives.map(async (obj) => {
+          // Fetch key results for this objective
+          const krRes = await fetch(`/api/okr/objectives/${obj.id}/key-results`);
+          const keyResults = krRes.ok ? await krRes.json() : [];
+          
+          // Filter big rocks for this objective
+          const objBigRocks = bigRocks.filter(rock => rock.objectiveId === obj.id);
+          
+          return {
+            ...obj,
+            keyResults,
+            bigRocks: objBigRocks,
+          };
+        }));
+        setEnrichedObjectives(enriched);
+      } finally {
+        setIsEnriching(false);
+      }
     };
     
     enrichData();
-  }, [objectives, bigRocks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [objectives.length, bigRocks.length, currentTenant.id, quarter, year]);
 
   // Dialog states
   const [objectiveDialogOpen, setObjectiveDialogOpen] = useState(false);
