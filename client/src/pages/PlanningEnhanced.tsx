@@ -154,7 +154,7 @@ export default function PlanningEnhanced() {
     };
     
     enrichData();
-  }, [objectives, bigRocks]);
+  }, [JSON.stringify(objectives.map(o => o.id)), JSON.stringify(bigRocks.map(b => b.id))]);
 
   // Dialog states
   const [objectiveDialogOpen, setObjectiveDialogOpen] = useState(false);

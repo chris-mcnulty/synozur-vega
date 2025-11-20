@@ -283,6 +283,7 @@ okrRouter.post("/check-ins", async (req, res) => {
         lastCheckInNote: checkIn.note || undefined,
       });
     } else if (entityType === "key_result") {
+      // Update the key result
       await storage.updateKeyResult(entityId, {
         currentValue: checkIn.newValue,
         progress: checkIn.newProgress,
@@ -290,6 +291,34 @@ okrRouter.post("/check-ins", async (req, res) => {
         lastCheckInAt: checkIn.createdAt,
         lastCheckInNote: checkIn.note || undefined,
       });
+      
+      // Recalculate parent objective's progress
+      const keyResult = await storage.getKeyResultById(entityId);
+      if (keyResult && keyResult.objectiveId) {
+        const objective = await storage.getObjectiveById(keyResult.objectiveId);
+        
+        // Only recalculate if using rollup mode
+        if (objective && objective.progressMode === 'rollup') {
+          const allKeyResults = await storage.getKeyResultsByObjectiveId(keyResult.objectiveId);
+          
+          // Calculate weighted average progress
+          let totalWeight = 0;
+          let weightedProgress = 0;
+          
+          for (const kr of allKeyResults) {
+            const weight = kr.weight || 25;
+            totalWeight += weight;
+            weightedProgress += (kr.progress || 0) * weight;
+          }
+          
+          const newProgress = totalWeight > 0 ? Math.round(weightedProgress / totalWeight) : 0;
+          
+          // Update parent objective progress
+          await storage.updateObjective(keyResult.objectiveId, {
+            progress: newProgress,
+          });
+        }
+      }
     } else if (entityType === "big_rock") {
       await storage.updateBigRock(entityId, {
         completionPercentage: checkIn.newProgress,
