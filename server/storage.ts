@@ -12,7 +12,7 @@ import {
   checkIns, type CheckIn, type InsertCheckIn
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, desc } from "drizzle-orm";
 import { hashPassword } from "./auth";
 
 export interface IStorage {
@@ -85,7 +85,9 @@ export interface IStorage {
   deleteBigRock(id: string): Promise<void>;
   
   getCheckInsByEntityId(entityType: string, entityId: string): Promise<CheckIn[]>;
+  getCheckInById(id: string): Promise<CheckIn | undefined>;
   createCheckIn(checkIn: InsertCheckIn): Promise<CheckIn>;
+  updateCheckIn(id: string, data: Partial<CheckIn>): Promise<CheckIn>;
   getLatestCheckIn(entityType: string, entityId: string): Promise<CheckIn | undefined>;
 }
 
@@ -624,7 +626,13 @@ export class DatabaseStorage implements IStorage {
       .where(and(
         eq(checkIns.entityType, entityType),
         eq(checkIns.entityId, entityId)
-      ));
+      ))
+      .orderBy(desc(checkIns.asOfDate));
+  }
+
+  async getCheckInById(id: string): Promise<CheckIn | undefined> {
+    const [checkIn] = await db.select().from(checkIns).where(eq(checkIns.id, id));
+    return checkIn || undefined;
   }
 
   async createCheckIn(insertCheckIn: InsertCheckIn): Promise<CheckIn> {
@@ -640,6 +648,20 @@ export class DatabaseStorage implements IStorage {
     return checkIn;
   }
 
+  async updateCheckIn(id: string, updateData: Partial<CheckIn>): Promise<CheckIn> {
+    const [checkIn] = await db
+      .update(checkIns)
+      .set({
+        ...updateData,
+        achievements: updateData.achievements ? [...updateData.achievements] : undefined,
+        challenges: updateData.challenges ? [...updateData.challenges] : undefined,
+        nextSteps: updateData.nextSteps ? [...updateData.nextSteps] : undefined,
+      })
+      .where(eq(checkIns.id, id))
+      .returning();
+    return checkIn;
+  }
+
   async getLatestCheckIn(entityType: string, entityId: string): Promise<CheckIn | undefined> {
     const [checkIn] = await db
       .select()
@@ -648,7 +670,7 @@ export class DatabaseStorage implements IStorage {
         eq(checkIns.entityType, entityType),
         eq(checkIns.entityId, entityId)
       ))
-      .orderBy(checkIns.createdAt)
+      .orderBy(desc(checkIns.asOfDate))
       .limit(1);
     return checkIn || undefined;
   }

@@ -13,6 +13,11 @@ Preferred communication style: Simple, everyday language.
     - History displays "As Of Date" (not just created date) for accurate historical tracking
     - Shows timeline with dates, values, progress changes, notes, achievements, challenges, next steps
     - Helpful for tracking KPI trends and reviewing progress over time
+  - **Editable Check-Ins**: Fix typos and data entry errors in historical check-ins
+    - Edit button (pencil icon) on each check-in in the history dialog
+    - Full edit capability for value, progress, status, notes, achievements, challenges, next steps, and as-of date
+    - Backend PATCH endpoint validates updates and recalculates parent objective progress
+    - Real-time UI updates after editing just like creating check-ins
   - **Automatic Parent Progress Updates**: Backend automatically recalculates parent Objective progress when Key Result is updated via check-in
     - Uses weighted rollup calculation based on Key Result weights
     - Only applies to objectives in "rollup" progress mode
@@ -107,15 +112,6 @@ Preferred communication style: Simple, everyday language.
 - **Transactional Email**: SendGrid (via Replit connector) for email verification and password reset.
 
 ## Future Features / Backlog
-
-### Check-In Editing
-- **Purpose**: Allow users to edit historical check-ins if incorrect data was entered
-- **Use Case**: Correcting data entry errors, updating notes after the fact
-- **Scope**:
-  - Edit button in check-in history dialog
-  - Ability to update value, progress, status, notes, achievements, challenges, next steps
-  - Backend PATCH endpoint for check-ins
-  - Recalculate parent objective progress after edit
 
 ### Company OS Export/Import System
 - **Purpose**: Enable export and import of complete Company OS data for a given company and year

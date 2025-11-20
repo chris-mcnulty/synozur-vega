@@ -18,7 +18,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentQuarter } from "@/lib/quarters";
 import { OKRTreeView } from "@/components/okr/OKRTreeView";
 import { WeightManager } from "@/components/WeightManager";
-import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2, History } from "lucide-react";
+import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2, History, Edit } from "lucide-react";
 import type { Foundation } from "@shared/schema";
 
 interface Objective {
@@ -164,6 +164,7 @@ export default function PlanningEnhanced() {
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
   const [checkInHistoryDialogOpen, setCheckInHistoryDialogOpen] = useState(false);
   const [selectedKRForHistory, setSelectedKRForHistory] = useState<KeyResult | null>(null);
+  const [editingCheckIn, setEditingCheckIn] = useState<CheckIn | null>(null);
   const [weightManagementDialogOpen, setWeightManagementDialogOpen] = useState(false);
   const [managedWeights, setManagedWeights] = useState<KeyResult[]>([]);
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
@@ -437,6 +438,31 @@ export default function PlanningEnhanced() {
     },
   });
 
+  const updateCheckInMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      // Convert asOfDate string to ISO timestamp if present
+      const checkInData = {
+        ...data,
+        asOfDate: data.asOfDate ? new Date(data.asOfDate).toISOString() : undefined,
+      };
+      return apiRequest("PATCH", `/api/okr/check-ins/${id}`, checkInData);
+    },
+    onSuccess: () => {
+      // Invalidate the specific query keys that need to refresh
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/check-ins`] });
+      // Also invalidate all key-results queries to ensure they refetch
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      setCheckInDialogOpen(false);
+      setEditingCheckIn(null);
+      toast({ title: "Success", description: "Check-in updated successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update check-in", variant: "destructive" });
+    },
+  });
+
   // Fetch check-in history for selected Key Result
   const { data: checkInHistory = [] } = useQuery<CheckIn[]>({
     queryKey: [`/api/okr/check-ins`, selectedKRForHistory?.id],
@@ -647,7 +673,38 @@ export default function PlanningEnhanced() {
         console.error("Failed to fetch Key Result data:", error);
       }
     }
+    setEditingCheckIn(null);
     setCheckInDialogOpen(true);
+  };
+
+  const handleEditCheckIn = async (checkIn: CheckIn) => {
+    // Fetch the full Key Result data for context (needed for unit, target, etc.)
+    try {
+      const res = await fetch(`/api/okr/key-results/${checkIn.entityId}`);
+      if (res.ok) {
+        const current = await res.json();
+        setCheckInEntity({ type: checkIn.entityType, id: checkIn.entityId, current });
+        setCheckInForm({
+          newValue: checkIn.newValue || 0,
+          newProgress: checkIn.newProgress,
+          newStatus: checkIn.newStatus || "on_track",
+          note: checkIn.note || "",
+          achievements: checkIn.achievements || [""],
+          challenges: checkIn.challenges || [""],
+          nextSteps: checkIn.nextSteps || [""],
+          asOfDate: checkIn.asOfDate 
+            ? new Date(checkIn.asOfDate).toISOString().split('T')[0]
+            : new Date().toISOString().split('T')[0],
+        });
+        setValueInputDraft((checkIn.newValue || 0).toString());
+        setEditingCheckIn(checkIn);
+        setCheckInHistoryDialogOpen(false);
+        setCheckInDialogOpen(true);
+      }
+    } catch (error) {
+      console.error("Failed to fetch Key Result data for edit:", error);
+      toast({ title: "Error", description: "Failed to load check-in data", variant: "destructive" });
+    }
   };
 
   const isLoading = loadingObjectives || loadingBigRocks;
@@ -1093,10 +1150,15 @@ export default function PlanningEnhanced() {
         </Dialog>
 
         {/* Check-In Dialog */}
-        <Dialog open={checkInDialogOpen} onOpenChange={setCheckInDialogOpen}>
+        <Dialog open={checkInDialogOpen} onOpenChange={(open) => {
+          setCheckInDialogOpen(open);
+          if (!open) {
+            setEditingCheckIn(null);
+          }
+        }}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Record Check-In</DialogTitle>
+              <DialogTitle>{editingCheckIn ? "Edit Check-In" : "Record Check-In"}</DialogTitle>
               <DialogDescription>
                 {checkInEntity && `${checkInEntity.type.replace("_", " ")} - ${checkInEntity.current?.title || checkInEntity.id}`}
               </DialogDescription>
@@ -1273,22 +1335,34 @@ export default function PlanningEnhanced() {
                       checkInForm.newValue = finalValue;
                     }
                     
-                    createCheckInMutation.mutate({
-                      entityType: checkInEntity.type,
-                      entityId: checkInEntity.id,
-                      ...checkInForm,
-                      previousProgress: checkInEntity.current?.progress || 0,
-                      previousValue: checkInEntity.current?.currentValue || 0,
-                    });
+                    if (editingCheckIn) {
+                      // Update existing check-in
+                      updateCheckInMutation.mutate({
+                        id: editingCheckIn.id,
+                        data: checkInForm,
+                      });
+                    } else {
+                      // Create new check-in
+                      createCheckInMutation.mutate({
+                        entityType: checkInEntity.type,
+                        entityId: checkInEntity.id,
+                        ...checkInForm,
+                        previousProgress: checkInEntity.current?.progress || 0,
+                        previousValue: checkInEntity.current?.currentValue || 0,
+                      });
+                    }
                   }
                 }}
                 disabled={
-                  createCheckInMutation.isPending || 
+                  (editingCheckIn ? updateCheckInMutation.isPending : createCheckInMutation.isPending) || 
                   (checkInEntity?.type === "key_result" && (valueInputDraft === "" || isNaN(parseFloat(valueInputDraft))))
                 }
                 data-testid="button-save-checkin"
               >
-                {createCheckInMutation.isPending ? "Recording..." : "Record Check-In"}
+                {editingCheckIn 
+                  ? (updateCheckInMutation.isPending ? "Updating..." : "Update Check-In")
+                  : (createCheckInMutation.isPending ? "Recording..." : "Record Check-In")
+                }
               </Button>
             </DialogFooter>
           </DialogContent>
@@ -1345,15 +1419,25 @@ export default function PlanningEnhanced() {
                               by {checkIn.createdBy}
                             </div>
                           </div>
-                          <div className="text-right">
-                            <div className="text-sm font-medium">
-                              {checkIn.newValue !== undefined && selectedKRForHistory?.unit && (
-                                <span>{checkIn.newValue} {selectedKRForHistory.unit}</span>
-                              )}
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <div className="text-sm font-medium">
+                                {checkIn.newValue !== undefined && selectedKRForHistory?.unit && (
+                                  <span>{checkIn.newValue} {selectedKRForHistory.unit}</span>
+                                )}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                Progress: {checkIn.previousProgress}% → {checkIn.newProgress}%
+                              </div>
                             </div>
-                            <div className="text-sm text-muted-foreground">
-                              Progress: {checkIn.previousProgress}% → {checkIn.newProgress}%
-                            </div>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => handleEditCheckIn(checkIn)}
+                              data-testid={`button-edit-checkin-${checkIn.id}`}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
                           </div>
                         </div>
                         {checkIn.note && (

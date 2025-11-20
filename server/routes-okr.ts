@@ -4,7 +4,8 @@ import {
   insertObjectiveSchema, 
   insertKeyResultSchema, 
   insertBigRockSchema,
-  insertCheckInSchema 
+  insertCheckInSchema,
+  updateCheckInSchema
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -333,6 +334,91 @@ okrRouter.post("/check-ins", async (req, res) => {
       return res.status(400).json({ error: error.errors });
     }
     console.log('[Check-In] Server error:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+okrRouter.patch("/check-ins/:id", async (req, res) => {
+  try {
+    console.log('[Check-In Update] Received body:', JSON.stringify(req.body, null, 2));
+    const validatedData = updateCheckInSchema.parse(req.body);
+    console.log('[Check-In Update] Validation passed');
+    
+    // Get the existing check-in to know which entity it belongs to
+    const existingCheckIn = await storage.getCheckInById(req.params.id);
+    if (!existingCheckIn) {
+      return res.status(404).json({ error: "Check-in not found" });
+    }
+    
+    // Convert asOfDate from ISO string to Date object for Drizzle
+    const updateData: any = { ...validatedData };
+    if (updateData.asOfDate && typeof updateData.asOfDate === 'string') {
+      updateData.asOfDate = new Date(updateData.asOfDate);
+    }
+    
+    const checkIn = await storage.updateCheckIn(req.params.id, updateData);
+    
+    // Update the entity with the latest check-in information
+    const { entityType, entityId } = existingCheckIn;
+    
+    if (entityType === "objective") {
+      await storage.updateObjective(entityId, {
+        progress: checkIn.newProgress,
+        status: checkIn.newStatus || undefined,
+        lastCheckInAt: checkIn.createdAt,
+        lastCheckInNote: checkIn.note || undefined,
+      });
+    } else if (entityType === "key_result") {
+      // Update the key result
+      await storage.updateKeyResult(entityId, {
+        currentValue: checkIn.newValue,
+        progress: checkIn.newProgress,
+        status: checkIn.newStatus || undefined,
+        lastCheckInAt: checkIn.createdAt,
+        lastCheckInNote: checkIn.note || undefined,
+      });
+      
+      // Recalculate parent objective's progress
+      const keyResult = await storage.getKeyResultById(entityId);
+      if (keyResult && keyResult.objectiveId) {
+        const objective = await storage.getObjectiveById(keyResult.objectiveId);
+        
+        // Only recalculate if using rollup mode
+        if (objective && objective.progressMode === 'rollup') {
+          const allKeyResults = await storage.getKeyResultsByObjectiveId(keyResult.objectiveId);
+          
+          // Calculate weighted average progress
+          let totalWeight = 0;
+          let weightedProgress = 0;
+          
+          for (const kr of allKeyResults) {
+            const weight = kr.weight || 25;
+            totalWeight += weight;
+            weightedProgress += (kr.progress || 0) * weight;
+          }
+          
+          const newProgress = totalWeight > 0 ? Math.round(weightedProgress / totalWeight) : 0;
+          
+          // Update parent objective progress
+          await storage.updateObjective(keyResult.objectiveId, {
+            progress: newProgress,
+          });
+        }
+      }
+    } else if (entityType === "big_rock") {
+      await storage.updateBigRock(entityId, {
+        completionPercentage: checkIn.newProgress,
+        status: checkIn.newStatus || undefined,
+      });
+    }
+    
+    res.json(checkIn);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      console.log('[Check-In Update] Validation error:', JSON.stringify(error.errors, null, 2));
+      return res.status(400).json({ error: error.errors });
+    }
+    console.log('[Check-In Update] Server error:', error);
     res.status(500).json({ error: error.message });
   }
 });

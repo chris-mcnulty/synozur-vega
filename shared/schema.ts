@@ -378,5 +378,17 @@ export const insertCheckInSchema = createInsertSchema(checkIns).omit({
   asOfDate: z.string().datetime().or(z.date()).optional(),
 });
 
+export const updateCheckInSchema = z.object({
+  newValue: z.number().optional(),
+  newProgress: z.number().min(0).max(100),
+  newStatus: z.string().optional(),
+  note: z.string().optional(),
+  achievements: z.array(z.string()).optional(),
+  challenges: z.array(z.string()).optional(),
+  nextSteps: z.array(z.string()).optional(),
+  asOfDate: z.string().datetime().or(z.date()).optional(),
+});
+
 export type InsertCheckIn = z.infer<typeof insertCheckInSchema>;
+export type UpdateCheckIn = z.infer<typeof updateCheckInSchema>;
 export type CheckIn = typeof checkIns.$inferSelect;
