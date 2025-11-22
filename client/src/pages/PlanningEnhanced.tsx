@@ -251,6 +251,11 @@ export default function PlanningEnhanced() {
           body: JSON.stringify({ valueTitle }),
         });
       }
+      
+      // Invalidate value tags query for this specific entity
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/${entityType}`, entityId, 'values'] 
+      });
     } catch (error) {
       console.error('Failed to sync value tags:', error);
       throw error;
