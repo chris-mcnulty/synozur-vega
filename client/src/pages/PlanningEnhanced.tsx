@@ -1324,6 +1324,7 @@ export default function PlanningEnhanced() {
               </Button>
               <Button
                 onClick={() => {
+                  console.log('[Big Rock Submit] Form state:', bigRockForm);
                   if (selectedBigRock) {
                     updateBigRockMutation.mutate({
                       id: selectedBigRock.id,

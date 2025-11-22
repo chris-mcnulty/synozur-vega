@@ -67,7 +67,12 @@ okrRouter.post("/objectives", async (req, res) => {
 
 okrRouter.patch("/objectives/:id", async (req, res) => {
   try {
-    const objective = await storage.updateObjective(req.params.id, req.body);
+    // Convert empty strings to null for foreign key fields
+    const updateData = { ...req.body };
+    if (updateData.parentId === "") updateData.parentId = null;
+    if (updateData.ownerId === "") updateData.ownerId = null;
+    
+    const objective = await storage.updateObjective(req.params.id, updateData);
     res.json(objective);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -225,9 +230,18 @@ okrRouter.post("/big-rocks", async (req, res) => {
 
 okrRouter.patch("/big-rocks/:id", async (req, res) => {
   try {
-    const bigRock = await storage.updateBigRock(req.params.id, req.body);
+    console.log('[Big Rock Update] Received body:', JSON.stringify(req.body, null, 2));
+    
+    // Convert empty strings to null for foreign key fields
+    const updateData = { ...req.body };
+    if (updateData.objectiveId === "") updateData.objectiveId = null;
+    if (updateData.keyResultId === "") updateData.keyResultId = null;
+    
+    const bigRock = await storage.updateBigRock(req.params.id, updateData);
+    console.log('[Big Rock Update] Update successful');
     res.json(bigRock);
   } catch (error) {
+    console.error('[Big Rock Update] Error:', error);
     res.status(500).json({ error: error.message });
   }
 });
