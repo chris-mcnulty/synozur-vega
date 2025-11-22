@@ -181,9 +181,7 @@ export default function PlanningEnhanced() {
 
   // Value tag states
   const [objectiveValueTags, setObjectiveValueTags] = useState<string[]>([]);
-  const [bigRockValueTags, setBigRockValueTags] = useState<string[]>([]);
   const [previousObjectiveValueTags, setPreviousObjectiveValueTags] = useState<string[]>([]);
-  const [previousBigRockValueTags, setPreviousBigRockValueTags] = useState<string[]>([]);
 
   // Form data states
   const [objectiveForm, setObjectiveForm] = useState({
@@ -366,15 +364,9 @@ export default function PlanningEnhanced() {
       return apiRequest("POST", "/api/okr/big-rocks", cleanedData);
     },
     onSuccess: async (response: any) => {
-      try {
-        // Sync value tags after creating big rock
-        await syncValueTags(response.id, 'bigrocks', bigRockValueTags, []);
-      } catch (error) {
-        console.error('Failed to sync value tags:', error);
-      }
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`] });
       setBigRockDialogOpen(false);
-      setBigRockValueTags([]);
+      setSelectedBigRock(null);
       toast({ title: "Success", description: "Big Rock created successfully" });
     },
     onError: (error: any) => {
@@ -388,17 +380,9 @@ export default function PlanningEnhanced() {
       return apiRequest("PATCH", `/api/okr/big-rocks/${id}`, data);
     },
     onSuccess: async (response: any, variables: { id: string }) => {
-      try {
-        // Sync value tags after updating big rock
-        await syncValueTags(variables.id, 'bigrocks', bigRockValueTags, previousBigRockValueTags);
-      } catch (error) {
-        console.error('Failed to sync value tags:', error);
-      }
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`] });
       setBigRockDialogOpen(false);
       setSelectedBigRock(null);
-      setBigRockValueTags([]);
-      setPreviousBigRockValueTags([]);
       toast({ title: "Success", description: "Big Rock updated successfully" });
     },
     onError: () => {
@@ -703,8 +687,6 @@ export default function PlanningEnhanced() {
       completionPercentage: 0,
       linkedStrategies: [],
     });
-    setBigRockValueTags([]);
-    setPreviousBigRockValueTags([]);
     setBigRockDialogOpen(true);
   };
 
@@ -718,24 +700,6 @@ export default function PlanningEnhanced() {
       completionPercentage: bigRock.completionPercentage,
       linkedStrategies: bigRock.linkedStrategies || [],
     });
-    
-    // Fetch existing value tags
-    try {
-      const res = await fetch(`/api/bigrocks/${bigRock.id}/values`);
-      if (res.ok) {
-        const valueTitles = await res.json();
-        setBigRockValueTags(valueTitles);
-        setPreviousBigRockValueTags(valueTitles);
-      } else {
-        setBigRockValueTags([]);
-        setPreviousBigRockValueTags([]);
-      }
-    } catch (error) {
-      console.error("Failed to fetch big rock value tags:", error);
-      setBigRockValueTags([]);
-      setPreviousBigRockValueTags([]);
-    }
-    
     setBigRockDialogOpen(true);
   };
 
@@ -1276,14 +1240,6 @@ export default function PlanningEnhanced() {
                   data-testid="input-bigrock-description"
                 />
               </div>
-              <div>
-                <Label>Company Values</Label>
-                <ValueTagSelector
-                  availableValues={foundation?.values || []}
-                  selectedValues={bigRockValueTags}
-                  onValuesChange={setBigRockValueTags}
-                />
-              </div>
 
               <div>
                 <Label>Linked Strategies</Label>
@@ -1737,33 +1693,6 @@ export default function PlanningEnhanced() {
   );
 }
 
-// Value Badges Component for Big Rocks
-function ValueBadges({ bigRockId }: { bigRockId: string }) {
-  const { data: values = [] } = useQuery<string[]>({
-    queryKey: ['/api/bigrocks', bigRockId, 'values'],
-    queryFn: async () => {
-      const res = await fetch(`/api/bigrocks/${bigRockId}/values`);
-      if (!res.ok) return [];
-      return res.json();
-    },
-  });
-
-  if (values.length === 0) return null;
-
-  return (
-    <div className="mb-3">
-      <h4 className="font-medium text-sm mb-2">Company Values</h4>
-      <div className="flex flex-wrap gap-2">
-        {values.map((valueTitle: string) => (
-          <Badge key={valueTitle} variant="outline" className="text-xs">
-            {valueTitle}
-          </Badge>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 // Big Rocks Section Component
 function BigRocksSection({ bigRocks, objectives, onCreateBigRock, onEditBigRock, onDeleteBigRock }: any) {
   const getObjectiveTitle = (objId: string) => {
@@ -1828,9 +1757,6 @@ function BigRocksSection({ bigRocks, objectives, onCreateBigRock, onEditBigRock,
                 {rock.description && (
                   <p className="text-sm text-muted-foreground mb-4">{rock.description}</p>
                 )}
-                
-                {/* Fetch and display values */}
-                <ValueBadges bigRockId={rock.id} />
                 
                 {/* Linked Strategies */}
                 {rock.linkedStrategies && rock.linkedStrategies.length > 0 && (

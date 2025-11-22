@@ -6,6 +6,21 @@ Vega is a responsive web application serving as a comprehensive Company Operatin
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Project Documentation
+
+For detailed information, see:
+- **[BACKLOG.md](./BACKLOG.md)** - Feature backlog organized by priority (HIGH/MEDIUM/LOW)
+- **[KNOWN_ISSUES.md](./KNOWN_ISSUES.md)** - Current bugs, issues, and technical debt
+- **[TECHNICAL_DECISIONS.md](./TECHNICAL_DECISIONS.md)** - Architecture Decision Records (ADRs)
+
+## Recent Changes (November 2025)
+
+- ✅ **Entity Relationship Linking**: Objectives link to strategies/goals, Big Rocks link to strategies
+- ✅ **Culture & Values Integration**: Value tagging for Objectives and Strategies (NOT Big Rocks - removed to reduce data clutter)
+- ✅ **Foreign Key Constraint Fix**: Empty strings converted to null in update endpoints
+- ✅ **Enhanced Documentation**: Created BACKLOG.md, KNOWN_ISSUES.md, TECHNICAL_DECISIONS.md
+- 🚧 **In Progress**: Big Rock linkedStrategies state management bug (see KNOWN_ISSUES.md)
+
 ## System Architecture
 
 ### Frontend

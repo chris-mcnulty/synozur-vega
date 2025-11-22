@@ -1,0 +1,56 @@
+🎯 Future Features & Enhancements
+📋 Formal Backlog (Planned & Scoped)
+1. Company OS Export/Import System
+What: Export and import complete Company OS data
+Format: JSON file with .cos extension
+Includes: Foundations, strategies, OKRs, Key Results, Big Rocks, meetings
+Features:
+Tenant-specific and year-specific filtering
+Import to different tenant or server
+Data validation and conflict resolution
+Use Cases: Data portability, backups, migrations, testing
+2. Snapshot System for Company OS
+What: Point-in-time snapshots of Big Rocks and OKRs
+Features:
+As-of date snapshots for Objectives, Key Results, and Big Rocks
+Snapshot metadata (created date, quarter, year, created by)
+Read-only views of historical snapshots
+Comparison views between snapshots
+Use Cases: Board meetings, quarterly reviews, audit trails, historical tracking
+🚀 Planned Integrations (Architecture Noted)
+3. Microsoft 365 Integration
+Status: Microsoft Graph Client already added to dependencies
+Planned Features:
+Excel integration (data import/export)
+Outlook Calendar integration (meeting scheduling)
+Microsoft Planner integration (task sync)
+OAuth authentication
+Current Status: Infrastructure ready, integration logic not implemented
+4. AI Services Integration
+Status: Placeholder in place
+Planned Features:
+AI Suggestions in Foundations module (mission, vision, values)
+AI Drafting in Strategy module (strategic priorities)
+GPT-based content generation
+Automated summaries and guidance
+Current Status: UI references exist, no actual AI integration
+🔐 Security & Authorization (Future Enhancement)
+5. Role-Based Access Control (RBAC) Enforcement
+Current Status:
+6 user roles defined (tenant_user, tenant_admin, admin, global_admin, vega_consultant, vega_admin)
+Roles assigned to users
+NOT ENFORCED - all authenticated users have full access
+Planned Enhancement:
+Enforce role-based permissions on API endpoints
+Role-specific UI restrictions
+Permission-based feature access
+Tenant isolation enforcement
+📊 Summary
+Feature	Status	Priority
+Check-In Editing	✅ COMPLETE	-
+Company OS Export/Import	📋 Backlog	Medium
+Snapshot System	📋 Backlog	Medium
+Microsoft 365 Integration	🔌 Dependencies Ready	Low
+AI Services	💡 Planned	Low
+RBAC Enforcement	🔐 Critical Gap	High
+Note: The RBAC enforcement is technically a security gap since the roles exist but aren't being enforced. This might be the highest priority item if you're moving toward production use.
