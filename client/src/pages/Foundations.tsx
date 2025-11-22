@@ -13,6 +13,7 @@ import { Eye, Edit, X, Plus, Save, Trash2, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
+import { ValueDetailView } from "@/components/ValueDetailView";
 import type { Foundation, CompanyValue } from "@shared/schema";
 
 // Suggested options for quick selection
@@ -67,10 +68,21 @@ export default function Foundations() {
   const [valueTitle, setValueTitle] = useState("");
   const [valueDescription, setValueDescription] = useState("");
   
+  // Value detail view state
+  const [valueDetailOpen, setValueDetailOpen] = useState(false);
+  const [selectedValue, setSelectedValue] = useState<CompanyValue | null>(null);
+  
   const [mission, setMission] = useState<string>("");
   const [vision, setVision] = useState<string>("");
   const [values, setValues] = useState<CompanyValue[]>([]);
   const [goals, setGoals] = useState<string[]>([]);
+  
+  // New organizational identity fields
+  const [tagline, setTagline] = useState<string>("");
+  const [companySummary, setCompanySummary] = useState<string>("");
+  const [messagingStatement, setMessagingStatement] = useState<string>("");
+  const [cultureStatement, setCultureStatement] = useState<string>("");
+  const [brandVoice, setBrandVoice] = useState<string>("");
 
   // Fetch foundation data
   const { data: foundation, isLoading } = useQuery<Foundation>({
@@ -97,12 +109,24 @@ export default function Foundations() {
       setValues(migratedValues);
       
       setGoals(foundation.annualGoals || []);
+      
+      // Initialize new organizational identity fields
+      setTagline(foundation.tagline || "");
+      setCompanySummary(foundation.companySummary || "");
+      setMessagingStatement(foundation.messagingStatement || "");
+      setCultureStatement(foundation.cultureStatement || "");
+      setBrandVoice(foundation.brandVoice || "");
     } else {
       // Reset to empty state when no foundation exists for this tenant
       setMission("");
       setVision("");
       setValues([]);
       setGoals([]);
+      setTagline("");
+      setCompanySummary("");
+      setMessagingStatement("");
+      setCultureStatement("");
+      setBrandVoice("");
     }
     // Clear custom input fields when tenant changes
     setCustomMission("");
@@ -119,6 +143,11 @@ export default function Foundations() {
         vision,
         values,
         annualGoals: goals,
+        tagline,
+        companySummary,
+        messagingStatement,
+        cultureStatement,
+        brandVoice,
         fiscalYearStartMonth: 1,
         updatedBy: "Current User",
       });
@@ -238,6 +267,11 @@ export default function Foundations() {
     setVision("");
     setValues([]);
     setGoals([]);
+    setTagline("");
+    setCompanySummary("");
+    setMessagingStatement("");
+    setCultureStatement("");
+    setBrandVoice("");
     toast({
       title: "Cleared",
       description: "All foundation elements have been cleared",
@@ -275,137 +309,105 @@ export default function Foundations() {
             <Trash2 className="h-4 w-4 mr-2" />
             Clear All
           </Button>
-          <Button
-            onClick={handleSave}
-            disabled={saveMutation.isPending}
-            data-testid="button-save"
-          >
-            {saveMutation.isPending ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            ) : (
-              <Save className="h-4 w-4 mr-2" />
-            )}
-            Save Changes
-          </Button>
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6">
-          <TabsTrigger value="overview" data-testid="tab-overview">
-            <Eye className="h-4 w-4 mr-2" />
-            Master View
+      <Tabs defaultValue="identity" className="w-full">
+        <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsTrigger value="identity" data-testid="tab-identity">
+            Organizational Identity
           </TabsTrigger>
-          <TabsTrigger value="edit" data-testid="tab-edit">
-            <Edit className="h-4 w-4 mr-2" />
-            Edit Sections
+          <TabsTrigger value="positioning" data-testid="tab-positioning">
+            Strategic Positioning
+          </TabsTrigger>
+          <TabsTrigger value="foundations" data-testid="tab-foundations">
+            Core Foundations
           </TabsTrigger>
         </TabsList>
 
-        {/* Master Overview - Read-only */}
-        <TabsContent value="overview" className="space-y-6">
-          <Card className="bg-gradient-to-br from-primary/5 to-secondary/5 border-2">
+        {/* Organizational Identity Tab */}
+        <TabsContent value="identity" className="space-y-6">
+          <Card data-testid="card-identity">
             <CardHeader>
-              <CardTitle className="text-2xl">Organizational Foundations</CardTitle>
-              <CardDescription>
-                A comprehensive view of your organization's mission, vision, values, and strategic goals
-              </CardDescription>
+              <CardTitle>Organizational Identity</CardTitle>
+              <CardDescription>Define your brand's core identity and positioning</CardDescription>
             </CardHeader>
-            <CardContent className="space-y-8">
-              {/* Mission */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="h-1 w-12 bg-primary rounded" />
-                  <h2 className="text-xl font-bold">Mission Statement</h2>
-                </div>
-                <div className="bg-background rounded-lg p-6">
-                  {mission ? (
-                    <p className="text-base leading-relaxed">{mission}</p>
-                  ) : (
-                    <p className="text-muted-foreground italic">No mission statement defined</p>
-                  )}
-                </div>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="tagline">Tagline</Label>
+                <Input
+                  id="tagline"
+                  value={tagline}
+                  onChange={(e) => setTagline(e.target.value)}
+                  placeholder="Your company's memorable tagline..."
+                  data-testid="input-tagline"
+                />
               </div>
-
-              <Separator />
-
-              {/* Vision */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="h-1 w-12 bg-secondary rounded" />
-                  <h2 className="text-xl font-bold">Vision Statement</h2>
-                </div>
-                <div className="bg-background rounded-lg p-6">
-                  {vision ? (
-                    <p className="text-base leading-relaxed">{vision}</p>
-                  ) : (
-                    <p className="text-muted-foreground italic">No vision statement defined</p>
-                  )}
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Values */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="h-1 w-12 bg-primary rounded" />
-                  <h2 className="text-xl font-bold">Core Values</h2>
-                </div>
-                <div className="bg-background rounded-lg p-6">
-                  {values.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {values.map((value, index) => (
-                        <div
-                          key={index}
-                          className="bg-primary/10 rounded-lg p-4"
-                        >
-                          <div className="font-semibold text-base mb-2">{value.title}</div>
-                          {value.description && (
-                            <p className="text-sm text-muted-foreground">{value.description}</p>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground italic">No values defined</p>
-                  )}
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Strategic Goals */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="h-1 w-12 bg-secondary rounded" />
-                  <h2 className="text-xl font-bold">Strategic Goals</h2>
-                </div>
-                <div className="bg-background rounded-lg p-6">
-                  {goals.length > 0 ? (
-                    <div className="space-y-3">
-                      {goals.map((goal, index) => (
-                        <Card key={index} className="bg-secondary/10">
-                          <CardContent className="p-4 flex items-start gap-3">
-                            <Badge variant="secondary" className="mt-0.5">
-                              {index + 1}
-                            </Badge>
-                            <p className="text-sm leading-relaxed">{goal}</p>
-                          </CardContent>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-muted-foreground italic">No goals defined</p>
-                  )}
-                </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="company-summary">Company Summary</Label>
+                <Textarea
+                  id="company-summary"
+                  value={companySummary}
+                  onChange={(e) => setCompanySummary(e.target.value)}
+                  placeholder="A brief overview of your company, its purpose, and what makes it unique..."
+                  rows={6}
+                  data-testid="textarea-company-summary"
+                />
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* Edit Sections */}
-        <TabsContent value="edit" className="space-y-6">
+        {/* Strategic Positioning Tab */}
+        <TabsContent value="positioning" className="space-y-6">
+          <Card data-testid="card-positioning">
+            <CardHeader>
+              <CardTitle>Strategic Positioning</CardTitle>
+              <CardDescription>Define how you communicate and position your organization</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="messaging-statement">Messaging Statement</Label>
+                <Textarea
+                  id="messaging-statement"
+                  value={messagingStatement}
+                  onChange={(e) => setMessagingStatement(e.target.value)}
+                  placeholder="Your key messaging points and value proposition..."
+                  rows={5}
+                  data-testid="textarea-messaging-statement"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="culture-statement">Culture Statement</Label>
+                <Textarea
+                  id="culture-statement"
+                  value={cultureStatement}
+                  onChange={(e) => setCultureStatement(e.target.value)}
+                  placeholder="Describe your organizational culture and work environment..."
+                  rows={5}
+                  data-testid="textarea-culture-statement"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="brand-voice">Brand Voice</Label>
+                <Textarea
+                  id="brand-voice"
+                  value={brandVoice}
+                  onChange={(e) => setBrandVoice(e.target.value)}
+                  placeholder="How your brand communicates: tone, style, personality..."
+                  rows={5}
+                  data-testid="textarea-brand-voice"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Core Foundations Tab */}
+        <TabsContent value="foundations" className="space-y-6">
           {/* Mission Section */}
           <Card data-testid="card-mission">
             <CardHeader>
@@ -565,6 +567,18 @@ export default function Foundations() {
                         <Button
                           size="icon"
                           variant="ghost"
+                          onClick={() => {
+                            setSelectedValue(value);
+                            setValueDetailOpen(true);
+                          }}
+                          data-testid={`button-view-value-${index}`}
+                          title="View tagged items"
+                        >
+                          <Eye className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
                           onClick={() => handleOpenValueDialog(index)}
                           data-testid={`button-edit-value-${index}`}
                         >
@@ -678,6 +692,22 @@ export default function Foundations() {
         </TabsContent>
       </Tabs>
 
+      {/* Save Button - Works across all tabs */}
+      <div className="mt-6 flex justify-end">
+        <Button
+          onClick={handleSave}
+          disabled={saveMutation.isPending}
+          data-testid="button-save"
+        >
+          {saveMutation.isPending ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4 mr-2" />
+          )}
+          Save Changes
+        </Button>
+      </div>
+
       {/* Value Add/Edit Dialog */}
       <Dialog open={valueDialogOpen} onOpenChange={setValueDialogOpen}>
         <DialogContent data-testid="dialog-value">
@@ -727,6 +757,17 @@ export default function Foundations() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Value Detail View */}
+      {selectedValue && (
+        <ValueDetailView
+          open={valueDetailOpen}
+          onOpenChange={setValueDetailOpen}
+          valueTitle={selectedValue.title}
+          valueDescription={selectedValue.description}
+          tenantId={currentTenant.id}
+        />
+      )}
     </div>
   );
 }

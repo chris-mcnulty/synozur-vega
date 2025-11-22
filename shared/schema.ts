@@ -57,6 +57,13 @@ export const foundations = pgTable("foundations", {
   values: jsonb("values").$type<CompanyValue[]>(),
   annualGoals: jsonb("annual_goals").$type<string[]>(),
   fiscalYearStartMonth: integer("fiscal_year_start_month"),
+  tagline: text("tagline"),
+  companySummary: text("company_summary"),
+  messagingStatement: text("messaging_statement"),
+  cultureStatement: text("culture_statement"),
+  brandVoice: text("brand_voice"),
+  effectiveDate: timestamp("effective_date"),
+  createdAt: timestamp("created_at").defaultNow(),
   updatedBy: varchar("updated_by"),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -65,6 +72,7 @@ export const foundations = pgTable("foundations", {
 
 export const insertFoundationSchema = createInsertSchema(foundations).omit({
   id: true,
+  createdAt: true,
   updatedAt: true,
 });
 
@@ -392,3 +400,38 @@ export const updateCheckInSchema = z.object({
 export type InsertCheckIn = z.infer<typeof insertCheckInSchema>;
 export type UpdateCheckIn = z.infer<typeof updateCheckInSchema>;
 export type CheckIn = typeof checkIns.$inferSelect;
+
+// Value tagging junction tables
+export const objectiveValues = pgTable("objective_values", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  objectiveId: varchar("objective_id").notNull().references(() => objectives.id, { onDelete: 'cascade' }),
+  valueTitle: text("value_title").notNull(),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueObjectiveValue: unique().on(table.objectiveId, table.valueTitle),
+}));
+
+export const strategyValues = pgTable("strategy_values", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  strategyId: varchar("strategy_id").notNull().references(() => strategies.id, { onDelete: 'cascade' }),
+  valueTitle: text("value_title").notNull(),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueStrategyValue: unique().on(table.strategyId, table.valueTitle),
+}));
+
+export const bigRockValues = pgTable("big_rock_values", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bigRockId: varchar("big_rock_id").notNull().references(() => bigRocks.id, { onDelete: 'cascade' }),
+  valueTitle: text("value_title").notNull(),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueBigRockValue: unique().on(table.bigRockId, table.valueTitle),
+}));
+
+export type ObjectiveValue = typeof objectiveValues.$inferSelect;
+export type StrategyValue = typeof strategyValues.$inferSelect;
+export type BigRockValue = typeof bigRockValues.$inferSelect;

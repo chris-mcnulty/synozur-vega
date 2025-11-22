@@ -746,6 +746,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { okrRouter } = await import("./routes-okr");
   app.use("/api/okr", okrRouter);
 
+  // Import and use value tagging routes
+  const { registerValueRoutes } = await import("./routes-values");
+  registerValueRoutes(app);
+
   const httpServer = createServer(app);
 
   return httpServer;

@@ -9,7 +9,10 @@ import {
   objectives, type Objective, type InsertObjective,
   keyResults, type KeyResult, type InsertKeyResult,
   bigRocks, type BigRock, type InsertBigRock,
-  checkIns, type CheckIn, type InsertCheckIn
+  checkIns, type CheckIn, type InsertCheckIn,
+  objectiveValues,
+  strategyValues,
+  bigRockValues
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc } from "drizzle-orm";
@@ -89,6 +92,25 @@ export interface IStorage {
   createCheckIn(checkIn: InsertCheckIn): Promise<CheckIn>;
   updateCheckIn(id: string, data: Partial<CheckIn>): Promise<CheckIn>;
   getLatestCheckIn(entityType: string, entityId: string): Promise<CheckIn | undefined>;
+  
+  // Value tagging methods
+  addValueToObjective(objectiveId: string, valueTitle: string, tenantId: string): Promise<void>;
+  removeValueFromObjective(objectiveId: string, valueTitle: string, tenantId: string): Promise<void>;
+  getValuesByObjectiveId(objectiveId: string, tenantId: string): Promise<string[]>;
+  
+  addValueToStrategy(strategyId: string, valueTitle: string, tenantId: string): Promise<void>;
+  removeValueFromStrategy(strategyId: string, valueTitle: string, tenantId: string): Promise<void>;
+  getValuesByStrategyId(strategyId: string, tenantId: string): Promise<string[]>;
+  
+  addValueToBigRock(bigRockId: string, valueTitle: string, tenantId: string): Promise<void>;
+  removeValueFromBigRock(bigRockId: string, valueTitle: string, tenantId: string): Promise<void>;
+  getValuesByBigRockId(bigRockId: string, tenantId: string): Promise<string[]>;
+  
+  getItemsTaggedWithValue(tenantId: string, valueTitle: string): Promise<{
+    objectives: Objective[];
+    strategies: Strategy[];
+    bigRocks: BigRock[];
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -673,6 +695,152 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(checkIns.asOfDate))
       .limit(1);
     return checkIn || undefined;
+  }
+
+  // Value tagging implementations
+  async addValueToObjective(objectiveId: string, valueTitle: string, tenantId: string): Promise<void> {
+    await db.insert(objectiveValues).values({
+      objectiveId,
+      valueTitle,
+      tenantId,
+    }).onConflictDoNothing();
+  }
+
+  async removeValueFromObjective(objectiveId: string, valueTitle: string, tenantId: string): Promise<void> {
+    await db.delete(objectiveValues).where(
+      and(
+        eq(objectiveValues.objectiveId, objectiveId),
+        eq(objectiveValues.valueTitle, valueTitle),
+        eq(objectiveValues.tenantId, tenantId)
+      )
+    );
+  }
+
+  async getValuesByObjectiveId(objectiveId: string, tenantId: string): Promise<string[]> {
+    const results = await db
+      .select({ valueTitle: objectiveValues.valueTitle })
+      .from(objectiveValues)
+      .where(and(
+        eq(objectiveValues.objectiveId, objectiveId),
+        eq(objectiveValues.tenantId, tenantId)
+      ));
+    return results.map(r => r.valueTitle);
+  }
+
+  async addValueToStrategy(strategyId: string, valueTitle: string, tenantId: string): Promise<void> {
+    await db.insert(strategyValues).values({
+      strategyId,
+      valueTitle,
+      tenantId,
+    }).onConflictDoNothing();
+  }
+
+  async removeValueFromStrategy(strategyId: string, valueTitle: string, tenantId: string): Promise<void> {
+    await db.delete(strategyValues).where(
+      and(
+        eq(strategyValues.strategyId, strategyId),
+        eq(strategyValues.valueTitle, valueTitle),
+        eq(strategyValues.tenantId, tenantId)
+      )
+    );
+  }
+
+  async getValuesByStrategyId(strategyId: string, tenantId: string): Promise<string[]> {
+    const results = await db
+      .select({ valueTitle: strategyValues.valueTitle })
+      .from(strategyValues)
+      .where(and(
+        eq(strategyValues.strategyId, strategyId),
+        eq(strategyValues.tenantId, tenantId)
+      ));
+    return results.map(r => r.valueTitle);
+  }
+
+  async addValueToBigRock(bigRockId: string, valueTitle: string, tenantId: string): Promise<void> {
+    await db.insert(bigRockValues).values({
+      bigRockId,
+      valueTitle,
+      tenantId,
+    }).onConflictDoNothing();
+  }
+
+  async removeValueFromBigRock(bigRockId: string, valueTitle: string, tenantId: string): Promise<void> {
+    await db.delete(bigRockValues).where(
+      and(
+        eq(bigRockValues.bigRockId, bigRockId),
+        eq(bigRockValues.valueTitle, valueTitle),
+        eq(bigRockValues.tenantId, tenantId)
+      )
+    );
+  }
+
+  async getValuesByBigRockId(bigRockId: string, tenantId: string): Promise<string[]> {
+    const results = await db
+      .select({ valueTitle: bigRockValues.valueTitle })
+      .from(bigRockValues)
+      .where(and(
+        eq(bigRockValues.bigRockId, bigRockId),
+        eq(bigRockValues.tenantId, tenantId)
+      ));
+    return results.map(r => r.valueTitle);
+  }
+
+  async getItemsTaggedWithValue(tenantId: string, valueTitle: string): Promise<{
+    objectives: Objective[];
+    strategies: Strategy[];
+    bigRocks: BigRock[];
+  }> {
+    // Get objective IDs tagged with this value
+    const objectiveIds = await db
+      .select({ id: objectiveValues.objectiveId })
+      .from(objectiveValues)
+      .where(and(
+        eq(objectiveValues.tenantId, tenantId),
+        eq(objectiveValues.valueTitle, valueTitle)
+      ));
+
+    // Get strategy IDs tagged with this value
+    const strategyIds = await db
+      .select({ id: strategyValues.strategyId })
+      .from(strategyValues)
+      .where(and(
+        eq(strategyValues.tenantId, tenantId),
+        eq(strategyValues.valueTitle, valueTitle)
+      ));
+
+    // Get big rock IDs tagged with this value
+    const bigRockIds = await db
+      .select({ id: bigRockValues.bigRockId })
+      .from(bigRockValues)
+      .where(and(
+        eq(bigRockValues.tenantId, tenantId),
+        eq(bigRockValues.valueTitle, valueTitle)
+      ));
+
+    // Fetch full objects
+    const objectivesList = objectiveIds.length > 0 
+      ? await db.select().from(objectives).where(
+          or(...objectiveIds.map(({ id }) => eq(objectives.id, id)))
+        )
+      : [];
+
+    const strategiesList = strategyIds.length > 0
+      ? await db.select().from(strategies).where(
+          or(...strategyIds.map(({ id }) => eq(strategies.id, id)))
+        )
+      : [];
+
+    const bigRocksList = bigRockIds.length > 0
+      ? await db.select().from(bigRocks).where(
+          or(...bigRockIds.map(({ id }) => eq(bigRocks.id, id)))
+        )
+      : [];
+
+    return {
+      objectives: objectivesList,
+      strategies: strategiesList,
+      bigRocks: bigRocksList,
+    };
   }
 }
 
