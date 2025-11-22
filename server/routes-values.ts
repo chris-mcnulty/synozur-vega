@@ -330,4 +330,64 @@ export function registerValueRoutes(app: Express) {
       res.status(500).json({ error: error.message });
     }
   });
+
+  // Get values analytics - distribution across objectives and strategies
+  app.get("/api/values/analytics/distribution", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user || !user.tenantId) {
+        return res.status(401).json({ error: "Invalid session" });
+      }
+
+      const tenantId = user.tenantId;
+
+      // Get foundation to know all defined values
+      const foundation = await storage.getFoundationByTenantId(tenantId);
+      const companyValues = foundation?.values || [];
+
+      // Calculate distribution for each value
+      type ValueDistribution = {
+        valueTitle: string;
+        valueDescription: string;
+        objectiveCount: number;
+        strategyCount: number;
+        totalCount: number;
+      };
+
+      const distribution: ValueDistribution[] = await Promise.all(
+        companyValues.map(async (value: { title: string; description: string }) => {
+          const items = await storage.getItemsTaggedWithValue(tenantId, value.title);
+          return {
+            valueTitle: value.title,
+            valueDescription: value.description,
+            objectiveCount: items.objectives.length,
+            strategyCount: items.strategies.length,
+            totalCount: items.objectives.length + items.strategies.length,
+          };
+        })
+      );
+
+      // Sort by total count descending
+      distribution.sort((a: ValueDistribution, b: ValueDistribution) => b.totalCount - a.totalCount);
+
+      res.json({
+        distribution,
+        totalValues: companyValues.length,
+        summary: {
+          mostUsedValue: distribution[0]?.valueTitle || null,
+          leastUsedValue: distribution[distribution.length - 1]?.valueTitle || null,
+          averageUsage: distribution.length > 0 
+            ? Math.round(distribution.reduce((sum: number, d: ValueDistribution) => sum + d.totalCount, 0) / distribution.length)
+            : 0,
+        },
+      });
+    } catch (error: any) {
+      console.error("GET /api/values/analytics/distribution failed", error);
+      res.status(500).json({ error: error.message });
+    }
+  });
 }

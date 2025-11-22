@@ -34,6 +34,8 @@ import { Link } from "wouter";
 import { useTenant } from "@/contexts/TenantContext";
 import { getCurrentQuarter, generateQuarters } from "@/lib/fiscal-utils";
 import type { Foundation, Strategy, Objective, BigRock, Meeting } from "@shared/schema";
+import { ValuesAlignmentWidget } from "@/components/ValuesAlignmentWidget";
+import { ValueBadges } from "@/components/ValueBadges";
 
 type Quarter = {
   id: string;
@@ -343,6 +345,9 @@ export default function Dashboard() {
         </Card>
       </div>
 
+      {/* Values Alignment Widget */}
+      <ValuesAlignmentWidget />
+
       {/* Strategies and Planning Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Strategies Section */}
@@ -372,20 +377,23 @@ export default function Dashboard() {
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <h3 className="font-medium text-sm">{strategy.title}</h3>
-                        {strategy.priority && (
-                          <Badge
-                            variant={
-                              strategy.priority === "critical"
-                                ? "destructive"
-                                : strategy.priority === "high"
-                                ? "default"
-                                : "secondary"
-                            }
-                            className="text-xs mt-1"
-                          >
-                            {strategy.priority}
-                          </Badge>
-                        )}
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                          {strategy.priority && (
+                            <Badge
+                              variant={
+                                strategy.priority === "critical"
+                                  ? "destructive"
+                                  : strategy.priority === "high"
+                                  ? "default"
+                                  : "secondary"
+                              }
+                              className="text-xs"
+                            >
+                              {strategy.priority}
+                            </Badge>
+                          )}
+                          <ValueBadges entityType="strategy" entityId={strategy.id} />
+                        </div>
                       </div>
                       {strategy.status && (
                         <Badge variant="outline" className="text-xs">

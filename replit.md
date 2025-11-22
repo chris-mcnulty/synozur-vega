@@ -15,6 +15,7 @@ For detailed information, see:
 
 ## Recent Changes (November 2025)
 
+- ✅ **Values Integration Complete**: Full value tagging with analytics dashboard widget, distribution reports, and value badges in strategic views
 - ✅ **Entity Relationship Linking**: Objectives link to strategies/goals, Big Rocks link to strategies
 - ✅ **Culture & Values Integration**: Value tagging for Objectives and Strategies (NOT Big Rocks - removed to reduce data clutter)
 - ✅ **Foreign Key Constraint Fix**: Empty strings converted to null in update endpoints
