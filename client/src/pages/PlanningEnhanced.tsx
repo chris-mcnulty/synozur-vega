@@ -18,8 +18,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentQuarter } from "@/lib/quarters";
 import { OKRTreeView } from "@/components/okr/OKRTreeView";
 import { WeightManager } from "@/components/WeightManager";
+import { ValueTagSelector } from "@/components/ValueTagSelector";
 import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2, History, Edit } from "lucide-react";
-import type { Foundation } from "@shared/schema";
+import type { Foundation, CompanyValue } from "@shared/schema";
 
 interface Objective {
   id: string;
@@ -172,6 +173,12 @@ export default function PlanningEnhanced() {
   const [selectedBigRock, setSelectedBigRock] = useState<BigRock | null>(null);
   const [checkInEntity, setCheckInEntity] = useState<{ type: string; id: string; current?: any } | null>(null);
 
+  // Value tag states
+  const [objectiveValueTags, setObjectiveValueTags] = useState<string[]>([]);
+  const [bigRockValueTags, setBigRockValueTags] = useState<string[]>([]);
+  const [previousObjectiveValueTags, setPreviousObjectiveValueTags] = useState<string[]>([]);
+  const [previousBigRockValueTags, setPreviousBigRockValueTags] = useState<string[]>([]);
+
   // Form data states
   const [objectiveForm, setObjectiveForm] = useState({
     title: "",
@@ -218,6 +225,38 @@ export default function PlanningEnhanced() {
   // Separate draft state for value input (allows empty string during editing)
   const [valueInputDraft, setValueInputDraft] = useState<string>("");
 
+  // Helper function to sync value tags
+  const syncValueTags = async (
+    entityId: string,
+    entityType: 'objectives' | 'bigrocks' | 'strategies',
+    currentTags: string[],
+    previousTags: string[] = []
+  ) => {
+    try {
+      const toAdd = currentTags.filter(tag => !previousTags.includes(tag));
+      const toRemove = previousTags.filter(tag => !currentTags.includes(tag));
+
+      for (const valueTitle of toAdd) {
+        await fetch(`/api/${entityType}/${entityId}/values`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ valueTitle }),
+        });
+      }
+
+      for (const valueTitle of toRemove) {
+        await fetch(`/api/${entityType}/${entityId}/values`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ valueTitle }),
+        });
+      }
+    } catch (error) {
+      console.error('Failed to sync value tags:', error);
+      throw error;
+    }
+  };
+
   // Mutations
   const createObjectiveMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -232,9 +271,16 @@ export default function PlanningEnhanced() {
       };
       return apiRequest("POST", "/api/okr/objectives", cleanedData);
     },
-    onSuccess: () => {
+    onSuccess: async (response: any) => {
+      try {
+        // Sync value tags after creating objective
+        await syncValueTags(response.id, 'objectives', objectiveValueTags, []);
+      } catch (error) {
+        console.error('Failed to sync value tags:', error);
+      }
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
       setObjectiveDialogOpen(false);
+      setObjectiveValueTags([]);
       toast({ title: "Success", description: "Objective created successfully" });
     },
     onError: (error: any) => {
@@ -305,9 +351,16 @@ export default function PlanningEnhanced() {
       };
       return apiRequest("POST", "/api/okr/big-rocks", cleanedData);
     },
-    onSuccess: () => {
+    onSuccess: async (response: any) => {
+      try {
+        // Sync value tags after creating big rock
+        await syncValueTags(response.id, 'bigrocks', bigRockValueTags, []);
+      } catch (error) {
+        console.error('Failed to sync value tags:', error);
+      }
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`] });
       setBigRockDialogOpen(false);
+      setBigRockValueTags([]);
       toast({ title: "Success", description: "Big Rock created successfully" });
     },
     onError: (error: any) => {
@@ -320,10 +373,18 @@ export default function PlanningEnhanced() {
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
       return apiRequest("PATCH", `/api/okr/big-rocks/${id}`, data);
     },
-    onSuccess: () => {
+    onSuccess: async (response: any, variables: { id: string }) => {
+      try {
+        // Sync value tags after updating big rock
+        await syncValueTags(variables.id, 'bigrocks', bigRockValueTags, previousBigRockValueTags);
+      } catch (error) {
+        console.error('Failed to sync value tags:', error);
+      }
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`] });
       setBigRockDialogOpen(false);
       setSelectedBigRock(null);
+      setBigRockValueTags([]);
+      setPreviousBigRockValueTags([]);
       toast({ title: "Success", description: "Big Rock updated successfully" });
     },
     onError: () => {
@@ -386,10 +447,18 @@ export default function PlanningEnhanced() {
       };
       return apiRequest("PATCH", `/api/okr/objectives/${id}`, cleanedData);
     },
-    onSuccess: () => {
+    onSuccess: async (response: any, variables: { id: string }) => {
+      try {
+        // Sync value tags after updating objective
+        await syncValueTags(variables.id, 'objectives', objectiveValueTags, previousObjectiveValueTags);
+      } catch (error) {
+        console.error('Failed to sync value tags:', error);
+      }
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
       setObjectiveDialogOpen(false);
       setSelectedObjective(null);
+      setObjectiveValueTags([]);
+      setPreviousObjectiveValueTags([]);
       toast({ title: "Success", description: "Objective updated successfully" });
     },
     onError: () => {
@@ -488,10 +557,12 @@ export default function PlanningEnhanced() {
       year,
     });
     setSelectedObjective(null);
+    setObjectiveValueTags([]);
+    setPreviousObjectiveValueTags([]);
     setObjectiveDialogOpen(true);
   };
 
-  const handleEditObjective = (objective: Objective) => {
+  const handleEditObjective = async (objective: Objective) => {
     setObjectiveForm({
       title: objective.title,
       description: objective.description,
@@ -503,6 +574,24 @@ export default function PlanningEnhanced() {
       year: objective.year,
     });
     setSelectedObjective(objective);
+    
+    // Fetch existing value tags
+    try {
+      const res = await fetch(`/api/objectives/${objective.id}/values`);
+      if (res.ok) {
+        const valueTitles = await res.json();
+        setObjectiveValueTags(valueTitles);
+        setPreviousObjectiveValueTags(valueTitles);
+      } else {
+        setObjectiveValueTags([]);
+        setPreviousObjectiveValueTags([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch objective value tags:", error);
+      setObjectiveValueTags([]);
+      setPreviousObjectiveValueTags([]);
+    }
+    
     setObjectiveDialogOpen(true);
   };
 
@@ -567,10 +656,12 @@ export default function PlanningEnhanced() {
       keyResultId: keyResultId || "",
       completionPercentage: 0,
     });
+    setBigRockValueTags([]);
+    setPreviousBigRockValueTags([]);
     setBigRockDialogOpen(true);
   };
 
-  const handleEditBigRock = (bigRock: BigRock) => {
+  const handleEditBigRock = async (bigRock: BigRock) => {
     setSelectedBigRock(bigRock);
     setBigRockForm({
       title: bigRock.title,
@@ -579,6 +670,24 @@ export default function PlanningEnhanced() {
       keyResultId: bigRock.keyResultId || "",
       completionPercentage: bigRock.completionPercentage,
     });
+    
+    // Fetch existing value tags
+    try {
+      const res = await fetch(`/api/bigrocks/${bigRock.id}/values`);
+      if (res.ok) {
+        const valueTitles = await res.json();
+        setBigRockValueTags(valueTitles);
+        setPreviousBigRockValueTags(valueTitles);
+      } else {
+        setBigRockValueTags([]);
+        setPreviousBigRockValueTags([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch big rock value tags:", error);
+      setBigRockValueTags([]);
+      setPreviousBigRockValueTags([]);
+    }
+    
     setBigRockDialogOpen(true);
   };
 
@@ -837,6 +946,14 @@ export default function PlanningEnhanced() {
                   data-testid="input-objective-description"
                 />
               </div>
+              <div>
+                <Label>Company Values</Label>
+                <ValueTagSelector
+                  availableValues={foundation?.values || []}
+                  selectedValues={objectiveValueTags}
+                  onValuesChange={setObjectiveValueTags}
+                />
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="obj-level">Level</Label>
@@ -1066,6 +1183,14 @@ export default function PlanningEnhanced() {
                   placeholder="Describe the initiative..."
                   rows={3}
                   data-testid="input-bigrock-description"
+                />
+              </div>
+              <div>
+                <Label>Company Values</Label>
+                <ValueTagSelector
+                  availableValues={foundation?.values || []}
+                  selectedValues={bigRockValueTags}
+                  onValuesChange={setBigRockValueTags}
                 />
               </div>
               <div>
@@ -1498,6 +1623,33 @@ export default function PlanningEnhanced() {
   );
 }
 
+// Value Badges Component for Big Rocks
+function ValueBadges({ bigRockId }: { bigRockId: string }) {
+  const { data: values = [] } = useQuery<string[]>({
+    queryKey: ['/api/bigrocks', bigRockId, 'values'],
+    queryFn: async () => {
+      const res = await fetch(`/api/bigrocks/${bigRockId}/values`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  if (values.length === 0) return null;
+
+  return (
+    <div className="mb-3">
+      <h4 className="font-medium text-sm mb-2">Company Values</h4>
+      <div className="flex flex-wrap gap-2">
+        {values.map((valueTitle: string) => (
+          <Badge key={valueTitle} variant="outline" className="text-xs">
+            {valueTitle}
+          </Badge>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Big Rocks Section Component
 function BigRocksSection({ bigRocks, objectives, onCreateBigRock, onEditBigRock, onDeleteBigRock }: any) {
   const getObjectiveTitle = (objId: string) => {
@@ -1562,6 +1714,10 @@ function BigRocksSection({ bigRocks, objectives, onCreateBigRock, onEditBigRock,
                 {rock.description && (
                   <p className="text-sm text-muted-foreground mb-4">{rock.description}</p>
                 )}
+                
+                {/* Fetch and display values */}
+                <ValueBadges bigRockId={rock.id} />
+                
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
                     <span>Completion</span>

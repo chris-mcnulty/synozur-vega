@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -21,6 +26,7 @@ import {
   Users,
   Sparkles,
   ChevronRight,
+  ChevronDown,
   Loader2,
   AlertCircle,
 } from "lucide-react";
@@ -59,6 +65,7 @@ export default function Dashboard() {
   
   const [selectedFiscalYear, setSelectedFiscalYear] = useState(`fy${currentYearNum}`);
   const [selectedQuarter, setSelectedQuarter] = useState(defaultQuarterId);
+  const [identityOpen, setIdentityOpen] = useState(false);
 
   const currentQuarter = quarters.find((q) => q.id === selectedQuarter);
 
@@ -159,6 +166,56 @@ export default function Dashboard() {
           </Select>
         </div>
       </div>
+
+      {/* Organizational Identity Collapsible */}
+      {(foundations?.tagline || foundations?.cultureStatement) && (
+        <Collapsible open={identityOpen} onOpenChange={setIdentityOpen}>
+          <Card>
+            <CollapsibleTrigger asChild>
+              <Button
+                variant="ghost"
+                className="w-full flex items-center justify-between p-4 h-auto hover-elevate"
+                data-testid="button-toggle-identity"
+              >
+                <div className="flex items-center gap-3">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  <div className="text-left">
+                    <h3 className="font-semibold text-base">Organizational Identity</h3>
+                    {foundations?.tagline && (
+                      <p className="text-sm text-muted-foreground font-normal">{foundations.tagline}</p>
+                    )}
+                  </div>
+                </div>
+                <ChevronDown
+                  className={`h-5 w-5 text-muted-foreground transition-transform ${
+                    identityOpen ? "transform rotate-180" : ""
+                  }`}
+                />
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="px-4 pb-4 space-y-4">
+                <Separator />
+                {foundations?.tagline && (
+                  <div>
+                    <h4 className="font-medium text-sm mb-2">Tagline</h4>
+                    <p className="text-sm text-muted-foreground">{foundations.tagline}</p>
+                  </div>
+                )}
+                {foundations?.cultureStatement && (
+                  <div>
+                    <h4 className="font-medium text-sm mb-2">Culture Statement</h4>
+                    <div
+                      className="text-sm text-muted-foreground prose prose-sm max-w-none"
+                      dangerouslySetInnerHTML={{ __html: foundations.cultureStatement }}
+                    />
+                  </div>
+                )}
+              </div>
+            </CollapsibleContent>
+          </Card>
+        </Collapsible>
+      )}
 
       {/* Period Overview Card */}
       <Card className="bg-gradient-to-br from-primary/5 to-secondary/5 border-2">

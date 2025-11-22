@@ -26,7 +26,8 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
-import type { Strategy, Foundation } from "@shared/schema";
+import { ValueTagSelector } from "@/components/ValueTagSelector";
+import type { Strategy, Foundation, CompanyValue } from "@shared/schema";
 
 const priorityLevels = [
   { value: "critical", label: "Critical", variant: "destructive" },
@@ -63,6 +64,10 @@ export default function Strategy() {
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
   
+  // Value tag states
+  const [strategyValueTags, setStrategyValueTags] = useState<string[]>([]);
+  const [previousStrategyValueTags, setPreviousStrategyValueTags] = useState<string[]>([]);
+  
   const [formData, setFormData] = useState<StrategyFormData>({
     title: "",
     description: "",
@@ -85,6 +90,38 @@ export default function Strategy() {
   // Use actual annual goals from Foundations, with fallback
   const availableGoals = foundation?.annualGoals || [];
 
+  // Helper function to sync value tags
+  const syncValueTags = async (
+    entityId: string,
+    entityType: 'objectives' | 'bigrocks' | 'strategies',
+    currentTags: string[],
+    previousTags: string[] = []
+  ) => {
+    try {
+      const toAdd = currentTags.filter(tag => !previousTags.includes(tag));
+      const toRemove = previousTags.filter(tag => !currentTags.includes(tag));
+
+      for (const valueTitle of toAdd) {
+        await fetch(`/api/${entityType}/${entityId}/values`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ valueTitle }),
+        });
+      }
+
+      for (const valueTitle of toRemove) {
+        await fetch(`/api/${entityType}/${entityId}/values`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ valueTitle }),
+        });
+      }
+    } catch (error) {
+      console.error('Failed to sync value tags:', error);
+      throw error;
+    }
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: StrategyFormData) => {
       return apiRequest("POST", "/api/strategies", {
@@ -93,7 +130,13 @@ export default function Strategy() {
         updatedBy: "Current User",
       });
     },
-    onSuccess: () => {
+    onSuccess: async (response: any) => {
+      try {
+        // Sync value tags after creating strategy
+        await syncValueTags(response.id, 'strategies', strategyValueTags, []);
+      } catch (error) {
+        console.error('Failed to sync value tags:', error);
+      }
       queryClient.invalidateQueries({ queryKey: [`/api/strategies/${currentTenant.id}`] });
       setCreateDialogOpen(false);
       resetForm();
@@ -118,10 +161,17 @@ export default function Strategy() {
         updatedBy: "Current User",
       });
     },
-    onSuccess: () => {
+    onSuccess: async (response: any, variables: { id: string }) => {
+      try {
+        // Sync value tags after updating strategy
+        await syncValueTags(variables.id, 'strategies', strategyValueTags, previousStrategyValueTags);
+      } catch (error) {
+        console.error('Failed to sync value tags:', error);
+      }
       queryClient.invalidateQueries({ queryKey: [`/api/strategies/${currentTenant.id}`] });
       setEditDialogOpen(false);
       setSelectedStrategy(null);
+      resetForm();
       toast({
         title: "Strategy Updated",
         description: "Your changes have been saved successfully.",
@@ -168,9 +218,11 @@ export default function Strategy() {
       timeline: "",
       linkedGoals: [],
     });
+    setStrategyValueTags([]);
+    setPreviousStrategyValueTags([]);
   };
 
-  const openEditDialog = (strategy: Strategy) => {
+  const openEditDialog = async (strategy: Strategy) => {
     setSelectedStrategy(strategy);
     setFormData({
       title: strategy.title,
@@ -181,6 +233,24 @@ export default function Strategy() {
       timeline: strategy.timeline || "",
       linkedGoals: strategy.linkedGoals || [],
     });
+    
+    // Fetch existing value tags
+    try {
+      const res = await fetch(`/api/strategies/${strategy.id}/values`);
+      if (res.ok) {
+        const valueTitles = await res.json();
+        setStrategyValueTags(valueTitles);
+        setPreviousStrategyValueTags(valueTitles);
+      } else {
+        setStrategyValueTags([]);
+        setPreviousStrategyValueTags([]);
+      }
+    } catch (error) {
+      console.error("Failed to fetch strategy value tags:", error);
+      setStrategyValueTags([]);
+      setPreviousStrategyValueTags([]);
+    }
+    
     setEditDialogOpen(true);
   };
 
@@ -356,6 +426,15 @@ export default function Strategy() {
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       rows={3}
                       data-testid="textarea-strategy-description"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Company Values</Label>
+                    <ValueTagSelector
+                      availableValues={foundation?.values || []}
+                      selectedValues={strategyValueTags}
+                      onValuesChange={setStrategyValueTags}
                     />
                   </div>
 
@@ -563,6 +642,15 @@ export default function Strategy() {
                 />
               </div>
 
+              <div>
+                <Label>Company Values</Label>
+                <ValueTagSelector
+                  availableValues={foundation?.values || []}
+                  selectedValues={strategyValueTags}
+                  onValuesChange={setStrategyValueTags}
+                />
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label>Priority Level</Label>
@@ -704,6 +792,16 @@ interface StrategyCardProps {
 }
 
 function StrategyCard({ strategy, onEdit, onDelete, getPriorityVariant, getStatusColor }: StrategyCardProps) {
+  // Fetch value tags for this strategy
+  const { data: strategyValues = [] } = useQuery<string[]>({
+    queryKey: ['/api/strategies', strategy.id, 'values'],
+    queryFn: async () => {
+      const res = await fetch(`/api/strategies/${strategy.id}/values`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
   return (
     <Card className="hover-elevate" data-testid={`card-strategy-${strategy.id}`}>
       <CardHeader>
@@ -722,6 +820,19 @@ function StrategyCard({ strategy, onEdit, onDelete, getPriorityVariant, getStatu
             <CardTitle className="text-xl">{strategy.title}</CardTitle>
             {strategy.description && (
               <CardDescription className="mt-2">{strategy.description}</CardDescription>
+            )}
+            
+            {/* Company Values */}
+            {strategyValues.length > 0 && (
+              <div className="mt-3">
+                <div className="flex flex-wrap gap-2">
+                  {strategyValues.map((valueTitle: string) => (
+                    <Badge key={valueTitle} variant="outline" className="text-xs">
+                      {valueTitle}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
           <div className="flex gap-2">

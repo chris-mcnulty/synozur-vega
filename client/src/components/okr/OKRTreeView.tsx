@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Target, TrendingUp, AlertCircle, CheckCircle, Clock, Pause, Ban, Plus, Edit2, Trash2, Users, User, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -76,6 +77,32 @@ const levelColors = {
   team: "border-l-4 border-l-blue-500",
   individual: "border-l-4 border-l-green-500",
 };
+
+function ObjectiveValueBadges({ objectiveId }: { objectiveId: string }) {
+  const { data: objectiveValues = [] } = useQuery<string[]>({
+    queryKey: ['/api/objectives', objectiveId, 'values'],
+    queryFn: async () => {
+      const res = await fetch(`/api/objectives/${objectiveId}/values`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+  });
+
+  if (objectiveValues.length === 0) return null;
+
+  return (
+    <div>
+      <h4 className="font-medium text-sm mb-2">Company Values</h4>
+      <div className="flex flex-wrap gap-2">
+        {objectiveValues.map((valueTitle: string) => (
+          <Badge key={valueTitle} variant="outline" className="text-xs">
+            {valueTitle}
+          </Badge>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 export function OKRTreeView({
   objectives,
@@ -264,6 +291,9 @@ export function OKRTreeView({
           {/* Details Section */}
           {showDetails && (
             <div className="mt-4 pt-4 border-t space-y-4">
+              {/* Company Values */}
+              <ObjectiveValueBadges objectiveId={objective.id} />
+
               {/* Key Results */}
               {objective.keyResults && objective.keyResults.length > 0 && (
                 <div>
