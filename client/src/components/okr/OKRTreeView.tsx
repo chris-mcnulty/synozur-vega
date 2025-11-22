@@ -42,6 +42,8 @@ interface Objective {
   keyResults?: KeyResult[];
   bigRocks?: BigRock[];
   children?: Objective[];
+  linkedStrategies?: string[];
+  linkedGoals?: string[];
 }
 
 interface OKRTreeViewProps {
@@ -293,6 +295,34 @@ export function OKRTreeView({
             <div className="mt-4 pt-4 border-t space-y-4">
               {/* Company Values */}
               <ObjectiveValueBadges objectiveId={objective.id} />
+
+              {/* Linked Strategies */}
+              {objective.linkedStrategies && objective.linkedStrategies.length > 0 && (
+                <div>
+                  <h4 className="font-medium text-sm mb-2">Linked Strategies</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {objective.linkedStrategies.map((strategyId: string) => (
+                      <Badge key={strategyId} variant="outline" className="text-xs">
+                        {strategyId}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Linked Annual Goals */}
+              {objective.linkedGoals && objective.linkedGoals.length > 0 && (
+                <div>
+                  <h4 className="font-medium text-sm mb-2">Linked Annual Goals</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {objective.linkedGoals.map((goal: string) => (
+                      <Badge key={goal} variant="outline" className="text-xs">
+                        {goal}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Key Results */}
               {objective.keyResults && objective.keyResults.length > 0 && (

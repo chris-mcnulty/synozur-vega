@@ -631,6 +631,7 @@ export class DatabaseStorage implements IStorage {
         ...updateData,
         blockedBy: updateData.blockedBy ? [...updateData.blockedBy] : undefined,
         tasks: updateData.tasks ? [...updateData.tasks] : undefined,
+        linkedStrategies: updateData.linkedStrategies ? [...updateData.linkedStrategies] : undefined,
       })
       .where(eq(bigRocks.id, id))
       .returning();

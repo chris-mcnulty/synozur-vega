@@ -65,6 +65,7 @@ interface BigRock {
   keyResultId?: string;
   quarter: number;
   year: number;
+  linkedStrategies?: string[];
 }
 
 interface CheckIn {
@@ -96,6 +97,11 @@ export default function PlanningEnhanced() {
   // Fetch foundation for fiscal year settings
   const { data: foundation } = useQuery<Foundation>({
     queryKey: [`/api/foundations/${currentTenant.id}`],
+  });
+
+  // Fetch strategies for linking
+  const { data: strategies = [] } = useQuery<any[]>({
+    queryKey: [`/api/strategies/${currentTenant.id}`],
   });
 
   // Set initial quarter/year based on tenant's fiscal year
@@ -189,6 +195,8 @@ export default function PlanningEnhanced() {
     progressMode: "rollup",
     quarter: 1,
     year: new Date().getFullYear(),
+    linkedStrategies: [] as string[],
+    linkedGoals: [] as string[],
   });
 
   const [keyResultForm, setKeyResultForm] = useState({
@@ -209,6 +217,7 @@ export default function PlanningEnhanced() {
     objectiveId: "",
     keyResultId: "",
     completionPercentage: 0,
+    linkedStrategies: [] as string[],
   });
 
   const [checkInForm, setCheckInForm] = useState({
@@ -549,6 +558,34 @@ export default function PlanningEnhanced() {
     enabled: !!selectedKRForHistory && checkInHistoryDialogOpen,
   });
 
+  // Helper functions for toggling strategies and goals
+  const toggleObjectiveStrategy = (strategyId: string) => {
+    setObjectiveForm(prev => ({
+      ...prev,
+      linkedStrategies: prev.linkedStrategies.includes(strategyId)
+        ? prev.linkedStrategies.filter(s => s !== strategyId)
+        : [...prev.linkedStrategies, strategyId],
+    }));
+  };
+
+  const toggleObjectiveGoal = (goal: string) => {
+    setObjectiveForm(prev => ({
+      ...prev,
+      linkedGoals: prev.linkedGoals.includes(goal)
+        ? prev.linkedGoals.filter(g => g !== goal)
+        : [...prev.linkedGoals, goal],
+    }));
+  };
+
+  const toggleBigRockStrategy = (strategyId: string) => {
+    setBigRockForm(prev => ({
+      ...prev,
+      linkedStrategies: prev.linkedStrategies.includes(strategyId)
+        ? prev.linkedStrategies.filter(s => s !== strategyId)
+        : [...prev.linkedStrategies, strategyId],
+    }));
+  };
+
   // Handler functions
   const handleCreateObjective = (parentId?: string) => {
     setObjectiveForm({
@@ -560,6 +597,8 @@ export default function PlanningEnhanced() {
       progressMode: "rollup",
       quarter,
       year,
+      linkedStrategies: [],
+      linkedGoals: [],
     });
     setSelectedObjective(null);
     setObjectiveValueTags([]);
@@ -577,6 +616,8 @@ export default function PlanningEnhanced() {
       progressMode: "rollup",
       quarter: objective.quarter,
       year: objective.year,
+      linkedStrategies: objective.linkedStrategies || [],
+      linkedGoals: objective.linkedGoals || [],
     });
     setSelectedObjective(objective);
     
@@ -660,6 +701,7 @@ export default function PlanningEnhanced() {
       objectiveId,
       keyResultId: keyResultId || "",
       completionPercentage: 0,
+      linkedStrategies: [],
     });
     setBigRockValueTags([]);
     setPreviousBigRockValueTags([]);
@@ -674,6 +716,7 @@ export default function PlanningEnhanced() {
       objectiveId: bigRock.objectiveId || "",
       keyResultId: bigRock.keyResultId || "",
       completionPercentage: bigRock.completionPercentage,
+      linkedStrategies: bigRock.linkedStrategies || [],
     });
     
     // Fetch existing value tags
@@ -959,6 +1002,49 @@ export default function PlanningEnhanced() {
                   onValuesChange={setObjectiveValueTags}
                 />
               </div>
+
+              <div>
+                <Label>Linked Strategies</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {strategies.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No strategies defined yet</p>
+                  ) : (
+                    strategies.map((strategy) => (
+                      <Badge
+                        key={strategy.id}
+                        variant={objectiveForm.linkedStrategies.includes(strategy.id) ? "default" : "outline"}
+                        className="cursor-pointer"
+                        onClick={() => toggleObjectiveStrategy(strategy.id)}
+                        data-testid={`badge-strategy-${strategy.id}`}
+                      >
+                        {strategy.title}
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <Label>Linked Annual Goals</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {(!foundation?.annualGoals || foundation.annualGoals.length === 0) ? (
+                    <p className="text-sm text-muted-foreground">No annual goals defined yet</p>
+                  ) : (
+                    foundation.annualGoals.map((goal) => (
+                      <Badge
+                        key={goal}
+                        variant={objectiveForm.linkedGoals.includes(goal) ? "default" : "outline"}
+                        className="cursor-pointer"
+                        onClick={() => toggleObjectiveGoal(goal)}
+                        data-testid={`badge-goal-${goal.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        {goal}
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="obj-level">Level</Label>
@@ -1198,6 +1284,28 @@ export default function PlanningEnhanced() {
                   onValuesChange={setBigRockValueTags}
                 />
               </div>
+
+              <div>
+                <Label>Linked Strategies</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {strategies.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No strategies defined yet</p>
+                  ) : (
+                    strategies.map((strategy) => (
+                      <Badge
+                        key={strategy.id}
+                        variant={bigRockForm.linkedStrategies.includes(strategy.id) ? "default" : "outline"}
+                        className="cursor-pointer"
+                        onClick={() => toggleBigRockStrategy(strategy.id)}
+                        data-testid={`badge-br-strategy-${strategy.id}`}
+                      >
+                        {strategy.title}
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              </div>
+
               <div>
                 <Label htmlFor="br-progress">{selectedBigRock ? "Completion" : "Initial Progress"} ({bigRockForm.completionPercentage}%)</Label>
                 <Slider
@@ -1722,6 +1830,20 @@ function BigRocksSection({ bigRocks, objectives, onCreateBigRock, onEditBigRock,
                 
                 {/* Fetch and display values */}
                 <ValueBadges bigRockId={rock.id} />
+                
+                {/* Linked Strategies */}
+                {rock.linkedStrategies && rock.linkedStrategies.length > 0 && (
+                  <div className="mb-3">
+                    <h4 className="font-medium text-sm mb-2">Linked Strategies</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {rock.linkedStrategies.map((strategyId: string) => (
+                        <Badge key={strategyId} variant="outline" className="text-xs">
+                          {strategyId}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
