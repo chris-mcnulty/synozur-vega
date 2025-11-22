@@ -14,8 +14,13 @@ export function registerValueRoutes(app: Express) {
   // Objective value tagging
   app.post("/api/objectives/:id/values", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ error: "Unauthorized" });
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user || !user.tenantId) {
+        return res.status(401).json({ error: "Invalid session" });
       }
 
       const objectiveId = req.params.id;
@@ -26,7 +31,7 @@ export function registerValueRoutes(app: Express) {
       }
 
       const { valueTitle } = result.data;
-      const tenantId = req.user!.tenantId!;
+      const tenantId = user.tenantId;
 
       // Verify objective belongs to tenant
       const objective = await storage.getObjectiveById(objectiveId);
@@ -37,14 +42,20 @@ export function registerValueRoutes(app: Express) {
       await storage.addValueToObjective(objectiveId, valueTitle, tenantId);
       res.json({ success: true });
     } catch (error: any) {
+      console.error("POST /api/objectives/:id/values failed", error);
       res.status(500).json({ error: error.message });
     }
   });
 
   app.delete("/api/objectives/:id/values", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ error: "Unauthorized" });
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user || !user.tenantId) {
+        return res.status(401).json({ error: "Invalid session" });
       }
 
       const objectiveId = req.params.id;
@@ -55,7 +66,7 @@ export function registerValueRoutes(app: Express) {
       }
 
       const { valueTitle } = result.data;
-      const tenantId = req.user!.tenantId!;
+      const tenantId = user.tenantId;
 
       // Verify objective belongs to tenant
       const objective = await storage.getObjectiveById(objectiveId);
@@ -66,18 +77,24 @@ export function registerValueRoutes(app: Express) {
       await storage.removeValueFromObjective(objectiveId, valueTitle, tenantId);
       res.json({ success: true });
     } catch (error: any) {
+      console.error("DELETE /api/objectives/:id/values failed", error);
       res.status(500).json({ error: error.message });
     }
   });
 
   app.get("/api/objectives/:id/values", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ error: "Unauthorized" });
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user || !user.tenantId) {
+        return res.status(401).json({ error: "Invalid session" });
       }
 
       const objectiveId = req.params.id;
-      const tenantId = req.user!.tenantId!;
+      const tenantId = user.tenantId;
 
       // Verify objective belongs to tenant
       const objective = await storage.getObjectiveById(objectiveId);
@@ -88,6 +105,7 @@ export function registerValueRoutes(app: Express) {
       const values = await storage.getValuesByObjectiveId(objectiveId, tenantId);
       res.json(values);
     } catch (error: any) {
+      console.error("GET /api/objectives/:id/values failed", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -95,8 +113,13 @@ export function registerValueRoutes(app: Express) {
   // Strategy value tagging
   app.post("/api/strategies/:id/values", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ error: "Unauthorized" });
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user || !user.tenantId) {
+        return res.status(401).json({ error: "Invalid session" });
       }
 
       const strategyId = req.params.id;
@@ -107,7 +130,7 @@ export function registerValueRoutes(app: Express) {
       }
 
       const { valueTitle } = result.data;
-      const tenantId = req.user!.tenantId!;
+      const tenantId = user.tenantId;
 
       // Verify strategy belongs to tenant
       const strategy = await storage.getStrategyById(strategyId);
@@ -118,14 +141,20 @@ export function registerValueRoutes(app: Express) {
       await storage.addValueToStrategy(strategyId, valueTitle, tenantId);
       res.json({ success: true });
     } catch (error: any) {
+      console.error("POST /api/strategies/:id/values failed", error);
       res.status(500).json({ error: error.message });
     }
   });
 
   app.delete("/api/strategies/:id/values", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ error: "Unauthorized" });
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user || !user.tenantId) {
+        return res.status(401).json({ error: "Invalid session" });
       }
 
       const strategyId = req.params.id;
@@ -136,7 +165,7 @@ export function registerValueRoutes(app: Express) {
       }
 
       const { valueTitle } = result.data;
-      const tenantId = req.user!.tenantId!;
+      const tenantId = user.tenantId;
 
       // Verify strategy belongs to tenant
       const strategy = await storage.getStrategyById(strategyId);
@@ -147,18 +176,24 @@ export function registerValueRoutes(app: Express) {
       await storage.removeValueFromStrategy(strategyId, valueTitle, tenantId);
       res.json({ success: true });
     } catch (error: any) {
+      console.error("DELETE /api/strategies/:id/values failed", error);
       res.status(500).json({ error: error.message });
     }
   });
 
   app.get("/api/strategies/:id/values", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ error: "Unauthorized" });
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user || !user.tenantId) {
+        return res.status(401).json({ error: "Invalid session" });
       }
 
       const strategyId = req.params.id;
-      const tenantId = req.user!.tenantId!;
+      const tenantId = user.tenantId;
 
       // Verify strategy belongs to tenant
       const strategy = await storage.getStrategyById(strategyId);
@@ -169,6 +204,7 @@ export function registerValueRoutes(app: Express) {
       const values = await storage.getValuesByStrategyId(strategyId, tenantId);
       res.json(values);
     } catch (error: any) {
+      console.error("GET /api/strategies/:id/values failed", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -176,8 +212,13 @@ export function registerValueRoutes(app: Express) {
   // Big Rock value tagging
   app.post("/api/bigrocks/:id/values", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ error: "Unauthorized" });
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user || !user.tenantId) {
+        return res.status(401).json({ error: "Invalid session" });
       }
 
       const bigRockId = req.params.id;
@@ -188,7 +229,7 @@ export function registerValueRoutes(app: Express) {
       }
 
       const { valueTitle } = result.data;
-      const tenantId = req.user!.tenantId!;
+      const tenantId = user.tenantId;
 
       // Verify big rock belongs to tenant
       const bigRock = await storage.getBigRockById(bigRockId);
@@ -199,14 +240,20 @@ export function registerValueRoutes(app: Express) {
       await storage.addValueToBigRock(bigRockId, valueTitle, tenantId);
       res.json({ success: true });
     } catch (error: any) {
+      console.error("POST /api/bigrocks/:id/values failed", error);
       res.status(500).json({ error: error.message });
     }
   });
 
   app.delete("/api/bigrocks/:id/values", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ error: "Unauthorized" });
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user || !user.tenantId) {
+        return res.status(401).json({ error: "Invalid session" });
       }
 
       const bigRockId = req.params.id;
@@ -217,7 +264,7 @@ export function registerValueRoutes(app: Express) {
       }
 
       const { valueTitle } = result.data;
-      const tenantId = req.user!.tenantId!;
+      const tenantId = user.tenantId;
 
       // Verify big rock belongs to tenant
       const bigRock = await storage.getBigRockById(bigRockId);
@@ -228,18 +275,24 @@ export function registerValueRoutes(app: Express) {
       await storage.removeValueFromBigRock(bigRockId, valueTitle, tenantId);
       res.json({ success: true });
     } catch (error: any) {
+      console.error("DELETE /api/bigrocks/:id/values failed", error);
       res.status(500).json({ error: error.message });
     }
   });
 
   app.get("/api/bigrocks/:id/values", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ error: "Unauthorized" });
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user || !user.tenantId) {
+        return res.status(401).json({ error: "Invalid session" });
       }
 
       const bigRockId = req.params.id;
-      const tenantId = req.user!.tenantId!;
+      const tenantId = user.tenantId;
 
       // Verify big rock belongs to tenant
       const bigRock = await storage.getBigRockById(bigRockId);
@@ -250,6 +303,7 @@ export function registerValueRoutes(app: Express) {
       const values = await storage.getValuesByBigRockId(bigRockId, tenantId);
       res.json(values);
     } catch (error: any) {
+      console.error("GET /api/bigrocks/:id/values failed", error);
       res.status(500).json({ error: error.message });
     }
   });
@@ -257,16 +311,22 @@ export function registerValueRoutes(app: Express) {
   // Get all items tagged with a specific value
   app.get("/api/values/:valueTitle/tagged-items", async (req, res) => {
     try {
-      if (!req.isAuthenticated()) {
-        return res.status(401).json({ error: "Unauthorized" });
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user || !user.tenantId) {
+        return res.status(401).json({ error: "Invalid session" });
       }
 
       const valueTitle = decodeURIComponent(req.params.valueTitle);
-      const tenantId = req.user!.tenantId!;
+      const tenantId = user.tenantId;
 
       const items = await storage.getItemsTaggedWithValue(tenantId, valueTitle);
       res.json(items);
     } catch (error: any) {
+      console.error("GET /api/values/:valueTitle/tagged-items failed", error);
       res.status(500).json({ error: error.message });
     }
   });
