@@ -240,6 +240,11 @@ export class DatabaseStorage implements IStorage {
           values: insertFoundation.values ? [...insertFoundation.values] : null,
           annualGoals: insertFoundation.annualGoals ? [...insertFoundation.annualGoals] : null,
           fiscalYearStartMonth: insertFoundation.fiscalYearStartMonth,
+          tagline: insertFoundation.tagline,
+          companySummary: insertFoundation.companySummary,
+          messagingStatement: insertFoundation.messagingStatement,
+          cultureStatement: insertFoundation.cultureStatement,
+          brandVoice: insertFoundation.brandVoice,
           updatedBy: insertFoundation.updatedBy,
         })
         .where(eq(foundations.tenantId, insertFoundation.tenantId))

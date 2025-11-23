@@ -312,16 +312,16 @@ export default function Foundations() {
         </div>
       </div>
 
-      <Tabs defaultValue="identity" className="w-full">
+      <Tabs defaultValue="foundations" className="w-full">
         <TabsList className="grid w-full grid-cols-3 mb-6">
+          <TabsTrigger value="foundations" data-testid="tab-foundations">
+            Core Foundations
+          </TabsTrigger>
           <TabsTrigger value="identity" data-testid="tab-identity">
             Organizational Identity
           </TabsTrigger>
           <TabsTrigger value="positioning" data-testid="tab-positioning">
             Strategic Positioning
-          </TabsTrigger>
-          <TabsTrigger value="foundations" data-testid="tab-foundations">
-            Core Foundations
           </TabsTrigger>
         </TabsList>
 
