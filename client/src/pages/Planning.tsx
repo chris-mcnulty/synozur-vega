@@ -34,24 +34,9 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Okr, Kpi, Rock, Foundation } from "@shared/schema";
+import type { Okr, Kpi, BigRock, Foundation, Strategy } from "@shared/schema";
 import { useTenant } from "@/contexts/TenantContext";
 import { getCurrentQuarter } from "@/lib/quarters";
-
-const availableGoals = [
-  "Increase revenue by 30%",
-  "Expand to new markets",
-  "Improve customer satisfaction",
-  "Launch innovative products",
-  "Build high-performing teams",
-  "Achieve operational excellence",
-];
-
-const availableStrategies = [
-  "Launch New Product Line",
-  "Expand Market Presence",
-  "Improve Customer Retention",
-];
 
 const availablePeople = [
   "Sarah Chen",
@@ -65,9 +50,14 @@ export default function Planning() {
   const { currentTenant } = useTenant();
   const [selectedTab, setSelectedTab] = useState("okrs");
   
-  // Fetch foundation to get fiscal year start month
+  // Fetch foundation to get fiscal year start month and annual goals
   const { data: foundation } = useQuery<Foundation>({
     queryKey: [`/api/foundations/${currentTenant.id}`],
+  });
+  
+  // Fetch strategies for linking
+  const { data: strategies = [] } = useQuery<Strategy[]>({
+    queryKey: [`/api/strategies/${currentTenant.id}`],
   });
   
   const [quarter, setQuarter] = useState(1);
@@ -101,7 +91,7 @@ export default function Planning() {
     },
   });
 
-  const { data: rocks = [], isLoading: loadingRocks } = useQuery<Rock[]>({
+  const { data: rocks = [], isLoading: loadingRocks } = useQuery<BigRock[]>({
     queryKey: [`/api/rocks/${currentTenant.id}`, { quarter, year }],
     queryFn: async () => {
       const res = await fetch(`/api/rocks/${currentTenant.id}?quarter=${quarter}&year=${year}`);
@@ -186,7 +176,13 @@ export default function Planning() {
           </TabsContent>
 
           <TabsContent value="rocks">
-            <RocksSection rocks={rocks} quarter={quarter} year={year} />
+            <RocksSection 
+              rocks={rocks} 
+              quarter={quarter} 
+              year={year}
+              strategies={strategies}
+              foundation={foundation}
+            />
           </TabsContent>
         </Tabs>
       </div>
@@ -1120,20 +1116,41 @@ function KpisSection({ kpis, quarter, year }: { kpis: Kpi[]; quarter: number; ye
   );
 }
 
-function RocksSection({ rocks, quarter, year }: { rocks: Rock[]; quarter: number; year: number }) {
+function RocksSection({ 
+  rocks, 
+  quarter, 
+  year, 
+  strategies,
+  foundation 
+}: { 
+  rocks: BigRock[]; 
+  quarter: number; 
+  year: number;
+  strategies: Strategy[];
+  foundation?: Foundation;
+}) {
   const { toast } = useToast();
   const { currentTenant } = useTenant();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedRock, setSelectedRock] = useState<Rock | null>(null);
+  const [selectedRock, setSelectedRock] = useState<BigRock | null>(null);
   const [formData, setFormData] = useState({
     title: "",
     status: "not-started",
-    owner: "",
-    linkedGoals: [] as string[],
+    ownerEmail: "",
     linkedStrategies: [] as string[],
   });
+  
+  // Use actual data from foundation and strategies
+  const availableGoals = foundation?.annualGoals || [];
+  const availableStrategies = strategies.map(s => ({ id: s.id, title: s.title }));
+  
+  // Helper function to get strategy title by ID
+  const getStrategyTitle = (strategyId: string): string => {
+    const strategy = strategies.find(s => s.id === strategyId);
+    return strategy?.title || strategyId;
+  };
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
@@ -1181,19 +1198,17 @@ function RocksSection({ rocks, quarter, year }: { rocks: Rock[]; quarter: number
     setFormData({
       title: "",
       status: "not-started",
-      owner: "",
-      linkedGoals: [],
+      ownerEmail: "",
       linkedStrategies: [],
     });
   };
 
-  const openEditDialog = (rock: Rock) => {
+  const openEditDialog = (rock: BigRock) => {
     setSelectedRock(rock);
     setFormData({
       title: rock.title,
       status: rock.status || "not-started",
-      owner: rock.owner || "",
-      linkedGoals: rock.linkedGoals || [],
+      ownerEmail: rock.ownerEmail || "",
       linkedStrategies: rock.linkedStrategies || [],
     });
     setEditDialogOpen(true);
@@ -1271,64 +1286,45 @@ function RocksSection({ rocks, quarter, year }: { rocks: Rock[]; quarter: number
                 </div>
 
                 <div>
-                  <Label htmlFor="owner">Owner</Label>
-                  <Select
-                    value={formData.owner}
-                    onValueChange={(value) => setFormData({ ...formData, owner: value })}
-                  >
-                    <SelectTrigger data-testid="select-rock-owner">
-                      <SelectValue placeholder="Select owner" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availablePeople.map((person) => (
-                        <SelectItem key={person} value={person}>
-                          {person}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div>
-                <Label>Linked Goals</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {availableGoals.map((goal) => (
-                    <Badge
-                      key={goal}
-                      variant={formData.linkedGoals.includes(goal) ? "default" : "outline"}
-                      className="cursor-pointer"
-                      onClick={() => {
-                        const newGoals = formData.linkedGoals.includes(goal)
-                          ? formData.linkedGoals.filter(g => g !== goal)
-                          : [...formData.linkedGoals, goal];
-                        setFormData({ ...formData, linkedGoals: newGoals });
-                      }}
-                    >
-                      {goal}
-                    </Badge>
-                  ))}
+                  <Label htmlFor="ownerEmail">Owner Email</Label>
+                  <Input
+                    id="ownerEmail"
+                    type="email"
+                    placeholder="owner@company.com"
+                    value={formData.ownerEmail}
+                    onChange={(e) => setFormData({ ...formData, ownerEmail: e.target.value })}
+                    data-testid="input-rock-owner-email"
+                  />
                 </div>
               </div>
 
               <div>
                 <Label>Linked Strategies</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Select strategies this rock supports
+                </p>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {availableStrategies.map((strategy) => (
                     <Badge
-                      key={strategy}
-                      variant={formData.linkedStrategies.includes(strategy) ? "default" : "outline"}
-                      className="cursor-pointer"
+                      key={strategy.id}
+                      variant={formData.linkedStrategies.includes(strategy.id) ? "default" : "outline"}
+                      className="cursor-pointer hover-elevate"
                       onClick={() => {
-                        const newStrategies = formData.linkedStrategies.includes(strategy)
-                          ? formData.linkedStrategies.filter(s => s !== strategy)
-                          : [...formData.linkedStrategies, strategy];
+                        const newStrategies = formData.linkedStrategies.includes(strategy.id)
+                          ? formData.linkedStrategies.filter(s => s !== strategy.id)
+                          : [...formData.linkedStrategies, strategy.id];
                         setFormData({ ...formData, linkedStrategies: newStrategies });
                       }}
+                      data-testid={`badge-strategy-${strategy.id}`}
                     >
-                      {strategy}
+                      {strategy.title}
                     </Badge>
                   ))}
+                  {availableStrategies.length === 0 && (
+                    <p className="text-sm text-muted-foreground italic">
+                      No strategies defined. Create strategies first in the Strategy module.
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -1371,9 +1367,9 @@ function RocksSection({ rocks, quarter, year }: { rocks: Rock[]; quarter: number
                       </Badge>
                     </div>
                     <CardTitle className="text-xl">{rock.title}</CardTitle>
-                    {rock.owner && (
+                    {rock.ownerEmail && (
                       <div className="mt-2 text-sm text-muted-foreground">
-                        Owner: {rock.owner}
+                        Owner: {rock.ownerEmail}
                       </div>
                     )}
                   </div>
@@ -1398,21 +1394,8 @@ function RocksSection({ rocks, quarter, year }: { rocks: Rock[]; quarter: number
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                {((rock.linkedGoals && rock.linkedGoals.length > 0) || (rock.linkedStrategies && rock.linkedStrategies.length > 0)) && (
+                {rock.linkedStrategies && rock.linkedStrategies.length > 0 && (
                   <div className="space-y-2">
-                    {rock.linkedGoals && rock.linkedGoals.length > 0 && (
-                      <div>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                          <Link2 className="w-4 h-4" />
-                          <span>Linked Goals</span>
-                        </div>
-                        <div className="flex flex-wrap gap-2">
-                          {rock.linkedGoals.map((goal, index) => (
-                            <Badge key={index} variant="secondary">{goal}</Badge>
-                          ))}
-                        </div>
-                      </div>
-                    )}
                     {rock.linkedStrategies && rock.linkedStrategies.length > 0 && (
                       <div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
@@ -1420,8 +1403,10 @@ function RocksSection({ rocks, quarter, year }: { rocks: Rock[]; quarter: number
                           <span>Linked Strategies</span>
                         </div>
                         <div className="flex flex-wrap gap-2">
-                          {rock.linkedStrategies.map((strategy, index) => (
-                            <Badge key={index} variant="secondary">{strategy}</Badge>
+                          {rock.linkedStrategies.map((strategyId, index) => (
+                            <Badge key={index} variant="secondary" data-testid={`badge-linked-strategy-${strategyId}`}>
+                              {getStrategyTitle(strategyId)}
+                            </Badge>
                           ))}
                         </div>
                       </div>
@@ -1468,64 +1453,45 @@ function RocksSection({ rocks, quarter, year }: { rocks: Rock[]; quarter: number
               </div>
 
               <div>
-                <Label>Owner</Label>
-                <Select
-                  value={formData.owner}
-                  onValueChange={(value) => setFormData({ ...formData, owner: value })}
-                >
-                  <SelectTrigger data-testid="select-edit-rock-owner">
-                    <SelectValue placeholder="Select owner" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availablePeople.map((person) => (
-                      <SelectItem key={person} value={person}>
-                        {person}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <div>
-              <Label>Linked Goals</Label>
-              <div className="flex flex-wrap gap-2 mt-2">
-                {availableGoals.map((goal) => (
-                  <Badge
-                    key={goal}
-                    variant={formData.linkedGoals.includes(goal) ? "default" : "outline"}
-                    className="cursor-pointer"
-                    onClick={() => {
-                      const newGoals = formData.linkedGoals.includes(goal)
-                        ? formData.linkedGoals.filter(g => g !== goal)
-                        : [...formData.linkedGoals, goal];
-                      setFormData({ ...formData, linkedGoals: newGoals });
-                    }}
-                  >
-                    {goal}
-                  </Badge>
-                ))}
+                <Label htmlFor="editOwnerEmail">Owner Email</Label>
+                <Input
+                  id="editOwnerEmail"
+                  type="email"
+                  placeholder="owner@company.com"
+                  value={formData.ownerEmail}
+                  onChange={(e) => setFormData({ ...formData, ownerEmail: e.target.value })}
+                  data-testid="input-edit-rock-owner-email"
+                />
               </div>
             </div>
 
             <div>
               <Label>Linked Strategies</Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Select strategies this rock supports
+              </p>
               <div className="flex flex-wrap gap-2 mt-2">
                 {availableStrategies.map((strategy) => (
                   <Badge
-                    key={strategy}
-                    variant={formData.linkedStrategies.includes(strategy) ? "default" : "outline"}
-                    className="cursor-pointer"
+                    key={strategy.id}
+                    variant={formData.linkedStrategies.includes(strategy.id) ? "default" : "outline"}
+                    className="cursor-pointer hover-elevate"
                     onClick={() => {
-                      const newStrategies = formData.linkedStrategies.includes(strategy)
-                        ? formData.linkedStrategies.filter(s => s !== strategy)
-                        : [...formData.linkedStrategies, strategy];
+                      const newStrategies = formData.linkedStrategies.includes(strategy.id)
+                        ? formData.linkedStrategies.filter(s => s !== strategy.id)
+                        : [...formData.linkedStrategies, strategy.id];
                       setFormData({ ...formData, linkedStrategies: newStrategies });
                     }}
+                    data-testid={`badge-edit-strategy-${strategy.id}`}
                   >
-                    {strategy}
+                    {strategy.title}
                   </Badge>
                 ))}
+                {availableStrategies.length === 0 && (
+                  <p className="text-sm text-muted-foreground italic">
+                    No strategies defined. Create strategies first in the Strategy module.
+                  </p>
+                )}
               </div>
             </div>
           </div>
