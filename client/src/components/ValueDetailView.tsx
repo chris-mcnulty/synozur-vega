@@ -3,8 +3,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Target, TrendingUp, Zap, Loader2 } from "lucide-react";
-import type { Objective, Strategy, BigRock } from "@shared/schema";
+import { Target, TrendingUp, Loader2 } from "lucide-react";
+import type { Objective, Strategy } from "@shared/schema";
 
 interface ValueDetailViewProps {
   open: boolean;
@@ -17,7 +17,6 @@ interface ValueDetailViewProps {
 interface TaggedItems {
   objectives: Objective[];
   strategies: Strategy[];
-  bigRocks: BigRock[];
 }
 
 export function ValueDetailView({ open, onOpenChange, valueTitle, valueDescription, tenantId }: ValueDetailViewProps) {
@@ -131,58 +130,12 @@ export function ValueDetailView({ open, onOpenChange, valueTitle, valueDescripti
               </Card>
             )}
 
-            {/* Big Rocks Section */}
-            {taggedItems && taggedItems.bigRocks.length > 0 && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-lg">
-                    <Zap className="h-5 w-5" />
-                    Big Rocks ({taggedItems.bigRocks.length})
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {taggedItems.bigRocks.map((bigRock) => (
-                    <div
-                      key={bigRock.id}
-                      className="p-3 rounded-md border hover-elevate"
-                      data-testid={`card-bigrock-${bigRock.id}`}
-                    >
-                      <div className="font-medium" data-testid={`text-bigrock-title-${bigRock.id}`}>
-                        {bigRock.title}
-                      </div>
-                      {bigRock.description && (
-                        <div className="text-sm text-muted-foreground mt-1">
-                          {bigRock.description}
-                        </div>
-                      )}
-                      <div className="flex gap-2 mt-2 items-center">
-                        <Badge variant="outline" className="text-xs">
-                          Q{bigRock.quarter} {bigRock.year}
-                        </Badge>
-                        {bigRock.status && (
-                          <Badge variant="outline" className="text-xs">
-                            {bigRock.status}
-                          </Badge>
-                        )}
-                        {bigRock.completionPercentage !== null && bigRock.completionPercentage !== undefined && (
-                          <Badge variant="secondary" className="text-xs">
-                            {bigRock.completionPercentage}% Complete
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
-            )}
-
             {/* Empty State */}
             {taggedItems && 
              taggedItems.objectives.length === 0 && 
-             taggedItems.strategies.length === 0 && 
-             taggedItems.bigRocks.length === 0 && (
+             taggedItems.strategies.length === 0 && (
               <div className="text-center py-12 text-muted-foreground" data-testid="text-no-items">
-                No objectives, strategies, or big rocks are currently tagged with "{valueTitle}"
+                No objectives or strategies are currently tagged with "{valueTitle}"
               </div>
             )}
           </div>

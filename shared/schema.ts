@@ -422,16 +422,5 @@ export const strategyValues = pgTable("strategy_values", {
   uniqueStrategyValue: unique().on(table.strategyId, table.valueTitle),
 }));
 
-export const bigRockValues = pgTable("big_rock_values", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  bigRockId: varchar("big_rock_id").notNull().references(() => bigRocks.id, { onDelete: 'cascade' }),
-  valueTitle: text("value_title").notNull(),
-  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
-  createdAt: timestamp("created_at").defaultNow(),
-}, (table) => ({
-  uniqueBigRockValue: unique().on(table.bigRockId, table.valueTitle),
-}));
-
 export type ObjectiveValue = typeof objectiveValues.$inferSelect;
 export type StrategyValue = typeof strategyValues.$inferSelect;
-export type BigRockValue = typeof bigRockValues.$inferSelect;

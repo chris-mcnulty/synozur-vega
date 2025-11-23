@@ -11,8 +11,7 @@ import {
   bigRocks, type BigRock, type InsertBigRock,
   checkIns, type CheckIn, type InsertCheckIn,
   objectiveValues,
-  strategyValues,
-  bigRockValues
+  strategyValues
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc } from "drizzle-orm";
@@ -102,14 +101,9 @@ export interface IStorage {
   removeValueFromStrategy(strategyId: string, valueTitle: string, tenantId: string): Promise<void>;
   getValuesByStrategyId(strategyId: string, tenantId: string): Promise<string[]>;
   
-  addValueToBigRock(bigRockId: string, valueTitle: string, tenantId: string): Promise<void>;
-  removeValueFromBigRock(bigRockId: string, valueTitle: string, tenantId: string): Promise<void>;
-  getValuesByBigRockId(bigRockId: string, tenantId: string): Promise<string[]>;
-  
   getItemsTaggedWithValue(tenantId: string, valueTitle: string): Promise<{
     objectives: Objective[];
     strategies: Strategy[];
-    bigRocks: BigRock[];
   }>;
 }
 
@@ -757,39 +751,9 @@ export class DatabaseStorage implements IStorage {
     return results.map(r => r.valueTitle);
   }
 
-  async addValueToBigRock(bigRockId: string, valueTitle: string, tenantId: string): Promise<void> {
-    await db.insert(bigRockValues).values({
-      bigRockId,
-      valueTitle,
-      tenantId,
-    }).onConflictDoNothing();
-  }
-
-  async removeValueFromBigRock(bigRockId: string, valueTitle: string, tenantId: string): Promise<void> {
-    await db.delete(bigRockValues).where(
-      and(
-        eq(bigRockValues.bigRockId, bigRockId),
-        eq(bigRockValues.valueTitle, valueTitle),
-        eq(bigRockValues.tenantId, tenantId)
-      )
-    );
-  }
-
-  async getValuesByBigRockId(bigRockId: string, tenantId: string): Promise<string[]> {
-    const results = await db
-      .select({ valueTitle: bigRockValues.valueTitle })
-      .from(bigRockValues)
-      .where(and(
-        eq(bigRockValues.bigRockId, bigRockId),
-        eq(bigRockValues.tenantId, tenantId)
-      ));
-    return results.map(r => r.valueTitle);
-  }
-
   async getItemsTaggedWithValue(tenantId: string, valueTitle: string): Promise<{
     objectives: Objective[];
     strategies: Strategy[];
-    bigRocks: BigRock[];
   }> {
     // Get objective IDs tagged with this value
     const objectiveIds = await db
@@ -809,15 +773,6 @@ export class DatabaseStorage implements IStorage {
         eq(strategyValues.valueTitle, valueTitle)
       ));
 
-    // Get big rock IDs tagged with this value
-    const bigRockIds = await db
-      .select({ id: bigRockValues.bigRockId })
-      .from(bigRockValues)
-      .where(and(
-        eq(bigRockValues.tenantId, tenantId),
-        eq(bigRockValues.valueTitle, valueTitle)
-      ));
-
     // Fetch full objects
     const objectivesList = objectiveIds.length > 0 
       ? await db.select().from(objectives).where(
@@ -831,16 +786,9 @@ export class DatabaseStorage implements IStorage {
         )
       : [];
 
-    const bigRocksList = bigRockIds.length > 0
-      ? await db.select().from(bigRocks).where(
-          or(...bigRockIds.map(({ id }) => eq(bigRocks.id, id)))
-        )
-      : [];
-
     return {
       objectives: objectivesList,
       strategies: strategiesList,
-      bigRocks: bigRocksList,
     };
   }
 }
