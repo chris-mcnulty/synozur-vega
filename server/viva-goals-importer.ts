@@ -404,6 +404,30 @@ export class VivaGoalsImporter {
       for (const viva of bigRocks) {
         try {
           const objectiveData = this.mapBigRockToObjective(viva);
+          
+          // Check for duplicates
+          const existing = await storage.getObjectives({
+            tenantId: objectiveData.tenantId,
+            quarter: objectiveData.quarter,
+            year: objectiveData.year,
+          });
+          
+          const duplicate = existing.find((obj: any) => obj.title === objectiveData.title);
+          
+          if (duplicate) {
+            if (this.options.duplicateStrategy === 'skip') {
+              this.result.warnings.push(`Skipped duplicate objective: "${viva.Title}"`);
+              this.result.skippedItems.push({ type: 'objective', title: viva.Title, vivaId: viva.ID });
+              // Still map it so child entities can reference it
+              bigRockMap.set(viva.ID, duplicate.id);
+              this.result.entityMap[viva.ID] = {
+                type: 'objective',
+                vegaId: duplicate.id,
+              };
+              continue;
+            }
+          }
+          
           const created = await storage.createObjective(objectiveData);
           
           bigRockMap.set(viva.ID, created.id);
