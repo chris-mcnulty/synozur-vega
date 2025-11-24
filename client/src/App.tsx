@@ -25,6 +25,7 @@ import Strategy from "@/pages/Strategy";
 import PlanningEnhanced from "@/pages/PlanningEnhanced";
 import FocusRhythm from "@/pages/FocusRhythm";
 import TenantAdmin from "@/pages/TenantAdmin";
+import Import from "@/pages/Import";
 import VerifyEmail from "@/pages/VerifyEmail";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
@@ -183,6 +184,13 @@ function Router() {
         <ProtectedRoute>
           <ModuleLayout>
             <TenantAdmin />
+          </ModuleLayout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/import">
+        <ProtectedRoute>
+          <ModuleLayout>
+            <Import />
           </ModuleLayout>
         </ProtectedRoute>
       </Route>

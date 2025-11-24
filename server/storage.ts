@@ -105,6 +105,10 @@ export interface IStorage {
     objectives: Objective[];
     strategies: Strategy[];
   }>;
+  
+  // Import history methods
+  createImportHistory(data: any): Promise<any>;
+  getImportHistory(tenantId: string): Promise<any[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -795,6 +799,37 @@ export class DatabaseStorage implements IStorage {
       objectives: objectivesList,
       strategies: strategiesList,
     };
+  }
+
+  async createImportHistory(data: any): Promise<any> {
+    // Direct SQL insert since importHistory table is not in schema yet
+    const [result] = await db.execute(sql`
+      INSERT INTO import_history (
+        tenant_id, import_type, file_name, file_size, status,
+        objectives_created, key_results_created, big_rocks_created,
+        check_ins_created, teams_created, warnings, errors,
+        skipped_items, duplicate_strategy, fiscal_year_start_month,
+        imported_by
+      ) VALUES (
+        ${data.tenantId}, ${data.importType}, ${data.fileName}, ${data.fileSize}, ${data.status},
+        ${data.objectivesCreated}, ${data.keyResultsCreated}, ${data.bigRocksCreated},
+        ${data.checkInsCreated}, ${data.teamsCreated}, ${JSON.stringify(data.warnings)}, ${JSON.stringify(data.errors)},
+        ${JSON.stringify(data.skippedItems)}, ${data.duplicateStrategy}, ${data.fiscalYearStartMonth},
+        ${data.importedBy}
+      )
+      RETURNING *
+    `);
+    return result;
+  }
+
+  async getImportHistory(tenantId: string): Promise<any[]> {
+    const results = await db.execute(sql`
+      SELECT * FROM import_history
+      WHERE tenant_id = ${tenantId}
+      ORDER BY imported_at DESC
+      LIMIT 50
+    `);
+    return results.rows || [];
   }
 }
 

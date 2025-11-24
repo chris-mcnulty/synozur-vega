@@ -750,6 +750,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { registerValueRoutes } = await import("./routes-values");
   registerValueRoutes(app);
 
+  // Import and use import routes (Viva Goals, etc.)
+  const { importRouter } = await import("./routes-import");
+  app.use("/api/import", importRouter);
+
   const httpServer = createServer(app);
 
   return httpServer;

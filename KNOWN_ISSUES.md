@@ -1,6 +1,6 @@
 # Known Issues & Technical Debt
 
-**Last Updated:** November 22, 2025
+**Last Updated:** November 24, 2025
 
 ---
 
@@ -12,7 +12,73 @@ No critical issues currently.
 
 ## HIGH SEVERITY
 
-### Issue #1: Entity Relationship Linking - State Management Bug
+### Issue #1: Viva Goals Import - Hierarchical Objectives Not Imported
+
+**Affected:** Viva Goals Import Feature  
+**Severity:** High  
+**Status:** Known Limitation (MVP)  
+**Reported:** November 24, 2025
+
+**Description:**
+The import feature currently only imports top-level Viva Goals Big rocks (objectives). Any Big rocks that have a parent (nested objectives) are skipped during import.
+
+**Symptoms:**
+- User uploads Viva Goals export with hierarchical objectives
+- Only root-level objectives are created in Vega
+- Child objectives and their KPIs are skipped
+- Import summary shows warnings about skipped items
+
+**Root Cause:**
+In `executeImport()` method (server/viva-goals-importer.ts line 394):
+```typescript
+const bigRocks = this.objectives.filter(obj => obj.Type === 'Big rock' && !obj['Parent IDs']?.length);
+```
+
+This filter explicitly excludes objectives with parent IDs.
+
+**Impact:**
+- Organizations with multi-level OKR hierarchies will lose nested structure
+- Data loss during import for hierarchical objectives
+- Misaligned parent-child relationships
+
+**Planned Fix:**
+Implement multi-pass import logic:
+1. Pass 1: Import all objectives (regardless of parent)
+2. Pass 2: Build parent-child relationships using entityMap
+3. Pass 3: Update alignment/weight settings
+
+**Workaround:**
+Manually flatten Viva Goals hierarchy before export, or manually recreate child objectives after import.
+
+**Priority:** High - Should be fixed in next sprint after MVP delivery.
+
+---
+
+### Issue #2: Viva Goals Import - Team Import Not Implemented
+
+**Affected:** Viva Goals Import Feature  
+**Severity:** Medium  
+**Status:** Not Implemented (MVP)  
+**Reported:** November 24, 2025
+
+**Description:**
+The import UI shows an "Import Teams" checkbox option, but team import functionality is not actually implemented in the backend.
+
+**Impact:**
+- User expects teams to be imported when checkbox is selected
+- No teams are created even when option is enabled
+- Misleading UI
+
+**Planned Fix:**
+Either:
+- Option A: Remove "Import Teams" checkbox from UI until feature is implemented
+- Option B: Implement team import pipeline in next sprint
+
+**Priority:** Medium - Fix UI or implement feature in next sprint.
+
+---
+
+### Issue #3: Entity Relationship Linking - State Management Bug
 
 **Affected:** Big Rock Edit Dialog  
 **Severity:** High  

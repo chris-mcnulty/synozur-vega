@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings } from "lucide-react";
+import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -42,6 +42,11 @@ const menuItems = [
 ];
 
 const adminItems = [
+  {
+    title: "Import Data",
+    url: "/import",
+    icon: Upload,
+  },
   {
     title: "Tenant Admin",
     url: "/tenant-admin",

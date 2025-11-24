@@ -318,7 +318,7 @@ export class VivaGoalsImporter {
       };
     }
 
-    return {
+    const keyResult: Partial<KeyResult> = {
       objectiveId,
       tenantId: this.options.tenantId,
       title: viva.Title,
@@ -331,11 +331,17 @@ export class VivaGoalsImporter {
       progress: Math.round(viva.Progress),
       weight: 25, // Default weight, will be adjusted if parent has alignment weights
       status: this.mapStatus(viva.Status),
-      phasedTargets,
       createdBy: this.options.userId,
       updatedBy: this.options.userId,
       lastCheckInAt: viva['Last Check-in'] ? new Date(viva['Last Check-in']) : undefined,
     };
+
+    // Add phased targets if present (preserve milestone data)
+    if (phasedTargets) {
+      keyResult.phasedTargets = phasedTargets;
+    }
+
+    return keyResult;
   }
 
   /**
@@ -378,6 +384,133 @@ export class VivaGoalsImporter {
       userEmail: viva['Check In Owner']?.Email || this.options.userEmail,
       asOfDate: new Date(viva['Activity Date']),
     };
+  }
+
+  /**
+   * Execute the import - create all entities in the database
+   */
+  async executeImport(storage: any): Promise<ImportResult> {
+    try {
+      // Phase 1: Create organization-level objectives (Viva "Big rocks")
+      const bigRockMap = new Map<number, string>(); // vivaId -> vegaId
+      
+      const bigRocks = this.objectives.filter(obj => obj.Type === 'Big rock' && !obj['Parent IDs']?.length);
+      
+      for (const viva of bigRocks) {
+        try {
+          const objectiveData = this.mapBigRockToObjective(viva);
+          const created = await storage.createObjective(objectiveData);
+          
+          bigRockMap.set(viva.ID, created.id);
+          this.result.entityMap[viva.ID] = {
+            type: 'objective',
+            vegaId: created.id,
+          };
+          this.result.summary.objectivesCreated++;
+        } catch (error) {
+          this.result.warnings.push(`Failed to import objective "${viva.Title}": ${error instanceof Error ? error.message : 'Unknown error'}`);
+          this.result.skippedItems.push({ type: 'objective', title: viva.Title, vivaId: viva.ID });
+        }
+      }
+
+      // Phase 2: Create Key Results (Viva "KPIs") under objectives
+      const kpis = this.objectives.filter(obj => obj.Type === 'Kpi');
+      
+      for (const viva of kpis) {
+        try {
+          // Find parent objective
+          const parentVivaId = viva['Parent IDs']?.[0];
+          const parentVegaId = parentVivaId ? bigRockMap.get(parentVivaId) : null;
+          
+          if (!parentVegaId) {
+            this.result.warnings.push(`KPI "${viva.Title}" has no valid parent objective, skipping`);
+            this.result.skippedItems.push({ type: 'key_result', title: viva.Title, vivaId: viva.ID });
+            continue;
+          }
+
+          const keyResultData = this.mapKpiToKeyResult(viva, parentVegaId);
+          const created = await storage.createKeyResult(keyResultData);
+          
+          this.result.entityMap[viva.ID] = {
+            type: 'key_result',
+            vegaId: created.id,
+          };
+          this.result.summary.keyResultsCreated++;
+        } catch (error) {
+          this.result.warnings.push(`Failed to import key result "${viva.Title}": ${error instanceof Error ? error.message : 'Unknown error'}`);
+          this.result.skippedItems.push({ type: 'key_result', title: viva.Title, vivaId: viva.ID });
+        }
+      }
+
+      // Phase 3: Create Big Rocks (Viva "Projects")
+      const projects = this.objectives.filter(obj => obj.Type === 'Project');
+      
+      for (const viva of projects) {
+        try {
+          const bigRockData = this.mapProjectToBigRock(viva);
+          
+          // Try to link to parent objective if available
+          const parentVivaId = viva['Parent IDs']?.[0];
+          const parentVegaId = parentVivaId ? bigRockMap.get(parentVivaId) : null;
+          
+          if (parentVegaId) {
+            bigRockData.objectiveId = parentVegaId;
+          }
+
+          const created = await storage.createBigRock(bigRockData);
+          
+          this.result.entityMap[viva.ID] = {
+            type: 'big_rock',
+            vegaId: created.id,
+          };
+          this.result.summary.bigRocksCreated++;
+        } catch (error) {
+          this.result.warnings.push(`Failed to import big rock "${viva.Title}": ${error instanceof Error ? error.message : 'Unknown error'}`);
+          this.result.skippedItems.push({ type: 'big_rock', title: viva.Title, vivaId: viva.ID });
+        }
+      }
+
+      // Phase 4: Import check-ins (if enabled)
+      if (this.options.importCheckIns && this.checkIns.length > 0) {
+        for (const vivaCheckIn of this.checkIns) {
+          try {
+            const entityMapping = this.result.entityMap[vivaCheckIn['OKR ID']];
+            
+            if (!entityMapping) {
+              // Skip check-ins for entities that weren't imported
+              continue;
+            }
+
+            const checkInData = this.mapCheckIn(
+              vivaCheckIn, 
+              entityMapping.type, 
+              entityMapping.vegaId
+            );
+            
+            await storage.createCheckIn(checkInData);
+            this.result.summary.checkInsCreated++;
+          } catch (error) {
+            // Don't fail import for check-in errors, just log
+            console.error(`Failed to import check-in:`, error);
+          }
+        }
+      }
+
+      // Determine final status
+      if (this.result.errors.length > 0) {
+        this.result.status = 'partial';
+      } else if (this.result.warnings.length > 0) {
+        this.result.status = 'partial';
+      } else {
+        this.result.status = 'success';
+      }
+
+      return this.result;
+    } catch (error) {
+      this.result.status = 'failed';
+      this.result.errors.push(`Import execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      return this.result;
+    }
   }
 
   getResult(): ImportResult {
