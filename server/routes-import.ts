@@ -40,10 +40,10 @@ router.post('/viva-goals', upload.single('file'), async (req: Request, res: Resp
       return res.status(401).json({ error: 'Authentication required' });
     }
 
-    // Get user and tenant info
+    // Get user info
     const user = await storage.getUser(req.session.userId);
-    if (!user || !user.tenantId) {
-      return res.status(403).json({ error: 'User must belong to a tenant' });
+    if (!user) {
+      return res.status(403).json({ error: 'User not found' });
     }
 
     // Check if file was uploaded
@@ -63,9 +63,15 @@ router.post('/viva-goals', upload.single('file'), async (req: Request, res: Resp
       });
     }
 
+    // Use tenant from request body (from dropdown) or fall back to user's default tenant
+    const targetTenantId = req.body.tenantId || user.tenantId;
+    if (!targetTenantId) {
+      return res.status(400).json({ error: 'No tenant selected for import' });
+    }
+
     // Create importer instance
     const importer = new VivaGoalsImporter({
-      tenantId: user.tenantId,
+      tenantId: targetTenantId,
       userId: user.id,
       userEmail: user.email,
       ...options,
@@ -80,7 +86,7 @@ router.post('/viva-goals', upload.single('file'), async (req: Request, res: Resp
     // Record import history
     try {
       await storage.createImportHistory({
-        tenantId: user.tenantId,
+        tenantId: targetTenantId,
         importType: 'viva_goals',
         fileName: req.file.originalname,
         fileSize: req.file.size,

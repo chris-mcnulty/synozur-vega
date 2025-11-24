@@ -11,12 +11,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Upload, CheckCircle, XCircle, AlertTriangle, FileArchive, Clock } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { useTenant } from '@/contexts/TenantContext';
 
 export default function Import() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [importing, setImporting] = useState(false);
   const [importResult, setImportResult] = useState<any>(null);
   const { toast } = useToast();
+  const { currentTenant } = useTenant();
 
   // Import options
   const [duplicateStrategy, setDuplicateStrategy] = useState<'skip' | 'merge' | 'create'>('skip');
@@ -60,6 +62,11 @@ export default function Import() {
         importTeams,
         fiscalYearStartMonth,
       }));
+      
+      // Send the currently selected tenant
+      if (currentTenant) {
+        formData.append('tenantId', currentTenant.id);
+      }
 
       const response = await fetch('/api/import/viva-goals', {
         method: 'POST',
