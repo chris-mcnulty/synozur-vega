@@ -14,7 +14,7 @@ import {
   strategyValues
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc } from "drizzle-orm";
+import { eq, and, or, desc, sql } from "drizzle-orm";
 import { hashPassword } from "./auth";
 
 export interface IStorage {

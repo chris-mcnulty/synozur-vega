@@ -236,7 +236,7 @@ export class VivaGoalsImporter {
 
     // Map phased targets if present
     let phasedTargets = undefined;
-    if (viva['Phased Targets'] && viva['Phased Targets']['Phased Targets'].length > 0) {
+    if (viva['Phased Targets'] && viva['Phased Targets']['Phased Targets'] && viva['Phased Targets']['Phased Targets'].length > 0) {
       phasedTargets = {
         interval: viva['Phased Targets'].Interval === 'monthly' ? 'monthly' as const : 
                   viva['Phased Targets'].Interval === 'quarterly' ? 'quarterly' as const : 
@@ -306,7 +306,7 @@ export class VivaGoalsImporter {
 
     // Map phased targets if present
     let phasedTargets = undefined;
-    if (viva['Phased Targets'] && viva['Phased Targets']['Phased Targets'].length > 0) {
+    if (viva['Phased Targets'] && viva['Phased Targets']['Phased Targets'] && viva['Phased Targets']['Phased Targets'].length > 0) {
       phasedTargets = {
         interval: viva['Phased Targets'].Interval === 'monthly' ? 'monthly' as const : 
                   viva['Phased Targets'].Interval === 'quarterly' ? 'quarterly' as const : 
@@ -371,12 +371,17 @@ export class VivaGoalsImporter {
    * Convert Viva Goals check-in to Vega check-in
    */
   mapCheckIn(viva: VivaCheckIn, entityType: 'objective' | 'key_result' | 'big_rock', entityId: string): Partial<CheckIn> {
+    // For imported check-ins, we don't have historical previous values
+    // Use 0 as default for previousProgress/previousValue
     return {
       tenantId: this.options.tenantId,
       entityType,
       entityId,
+      previousValue: 0, // Default for imports
       newValue: Math.round(viva['Current Value']),
+      previousProgress: 0, // Default for imports
       newProgress: Math.round(viva['Current Value']), // Assuming value equals progress
+      previousStatus: 'not_started', // Default for imports
       newStatus: this.mapStatus(viva.Status),
       note: viva['Check In Note']?.['Check In Note'] || undefined,
       source: 'viva_goals_import',
