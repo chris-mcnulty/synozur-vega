@@ -46,8 +46,14 @@ interface Objective {
   linkedGoals?: string[];
 }
 
+interface Strategy {
+  id: string;
+  title: string;
+}
+
 interface OKRTreeViewProps {
   objectives: Objective[];
+  strategies?: Strategy[];
   onCreateObjective?: (parentId?: string) => void;
   onEditObjective?: (objective: Objective) => void;
   onDeleteObjective?: (id: string) => void;
@@ -108,6 +114,7 @@ function ObjectiveValueBadges({ objectiveId }: { objectiveId: string }) {
 
 export function OKRTreeView({
   objectives,
+  strategies = [],
   onCreateObjective,
   onEditObjective,
   onDeleteObjective,
@@ -125,6 +132,12 @@ export function OKRTreeView({
 }: OKRTreeViewProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [expandedDetails, setExpandedDetails] = useState<Set<string>>(new Set());
+
+  // Helper function to get strategy title by ID
+  const getStrategyTitle = (strategyId: string): string => {
+    const strategy = strategies.find(s => s.id === strategyId);
+    return strategy?.title || strategyId;
+  };
 
   const toggleNode = (id: string) => {
     const newExpanded = new Set(expandedNodes);
@@ -303,7 +316,7 @@ export function OKRTreeView({
                   <div className="flex flex-wrap gap-2">
                     {objective.linkedStrategies.map((strategyId: string) => (
                       <Badge key={strategyId} variant="outline" className="text-xs">
-                        {strategyId}
+                        {getStrategyTitle(strategyId)}
                       </Badge>
                     ))}
                   </div>

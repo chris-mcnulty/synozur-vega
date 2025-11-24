@@ -20,6 +20,7 @@ import { OKRTreeView } from "@/components/okr/OKRTreeView";
 import { WeightManager } from "@/components/WeightManager";
 import { ValueTagSelector } from "@/components/ValueTagSelector";
 import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2, History, Edit } from "lucide-react";
+import { cn } from "@/lib/utils";
 import type { Foundation, CompanyValue } from "@shared/schema";
 
 interface Objective {
@@ -168,6 +169,7 @@ export default function PlanningEnhanced() {
   const [objectiveDialogOpen, setObjectiveDialogOpen] = useState(false);
   const [keyResultDialogOpen, setKeyResultDialogOpen] = useState(false);
   const [bigRockDialogOpen, setBigRockDialogOpen] = useState(false);
+  const [bigRockDialogMode, setBigRockDialogMode] = useState<"create" | "link">("create");
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
   const [checkInHistoryDialogOpen, setCheckInHistoryDialogOpen] = useState(false);
   const [selectedKRForHistory, setSelectedKRForHistory] = useState<KeyResult | null>(null);
@@ -177,6 +179,7 @@ export default function PlanningEnhanced() {
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
   const [selectedKeyResult, setSelectedKeyResult] = useState<KeyResult | null>(null);
   const [selectedBigRock, setSelectedBigRock] = useState<BigRock | null>(null);
+  const [selectedBigRockForLink, setSelectedBigRockForLink] = useState<string | null>(null);
   const [checkInEntity, setCheckInEntity] = useState<{ type: string; id: string; current?: any } | null>(null);
 
   // Value tag states
@@ -364,9 +367,11 @@ export default function PlanningEnhanced() {
       return apiRequest("POST", "/api/okr/big-rocks", cleanedData);
     },
     onSuccess: async (response: any) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
       setBigRockDialogOpen(false);
       setSelectedBigRock(null);
+      setSelectedBigRockForLink(null);
+      setBigRockDialogMode("create");
       toast({ title: "Success", description: "Big Rock created successfully" });
     },
     onError: (error: any) => {
@@ -380,9 +385,11 @@ export default function PlanningEnhanced() {
       return apiRequest("PATCH", `/api/okr/big-rocks/${id}`, data);
     },
     onSuccess: async (response: any, variables: { id: string }) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
       setBigRockDialogOpen(false);
       setSelectedBigRock(null);
+      setSelectedBigRockForLink(null);
+      setBigRockDialogMode("create");
       toast({ title: "Success", description: "Big Rock updated successfully" });
     },
     onError: () => {
@@ -395,7 +402,7 @@ export default function PlanningEnhanced() {
       return apiRequest("DELETE", `/api/okr/big-rocks/${id}`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
       toast({ title: "Success", description: "Big Rock deleted successfully" });
     },
     onError: () => {
@@ -679,6 +686,8 @@ export default function PlanningEnhanced() {
 
   const handleCreateBigRock = (objectiveId: string, keyResultId?: string) => {
     setSelectedBigRock(null);
+    setSelectedBigRockForLink(null);
+    setBigRockDialogMode("create");
     setBigRockForm({
       title: "",
       description: "",
@@ -894,6 +903,7 @@ export default function PlanningEnhanced() {
           <TabsContent value="enhanced-okrs">
             <OKRTreeView
               objectives={enrichedObjectives}
+              strategies={strategies}
               onCreateObjective={handleCreateObjective}
               onEditObjective={handleEditObjective}
               onDeleteObjective={handleDeleteObjective}
@@ -1210,92 +1220,180 @@ export default function PlanningEnhanced() {
         </Dialog>
 
         {/* Create/Edit Big Rock Dialog */}
-        <Dialog open={bigRockDialogOpen} onOpenChange={setBigRockDialogOpen}>
+        <Dialog open={bigRockDialogOpen} onOpenChange={(open) => {
+          if (!open) {
+            // Reset state when closing dialog
+            setSelectedBigRockForLink(null);
+            setBigRockDialogMode("create");
+          }
+          setBigRockDialogOpen(open);
+        }}>
           <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>{selectedBigRock ? "Edit" : "Create"} Big Rock (Initiative)</DialogTitle>
+              <DialogTitle>{selectedBigRock ? "Edit" : bigRockForm.objectiveId || bigRockForm.keyResultId ? "Link or Create" : "Create"} Big Rock (Initiative)</DialogTitle>
               <DialogDescription>
-                {selectedBigRock ? "Update your strategic initiative" : `Define a strategic initiative for ${quarter === 0 ? 'Annual' : `Q${quarter}`} ${year}`}
+                {selectedBigRock ? "Update your strategic initiative" : `Define or link a strategic initiative for ${quarter === 0 ? 'Annual' : `Q${quarter}`} ${year}`}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="br-title">Title *</Label>
-                <Input
-                  id="br-title"
-                  value={bigRockForm.title}
-                  onChange={(e) => setBigRockForm({ ...bigRockForm, title: e.target.value })}
-                  placeholder="e.g., Launch customer feedback system"
-                  data-testid="input-bigrock-title"
-                />
-              </div>
-              <div>
-                <Label htmlFor="br-desc">Description</Label>
-                <Textarea
-                  id="br-desc"
-                  value={bigRockForm.description}
-                  onChange={(e) => setBigRockForm({ ...bigRockForm, description: e.target.value })}
-                  placeholder="Describe the initiative..."
-                  rows={3}
-                  data-testid="input-bigrock-description"
-                />
-              </div>
+            
+            {!selectedBigRock && (bigRockForm.objectiveId || bigRockForm.keyResultId) && (
+              <Tabs value={bigRockDialogMode} onValueChange={(value: any) => setBigRockDialogMode(value)} className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="create" data-testid="tab-create-bigrock">Create New</TabsTrigger>
+                  <TabsTrigger value="link" data-testid="tab-link-bigrock">Link Existing</TabsTrigger>
+                </TabsList>
+              </Tabs>
+            )}
 
-              <div>
-                <Label>Linked Strategies</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {strategies.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No strategies defined yet</p>
+            {bigRockDialogMode === "create" || selectedBigRock ? (
+              <div className="space-y-4 mt-4">
+                <div>
+                  <Label htmlFor="br-title">Title *</Label>
+                  <Input
+                    id="br-title"
+                    value={bigRockForm.title}
+                    onChange={(e) => setBigRockForm({ ...bigRockForm, title: e.target.value })}
+                    placeholder="e.g., Launch customer feedback system"
+                    data-testid="input-bigrock-title"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="br-desc">Description</Label>
+                  <Textarea
+                    id="br-desc"
+                    value={bigRockForm.description}
+                    onChange={(e) => setBigRockForm({ ...bigRockForm, description: e.target.value })}
+                    placeholder="Describe the initiative..."
+                    rows={3}
+                    data-testid="input-bigrock-description"
+                  />
+                </div>
+
+                <div>
+                  <Label>Linked Strategies</Label>
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {strategies.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No strategies defined yet</p>
+                    ) : (
+                      strategies.map((strategy) => (
+                        <Badge
+                          key={strategy.id}
+                          variant={bigRockForm.linkedStrategies.includes(strategy.id) ? "default" : "outline"}
+                          className="cursor-pointer hover-elevate"
+                          onClick={() => toggleBigRockStrategy(strategy.id)}
+                          data-testid={`badge-br-strategy-${strategy.id}`}
+                        >
+                          {strategy.title}
+                        </Badge>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="br-progress">{selectedBigRock ? "Completion" : "Initial Progress"} ({bigRockForm.completionPercentage}%)</Label>
+                  <Slider
+                    id="br-progress"
+                    value={[bigRockForm.completionPercentage]}
+                    onValueChange={(value) => setBigRockForm({ ...bigRockForm, completionPercentage: value[0] })}
+                    max={100}
+                    step={5}
+                    data-testid="slider-bigrock-progress"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-4 mt-4">
+                <Label>Select Existing Big Rock to Link</Label>
+                <div className="space-y-2 max-h-96 overflow-y-auto">
+                  {bigRocks.filter(rock => !rock.objectiveId && !rock.keyResultId).length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground">
+                      <p>No unlinked Big Rocks available for Q{quarter} {year}</p>
+                      <p className="text-sm mt-2">Switch to "Create New" to create a Big Rock</p>
+                    </div>
                   ) : (
-                    strategies.map((strategy) => (
-                      <Badge
-                        key={strategy.id}
-                        variant={bigRockForm.linkedStrategies.includes(strategy.id) ? "default" : "outline"}
-                        className="cursor-pointer"
-                        onClick={() => toggleBigRockStrategy(strategy.id)}
-                        data-testid={`badge-br-strategy-${strategy.id}`}
-                      >
-                        {strategy.title}
-                      </Badge>
-                    ))
+                    bigRocks
+                      .filter(rock => !rock.objectiveId && !rock.keyResultId)
+                      .map((rock) => (
+                        <Card
+                          key={rock.id}
+                          className={cn(
+                            "p-4 cursor-pointer hover-elevate",
+                            selectedBigRockForLink === rock.id && "border-primary"
+                          )}
+                          onClick={() => setSelectedBigRockForLink(rock.id)}
+                          data-testid={`card-select-bigrock-${rock.id}`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <h4 className="font-medium">{rock.title}</h4>
+                              {rock.description && (
+                                <p className="text-sm text-muted-foreground mt-1">{rock.description}</p>
+                              )}
+                              <div className="flex gap-2 mt-2">
+                                <Badge variant="outline" className="text-xs">
+                                  {rock.status || "not-started"}
+                                </Badge>
+                                <Badge variant="secondary" className="text-xs">
+                                  {rock.completionPercentage}% Complete
+                                </Badge>
+                              </div>
+                            </div>
+                            {selectedBigRockForLink === rock.id && (
+                              <CheckCircle className="h-5 w-5 text-primary" />
+                            )}
+                          </div>
+                        </Card>
+                      ))
                   )}
                 </div>
               </div>
+            )}
 
-              <div>
-                <Label htmlFor="br-progress">{selectedBigRock ? "Completion" : "Initial Progress"} ({bigRockForm.completionPercentage}%)</Label>
-                <Slider
-                  id="br-progress"
-                  value={[bigRockForm.completionPercentage]}
-                  onValueChange={(value) => setBigRockForm({ ...bigRockForm, completionPercentage: value[0] })}
-                  max={100}
-                  step={5}
-                  data-testid="slider-bigrock-progress"
-                />
-              </div>
-            </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setBigRockDialogOpen(false)}>
+              <Button variant="outline" onClick={() => { 
+                setBigRockDialogOpen(false); 
+                setSelectedBigRockForLink(null);
+                setBigRockDialogMode("create");
+              }}>
                 Cancel
               </Button>
               <Button
                 onClick={() => {
-                  console.log('[Big Rock Submit] Form state:', bigRockForm);
-                  if (selectedBigRock) {
+                  if (bigRockDialogMode === "link" && selectedBigRockForLink) {
+                    // Link existing Big Rock
                     updateBigRockMutation.mutate({
-                      id: selectedBigRock.id,
-                      data: bigRockForm
+                      id: selectedBigRockForLink,
+                      data: {
+                        objectiveId: bigRockForm.objectiveId || undefined,
+                        keyResultId: bigRockForm.keyResultId || undefined,
+                      }
                     });
                   } else {
-                    createBigRockMutation.mutate(bigRockForm);
+                    // Create or update Big Rock
+                    console.log('[Big Rock Submit] Form state:', bigRockForm);
+                    if (selectedBigRock) {
+                      updateBigRockMutation.mutate({
+                        id: selectedBigRock.id,
+                        data: bigRockForm
+                      });
+                    } else {
+                      createBigRockMutation.mutate(bigRockForm);
+                    }
                   }
                 }}
-                disabled={createBigRockMutation.isPending || updateBigRockMutation.isPending}
+                disabled={
+                  createBigRockMutation.isPending || 
+                  updateBigRockMutation.isPending || 
+                  (bigRockDialogMode === "link" && !selectedBigRockForLink)
+                }
                 data-testid="button-save-bigrock"
               >
                 {selectedBigRock 
                   ? (updateBigRockMutation.isPending ? "Updating..." : "Update Big Rock")
-                  : (createBigRockMutation.isPending ? "Creating..." : "Create Big Rock")
+                  : bigRockDialogMode === "link"
+                    ? (updateBigRockMutation.isPending ? "Linking..." : "Link Big Rock")
+                    : (createBigRockMutation.isPending ? "Creating..." : "Create Big Rock")
                 }
               </Button>
             </DialogFooter>
