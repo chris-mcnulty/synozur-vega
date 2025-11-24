@@ -214,6 +214,21 @@ export const objectives = pgTable("objectives", {
   // Alignment and linking
   linkedStrategies: jsonb("linked_strategies").$type<string[]>(),
   linkedGoals: jsonb("linked_goals").$type<string[]>(),
+  linkedValues: jsonb("linked_values").$type<string[]>(),
+  
+  // Goal type and phased targets (Viva Goals compatibility)
+  goalType: text("goal_type").default('committed'), // 'aspirational' or 'committed'
+  phasedTargets: jsonb("phased_targets").$type<{
+    interval: 'monthly' | 'quarterly' | 'custom';
+    targets: Array<{
+      targetValue: number;
+      targetDate: string;
+    }>;
+  }>(),
+  
+  // Email reminder tracking
+  lastReminderSent: timestamp("last_reminder_sent"),
+  reminderFrequency: text("reminder_frequency").default('weekly'), // 'daily', 'weekly', 'biweekly', 'monthly'
   
   // Metadata
   createdBy: varchar("created_by").references(() => users.id),
@@ -257,6 +272,15 @@ export const keyResults = pgTable("key_results", {
   
   // Ownership
   ownerId: varchar("owner_id").references(() => users.id),
+  
+  // Phased targets for long-term KRs
+  phasedTargets: jsonb("phased_targets").$type<{
+    interval: 'monthly' | 'quarterly' | 'custom';
+    targets: Array<{
+      targetValue: number;
+      targetDate: string;
+    }>;
+  }>(),
   
   // Metadata
   createdBy: varchar("created_by").references(() => users.id),
@@ -424,3 +448,137 @@ export const strategyValues = pgTable("strategy_values", {
 
 export type ObjectiveValue = typeof objectiveValues.$inferSelect;
 export type StrategyValue = typeof strategyValues.$inferSelect;
+
+// Teams table for divisional/departmental OKR organization
+export const teams = pgTable("teams", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  name: text("name").notNull(),
+  description: text("description"),
+  
+  // Hierarchical structure (self-referencing)
+  parentTeamId: varchar("parent_team_id"),
+  level: integer("level").default(0), // 0 = organization, 1 = division, 2 = department, etc.
+  
+  // Leadership
+  leaderId: varchar("leader_id").references(() => users.id),
+  leaderEmail: text("leader_email"),
+  memberIds: jsonb("member_ids").$type<string[]>(),
+  
+  // Metadata
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueTenantTeam: unique().on(table.tenantId, table.name),
+}));
+
+export const insertTeamSchema = createInsertSchema(teams).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertTeam = z.infer<typeof insertTeamSchema>;
+export type Team = typeof teams.$inferSelect;
+
+// Review snapshots for Focus Rhythm point-in-time analysis
+export const reviewSnapshots = pgTable("review_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  
+  // Review metadata
+  title: text("title").notNull(),
+  description: text("description"),
+  reviewType: text("review_type").notNull(), // 'quarterly', 'annual', 'mid-year', 'custom'
+  
+  // Time period covered
+  quarter: integer("quarter"),
+  year: integer("year").notNull(),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
+  snapshotDate: timestamp("snapshot_date").notNull(), // When snapshot was taken
+  
+  // Review content
+  executiveSummary: text("executive_summary"),
+  keyAchievements: jsonb("key_achievements").$type<string[]>(),
+  challenges: jsonb("challenges").$type<string[]>(),
+  lessonsLearned: jsonb("lessons_learned").$type<string[]>(),
+  nextQuarterPriorities: jsonb("next_quarter_priorities").$type<string[]>(),
+  
+  // Snapshot data (frozen state of objectives/KRs at review time)
+  objectivesSnapshot: jsonb("objectives_snapshot").$type<any[]>(),
+  keyResultsSnapshot: jsonb("key_results_snapshot").$type<any[]>(),
+  bigRocksSnapshot: jsonb("big_rocks_snapshot").$type<any[]>(),
+  
+  // Metrics and scores
+  overallProgress: integer("overall_progress"),
+  objectivesCompleted: integer("objectives_completed"),
+  objectivesTotal: integer("objectives_total"),
+  keyResultsCompleted: integer("key_results_completed"),
+  keyResultsTotal: integer("key_results_total"),
+  
+  // Participants and reviewers
+  presenterId: varchar("presenter_id").references(() => users.id),
+  attendeeIds: jsonb("attendee_ids").$type<string[]>(),
+  
+  // Status
+  status: text("status").default('draft'), // 'draft', 'published', 'archived'
+  publishedAt: timestamp("published_at"),
+  
+  // Metadata
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertReviewSnapshotSchema = createInsertSchema(reviewSnapshots).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertReviewSnapshot = z.infer<typeof insertReviewSnapshotSchema>;
+export type ReviewSnapshot = typeof reviewSnapshots.$inferSelect;
+
+// Import tracking to prevent duplicate Viva Goals imports
+export const importHistory = pgTable("import_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  
+  // Import details
+  importType: text("import_type").notNull(), // 'viva_goals', 'csv', 'json'
+  fileName: text("file_name"),
+  fileSize: integer("file_size"),
+  
+  // Import results
+  status: text("status").notNull(), // 'success', 'partial', 'failed'
+  objectivesCreated: integer("objectives_created").default(0),
+  keyResultsCreated: integer("key_results_created").default(0),
+  bigRocksCreated: integer("big_rocks_created").default(0),
+  checkInsCreated: integer("check_ins_created").default(0),
+  teamsCreated: integer("teams_created").default(0),
+  
+  // Warnings and errors
+  warnings: jsonb("warnings").$type<string[]>(),
+  errors: jsonb("errors").$type<string[]>(),
+  skippedItems: jsonb("skipped_items").$type<any[]>(),
+  
+  // Import options used
+  duplicateStrategy: text("duplicate_strategy"), // 'skip', 'merge', 'create'
+  fiscalYearStartMonth: integer("fiscal_year_start_month"),
+  
+  // Metadata
+  importedBy: varchar("imported_by").notNull().references(() => users.id),
+  importedAt: timestamp("imported_at").defaultNow(),
+});
+
+export const insertImportHistorySchema = createInsertSchema(importHistory).omit({
+  id: true,
+  importedAt: true,
+});
+
+export type InsertImportHistory = z.infer<typeof insertImportHistorySchema>;
+export type ImportHistory = typeof importHistory.$inferSelect;
