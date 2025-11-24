@@ -310,9 +310,62 @@ Compliance features for regulated industries and enterprise governance.
 
 ---
 
+### 10. Strategic Alignment Mind Map ⭐ NEW
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Effort:** 2-3 weeks
+
+**Description:**
+Interactive visual graph showing how company values, annual goals, strategies, objectives, key results, and big rocks interconnect, filtered by time period.
+
+**Features:**
+- React Flow-based interactive graph visualization
+- Time period filtering (fiscal year + quarter selector)
+- Custom node types for each entity (Values, Goals, Strategies, Objectives, KRs, Big Rocks)
+- Distinct edge styling for different relationship types:
+  - Values → Goals (foundational alignment)
+  - Goals → Strategies (strategic alignment)
+  - Strategies → Objectives (execution alignment)
+  - Objectives → Key Results (measurement hierarchy)
+  - Objectives/KRs → Big Rocks (initiative linking)
+  - Big Rocks → Strategies (strategic initiative alignment)
+- Auto-layout algorithm with hierarchical positioning
+- Interactive features:
+  - Hover to highlight connected nodes
+  - Click node to view details
+  - Pan/zoom controls
+  - Toggle visibility by entity type
+- Legend explaining node colors and edge types
+- Export as PNG/SVG for presentations
+
+**API Endpoint:**
+- `GET /api/mindmap/data?tenantId={id}&quarter={q}&year={y}` 
+- Returns all interconnected entities with relationships for the specified time period
+
+**Business Value:**
+- Visual clarity on strategic alignment
+- Quick identification of gaps (unlinked strategies, underutilized values)
+- Executive communication tool for board presentations
+- Validates strategic coherence across the organization
+- Helps consultants diagnose alignment issues
+
+**Technical Notes:**
+- Use `@xyflow/react` (formerly react-flow-renderer) for graph rendering
+- Transform existing relationships into graph nodes/edges format
+- Leverage existing backend relationships (linkedGoals, linkedStrategies, objectiveId, keyResultId)
+- Build on existing ValuesAlignmentWidget analytics patterns
+
+**Dependencies:**
+- Install `@xyflow/react` package
+- Existing relationship data (already implemented)
+- No schema changes required
+
+---
+
 ## LOWER PRIORITY / FUTURE
 
-### 10. Advanced AI Features ⭐ NEW
+### 11. Advanced AI Features ⭐ NEW
 
 **Status:** Not Started  
 **Priority:** Low  
@@ -328,7 +381,7 @@ Compliance features for regulated industries and enterprise governance.
 
 ---
 
-### 11. Sector-Specific Playbooks ⭐ NEW
+### 12. Sector-Specific Playbooks ⭐ NEW
 
 **Status:** Not Started  
 **Priority:** Low  
@@ -347,7 +400,7 @@ Pre-built Company OS templates for different industries.
 
 ---
 
-### 12. Microsoft 365 Deep Integration
+### 13. Microsoft 365 Deep Integration
 
 **Status:** Infrastructure Ready  
 **Priority:** Low (superseded by Entra SSO backlog item)  
