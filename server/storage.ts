@@ -14,7 +14,7 @@ import {
   strategyValues
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, sql } from "drizzle-orm";
+import { eq, and, or, desc, sql, isNull } from "drizzle-orm";
 import { hashPassword } from "./auth";
 
 export interface IStorage {
@@ -427,20 +427,42 @@ export class DatabaseStorage implements IStorage {
 
   // Enhanced OKR Method Implementations
   async getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number): Promise<Objective[]> {
-    if (quarter !== undefined && year !== undefined) {
-      // Include both quarterly OKRs AND annual OKRs (quarter=0) for that year
+    // If quarter is 0, fetch only annual objectives (quarter IS NULL)
+    if (quarter === 0 && year !== undefined) {
+      return await db.select().from(objectives).where(
+        and(
+          eq(objectives.tenantId, tenantId),
+          eq(objectives.year, year),
+          isNull(objectives.quarter)
+        )
+      );
+    }
+    
+    // If quarter and year provided, include both quarterly AND annual objectives
+    if (quarter !== undefined && quarter > 0 && year !== undefined) {
       return await db.select().from(objectives).where(
         and(
           eq(objectives.tenantId, tenantId),
           eq(objectives.year, year),
           or(
             eq(objectives.quarter, quarter),
-            eq(objectives.quarter, 0)
+            isNull(objectives.quarter)
           )
         )
       );
     }
     
+    // If only year provided, fetch all objectives for that year
+    if (year !== undefined) {
+      return await db.select().from(objectives).where(
+        and(
+          eq(objectives.tenantId, tenantId),
+          eq(objectives.year, year)
+        )
+      );
+    }
+    
+    // No filters, return all
     return await db.select().from(objectives).where(eq(objectives.tenantId, tenantId));
   }
 
@@ -585,20 +607,42 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBigRocksByTenantId(tenantId: string, quarter?: number, year?: number): Promise<BigRock[]> {
-    if (quarter !== undefined && year !== undefined) {
-      // Include both quarterly big rocks AND annual big rocks (quarter=0) for that year
+    // If quarter is 0, fetch only annual big rocks (quarter IS NULL)
+    if (quarter === 0 && year !== undefined) {
+      return await db.select().from(bigRocks).where(
+        and(
+          eq(bigRocks.tenantId, tenantId),
+          eq(bigRocks.year, year),
+          isNull(bigRocks.quarter)
+        )
+      );
+    }
+    
+    // If quarter and year provided, include both quarterly AND annual big rocks
+    if (quarter !== undefined && quarter > 0 && year !== undefined) {
       return await db.select().from(bigRocks).where(
         and(
           eq(bigRocks.tenantId, tenantId),
           eq(bigRocks.year, year),
           or(
             eq(bigRocks.quarter, quarter),
-            eq(bigRocks.quarter, 0)
+            isNull(bigRocks.quarter)
           )
         )
       );
     }
     
+    // If only year provided, fetch all big rocks for that year
+    if (year !== undefined) {
+      return await db.select().from(bigRocks).where(
+        and(
+          eq(bigRocks.tenantId, tenantId),
+          eq(bigRocks.year, year)
+        )
+      );
+    }
+    
+    // No filters, return all
     return await db.select().from(bigRocks).where(eq(bigRocks.tenantId, tenantId));
   }
 
