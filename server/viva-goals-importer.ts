@@ -392,16 +392,38 @@ export class VivaGoalsImporter {
   }
 
   /**
+   * Determine objective level based on Viva Goals data
+   */
+  determineObjectiveLevel(viva: VivaObjective): 'organization' | 'division' | 'team' | 'individual' {
+    // Check if it has a team assignment
+    if (viva.Teams && viva.Teams.length > 0) {
+      return 'team';
+    }
+    
+    // If it has a parent but no team, it might be division or individual
+    if (viva['Parent IDs'] && viva['Parent IDs'].length > 0) {
+      // For now, treat parent objectives without teams as division level
+      return 'division';
+    }
+    
+    // No parent, no team = organization level
+    return 'organization';
+  }
+
+  /**
    * Execute the import - create all entities in the database
    */
   async executeImport(storage: any): Promise<ImportResult> {
     try {
-      // Phase 1: Create organization-level objectives (Viva "Big rocks")
-      const bigRockMap = new Map<number, string>(); // vivaId -> vegaId
+      const objectiveMap = new Map<number, string>(); // vivaId -> vegaId
       
-      const bigRocks = this.objectives.filter(obj => obj.Type === 'Big rock' && !obj['Parent IDs']?.length);
+      // Get all Big rock objectives
+      const allBigRocks = this.objectives.filter(obj => obj.Type === 'Big rock');
       
-      for (const viva of bigRocks) {
+      // Phase 1: Create organization-level objectives (no parents)
+      const orgLevelObjectives = allBigRocks.filter(obj => !obj['Parent IDs']?.length);
+      
+      for (const viva of orgLevelObjectives) {
         try {
           const objectiveData = this.mapBigRockToObjective(viva);
           
@@ -419,7 +441,7 @@ export class VivaGoalsImporter {
               this.result.warnings.push(`Skipped duplicate objective: "${viva.Title}"`);
               this.result.skippedItems.push({ type: 'objective', title: viva.Title, vivaId: viva.ID });
               // Still map it so child entities can reference it
-              bigRockMap.set(viva.ID, duplicate.id);
+              objectiveMap.set(viva.ID, duplicate.id);
               this.result.entityMap[viva.ID] = {
                 type: 'objective',
                 vegaId: duplicate.id,
@@ -430,26 +452,83 @@ export class VivaGoalsImporter {
           
           const created = await storage.createObjective(objectiveData);
           
-          bigRockMap.set(viva.ID, created.id);
+          objectiveMap.set(viva.ID, created.id);
           this.result.entityMap[viva.ID] = {
             type: 'objective',
             vegaId: created.id,
           };
           this.result.summary.objectivesCreated++;
         } catch (error) {
-          this.result.warnings.push(`Failed to import objective "${viva.Title}": ${error instanceof Error ? error.message : 'Unknown error'}`);
+          this.result.warnings.push(`Failed to import organization objective "${viva.Title}": ${error instanceof Error ? error.message : 'Unknown error'}`);
           this.result.skippedItems.push({ type: 'objective', title: viva.Title, vivaId: viva.ID });
         }
       }
 
-      // Phase 2: Create Key Results (Viva "KPIs") under objectives
+      // Phase 2: Create child objectives (team/division level with parents)
+      const childObjectives = allBigRocks.filter(obj => obj['Parent IDs']?.length > 0);
+      
+      for (const viva of childObjectives) {
+        try {
+          const objectiveData = this.mapBigRockToObjective(viva);
+          
+          // Determine the level
+          objectiveData.level = this.determineObjectiveLevel(viva);
+          
+          // Link to parent objective
+          const parentVivaId = viva['Parent IDs']?.[0];
+          const parentVegaId = parentVivaId ? objectiveMap.get(parentVivaId) : null;
+          
+          if (parentVegaId) {
+            objectiveData.parentId = parentVegaId;
+          } else {
+            this.result.warnings.push(`Child objective "${viva.Title}" parent not found, importing as top-level`);
+          }
+          
+          // Check for duplicates
+          const existing = await storage.getObjectivesByTenantId(
+            objectiveData.tenantId!,
+            objectiveData.quarter,
+            objectiveData.year
+          );
+          
+          const duplicate = existing.find((obj: any) => obj.title === objectiveData.title);
+          
+          if (duplicate) {
+            if (this.options.duplicateStrategy === 'skip') {
+              this.result.warnings.push(`Skipped duplicate child objective: "${viva.Title}"`);
+              this.result.skippedItems.push({ type: 'objective', title: viva.Title, vivaId: viva.ID });
+              // Still map it so child entities can reference it
+              objectiveMap.set(viva.ID, duplicate.id);
+              this.result.entityMap[viva.ID] = {
+                type: 'objective',
+                vegaId: duplicate.id,
+              };
+              continue;
+            }
+          }
+          
+          const created = await storage.createObjective(objectiveData);
+          
+          objectiveMap.set(viva.ID, created.id);
+          this.result.entityMap[viva.ID] = {
+            type: 'objective',
+            vegaId: created.id,
+          };
+          this.result.summary.objectivesCreated++;
+        } catch (error) {
+          this.result.warnings.push(`Failed to import child objective "${viva.Title}": ${error instanceof Error ? error.message : 'Unknown error'}`);
+          this.result.skippedItems.push({ type: 'objective', title: viva.Title, vivaId: viva.ID });
+        }
+      }
+
+      // Phase 3: Create Key Results (Viva "KPIs") under objectives
       const kpis = this.objectives.filter(obj => obj.Type === 'Kpi');
       
       for (const viva of kpis) {
         try {
           // Find parent objective
           const parentVivaId = viva['Parent IDs']?.[0];
-          const parentVegaId = parentVivaId ? bigRockMap.get(parentVivaId) : null;
+          const parentVegaId = parentVivaId ? objectiveMap.get(parentVivaId) : null;
           
           if (!parentVegaId) {
             this.result.warnings.push(`KPI "${viva.Title}" has no valid parent objective, skipping`);
@@ -471,7 +550,7 @@ export class VivaGoalsImporter {
         }
       }
 
-      // Phase 3: Create Big Rocks (Viva "Projects")
+      // Phase 4: Create Big Rocks (Viva "Projects")
       const projects = this.objectives.filter(obj => obj.Type === 'Project');
       
       for (const viva of projects) {
@@ -480,7 +559,7 @@ export class VivaGoalsImporter {
           
           // Try to link to parent objective if available
           const parentVivaId = viva['Parent IDs']?.[0];
-          const parentVegaId = parentVivaId ? bigRockMap.get(parentVivaId) : null;
+          const parentVegaId = parentVivaId ? objectiveMap.get(parentVivaId) : null;
           
           if (parentVegaId) {
             bigRockData.objectiveId = parentVegaId;
@@ -499,7 +578,7 @@ export class VivaGoalsImporter {
         }
       }
 
-      // Phase 4: Import check-ins (if enabled)
+      // Phase 5: Import check-ins (if enabled)
       if (this.options.importCheckIns && this.checkIns.length > 0) {
         for (const vivaCheckIn of this.checkIns) {
           try {
