@@ -406,11 +406,11 @@ export class VivaGoalsImporter {
           const objectiveData = this.mapBigRockToObjective(viva);
           
           // Check for duplicates
-          const existing = await storage.getObjectives({
-            tenantId: objectiveData.tenantId,
-            quarter: objectiveData.quarter,
-            year: objectiveData.year,
-          });
+          const existing = await storage.getObjectivesByTenantId(
+            objectiveData.tenantId!,
+            objectiveData.quarter,
+            objectiveData.year
+          );
           
           const duplicate = existing.find((obj: any) => obj.title === objectiveData.title);
           
