@@ -1,0 +1,92 @@
+[
+  {
+    "ID": 304529,
+    "Time Period Name": "Q1 2024",
+    "Start Date": "2024-01-01",
+    "End Date": "2024-03-31"
+  },
+  {
+    "ID": 304530,
+    "Time Period Name": "Q2 2024",
+    "Start Date": "2024-04-01",
+    "End Date": "2024-06-30"
+  },
+  {
+    "ID": 304531,
+    "Time Period Name": "Q3 2024",
+    "Start Date": "2024-07-01",
+    "End Date": "2024-09-30"
+  },
+  {
+    "ID": 304532,
+    "Time Period Name": "Q4 2024",
+    "Start Date": "2024-10-01",
+    "End Date": "2024-12-31"
+  },
+  {
+    "ID": 304533,
+    "Time Period Name": "Annual 2024",
+    "Start Date": "2024-01-01",
+    "End Date": "2024-12-31"
+  },
+  {
+    "ID": 364845,
+    "Time Period Name": "Q1 2025",
+    "Start Date": "2025-01-01",
+    "End Date": "2025-03-31"
+  },
+  {
+    "ID": 364846,
+    "Time Period Name": "Q2 2025",
+    "Start Date": "2025-04-01",
+    "End Date": "2025-06-30"
+  },
+  {
+    "ID": 364847,
+    "Time Period Name": "Q3 2025",
+    "Start Date": "2025-07-01",
+    "End Date": "2025-09-30"
+  },
+  {
+    "ID": 364848,
+    "Time Period Name": "Q4 2025",
+    "Start Date": "2025-10-01",
+    "End Date": "2025-12-31"
+  },
+  {
+    "ID": 364849,
+    "Time Period Name": "Annual 2025",
+    "Start Date": "2025-01-01",
+    "End Date": "2025-12-31"
+  },
+  {
+    "ID": 470530,
+    "Time Period Name": "Q1 2026",
+    "Start Date": "2026-01-01",
+    "End Date": "2026-03-31"
+  },
+  {
+    "ID": 470531,
+    "Time Period Name": "Q2 2026",
+    "Start Date": "2026-04-01",
+    "End Date": "2026-06-30"
+  },
+  {
+    "ID": 470532,
+    "Time Period Name": "Q3 2026",
+    "Start Date": "2026-07-01",
+    "End Date": "2026-09-30"
+  },
+  {
+    "ID": 470533,
+    "Time Period Name": "Q4 2026",
+    "Start Date": "2026-10-01",
+    "End Date": "2026-12-31"
+  },
+  {
+    "ID": 470534,
+    "Time Period Name": "Annual 2026",
+    "Start Date": "2026-01-01",
+    "End Date": "2026-12-31"
+  }
+]
