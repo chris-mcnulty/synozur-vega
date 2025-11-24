@@ -9,7 +9,7 @@ export const users = pgTable("users", {
   password: text("password").notNull(),
   name: text("name"),
   role: text("role").notNull(),
-  tenantId: varchar("tenant_id").references(() => tenants.id),
+  tenantId: varchar("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }),
   emailVerified: boolean("email_verified").notNull().default(false),
   verificationToken: text("verification_token"),
   resetToken: text("reset_token"),
@@ -51,7 +51,7 @@ export type CompanyValue = {
 
 export const foundations = pgTable("foundations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   mission: text("mission"),
   vision: text("vision"),
   values: jsonb("values").$type<CompanyValue[]>(),
@@ -81,7 +81,7 @@ export type Foundation = typeof foundations.$inferSelect;
 
 export const strategies = pgTable("strategies", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   title: text("title").notNull(),
   description: text("description"),
   priority: text("priority"),
@@ -105,7 +105,7 @@ export type Strategy = typeof strategies.$inferSelect;
 
 export const okrs = pgTable("okrs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   objective: text("objective").notNull(),
   progress: integer("progress"),
   linkedGoals: jsonb("linked_goals").$type<string[]>(),
@@ -131,7 +131,7 @@ export type Okr = typeof okrs.$inferSelect;
 
 export const kpis = pgTable("kpis", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   label: text("label").notNull(),
   value: integer("value"),
   change: integer("change"),
@@ -155,7 +155,7 @@ export type Kpi = typeof kpis.$inferSelect;
 
 export const meetings = pgTable("meetings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   meetingType: text("meeting_type"),
   title: text("title").notNull(),
   date: timestamp("date"),
@@ -184,7 +184,7 @@ export type Meeting = typeof meetings.$inferSelect;
 // Enhanced OKRs tables
 export const objectives = pgTable("objectives", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   title: text("title").notNull(),
   description: text("description"),
   
@@ -243,8 +243,8 @@ export const objectives = pgTable("objectives", {
 
 export const keyResults = pgTable("key_results", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  objectiveId: varchar("objective_id").notNull().references(() => objectives.id),
-  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  objectiveId: varchar("objective_id").notNull().references(() => objectives.id, { onDelete: 'cascade' }),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   
   title: text("title").notNull(),
   description: text("description"),
@@ -293,7 +293,7 @@ export const keyResults = pgTable("key_results", {
 
 export const bigRocks = pgTable("big_rocks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   
   title: text("title").notNull(),
   description: text("description"),
@@ -339,7 +339,7 @@ export const bigRocks = pgTable("big_rocks", {
 
 export const checkIns = pgTable("check_ins", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   
   // What is being checked in
   entityType: text("entity_type").notNull(), // 'objective', 'key_result', 'big_rock'
@@ -430,7 +430,7 @@ export const objectiveValues = pgTable("objective_values", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   objectiveId: varchar("objective_id").notNull().references(() => objectives.id, { onDelete: 'cascade' }),
   valueTitle: text("value_title").notNull(),
-  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   uniqueObjectiveValue: unique().on(table.objectiveId, table.valueTitle),
@@ -440,7 +440,7 @@ export const strategyValues = pgTable("strategy_values", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   strategyId: varchar("strategy_id").notNull().references(() => strategies.id, { onDelete: 'cascade' }),
   valueTitle: text("value_title").notNull(),
-  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   createdAt: timestamp("created_at").defaultNow(),
 }, (table) => ({
   uniqueStrategyValue: unique().on(table.strategyId, table.valueTitle),
@@ -452,7 +452,7 @@ export type StrategyValue = typeof strategyValues.$inferSelect;
 // Teams table for divisional/departmental OKR organization
 export const teams = pgTable("teams", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   name: text("name").notNull(),
   description: text("description"),
   
@@ -486,7 +486,7 @@ export type Team = typeof teams.$inferSelect;
 // Review snapshots for Focus Rhythm point-in-time analysis
 export const reviewSnapshots = pgTable("review_snapshots", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   
   // Review metadata
   title: text("title").notNull(),
@@ -546,7 +546,7 @@ export type ReviewSnapshot = typeof reviewSnapshots.$inferSelect;
 // Import tracking to prevent duplicate Viva Goals imports
 export const importHistory = pgTable("import_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").notNull().references(() => tenants.id),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   
   // Import details
   importType: text("import_type").notNull(), // 'viva_goals', 'csv', 'json'
