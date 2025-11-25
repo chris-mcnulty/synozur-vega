@@ -170,6 +170,7 @@ Chat-based AI assistant with culture-grounded outputs and MCP-style agent archit
 - Suggest objectives aligned with strategic priorities
 - Draft key results based on historical patterns
 - Generate meeting agendas incorporating company culture
+- **AI Big Rock Generator** ⭐ NEW: Suggest missing Big Rocks based on analysis of objectives, key results, strategies, and goals. Identifies execution gaps where strategic priorities lack corresponding initiatives.
 
 **Phase 3: Advanced Agent Features (4 weeks)**
 - Human-in-the-loop controls (approve before taking action)
@@ -379,6 +380,12 @@ Interactive visual graph showing how company values, annual goals, strategies, o
 - Variance detection (alert on unusual patterns)
 - Sentiment analysis on meeting notes
 - Automated insights ("Your team is behind on 3 objectives")
+- **AI Big Rock Suggestions** ⭐ NEW: Analyze existing objectives, key results, strategies, and annual goals to:
+  - Identify execution gaps (objectives without supporting initiatives)
+  - Suggest new Big Rocks to close strategic gaps
+  - Recommend Big Rock assignments based on team capacity
+  - Generate draft Big Rock descriptions with success criteria
+  - Priority scoring based on strategic alignment and value tagging
 
 **Business Value:** Differentiation, but not essential for launch.
 
