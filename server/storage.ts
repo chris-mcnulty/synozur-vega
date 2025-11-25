@@ -104,7 +104,12 @@ export interface IStorage {
   getBigRocksLinkedToKeyResult(keyResultId: string): Promise<BigRock[]>;
   
   // Hierarchy methods
-  getObjectiveHierarchy(tenantId: string, quarter?: number, year?: number): Promise<any[]>;
+  getObjectiveHierarchy(tenantId: string, quarter?: number, year?: number): Promise<Array<Objective & {
+    keyResults: KeyResult[];
+    childObjectives: Objective[];
+    linkedBigRocks: BigRock[];
+    lastUpdated: Date | null;
+  }>>;
   
   getCheckInsByEntityId(entityType: string, entityId: string): Promise<CheckIn[]>;
   getCheckInById(id: string): Promise<CheckIn | undefined>;
@@ -787,12 +792,14 @@ export class DatabaseStorage implements IStorage {
     return links.map(link => link.big_rocks);
   }
 
-  async getObjectiveHierarchy(tenantId: string, quarter?: number, year?: number): Promise<any[]> {
+  async getObjectiveHierarchy(tenantId: string, quarter?: number, year?: number): Promise<Array<Objective & {
+    keyResults: KeyResult[];
+    childObjectives: Objective[];
+    linkedBigRocks: BigRock[];
+    lastUpdated: Date | null;
+  }>> {
     // Get all objectives for the tenant and time period
     const allObjectives = await this.getObjectivesByTenantId(tenantId, quarter, year);
-    
-    // Build a map of objectives by ID for quick lookup
-    const objectiveMap = new Map(allObjectives.map(obj => [obj.id, obj]));
     
     // For each objective, get its key results, child objectives, and linked big rocks
     const enrichedObjectives = await Promise.all(

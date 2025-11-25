@@ -272,6 +272,92 @@ okrRouter.delete("/big-rocks/:id", async (req, res) => {
   }
 });
 
+// Link/Unlink Big Rocks to Objectives
+okrRouter.post("/objectives/:id/link-big-rock", async (req, res) => {
+  try {
+    const { bigRockId, tenantId } = req.body;
+    if (!bigRockId || !tenantId) {
+      return res.status(400).json({ error: "bigRockId and tenantId are required" });
+    }
+    
+    await storage.linkObjectiveToBigRock(req.params.id, bigRockId, tenantId);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+okrRouter.delete("/objectives/:id/link-big-rock/:bigRockId", async (req, res) => {
+  try {
+    await storage.unlinkObjectiveToBigRock(req.params.id, req.params.bigRockId);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+okrRouter.get("/objectives/:id/linked-big-rocks", async (req, res) => {
+  try {
+    const bigRocks = await storage.getBigRocksLinkedToObjective(req.params.id);
+    res.json(bigRocks);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Link/Unlink Big Rocks to Key Results
+okrRouter.post("/key-results/:id/link-big-rock", async (req, res) => {
+  try {
+    const { bigRockId, tenantId } = req.body;
+    if (!bigRockId || !tenantId) {
+      return res.status(400).json({ error: "bigRockId and tenantId are required" });
+    }
+    
+    await storage.linkKeyResultToBigRock(req.params.id, bigRockId, tenantId);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+okrRouter.delete("/key-results/:id/link-big-rock/:bigRockId", async (req, res) => {
+  try {
+    await storage.unlinkKeyResultToBigRock(req.params.id, req.params.bigRockId);
+    res.json({ success: true });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+okrRouter.get("/key-results/:id/linked-big-rocks", async (req, res) => {
+  try {
+    const bigRocks = await storage.getBigRocksLinkedToKeyResult(req.params.id);
+    res.json(bigRocks);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Hierarchical OKR View
+okrRouter.get("/hierarchy", async (req, res) => {
+  try {
+    const { tenantId, quarter, year } = req.query;
+    if (!tenantId) {
+      return res.status(400).json({ error: "tenantId is required" });
+    }
+    
+    const hierarchy = await storage.getObjectiveHierarchy(
+      tenantId as string,
+      quarter ? Number(quarter) : undefined,
+      year ? Number(year) : undefined
+    );
+    
+    res.json(hierarchy);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Check-Ins
 okrRouter.get("/check-ins", async (req, res) => {
   try {
