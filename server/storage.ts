@@ -66,6 +66,8 @@ export interface IStorage {
   // Enhanced OKR Methods
   getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number, level?: string, teamId?: string): Promise<Objective[]>;
   getTeamsByTenantId(tenantId: string): Promise<Team[]>;
+  getTeamByName(tenantId: string, name: string): Promise<Team | undefined>;
+  createTeam(team: InsertTeam): Promise<Team>;
   getObjectiveById(id: string): Promise<Objective | undefined>;
   getChildObjectives(parentId: string): Promise<Objective[]>;
   createObjective(objective: InsertObjective): Promise<Objective>;
@@ -464,6 +466,16 @@ export class DatabaseStorage implements IStorage {
 
   async getTeamsByTenantId(tenantId: string): Promise<Team[]> {
     return await db.select().from(teams).where(eq(teams.tenantId, tenantId));
+  }
+
+  async getTeamByName(tenantId: string, name: string): Promise<Team | undefined> {
+    const [team] = await db.select().from(teams).where(and(eq(teams.tenantId, tenantId), eq(teams.name, name)));
+    return team || undefined;
+  }
+
+  async createTeam(team: InsertTeam): Promise<Team> {
+    const [created] = await db.insert(teams).values(team).returning();
+    return created;
   }
 
   async getObjectiveById(id: string): Promise<Objective | undefined> {

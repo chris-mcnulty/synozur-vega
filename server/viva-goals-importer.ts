@@ -416,6 +416,76 @@ export class VivaGoalsImporter {
   async executeImport(storage: any): Promise<ImportResult> {
     try {
       const objectiveMap = new Map<number, string>(); // vivaId -> vegaId
+      const teamMap = new Map<number, string>(); // vivaTeamId -> vegaTeamId
+      
+      // Phase 0: Import or map teams
+      if (this.options.importTeams && this.teams.length > 0) {
+        for (const vivaTeam of this.teams) {
+          try {
+            // Check if team already exists by name
+            const existingTeam = await storage.getTeamByName(
+              this.options.tenantId, 
+              vivaTeam['Team Name']
+            );
+            
+            if (existingTeam) {
+              // Map existing team
+              teamMap.set(vivaTeam.ID, existingTeam.id);
+            } else {
+              // Create new team
+              const teamData = {
+                tenantId: this.options.tenantId,
+                name: vivaTeam['Team Name'],
+                description: vivaTeam.Description || undefined,
+                leaderEmail: vivaTeam['Team Owners']?.[0]?.Email || undefined,
+                createdBy: this.options.userId,
+                updatedBy: this.options.userId,
+              };
+              
+              const created = await storage.createTeam(teamData);
+              teamMap.set(vivaTeam.ID, created.id);
+              this.result.summary.teamsCreated++;
+            }
+          } catch (error) {
+            this.result.warnings.push(`Failed to import team "${vivaTeam['Team Name']}": ${error instanceof Error ? error.message : 'Unknown error'}`);
+          }
+        }
+      }
+      
+      // Also map teams from objectives (some teams may only appear in objective references)
+      for (const viva of this.objectives) {
+        if (viva.Teams && viva.Teams.length > 0) {
+          for (const vivaTeamRef of viva.Teams) {
+            if (!teamMap.has(vivaTeamRef.ID)) {
+              try {
+                // Check if team exists by name
+                const existingTeam = await storage.getTeamByName(
+                  this.options.tenantId,
+                  vivaTeamRef.Name
+                );
+                
+                if (existingTeam) {
+                  teamMap.set(vivaTeamRef.ID, existingTeam.id);
+                } else if (this.options.importTeams) {
+                  // Create team from reference
+                  const teamData = {
+                    tenantId: this.options.tenantId,
+                    name: vivaTeamRef.Name,
+                    createdBy: this.options.userId,
+                    updatedBy: this.options.userId,
+                  };
+                  
+                  const created = await storage.createTeam(teamData);
+                  teamMap.set(vivaTeamRef.ID, created.id);
+                  this.result.summary.teamsCreated++;
+                }
+              } catch (error) {
+                // Silently continue - team mapping is best effort
+              }
+            }
+          }
+        }
+      }
       
       // Get all Big rock objectives
       const allBigRocks = this.objectives.filter(obj => obj.Type === 'Big rock');
@@ -426,6 +496,15 @@ export class VivaGoalsImporter {
       for (const viva of orgLevelObjectives) {
         try {
           const objectiveData = this.mapBigRockToObjective(viva);
+          
+          // Set teamId if objective has a team assignment
+          if (viva.Teams && viva.Teams.length > 0) {
+            const vivaTeamId = viva.Teams[0].ID;
+            const vegaTeamId = teamMap.get(vivaTeamId);
+            if (vegaTeamId) {
+              objectiveData.teamId = vegaTeamId;
+            }
+          }
           
           // Check for duplicates
           const existing = await storage.getObjectivesByTenantId(
@@ -482,6 +561,15 @@ export class VivaGoalsImporter {
             objectiveData.parentId = parentVegaId;
           } else {
             this.result.warnings.push(`Child objective "${viva.Title}" parent not found, importing as top-level`);
+          }
+          
+          // Set teamId if objective has a team assignment
+          if (viva.Teams && viva.Teams.length > 0) {
+            const vivaTeamId = viva.Teams[0].ID;
+            const vegaTeamId = teamMap.get(vivaTeamId);
+            if (vegaTeamId) {
+              objectiveData.teamId = vegaTeamId;
+            }
           }
           
           // Check for duplicates
