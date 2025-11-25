@@ -56,7 +56,8 @@ aiRouter.post("/parse-pdf", requireAdmin, async (req: Request, res: Response) =>
     req.on('end', async () => {
       try {
         const buffer = Buffer.concat(chunks);
-        const pdfParse = (await import("pdf-parse")).default;
+        const pdfParseModule = await import("pdf-parse");
+        const pdfParse = pdfParseModule.default || pdfParseModule;
         const data = await pdfParse(buffer);
         res.json({ text: data.text });
       } catch (parseError) {
