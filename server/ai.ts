@@ -249,3 +249,160 @@ For each Big Rock, provide:
 
   return getChatCompletion(messages, { tenantId: context.tenantId });
 }
+
+// Interface for progress summary data
+export interface ProgressSummaryData {
+  objectives: Array<{
+    id: string;
+    title: string;
+    progress: number;
+    status: string;
+    keyResults?: Array<{
+      id: string;
+      title: string;
+      currentValue: number;
+      targetValue: number;
+      unit: string;
+      progress: number;
+    }>;
+  }>;
+  checkIns: Array<{
+    entityType: string;
+    entityId: string;
+    entityTitle?: string;
+    previousProgress: number;
+    newProgress: number;
+    note?: string;
+    achievements?: string[];
+    challenges?: string[];
+    nextSteps?: string[];
+    createdAt: Date;
+  }>;
+  quarter: number;
+  year: number;
+  dateRange?: string;
+}
+
+// Generate AI progress summary for objectives and recent check-ins
+export async function generateProgressSummary(
+  context: {
+    tenantId: string;
+    data: ProgressSummaryData;
+    customPrompt?: string;
+  }
+): Promise<string> {
+  const { data, customPrompt } = context;
+  
+  // Build objectives summary
+  const objectivesSummary = data.objectives.map(obj => {
+    const krSummary = obj.keyResults?.map(kr => 
+      `    - ${kr.title}: ${kr.currentValue}/${kr.targetValue} ${kr.unit || ''} (${Math.round(kr.progress)}%)`
+    ).join('\n') || '    (No key results)';
+    
+    return `  * **${obj.title}** - ${Math.round(obj.progress)}% complete (${obj.status})\n${krSummary}`;
+  }).join('\n\n');
+
+  // Build check-ins summary
+  const checkInsSummary = data.checkIns.length > 0 
+    ? data.checkIns.map(ci => {
+        const progressChange = ci.newProgress - ci.previousProgress;
+        const changeText = progressChange >= 0 ? `+${progressChange.toFixed(1)}%` : `${progressChange.toFixed(1)}%`;
+        const achievementText = ci.achievements?.length ? `\n      Achievements: ${ci.achievements.join(', ')}` : '';
+        const challengeText = ci.challenges?.length ? `\n      Challenges: ${ci.challenges.join(', ')}` : '';
+        const nextStepsText = ci.nextSteps?.length ? `\n      Next Steps: ${ci.nextSteps.join(', ')}` : '';
+        
+        return `  * ${ci.entityTitle || ci.entityType}: ${changeText} progress${ci.note ? ` - "${ci.note}"` : ''}${achievementText}${challengeText}${nextStepsText}`;
+      }).join('\n')
+    : '  No check-ins recorded for the selected period.';
+
+  const defaultPrompt = `Generate a concise executive summary of OKR progress that can be easily shared (copied/pasted) into email, Slack, or a meeting update. The summary should be professional, highlight key wins and areas needing attention, and be formatted for readability.`;
+
+  const messages: ChatMessage[] = [
+    {
+      role: "user",
+      content: `${customPrompt || defaultPrompt}
+
+## Current OKR Status (Q${data.quarter} ${data.year})
+${data.dateRange ? `**Period:** ${data.dateRange}\n` : ''}
+### Objectives Overview
+${objectivesSummary || 'No objectives in the current view.'}
+
+### Recent Check-ins & Updates
+${checkInsSummary}
+
+Please provide:
+1. **Executive Summary** (2-3 sentences highlighting overall progress)
+2. **Key Wins** (bullet points of significant achievements)
+3. **Attention Areas** (items that may need focus or support)
+4. **Looking Ahead** (brief preview of upcoming priorities)
+
+Format the response so it's ready to copy and paste directly into a communication.`,
+    },
+  ];
+
+  return getChatCompletion(messages, { tenantId: context.tenantId, maxTokens: 2048 });
+}
+
+// Streaming version for better UX
+export async function* streamProgressSummary(
+  context: {
+    tenantId: string;
+    data: ProgressSummaryData;
+    customPrompt?: string;
+  }
+): AsyncGenerator<string, void, unknown> {
+  const { data, customPrompt } = context;
+  
+  // Build objectives summary
+  const objectivesSummary = data.objectives.map(obj => {
+    const krSummary = obj.keyResults?.map(kr => 
+      `    - ${kr.title}: ${kr.currentValue}/${kr.targetValue} ${kr.unit || ''} (${Math.round(kr.progress)}%)`
+    ).join('\n') || '    (No key results)';
+    
+    return `  * **${obj.title}** - ${Math.round(obj.progress)}% complete (${obj.status})\n${krSummary}`;
+  }).join('\n\n');
+
+  // Build check-ins summary
+  const checkInsSummary = data.checkIns.length > 0 
+    ? data.checkIns.map(ci => {
+        const progressChange = ci.newProgress - ci.previousProgress;
+        const changeText = progressChange >= 0 ? `+${progressChange.toFixed(1)}%` : `${progressChange.toFixed(1)}%`;
+        const achievementText = ci.achievements?.length ? `\n      Achievements: ${ci.achievements.join(', ')}` : '';
+        const challengeText = ci.challenges?.length ? `\n      Challenges: ${ci.challenges.join(', ')}` : '';
+        const nextStepsText = ci.nextSteps?.length ? `\n      Next Steps: ${ci.nextSteps.join(', ')}` : '';
+        
+        return `  * ${ci.entityTitle || ci.entityType}: ${changeText} progress${ci.note ? ` - "${ci.note}"` : ''}${achievementText}${challengeText}${nextStepsText}`;
+      }).join('\n')
+    : '  No check-ins recorded for the selected period.';
+
+  const defaultPrompt = `Generate a concise executive summary of OKR progress that can be easily shared (copied/pasted) into email, Slack, or a meeting update. The summary should be professional, highlight key wins and areas needing attention, and be formatted for readability.`;
+
+  const messages: ChatMessage[] = [
+    {
+      role: "user",
+      content: `${customPrompt || defaultPrompt}
+
+## Current OKR Status (Q${data.quarter} ${data.year})
+${data.dateRange ? `**Period:** ${data.dateRange}\n` : ''}
+### Objectives Overview
+${objectivesSummary || 'No objectives in the current view.'}
+
+### Recent Check-ins & Updates
+${checkInsSummary}
+
+Please provide:
+1. **Executive Summary** (2-3 sentences highlighting overall progress)
+2. **Key Wins** (bullet points of significant achievements)
+3. **Attention Areas** (items that may need focus or support)
+4. **Looking Ahead** (brief preview of upcoming priorities)
+
+Format the response so it's ready to copy and paste directly into a communication.`,
+    },
+  ];
+
+  // Use the streaming function
+  const stream = streamChatCompletion(messages, { tenantId: context.tenantId, maxTokens: 2048 });
+  for await (const chunk of stream) {
+    yield chunk;
+  }
+}

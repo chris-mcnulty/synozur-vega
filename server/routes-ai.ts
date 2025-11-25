@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { storage } from "./storage";
 import { insertGroundingDocumentSchema } from "@shared/schema";
-import { getChatCompletion, streamChatCompletion, generateOKRSuggestions, suggestBigRocks, type ChatMessage } from "./ai";
+import { getChatCompletion, streamChatCompletion, generateOKRSuggestions, suggestBigRocks, streamProgressSummary, type ChatMessage, type ProgressSummaryData } from "./ai";
 import { z } from "zod";
 
 export const aiRouter = Router();
@@ -285,5 +285,155 @@ aiRouter.post("/suggest/big-rocks", requireAuth, async (req: Request, res: Respo
       return res.status(400).json({ error: "Invalid request format", details: error.errors });
     }
     res.status(500).json({ error: error.message || "Failed to generate Big Rock suggestions" });
+  }
+});
+
+// Progress summary endpoint - generates AI summary of OKR progress for a given interval
+const progressSummarySchema = z.object({
+  tenantId: z.string(),
+  objectives: z.array(z.object({
+    id: z.string(),
+    title: z.string(),
+    progress: z.number(),
+    status: z.string(),
+    keyResults: z.array(z.object({
+      id: z.string(),
+      title: z.string(),
+      currentValue: z.number(),
+      targetValue: z.number(),
+      unit: z.string(),
+      progress: z.number(),
+    })).optional(),
+  })),
+  quarter: z.number(),
+  year: z.number(),
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  customPrompt: z.string().optional(),
+});
+
+aiRouter.post("/progress-summary/stream", requireAuth, async (req: Request, res: Response) => {
+  console.log("[Progress Summary] Request received");
+  try {
+    const parsed = progressSummarySchema.parse(req.body);
+    const user = (req as any).user;
+    console.log("[Progress Summary] User:", user.email, "Objectives count:", parsed.objectives.length);
+    
+    // Build date range description
+    let dateRange = "";
+    if (parsed.startDate && parsed.endDate) {
+      dateRange = `${parsed.startDate} to ${parsed.endDate}`;
+    } else if (parsed.startDate) {
+      dateRange = `From ${parsed.startDate}`;
+    } else if (parsed.endDate) {
+      dateRange = `Until ${parsed.endDate}`;
+    }
+
+    // Fetch check-ins for all objectives and their key results within the date range
+    const allCheckIns: ProgressSummaryData['checkIns'] = [];
+    
+    for (const obj of parsed.objectives) {
+      // Get check-ins for the objective
+      const objCheckIns = await storage.getCheckInsByEntityId('objective', obj.id);
+      
+      // Filter by date range if provided
+      const filteredObjCheckIns = objCheckIns.filter(ci => {
+        if (!ci.asOfDate) return true;
+        const checkInDate = new Date(ci.asOfDate);
+        if (parsed.startDate && checkInDate < new Date(parsed.startDate)) return false;
+        if (parsed.endDate && checkInDate > new Date(parsed.endDate + 'T23:59:59')) return false;
+        return true;
+      });
+      
+      for (const ci of filteredObjCheckIns) {
+        allCheckIns.push({
+          entityType: 'objective',
+          entityId: ci.entityId,
+          entityTitle: obj.title,
+          previousProgress: ci.previousProgress || 0,
+          newProgress: ci.newProgress || 0,
+          note: ci.note || undefined,
+          achievements: ci.achievements || undefined,
+          challenges: ci.challenges || undefined,
+          nextSteps: ci.nextSteps || undefined,
+          createdAt: ci.createdAt || new Date(),
+        });
+      }
+
+      // Get check-ins for each key result
+      if (obj.keyResults) {
+        for (const kr of obj.keyResults) {
+          const krCheckIns = await storage.getCheckInsByEntityId('key_result', kr.id);
+          
+          const filteredKrCheckIns = krCheckIns.filter(ci => {
+            if (!ci.asOfDate) return true;
+            const checkInDate = new Date(ci.asOfDate);
+            if (parsed.startDate && checkInDate < new Date(parsed.startDate)) return false;
+            if (parsed.endDate && checkInDate > new Date(parsed.endDate + 'T23:59:59')) return false;
+            return true;
+          });
+          
+          for (const ci of filteredKrCheckIns) {
+            allCheckIns.push({
+              entityType: 'key_result',
+              entityId: ci.entityId,
+              entityTitle: kr.title,
+              previousProgress: ci.previousProgress || 0,
+              newProgress: ci.newProgress || 0,
+              note: ci.note || undefined,
+              achievements: ci.achievements || undefined,
+              challenges: ci.challenges || undefined,
+              nextSteps: ci.nextSteps || undefined,
+              createdAt: ci.createdAt || new Date(),
+            });
+          }
+        }
+      }
+    }
+
+    console.log("[Progress Summary] Found check-ins:", allCheckIns.length);
+
+    // Set up SSE headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    // Prepare the summary data
+    const summaryData: ProgressSummaryData = {
+      objectives: parsed.objectives,
+      checkIns: allCheckIns,
+      quarter: parsed.quarter,
+      year: parsed.year,
+      dateRange: dateRange || undefined,
+    };
+
+    console.log("[Progress Summary] Starting AI stream...");
+    const stream = streamProgressSummary({
+      tenantId: parsed.tenantId,
+      data: summaryData,
+      customPrompt: parsed.customPrompt,
+    });
+
+    let chunkCount = 0;
+    for await (const chunk of stream) {
+      chunkCount++;
+      res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+    }
+
+    console.log("[Progress Summary] Stream completed, chunks:", chunkCount);
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.end();
+  } catch (error: any) {
+    console.error("[Progress Summary] Error:", error.message || error);
+    if (!res.headersSent) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request format", details: error.errors });
+      }
+      res.status(500).json({ error: error.message || "Failed to generate progress summary" });
+    } else {
+      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+      res.end();
+    }
   }
 });
