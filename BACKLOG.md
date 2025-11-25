@@ -26,6 +26,9 @@ Role-Based Access Control is defined but not enforced. All authenticated users c
 - Role-specific UI restrictions (hide features based on permissions)
 - Permission matrix documentation
 
+**Future Considerations:**
+- **Team Membership (TBD):** Teams may optionally have limited membership, restricting which users can view/edit team-level objectives. This decision is pending and may affect how team-based access control is implemented.
+
 **Business Value:** Essential for production deployment, compliance, and security.
 
 **Dependencies:** None
