@@ -94,6 +94,7 @@ export default function PlanningEnhanced() {
   const [selectedTab, setSelectedTab] = useState("enhanced-okrs");
   const [quarter, setQuarter] = useState(1);
   const [year, setYear] = useState(new Date().getFullYear());
+  const [level, setLevel] = useState<string>("all");
 
   // Fetch foundation for fiscal year settings
   const { data: foundation } = useQuery<Foundation>({
@@ -117,9 +118,10 @@ export default function PlanningEnhanced() {
 
   // Fetch enhanced OKR data
   const { data: objectives = [], isLoading: loadingObjectives } = useQuery<Objective[]>({
-    queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year],
+    queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year, level],
     queryFn: async () => {
-      const res = await fetch(`/api/okr/objectives?tenantId=${currentTenant.id}&quarter=${quarter}&year=${year}`);
+      const levelParam = level !== 'all' ? `&level=${level}` : '';
+      const res = await fetch(`/api/okr/objectives?tenantId=${currentTenant.id}&quarter=${quarter}&year=${year}${levelParam}`);
       if (!res.ok) throw new Error("Failed to fetch objectives");
       return res.json();
     },
@@ -859,6 +861,7 @@ export default function PlanningEnhanced() {
             <h1 className="text-3xl font-bold">Enhanced Planning</h1>
             <p className="text-muted-foreground mt-1">
               Hierarchical OKRs, Big Rocks, and Progress Tracking for {quarter === 0 ? 'Annual' : `Q${quarter}`} {year}
+              {level !== 'all' && ` - ${level.charAt(0).toUpperCase() + level.slice(1)} Level`}
             </p>
           </div>
           <div className="flex gap-2">
@@ -882,6 +885,16 @@ export default function PlanningEnhanced() {
                 <SelectItem value="2024">2024</SelectItem>
                 <SelectItem value="2025">2025</SelectItem>
                 <SelectItem value="2026">2026</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={level} onValueChange={setLevel}>
+              <SelectTrigger className="w-40" data-testid="select-level">
+                <SelectValue placeholder="Level" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Levels</SelectItem>
+                <SelectItem value="organization">Organization</SelectItem>
+                <SelectItem value="team">Team</SelectItem>
               </SelectContent>
             </Select>
           </div>
