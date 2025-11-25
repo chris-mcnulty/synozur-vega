@@ -11,10 +11,25 @@ import { z } from "zod";
 
 export const okrRouter = Router();
 
+// Teams
+okrRouter.get("/teams", async (req, res) => {
+  try {
+    const { tenantId } = req.query;
+    if (!tenantId) {
+      return res.status(400).json({ error: "tenantId is required" });
+    }
+    
+    const teams = await storage.getTeamsByTenantId(tenantId as string);
+    res.json(teams);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Objectives
 okrRouter.get("/objectives", async (req, res) => {
   try {
-    const { tenantId, quarter, year, level } = req.query;
+    const { tenantId, quarter, year, level, teamId } = req.query;
     if (!tenantId) {
       return res.status(400).json({ error: "tenantId is required" });
     }
@@ -23,7 +38,8 @@ okrRouter.get("/objectives", async (req, res) => {
       tenantId as string,
       quarter ? Number(quarter) : undefined,
       year ? Number(year) : undefined,
-      level as string | undefined
+      level as string | undefined,
+      teamId as string | undefined
     );
     
     res.json(objectives);

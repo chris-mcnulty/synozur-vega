@@ -95,6 +95,17 @@ export default function PlanningEnhanced() {
   const [quarter, setQuarter] = useState(1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [level, setLevel] = useState<string>("all");
+  const [teamId, setTeamId] = useState<string>("all");
+
+  // Fetch teams for filtering
+  const { data: teamsData = [] } = useQuery<{ id: string; name: string }[]>({
+    queryKey: [`/api/okr/teams`, currentTenant.id],
+    queryFn: async () => {
+      const res = await fetch(`/api/okr/teams?tenantId=${currentTenant.id}`);
+      if (!res.ok) throw new Error("Failed to fetch teams");
+      return res.json();
+    },
+  });
 
   // Fetch foundation for fiscal year settings
   const { data: foundation } = useQuery<Foundation>({
@@ -118,10 +129,11 @@ export default function PlanningEnhanced() {
 
   // Fetch enhanced OKR data
   const { data: objectives = [], isLoading: loadingObjectives } = useQuery<Objective[]>({
-    queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year, level],
+    queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year, level, teamId],
     queryFn: async () => {
       const levelParam = level !== 'all' ? `&level=${level}` : '';
-      const res = await fetch(`/api/okr/objectives?tenantId=${currentTenant.id}&quarter=${quarter}&year=${year}${levelParam}`);
+      const teamParam = teamId !== 'all' ? `&teamId=${teamId}` : '';
+      const res = await fetch(`/api/okr/objectives?tenantId=${currentTenant.id}&quarter=${quarter}&year=${year}${levelParam}${teamParam}`);
       if (!res.ok) throw new Error("Failed to fetch objectives");
       return res.json();
     },
@@ -862,6 +874,7 @@ export default function PlanningEnhanced() {
             <p className="text-muted-foreground mt-1">
               Hierarchical OKRs, Big Rocks, and Progress Tracking for {quarter === 0 ? 'Annual' : `Q${quarter}`} {year}
               {level !== 'all' && ` - ${level.charAt(0).toUpperCase() + level.slice(1)} Level`}
+              {teamId !== 'all' && teamsData.find(t => t.id === teamId) && ` - ${teamsData.find(t => t.id === teamId)?.name}`}
             </p>
           </div>
           <div className="flex gap-2">
@@ -895,6 +908,17 @@ export default function PlanningEnhanced() {
                 <SelectItem value="all">All Levels</SelectItem>
                 <SelectItem value="organization">Organization</SelectItem>
                 <SelectItem value="team">Team</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={teamId} onValueChange={setTeamId}>
+              <SelectTrigger className="w-44" data-testid="select-team">
+                <SelectValue placeholder="Team" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Teams</SelectItem>
+                {teamsData.map((team) => (
+                  <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

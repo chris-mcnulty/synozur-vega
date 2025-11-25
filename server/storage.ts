@@ -10,6 +10,7 @@ import {
   keyResults, type KeyResult, type InsertKeyResult,
   bigRocks, type BigRock, type InsertBigRock,
   checkIns, type CheckIn, type InsertCheckIn,
+  teams, type Team,
   objectiveValues,
   strategyValues
 } from "@shared/schema";
@@ -63,7 +64,8 @@ export interface IStorage {
   deleteMeeting(id: string): Promise<void>;
   
   // Enhanced OKR Methods
-  getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number, level?: string): Promise<Objective[]>;
+  getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number, level?: string, teamId?: string): Promise<Objective[]>;
+  getTeamsByTenantId(tenantId: string): Promise<Team[]>;
   getObjectiveById(id: string): Promise<Objective | undefined>;
   getChildObjectives(parentId: string): Promise<Objective[]>;
   createObjective(objective: InsertObjective): Promise<Objective>;
@@ -426,7 +428,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Enhanced OKR Method Implementations
-  async getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number, level?: string): Promise<Objective[]> {
+  async getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number, level?: string, teamId?: string): Promise<Objective[]> {
     // Build base conditions
     const conditions: any[] = [eq(objectives.tenantId, tenantId)];
     
@@ -452,7 +454,16 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(objectives.level, level));
     }
     
+    // Add team filter if provided
+    if (teamId && teamId !== 'all') {
+      conditions.push(eq(objectives.teamId, teamId));
+    }
+    
     return await db.select().from(objectives).where(and(...conditions));
+  }
+
+  async getTeamsByTenantId(tenantId: string): Promise<Team[]> {
+    return await db.select().from(teams).where(eq(teams.tenantId, tenantId));
   }
 
   async getObjectiveById(id: string): Promise<Objective | undefined> {
