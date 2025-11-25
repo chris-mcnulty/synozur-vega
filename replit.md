@@ -15,11 +15,19 @@ For detailed information, see:
 
 ## Recent Changes (November 2025)
 
+- ✅ **Viva Goals Import Fixed**: Complete overhaul of the import system with 8 bug fixes:
+  - Numeric overflow fixed (all progress/value fields now doublePrecision)
+  - Duplicate merge strategy properly updates existing records
+  - Decimal values preserved (no more rounding)
+  - Check-ins import with large values (> 1 million) works correctly
+  - Big Rocks default to Q1 when quarter not specified
+  - Import results: 90 key results, 317 check-ins, 5 big rocks successfully imported
 - ✅ **Values Integration Complete**: Full value tagging with analytics dashboard widget, distribution reports, and value badges in strategic views
 - ✅ **Entity Relationship Linking**: Objectives link to strategies/goals, Big Rocks link to strategies
 - ✅ **Culture & Values Integration**: Value tagging for Objectives and Strategies (NOT Big Rocks - removed to reduce data clutter)
 - ✅ **Foreign Key Constraint Fix**: Empty strings converted to null in update endpoints
 - ✅ **Enhanced Documentation**: Created BACKLOG.md, KNOWN_ISSUES.md, TECHNICAL_DECISIONS.md
+- ⭐ **Backlog**: AI Big Rock Generator added to AI roadmap (suggest missing initiatives based on strategic analysis)
 - 🚧 **In Progress**: Big Rock linkedStrategies state management bug (see KNOWN_ISSUES.md)
 
 ## System Architecture
