@@ -14,7 +14,7 @@ export const okrRouter = Router();
 // Objectives
 okrRouter.get("/objectives", async (req, res) => {
   try {
-    const { tenantId, quarter, year } = req.query;
+    const { tenantId, quarter, year, level } = req.query;
     if (!tenantId) {
       return res.status(400).json({ error: "tenantId is required" });
     }
@@ -22,7 +22,8 @@ okrRouter.get("/objectives", async (req, res) => {
     const objectives = await storage.getObjectivesByTenantId(
       tenantId as string,
       quarter ? Number(quarter) : undefined,
-      year ? Number(year) : undefined
+      year ? Number(year) : undefined,
+      level as string | undefined
     );
     
     res.json(objectives);

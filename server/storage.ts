@@ -63,7 +63,7 @@ export interface IStorage {
   deleteMeeting(id: string): Promise<void>;
   
   // Enhanced OKR Methods
-  getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number): Promise<Objective[]>;
+  getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number, level?: string): Promise<Objective[]>;
   getObjectiveById(id: string): Promise<Objective | undefined>;
   getChildObjectives(parentId: string): Promise<Objective[]>;
   createObjective(objective: InsertObjective): Promise<Objective>;
@@ -426,44 +426,33 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Enhanced OKR Method Implementations
-  async getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number): Promise<Objective[]> {
-    // If quarter is 0, fetch only annual objectives (quarter IS NULL)
-    if (quarter === 0 && year !== undefined) {
-      return await db.select().from(objectives).where(
-        and(
-          eq(objectives.tenantId, tenantId),
-          eq(objectives.year, year),
-          isNull(objectives.quarter)
-        )
-      );
-    }
+  async getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number, level?: string): Promise<Objective[]> {
+    // Build base conditions
+    const conditions: any[] = [eq(objectives.tenantId, tenantId)];
     
-    // If quarter and year provided, include both quarterly AND annual objectives
-    if (quarter !== undefined && quarter > 0 && year !== undefined) {
-      return await db.select().from(objectives).where(
-        and(
-          eq(objectives.tenantId, tenantId),
-          eq(objectives.year, year),
-          or(
-            eq(objectives.quarter, quarter),
-            isNull(objectives.quarter)
-          )
-        )
-      );
-    }
-    
-    // If only year provided, fetch all objectives for that year
+    // Add year filter if provided
     if (year !== undefined) {
-      return await db.select().from(objectives).where(
-        and(
-          eq(objectives.tenantId, tenantId),
-          eq(objectives.year, year)
-        )
-      );
+      conditions.push(eq(objectives.year, year));
     }
     
-    // No filters, return all
-    return await db.select().from(objectives).where(eq(objectives.tenantId, tenantId));
+    // Add quarter filter
+    if (quarter === 0 && year !== undefined) {
+      // Annual only (quarter IS NULL)
+      conditions.push(isNull(objectives.quarter));
+    } else if (quarter !== undefined && quarter > 0 && year !== undefined) {
+      // Include both quarterly AND annual objectives
+      conditions.push(or(
+        eq(objectives.quarter, quarter),
+        isNull(objectives.quarter)
+      ));
+    }
+    
+    // Add level filter if provided (organization, team, individual)
+    if (level && level !== 'all') {
+      conditions.push(eq(objectives.level, level));
+    }
+    
+    return await db.select().from(objectives).where(and(...conditions));
   }
 
   async getObjectiveById(id: string): Promise<Objective | undefined> {
