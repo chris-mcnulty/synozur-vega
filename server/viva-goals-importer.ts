@@ -357,8 +357,8 @@ export class VivaGoalsImporter {
       description: viva.Description || undefined,
       ownerEmail: owner?.Email || undefined,
       status: this.mapStatus(viva.Status),
-      completionPercentage: Math.round(viva.Progress),
-      quarter: timePeriod.quarter || undefined,
+      completionPercentage: viva.Progress, // Preserve decimal values
+      quarter: timePeriod.quarter || 1, // Default to Q1 if not specified
       year: timePeriod.year,
       startDate: new Date(viva['Start Date']),
       dueDate: new Date(viva['End Date']),
@@ -378,9 +378,9 @@ export class VivaGoalsImporter {
       entityType,
       entityId,
       previousValue: 0, // Default for imports
-      newValue: Math.round(viva['Current Value']),
+      newValue: viva['Current Value'], // Preserve decimal values
       previousProgress: 0, // Default for imports
-      newProgress: Math.round(viva['Current Value']), // Assuming value equals progress
+      newProgress: viva['Current Value'], // Assuming value equals progress, preserve decimals
       previousStatus: 'not_started', // Default for imports
       newStatus: this.mapStatus(viva.Status),
       note: viva['Check In Note']?.['Check In Note'] || undefined,
