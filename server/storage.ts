@@ -450,13 +450,17 @@ export class DatabaseStorage implements IStorage {
     
     // Add quarter filter
     if (quarter === 0 && year !== undefined) {
-      // Annual only (quarter IS NULL)
-      conditions.push(isNull(objectives.quarter));
+      // Annual only (quarter IS NULL or 0)
+      conditions.push(or(
+        isNull(objectives.quarter),
+        eq(objectives.quarter, 0)
+      ));
     } else if (quarter !== undefined && quarter > 0 && year !== undefined) {
-      // Include both quarterly AND annual objectives
+      // Include both quarterly AND annual objectives (treat both null and 0 as annual)
       conditions.push(or(
         eq(objectives.quarter, quarter),
-        isNull(objectives.quarter)
+        isNull(objectives.quarter),
+        eq(objectives.quarter, 0)
       ));
     }
     
@@ -628,18 +632,21 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBigRocksByTenantId(tenantId: string, quarter?: number, year?: number): Promise<BigRock[]> {
-    // If quarter is 0, fetch only annual big rocks (quarter IS NULL)
+    // If quarter is 0, fetch only annual big rocks (quarter IS NULL or 0)
     if (quarter === 0 && year !== undefined) {
       return await db.select().from(bigRocks).where(
         and(
           eq(bigRocks.tenantId, tenantId),
           eq(bigRocks.year, year),
-          isNull(bigRocks.quarter)
+          or(
+            isNull(bigRocks.quarter),
+            eq(bigRocks.quarter, 0)
+          )
         )
       );
     }
     
-    // If quarter and year provided, include both quarterly AND annual big rocks
+    // If quarter and year provided, include both quarterly AND annual big rocks (treat both null and 0 as annual)
     if (quarter !== undefined && quarter > 0 && year !== undefined) {
       return await db.select().from(bigRocks).where(
         and(
@@ -647,7 +654,8 @@ export class DatabaseStorage implements IStorage {
           eq(bigRocks.year, year),
           or(
             eq(bigRocks.quarter, quarter),
-            isNull(bigRocks.quarter)
+            isNull(bigRocks.quarter),
+            eq(bigRocks.quarter, 0)
           )
         )
       );
