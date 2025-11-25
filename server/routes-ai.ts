@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { storage } from "./storage";
 import { insertGroundingDocumentSchema } from "@shared/schema";
-import { getChatCompletion, streamChatCompletion, generateOKRSuggestions, suggestBigRocks, streamProgressSummary, type ChatMessage, type ProgressSummaryData } from "./ai";
+import { getChatCompletion, streamChatCompletion, generateOKRSuggestions, suggestBigRocks, streamProgressSummary, streamGoalSuggestions, type ChatMessage, type ProgressSummaryData, type GoalSuggestionContext } from "./ai";
 import { z } from "zod";
 
 export const aiRouter = Router();
@@ -431,6 +431,70 @@ aiRouter.post("/progress-summary/stream", requireAuth, async (req: Request, res:
         return res.status(400).json({ error: "Invalid request format", details: error.errors });
       }
       res.status(500).json({ error: error.message || "Failed to generate progress summary" });
+    } else {
+      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+      res.end();
+    }
+  }
+});
+
+// Goal suggestions endpoint - generates AI suggestions for annual goals based on organizational context
+const goalSuggestionSchema = z.object({
+  tenantId: z.string(),
+});
+
+aiRouter.post("/suggest/goals/stream", requireAuth, async (req: Request, res: Response) => {
+  console.log("[Goal Suggestions] Request received");
+  try {
+    const { tenantId } = goalSuggestionSchema.parse(req.body);
+    const user = (req as any).user;
+    console.log("[Goal Suggestions] User:", user.email, "Tenant:", tenantId);
+
+    // Gather all organizational context
+    const [foundation, strategies, objectives] = await Promise.all([
+      storage.getFoundationByTenantId(tenantId),
+      storage.getStrategiesByTenantId(tenantId),
+      storage.getObjectivesByTenantId(tenantId),
+    ]);
+
+    const existingGoals = foundation?.annualGoals || [];
+
+    console.log("[Goal Suggestions] Context - Foundation:", !!foundation, 
+      "Strategies:", strategies.length, 
+      "Objectives:", objectives.length,
+      "Existing Goals:", existingGoals.length);
+
+    // Set up SSE headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    // Stream the goal suggestions
+    const stream = streamGoalSuggestions({
+      tenantId,
+      foundation,
+      strategies,
+      objectives,
+      existingGoals,
+    });
+
+    let chunkCount = 0;
+    for await (const chunk of stream) {
+      chunkCount++;
+      res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+    }
+
+    console.log("[Goal Suggestions] Stream completed, chunks:", chunkCount);
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.end();
+  } catch (error: any) {
+    console.error("[Goal Suggestions] Error:", error.message || error);
+    if (!res.headersSent) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request format", details: error.errors });
+      }
+      res.status(500).json({ error: error.message || "Failed to generate goal suggestions" });
     } else {
       res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
       res.end();

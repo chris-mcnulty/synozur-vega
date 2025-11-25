@@ -406,3 +406,99 @@ Format the response so it's ready to copy and paste directly into a communicatio
     yield chunk;
   }
 }
+
+// Interface for goal suggestion context
+export interface GoalSuggestionContext {
+  tenantId: string;
+  foundation: Foundation | null;
+  strategies: Strategy[];
+  objectives: Objective[];
+  existingGoals: string[];
+}
+
+// Streaming goal suggestions based on organizational context
+export async function* streamGoalSuggestions(
+  context: GoalSuggestionContext
+): AsyncGenerator<string, void, unknown> {
+  const { foundation, strategies, objectives, existingGoals } = context;
+
+  // Build context about the organization
+  let organizationContext = "";
+  
+  if (foundation) {
+    if (foundation.mission) organizationContext += `**Mission:** ${foundation.mission}\n`;
+    if (foundation.vision) organizationContext += `**Vision:** ${foundation.vision}\n`;
+    if (foundation.tagline) organizationContext += `**Tagline:** ${foundation.tagline}\n`;
+    if (foundation.companySummary) organizationContext += `**Company Summary:** ${foundation.companySummary}\n`;
+    if (foundation.cultureStatement) organizationContext += `**Culture:** ${foundation.cultureStatement}\n`;
+    if (foundation.values && Array.isArray(foundation.values) && foundation.values.length > 0) {
+      const valuesText = foundation.values
+        .map((v: any) => `- ${v.title}${v.description ? `: ${v.description}` : ''}`)
+        .join('\n');
+      organizationContext += `**Values:**\n${valuesText}\n`;
+    }
+  }
+
+  // Build strategies context
+  const strategiesContext = strategies.length > 0
+    ? strategies.map(s => `- ${s.title}${s.description ? `: ${s.description}` : ''}`).join('\n')
+    : 'No strategic priorities defined yet.';
+
+  // Build objectives context
+  const objectivesContext = objectives.length > 0
+    ? objectives.slice(0, 10).map(o => `- ${o.title} (${o.progress || 0}% complete)`).join('\n')
+    : 'No objectives defined yet.';
+
+  // Build existing goals context
+  const existingGoalsContext = existingGoals.length > 0
+    ? existingGoals.map(g => `- ${g}`).join('\n')
+    : 'No annual goals defined yet.';
+
+  const messages: ChatMessage[] = [
+    {
+      role: "user",
+      content: `Based on the following organizational context, suggest 5-7 compelling annual goals that would help this organization achieve its mission and vision. Consider the existing strategic priorities and objectives when making suggestions.
+
+## Organization Context
+${organizationContext || 'No organizational context available yet.'}
+
+## Current Strategic Priorities
+${strategiesContext}
+
+## Current Objectives (Sample)
+${objectivesContext}
+
+## Existing Annual Goals
+${existingGoalsContext}
+
+## Instructions
+1. Analyze the organization's mission, vision, values, and strategic priorities
+2. Identify gaps or opportunities not covered by existing goals
+3. Suggest goals that are:
+   - Specific and measurable where possible
+   - Aligned with the organization's mission and values
+   - Ambitious but achievable within a year
+   - Complementary to (not duplicating) existing goals
+4. For each suggestion, provide a brief rationale (1-2 sentences)
+
+Format your response as:
+**Suggested Goals:**
+
+1. **[Goal Title]**
+   - Rationale: [Brief explanation of why this goal aligns with the organization]
+
+2. **[Goal Title]**
+   - Rationale: [Brief explanation]
+
+(Continue for all suggestions)
+
+End with a brief summary of the strategic themes these goals address.`,
+    },
+  ];
+
+  // Use the streaming function
+  const stream = streamChatCompletion(messages, { tenantId: context.tenantId, maxTokens: 2048 });
+  for await (const chunk of stream) {
+    yield chunk;
+  }
+}
