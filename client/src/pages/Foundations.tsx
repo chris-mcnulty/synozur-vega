@@ -9,11 +9,12 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Eye, Edit, X, Plus, Save, Trash2, Loader2 } from "lucide-react";
+import { Eye, Edit, X, Plus, Save, Trash2, Loader2, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
 import { ValueDetailView } from "@/components/ValueDetailView";
+import { AIGoalsSuggestionDialog } from "@/components/AIGoalsSuggestionDialog";
 import type { Foundation, CompanyValue } from "@shared/schema";
 
 // Suggested options for quick selection
@@ -71,6 +72,9 @@ export default function Foundations() {
   // Value detail view state
   const [valueDetailOpen, setValueDetailOpen] = useState(false);
   const [selectedValue, setSelectedValue] = useState<CompanyValue | null>(null);
+  
+  // AI suggestions dialog state
+  const [aiGoalsSuggestionOpen, setAiGoalsSuggestionOpen] = useState(false);
   
   const [mission, setMission] = useState<string>("");
   const [vision, setVision] = useState<string>("");
@@ -619,9 +623,20 @@ export default function Foundations() {
 
           {/* Goals Section */}
           <Card data-testid="card-goals">
-            <CardHeader>
-              <CardTitle>Strategic Goals</CardTitle>
-              <CardDescription>What are your key organizational objectives?</CardDescription>
+            <CardHeader className="flex flex-row items-start justify-between gap-2">
+              <div>
+                <CardTitle>Strategic Goals</CardTitle>
+                <CardDescription>What are your key organizational objectives?</CardDescription>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setAiGoalsSuggestionOpen(true)}
+                data-testid="button-ai-goal-suggestions"
+              >
+                <Sparkles className="w-4 h-4 mr-2" />
+                AI Suggestions
+              </Button>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -768,6 +783,12 @@ export default function Foundations() {
           tenantId={currentTenant.id}
         />
       )}
+
+      {/* AI Goals Suggestion Dialog */}
+      <AIGoalsSuggestionDialog
+        open={aiGoalsSuggestionOpen}
+        onOpenChange={setAiGoalsSuggestionOpen}
+      />
     </div>
   );
 }
