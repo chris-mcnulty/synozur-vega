@@ -20,6 +20,7 @@ For detailed information, see:
   - Admin UI at /ai-grounding-admin for document management (category-based, priority ordering)
   - Streaming chat endpoint (/api/ai/chat/stream) with Server-Sent Events
   - AI suggestions for OKRs and Big Rocks with strategic context
+  - **AI Goal Suggestions** in Foundations module: streaming suggestions based on mission, vision, values, and strategies
   - Uses Replit AI Integrations (AI_INTEGRATIONS_OPENAI_BASE_URL/API_KEY)
 - ✅ **Viva Goals Import Fixed**: Complete overhaul of the import system with 8 bug fixes:
   - Numeric overflow fixed (all progress/value fields now doublePrecision)
