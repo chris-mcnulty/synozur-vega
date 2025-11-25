@@ -986,7 +986,8 @@ export default function PlanningEnhanced() {
           <TabsContent value="big-rocks">
             <BigRocksSection 
               bigRocks={bigRocks} 
-              objectives={objectives} 
+              objectives={objectives}
+              strategies={strategies}
               onCreateBigRock={handleCreateBigRock}
               onEditBigRock={handleEditBigRock}
               onDeleteBigRock={handleDeleteBigRock}
@@ -1875,10 +1876,15 @@ export default function PlanningEnhanced() {
 }
 
 // Big Rocks Section Component
-function BigRocksSection({ bigRocks, objectives, onCreateBigRock, onEditBigRock, onDeleteBigRock }: any) {
+function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, onEditBigRock, onDeleteBigRock }: any) {
   const getObjectiveTitle = (objId: string) => {
     const obj = objectives.find((o: Objective) => o.id === objId);
     return obj?.title || "Unknown Objective";
+  };
+
+  const getStrategyTitle = (strategyId: string) => {
+    const strategy = strategies?.find((s: any) => s.id === strategyId);
+    return strategy?.title || "Unknown Strategy";
   };
 
   return (
@@ -1946,7 +1952,7 @@ function BigRocksSection({ bigRocks, objectives, onCreateBigRock, onEditBigRock,
                     <div className="flex flex-wrap gap-2">
                       {rock.linkedStrategies.map((strategyId: string) => (
                         <Badge key={strategyId} variant="outline" className="text-xs">
-                          {strategyId}
+                          {getStrategyTitle(strategyId)}
                         </Badge>
                       ))}
                     </div>
