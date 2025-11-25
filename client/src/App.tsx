@@ -25,6 +25,7 @@ import Strategy from "@/pages/Strategy";
 import PlanningEnhanced from "@/pages/PlanningEnhanced";
 import FocusRhythm from "@/pages/FocusRhythm";
 import TenantAdmin from "@/pages/TenantAdmin";
+import AIGroundingAdmin from "@/pages/AIGroundingAdmin";
 import Import from "@/pages/Import";
 import VerifyEmail from "@/pages/VerifyEmail";
 import ForgotPassword from "@/pages/ForgotPassword";
@@ -191,6 +192,13 @@ function Router() {
         <ProtectedRoute>
           <ModuleLayout>
             <Import />
+          </ModuleLayout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/ai-grounding">
+        <ProtectedRoute>
+          <ModuleLayout>
+            <AIGroundingAdmin />
           </ModuleLayout>
         </ProtectedRoute>
       </Route>

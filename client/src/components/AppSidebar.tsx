@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload } from "lucide-react";
+import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -46,6 +46,11 @@ const adminItems = [
     title: "Import Data",
     url: "/import",
     icon: Upload,
+  },
+  {
+    title: "AI Grounding",
+    url: "/ai-grounding",
+    icon: Brain,
   },
   {
     title: "Tenant Admin",
