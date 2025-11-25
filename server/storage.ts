@@ -13,6 +13,8 @@ import {
   teams, type Team, type InsertTeam,
   objectiveValues,
   strategyValues,
+  objectiveBigRocks, type InsertObjectiveBigRock,
+  keyResultBigRocks, type InsertKeyResultBigRock,
   groundingDocuments, type GroundingDocument, type InsertGroundingDocument
 } from "@shared/schema";
 import { db } from "./db";
@@ -90,6 +92,19 @@ export interface IStorage {
   createBigRock(bigRock: InsertBigRock): Promise<BigRock>;
   updateBigRock(id: string, bigRock: Partial<InsertBigRock>): Promise<BigRock>;
   deleteBigRock(id: string): Promise<void>;
+  
+  // Objective-BigRock linking methods
+  linkObjectiveToBigRock(objectiveId: string, bigRockId: string, tenantId: string): Promise<void>;
+  unlinkObjectiveToBigRock(objectiveId: string, bigRockId: string): Promise<void>;
+  getBigRocksLinkedToObjective(objectiveId: string): Promise<BigRock[]>;
+  
+  // KeyResult-BigRock linking methods
+  linkKeyResultToBigRock(keyResultId: string, bigRockId: string, tenantId: string): Promise<void>;
+  unlinkKeyResultToBigRock(keyResultId: string, bigRockId: string): Promise<void>;
+  getBigRocksLinkedToKeyResult(keyResultId: string): Promise<BigRock[]>;
+  
+  // Hierarchy methods
+  getObjectiveHierarchy(tenantId: string, quarter?: number, year?: number): Promise<any[]>;
   
   getCheckInsByEntityId(entityType: string, entityId: string): Promise<CheckIn[]>;
   getCheckInById(id: string): Promise<CheckIn | undefined>;
@@ -716,6 +731,91 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBigRock(id: string): Promise<void> {
     await db.delete(bigRocks).where(eq(bigRocks.id, id));
+  }
+
+  async linkObjectiveToBigRock(objectiveId: string, bigRockId: string, tenantId: string): Promise<void> {
+    await db.insert(objectiveBigRocks).values({
+      objectiveId,
+      bigRockId,
+      tenantId,
+    }).onConflictDoNothing();
+  }
+
+  async unlinkObjectiveToBigRock(objectiveId: string, bigRockId: string): Promise<void> {
+    await db.delete(objectiveBigRocks).where(
+      and(
+        eq(objectiveBigRocks.objectiveId, objectiveId),
+        eq(objectiveBigRocks.bigRockId, bigRockId)
+      )
+    );
+  }
+
+  async getBigRocksLinkedToObjective(objectiveId: string): Promise<BigRock[]> {
+    const links = await db
+      .select()
+      .from(objectiveBigRocks)
+      .innerJoin(bigRocks, eq(objectiveBigRocks.bigRockId, bigRocks.id))
+      .where(eq(objectiveBigRocks.objectiveId, objectiveId));
+    
+    return links.map(link => link.big_rocks);
+  }
+
+  async linkKeyResultToBigRock(keyResultId: string, bigRockId: string, tenantId: string): Promise<void> {
+    await db.insert(keyResultBigRocks).values({
+      keyResultId,
+      bigRockId,
+      tenantId,
+    }).onConflictDoNothing();
+  }
+
+  async unlinkKeyResultToBigRock(keyResultId: string, bigRockId: string): Promise<void> {
+    await db.delete(keyResultBigRocks).where(
+      and(
+        eq(keyResultBigRocks.keyResultId, keyResultId),
+        eq(keyResultBigRocks.bigRockId, bigRockId)
+      )
+    );
+  }
+
+  async getBigRocksLinkedToKeyResult(keyResultId: string): Promise<BigRock[]> {
+    const links = await db
+      .select()
+      .from(keyResultBigRocks)
+      .innerJoin(bigRocks, eq(keyResultBigRocks.bigRockId, bigRocks.id))
+      .where(eq(keyResultBigRocks.keyResultId, keyResultId));
+    
+    return links.map(link => link.big_rocks);
+  }
+
+  async getObjectiveHierarchy(tenantId: string, quarter?: number, year?: number): Promise<any[]> {
+    // Get all objectives for the tenant and time period
+    const allObjectives = await this.getObjectivesByTenantId(tenantId, quarter, year);
+    
+    // Build a map of objectives by ID for quick lookup
+    const objectiveMap = new Map(allObjectives.map(obj => [obj.id, obj]));
+    
+    // For each objective, get its key results, child objectives, and linked big rocks
+    const enrichedObjectives = await Promise.all(
+      allObjectives.map(async (objective) => {
+        const [keyResults, childObjectives, linkedBigRocks, latestCheckIn] = await Promise.all([
+          this.getKeyResultsByObjectiveId(objective.id),
+          this.getChildObjectives(objective.id),
+          this.getBigRocksLinkedToObjective(objective.id),
+          this.getLatestCheckIn('objective', objective.id),
+        ]);
+
+        return {
+          ...objective,
+          keyResults,
+          childObjectives,
+          linkedBigRocks,
+          lastUpdated: latestCheckIn?.createdAt || objective.updatedAt,
+        };
+      })
+    );
+
+    // Filter to only root-level objectives (no parent)
+    return enrichedObjectives.filter(obj => !obj.parentId);
   }
 
   async getCheckInsByEntityId(entityType: string, entityId: string): Promise<CheckIn[]> {
