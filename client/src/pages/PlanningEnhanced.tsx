@@ -1081,6 +1081,60 @@ export default function PlanningEnhanced() {
                 </div>
               </div>
 
+              <div>
+                <Label>Link to Existing Big Rocks</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {bigRocks.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No big rocks available to link</p>
+                  ) : (
+                    bigRocks.map((rock: BigRock) => (
+                      <Badge
+                        key={rock.id}
+                        variant={objectiveForm.linkedStrategies && objectiveForm.linkedStrategies.includes(rock.id) ? "default" : "outline"}
+                        className="cursor-pointer"
+                        onClick={() => {
+                          const current = objectiveForm.linkedStrategies || [];
+                          if (current.includes(rock.id)) {
+                            setObjectiveForm({ ...objectiveForm, linkedStrategies: current.filter(id => id !== rock.id) });
+                          } else {
+                            setObjectiveForm({ ...objectiveForm, linkedStrategies: [...current, rock.id] });
+                          }
+                        }}
+                        data-testid={`badge-bigrock-${rock.id}`}
+                      >
+                        {rock.title}
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <Label>Link to Child Objectives</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {objectives.filter(obj => obj.id !== selectedObjective?.id).length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No other objectives available</p>
+                  ) : (
+                    objectives.filter(obj => obj.id !== selectedObjective?.id).map((obj: Objective) => (
+                      <Badge
+                        key={obj.id}
+                        variant={objectiveForm.parentId === obj.id ? "default" : "outline"}
+                        className="cursor-pointer"
+                        onClick={() => {
+                          setObjectiveForm({ 
+                            ...objectiveForm, 
+                            parentId: objectiveForm.parentId === obj.id ? "" : obj.id 
+                          });
+                        }}
+                        data-testid={`badge-child-objective-${obj.id}`}
+                      >
+                        {obj.title}
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="obj-level">Level</Label>
