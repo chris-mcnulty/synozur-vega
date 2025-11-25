@@ -232,18 +232,20 @@ export async function suggestBigRocks(
   const messages: ChatMessage[] = [
     {
       role: "user",
-      content: `Suggest 3-5 "Big Rocks" (major initiatives or projects) that would help achieve the following objective:
+      content: `Suggest 3-5 "Big Rocks" (major initiatives or projects) that would help achieve this objective:
 
-**Objective:** ${context.objective.title}
-${context.objective.description ? `**Description:** ${context.objective.description}` : ""}
+**${context.objective.title}**
+${context.objective.description ? `${context.objective.description}` : ""}
 
-${context.keyResults?.length ? `**Key Results:**\n${context.keyResults.map(kr => `- ${kr.title}: Target ${kr.targetValue} ${kr.unit || ""}`).join("\n")}` : ""}
+${context.keyResults?.length ? `**Supporting Key Results:**\n${context.keyResults.map(kr => `- ${kr.title}: Target ${kr.targetValue} ${kr.unit || ""}`).join("\n")}` : ""}
 
-For each Big Rock, provide:
-1. A clear, action-oriented title
-2. Brief description of what it involves
-3. Estimated effort (small/medium/large)
-4. Which key result(s) it primarily supports`,
+For each Big Rock, provide a JSON-formatted suggestion with these fields (respond ONLY with valid JSON array):
+- title: Clear, action-oriented name
+- description: 1-2 sentence description of what it involves
+- effort: Estimated effort level (small/medium/large)
+- supportedKR: Which key result(s) it supports
+
+Return as JSON array only, no markdown formatting or additional text.`,
     },
   ];
 
