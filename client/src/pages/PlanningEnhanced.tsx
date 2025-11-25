@@ -100,22 +100,28 @@ export default function PlanningEnhanced() {
 
   // Fetch teams for filtering
   const { data: teamsData = [] } = useQuery<{ id: string; name: string }[]>({
-    queryKey: [`/api/okr/teams`, currentTenant.id],
+    queryKey: [`/api/okr/teams`, currentTenant?.id],
     queryFn: async () => {
+      if (!currentTenant?.id) {
+        return [];
+      }
       const res = await fetch(`/api/okr/teams?tenantId=${currentTenant.id}`);
       if (!res.ok) throw new Error("Failed to fetch teams");
       return res.json();
     },
+    enabled: !!currentTenant?.id,
   });
 
   // Fetch foundation for fiscal year settings
   const { data: foundation } = useQuery<Foundation>({
-    queryKey: [`/api/foundations/${currentTenant.id}`],
+    queryKey: [`/api/foundations/${currentTenant?.id}`],
+    enabled: !!currentTenant?.id,
   });
 
   // Fetch strategies for linking
   const { data: strategies = [] } = useQuery<any[]>({
-    queryKey: [`/api/strategies/${currentTenant.id}`],
+    queryKey: [`/api/strategies/${currentTenant?.id}`],
+    enabled: !!currentTenant?.id,
   });
 
   // Set initial quarter/year based on tenant's fiscal year
@@ -130,23 +136,31 @@ export default function PlanningEnhanced() {
 
   // Fetch enhanced OKR data
   const { data: objectives = [], isLoading: loadingObjectives } = useQuery<Objective[]>({
-    queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year, level, teamId],
+    queryKey: [`/api/okr/objectives`, currentTenant?.id, quarter, year, level, teamId],
     queryFn: async () => {
+      if (!currentTenant?.id) {
+        return [];
+      }
       const levelParam = level !== 'all' ? `&level=${level}` : '';
       const teamParam = teamId !== 'all' ? `&teamId=${teamId}` : '';
       const res = await fetch(`/api/okr/objectives?tenantId=${currentTenant.id}&quarter=${quarter}&year=${year}${levelParam}${teamParam}`);
       if (!res.ok) throw new Error("Failed to fetch objectives");
       return res.json();
     },
+    enabled: !!currentTenant?.id,
   });
 
   const { data: bigRocks = [], isLoading: loadingBigRocks } = useQuery<BigRock[]>({
-    queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year],
+    queryKey: [`/api/okr/big-rocks`, currentTenant?.id, quarter, year],
     queryFn: async () => {
+      if (!currentTenant?.id) {
+        return [];
+      }
       const res = await fetch(`/api/okr/big-rocks?tenantId=${currentTenant.id}&quarter=${quarter}&year=${year}`);
       if (!res.ok) throw new Error("Failed to fetch big rocks");
       return res.json();
     },
+    enabled: !!currentTenant?.id,
   });
 
   // Enrich objectives with their key results and big rocks
