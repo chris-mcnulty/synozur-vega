@@ -19,9 +19,10 @@ import { getCurrentQuarter } from "@/lib/quarters";
 import { OKRTreeView } from "@/components/okr/OKRTreeView";
 import { WeightManager } from "@/components/WeightManager";
 import { ValueTagSelector } from "@/components/ValueTagSelector";
-import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2, History, Edit } from "lucide-react";
+import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2, History, Edit, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Foundation, CompanyValue } from "@shared/schema";
+import { ProgressSummaryDialog } from "@/components/ProgressSummaryDialog";
 
 interface Objective {
   id: string;
@@ -189,6 +190,7 @@ export default function PlanningEnhanced() {
   const [selectedKRForHistory, setSelectedKRForHistory] = useState<KeyResult | null>(null);
   const [editingCheckIn, setEditingCheckIn] = useState<CheckIn | null>(null);
   const [weightManagementDialogOpen, setWeightManagementDialogOpen] = useState(false);
+  const [progressSummaryDialogOpen, setProgressSummaryDialogOpen] = useState(false);
   const [managedWeights, setManagedWeights] = useState<KeyResult[]>([]);
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
   const [selectedKeyResult, setSelectedKeyResult] = useState<KeyResult | null>(null);
@@ -921,6 +923,14 @@ export default function PlanningEnhanced() {
                 ))}
               </SelectContent>
             </Select>
+            <Button
+              variant="outline"
+              onClick={() => setProgressSummaryDialogOpen(true)}
+              data-testid="button-generate-summary"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Generate Summary
+            </Button>
           </div>
         </div>
 
@@ -1823,6 +1833,28 @@ export default function PlanningEnhanced() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Progress Summary Dialog */}
+        <ProgressSummaryDialog
+          open={progressSummaryDialogOpen}
+          onOpenChange={setProgressSummaryDialogOpen}
+          objectives={enrichedObjectives.map(obj => ({
+            id: obj.id,
+            title: obj.title,
+            progress: obj.progress,
+            status: obj.status,
+            keyResults: obj.keyResults?.map((kr: any) => ({
+              id: kr.id,
+              title: kr.title,
+              currentValue: kr.currentValue || 0,
+              targetValue: kr.targetValue || 100,
+              unit: kr.unit || '%',
+              progress: kr.progress || 0,
+            })),
+          }))}
+          quarter={quarter}
+          year={year}
+        />
       </div>
     </div>
   );
