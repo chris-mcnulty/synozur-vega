@@ -300,7 +300,7 @@ export default function Foundations() {
         <div>
           <h1 className="text-3xl font-bold mb-2">Foundations</h1>
           <p className="text-muted-foreground">
-            Define your organization's core purpose, values, and strategic goals
+            Define your organization's core purpose, values, and annual goals
           </p>
         </div>
         <div className="flex gap-2">

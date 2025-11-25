@@ -147,7 +147,7 @@ export default function Strategy() {
       resetForm();
       toast({
         title: "Strategy Created",
-        description: "Your strategic priority has been created successfully.",
+        description: "Your strategy has been created successfully.",
       });
     },
     onError: () => {
@@ -201,7 +201,7 @@ export default function Strategy() {
       setSelectedStrategy(null);
       toast({
         title: "Strategy Deleted",
-        description: "The strategic priority has been removed.",
+        description: "The strategy has been removed.",
       });
     },
     onError: () => {

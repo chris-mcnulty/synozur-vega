@@ -2091,7 +2091,7 @@ function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, on
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Strategic Big Rocks</h2>
+        <h2 className="text-xl font-semibold">Big Rocks</h2>
         <Button onClick={() => onCreateBigRock("")} data-testid="button-add-bigrock">
           Add Big Rock
         </Button>
@@ -2103,7 +2103,7 @@ function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, on
             <Target className="w-12 h-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">No Big Rocks Yet</h3>
             <p className="text-muted-foreground text-center mb-4">
-              Create your first strategic initiative
+              Create your first Big Rock initiative
             </p>
           </CardContent>
         </Card>

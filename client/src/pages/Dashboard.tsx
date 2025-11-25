@@ -355,7 +355,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-primary" />
-              <h2 className="text-xl font-semibold">Strategic Priorities</h2>
+              <h2 className="text-xl font-semibold">Strategies</h2>
             </div>
             <Link href="/strategy">
               <Button variant="ghost" size="sm" className="gap-2" data-testid="link-strategy">
@@ -408,7 +408,7 @@ export default function Dashboard() {
                 ))
               ) : (
                 <p className="text-sm text-muted-foreground italic text-center py-4">
-                  No strategic priorities defined yet
+                  No strategies defined yet
                 </p>
               )}
             </CardContent>
