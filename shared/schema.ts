@@ -582,3 +582,37 @@ export const insertImportHistorySchema = createInsertSchema(importHistory).omit(
 
 export type InsertImportHistory = z.infer<typeof insertImportHistorySchema>;
 export type ImportHistory = typeof importHistory.$inferSelect;
+
+// Master grounding documents for AI context
+export const groundingDocuments = pgTable("grounding_documents", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Document metadata
+  title: text("title").notNull(),
+  description: text("description"),
+  category: text("category").notNull(), // 'company_os', 'methodology', 'best_practices', 'terminology', 'examples'
+  
+  // Document content
+  content: text("content").notNull(),
+  
+  // Priority for context injection (higher = included first)
+  priority: integer("priority").default(0),
+  
+  // Status
+  isActive: boolean("is_active").default(true),
+  
+  // Metadata
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertGroundingDocumentSchema = createInsertSchema(groundingDocuments).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertGroundingDocument = z.infer<typeof insertGroundingDocumentSchema>;
+export type GroundingDocument = typeof groundingDocuments.$inferSelect;

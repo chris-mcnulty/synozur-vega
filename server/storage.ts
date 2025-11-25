@@ -12,7 +12,8 @@ import {
   checkIns, type CheckIn, type InsertCheckIn,
   teams, type Team, type InsertTeam,
   objectiveValues,
-  strategyValues
+  strategyValues,
+  groundingDocuments, type GroundingDocument, type InsertGroundingDocument
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull } from "drizzle-orm";
@@ -113,6 +114,14 @@ export interface IStorage {
   // Import history methods
   createImportHistory(data: any): Promise<any>;
   getImportHistory(tenantId: string): Promise<any[]>;
+  
+  // Grounding documents methods (for AI context)
+  getAllGroundingDocuments(): Promise<GroundingDocument[]>;
+  getActiveGroundingDocuments(): Promise<GroundingDocument[]>;
+  getGroundingDocumentById(id: string): Promise<GroundingDocument | undefined>;
+  createGroundingDocument(document: InsertGroundingDocument): Promise<GroundingDocument>;
+  updateGroundingDocument(id: string, document: Partial<InsertGroundingDocument>): Promise<GroundingDocument>;
+  deleteGroundingDocument(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -886,6 +895,51 @@ export class DatabaseStorage implements IStorage {
       LIMIT 50
     `);
     return results.rows || [];
+  }
+
+  // Grounding documents methods (for AI context)
+  async getAllGroundingDocuments(): Promise<GroundingDocument[]> {
+    return await db
+      .select()
+      .from(groundingDocuments)
+      .orderBy(desc(groundingDocuments.priority), groundingDocuments.category);
+  }
+
+  async getActiveGroundingDocuments(): Promise<GroundingDocument[]> {
+    return await db
+      .select()
+      .from(groundingDocuments)
+      .where(eq(groundingDocuments.isActive, true))
+      .orderBy(desc(groundingDocuments.priority), groundingDocuments.category);
+  }
+
+  async getGroundingDocumentById(id: string): Promise<GroundingDocument | undefined> {
+    const [doc] = await db
+      .select()
+      .from(groundingDocuments)
+      .where(eq(groundingDocuments.id, id));
+    return doc || undefined;
+  }
+
+  async createGroundingDocument(document: InsertGroundingDocument): Promise<GroundingDocument> {
+    const [doc] = await db
+      .insert(groundingDocuments)
+      .values(document)
+      .returning();
+    return doc;
+  }
+
+  async updateGroundingDocument(id: string, document: Partial<InsertGroundingDocument>): Promise<GroundingDocument> {
+    const [doc] = await db
+      .update(groundingDocuments)
+      .set({ ...document, updatedAt: new Date() } as any)
+      .where(eq(groundingDocuments.id, id))
+      .returning();
+    return doc;
+  }
+
+  async deleteGroundingDocument(id: string): Promise<void> {
+    await db.delete(groundingDocuments).where(eq(groundingDocuments.id, id));
   }
 }
 
