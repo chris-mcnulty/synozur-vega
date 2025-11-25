@@ -187,13 +187,42 @@ export default function AIGroundingAdmin() {
     }
   }
 
-  function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result as string;
+    const fileExtension = file.name.split('.').pop()?.toLowerCase();
+    
+    try {
+      let content = "";
+      
+      if (fileExtension === 'pdf') {
+        // Parse PDF file
+        const arrayBuffer = await file.arrayBuffer();
+        const response = await fetch('/api/ai/parse-pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: arrayBuffer,
+        });
+        if (!response.ok) throw new Error('Failed to parse PDF');
+        const result = await response.json();
+        content = result.text;
+      } else if (fileExtension === 'docx') {
+        // Parse DOCX file
+        const arrayBuffer = await file.arrayBuffer();
+        const response = await fetch('/api/ai/parse-docx', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: arrayBuffer,
+        });
+        if (!response.ok) throw new Error('Failed to parse DOCX');
+        const result = await response.json();
+        content = result.text;
+      } else {
+        // Handle text files (.txt, .md, .json)
+        content = await file.text();
+      }
+      
       setFormData(prev => ({ ...prev, content }));
       
       if (!formData.title) {
@@ -202,11 +231,10 @@ export default function AIGroundingAdmin() {
       }
       
       toast({ title: "File loaded", description: `Loaded content from ${file.name}` });
-    };
-    reader.onerror = () => {
+    } catch (error) {
+      console.error('File upload error:', error);
       toast({ title: "Error", description: "Failed to read file", variant: "destructive" });
-    };
-    reader.readAsText(file);
+    }
   }
 
   // Check if user is admin
@@ -478,14 +506,14 @@ export default function AIGroundingAdmin() {
                   <label className="cursor-pointer">
                     <input
                       type="file"
-                      accept=".txt,.md,.json"
+                      accept=".txt,.md,.json,.pdf,.docx"
                       className="hidden"
                       onChange={handleFileUpload}
                     />
                     <Button type="button" variant="outline" size="sm" asChild>
                       <span>
                         <Upload className="h-4 w-4 mr-2" />
-                        Upload File
+                        Upload File (.txt, .md, .json, .pdf, .docx)
                       </span>
                     </Button>
                   </label>

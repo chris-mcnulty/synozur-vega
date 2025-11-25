@@ -45,6 +45,54 @@ async function requireAuth(req: Request, res: Response, next: Function) {
 }
 
 // ============================================
+// FILE PARSING ROUTES (Admin Only)
+// ============================================
+
+// Parse PDF file and extract text
+aiRouter.post("/parse-pdf", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', async () => {
+      try {
+        const buffer = Buffer.concat(chunks);
+        const pdfParse = (await import("pdf-parse")).default;
+        const data = await pdfParse(buffer);
+        res.json({ text: data.text });
+      } catch (parseError) {
+        console.error("Error parsing PDF:", parseError);
+        res.status(400).json({ error: "Failed to parse PDF file" });
+      }
+    });
+  } catch (error) {
+    console.error("Error handling PDF upload:", error);
+    res.status(500).json({ error: "Failed to process PDF" });
+  }
+});
+
+// Parse DOCX file and extract text
+aiRouter.post("/parse-docx", requireAdmin, async (req: Request, res: Response) => {
+  try {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk: Buffer) => chunks.push(chunk));
+    req.on('end', async () => {
+      try {
+        const buffer = Buffer.concat(chunks);
+        const mammoth = await import("mammoth");
+        const result = await mammoth.extractRawText({ buffer });
+        res.json({ text: result.value });
+      } catch (parseError) {
+        console.error("Error parsing DOCX:", parseError);
+        res.status(400).json({ error: "Failed to parse DOCX file" });
+      }
+    });
+  } catch (error) {
+    console.error("Error handling DOCX upload:", error);
+    res.status(500).json({ error: "Failed to process DOCX" });
+  }
+});
+
+// ============================================
 // GROUNDING DOCUMENTS ROUTES (Admin Only)
 // ============================================
 

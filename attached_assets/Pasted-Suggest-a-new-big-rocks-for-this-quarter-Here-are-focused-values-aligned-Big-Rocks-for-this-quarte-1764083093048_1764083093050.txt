@@ -1,0 +1,62 @@
+Suggest a new big rocks for this quarter
+Here are focused, values-aligned Big Rocks for this quarter. Each ladders up to core objectives, includes clear success criteria, and fits the Company OS focus rhythm.
+
+Objective: Elevate client outcomes with a repeatable transformation system
+- Big Rock: Synozur Transformation Playbook v1.0
+  - What: Codify our end-to-end strategic transformation methodology (frameworks, templates, governance, change playbooks).
+  - Success: Playbook published; 80% of consultants trained and using it on at least 2 engagements; client satisfaction ≥ 4.5/5 on projects using the playbook.
+  - Values: Excellence, Human-Centric, Transparency.
+  - Milestones: Draft architecture (Week 2), compile modules (Week 5), pilot in 2 live engagements (Week 8), finalize v1.0 (End of Quarter).
+
+- Big Rock: Company OS Deployment Kit + Client Onboarding Blueprint
+  - What: Standardized toolkit to roll out Vega Company OS in client environments (OKR templates, operating rhythm, KPI libraries, change comms).
+  - Success: 3 priority clients live on Company OS; 100% of new engagements start with the onboarding blueprint; time-to-setup ≤ 10 business days.
+  - Values: Integrity, Excellence, Inclusivity.
+  - Milestones: Map workflows (Week 3), build templates (Week 6), train client teams (Week 7–9), go-live (Week 10–12).
+
+Objective: Grow high-quality pipeline in our ideal customer profile (ICP)
+- Big Rock: ICP Refresh + Targeted Outbound Sprint
+  - What: Refine ICP segments and launch 3 micro-campaigns with value-led assets.
+  - Success: 30 qualified meetings; $2.5M added to pipeline; win rate ≥ 30% in ICP; zero “spray-and-pray” outreach.
+  - Values: Ethical, Entrepreneurial, Transparency.
+  - Milestones: ICP analysis (Week 2), messaging and assets (Week 4), campaigns (Weeks 5–10), partner outreach (Weeks 6–11).
+
+- Big Rock: Outcome-Based Pricing & Packaging
+  - What: Tiered offerings with clear outcomes, transparent pricing, and ethical guardrails.
+  - Success: 80% of proposals use new packages; average gross margin +5 pts; no negative client feedback regarding transparency.
+  - Values: Honesty & Integrity, Transparency, Excellence.
+  - Milestones: Package design (Week 3), pricing model (Week 4), internal training (Week 6), market test on 5 deals (Weeks 7–11).
+
+Objective: Strengthen culture and operating rhythm
+- Big Rock: Operating Rhythm Upgrade
+  - What: Standardize quarterly planning, monthly operating reviews, and weekly focus check-ins in Company OS.
+  - Success: 100% teams running weekly check-ins; monthly operating reviews held on time; Focus Score +15%; on-time Big Rock completion ≥ 85%.
+  - Values: Inclusivity, Excellence, Transparency.
+  - Milestones: Cadence defined (Week 2), dashboards live (Week 4), leadership training (Week 5), team adoption (Weeks 6–12).
+
+- Big Rock: Empathy-in-Action Microlearning + Inclusive Hiring Refresh
+  - What: Short learning series, listening sessions, and updated hiring practices to reduce bias and improve candidate experience.
+  - Success: 100% team completion; eNPS +10; diverse candidate slate ≥ 50% for all roles; measurable improvement in interview consistency.
+  - Values: Human-Centric, Inclusive, Ethical.
+  - Milestones: Curriculum (Week 3), sessions (Weeks 5–9), hiring toolkit (Week 6), measure outcomes (Week 12).
+
+Objective: Amplify brand and thought leadership
+- Big Rock: Case Study Engine + Insights Series
+  - What: Produce 3 outcome-based client case studies and 4 “Desirable-to-Achievable” insight pieces, plus one webinar.
+  - Success: 3 published case studies; 4 insights; 1 webinar with ≥ 150 registrants; 1 speaking opportunity secured.
+  - Values: Transparency, Excellence, Entrepreneurial.
+  - Milestones: Case selection (Week 2), interviews (Weeks 3–5), design (Weeks 6–8), publish (Weeks 9–11), webinar (Week 12).
+
+How to set these up in Company OS
+- Create each Big Rock under its parent Objective.
+- Add owner, due date, milestones, and weekly check-in cadence.
+- Link supporting KRs (e.g., adoption %, pipeline $, Focus Score).
+- Use operating reviews to unblock dependencies and reallocate capacity.
+
+Questions to tailor this further
+- Which top objectives are already set for this quarter?
+- How many Big Rocks can your teams realistically carry in parallel?
+- Any specific clients, markets, or offerings to prioritize?
+- Do you prefer revenue, capability, or culture as the primary focus this quarter?
+
+Share your priorities, and I’ll refine these into final OKRs and detailed execution plans.
