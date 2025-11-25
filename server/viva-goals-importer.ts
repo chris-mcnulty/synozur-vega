@@ -612,6 +612,49 @@ export class VivaGoalsImporter {
       // Phase 3: Create Key Results (Viva "KPIs") under objectives
       const kpis = this.objectives.filter(obj => obj.Type === 'Kpi');
       
+      // Pre-scan to find missing parent objectives and create placeholders
+      const missingParentIds = new Set<number>();
+      for (const kpi of kpis) {
+        const parentVivaId = kpi['Parent IDs']?.[0];
+        if (parentVivaId && !objectiveMap.has(parentVivaId)) {
+          missingParentIds.add(parentVivaId);
+        }
+      }
+      
+      // Create placeholder objectives for missing parents
+      if (missingParentIds.size > 0) {
+        for (const missingId of Array.from(missingParentIds)) {
+          try {
+            // Find any KPI that references this missing parent to get time period info
+            const sampleKpi = kpis.find(k => k['Parent IDs']?.[0] === missingId);
+            if (sampleKpi) {
+              const timePeriod = this.parseTimePeriod(sampleKpi['Time Period'].Name);
+              
+              const placeholderObjective: Partial<Objective> = {
+                tenantId: this.options.tenantId,
+                title: `[Imported] Missing Parent Objective (Viva ID: ${missingId})`,
+                description: `Placeholder for parent objective not included in Viva Goals export. Contains orphaned KPIs.`,
+                level: 'organization',
+                progress: 0,
+                progressMode: 'rollup',
+                status: 'not_started',
+                quarter: timePeriod.quarter || undefined,
+                year: timePeriod.year,
+                createdBy: this.options.userId,
+                updatedBy: this.options.userId,
+              };
+              
+              const created = await storage.createObjective(placeholderObjective);
+              objectiveMap.set(missingId, created.id);
+              this.result.summary.objectivesCreated++;
+              this.result.warnings.push(`Created placeholder objective for missing Viva parent ID ${missingId} (${missingParentIds.size} orphaned KPIs)`);
+            }
+          } catch (error) {
+            this.result.warnings.push(`Failed to create placeholder for missing parent ${missingId}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          }
+        }
+      }
+      
       for (const viva of kpis) {
         try {
           // Find parent objective
