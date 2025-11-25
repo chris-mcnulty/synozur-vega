@@ -15,6 +15,12 @@ For detailed information, see:
 
 ## Recent Changes (November 2025)
 
+- ✅ **AI Integration Complete**: Full GPT-5 powered AI assistant with streaming responses:
+  - Grounding Documents system for master AI context (methodology, terminology, best practices)
+  - Admin UI at /ai-grounding-admin for document management (category-based, priority ordering)
+  - Streaming chat endpoint (/api/ai/chat/stream) with Server-Sent Events
+  - AI suggestions for OKRs and Big Rocks with strategic context
+  - Uses Replit AI Integrations (AI_INTEGRATIONS_OPENAI_BASE_URL/API_KEY)
 - ✅ **Viva Goals Import Fixed**: Complete overhaul of the import system with 8 bug fixes:
   - Numeric overflow fixed (all progress/value fields now doublePrecision)
   - Duplicate merge strategy properly updates existing records
@@ -66,7 +72,7 @@ For detailed information, see:
 ## External Dependencies
 
 - **Microsoft 365 Integration**: Microsoft Graph Client for planned integrations with Excel, Outlook Calendar, and Microsoft Planner, utilizing OAuth for authentication.
-- **AI Services**: Placeholder for future GPT-based API integration.
+- **AI Services**: GPT-5 integration via Replit AI Integrations (OpenAI-compatible API). Features streaming chat, OKR suggestions, and Big Rock suggestions. AI context is enhanced via Grounding Documents system.
 - **UI Component Library**: shadcn/ui (built on Radix UI primitives).
 - **Database**: Neon PostgreSQL.
 - **Transactional Email**: SendGrid (via Replit connector) for email verification and password reset.
