@@ -189,7 +189,7 @@ export const objectives = pgTable("objectives", {
   description: text("description"),
   
   // Hierarchical fields
-  parentId: varchar("parent_id"),
+  parentId: varchar("parent_id").references(() => objectives.id, { onDelete: 'set null' }),
   level: text("level").notNull(), // 'organization', 'team', 'individual'
   
   // Ownership and alignment
@@ -424,6 +424,44 @@ export const updateCheckInSchema = z.object({
 export type InsertCheckIn = z.infer<typeof insertCheckInSchema>;
 export type UpdateCheckIn = z.infer<typeof updateCheckInSchema>;
 export type CheckIn = typeof checkIns.$inferSelect;
+
+// Objective-BigRock many-to-many junction table
+export const objectiveBigRocks = pgTable("objective_big_rocks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  objectiveId: varchar("objective_id").notNull().references(() => objectives.id, { onDelete: 'cascade' }),
+  bigRockId: varchar("big_rock_id").notNull().references(() => bigRocks.id, { onDelete: 'cascade' }),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueObjectiveBigRock: unique().on(table.objectiveId, table.bigRockId),
+}));
+
+export const insertObjectiveBigRockSchema = createInsertSchema(objectiveBigRocks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertObjectiveBigRock = z.infer<typeof insertObjectiveBigRockSchema>;
+export type ObjectiveBigRock = typeof objectiveBigRocks.$inferSelect;
+
+// KeyResult-BigRock many-to-many junction table
+export const keyResultBigRocks = pgTable("key_result_big_rocks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  keyResultId: varchar("key_result_id").notNull().references(() => keyResults.id, { onDelete: 'cascade' }),
+  bigRockId: varchar("big_rock_id").notNull().references(() => bigRocks.id, { onDelete: 'cascade' }),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueKeyResultBigRock: unique().on(table.keyResultId, table.bigRockId),
+}));
+
+export const insertKeyResultBigRockSchema = createInsertSchema(keyResultBigRocks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertKeyResultBigRock = z.infer<typeof insertKeyResultBigRockSchema>;
+export type KeyResultBigRock = typeof keyResultBigRocks.$inferSelect;
 
 // Value tagging junction tables
 export const objectiveValues = pgTable("objective_values", {
