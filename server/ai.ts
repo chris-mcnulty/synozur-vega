@@ -402,8 +402,8 @@ Format the response so it's ready to copy and paste directly into a communicatio
     },
   ];
 
-  // Use the streaming function
-  const stream = streamChatCompletion(messages, { tenantId: context.tenantId, maxTokens: 2048 });
+  // Use the streaming function with higher token limit for comprehensive summaries
+  const stream = streamChatCompletion(messages, { tenantId: context.tenantId, maxTokens: 4096 });
   for await (const chunk of stream) {
     yield chunk;
   }
@@ -498,8 +498,8 @@ End with a brief summary of the strategic themes these goals address.`,
     },
   ];
 
-  // Use the streaming function
-  const stream = streamChatCompletion(messages, { tenantId: context.tenantId, maxTokens: 2048 });
+  // Use the streaming function with higher token limit for comprehensive suggestions
+  const stream = streamChatCompletion(messages, { tenantId: context.tenantId, maxTokens: 4096 });
   for await (const chunk of stream) {
     yield chunk;
   }
