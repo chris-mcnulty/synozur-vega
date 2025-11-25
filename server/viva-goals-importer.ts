@@ -254,7 +254,7 @@ export class VivaGoalsImporter {
       description: viva.Description || undefined,
       level: 'organization', // Default to organization level
       ownerEmail: owner?.Email || undefined,
-      progress: Math.round(viva.Progress),
+      progress: viva.Progress,
       progressMode: viva['Progress and Status Configuration'].Progress.includes('Children') ? 'rollup' : 'manual',
       status: this.mapStatus(viva.Status),
       quarter: timePeriod.quarter || undefined,
@@ -288,18 +288,18 @@ export class VivaGoalsImporter {
       initialValue = outcome.Start || 0;
       targetValue = outcome.Target || 100;
       
-      // Calculate current value from progress
+      // Calculate current value from progress (preserve decimals)
       const progress = viva.Progress / 100;
       if (metricType === 'increase') {
-        currentValue = Math.round(initialValue + (targetValue - initialValue) * progress);
+        currentValue = initialValue + (targetValue - initialValue) * progress;
       } else if (metricType === 'decrease') {
-        currentValue = Math.round(initialValue - (initialValue - targetValue) * progress);
+        currentValue = initialValue - (initialValue - targetValue) * progress;
       } else {
-        currentValue = Math.round(targetValue * progress);
+        currentValue = targetValue * progress;
       }
     } else {
-      // Percentage-based
-      currentValue = Math.round(viva.Progress);
+      // Percentage-based (preserve decimals)
+      currentValue = viva.Progress;
       targetValue = 100;
       unit = '%';
     }
@@ -328,7 +328,7 @@ export class VivaGoalsImporter {
       targetValue,
       initialValue,
       unit,
-      progress: Math.round(viva.Progress),
+      progress: viva.Progress,
       weight: 25, // Default weight, will be adjusted if parent has alignment weights
       status: this.mapStatus(viva.Status),
       createdBy: this.options.userId,
@@ -526,6 +526,15 @@ export class VivaGoalsImporter {
                 vegaId: duplicate.id,
               };
               continue;
+            } else if (this.options.duplicateStrategy === 'merge') {
+              // Update existing objective
+              await storage.updateObjective(duplicate.id, objectiveData);
+              objectiveMap.set(viva.ID, duplicate.id);
+              this.result.entityMap[viva.ID] = {
+                type: 'objective',
+                vegaId: duplicate.id,
+              };
+              continue;
             }
           }
           
@@ -586,6 +595,15 @@ export class VivaGoalsImporter {
               this.result.warnings.push(`Skipped duplicate child objective: "${viva.Title}"`);
               this.result.skippedItems.push({ type: 'objective', title: viva.Title, vivaId: viva.ID });
               // Still map it so child entities can reference it
+              objectiveMap.set(viva.ID, duplicate.id);
+              this.result.entityMap[viva.ID] = {
+                type: 'objective',
+                vegaId: duplicate.id,
+              };
+              continue;
+            } else if (this.options.duplicateStrategy === 'merge') {
+              // Update existing objective
+              await storage.updateObjective(duplicate.id, objectiveData);
               objectiveMap.set(viva.ID, duplicate.id);
               this.result.entityMap[viva.ID] = {
                 type: 'objective',
