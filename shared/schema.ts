@@ -345,11 +345,11 @@ export const checkIns = pgTable("check_ins", {
   entityType: text("entity_type").notNull(), // 'objective', 'key_result', 'big_rock'
   entityId: varchar("entity_id").notNull(),
   
-  // Progress update
-  previousValue: integer("previous_value"),
-  newValue: integer("new_value"),
-  previousProgress: integer("previous_progress"),
-  newProgress: integer("new_progress"),
+  // Progress update (using doublePrecision for large values and decimals)
+  previousValue: doublePrecision("previous_value"),
+  newValue: doublePrecision("new_value"),
+  previousProgress: doublePrecision("previous_progress"),
+  newProgress: doublePrecision("new_progress"),
   
   // Status update
   previousStatus: text("previous_status"),
