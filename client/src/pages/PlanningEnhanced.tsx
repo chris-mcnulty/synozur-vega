@@ -651,30 +651,39 @@ export default function PlanningEnhanced() {
 
   // Helper functions for toggling strategies and goals
   const toggleObjectiveStrategy = (strategyId: string) => {
-    setObjectiveForm(prev => ({
-      ...prev,
-      linkedStrategies: prev.linkedStrategies.includes(strategyId)
-        ? prev.linkedStrategies.filter(s => s !== strategyId)
-        : [...prev.linkedStrategies, strategyId],
-    }));
+    setObjectiveForm(prev => {
+      const currentStrategies = prev.linkedStrategies || [];
+      return {
+        ...prev,
+        linkedStrategies: currentStrategies.includes(strategyId)
+          ? currentStrategies.filter(s => s !== strategyId)
+          : [...currentStrategies, strategyId],
+      };
+    });
   };
 
   const toggleObjectiveGoal = (goal: string) => {
-    setObjectiveForm(prev => ({
-      ...prev,
-      linkedGoals: prev.linkedGoals.includes(goal)
-        ? prev.linkedGoals.filter(g => g !== goal)
-        : [...prev.linkedGoals, goal],
-    }));
+    setObjectiveForm(prev => {
+      const currentGoals = prev.linkedGoals || [];
+      return {
+        ...prev,
+        linkedGoals: currentGoals.includes(goal)
+          ? currentGoals.filter(g => g !== goal)
+          : [...currentGoals, goal],
+      };
+    });
   };
 
   const toggleBigRockStrategy = (strategyId: string) => {
-    setBigRockForm(prev => ({
-      ...prev,
-      linkedStrategies: prev.linkedStrategies.includes(strategyId)
-        ? prev.linkedStrategies.filter(s => s !== strategyId)
-        : [...prev.linkedStrategies, strategyId],
-    }));
+    setBigRockForm(prev => {
+      const currentStrategies = prev.linkedStrategies || [];
+      return {
+        ...prev,
+        linkedStrategies: currentStrategies.includes(strategyId)
+          ? currentStrategies.filter(s => s !== strategyId)
+          : [...currentStrategies, strategyId],
+      };
+    });
   };
 
   // Handler functions
@@ -699,19 +708,22 @@ export default function PlanningEnhanced() {
   };
 
   const handleEditObjective = async (objective: Objective) => {
-    setObjectiveForm({
-      title: objective.title,
-      description: objective.description,
-      level: objective.level,
+    // Set initial form state with defensive defaults
+    const initialForm = {
+      title: objective.title || "",
+      description: objective.description || "",
+      level: objective.level || "organization",
       parentId: objective.parentId || "",
       ownerEmail: objective.ownerEmail || "",
-      progressMode: "rollup",
-      quarter: objective.quarter,
-      year: objective.year,
-      linkedStrategies: objective.linkedStrategies || [],
-      linkedGoals: objective.linkedGoals || [],
-      linkedBigRocks: [],
-    });
+      progressMode: "rollup" as const,
+      quarter: objective.quarter || 1,
+      year: objective.year || new Date().getFullYear(),
+      linkedStrategies: Array.isArray(objective.linkedStrategies) ? objective.linkedStrategies : [],
+      linkedGoals: Array.isArray(objective.linkedGoals) ? objective.linkedGoals : [],
+      linkedBigRocks: [] as string[],
+    };
+    
+    setObjectiveForm(initialForm);
     setSelectedObjective(objective);
     
     // Fetch existing value tags
@@ -737,16 +749,18 @@ export default function PlanningEnhanced() {
       if (res.ok) {
         const linkedBigRocks = await res.json();
         const bigRockIds = linkedBigRocks.map((br: BigRock) => br.id);
+        setPreviousLinkedBigRocks(bigRockIds);
+        // Update form with fetched Big Rocks, preserving all other fields
         setObjectiveForm(prev => ({ 
           ...prev, 
           linkedBigRocks: bigRockIds
         }));
-        setPreviousLinkedBigRocks(bigRockIds);
       }
     } catch (error) {
       console.error("Failed to fetch linked Big Rocks:", error);
     }
     
+    // Open dialog after all state is set
     setObjectiveDialogOpen(true);
   };
 
@@ -1181,7 +1195,7 @@ export default function PlanningEnhanced() {
                     strategies.map((strategy) => (
                       <Badge
                         key={strategy.id}
-                        variant={objectiveForm.linkedStrategies.includes(strategy.id) ? "default" : "outline"}
+                        variant={(objectiveForm.linkedStrategies || []).includes(strategy.id) ? "default" : "outline"}
                         className="cursor-pointer"
                         onClick={() => toggleObjectiveStrategy(strategy.id)}
                         data-testid={`badge-strategy-${strategy.id}`}
@@ -1202,7 +1216,7 @@ export default function PlanningEnhanced() {
                     foundation.annualGoals.map((goal) => (
                       <Badge
                         key={goal}
-                        variant={objectiveForm.linkedGoals.includes(goal) ? "default" : "outline"}
+                        variant={(objectiveForm.linkedGoals || []).includes(goal) ? "default" : "outline"}
                         className="cursor-pointer"
                         onClick={() => toggleObjectiveGoal(goal)}
                         data-testid={`badge-goal-${goal.toLowerCase().replace(/\s+/g, '-')}`}
@@ -1223,10 +1237,10 @@ export default function PlanningEnhanced() {
                     bigRocks.map((rock: BigRock) => (
                       <Badge
                         key={rock.id}
-                        variant={objectiveForm.linkedBigRocks.includes(rock.id) ? "default" : "outline"}
+                        variant={(objectiveForm.linkedBigRocks || []).includes(rock.id) ? "default" : "outline"}
                         className="cursor-pointer toggle-elevate"
                         onClick={() => {
-                          const current = objectiveForm.linkedBigRocks;
+                          const current = objectiveForm.linkedBigRocks || [];
                           if (current.includes(rock.id)) {
                             setObjectiveForm({ ...objectiveForm, linkedBigRocks: current.filter(id => id !== rock.id) });
                           } else {

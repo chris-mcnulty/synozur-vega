@@ -29,13 +29,19 @@ For detailed information, see:
   - Check-ins import with large values (> 1 million) works correctly
   - Big Rocks default to Q1 when quarter not specified
   - Import results: 90 key results, 317 check-ins, 5 big rocks successfully imported
+- ✅ **Hierarchical OKR View Complete (Phase 3)**: Viva Goals-style interface with expandable tree structure:
+  - HierarchicalOKRTable with separate edit/expand interactions (title click vs chevron button)
+  - Badge-based OKRFilters for time period and status with toggle-elevate interactions
+  - ObjectiveDialog edit flow from hierarchy view with many-to-many Big Rock linking
+  - Defensive state management with null coalescing (`|| []`) to prevent undefined errors
+  - Auto-refresh hierarchy after edits with exact:false query invalidation
+  - Comprehensive e2e test passed (26 steps verified)
 - ✅ **Values Integration Complete**: Full value tagging with analytics dashboard widget, distribution reports, and value badges in strategic views
 - ✅ **Entity Relationship Linking**: Objectives link to strategies/goals, Big Rocks link to strategies
 - ✅ **Culture & Values Integration**: Value tagging for Objectives and Strategies (NOT Big Rocks - removed to reduce data clutter)
 - ✅ **Foreign Key Constraint Fix**: Empty strings converted to null in update endpoints
 - ✅ **Enhanced Documentation**: Created BACKLOG.md, KNOWN_ISSUES.md, TECHNICAL_DECISIONS.md
 - ⭐ **Backlog**: AI Big Rock Generator added to AI roadmap (suggest missing initiatives based on strategic analysis)
-- 🚧 **In Progress**: Big Rock linkedStrategies state management bug (see KNOWN_ISSUES.md)
 
 ## System Architecture
 
