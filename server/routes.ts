@@ -754,6 +754,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { importRouter } = await import("./routes-import");
   app.use("/api/import", importRouter);
 
+  // Import and use AI routes (grounding documents + chat)
+  const { aiRouter } = await import("./routes-ai");
+  app.use("/api/ai", aiRouter);
+
   const httpServer = createServer(app);
 
   return httpServer;
