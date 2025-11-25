@@ -171,6 +171,9 @@ Chat-based AI assistant with culture-grounded outputs and MCP-style agent archit
 - Draft key results based on historical patterns
 - Generate meeting agendas incorporating company culture
 - **AI Big Rock Generator** ⭐ NEW: Suggest missing Big Rocks based on analysis of objectives, key results, strategies, and goals. Identifies execution gaps where strategic priorities lack corresponding initiatives.
+- **AI OKR Ingestion** ⭐ NEW: Parse objectives and key results from uploaded documents (PDF, Word, Excel) or text pasted into the AI chat. Extract structured OKR data and create draft objectives with suggested key results for user review and approval.
+- **AI Objective Gap Analyzer** ⭐ NEW: Identify annual goals and strategic priorities that lack corresponding objectives or have minimal activity. Suggest new objectives based on organizational context, including mission, vision, values, and existing strategies.
+- **AI Foundation Element Suggestions** ⭐ NEW: Suggest extensions or alternatives to foundation elements (mission, vision, values, goals) based on organizational descriptive information and tenant context.
 
 **Phase 3: Advanced Agent Features (4 weeks)**
 - Human-in-the-loop controls (approve before taking action)
