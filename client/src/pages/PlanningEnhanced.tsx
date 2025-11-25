@@ -19,6 +19,8 @@ import { getCurrentQuarter } from "@/lib/quarters";
 import { OKRTreeView } from "@/components/okr/OKRTreeView";
 import { WeightManager } from "@/components/WeightManager";
 import { ValueTagSelector } from "@/components/ValueTagSelector";
+import { HierarchicalOKRTable } from "@/components/okr/HierarchicalOKRTable";
+import { OKRFilters } from "@/components/okr/OKRFilters";
 import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2, History, Edit, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Foundation, CompanyValue } from "@shared/schema";
@@ -97,6 +99,10 @@ export default function PlanningEnhanced() {
   const [year, setYear] = useState(new Date().getFullYear());
   const [level, setLevel] = useState<string>("all");
   const [teamId, setTeamId] = useState<string>("all");
+  
+  // Hierarchy view filters
+  const [hierarchyPeriod, setHierarchyPeriod] = useState<string>("all");
+  const [hierarchyStatus, setHierarchyStatus] = useState<string>("all");
 
   // Fetch teams for filtering
   const { data: teamsData = [] } = useQuery<{ id: string; name: string }[]>({
@@ -163,6 +169,26 @@ export default function PlanningEnhanced() {
     enabled: !!currentTenant?.id,
   });
 
+  // Fetch hierarchy data
+  const { data: hierarchyData = [], isLoading: loadingHierarchy } = useQuery<any[]>({
+    queryKey: [`/api/okr/hierarchy`, currentTenant?.id, hierarchyPeriod, year],
+    queryFn: async () => {
+      if (!currentTenant?.id) {
+        return [];
+      }
+      const periodParam = hierarchyPeriod !== 'all' ? `&quarter=${hierarchyPeriod}` : '';
+      const res = await fetch(`/api/okr/hierarchy?tenantId=${currentTenant.id}${periodParam}&year=${year}`);
+      if (!res.ok) throw new Error("Failed to fetch hierarchy");
+      return res.json();
+    },
+    enabled: !!currentTenant?.id && selectedTab === 'hierarchy',
+  });
+
+  // Filter hierarchy data by status
+  const filteredHierarchyData = hierarchyStatus === 'all' 
+    ? hierarchyData 
+    : hierarchyData.filter((obj: any) => obj.status === hierarchyStatus);
+
   // Enrich objectives with their key results and big rocks
   const [enrichedObjectives, setEnrichedObjectives] = useState<any[]>([]);
   
@@ -215,6 +241,7 @@ export default function PlanningEnhanced() {
   // Value tag states
   const [objectiveValueTags, setObjectiveValueTags] = useState<string[]>([]);
   const [previousObjectiveValueTags, setPreviousObjectiveValueTags] = useState<string[]>([]);
+  const [previousLinkedBigRocks, setPreviousLinkedBigRocks] = useState<string[]>([]);
 
   // Form data states
   const [objectiveForm, setObjectiveForm] = useState({
@@ -228,6 +255,7 @@ export default function PlanningEnhanced() {
     year: new Date().getFullYear(),
     linkedStrategies: [] as string[],
     linkedGoals: [] as string[],
+    linkedBigRocks: [] as string[],
   });
 
   const [keyResultForm, setKeyResultForm] = useState({
@@ -302,6 +330,41 @@ export default function PlanningEnhanced() {
     }
   };
 
+  // Helper function to sync Big Rock links
+  const syncBigRockLinks = async (
+    objectiveId: string,
+    currentBigRocks: string[],
+    previousBigRocks: string[] = []
+  ) => {
+    try {
+      const toAdd = currentBigRocks.filter(id => !previousBigRocks.includes(id));
+      const toRemove = previousBigRocks.filter(id => !currentBigRocks.includes(id));
+
+      for (const bigRockId of toAdd) {
+        await apiRequest("POST", `/api/okr/objectives/${objectiveId}/link-big-rock`, {
+          bigRockId,
+          tenantId: currentTenant?.id,
+        });
+      }
+
+      for (const bigRockId of toRemove) {
+        await apiRequest("DELETE", `/api/okr/objectives/${objectiveId}/link-big-rock/${bigRockId}`, undefined);
+      }
+      
+      // Invalidate all related queries including hierarchy (use exact: false to match all variants)
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/okr/objectives`, objectiveId, 'linked-big-rocks'] 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: [`/api/okr/hierarchy`],
+        exact: false
+      });
+    } catch (error) {
+      console.error('Failed to sync Big Rock links:', error);
+      throw error;
+    }
+  };
+
   // Mutations
   const createObjectiveMutation = useMutation({
     mutationFn: async (data: any) => {
@@ -320,10 +383,13 @@ export default function PlanningEnhanced() {
       try {
         // Sync value tags after creating objective
         await syncValueTags(response.id, 'objectives', objectiveValueTags, []);
+        // Sync Big Rock links after creating objective
+        await syncBigRockLinks(response.id, objectiveForm.linkedBigRocks, []);
       } catch (error) {
-        console.error('Failed to sync value tags:', error);
+        console.error('Failed to sync value tags or Big Rock links:', error);
       }
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`] });
       setObjectiveDialogOpen(false);
       setObjectiveValueTags([]);
       toast({ title: "Success", description: "Objective created successfully" });
@@ -486,14 +552,18 @@ export default function PlanningEnhanced() {
       try {
         // Sync value tags after updating objective
         await syncValueTags(variables.id, 'objectives', objectiveValueTags, previousObjectiveValueTags);
+        // Sync Big Rock links after updating objective
+        await syncBigRockLinks(variables.id, objectiveForm.linkedBigRocks, previousLinkedBigRocks);
       } catch (error) {
-        console.error('Failed to sync value tags:', error);
+        console.error('Failed to sync value tags or Big Rock links:', error);
       }
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`] });
       setObjectiveDialogOpen(false);
       setSelectedObjective(null);
       setObjectiveValueTags([]);
       setPreviousObjectiveValueTags([]);
+      setPreviousLinkedBigRocks([]);
       toast({ title: "Success", description: "Objective updated successfully" });
     },
     onError: () => {
@@ -620,6 +690,7 @@ export default function PlanningEnhanced() {
       year,
       linkedStrategies: [],
       linkedGoals: [],
+      linkedBigRocks: [],
     });
     setSelectedObjective(null);
     setObjectiveValueTags([]);
@@ -639,6 +710,7 @@ export default function PlanningEnhanced() {
       year: objective.year,
       linkedStrategies: objective.linkedStrategies || [],
       linkedGoals: objective.linkedGoals || [],
+      linkedBigRocks: [],
     });
     setSelectedObjective(objective);
     
@@ -657,6 +729,22 @@ export default function PlanningEnhanced() {
       console.error("Failed to fetch objective value tags:", error);
       setObjectiveValueTags([]);
       setPreviousObjectiveValueTags([]);
+    }
+    
+    // Fetch existing linked Big Rocks
+    try {
+      const res = await fetch(`/api/okr/objectives/${objective.id}/linked-big-rocks`);
+      if (res.ok) {
+        const linkedBigRocks = await res.json();
+        const bigRockIds = linkedBigRocks.map((br: BigRock) => br.id);
+        setObjectiveForm(prev => ({ 
+          ...prev, 
+          linkedBigRocks: bigRockIds
+        }));
+        setPreviousLinkedBigRocks(bigRockIds);
+      }
+    } catch (error) {
+      console.error("Failed to fetch linked Big Rocks:", error);
     }
     
     setObjectiveDialogOpen(true);
@@ -953,6 +1041,9 @@ export default function PlanningEnhanced() {
             <TabsTrigger value="enhanced-okrs" data-testid="tab-enhanced-okrs">
               Enhanced OKRs
             </TabsTrigger>
+            <TabsTrigger value="hierarchy" data-testid="tab-hierarchy">
+              Hierarchy View
+            </TabsTrigger>
             <TabsTrigger value="big-rocks" data-testid="tab-big-rocks">
               Big Rocks ({bigRocks.length})
             </TabsTrigger>
@@ -981,6 +1072,48 @@ export default function PlanningEnhanced() {
                 setCheckInHistoryDialogOpen(true);
               }}
             />
+          </TabsContent>
+
+          <TabsContent value="hierarchy">
+            <div className="space-y-4">
+              <OKRFilters
+                selectedPeriod={hierarchyPeriod}
+                onPeriodChange={setHierarchyPeriod}
+                selectedStatus={hierarchyStatus}
+                onStatusChange={setHierarchyStatus}
+                year={year}
+              />
+              
+              {loadingHierarchy ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <HierarchicalOKRTable
+                  objectives={filteredHierarchyData}
+                  onEditObjective={(obj) => {
+                    setSelectedObjective(obj as any);
+                    setObjectiveForm({
+                      title: obj.title,
+                      description: obj.description,
+                      level: obj.level || 'organization',
+                      parentId: obj.parentId || '',
+                      linkedStrategies: [],
+                      linkedBigRocks: [],
+                      status: obj.status,
+                      ownerEmail: obj.ownerEmail || '',
+                      quarter: obj.quarter,
+                      year: obj.year,
+                    });
+                    setObjectiveDialogOpen(true);
+                  }}
+                  onEditKeyResult={(kr) => {
+                    setSelectedKeyResult(kr as any);
+                    setKeyResultDialogOpen(true);
+                  }}
+                />
+              )}
+            </div>
           </TabsContent>
 
           <TabsContent value="big-rocks">
@@ -1090,14 +1223,14 @@ export default function PlanningEnhanced() {
                     bigRocks.map((rock: BigRock) => (
                       <Badge
                         key={rock.id}
-                        variant={objectiveForm.linkedStrategies && objectiveForm.linkedStrategies.includes(rock.id) ? "default" : "outline"}
-                        className="cursor-pointer"
+                        variant={objectiveForm.linkedBigRocks.includes(rock.id) ? "default" : "outline"}
+                        className="cursor-pointer toggle-elevate"
                         onClick={() => {
-                          const current = objectiveForm.linkedStrategies || [];
+                          const current = objectiveForm.linkedBigRocks;
                           if (current.includes(rock.id)) {
-                            setObjectiveForm({ ...objectiveForm, linkedStrategies: current.filter(id => id !== rock.id) });
+                            setObjectiveForm({ ...objectiveForm, linkedBigRocks: current.filter(id => id !== rock.id) });
                           } else {
-                            setObjectiveForm({ ...objectiveForm, linkedStrategies: [...current, rock.id] });
+                            setObjectiveForm({ ...objectiveForm, linkedBigRocks: [...current, rock.id] });
                           }
                         }}
                         data-testid={`badge-bigrock-${rock.id}`}
