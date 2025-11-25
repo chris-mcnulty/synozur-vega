@@ -10,7 +10,7 @@ import {
   keyResults, type KeyResult, type InsertKeyResult,
   bigRocks, type BigRock, type InsertBigRock,
   checkIns, type CheckIn, type InsertCheckIn,
-  teams, type Team,
+  teams, type Team, type InsertTeam,
   objectiveValues,
   strategyValues
 } from "@shared/schema";
@@ -206,14 +206,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTenant(insertTenant: InsertTenant): Promise<Tenant> {
-    const [tenant] = await db.insert(tenants).values(insertTenant).returning();
+    const [tenant] = await db.insert(tenants).values(insertTenant as any).returning();
     return tenant;
   }
 
   async updateTenant(id: string, updateData: Partial<InsertTenant>): Promise<Tenant> {
     const [tenant] = await db
       .update(tenants)
-      .set(updateData)
+      .set(updateData as any)
       .where(eq(tenants.id, id))
       .returning();
     
@@ -406,7 +406,7 @@ export class DatabaseStorage implements IStorage {
         attendees: insertMeeting.attendees ? [...insertMeeting.attendees] : null,
         decisions: insertMeeting.decisions ? [...insertMeeting.decisions] : null,
         actionItems: insertMeeting.actionItems ? [...insertMeeting.actionItems] : null,
-      })
+      } as any)
       .returning();
     return meeting;
   }
@@ -419,7 +419,7 @@ export class DatabaseStorage implements IStorage {
         attendees: updateData.attendees ? [...updateData.attendees] : undefined,
         decisions: updateData.decisions ? [...updateData.decisions] : undefined,
         actionItems: updateData.actionItems ? [...updateData.actionItems] : undefined,
-      })
+      } as any)
       .where(eq(meetings.id, id))
       .returning();
     return meeting;
@@ -495,7 +495,7 @@ export class DatabaseStorage implements IStorage {
         coOwnerIds: insertObjective.coOwnerIds ? [...insertObjective.coOwnerIds] : null,
         linkedStrategies: insertObjective.linkedStrategies ? [...insertObjective.linkedStrategies] : null,
         linkedGoals: insertObjective.linkedGoals ? [...insertObjective.linkedGoals] : null,
-      })
+      } as any)
       .returning();
     return objective;
   }
@@ -508,7 +508,7 @@ export class DatabaseStorage implements IStorage {
         coOwnerIds: updateData.coOwnerIds ? [...updateData.coOwnerIds] : undefined,
         linkedStrategies: updateData.linkedStrategies ? [...updateData.linkedStrategies] : undefined,
         linkedGoals: updateData.linkedGoals ? [...updateData.linkedGoals] : undefined,
-      })
+      } as any)
       .where(eq(objectives.id, id))
       .returning();
     return objective;
@@ -534,7 +534,7 @@ export class DatabaseStorage implements IStorage {
   async createKeyResult(insertKeyResult: InsertKeyResult): Promise<KeyResult> {
     const [keyResult] = await db
       .insert(keyResults)
-      .values(insertKeyResult)
+      .values(insertKeyResult as any)
       .returning();
     return keyResult;
   }
@@ -542,7 +542,7 @@ export class DatabaseStorage implements IStorage {
   async updateKeyResult(id: string, updateData: Partial<InsertKeyResult>): Promise<KeyResult> {
     const [keyResult] = await db
       .update(keyResults)
-      .set(updateData)
+      .set(updateData as any)
       .where(eq(keyResults.id, id))
       .returning();
     return keyResult;
@@ -678,7 +678,7 @@ export class DatabaseStorage implements IStorage {
         ...insertBigRock,
         blockedBy: insertBigRock.blockedBy ? [...insertBigRock.blockedBy] : null,
         tasks: insertBigRock.tasks ? [...insertBigRock.tasks] : null,
-      })
+      } as any)
       .returning();
     return bigRock;
   }
@@ -725,7 +725,7 @@ export class DatabaseStorage implements IStorage {
         achievements: insertCheckIn.achievements ? [...insertCheckIn.achievements] : null,
         challenges: insertCheckIn.challenges ? [...insertCheckIn.challenges] : null,
         nextSteps: insertCheckIn.nextSteps ? [...insertCheckIn.nextSteps] : null,
-      })
+      } as any)
       .returning();
     return checkIn;
   }
@@ -859,7 +859,7 @@ export class DatabaseStorage implements IStorage {
 
   async createImportHistory(data: any): Promise<any> {
     // Direct SQL insert since importHistory table is not in schema yet
-    const [result] = await db.execute(sql`
+    const result = await db.execute(sql`
       INSERT INTO import_history (
         tenant_id, import_type, file_name, file_size, status,
         objectives_created, key_results_created, big_rocks_created,
@@ -875,7 +875,7 @@ export class DatabaseStorage implements IStorage {
       )
       RETURNING *
     `);
-    return result;
+    return result.rows?.[0] || result;
   }
 
   async getImportHistory(tenantId: string): Promise<any[]> {
