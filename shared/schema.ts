@@ -107,7 +107,7 @@ export const okrs = pgTable("okrs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   objective: text("objective").notNull(),
-  progress: integer("progress"),
+  progress: doublePrecision("progress"),
   linkedGoals: jsonb("linked_goals").$type<string[]>(),
   linkedStrategies: jsonb("linked_strategies").$type<string[]>(),
   keyResults: jsonb("key_results").$type<string[]>(),
@@ -200,7 +200,7 @@ export const objectives = pgTable("objectives", {
   checkInOwnerId: varchar("check_in_owner_id").references(() => users.id),
   
   // Progress tracking
-  progress: integer("progress").default(0),
+  progress: doublePrecision("progress").default(0),
   progressMode: text("progress_mode").default('rollup'), // 'rollup' or 'manual'
   status: text("status").default('not_started'),
   statusOverride: varchar("status_override").default('false'),
@@ -257,7 +257,7 @@ export const keyResults = pgTable("key_results", {
   unit: text("unit"),
   
   // Progress and weight
-  progress: integer("progress").default(0),
+  progress: doublePrecision("progress").default(0),
   weight: integer("weight").default(25),
   isWeightLocked: boolean("is_weight_locked").default(false),
   

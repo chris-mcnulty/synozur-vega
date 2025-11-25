@@ -474,7 +474,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createTeam(team: InsertTeam): Promise<Team> {
-    const [created] = await db.insert(teams).values(team).returning();
+    const [created] = await db.insert(teams).values(team as any).returning();
     return created;
   }
 
