@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, jsonb, unique, boolean } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, jsonb, unique, boolean, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -251,9 +251,9 @@ export const keyResults = pgTable("key_results", {
   
   // Metric tracking
   metricType: text("metric_type").notNull(), // 'increase', 'decrease', 'maintain', 'complete'
-  currentValue: integer("current_value").default(0),
-  targetValue: integer("target_value").notNull(),
-  initialValue: integer("initial_value").default(0),
+  currentValue: doublePrecision("current_value").default(0),
+  targetValue: doublePrecision("target_value").notNull(),
+  initialValue: doublePrecision("initial_value").default(0),
   unit: text("unit"),
   
   // Progress and weight
