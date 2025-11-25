@@ -141,9 +141,11 @@ export async function* streamChatCompletion(
   options: ChatCompletionOptions = {}
 ): AsyncGenerator<string, void, unknown> {
   const { tenantId, maxTokens = 4096 } = options;
+  console.log("[AI Service] streamChatCompletion called, tenantId:", tenantId);
 
   // Build system prompt with grounding documents
   const systemPrompt = await buildSystemPrompt(tenantId);
+  console.log("[AI Service] System prompt length:", systemPrompt.length);
 
   // Prepare messages with system prompt
   const fullMessages: OpenAI.ChatCompletionMessageParam[] = [
@@ -153,29 +155,39 @@ export async function* streamChatCompletion(
       content: msg.content,
     })),
   ];
+  console.log("[AI Service] Full messages count:", fullMessages.length);
 
   try {
+    console.log("[AI Service] Calling OpenAI API with model:", MODEL);
+    console.log("[AI Service] Base URL:", process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ? "configured" : "NOT SET");
+    console.log("[AI Service] API Key:", process.env.AI_INTEGRATIONS_OPENAI_API_KEY ? "configured" : "NOT SET");
+    
     const stream = await openai.chat.completions.create({
       model: MODEL,
       messages: fullMessages,
       max_completion_tokens: maxTokens,
       stream: true,
     });
+    console.log("[AI Service] Stream created successfully");
 
+    let chunkCount = 0;
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content;
       if (content) {
+        chunkCount++;
         yield content;
       }
     }
+    console.log("[AI Service] Stream completed, total chunks:", chunkCount);
   } catch (error: any) {
-    console.error("OpenAI Streaming Error:", error);
+    console.error("[AI Service] OpenAI Streaming Error:", error.message || error);
+    console.error("[AI Service] Full error:", JSON.stringify(error, null, 2));
     
     if (error?.message?.includes("429") || error?.message?.includes("RATELIMIT")) {
       throw new Error("The AI service is currently busy. Please try again in a moment.");
     }
     
-    throw new Error("Failed to stream AI response. Please try again.");
+    throw new Error(`Failed to stream AI response: ${error.message || 'Unknown error'}`);
   }
 }
 
