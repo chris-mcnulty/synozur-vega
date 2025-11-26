@@ -51,9 +51,9 @@ For detailed information, see:
 - **Styling**: TailwindCSS with custom configuration, Avenir Next LT Pro font, CSS variables for design tokens, and responsive design.
 - **UI/UX Decisions**: Mimics Orion.synozur.com's aesthetic, emphasizing generous whitespace, card-based layouts, and subtle animations.
 - **Technical Implementations & Feature Specifications**:
-    - **Company OS Dashboard**: Provides a real-time overview of Foundations (mission, vision, values, annual goals), Strategic priorities, Quarterly OKRs, Big Rocks, and upcoming meetings, with per-section error handling.
+    - **Company OS Dashboard**: Provides a real-time overview of Foundations (mission, vision, values, annual goals), Strategies, Quarterly OKRs, Big Rocks, and upcoming meetings, with per-section error handling.
     - **Foundations Module**: Manages mission, vision, values, and annual goals, incorporating AI suggestions. Values include both title and description.
-    - **Strategy Module**: Facilitates strategic priority management with AI drafting and goal alignment (many-to-many relationship with annual goals).
+    - **Strategy Module**: Facilitates strategy management with AI drafting and goal alignment (many-to-many relationship with annual goals).
     - **Planning Module**: Implements an enhanced OKR system with hierarchical objectives, Key Results, and "big rocks" (initiatives).
         - **Key Result Features**: Metric type selection (increase/decrease/maintain/complete), unit-based value input, progress visualization, KPI promotion, and check-in history.
         - **Weighted Rollup**: Key Result progress, weighted, aggregates to parent objective progress.

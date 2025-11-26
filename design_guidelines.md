@@ -100,7 +100,7 @@
 ### Strategy Module
 - Kanban-style board with draggable cards
 - 3-4 columns for priority levels
-- Modal for creating/editing strategic priorities
+- Modal for creating/editing strategies
 - AI draft generator button in header
 
 ### Planning Module
