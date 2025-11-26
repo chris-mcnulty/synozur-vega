@@ -207,7 +207,7 @@ export async function generateOKRSuggestions(
       role: "user",
       content: `Based on our company context and the following information, suggest 3 well-crafted OKRs for ${context.focusArea || "our organization"}:
 
-${context.strategies?.length ? `**Strategic Priorities:**\n${context.strategies.map(s => `- ${s.title}: ${s.description || ""}`).join("\n")}` : ""}
+${context.strategies?.length ? `**Strategies:**\n${context.strategies.map(s => `- ${s.title}: ${s.description || ""}`).join("\n")}` : ""}
 
 ${context.existingObjectives?.length ? `**Existing Objectives (to avoid duplication):**\n${context.existingObjectives.map(o => `- ${o.title}`).join("\n")}` : ""}
 
@@ -444,7 +444,7 @@ export async function* streamGoalSuggestions(
   // Build strategies context
   const strategiesContext = strategies.length > 0
     ? strategies.map(s => `- ${s.title}${s.description ? `: ${s.description}` : ''}`).join('\n')
-    : 'No strategic priorities defined yet.';
+    : 'No strategies defined yet.';
 
   // Build objectives context
   const objectivesContext = objectives.length > 0
@@ -459,12 +459,12 @@ export async function* streamGoalSuggestions(
   const messages: ChatMessage[] = [
     {
       role: "user",
-      content: `Based on the following organizational context, suggest 5-7 compelling annual goals that would help this organization achieve its mission and vision. Consider the existing strategic priorities and objectives when making suggestions.
+      content: `Based on the following organizational context, suggest 5-7 compelling annual goals that would help this organization achieve its mission and vision. Consider the existing strategies and objectives when making suggestions.
 
 ## Organization Context
 ${organizationContext || 'No organizational context available yet.'}
 
-## Current Strategic Priorities
+## Current Strategies
 ${strategiesContext}
 
 ## Current Objectives (Sample)
@@ -474,7 +474,7 @@ ${objectivesContext}
 ${existingGoalsContext}
 
 ## Instructions
-1. Analyze the organization's mission, vision, values, and strategic priorities
+1. Analyze the organization's mission, vision, values, and strategies
 2. Identify gaps or opportunities not covered by existing goals
 3. Suggest goals that are:
    - Specific and measurable where possible

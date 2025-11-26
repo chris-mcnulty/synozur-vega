@@ -49,7 +49,7 @@ export function ValueDetailView({ open, onOpenChange, valueTitle, valueDescripti
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-lg">
                     <TrendingUp className="h-5 w-5" />
-                    Strategic Priorities ({taggedItems.strategies.length})
+                    Strategies ({taggedItems.strategies.length})
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">

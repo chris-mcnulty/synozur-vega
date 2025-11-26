@@ -10,7 +10,7 @@ const features = [
   {
     icon: Target,
     title: "Strategy",
-    description: "Create and manage strategic priorities with intelligent drafting and collaborative planning tools.",
+    description: "Create and manage strategies with intelligent drafting and collaborative planning tools.",
   },
   {
     icon: TrendingUp,

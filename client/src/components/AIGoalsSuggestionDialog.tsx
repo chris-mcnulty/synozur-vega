@@ -151,7 +151,7 @@ export function AIGoalsSuggestionDialog({
             AI Goal Suggestions
           </DialogTitle>
           <DialogDescription data-testid="text-dialog-description">
-            AI-generated annual goal suggestions based on your organization's mission, vision, values, and strategic priorities.
+            AI-generated annual goal suggestions based on your organization's mission, vision, values, and strategies.
           </DialogDescription>
         </DialogHeader>
 
