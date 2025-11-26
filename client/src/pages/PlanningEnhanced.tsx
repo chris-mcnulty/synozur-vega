@@ -94,7 +94,7 @@ export default function PlanningEnhanced() {
   const { toast } = useToast();
   const { currentTenant } = useTenant();
   const { user } = useAuth();
-  const [selectedTab, setSelectedTab] = useState("enhanced-okrs");
+  const [selectedTab, setSelectedTab] = useState("hierarchy");
   const [quarter, setQuarter] = useState(1);
   const [year, setYear] = useState(new Date().getFullYear());
   const [level, setLevel] = useState<string>("all");
@@ -1052,11 +1052,11 @@ export default function PlanningEnhanced() {
 
         <Tabs value={selectedTab} onValueChange={setSelectedTab} className="space-y-6">
           <TabsList>
-            <TabsTrigger value="enhanced-okrs" data-testid="tab-enhanced-okrs">
-              Enhanced OKRs
-            </TabsTrigger>
             <TabsTrigger value="hierarchy" data-testid="tab-hierarchy">
-              Hierarchy View
+              OKR Hierarchy
+            </TabsTrigger>
+            <TabsTrigger value="enhanced-okrs" data-testid="tab-enhanced-okrs">
+              Tree View
             </TabsTrigger>
             <TabsTrigger value="big-rocks" data-testid="tab-big-rocks">
               Big Rocks ({bigRocks.length})
