@@ -625,8 +625,8 @@ export default function Foundations() {
           <Card data-testid="card-goals">
             <CardHeader className="flex flex-row items-start justify-between gap-2">
               <div>
-                <CardTitle>Strategic Goals</CardTitle>
-                <CardDescription>What are your key organizational objectives?</CardDescription>
+                <CardTitle>Annual Goals</CardTitle>
+                <CardDescription>What are your key organizational objectives for this year?</CardDescription>
               </div>
               <Button
                 variant="outline"
@@ -646,7 +646,7 @@ export default function Foundations() {
                     id="custom-goal"
                     value={customGoal}
                     onChange={(e) => setCustomGoal(e.target.value)}
-                    placeholder="Enter a strategic goal..."
+                    placeholder="Enter an annual goal..."
                     onKeyPress={(e) => e.key === "Enter" && handleAddCustomGoal()}
                     data-testid="input-custom-goal"
                   />

@@ -1495,7 +1495,7 @@ export default function PlanningEnhanced() {
             <DialogHeader>
               <DialogTitle>{selectedBigRock ? "Edit" : bigRockForm.objectiveId || bigRockForm.keyResultId ? "Link or Create" : "Create"} Big Rock (Initiative)</DialogTitle>
               <DialogDescription>
-                {selectedBigRock ? "Update your strategic initiative" : `Define or link a strategic initiative for ${quarter === 0 ? 'Annual' : `Q${quarter}`} ${year}`}
+                {selectedBigRock ? "Update your Big Rock initiative" : `Define or link a Big Rock initiative for ${quarter === 0 ? 'Annual' : `Q${quarter}`} ${year}`}
               </DialogDescription>
             </DialogHeader>
             

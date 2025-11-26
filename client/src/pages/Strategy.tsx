@@ -359,9 +359,9 @@ export default function Strategy() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Strategic Priorities</h1>
+            <h1 className="text-3xl font-bold">Strategies</h1>
             <p className="text-muted-foreground mt-1">
-              Define and manage your organization's strategic priorities
+              Define and manage your organization's strategies
             </p>
           </div>
           <div className="flex gap-2">
@@ -408,7 +408,7 @@ export default function Strategy() {
               </DialogTrigger>
               <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
-                  <DialogTitle>Create Strategic Priority</DialogTitle>
+                  <DialogTitle>Create Strategy</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4">
                   <div>
@@ -426,7 +426,7 @@ export default function Strategy() {
                     <Label htmlFor="description">Description</Label>
                     <Textarea
                       id="description"
-                      placeholder="Describe the strategic priority in detail..."
+                      placeholder="Describe the strategy in detail..."
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       rows={3}
@@ -570,7 +570,7 @@ export default function Strategy() {
                   <Target className="w-12 h-12 text-muted-foreground mb-4" />
                   <h3 className="text-lg font-semibold mb-2">No Strategies Yet</h3>
                   <p className="text-muted-foreground text-center mb-4">
-                    Get started by creating your first strategic priority
+                    Get started by creating your first strategy
                   </p>
                   <Button onClick={() => setCreateDialogOpen(true)} data-testid="button-create-first">
                     <Plus className="w-4 h-4 mr-2" />
@@ -623,7 +623,7 @@ export default function Strategy() {
         <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Edit Strategic Priority</DialogTitle>
+              <DialogTitle>Edit Strategy</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div>
