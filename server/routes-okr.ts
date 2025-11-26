@@ -394,12 +394,18 @@ okrRouter.post("/check-ins", async (req, res) => {
     const { entityType, entityId } = validatedData;
     
     if (entityType === "objective") {
-      await storage.updateObjective(entityId, {
+      const updateData: any = {
         progress: checkIn.newProgress,
-        status: checkIn.newStatus || undefined,
         lastCheckInAt: checkIn.createdAt,
         lastCheckInNote: checkIn.note || undefined,
-      });
+      };
+      
+      if (checkIn.newStatus) {
+        updateData.status = checkIn.newStatus;
+        updateData.statusOverride = 'true';
+      }
+      
+      await storage.updateObjective(entityId, updateData);
     } else if (entityType === "key_result") {
       // Update the key result
       await storage.updateKeyResult(entityId, {
@@ -479,12 +485,18 @@ okrRouter.patch("/check-ins/:id", async (req, res) => {
     const { entityType, entityId } = existingCheckIn;
     
     if (entityType === "objective") {
-      await storage.updateObjective(entityId, {
+      const objectiveUpdateData: any = {
         progress: checkIn.newProgress,
-        status: checkIn.newStatus || undefined,
         lastCheckInAt: checkIn.createdAt,
         lastCheckInNote: checkIn.note || undefined,
-      });
+      };
+      
+      if (checkIn.newStatus) {
+        objectiveUpdateData.status = checkIn.newStatus;
+        objectiveUpdateData.statusOverride = 'true';
+      }
+      
+      await storage.updateObjective(entityId, objectiveUpdateData);
     } else if (entityType === "key_result") {
       // Update the key result
       await storage.updateKeyResult(entityId, {

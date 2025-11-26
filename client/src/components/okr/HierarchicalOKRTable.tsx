@@ -56,6 +56,7 @@ interface HierarchyObjective {
   parentId?: string;
   progress: number;
   status: string;
+  statusOverride?: string;
   ownerEmail?: string;
   quarter: number;
   year: number;
@@ -167,16 +168,19 @@ function deriveStatusFromChildren(keyResults: KeyResult[], childObjectives: Hier
 function getEffectiveStatus(objective: HierarchyObjective): { status: string; isDerived: boolean } {
   const keyResults = objective.keyResults || [];
   const childObjectives = objective.childObjectives || [];
+  const isManuallyOverridden = objective.statusOverride === 'true';
+  
+  if (isManuallyOverridden) {
+    return { status: objective.status || "not_started", isDerived: false };
+  }
   
   if (keyResults.length === 0 && childObjectives.length === 0) {
     return { status: objective.status || "not_started", isDerived: false };
   }
   
-  if (!objective.status || objective.status === "not_started") {
-    const derivedStatus = deriveStatusFromChildren(keyResults, childObjectives);
-    if (derivedStatus) {
-      return { status: derivedStatus, isDerived: true };
-    }
+  const derivedStatus = deriveStatusFromChildren(keyResults, childObjectives);
+  if (derivedStatus) {
+    return { status: derivedStatus, isDerived: true };
   }
   
   return { status: objective.status || "not_started", isDerived: false };
