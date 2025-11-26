@@ -21,6 +21,7 @@ import { WeightManager } from "@/components/WeightManager";
 import { ValueTagSelector } from "@/components/ValueTagSelector";
 import { HierarchicalOKRTable } from "@/components/okr/HierarchicalOKRTable";
 import { OKRFilters } from "@/components/okr/OKRFilters";
+import { OKRDetailPane } from "@/components/okr/OKRDetailPane";
 import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2, History, Edit, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Foundation, CompanyValue } from "@shared/schema";
@@ -103,6 +104,12 @@ export default function PlanningEnhanced() {
   // Hierarchy view filters
   const [hierarchyPeriod, setHierarchyPeriod] = useState<string>("all");
   const [hierarchyStatus, setHierarchyStatus] = useState<string>("all");
+  
+  // Detail pane state
+  const [detailPaneOpen, setDetailPaneOpen] = useState(false);
+  const [detailPaneEntityType, setDetailPaneEntityType] = useState<"objective" | "key_result">("objective");
+  const [detailPaneEntity, setDetailPaneEntity] = useState<any>(null);
+  const [detailPaneParentObjective, setDetailPaneParentObjective] = useState<any>(null);
 
   // Fetch teams for filtering
   const { data: teamsData = [] } = useQuery<{ id: string; name: string }[]>({
@@ -1105,6 +1112,18 @@ export default function PlanningEnhanced() {
               ) : (
                 <HierarchicalOKRTable
                   objectives={filteredHierarchyData}
+                  onSelectObjective={(obj) => {
+                    setDetailPaneEntityType("objective");
+                    setDetailPaneEntity(obj);
+                    setDetailPaneParentObjective(null);
+                    setDetailPaneOpen(true);
+                  }}
+                  onSelectKeyResult={(kr, parentObj) => {
+                    setDetailPaneEntityType("key_result");
+                    setDetailPaneEntity(kr);
+                    setDetailPaneParentObjective(parentObj);
+                    setDetailPaneOpen(true);
+                  }}
                   onEditObjective={(obj) => {
                     setSelectedObjective(obj as any);
                     setObjectiveForm({
@@ -1114,16 +1133,88 @@ export default function PlanningEnhanced() {
                       parentId: obj.parentId || '',
                       linkedStrategies: [],
                       linkedBigRocks: [],
-                      status: obj.status,
                       ownerEmail: obj.ownerEmail || '',
+                      progressMode: "rollup",
                       quarter: obj.quarter,
                       year: obj.year,
+                      linkedGoals: [],
                     });
                     setObjectiveDialogOpen(true);
                   }}
                   onEditKeyResult={(kr) => {
                     setSelectedKeyResult(kr as any);
                     setKeyResultDialogOpen(true);
+                  }}
+                  onAddChildObjective={(parentId) => {
+                    setSelectedObjective(null);
+                    setObjectiveForm({
+                      title: "",
+                      description: "",
+                      level: "team",
+                      parentId: parentId,
+                      linkedStrategies: [],
+                      linkedBigRocks: [],
+                      ownerEmail: user?.email || "",
+                      progressMode: "rollup",
+                      quarter: quarter,
+                      year: year,
+                      linkedGoals: [],
+                    });
+                    setObjectiveDialogOpen(true);
+                  }}
+                  onAddKeyResult={(objectiveId) => {
+                    setSelectedKeyResult(null);
+                    setKeyResultForm({
+                      title: "",
+                      description: "",
+                      metricType: "increase",
+                      targetValue: 100,
+                      currentValue: 0,
+                      initialValue: 0,
+                      unit: "%",
+                      weight: 25,
+                      objectiveId: objectiveId,
+                    });
+                    setKeyResultDialogOpen(true);
+                  }}
+                  onCheckInObjective={(obj) => {
+                    setCheckInEntity({ type: 'objective', id: obj.id, current: obj });
+                    setCheckInForm({
+                      newValue: 0,
+                      newProgress: obj.progress,
+                      newStatus: obj.status,
+                      note: "",
+                      achievements: [""],
+                      challenges: [""],
+                      nextSteps: [""],
+                      asOfDate: new Date().toISOString().split('T')[0],
+                    });
+                    setCheckInDialogOpen(true);
+                  }}
+                  onCheckInKeyResult={(kr) => {
+                    setCheckInEntity({ type: 'key_result', id: kr.id, current: kr });
+                    setValueInputDraft(String(kr.currentValue || 0));
+                    setCheckInForm({
+                      newValue: kr.currentValue || 0,
+                      newProgress: kr.progress,
+                      newStatus: kr.status,
+                      note: "",
+                      achievements: [""],
+                      challenges: [""],
+                      nextSteps: [""],
+                      asOfDate: new Date().toISOString().split('T')[0],
+                    });
+                    setCheckInDialogOpen(true);
+                  }}
+                  onDeleteObjective={(objectiveId) => {
+                    if (confirm("Are you sure you want to delete this objective? This will also delete all its key results.")) {
+                      deleteObjectiveMutation.mutate(objectiveId);
+                    }
+                  }}
+                  onDeleteKeyResult={(keyResultId) => {
+                    if (confirm("Are you sure you want to delete this key result?")) {
+                      deleteKeyResultMutation.mutate(keyResultId);
+                    }
                   }}
                 />
               )}
@@ -2070,6 +2161,72 @@ export default function PlanningEnhanced() {
           }))}
           quarter={quarter}
           year={year}
+        />
+
+        {/* OKR Detail Pane */}
+        <OKRDetailPane
+          open={detailPaneOpen}
+          onOpenChange={setDetailPaneOpen}
+          entityType={detailPaneEntityType}
+          entity={detailPaneEntity}
+          alignedStrategies={strategies.filter((s: any) => 
+            detailPaneEntity?.linkedStrategies?.includes(s.id)
+          )}
+          linkedBigRocks={detailPaneEntity?.linkedBigRocks || []}
+          onCheckIn={() => {
+            if (detailPaneEntityType === "objective" && detailPaneEntity) {
+              setCheckInEntity({ type: 'objective', id: detailPaneEntity.id, current: detailPaneEntity });
+              setCheckInForm({
+                newValue: 0,
+                newProgress: detailPaneEntity.progress,
+                newStatus: detailPaneEntity.status,
+                note: "",
+                achievements: [""],
+                challenges: [""],
+                nextSteps: [""],
+                asOfDate: new Date().toISOString().split('T')[0],
+              });
+            } else if (detailPaneEntityType === "key_result" && detailPaneEntity) {
+              setCheckInEntity({ type: 'key_result', id: detailPaneEntity.id, current: detailPaneEntity });
+              setValueInputDraft(String(detailPaneEntity.currentValue || 0));
+              setCheckInForm({
+                newValue: detailPaneEntity.currentValue || 0,
+                newProgress: detailPaneEntity.progress,
+                newStatus: detailPaneEntity.status,
+                note: "",
+                achievements: [""],
+                challenges: [""],
+                nextSteps: [""],
+                asOfDate: new Date().toISOString().split('T')[0],
+              });
+            }
+            setDetailPaneOpen(false);
+            setCheckInDialogOpen(true);
+          }}
+          onEdit={() => {
+            if (detailPaneEntityType === "objective" && detailPaneEntity) {
+              setSelectedObjective(detailPaneEntity as any);
+              setObjectiveForm({
+                title: detailPaneEntity.title,
+                description: detailPaneEntity.description || "",
+                level: detailPaneEntity.level || 'organization',
+                parentId: detailPaneEntity.parentId || '',
+                linkedStrategies: [],
+                linkedBigRocks: [],
+                ownerEmail: detailPaneEntity.ownerEmail || '',
+                progressMode: "rollup",
+                quarter: detailPaneEntity.quarter,
+                year: detailPaneEntity.year,
+                linkedGoals: [],
+              });
+              setDetailPaneOpen(false);
+              setObjectiveDialogOpen(true);
+            } else if (detailPaneEntityType === "key_result" && detailPaneEntity) {
+              setSelectedKeyResult(detailPaneEntity as any);
+              setDetailPaneOpen(false);
+              setKeyResultDialogOpen(true);
+            }
+          }}
         />
       </div>
     </div>

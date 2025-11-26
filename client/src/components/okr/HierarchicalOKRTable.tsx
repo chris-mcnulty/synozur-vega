@@ -20,8 +20,10 @@ import {
   Plus,
   CheckCircle2,
   Trash2,
-  FolderPlus
+  FolderPlus,
+  ArrowDownFromLine
 } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 
@@ -141,6 +143,45 @@ function getQuarterLabel(quarter: number): string {
   return `Q${quarter}`;
 }
 
+function deriveStatusFromChildren(keyResults: KeyResult[], childObjectives: HierarchyObjective[]): string {
+  const allChildren = [
+    ...keyResults.map(kr => kr.status),
+    ...childObjectives.map(obj => obj.status),
+  ];
+  
+  if (allChildren.length === 0) return "";
+  
+  const hasAtRisk = allChildren.some(s => s?.toLowerCase() === "at_risk" || s?.toLowerCase() === "at risk");
+  const hasBehind = allChildren.some(s => s?.toLowerCase() === "behind");
+  const allCompleted = allChildren.every(s => s?.toLowerCase() === "completed");
+  const allOnTrack = allChildren.every(s => s?.toLowerCase() === "on_track" || s?.toLowerCase() === "on track");
+  
+  if (hasAtRisk) return "at_risk";
+  if (hasBehind) return "behind";
+  if (allCompleted) return "completed";
+  if (allOnTrack) return "on_track";
+  
+  return "on_track";
+}
+
+function getEffectiveStatus(objective: HierarchyObjective): { status: string; isDerived: boolean } {
+  const keyResults = objective.keyResults || [];
+  const childObjectives = objective.childObjectives || [];
+  
+  if (keyResults.length === 0 && childObjectives.length === 0) {
+    return { status: objective.status || "not_started", isDerived: false };
+  }
+  
+  if (!objective.status || objective.status === "not_started") {
+    const derivedStatus = deriveStatusFromChildren(keyResults, childObjectives);
+    if (derivedStatus) {
+      return { status: derivedStatus, isDerived: true };
+    }
+  }
+  
+  return { status: objective.status || "not_started", isDerived: false };
+}
+
 function formatProgressText(progress: number, metricType?: string): string {
   if (metricType === "complete") {
     return progress >= 100 ? "Complete" : "In Progress";
@@ -228,19 +269,38 @@ function ObjectiveRow({
         </TableCell>
         
         <TableCell className="py-3" data-testid={`cell-status-${objective.id}`}>
-          <div className="flex flex-col gap-1">
-            <Badge 
-              variant="outline" 
-              className={cn("text-xs w-fit", getStatusBadgeStyles(objective.status))}
-            >
-              <div className={cn("w-2 h-2 rounded-full mr-1.5", getStatusColor(objective.status))} />
-              {getStatusLabel(objective.status)}
-            </Badge>
-            <div className="flex items-center gap-2">
-              <Progress value={objective.progress} className="w-16 h-1.5" />
-              <span className="text-xs text-muted-foreground">{Math.round(objective.progress)}%</span>
-            </div>
-          </div>
+          {(() => {
+            const { status: effectiveStatus, isDerived } = getEffectiveStatus(objective);
+            return (
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-1.5">
+                  <Badge 
+                    variant="outline" 
+                    className={cn("text-xs w-fit", getStatusBadgeStyles(effectiveStatus))}
+                  >
+                    <div className={cn("w-2 h-2 rounded-full mr-1.5", getStatusColor(effectiveStatus))} />
+                    {getStatusLabel(effectiveStatus)}
+                  </Badge>
+                  {isDerived && (
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <ArrowDownFromLine className="h-3 w-3 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Status derived from children</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  )}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Progress value={objective.progress} className="w-16 h-1.5" />
+                  <span className="text-xs text-muted-foreground">{Math.round(objective.progress)}%</span>
+                </div>
+              </div>
+            );
+          })()}
         </TableCell>
         
         <TableCell className="py-3 text-sm text-muted-foreground" data-testid={`text-updated-${objective.id}`}>
