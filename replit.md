@@ -39,6 +39,7 @@ For detailed information, see:
   - **Quick Actions**: Hover to reveal Check-in, Add KR, and More options dropdown
   - **Action Dropdown**: Edit, Add Child Objective, Add Key Result, Check-in, Delete
   - **Status Override**: Check-ins that set status mark `statusOverride='true'` to preserve manual status
+  - **Closing OKRs**: Closed OKRs remain fully visible to users and AI, but won't generate email reminders and won't be editable unless owner or admin reopens them
   - Comprehensive e2e test passed (27 steps verified)
 - ✅ **Values Integration Complete**: Full value tagging with analytics dashboard widget, distribution reports, and value badges in strategic views
 - ✅ **Entity Relationship Linking**: Objectives link to strategies/goals, Big Rocks link to strategies
