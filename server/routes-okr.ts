@@ -89,6 +89,19 @@ okrRouter.patch("/objectives/:id", async (req, res) => {
     if (updateData.parentId === "") updateData.parentId = null;
     if (updateData.ownerId === "") updateData.ownerId = null;
     
+    // Check if objective is closed - only allow status changes (reopen)
+    const existingObjective = await storage.getObjectiveById(req.params.id);
+    if (existingObjective?.status === 'closed') {
+      const isStatusChange = updateData.status && updateData.status !== 'closed';
+      
+      // Only allow reopening (status change from closed to another status)
+      if (!isStatusChange) {
+        return res.status(403).json({ 
+          error: "This objective is closed. Change the status to reopen it before making other edits." 
+        });
+      }
+    }
+    
     const objective = await storage.updateObjective(req.params.id, updateData);
     res.json(objective);
   } catch (error) {
@@ -142,7 +155,35 @@ okrRouter.post("/key-results", async (req, res) => {
 
 okrRouter.patch("/key-results/:id", async (req, res) => {
   try {
-    const keyResult = await storage.updateKeyResult(req.params.id, req.body);
+    const updateData = { ...req.body };
+    
+    // Check if key result is closed - only allow status changes (reopen)
+    const existingKeyResult = await storage.getKeyResultById(req.params.id);
+    if (existingKeyResult?.status === 'closed') {
+      const isStatusChange = updateData.status && updateData.status !== 'closed';
+      
+      // Only allow reopening (status change from closed to another status)
+      if (!isStatusChange) {
+        return res.status(403).json({ 
+          error: "This key result is closed. Change the status to reopen it before making other edits." 
+        });
+      }
+    }
+    
+    // Also check if the parent objective is closed
+    if (existingKeyResult?.objectiveId) {
+      const parentObjective = await storage.getObjectiveById(existingKeyResult.objectiveId);
+      if (parentObjective?.status === 'closed') {
+        const isStatusChange = updateData.status && updateData.status !== 'closed';
+        if (!isStatusChange) {
+          return res.status(403).json({ 
+            error: "The parent objective is closed. Reopen the objective first to edit its key results." 
+          });
+        }
+      }
+    }
+    
+    const keyResult = await storage.updateKeyResult(req.params.id, updateData);
     res.json(keyResult);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -383,6 +424,33 @@ okrRouter.post("/check-ins", async (req, res) => {
     const validatedData = insertCheckInSchema.parse(req.body);
     console.log('[Check-In] Validation passed');
     
+    // Check if entity is closed - block check-ins on closed OKRs
+    const { entityType, entityId } = validatedData;
+    if (entityType === "objective") {
+      const objective = await storage.getObjectiveById(entityId);
+      if (objective?.status === 'closed') {
+        return res.status(403).json({ 
+          error: "Cannot check in on a closed objective. Reopen it first." 
+        });
+      }
+    } else if (entityType === "key_result") {
+      const keyResult = await storage.getKeyResultById(entityId);
+      if (keyResult?.status === 'closed') {
+        return res.status(403).json({ 
+          error: "Cannot check in on a closed key result. Reopen it first." 
+        });
+      }
+      // Also check parent objective
+      if (keyResult?.objectiveId) {
+        const parentObjective = await storage.getObjectiveById(keyResult.objectiveId);
+        if (parentObjective?.status === 'closed') {
+          return res.status(403).json({ 
+            error: "Cannot check in - the parent objective is closed. Reopen the objective first." 
+          });
+        }
+      }
+    }
+    
     // Convert asOfDate from ISO string to Date object for Drizzle
     if (validatedData.asOfDate && typeof validatedData.asOfDate === 'string') {
       validatedData.asOfDate = new Date(validatedData.asOfDate) as any;
@@ -391,7 +459,7 @@ okrRouter.post("/check-ins", async (req, res) => {
     const checkIn = await storage.createCheckIn(validatedData);
     
     // Update the entity with the latest check-in information
-    const { entityType, entityId } = validatedData;
+    // entityType and entityId already declared above
     
     if (entityType === "objective") {
       const updateData: any = {

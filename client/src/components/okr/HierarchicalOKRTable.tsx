@@ -21,7 +21,9 @@ import {
   CheckCircle2,
   Trash2,
   FolderPlus,
-  ArrowDownFromLine
+  ArrowDownFromLine,
+  Lock,
+  Unlock
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -78,6 +80,10 @@ interface HierarchicalOKRTableProps {
   onCheckInKeyResult?: (keyResult: KeyResult) => void;
   onDeleteObjective?: (objectiveId: string) => void;
   onDeleteKeyResult?: (keyResultId: string) => void;
+  onCloseObjective?: (objectiveId: string) => void;
+  onReopenObjective?: (objectiveId: string) => void;
+  onCloseKeyResult?: (keyResultId: string) => void;
+  onReopenKeyResult?: (keyResultId: string) => void;
 }
 
 function getStatusColor(status: string): string {
@@ -206,6 +212,10 @@ function ObjectiveRow({
   onCheckInKeyResult,
   onDeleteObjective,
   onDeleteKeyResult,
+  onCloseObjective,
+  onReopenObjective,
+  onCloseKeyResult,
+  onReopenKeyResult,
 }: { 
   objective: HierarchyObjective; 
   depth?: number;
@@ -219,6 +229,10 @@ function ObjectiveRow({
   onCheckInKeyResult?: (keyResult: KeyResult) => void;
   onDeleteObjective?: (objectiveId: string) => void;
   onDeleteKeyResult?: (keyResultId: string) => void;
+  onCloseObjective?: (objectiveId: string) => void;
+  onReopenObjective?: (objectiveId: string) => void;
+  onCloseKeyResult?: (keyResultId: string) => void;
+  onReopenKeyResult?: (keyResultId: string) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -322,26 +336,30 @@ function ObjectiveRow({
             "flex items-center gap-1 transition-opacity",
             isHovered ? "opacity-100" : "opacity-0"
           )}>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-7 w-7"
-              onClick={() => onCheckInObjective?.(objective)}
-              title="Check-in"
-              data-testid={`button-checkin-objective-${objective.id}`}
-            >
-              <CheckCircle2 className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="ghost"
-              className="h-7 w-7"
-              onClick={() => onAddKeyResult?.(objective.id)}
-              title="Add Key Result"
-              data-testid={`button-add-kr-${objective.id}`}
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
+            {objective.status !== 'closed' && (
+              <>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={() => onCheckInObjective?.(objective)}
+                  title="Check-in"
+                  data-testid={`button-checkin-objective-${objective.id}`}
+                >
+                  <CheckCircle2 className="h-4 w-4" />
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="h-7 w-7"
+                  onClick={() => onAddKeyResult?.(objective.id)}
+                  title="Add Key Result"
+                  data-testid={`button-add-kr-${objective.id}`}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -354,23 +372,56 @@ function ObjectiveRow({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => onEditObjective?.(objective)} data-testid={`menu-edit-${objective.id}`}>
+                <DropdownMenuItem 
+                  onClick={() => onEditObjective?.(objective)} 
+                  data-testid={`menu-edit-${objective.id}`}
+                  disabled={objective.status === 'closed'}
+                >
                   <Pencil className="h-4 w-4 mr-2" />
                   Edit
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onAddChildObjective?.(objective.id)} data-testid={`menu-add-child-${objective.id}`}>
+                <DropdownMenuItem 
+                  onClick={() => onAddChildObjective?.(objective.id)} 
+                  data-testid={`menu-add-child-${objective.id}`}
+                  disabled={objective.status === 'closed'}
+                >
                   <FolderPlus className="h-4 w-4 mr-2" />
                   Add Child Objective
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onAddKeyResult?.(objective.id)} data-testid={`menu-add-kr-${objective.id}`}>
+                <DropdownMenuItem 
+                  onClick={() => onAddKeyResult?.(objective.id)} 
+                  data-testid={`menu-add-kr-${objective.id}`}
+                  disabled={objective.status === 'closed'}
+                >
                   <Plus className="h-4 w-4 mr-2" />
                   Add Key Result
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => onCheckInObjective?.(objective)} data-testid={`menu-checkin-${objective.id}`}>
+                <DropdownMenuItem 
+                  onClick={() => onCheckInObjective?.(objective)} 
+                  data-testid={`menu-checkin-${objective.id}`}
+                  disabled={objective.status === 'closed'}
+                >
                   <CheckCircle2 className="h-4 w-4 mr-2" />
                   Check-in
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
+                {objective.status === 'closed' ? (
+                  <DropdownMenuItem 
+                    onClick={() => onReopenObjective?.(objective.id)} 
+                    data-testid={`menu-reopen-${objective.id}`}
+                  >
+                    <Unlock className="h-4 w-4 mr-2" />
+                    Reopen
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem 
+                    onClick={() => onCloseObjective?.(objective.id)} 
+                    data-testid={`menu-close-${objective.id}`}
+                  >
+                    <Lock className="h-4 w-4 mr-2" />
+                    Close
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem 
                   onClick={() => onDeleteObjective?.(objective.id)} 
                   className="text-destructive focus:text-destructive"
@@ -397,6 +448,8 @@ function ObjectiveRow({
               onEditKeyResult={onEditKeyResult}
               onCheckInKeyResult={onCheckInKeyResult}
               onDeleteKeyResult={onDeleteKeyResult}
+              onCloseKeyResult={onCloseKeyResult}
+              onReopenKeyResult={onReopenKeyResult}
             />
           ))}
 
@@ -415,6 +468,10 @@ function ObjectiveRow({
               onCheckInKeyResult={onCheckInKeyResult}
               onDeleteObjective={onDeleteObjective}
               onDeleteKeyResult={onDeleteKeyResult}
+              onCloseObjective={onCloseObjective}
+              onReopenObjective={onReopenObjective}
+              onCloseKeyResult={onCloseKeyResult}
+              onReopenKeyResult={onReopenKeyResult}
             />
           ))}
         </>
@@ -431,6 +488,8 @@ function KeyResultRow({
   onEditKeyResult,
   onCheckInKeyResult,
   onDeleteKeyResult,
+  onCloseKeyResult,
+  onReopenKeyResult,
 }: {
   keyResult: KeyResult;
   parentObjective: HierarchyObjective;
@@ -439,6 +498,8 @@ function KeyResultRow({
   onEditKeyResult?: (keyResult: KeyResult) => void;
   onCheckInKeyResult?: (keyResult: KeyResult) => void;
   onDeleteKeyResult?: (keyResultId: string) => void;
+  onCloseKeyResult?: (keyResultId: string) => void;
+  onReopenKeyResult?: (keyResultId: string) => void;
 }) {
   const [isHovered, setIsHovered] = useState(false);
 
@@ -504,16 +565,18 @@ function KeyResultRow({
           "flex items-center gap-1 transition-opacity",
           isHovered ? "opacity-100" : "opacity-0"
         )}>
-          <Button
-            size="icon"
-            variant="ghost"
-            className="h-7 w-7"
-            onClick={() => onCheckInKeyResult?.(keyResult)}
-            title="Check-in"
-            data-testid={`button-checkin-kr-${keyResult.id}`}
-          >
-            <CheckCircle2 className="h-4 w-4" />
-          </Button>
+          {keyResult.status !== 'closed' && parentObjective.status !== 'closed' && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="h-7 w-7"
+              onClick={() => onCheckInKeyResult?.(keyResult)}
+              title="Check-in"
+              data-testid={`button-checkin-kr-${keyResult.id}`}
+            >
+              <CheckCircle2 className="h-4 w-4" />
+            </Button>
+          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -526,15 +589,41 @@ function KeyResultRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onEditKeyResult?.(keyResult)} data-testid={`menu-edit-kr-${keyResult.id}`}>
+              <DropdownMenuItem 
+                onClick={() => onEditKeyResult?.(keyResult)} 
+                data-testid={`menu-edit-kr-${keyResult.id}`}
+                disabled={keyResult.status === 'closed' || parentObjective.status === 'closed'}
+              >
                 <Pencil className="h-4 w-4 mr-2" />
                 Edit
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onCheckInKeyResult?.(keyResult)} data-testid={`menu-checkin-kr-${keyResult.id}`}>
+              <DropdownMenuItem 
+                onClick={() => onCheckInKeyResult?.(keyResult)} 
+                data-testid={`menu-checkin-kr-${keyResult.id}`}
+                disabled={keyResult.status === 'closed' || parentObjective.status === 'closed'}
+              >
                 <CheckCircle2 className="h-4 w-4 mr-2" />
                 Check-in
               </DropdownMenuItem>
               <DropdownMenuSeparator />
+              {keyResult.status === 'closed' ? (
+                <DropdownMenuItem 
+                  onClick={() => onReopenKeyResult?.(keyResult.id)} 
+                  data-testid={`menu-reopen-kr-${keyResult.id}`}
+                  disabled={parentObjective.status === 'closed'}
+                >
+                  <Unlock className="h-4 w-4 mr-2" />
+                  Reopen
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem 
+                  onClick={() => onCloseKeyResult?.(keyResult.id)} 
+                  data-testid={`menu-close-kr-${keyResult.id}`}
+                >
+                  <Lock className="h-4 w-4 mr-2" />
+                  Close
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem 
                 onClick={() => onDeleteKeyResult?.(keyResult.id)} 
                 className="text-destructive focus:text-destructive"
@@ -563,6 +652,10 @@ export function HierarchicalOKRTable({
   onCheckInKeyResult,
   onDeleteObjective,
   onDeleteKeyResult,
+  onCloseObjective,
+  onReopenObjective,
+  onCloseKeyResult,
+  onReopenKeyResult,
 }: HierarchicalOKRTableProps) {
   if (objectives.length === 0) {
     return (
@@ -604,6 +697,10 @@ export function HierarchicalOKRTable({
               onCheckInKeyResult={onCheckInKeyResult}
               onDeleteObjective={onDeleteObjective}
               onDeleteKeyResult={onDeleteKeyResult}
+              onCloseObjective={onCloseObjective}
+              onReopenObjective={onReopenObjective}
+              onCloseKeyResult={onCloseKeyResult}
+              onReopenKeyResult={onReopenKeyResult}
             />
           ))}
         </TableBody>

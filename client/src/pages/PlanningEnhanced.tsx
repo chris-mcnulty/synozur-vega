@@ -591,6 +591,62 @@ export default function PlanningEnhanced() {
     },
   });
 
+  const closeObjectiveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("PATCH", `/api/okr/objectives/${id}`, { status: 'closed' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
+      toast({ title: "Success", description: "Objective closed successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to close objective", variant: "destructive" });
+    },
+  });
+
+  const reopenObjectiveMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("PATCH", `/api/okr/objectives/${id}`, { status: 'on_track' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
+      toast({ title: "Success", description: "Objective reopened successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to reopen objective", variant: "destructive" });
+    },
+  });
+
+  const closeKeyResultMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("PATCH", `/api/okr/key-results/${id}`, { status: 'closed' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
+      toast({ title: "Success", description: "Key Result closed successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to close Key Result", variant: "destructive" });
+    },
+  });
+
+  const reopenKeyResultMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("PATCH", `/api/okr/key-results/${id}`, { status: 'on_track' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
+      toast({ title: "Success", description: "Key Result reopened successfully" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to reopen Key Result", variant: "destructive" });
+    },
+  });
+
   const createCheckInMutation = useMutation({
     mutationFn: async (data: any) => {
       // Include userId and userEmail from current user, plus tenantId
@@ -1215,6 +1271,22 @@ export default function PlanningEnhanced() {
                     if (confirm("Are you sure you want to delete this key result?")) {
                       deleteKeyResultMutation.mutate(keyResultId);
                     }
+                  }}
+                  onCloseObjective={(objectiveId) => {
+                    if (confirm("Close this objective? It will become read-only until reopened.")) {
+                      closeObjectiveMutation.mutate(objectiveId);
+                    }
+                  }}
+                  onReopenObjective={(objectiveId) => {
+                    reopenObjectiveMutation.mutate(objectiveId);
+                  }}
+                  onCloseKeyResult={(keyResultId) => {
+                    if (confirm("Close this key result? It will become read-only until reopened.")) {
+                      closeKeyResultMutation.mutate(keyResultId);
+                    }
+                  }}
+                  onReopenKeyResult={(keyResultId) => {
+                    reopenKeyResultMutation.mutate(keyResultId);
                   }}
                 />
               )}
