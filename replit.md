@@ -29,13 +29,17 @@ For detailed information, see:
   - Check-ins import with large values (> 1 million) works correctly
   - Big Rocks default to Q1 when quarter not specified
   - Import results: 90 key results, 317 check-ins, 5 big rocks successfully imported
-- ✅ **Hierarchical OKR View Complete (Phase 3)**: Viva Goals-style interface with expandable tree structure:
+- ✅ **Hierarchical OKR View Complete (Phase 4)**: Full Viva Goals-style interface:
   - HierarchicalOKRTable with separate edit/expand interactions (title click vs chevron button)
   - Badge-based OKRFilters for time period and status with toggle-elevate interactions
   - ObjectiveDialog edit flow from hierarchy view with many-to-many Big Rock linking
-  - Defensive state management with null coalescing (`|| []`) to prevent undefined errors
-  - Auto-refresh hierarchy after edits with exact:false query invalidation
-  - Comprehensive e2e test passed (26 steps verified)
+  - **OKRDetailPane**: Slide-in detail pane with tabs (Overview, Activity, Big Rocks)
+  - **Progress Chart**: Expected vs Actual line chart using check-in history (recharts)
+  - **Status Inheritance**: Automatic status derivation from children with manual override capability
+  - **Quick Actions**: Hover to reveal Check-in, Add KR, and More options dropdown
+  - **Action Dropdown**: Edit, Add Child Objective, Add Key Result, Check-in, Delete
+  - **Status Override**: Check-ins that set status mark `statusOverride='true'` to preserve manual status
+  - Comprehensive e2e test passed (27 steps verified)
 - ✅ **Values Integration Complete**: Full value tagging with analytics dashboard widget, distribution reports, and value badges in strategic views
 - ✅ **Entity Relationship Linking**: Objectives link to strategies/goals, Big Rocks link to strategies
 - ✅ **Culture & Values Integration**: Value tagging for Objectives and Strategies (NOT Big Rocks - removed to reduce data clutter)
