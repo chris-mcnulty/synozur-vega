@@ -22,6 +22,8 @@ import { ValueTagSelector } from "@/components/ValueTagSelector";
 import { HierarchicalOKRTable } from "@/components/okr/HierarchicalOKRTable";
 import { OKRFilters } from "@/components/okr/OKRFilters";
 import { OKRDetailPane } from "@/components/okr/OKRDetailPane";
+import { MilestoneEditor, type PhasedTargets } from "@/components/okr/MilestoneEditor";
+import { MilestoneTimeline } from "@/components/okr/MilestoneTimeline";
 import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2, History, Edit, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Foundation, CompanyValue } from "@shared/schema";
@@ -251,6 +253,9 @@ export default function PlanningEnhanced() {
   const [previousLinkedBigRocks, setPreviousLinkedBigRocks] = useState<string[]>([]);
 
   // Form data states
+  const [objectiveMilestoneEditorOpen, setObjectiveMilestoneEditorOpen] = useState(false);
+  const [keyResultMilestoneEditorOpen, setKeyResultMilestoneEditorOpen] = useState(false);
+
   const [objectiveForm, setObjectiveForm] = useState({
     title: "",
     description: "",
@@ -263,6 +268,7 @@ export default function PlanningEnhanced() {
     linkedStrategies: [] as string[],
     linkedGoals: [] as string[],
     linkedBigRocks: [] as string[],
+    phasedTargets: null as PhasedTargets | null,
   });
 
   const [keyResultForm, setKeyResultForm] = useState({
@@ -275,6 +281,7 @@ export default function PlanningEnhanced() {
     unit: "%",
     weight: 25,
     objectiveId: "",
+    phasedTargets: null as PhasedTargets | null,
   });
 
   const [bigRockForm, setBigRockForm] = useState({
@@ -763,6 +770,7 @@ export default function PlanningEnhanced() {
       linkedStrategies: [],
       linkedGoals: [],
       linkedBigRocks: [],
+      phasedTargets: null,
     });
     setSelectedObjective(null);
     setObjectiveValueTags([]);
@@ -770,7 +778,7 @@ export default function PlanningEnhanced() {
     setObjectiveDialogOpen(true);
   };
 
-  const handleEditObjective = async (objective: Objective) => {
+  const handleEditObjective = async (objective: Objective & { phasedTargets?: PhasedTargets | null }) => {
     // Set initial form state with defensive defaults
     const initialForm = {
       title: objective.title || "",
@@ -784,6 +792,7 @@ export default function PlanningEnhanced() {
       linkedStrategies: Array.isArray(objective.linkedStrategies) ? objective.linkedStrategies : [],
       linkedGoals: Array.isArray(objective.linkedGoals) ? objective.linkedGoals : [],
       linkedBigRocks: [] as string[],
+      phasedTargets: objective.phasedTargets || null,
     };
     
     setObjectiveForm(initialForm);
@@ -847,13 +856,14 @@ export default function PlanningEnhanced() {
         unit: "%",
         weight: 25,
         objectiveId: objectiveId,
+        phasedTargets: null,
       });
       setSelectedKeyResult(null);
       setKeyResultDialogOpen(true);
     }
   };
 
-  const handleEditKeyResult = (keyResult: KeyResult, objectiveId: string) => {
+  const handleEditKeyResult = (keyResult: KeyResult & { phasedTargets?: PhasedTargets | null }, objectiveId: string) => {
     setSelectedKeyResult(keyResult);
     const objective = objectives.find(o => o.id === objectiveId);
     if (objective) {
@@ -869,6 +879,7 @@ export default function PlanningEnhanced() {
       unit: keyResult.unit,
       weight: keyResult.weight,
       objectiveId: objectiveId,
+      phasedTargets: keyResult.phasedTargets || null,
     });
     setKeyResultDialogOpen(true);
   };
@@ -1194,6 +1205,7 @@ export default function PlanningEnhanced() {
                       quarter: obj.quarter,
                       year: obj.year,
                       linkedGoals: [],
+                      phasedTargets: obj.phasedTargets || null,
                     });
                     setObjectiveDialogOpen(true);
                   }}
@@ -1215,6 +1227,7 @@ export default function PlanningEnhanced() {
                       quarter: quarter,
                       year: year,
                       linkedGoals: [],
+                      phasedTargets: null,
                     });
                     setObjectiveDialogOpen(true);
                   }}
@@ -1230,6 +1243,7 @@ export default function PlanningEnhanced() {
                       unit: "%",
                       weight: 25,
                       objectiveId: objectiveId,
+                      phasedTargets: null,
                     });
                     setKeyResultDialogOpen(true);
                   }}
@@ -1510,6 +1524,34 @@ export default function PlanningEnhanced() {
                   </Select>
                 </div>
               </div>
+
+              {/* Milestones Section */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <Label>Milestones</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setObjectiveMilestoneEditorOpen(true)}
+                    data-testid="button-set-objective-milestones"
+                  >
+                    {objectiveForm.phasedTargets?.targets?.length ? `Edit ${objectiveForm.phasedTargets.targets.length} Milestones` : "Set Milestones"}
+                  </Button>
+                </div>
+                {objectiveForm.phasedTargets?.targets && objectiveForm.phasedTargets.targets.length > 0 && (
+                  <div className="mt-2">
+                    <MilestoneTimeline
+                      phasedTargets={objectiveForm.phasedTargets}
+                      currentValue={0}
+                      targetValue={100}
+                      initialValue={0}
+                      metricType="increase"
+                      compact
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setObjectiveDialogOpen(false)}>
@@ -1623,6 +1665,35 @@ export default function PlanningEnhanced() {
                   data-testid="slider-kr-weight"
                 />
               </div>
+
+              {/* Milestones Section */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <Label>Milestones</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setKeyResultMilestoneEditorOpen(true)}
+                    data-testid="button-set-kr-milestones"
+                  >
+                    {keyResultForm.phasedTargets?.targets?.length ? `Edit ${keyResultForm.phasedTargets.targets.length} Milestones` : "Set Milestones"}
+                  </Button>
+                </div>
+                {keyResultForm.phasedTargets?.targets && keyResultForm.phasedTargets.targets.length > 0 && (
+                  <div className="mt-2">
+                    <MilestoneTimeline
+                      phasedTargets={keyResultForm.phasedTargets}
+                      currentValue={keyResultForm.currentValue}
+                      targetValue={keyResultForm.targetValue}
+                      initialValue={keyResultForm.initialValue}
+                      unit={keyResultForm.unit}
+                      metricType={keyResultForm.metricType as 'increase' | 'decrease' | 'maintain' | 'complete'}
+                      compact
+                    />
+                  </div>
+                )}
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setKeyResultDialogOpen(false)}>
@@ -1644,6 +1715,33 @@ export default function PlanningEnhanced() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Milestone Editor for Objectives */}
+        <MilestoneEditor
+          open={objectiveMilestoneEditorOpen}
+          onOpenChange={setObjectiveMilestoneEditorOpen}
+          phasedTargets={objectiveForm.phasedTargets}
+          onSave={(phasedTargets) => {
+            setObjectiveForm({ ...objectiveForm, phasedTargets });
+          }}
+          metricType="increase"
+          targetValue={100}
+          initialValue={0}
+        />
+
+        {/* Milestone Editor for Key Results */}
+        <MilestoneEditor
+          open={keyResultMilestoneEditorOpen}
+          onOpenChange={setKeyResultMilestoneEditorOpen}
+          phasedTargets={keyResultForm.phasedTargets}
+          onSave={(phasedTargets) => {
+            setKeyResultForm({ ...keyResultForm, phasedTargets });
+          }}
+          metricType={keyResultForm.metricType as 'increase' | 'decrease' | 'maintain' | 'complete'}
+          targetValue={keyResultForm.targetValue}
+          initialValue={keyResultForm.initialValue}
+          unit={keyResultForm.unit}
+        />
 
         {/* Create/Edit Big Rock Dialog */}
         <Dialog open={bigRockDialogOpen} onOpenChange={(open) => {
@@ -2290,6 +2388,7 @@ export default function PlanningEnhanced() {
                 quarter: detailPaneEntity.quarter,
                 year: detailPaneEntity.year,
                 linkedGoals: [],
+                phasedTargets: detailPaneEntity.phasedTargets || null,
               });
               setDetailPaneOpen(false);
               setObjectiveDialogOpen(true);

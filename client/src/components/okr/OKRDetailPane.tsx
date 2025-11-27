@@ -26,6 +26,7 @@ import {
 import { format } from "date-fns";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import type { CheckIn, Objective, KeyResult, Strategy, BigRock } from "@shared/schema";
+import { MilestoneTimeline, type PhasedTargets } from "./MilestoneTimeline";
 
 interface OKRDetailPaneProps {
   open: boolean;
@@ -43,8 +44,12 @@ interface OKRDetailPaneProps {
     targetValue?: number;
     currentValue?: number;
     startValue?: number;
+    initialValue?: number;
     unit?: string;
     metricType?: string;
+    startDate?: Date | string;
+    endDate?: Date | string;
+    phasedTargets?: PhasedTargets | null;
   } | null;
   alignedStrategies?: Strategy[];
   alignedObjectives?: Objective[];
@@ -292,6 +297,20 @@ export function OKRDetailPane({
               </TabsList>
 
               <TabsContent value="overview" className="space-y-4 mt-4">
+                {/* Milestones Timeline */}
+                {entity.phasedTargets && entity.phasedTargets.targets && entity.phasedTargets.targets.length > 0 && (
+                  <MilestoneTimeline
+                    phasedTargets={entity.phasedTargets}
+                    currentValue={entity.currentValue ?? entity.progress}
+                    targetValue={entity.targetValue ?? 100}
+                    initialValue={entity.initialValue ?? entity.startValue ?? 0}
+                    unit={entity.unit}
+                    metricType={entity.metricType as 'increase' | 'decrease' | 'maintain' | 'complete' | undefined}
+                    startDate={entity.startDate}
+                    endDate={entity.endDate}
+                  />
+                )}
+
                 {latestCheckIn && (
                   <Card>
                     <CardHeader className="pb-2">
