@@ -88,3 +88,26 @@ For detailed information, see:
 - **UI Component Library**: shadcn/ui (built on Radix UI primitives).
 - **Database**: Neon PostgreSQL.
 - **Transactional Email**: SendGrid (via Replit connector) for email verification and password reset.
+
+## Environment Secrets
+
+The following secrets are configured in Replit Secrets and available as environment variables:
+
+### Database
+- `DATABASE_URL` - PostgreSQL connection string (auto-configured by Replit)
+- `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE` - Individual PostgreSQL connection parameters
+
+### Application
+- `SESSION_SECRET` - Express session encryption key
+
+### Testing
+- `TEST_ACCOUNT_EMAIL` - Email address for automated testing (e.g., Playwright e2e tests)
+- `TEST_ACCOUNT_PASSWORD` - Password for the test account
+
+### External Services
+- `SENDGRID_API_KEY` - SendGrid API key for transactional emails (required for email verification)
+- `VITE_DEMO_PASSWORD` - Demo account password (exposed to frontend via Vite)
+
+### AI Integration (Auto-configured via Replit AI Integrations)
+- `AI_INTEGRATIONS_OPENAI_BASE_URL` - OpenAI-compatible API base URL
+- `AI_INTEGRATIONS_OPENAI_API_KEY` - OpenAI API key for GPT-5 integration
