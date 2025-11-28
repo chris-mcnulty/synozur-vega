@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Users, Pencil, Trash2, Plus, Target, CheckCircle2, FileText, AlertTriangle, Link2, Clock, Zap, ChevronRight, X } from "lucide-react";
+import { Calendar, Users, Pencil, Trash2, Plus, Target, CheckCircle2, FileText, AlertTriangle, Link2, Clock, Zap, ChevronRight, X, Sparkles, Search } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -546,6 +546,7 @@ export default function FocusRhythm() {
   const [selectedType, setSelectedType] = useState<string>("all");
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [linkingModalOpen, setLinkingModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   
   const { data: foundation } = useQuery<Foundation>({
     queryKey: [`/api/foundations/${currentTenant.id}`],
@@ -780,16 +781,30 @@ export default function FocusRhythm() {
     return meetingDate >= quarterRange.start && meetingDate <= quarterRange.end;
   });
 
+  const searchFilteredMeetings = meetingsInQuarter.filter(meeting => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      meeting.title?.toLowerCase().includes(query) ||
+      meeting.summary?.toLowerCase().includes(query) ||
+      meeting.facilitator?.toLowerCase().includes(query) ||
+      meeting.attendees?.some(a => a.toLowerCase().includes(query)) ||
+      meeting.agenda?.some(a => a.toLowerCase().includes(query)) ||
+      meeting.decisions?.some(d => d.toLowerCase().includes(query)) ||
+      meeting.actionItems?.some(a => a.toLowerCase().includes(query))
+    );
+  });
+
   const filteredMeetings = selectedType === "all"
-    ? meetingsInQuarter
-    : meetingsInQuarter.filter(m => m.meetingType === selectedType);
+    ? searchFilteredMeetings
+    : searchFilteredMeetings.filter(m => m.meetingType === selectedType);
 
   const groupedMeetings = {
-    all: meetings,
-    weekly: meetings.filter(m => m.meetingType === "weekly"),
-    monthly: meetings.filter(m => m.meetingType === "monthly"),
-    quarterly: meetings.filter(m => m.meetingType === "quarterly"),
-    annual: meetings.filter(m => m.meetingType === "annual"),
+    all: searchFilteredMeetings,
+    weekly: searchFilteredMeetings.filter(m => m.meetingType === "weekly"),
+    monthly: searchFilteredMeetings.filter(m => m.meetingType === "monthly"),
+    quarterly: searchFilteredMeetings.filter(m => m.meetingType === "quarterly"),
+    annual: searchFilteredMeetings.filter(m => m.meetingType === "annual"),
   };
 
   const totalLinkedItems = formData.linkedObjectiveIds.length + formData.linkedKeyResultIds.length + formData.linkedBigRockIds.length;
@@ -931,7 +946,48 @@ export default function FocusRhythm() {
       
       <TabsContent value="agenda" className="space-y-4 mt-4">
         <div>
-          <Label>Agenda Items</Label>
+          <div className="flex items-center justify-between gap-2">
+            <Label>Agenda Items</Label>
+            <Button 
+              type="button" 
+              variant="outline" 
+              size="sm"
+              onClick={() => {
+                const atRiskObj = objectives.filter(o => o.status === 'at_risk' || o.status === 'behind');
+                const atRiskRocks = bigRocks.filter(b => b.status === 'at_risk' || b.status === 'behind');
+                const newAgendaItems: string[] = [];
+                
+                if (atRiskObj.length > 0 || atRiskRocks.length > 0) {
+                  newAgendaItems.push('Review At-Risk Items');
+                }
+                
+                atRiskObj.forEach(obj => {
+                  const status = obj.status === 'at_risk' ? 'At Risk' : 'Behind';
+                  newAgendaItems.push(`Review Objective: ${obj.title} (${status} - ${obj.progress?.toFixed(0) || 0}%)`);
+                });
+                
+                atRiskRocks.forEach(rock => {
+                  const status = rock.status === 'at_risk' ? 'At Risk' : 'Behind';
+                  newAgendaItems.push(`Review Initiative: ${rock.title} (${status})`);
+                });
+                
+                if (newAgendaItems.length === 0) {
+                  newAgendaItems.push('All OKRs on track - celebrate wins!');
+                }
+                
+                newAgendaItems.push('Action items and next steps');
+                
+                setFormData(prev => ({
+                  ...prev,
+                  agenda: [...prev.agenda, ...newAgendaItems]
+                }));
+              }}
+              data-testid="button-auto-agenda"
+            >
+              <Sparkles className="w-4 h-4 mr-1" />
+              Auto-generate from At-Risk OKRs
+            </Button>
+          </div>
           <div className="flex gap-2 mt-2">
             <Input
               placeholder="Add agenda item"
@@ -1167,10 +1223,33 @@ export default function FocusRhythm() {
           </DialogContent>
         </Dialog>
 
+        <div className="flex items-center gap-4 flex-wrap">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search meetings..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9"
+              data-testid="input-search-meetings"
+            />
+          </div>
+          {searchQuery && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={() => setSearchQuery("")}
+              data-testid="button-clear-search"
+            >
+              Clear search
+            </Button>
+          )}
+        </div>
+
         <Tabs value={selectedType} onValueChange={setSelectedType} className="space-y-6">
           <TabsList>
             <TabsTrigger value="all" data-testid="tab-all">
-              All ({meetingsInQuarter.length})
+              All ({groupedMeetings.all.length})
             </TabsTrigger>
             <TabsTrigger value="weekly" data-testid="tab-weekly">
               Weekly ({groupedMeetings.weekly.length})
