@@ -153,6 +153,85 @@ export const insertKpiSchema = createInsertSchema(kpis).omit({
 export type InsertKpi = z.infer<typeof insertKpiSchema>;
 export type Kpi = typeof kpis.$inferSelect;
 
+// Meeting template type for Focus Rhythm
+export type MeetingTemplate = {
+  id: string;
+  name: string;
+  cadence: 'weekly' | 'monthly' | 'quarterly' | 'annual';
+  defaultDuration: number; // minutes
+  defaultAgenda: string[];
+  suggestedAttendees: string[];
+  description: string;
+};
+
+// Predefined meeting templates
+export const MEETING_TEMPLATES: MeetingTemplate[] = [
+  {
+    id: 'weekly-standup',
+    name: 'Weekly Standup',
+    cadence: 'weekly',
+    defaultDuration: 30,
+    defaultAgenda: [
+      'Review progress on key results from last week',
+      'Identify blockers and dependencies',
+      'Commitments for this week',
+      'Quick wins and celebrations',
+    ],
+    suggestedAttendees: ['Team Lead', 'Team Members'],
+    description: 'Quick check-in to align on weekly progress and priorities',
+  },
+  {
+    id: 'monthly-review',
+    name: 'Monthly Business Review',
+    cadence: 'monthly',
+    defaultDuration: 60,
+    defaultAgenda: [
+      'Review monthly OKR progress',
+      'Analyze key metrics and KPIs',
+      'Discuss at-risk objectives',
+      'Review Big Rock status',
+      'Decisions and next steps',
+    ],
+    suggestedAttendees: ['Leadership Team', 'Department Heads'],
+    description: 'Comprehensive review of monthly performance against objectives',
+  },
+  {
+    id: 'quarterly-planning',
+    name: 'Quarterly Planning',
+    cadence: 'quarterly',
+    defaultDuration: 180,
+    defaultAgenda: [
+      'Review previous quarter results',
+      'Lessons learned and retrospective',
+      'Strategic priorities for next quarter',
+      'Define quarterly objectives',
+      'Identify key results and success metrics',
+      'Resource allocation and Big Rocks',
+      'Risk assessment and mitigation',
+    ],
+    suggestedAttendees: ['Executive Team', 'Department Heads', 'Key Stakeholders'],
+    description: 'Strategic planning session to set objectives for the upcoming quarter',
+  },
+  {
+    id: 'annual-strategy',
+    name: 'Annual Strategy Session',
+    cadence: 'annual',
+    defaultDuration: 480,
+    defaultAgenda: [
+      'Year in review - achievements and learnings',
+      'Mission, vision, and values alignment check',
+      'Market and competitive landscape analysis',
+      'Strategic priorities for next year',
+      'Annual goals definition',
+      'Resource and budget planning',
+      'Key initiatives and Big Rocks roadmap',
+      'Success metrics and milestones',
+    ],
+    suggestedAttendees: ['Board', 'Executive Team', 'Strategic Advisors'],
+    description: 'Comprehensive annual planning to set organizational direction',
+  },
+];
+
 export const meetings = pgTable("meetings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
@@ -164,6 +243,18 @@ export const meetings = pgTable("meetings", {
   decisions: jsonb("decisions").$type<string[]>(),
   actionItems: jsonb("action_items").$type<string[]>(),
   nextMeetingDate: timestamp("next_meeting_date"),
+  
+  // Focus Rhythm enhancements
+  templateId: text("template_id"), // Reference to MeetingTemplate.id
+  facilitator: text("facilitator"),
+  agenda: jsonb("agenda").$type<string[]>(), // Meeting agenda items
+  risks: jsonb("risks").$type<string[]>(), // Risks identified in meeting
+  
+  // OKR linkage for Focus Rhythm
+  linkedObjectiveIds: jsonb("linked_objective_ids").$type<string[]>(),
+  linkedKeyResultIds: jsonb("linked_key_result_ids").$type<string[]>(),
+  linkedBigRockIds: jsonb("linked_big_rock_ids").$type<string[]>(),
+  
   updatedBy: varchar("updated_by"),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -176,6 +267,11 @@ export const insertMeetingSchema = createInsertSchema(meetings).omit({
 }).extend({
   date: z.string().datetime().or(z.date()).nullable().optional(),
   nextMeetingDate: z.string().datetime().or(z.date()).nullable().optional(),
+  agenda: z.array(z.string()).nullable().optional(),
+  risks: z.array(z.string()).nullable().optional(),
+  linkedObjectiveIds: z.array(z.string()).nullable().optional(),
+  linkedKeyResultIds: z.array(z.string()).nullable().optional(),
+  linkedBigRockIds: z.array(z.string()).nullable().optional(),
 });
 
 export type InsertMeeting = z.infer<typeof insertMeetingSchema>;
