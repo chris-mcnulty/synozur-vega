@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Users, Pencil, Trash2, Plus, Target, CheckCircle2, FileText, AlertTriangle, Link2, Clock, Zap, ChevronRight, X, Sparkles, Search } from "lucide-react";
+import { Calendar, Users, Pencil, Trash2, Plus, Target, CheckCircle2, FileText, AlertTriangle, Link2, Clock, Zap, ChevronRight, X, Sparkles, Search, Copy, ClipboardCheck } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -50,6 +50,7 @@ interface MeetingFormData {
   linkedObjectiveIds: string[];
   linkedKeyResultIds: string[];
   linkedBigRockIds: string[];
+  meetingNotes: string;
 }
 
 const initialFormData: MeetingFormData = {
@@ -68,6 +69,7 @@ const initialFormData: MeetingFormData = {
   linkedObjectiveIds: [],
   linkedKeyResultIds: [],
   linkedBigRockIds: [],
+  meetingNotes: "",
 };
 
 function TemplateSelector({ onSelect }: { onSelect: (template: MeetingTemplate) => void }) {
@@ -382,9 +384,10 @@ interface MeetingCardProps {
   onDelete: (meeting: Meeting) => void;
   objectives: Objective[];
   bigRocks: BigRock[];
+  onCopyBrief: (meeting: Meeting) => void;
 }
 
-function MeetingCard({ meeting, onEdit, onDelete, objectives, bigRocks }: MeetingCardProps) {
+function MeetingCard({ meeting, onEdit, onDelete, objectives, bigRocks, onCopyBrief }: MeetingCardProps) {
   const linkedObjectives = objectives.filter(o => 
     meeting.linkedObjectiveIds?.includes(o.id)
   );
@@ -437,6 +440,15 @@ function MeetingCard({ meeting, onEdit, onDelete, objectives, bigRocks }: Meetin
             </CardDescription>
           </div>
           <div className="flex gap-1">
+            <Button 
+              variant="ghost" 
+              size="icon"
+              onClick={() => onCopyBrief(meeting)}
+              title="Copy meeting brief for Outlook"
+              data-testid={`button-copy-brief-${meeting.id}`}
+            >
+              <Copy className="w-4 h-4" />
+            </Button>
             <Button 
               variant="ghost" 
               size="icon"
@@ -713,6 +725,7 @@ export default function FocusRhythm() {
       linkedObjectiveIds: meeting.linkedObjectiveIds || [],
       linkedKeyResultIds: meeting.linkedKeyResultIds || [],
       linkedBigRockIds: meeting.linkedBigRockIds || [],
+      meetingNotes: meeting.meetingNotes || "",
     });
     setEditDialogOpen(true);
   };
@@ -720,6 +733,79 @@ export default function FocusRhythm() {
   const openDeleteDialog = (meeting: Meeting) => {
     setSelectedMeeting(meeting);
     setDeleteDialogOpen(true);
+  };
+
+  const handleCopyBrief = (meeting: Meeting) => {
+    const linkedObjs = objectives.filter(o => meeting.linkedObjectiveIds?.includes(o.id));
+    const linkedRocks = bigRocks.filter(b => meeting.linkedBigRockIds?.includes(b.id));
+    
+    let brief = `${meeting.title}\n`;
+    brief += `${'='.repeat(meeting.title.length)}\n\n`;
+    
+    if (meeting.date) {
+      brief += `Date: ${format(new Date(meeting.date), "PPPP")}\n`;
+    }
+    if (meeting.facilitator) {
+      brief += `Facilitator: ${meeting.facilitator}\n`;
+    }
+    if (meeting.attendees && meeting.attendees.length > 0) {
+      brief += `Attendees: ${meeting.attendees.join(', ')}\n`;
+    }
+    brief += '\n';
+    
+    if (linkedRocks.length > 0) {
+      brief += `BIG ROCKS (Initiatives)\n`;
+      brief += `${'─'.repeat(25)}\n`;
+      linkedRocks.forEach(rock => {
+        const statusLabel = rock.status === 'at_risk' ? 'AT RISK' : 
+                           rock.status === 'behind' ? 'BEHIND' :
+                           rock.status === 'on_track' ? 'On Track' :
+                           rock.status === 'completed' ? 'Complete' : 'Not Started';
+        brief += `- ${rock.title} [${statusLabel}]\n`;
+        if (rock.description) {
+          brief += `  ${rock.description}\n`;
+        }
+      });
+      brief += '\n';
+    }
+    
+    if (linkedObjs.length > 0) {
+      brief += `OBJECTIVES & KEY RESULTS\n`;
+      brief += `${'─'.repeat(25)}\n`;
+      linkedObjs.forEach(obj => {
+        const progress = obj.progress?.toFixed(0) || 0;
+        const statusLabel = obj.status === 'at_risk' ? 'AT RISK' : 
+                           obj.status === 'behind' ? 'BEHIND' :
+                           obj.status === 'on_track' ? 'On Track' :
+                           obj.status === 'completed' ? 'Complete' : 'Not Started';
+        brief += `- ${obj.title} [${statusLabel} - ${progress}%]\n`;
+      });
+      brief += '\n';
+    }
+    
+    if (meeting.agenda && meeting.agenda.length > 0) {
+      brief += `AGENDA\n`;
+      brief += `${'─'.repeat(25)}\n`;
+      meeting.agenda.forEach((item, i) => {
+        brief += `${i + 1}. ${item}\n`;
+      });
+      brief += '\n';
+    }
+    
+    brief += `---\nGenerated from Vega Company OS\n`;
+    
+    navigator.clipboard.writeText(brief).then(() => {
+      toast({
+        title: "Meeting brief copied",
+        description: "Paste into your Outlook calendar invite",
+      });
+    }).catch(() => {
+      toast({
+        title: "Copy failed",
+        description: "Could not copy to clipboard",
+        variant: "destructive",
+      });
+    });
   };
 
   const handleCreate = () => {
@@ -828,10 +914,11 @@ export default function FocusRhythm() {
 
   const MeetingFormFields = ({ isEdit = false }: { isEdit?: boolean }) => (
     <Tabs defaultValue="details" className="w-full">
-      <TabsList className="grid grid-cols-3 w-full">
+      <TabsList className="grid grid-cols-4 w-full">
         <TabsTrigger value="details">Details</TabsTrigger>
         <TabsTrigger value="agenda">Agenda & Minutes</TabsTrigger>
         <TabsTrigger value="links">OKR Links</TabsTrigger>
+        <TabsTrigger value="notes" data-testid="tab-imported-notes">Imported Notes</TabsTrigger>
       </TabsList>
       
       <TabsContent value="details" className="space-y-4 mt-4">
@@ -1192,6 +1279,32 @@ export default function FocusRhythm() {
           </div>
         )}
       </TabsContent>
+      
+      <TabsContent value="notes" className="space-y-4 mt-4">
+        <div>
+          <div className="flex items-center gap-2 mb-2">
+            <ClipboardCheck className="w-5 h-5 text-muted-foreground" />
+            <Label htmlFor="meetingNotes" className="text-base font-medium">Imported Meeting Notes</Label>
+          </div>
+          <p className="text-sm text-muted-foreground mb-3">
+            Paste auto-generated notes from Outlook Copilot or Teams here. These notes will be available for AI analysis.
+          </p>
+          <Textarea
+            id="meetingNotes"
+            placeholder="Paste meeting notes from Outlook Copilot or Teams transcription here..."
+            value={formData.meetingNotes}
+            onChange={(e) => setFormData({ ...formData, meetingNotes: e.target.value })}
+            rows={12}
+            className="font-mono text-sm"
+            data-testid="textarea-meeting-notes"
+          />
+          {formData.meetingNotes && (
+            <div className="mt-2 text-xs text-muted-foreground">
+              {formData.meetingNotes.length} characters
+            </div>
+          )}
+        </div>
+      </TabsContent>
     </Tabs>
   );
 
@@ -1350,6 +1463,7 @@ export default function FocusRhythm() {
                     onDelete={openDeleteDialog}
                     objectives={objectives}
                     bigRocks={bigRocks}
+                    onCopyBrief={handleCopyBrief}
                   />
                 ))}
               </div>

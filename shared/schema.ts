@@ -261,6 +261,9 @@ export const meetings = pgTable("meetings", {
   linkedKeyResultIds: jsonb("linked_key_result_ids").$type<string[]>(),
   linkedBigRockIds: jsonb("linked_big_rock_ids").$type<string[]>(),
   
+  // Imported meeting notes from Outlook/Copilot/Teams
+  meetingNotes: text("meeting_notes"),
+  
   updatedBy: varchar("updated_by"),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
