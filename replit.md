@@ -46,6 +46,13 @@ For detailed information, see:
 - ✅ **Culture & Values Integration**: Value tagging for Objectives and Strategies (NOT Big Rocks - removed to reduce data clutter)
 - ✅ **Foreign Key Constraint Fix**: Empty strings converted to null in update endpoints
 - ✅ **Enhanced Documentation**: Created BACKLOG.md, KNOWN_ISSUES.md, TECHNICAL_DECISIONS.md
+- ✅ **Focus Rhythm Integration Complete**: Full meeting management with OKR alignment:
+  - Meeting Templates: Weekly Standup, Monthly Review, Quarterly Planning, Annual Strategy with prefilled agendas
+  - OKR Linking: Modal to connect meetings to objectives, key results, and big rocks
+  - Linked Items Display: Meeting cards show linked OKRs with at-risk highlighting
+  - Auto-generate Agenda: Button to create agenda items from at-risk/behind OKRs
+  - Meeting Search: Full-text search across title, summary, facilitator, attendees, agenda, decisions, action items
+  - Enhanced Schema: risks array, facilitator field, linkedObjectiveIds, linkedKeyResultIds, linkedBigRockIds
 - ⭐ **Backlog**: AI Big Rock Generator added to AI roadmap (suggest missing initiatives based on strategic analysis)
 
 ## System Architecture
@@ -63,7 +70,7 @@ For detailed information, see:
         - **Key Result Features**: Metric type selection (increase/decrease/maintain/complete), unit-based value input, progress visualization, KPI promotion, and check-in history.
         - **Weighted Rollup**: Key Result progress, weighted, aggregates to parent objective progress.
         - **Big Rock Alignment**: Big Rocks can link to multiple strategies (many-to-many relationship).
-    - **Focus Rhythm**: Manages meetings and summaries.
+    - **Focus Rhythm**: Full meeting management with OKR alignment, meeting templates (weekly/monthly/quarterly/annual), OKR linking modal, auto-generate agenda from at-risk items, and full-text search.
     - **Tenant Admin**: For organization management, M365 integration status, tenant/user CRUD, and allowed email domain management.
 
 ### Backend
