@@ -47,10 +47,14 @@ For detailed information, see:
 - ✅ **Foreign Key Constraint Fix**: Empty strings converted to null in update endpoints
 - ✅ **Enhanced Documentation**: Created BACKLOG.md, KNOWN_ISSUES.md, TECHNICAL_DECISIONS.md
 - ✅ **Focus Rhythm Integration Complete**: Full meeting management with OKR alignment:
-  - Meeting Templates: Weekly Standup, Monthly Review, Quarterly Planning, Annual Strategy with prefilled agendas
+  - **Meeting Cadence Philosophy**:
+    - Weekly: Project-focused (Big Rocks first, then related KRs)
+    - Monthly: Outcome-focused (OKRs and strategic alignment)
+    - Quarterly: Strategy review + Big Rock planning + Values alignment
+  - Meeting Templates: Weekly Standup, Monthly Review, Quarterly Planning, Annual Strategy with role-specific agendas
   - OKR Linking: Modal to connect meetings to objectives, key results, and big rocks
   - Linked Items Display: Meeting cards show linked OKRs with at-risk highlighting
-  - Auto-generate Agenda: Button to create agenda items from at-risk/behind OKRs
+  - Auto-generate Agenda: Meeting-type aware - generates appropriate structure per cadence
   - Meeting Search: Full-text search across title, summary, facilitator, attendees, agenda, decisions, action items
   - Enhanced Schema: risks array, facilitator field, linkedObjectiveIds, linkedKeyResultIds, linkedBigRockIds
 - ⭐ **Backlog**: AI Big Rock Generator added to AI roadmap (suggest missing initiatives based on strategic analysis)
