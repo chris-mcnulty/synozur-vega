@@ -7,7 +7,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Users, Pencil, Trash2, Plus, Target, CheckCircle2, FileText, AlertTriangle, Link2, Clock, Zap, ChevronRight, X, Sparkles, Search, Copy, ClipboardCheck } from "lucide-react";
+import { Calendar, Users, Pencil, Trash2, Plus, Target, CheckCircle2, FileText, AlertTriangle, Link2, Clock, Zap, ChevronRight, X, Sparkles, Search, Copy, ClipboardCheck, ExternalLink } from "lucide-react";
+import { Link } from "wouter";
 import {
   Dialog,
   DialogContent,
@@ -440,6 +441,16 @@ function MeetingCard({ meeting, onEdit, onDelete, objectives, bigRocks, onCopyBr
             </CardDescription>
           </div>
           <div className="flex gap-1">
+            <Link href={`/focus-rhythm/${meeting.id}`}>
+              <Button 
+                variant="ghost" 
+                size="icon"
+                title="Open meeting details"
+                data-testid={`button-open-meeting-${meeting.id}`}
+              >
+                <ExternalLink className="w-4 h-4" />
+              </Button>
+            </Link>
             <Button 
               variant="ghost" 
               size="icon"

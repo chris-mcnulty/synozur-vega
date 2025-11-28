@@ -694,6 +694,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/meeting/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const meeting = await storage.getMeetingById(id);
+      if (!meeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+      res.json(meeting);
+    } catch (error) {
+      console.error("Error fetching meeting:", error);
+      res.status(500).json({ error: "Failed to fetch meeting" });
+    }
+  });
+
   app.post("/api/meetings", async (req, res) => {
     try {
       const validatedData = insertMeetingSchema.parse(req.body);

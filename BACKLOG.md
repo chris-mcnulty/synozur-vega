@@ -35,16 +35,34 @@ Role-Based Access Control is defined but not enforced. All authenticated users c
 
 ---
 
-### 2. Microsoft Entra SSO Integration ⭐ NEW
+### 2. Microsoft 365 Multi-Tenant Integration ⭐ UPDATED
 
 **Status:** Not Started  
 **Priority:** High  
 **Effort:** 8-12 weeks (3 phases)
 
 **Description:**
-Enterprise-grade authentication using Microsoft Entra (Azure AD) SSO with multi-domain support and automatic tenant provisioning.
+Enterprise-grade Microsoft 365 integration using multi-tenant OAuth with single-click admin consent. Synozur registers ONE app in Azure AD configured as multi-tenant. Customer admins click "Connect to Microsoft 365" → review permissions → accept. Done. No Azure AD portal access, no keys, no certificates required from customers.
 
-**Phase 1: SSO Foundation (4-6 weeks)**
+---
+
+#### Microsoft Graph Permission Scope (Refined)
+
+| Service | Access Level | Permission | Vega Use Cases |
+|---------|--------------|------------|----------------|
+| **Outlook Calendar** | Read/Write | `Calendars.ReadWrite` | Meeting sync, Focus Rhythm scheduling |
+| **Outlook Mail** | Write only | `Mail.Send` | Send meeting summaries, OKR alerts (no inbox reading) |
+| **SharePoint** | Read only | `Sites.Read.All` | Pull strategy docs, governance files, shared resources |
+| **OneDrive** | Read only | `Files.Read.All` | Import Excel files, attachments |
+| **Microsoft Lists** | Read only | `Sites.Read.All` (same) | Mirror data into Vega, no write-back |
+| **Planner** | Read only | `Tasks.Read` | View initiative status, no task creation |
+| **Excel** | Read only | `Files.Read.All` (same) | Viva Goals import, workbook reads |
+
+**Design Principle:** Read-only access wherever possible to minimize consent scope and security risk. Vega is the system of record; M365 provides context and inputs.
+
+---
+
+#### Phase 1: SSO Foundation (4-6 weeks)
 - Multi-tenant app registration in Synozur Entra tenant
 - `/api/auth/microsoft` callback route implementation
 - Auto-provision trial tenants for new domains
@@ -52,35 +70,45 @@ Enterprise-grade authentication using Microsoft Entra (Azure AD) SSO with multi-
 - "Sign in with Microsoft" button in login UI
 - Dual authentication support (email/password + SSO)
 
-**Phase 2: Graph API Integration (6-8 weeks)**
-- Delegated permissions flow for Excel/Planner
-- Encrypted token storage system (AES-256)
-- Graph API client service
-- "Connect Microsoft 365" UI in settings
-- OKR import from Excel files
-- Planner integration for Big Rocks
+#### Phase 2: Graph API Integration (6-8 weeks)
+- Admin consent endpoint (`/common/adminconsent`) integration
+- Delegated permissions flow with MSAL
+- Encrypted token storage system (AES-256) per tenant
+- Graph API client service with tenant isolation
+- "Connect Microsoft 365" UI in Tenant Admin settings
+- Connection status display and disconnect option
+- OKR import from Excel files (read-only)
+- Planner status sync for Big Rocks (read-only)
+- SharePoint document library browsing (read-only)
 
-**Phase 3: Enterprise Features (4 weeks)**
-- Custom app registration support for enterprise customers
-- Tenant-specific app registration storage
-- Admin consent workflow UI
+#### Phase 3: Enterprise Features (4 weeks)
+- Custom app registration support for high-security tenants
+- Tenant-specific app registration storage (optional override)
+- Incremental consent for optional features (Mail.Send)
 - Enterprise onboarding documentation
 
+---
+
 **Business Value:**
+- Single-click consent for customer admins (no Azure AD expertise needed)
 - Reduces friction for Microsoft 365 customers (90%+ of enterprise market)
-- Enables seamless Excel/Planner data sync
+- Enables seamless Excel/Planner/SharePoint data sync
+- Read-only access minimizes security concerns and approval friction
 - Enterprise-ready authentication
 - Supports self-service and enterprise deployment models
 
 **Technical Notes:**
-- See `TECHNICAL_DECISIONS.md` ADR-009 for full architecture
-- Requires encrypted refresh token storage
+- See `TECHNICAL_DECISIONS.md` for full architecture (ADR pending)
+- Requires encrypted refresh token storage (AES-256)
 - Multi-tenant app works for any Microsoft user globally
 - No customer setup required for basic SSO
+- Admin consent required for SharePoint, Lists, Planner scopes
+- Throttling limits: Planner most restrictive (100 req/10 sec)
 
 **Dependencies:**
 - Environment variables: `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `TOKEN_ENCRYPTION_KEY`
 - Schema changes to `users` and `tenants` tables
+- MSAL library for OAuth handling
 
 ---
 

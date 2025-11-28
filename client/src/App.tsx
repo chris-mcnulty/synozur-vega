@@ -24,6 +24,7 @@ import Foundations from "@/pages/Foundations";
 import Strategy from "@/pages/Strategy";
 import PlanningEnhanced from "@/pages/PlanningEnhanced";
 import FocusRhythm from "@/pages/FocusRhythm";
+import MeetingDetail from "@/pages/MeetingDetail";
 import TenantAdmin from "@/pages/TenantAdmin";
 import AIGroundingAdmin from "@/pages/AIGroundingAdmin";
 import Import from "@/pages/Import";
@@ -178,6 +179,13 @@ function Router() {
         <ProtectedRoute>
           <ModuleLayout>
             <FocusRhythm />
+          </ModuleLayout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/focus-rhythm/:meetingId">
+        <ProtectedRoute>
+          <ModuleLayout>
+            <MeetingDetail />
           </ModuleLayout>
         </ProtectedRoute>
       </Route>
