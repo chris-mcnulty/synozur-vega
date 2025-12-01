@@ -36,6 +36,7 @@ import { getCurrentQuarter, generateQuarters } from "@/lib/fiscal-utils";
 import type { Foundation, Strategy, Objective, BigRock, Meeting } from "@shared/schema";
 import { ValuesAlignmentWidget } from "@/components/ValuesAlignmentWidget";
 import { ValueBadges } from "@/components/ValueBadges";
+import { ExpandableText } from "@/components/ExpandableText";
 
 type Quarter = {
   id: string;
@@ -283,9 +284,13 @@ export default function Dashboard() {
                       Mission
                     </h3>
                     {foundations?.mission ? (
-                      <p className="text-sm text-muted-foreground">{foundations.mission}</p>
+                      <ExpandableText 
+                        text={foundations.mission} 
+                        maxLines={3}
+                        className="text-base text-muted-foreground"
+                      />
                     ) : (
-                      <p className="text-sm text-muted-foreground">Not yet defined</p>
+                      <p className="text-base text-muted-foreground">Not yet defined</p>
                     )}
                   </div>
                   <div>
@@ -294,9 +299,13 @@ export default function Dashboard() {
                       Vision
                     </h3>
                     {foundations?.vision ? (
-                      <p className="text-sm text-muted-foreground">{foundations.vision}</p>
+                      <ExpandableText 
+                        text={foundations.vision} 
+                        maxLines={3}
+                        className="text-base text-muted-foreground"
+                      />
                     ) : (
-                      <p className="text-sm text-muted-foreground">Not yet defined</p>
+                      <p className="text-base text-muted-foreground">Not yet defined</p>
                     )}
                   </div>
                 </div>
@@ -306,21 +315,24 @@ export default function Dashboard() {
                   {foundations?.values && foundations.values.length > 0 ? (
                     <div className="space-y-3">
                       {foundations.values.map((value: any, idx) => {
-                        // Handle both legacy string format and new object format
                         const title = typeof value === "string" ? value : value.title;
                         const description = typeof value === "string" ? "" : value.description;
                         return (
                           <div key={idx} className="space-y-1">
-                            <div className="font-medium text-sm">{title}</div>
+                            <div className="font-medium text-base">{title}</div>
                             {description && (
-                              <p className="text-sm text-muted-foreground">{description}</p>
+                              <ExpandableText 
+                                text={description} 
+                                maxLines={2}
+                                className="text-sm text-muted-foreground"
+                              />
                             )}
                           </div>
                         );
                       })}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">Not yet defined</p>
+                    <p className="text-base text-muted-foreground">Not yet defined</p>
                   )}
                 </div>
                 <Separator className="my-4" />
@@ -329,14 +341,14 @@ export default function Dashboard() {
                   {foundations?.annualGoals && foundations.annualGoals.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                       {foundations.annualGoals.map((goal, idx) => (
-                        <div key={idx} className="flex items-start gap-2 text-sm">
-                          <Target className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                        <div key={idx} className="flex items-start gap-2 text-base">
+                          <Target className="h-4 w-4 text-primary mt-1 flex-shrink-0" />
                           <span className="text-muted-foreground">{goal}</span>
                         </div>
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">Not yet defined</p>
+                    <p className="text-base text-muted-foreground">Not yet defined</p>
                   )}
                 </div>
               </>
@@ -376,7 +388,7 @@ export default function Dashboard() {
                   <div key={strategy.id} className="space-y-2">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <h3 className="font-medium text-sm">{strategy.title}</h3>
+                        <h3 className="font-medium text-base">{strategy.title}</h3>
                         <div className="flex flex-wrap items-center gap-2 mt-1">
                           {strategy.priority && (
                             <Badge
@@ -402,7 +414,11 @@ export default function Dashboard() {
                       )}
                     </div>
                     {strategy.description && (
-                      <p className="text-xs text-muted-foreground">{strategy.description}</p>
+                      <ExpandableText 
+                        text={strategy.description} 
+                        maxLines={4}
+                        className="text-sm text-muted-foreground"
+                      />
                     )}
                   </div>
                 ))
@@ -450,13 +466,13 @@ export default function Dashboard() {
                     )}
                     <div className="flex-1">
                       <p
-                        className={`text-sm ${
+                        className={`text-base ${
                           rock.status === "completed" ? "line-through text-muted-foreground" : ""
                         }`}
                       >
                         {rock.title}
                       </p>
-                      <p className="text-xs text-muted-foreground mt-0.5">
+                      <p className="text-sm text-muted-foreground mt-0.5">
                         {rock.ownerEmail || "Unassigned"}
                       </p>
                     </div>
@@ -499,9 +515,9 @@ export default function Dashboard() {
                   <div key={okr.id} className="space-y-2">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
-                        <h3 className="font-medium text-sm">{okr.title}</h3>
+                        <h3 className="font-medium text-base">{okr.title}</h3>
                         {okr.ownerEmail && (
-                          <p className="text-xs text-muted-foreground">{okr.ownerEmail}</p>
+                          <p className="text-sm text-muted-foreground">{okr.ownerEmail}</p>
                         )}
                       </div>
                       <Badge variant="secondary" className="text-xs">
@@ -555,12 +571,12 @@ export default function Dashboard() {
                   <div className="flex items-start gap-3">
                     <Users className="h-5 w-5 text-primary mt-0.5" />
                     <div className="flex-1">
-                      <h3 className="font-medium text-sm mb-1">{meeting.title}</h3>
+                      <h3 className="font-medium text-base mb-1">{meeting.title}</h3>
                       {meeting.meetingType && (
-                        <p className="text-xs text-muted-foreground mb-2">{meeting.meetingType}</p>
+                        <p className="text-sm text-muted-foreground mb-2">{meeting.meetingType}</p>
                       )}
                       {meeting.nextMeetingDate && (
-                        <div className="flex items-center gap-1 text-xs">
+                        <div className="flex items-center gap-1 text-sm">
                           <Calendar className="h-3 w-3" />
                           {new Date(meeting.nextMeetingDate).toLocaleDateString()}
                         </div>
