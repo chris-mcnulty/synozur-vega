@@ -484,6 +484,73 @@ Smart prompts during check-in to guide users toward appropriate actions when Key
 
 ---
 
+### 10b. OKR Cloning (Viva Goals-style) ⭐ NEW
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Effort:** 3-5 days
+
+**Reference:** https://learn.microsoft.com/en-us/viva/goals/cloning-objectives
+
+**Description:**
+Clone objectives to streamline the OKR process - either duplicating OKRs across teams or rolling over unfinished objectives to new time periods while preserving historical progress.
+
+**Use Cases:**
+
+1. **Cross-functional collaboration:** Copy OKRs between teams when multiple teams need aligned objectives with slight modifications
+2. **Quarterly rollover:** Clone unfinished Q2 objectives to Q3, resetting progress for the new period while preserving Q2 history
+
+**Clone Dialog Options:**
+- **Time Period:** Select target quarter/year (defaults to current period)
+- **Owner:** Keep original owner OR assign new owner (applies to entire hierarchy)
+- **Scope:**
+  - Clone only the objective (no children)
+  - Clone objective and immediate children (Key Results only)
+  - Clone objective and all children (full hierarchy including nested objectives)
+
+**Single Clone:**
+- Hover action menu on any objective row → "Clone" option
+- Opens clone dialog with options above
+- Creates duplicate with reset progress (0%) in target time period
+
+**Bulk Clone:**
+- Checkbox selection on multiple objectives
+- "Clone Selected" action in bulk action bar
+- Only open objectives can be bulk cloned (closed must be cloned individually)
+- Async operation with progress indicator
+
+**API Endpoints:**
+- `POST /api/okr/objectives/:id/clone` - Clone single objective
+- `POST /api/okr/objectives/bulk-clone` - Clone multiple objectives
+
+**Request Schema:**
+```typescript
+{
+  targetQuarter: number,
+  targetYear: number,
+  keepOriginalOwner: boolean,
+  newOwnerId?: string,
+  cloneScope: 'objective_only' | 'immediate_children' | 'all_children'
+}
+```
+
+**Business Value:**
+- Faster OKR setup for recurring objectives
+- Preserves historical data while enabling fresh starts
+- Enables template-style OKR reuse across teams
+- Matches Viva Goals workflow for migrating users
+
+**Technical Notes:**
+- Deep clone must preserve all relationships (strategies, values, Big Rocks)
+- Reset progress/currentValue to 0 on cloned items
+- Reset status to 'not_started'
+- Generate new IDs for all cloned entities
+- Maintain parent-child relationships in cloned hierarchy
+
+**Dependencies:** None
+
+---
+
 ## LOWER PRIORITY / FUTURE
 
 ### 11. Advanced AI Features ⭐ NEW
