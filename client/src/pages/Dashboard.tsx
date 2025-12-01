@@ -135,7 +135,7 @@ export default function Dashboard() {
       {/* Header with Quarter Selector */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Company Operating System</h1>
+          <h1 className="text-3xl font-semibold mb-2">Company Operating System</h1>
           <p className="text-muted-foreground">
             Comprehensive view of foundations, strategies, planning, and focus for{" "}
             {currentQuarter?.label}

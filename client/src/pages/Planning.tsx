@@ -124,7 +124,7 @@ export default function Planning() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold">Quarterly Planning</h1>
+            <h1 className="text-3xl font-semibold">Quarterly Planning</h1>
             <p className="text-muted-foreground mt-1">
               Manage OKRs, KPIs, and quarterly rocks for Q{quarter} {year}
             </p>

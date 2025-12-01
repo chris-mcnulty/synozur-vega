@@ -11,12 +11,17 @@
 
 ### Typography
 **Font Family**: Avenir Next LT Pro (via Adobe Fonts or similar CDN)
-- **Headlines (H1)**: 48px/3rem, Bold (700), tight line-height (1.1)
-- **Subheadings (H2)**: 36px/2.25rem, Demi-bold (600), line-height 1.2
-- **Section Headers (H3)**: 24px/1.5rem, Medium (500)
+
+**Weight Guidelines**: Avenir Next LT Pro renders heavier than many fonts, so use lighter weights than typical:
+- **Page Titles (H1)**: 30px/1.875rem (text-3xl), Semibold (600) - NOT bold
+- **Card Titles**: 24px/1.5rem (text-2xl), Medium (500) - NOT semibold
+- **Section Headers (H3)**: 20px/1.25rem, Medium (500)
 - **Body Text**: 16px/1rem, Regular (400), line-height 1.6
 - **Small Text/Labels**: 14px/0.875rem, Regular (400)
 - **Button Text**: 16px/1rem, Medium (500), slight letter-spacing
+- **Data Display Numbers**: Large percentages/metrics can use Bold (700) for emphasis
+
+**Key Principle**: Reserve bold (700) only for marketing hero sections and prominent data values. Use semibold (600) for page headers, medium (500) for card titles and section headers.
 
 ### Layout System
 **Spacing Scale**: Use Tailwind units of 2, 4, 6, 8, 12, 16, 20, 24 (p-2, m-4, gap-6, etc.)

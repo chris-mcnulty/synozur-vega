@@ -248,7 +248,7 @@ export default function AIGroundingAdmin() {
             <Brain className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">AI Grounding Documents</h1>
+            <h1 className="text-2xl font-semibold">AI Grounding Documents</h1>
             <p className="text-muted-foreground">Access restricted</p>
           </div>
         </div>
@@ -269,7 +269,7 @@ export default function AIGroundingAdmin() {
             <Brain className="h-5 w-5 text-primary" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold">AI Grounding Documents</h1>
+            <h1 className="text-2xl font-semibold">AI Grounding Documents</h1>
             <p className="text-muted-foreground">Master context documents to guide AI responses</p>
           </div>
         </div>

@@ -298,7 +298,7 @@ export default function Foundations() {
     <div className="max-w-6xl mx-auto">
       <div className="mb-8 flex items-start justify-between">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Foundations</h1>
+          <h1 className="text-3xl font-semibold mb-2">Foundations</h1>
           <p className="text-muted-foreground">
             Define your organization's core purpose, values, and annual goals
           </p>

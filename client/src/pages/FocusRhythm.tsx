@@ -1324,7 +1324,7 @@ export default function FocusRhythm() {
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Focus Rhythm</h1>
+            <h1 className="text-3xl font-semibold">Focus Rhythm</h1>
             <p className="text-muted-foreground mt-1">
               Meetings for Q{quarter} {year}
             </p>

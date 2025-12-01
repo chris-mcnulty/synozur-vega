@@ -365,7 +365,7 @@ export default function MeetingDetail() {
     return (
       <div className="p-8">
         <div className="max-w-5xl mx-auto text-center">
-          <h1 className="text-2xl font-bold mb-4">Meeting Not Found</h1>
+          <h1 className="text-2xl font-semibold mb-4">Meeting Not Found</h1>
           <p className="text-muted-foreground mb-4">The meeting you're looking for doesn't exist or has been deleted.</p>
           <Button onClick={() => setLocation('/focus-rhythm')}>
             <ArrowLeft className="w-4 h-4 mr-2" />
@@ -386,7 +386,7 @@ export default function MeetingDetail() {
               Back
             </Button>
             <div>
-              <h1 className="text-2xl font-bold">{formData.title || "Untitled Meeting"}</h1>
+              <h1 className="text-2xl font-semibold">{formData.title || "Untitled Meeting"}</h1>
               <div className="flex items-center gap-2 text-muted-foreground mt-1">
                 <Badge variant="outline">{formData.meetingType}</Badge>
                 {formData.date && (
