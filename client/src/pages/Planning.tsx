@@ -435,7 +435,7 @@ function OkrsSection({ okrs, quarter, year }: { okrs: Okr[]; quarter: number; ye
                           : [...formData.linkedGoals, goal];
                         setFormData({ ...formData, linkedGoals: newGoals });
                       }}
-                      data-testid={`badge-goal-${goal.toLowerCase().replace(/\s+/g, '-')}`}
+                      data-testid={`badge-goal-${goal?.toLowerCase().replace(/\s+/g, '-')}`}
                     >
                       {goal}
                     </Badge>
@@ -457,7 +457,7 @@ function OkrsSection({ okrs, quarter, year }: { okrs: Okr[]; quarter: number; ye
                           : [...formData.linkedStrategies, strategy];
                         setFormData({ ...formData, linkedStrategies: newStrategies });
                       }}
-                      data-testid={`badge-strategy-${strategy.toLowerCase().replace(/\s+/g, '-')}`}
+                      data-testid={`badge-strategy-${strategy?.toLowerCase().replace(/\s+/g, '-')}`}
                     >
                       {strategy}
                     </Badge>

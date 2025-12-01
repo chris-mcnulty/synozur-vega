@@ -885,10 +885,10 @@ export default function FocusRhythm() {
       meeting.title?.toLowerCase().includes(query) ||
       meeting.summary?.toLowerCase().includes(query) ||
       meeting.facilitator?.toLowerCase().includes(query) ||
-      meeting.attendees?.some(a => a.toLowerCase().includes(query)) ||
-      meeting.agenda?.some(a => a.toLowerCase().includes(query)) ||
-      meeting.decisions?.some(d => d.toLowerCase().includes(query)) ||
-      meeting.actionItems?.some(a => a.toLowerCase().includes(query))
+      meeting.attendees?.some(a => a?.toLowerCase().includes(query)) ||
+      meeting.agenda?.some(a => a?.toLowerCase().includes(query)) ||
+      meeting.decisions?.some(d => d?.toLowerCase().includes(query)) ||
+      meeting.actionItems?.some(a => a?.toLowerCase().includes(query))
     );
   });
 

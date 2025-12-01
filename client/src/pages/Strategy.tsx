@@ -516,7 +516,7 @@ export default function Strategy() {
                           variant={formData.linkedGoals.includes(goal) ? "default" : "outline"}
                           className="cursor-pointer"
                           onClick={() => toggleGoal(goal)}
-                          data-testid={`badge-goal-${goal.toLowerCase().replace(/\s+/g, '-')}`}
+                          data-testid={`badge-goal-${goal?.toLowerCase().replace(/\s+/g, '-')}`}
                         >
                           {goal}
                         </Badge>
@@ -725,7 +725,7 @@ export default function Strategy() {
                       variant={formData.linkedGoals.includes(goal) ? "default" : "outline"}
                       className="cursor-pointer"
                       onClick={() => toggleGoal(goal)}
-                      data-testid={`badge-edit-goal-${goal.toLowerCase().replace(/\s+/g, '-')}`}
+                      data-testid={`badge-edit-goal-${goal?.toLowerCase().replace(/\s+/g, '-')}`}
                     >
                       {goal}
                     </Badge>

@@ -1396,7 +1396,7 @@ export default function PlanningEnhanced() {
                         variant={(objectiveForm.linkedGoals || []).includes(goal) ? "default" : "outline"}
                         className="cursor-pointer"
                         onClick={() => toggleObjectiveGoal(goal)}
-                        data-testid={`badge-goal-${goal.toLowerCase().replace(/\s+/g, '-')}`}
+                        data-testid={`badge-goal-${goal?.toLowerCase().replace(/\s+/g, '-')}`}
                       >
                         {goal}
                       </Badge>
