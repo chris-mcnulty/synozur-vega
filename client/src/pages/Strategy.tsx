@@ -166,7 +166,7 @@ export default function Strategy() {
         updatedBy: "Current User",
       });
     },
-    onSuccess: async (response: any, variables: { id: string }) => {
+    onSuccess: async (response: any, variables: { id: string; data: Partial<StrategyFormData> }) => {
       try {
         // Sync value tags after updating strategy
         await syncValueTags(variables.id, 'strategies', strategyValueTags, previousStrategyValueTags);
@@ -867,13 +867,13 @@ function StrategyCard({ strategy, onEdit, onDelete, getPriorityVariant, getStatu
               {strategy.owner && (
                 <div>
                   <span className="text-muted-foreground">Owner:</span>{" "}
-                  <span className="font-medium">{strategy.owner}</span>
+                  <span>{strategy.owner}</span>
                 </div>
               )}
               {strategy.timeline && (
                 <div>
                   <span className="text-muted-foreground">Timeline:</span>{" "}
-                  <span className="font-medium">{strategy.timeline}</span>
+                  <span>{strategy.timeline}</span>
                 </div>
               )}
             </div>
