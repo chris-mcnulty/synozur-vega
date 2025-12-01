@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 import {
   Collapsible,
   CollapsibleContent,
@@ -453,31 +454,76 @@ export default function Dashboard() {
                   <p>Unable to load big rocks</p>
                 </div>
               ) : bigRocks && bigRocks.length > 0 ? (
-                bigRocks.map((rock) => (
-                  <div key={rock.id} className="flex items-start gap-3">
-                    {rock.status === "completed" ? (
-                      <CheckCircle2 className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                    ) : rock.status === "in_progress" || rock.status === "in-progress" ? (
-                      <div className="h-5 w-5 rounded-full border-2 border-primary shrink-0 mt-0.5 flex items-center justify-center">
-                        <div className="h-2 w-2 rounded-full bg-primary" />
+                bigRocks.map((rock) => {
+                  const getStatusColor = (status?: string | null) => {
+                    switch (status) {
+                      case "completed": return "bg-green-500";
+                      case "on_track": return "bg-blue-500";
+                      case "behind": return "bg-yellow-500";
+                      case "at_risk": return "bg-red-500";
+                      case "postponed": case "closed": return "bg-gray-500";
+                      default: return "bg-gray-400";
+                    }
+                  };
+                  const getStatusBadgeVariant = (status?: string | null): "default" | "secondary" | "destructive" | "outline" => {
+                    switch (status) {
+                      case "completed": return "default";
+                      case "on_track": return "secondary";
+                      case "at_risk": return "destructive";
+                      default: return "outline";
+                    }
+                  };
+                  return (
+                    <div key={rock.id} className="space-y-2" data-testid={`rock-${rock.id}`}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-3 flex-1">
+                          {rock.status === "completed" ? (
+                            <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
+                          ) : rock.status === "on_track" ? (
+                            <div className="h-5 w-5 rounded-full border-2 border-blue-500 shrink-0 mt-0.5 flex items-center justify-center">
+                              <div className="h-2 w-2 rounded-full bg-blue-500" />
+                            </div>
+                          ) : rock.status === "at_risk" || rock.status === "behind" ? (
+                            <AlertCircle className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
+                          ) : (
+                            <div className="h-5 w-5 rounded-full border-2 border-muted-foreground shrink-0 mt-0.5" />
+                          )}
+                          <div className="flex-1">
+                            <p
+                              className={`text-base ${
+                                rock.status === "completed" ? "line-through text-muted-foreground" : ""
+                              }`}
+                            >
+                              {rock.title}
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-0.5">
+                              {rock.accountableEmail || rock.ownerEmail || "Unassigned"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={getStatusBadgeVariant(rock.status)} className="text-xs">
+                            {rock.status?.replace("_", " ") || "not started"}
+                          </Badge>
+                          <span className="text-sm font-medium">{rock.completionPercentage || 0}%</span>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="h-5 w-5 rounded-full border-2 border-muted-foreground shrink-0 mt-0.5" />
-                    )}
-                    <div className="flex-1">
-                      <p
-                        className={`text-base ${
-                          rock.status === "completed" ? "line-through text-muted-foreground" : ""
-                        }`}
-                      >
-                        {rock.title}
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        {rock.ownerEmail || "Unassigned"}
-                      </p>
+                      <div className="ml-8">
+                        <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
+                          <div
+                            className={cn("h-full transition-all", getStatusColor(rock.status))}
+                            style={{ width: `${rock.completionPercentage || 0}%` }}
+                          />
+                        </div>
+                        {rock.lastCheckInAt && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Last check-in: {new Date(rock.lastCheckInAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   No quarterly rocks for {currentQuarter?.label}
