@@ -285,7 +285,7 @@ export default function Dashboard() {
                     {foundations?.mission ? (
                       <p className="text-sm text-muted-foreground">{foundations.mission}</p>
                     ) : (
-                      <p className="text-sm text-muted-foreground italic">Not yet defined</p>
+                      <p className="text-sm text-muted-foreground">Not yet defined</p>
                     )}
                   </div>
                   <div>
@@ -296,7 +296,7 @@ export default function Dashboard() {
                     {foundations?.vision ? (
                       <p className="text-sm text-muted-foreground">{foundations.vision}</p>
                     ) : (
-                      <p className="text-sm text-muted-foreground italic">Not yet defined</p>
+                      <p className="text-sm text-muted-foreground">Not yet defined</p>
                     )}
                   </div>
                 </div>
@@ -320,7 +320,7 @@ export default function Dashboard() {
                       })}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground italic">Not yet defined</p>
+                    <p className="text-sm text-muted-foreground">Not yet defined</p>
                   )}
                 </div>
                 <Separator className="my-4" />
@@ -336,7 +336,7 @@ export default function Dashboard() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground italic">Not yet defined</p>
+                    <p className="text-sm text-muted-foreground">Not yet defined</p>
                   )}
                 </div>
               </>
@@ -407,7 +407,7 @@ export default function Dashboard() {
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-muted-foreground italic text-center py-4">
+                <p className="text-sm text-muted-foreground text-center py-4">
                   No strategies defined yet
                 </p>
               )}
@@ -463,7 +463,7 @@ export default function Dashboard() {
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-muted-foreground italic text-center py-4">
+                <p className="text-sm text-muted-foreground text-center py-4">
                   No quarterly rocks for {currentQuarter?.label}
                 </p>
               )}
@@ -512,7 +512,7 @@ export default function Dashboard() {
                   </div>
                 ))
               ) : (
-                <p className="text-sm text-muted-foreground italic text-center py-4">
+                <p className="text-sm text-muted-foreground text-center py-4">
                   No OKRs for {currentQuarter?.label}
                 </p>
               )}
@@ -572,7 +572,7 @@ export default function Dashboard() {
             ))
           ) : (
             <div className="col-span-full">
-              <p className="text-sm text-muted-foreground italic text-center py-4">
+              <p className="text-sm text-muted-foreground text-center py-4">
                 No upcoming meetings scheduled
               </p>
             </div>

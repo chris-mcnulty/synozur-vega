@@ -40,7 +40,7 @@ export default function Landing() {
         <section className="py-20 bg-primary text-primary-foreground">
           <div className="max-w-4xl 2xl:max-w-5xl mx-auto px-6 text-center">
             <h2 className="text-4xl font-semibold mb-4">Ready to Transform Your Organization?</h2>
-            <p className="text-xl mb-8 opacity-90 font-light">
+            <p className="text-xl mb-8 opacity-90 font-normal not-italic">
               Join leading companies using Vega to align strategy and execution
             </p>
             <Button size="lg" variant="secondary" className="text-base px-8" data-testid="button-cta-bottom">

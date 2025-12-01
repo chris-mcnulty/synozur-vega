@@ -1321,7 +1321,7 @@ function RocksSection({
                     </Badge>
                   ))}
                   {availableStrategies.length === 0 && (
-                    <p className="text-sm text-muted-foreground italic">
+                    <p className="text-sm text-muted-foreground">
                       No strategies defined. Create strategies first in the Strategy module.
                     </p>
                   )}
@@ -1488,7 +1488,7 @@ function RocksSection({
                   </Badge>
                 ))}
                 {availableStrategies.length === 0 && (
-                  <p className="text-sm text-muted-foreground italic">
+                  <p className="text-sm text-muted-foreground">
                     No strategies defined. Create strategies first in the Strategy module.
                   </p>
                 )}

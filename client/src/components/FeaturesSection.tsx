@@ -35,7 +35,7 @@ export function FeaturesSection() {
       <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-6">
         <div className="text-center mb-16">
           <h2 className="text-4xl font-semibold mb-4">Powerful Modules for Modern Organizations</h2>
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto font-light">
+          <p className="text-xl text-muted-foreground max-w-2xl mx-auto font-normal not-italic">
             Everything you need to build, plan, and execute your company strategy in one integrated platform.
           </p>
         </div>

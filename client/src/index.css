@@ -200,6 +200,12 @@
 
   body {
     @apply font-sans antialiased bg-background text-foreground;
+    font-style: normal;
+  }
+
+  /* Prevent browser from synthesizing italics for Avenir Next LT Pro */
+  p, span, div, h1, h2, h3, h4, h5, h6, li, a, label {
+    font-style: normal;
   }
 }
 

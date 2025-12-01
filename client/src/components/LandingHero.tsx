@@ -27,7 +27,7 @@ export function LandingHero() {
           <h2 className="text-4xl md:text-5xl font-semibold leading-tight mb-6 bg-gradient-to-r from-white via-purple-200 to-primary bg-clip-text text-transparent">
             Your AI-Augmented Company OS
           </h2>
-          <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed font-light">
+          <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed font-normal not-italic">
             Transform your organization with intelligent foundations, strategic planning, 
             and seamless M365 integration—all in one powerful platform.
           </p>
