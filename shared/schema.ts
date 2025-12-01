@@ -410,14 +410,18 @@ export const bigRocks = pgTable("big_rocks", {
   // Link to strategies (can map to multiple)
   linkedStrategies: jsonb("linked_strategies").$type<string[]>(),
   
-  // Status and progress
+  // Status and progress (matching OKR statuses: not_started, on_track, behind, at_risk, postponed, completed, closed)
   status: text("status").default('not_started'),
   completionPercentage: integer("completion_percentage").default(0),
   
-  // Ownership
+  // Ownership (who is doing the work)
   ownerId: varchar("owner_id").references(() => users.id),
   ownerEmail: text("owner_email"),
   teamId: varchar("team_id"),
+  
+  // Accountability (who is responsible for outcomes)
+  accountableId: varchar("accountable_id").references(() => users.id),
+  accountableEmail: text("accountable_email"),
   
   // Time period
   quarter: integer("quarter"),
@@ -438,6 +442,10 @@ export const bigRocks = pgTable("big_rocks", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedBy: varchar("updated_by").references(() => users.id),
   updatedAt: timestamp("updated_at").defaultNow(),
+  
+  // Check-in tracking (synced from last check-in)
+  lastCheckInAt: timestamp("last_check_in_at"),
+  lastCheckInNote: text("last_check_in_note"),
 }, (table) => ({
   uniqueTenantBigRock: unique().on(table.tenantId, table.title, table.quarter, table.year),
 }));
