@@ -73,6 +73,11 @@ interface BigRock {
   quarter: number;
   year: number;
   linkedStrategies?: string[];
+  ownerEmail?: string;
+  accountableId?: string;
+  accountableEmail?: string;
+  lastCheckInAt?: Date | string;
+  lastCheckInNote?: string;
 }
 
 interface CheckIn {
@@ -237,6 +242,8 @@ export default function PlanningEnhanced() {
   const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
   const [checkInHistoryDialogOpen, setCheckInHistoryDialogOpen] = useState(false);
   const [selectedKRForHistory, setSelectedKRForHistory] = useState<KeyResult | null>(null);
+  const [selectedBigRockForHistory, setSelectedBigRockForHistory] = useState<BigRock | null>(null);
+  const [bigRockCheckInHistoryDialogOpen, setBigRockCheckInHistoryDialogOpen] = useState(false);
   const [editingCheckIn, setEditingCheckIn] = useState<CheckIn | null>(null);
   const [weightManagementDialogOpen, setWeightManagementDialogOpen] = useState(false);
   const [progressSummaryDialogOpen, setProgressSummaryDialogOpen] = useState(false);
@@ -719,6 +726,18 @@ export default function PlanningEnhanced() {
     enabled: !!selectedKRForHistory && checkInHistoryDialogOpen,
   });
 
+  // Fetch check-in history for selected Big Rock
+  const { data: bigRockCheckInHistory = [] } = useQuery<CheckIn[]>({
+    queryKey: [`/api/okr/check-ins`, 'big_rock', selectedBigRockForHistory?.id],
+    queryFn: async () => {
+      if (!selectedBigRockForHistory) return [];
+      const res = await fetch(`/api/okr/check-ins?entityType=big_rock&entityId=${selectedBigRockForHistory.id}`);
+      if (!res.ok) throw new Error("Failed to fetch check-in history");
+      return res.json();
+    },
+    enabled: !!selectedBigRockForHistory && bigRockCheckInHistoryDialogOpen,
+  });
+
   // Helper functions for toggling strategies and goals
   const toggleObjectiveStrategy = (strategyId: string) => {
     setObjectiveForm(prev => {
@@ -922,6 +941,32 @@ export default function PlanningEnhanced() {
     if (window.confirm("Are you sure you want to delete this Big Rock?")) {
       deleteBigRockMutation.mutate(id);
     }
+  };
+
+  const handleBigRockCheckIn = (rock: BigRock) => {
+    // Set up for new check-in
+    setCheckInEntity({
+      type: "big_rock",
+      id: rock.id,
+      current: rock,
+    });
+    setEditingCheckIn(null);
+    setCheckInForm({
+      newValue: 0,
+      newProgress: rock.completionPercentage || 0,
+      newStatus: rock.status || "not_started",
+      note: "",
+      achievements: [""],
+      challenges: [""],
+      nextSteps: [""],
+      asOfDate: new Date().toISOString().split('T')[0],
+    });
+    setCheckInDialogOpen(true);
+  };
+
+  const handleBigRockViewHistory = (rock: BigRock) => {
+    setSelectedBigRockForHistory(rock);
+    setBigRockCheckInHistoryDialogOpen(true);
   };
 
   const handleManageWeights = async (objectiveId: string) => {
@@ -1315,6 +1360,8 @@ export default function PlanningEnhanced() {
               onCreateBigRock={handleCreateBigRock}
               onEditBigRock={handleEditBigRock}
               onDeleteBigRock={handleDeleteBigRock}
+              onCheckIn={handleBigRockCheckIn}
+              onViewHistory={handleBigRockViewHistory}
             />
           </TabsContent>
 
@@ -2311,6 +2358,134 @@ export default function PlanningEnhanced() {
           </DialogContent>
         </Dialog>
 
+        {/* Big Rock Check-In History Dialog */}
+        <Dialog open={bigRockCheckInHistoryDialogOpen} onOpenChange={setBigRockCheckInHistoryDialogOpen}>
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Big Rock Check-In History</DialogTitle>
+              <DialogDescription>
+                {selectedBigRockForHistory?.title}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              {bigRockCheckInHistory.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <History className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No check-ins recorded yet</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {bigRockCheckInHistory.map((checkIn) => (
+                    <Card key={checkIn.id} className="p-4" data-testid={`bigrock-checkin-${checkIn.id}`}>
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">
+                                {checkIn.asOfDate 
+                                  ? new Date(checkIn.asOfDate).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                    })
+                                  : new Date(checkIn.createdAt).toLocaleDateString('en-US', {
+                                      month: 'short',
+                                      day: 'numeric',
+                                      year: 'numeric',
+                                    })
+                                }
+                              </span>
+                              <Badge variant={
+                                checkIn.newStatus === 'on_track' ? 'default' :
+                                checkIn.newStatus === 'behind' ? 'secondary' :
+                                checkIn.newStatus === 'at_risk' ? 'destructive' :
+                                checkIn.newStatus === 'completed' ? 'default' :
+                                'outline'
+                              }>
+                                {checkIn.newStatus?.replace('_', ' ').toUpperCase() || 'NOT STARTED'}
+                              </Badge>
+                            </div>
+                            <div className="text-sm text-muted-foreground mt-1">
+                              by {checkIn.createdBy}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <div className="text-sm text-muted-foreground">
+                                Completion: {checkIn.previousProgress}% → {checkIn.newProgress}%
+                              </div>
+                            </div>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => {
+                                setCheckInEntity({
+                                  type: "big_rock",
+                                  id: selectedBigRockForHistory?.id || "",
+                                  current: selectedBigRockForHistory,
+                                });
+                                handleEditCheckIn(checkIn);
+                              }}
+                              data-testid={`button-edit-bigrock-checkin-${checkIn.id}`}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        {checkIn.note && (
+                          <div className="text-sm bg-muted p-3 rounded-md">
+                            <div className="font-medium mb-1">Note:</div>
+                            <div className="whitespace-pre-wrap">{checkIn.note}</div>
+                          </div>
+                        )}
+                        {checkIn.achievements && checkIn.achievements.length > 0 && checkIn.achievements.some(a => a) && (
+                          <div className="text-sm">
+                            <div className="font-medium mb-1 text-green-600 dark:text-green-400">Achievements:</div>
+                            <ul className="list-disc pl-5 space-y-1">
+                              {checkIn.achievements.filter(a => a).map((achievement, idx) => (
+                                <li key={idx}>{achievement}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {checkIn.challenges && checkIn.challenges.length > 0 && checkIn.challenges.some(c => c) && (
+                          <div className="text-sm">
+                            <div className="font-medium mb-1 text-yellow-600 dark:text-yellow-400">Challenges:</div>
+                            <ul className="list-disc pl-5 space-y-1">
+                              {checkIn.challenges.filter(c => c).map((challenge, idx) => (
+                                <li key={idx}>{challenge}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {checkIn.nextSteps && checkIn.nextSteps.length > 0 && checkIn.nextSteps.some(n => n) && (
+                          <div className="text-sm">
+                            <div className="font-medium mb-1 text-blue-600 dark:text-blue-400">Next Steps:</div>
+                            <ul className="list-disc pl-5 space-y-1">
+                              {checkIn.nextSteps.filter(n => n).map((step, idx) => (
+                                <li key={idx}>{step}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setBigRockCheckInHistoryDialogOpen(false)}
+                data-testid="button-close-bigrock-history"
+              >
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         {/* Progress Summary Dialog */}
         <ProgressSummaryDialog
           open={progressSummaryDialogOpen}
@@ -2405,7 +2580,7 @@ export default function PlanningEnhanced() {
 }
 
 // Big Rocks Section Component
-function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, onEditBigRock, onDeleteBigRock }: any) {
+function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, onEditBigRock, onDeleteBigRock, onCheckIn, onViewHistory }: any) {
   const getObjectiveTitle = (objId: string) => {
     const obj = objectives.find((o: Objective) => o.id === objId);
     return obj?.title || "Unknown Objective";
@@ -2414,6 +2589,34 @@ function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, on
   const getStrategyTitle = (strategyId: string) => {
     const strategy = strategies?.find((s: any) => s.id === strategyId);
     return strategy?.title || "Unknown Strategy";
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "completed": return "bg-green-500";
+      case "on_track": return "bg-blue-500";
+      case "behind": return "bg-yellow-500";
+      case "at_risk": return "bg-red-500";
+      case "postponed": return "bg-gray-500";
+      case "closed": return "bg-gray-700";
+      default: return "bg-gray-400";
+    }
+  };
+
+  const getStatusBadgeVariant = (status: string): "default" | "secondary" | "destructive" | "outline" => {
+    switch (status) {
+      case "completed": return "default";
+      case "on_track": return "secondary";
+      case "at_risk": return "destructive";
+      case "behind": return "outline";
+      default: return "secondary";
+    }
+  };
+
+  const formatDate = (date: Date | string | undefined) => {
+    if (!date) return null;
+    const d = new Date(date);
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
   return (
@@ -2439,17 +2642,42 @@ function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, on
         <div className="grid gap-4 md:grid-cols-2">
           {bigRocks.map((rock: BigRock) => (
             <Card key={rock.id} className="hover-elevate" data-testid={`card-bigrock-${rock.id}`}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <CardTitle className="text-lg">{rock.title}</CardTitle>
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <CardTitle className="text-lg leading-tight">{rock.title}</CardTitle>
                     {rock.objectiveId && (
                       <p className="text-sm text-muted-foreground mt-1">
                         Linked to: {getObjectiveTitle(rock.objectiveId)}
                       </p>
                     )}
+                    {rock.accountableEmail && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Accountable: {rock.accountableEmail}
+                      </p>
+                    )}
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 flex-shrink-0">
+                    {rock.status !== 'closed' && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => onCheckIn(rock)}
+                        title="Check In"
+                        data-testid={`button-checkin-bigrock-${rock.id}`}
+                      >
+                        <Activity className="h-4 w-4 text-primary" />
+                      </Button>
+                    )}
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => onViewHistory(rock)}
+                      title="View History"
+                      data-testid={`button-history-bigrock-${rock.id}`}
+                    >
+                      <History className="h-4 w-4" />
+                    </Button>
                     <Button
                       size="icon"
                       variant="ghost"
@@ -2488,23 +2716,35 @@ function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, on
                   </div>
                 )}
                 
-                <div className="space-y-2">
+                <div className="space-y-3">
                   <div className="flex justify-between text-sm">
                     <span>Completion</span>
                     <span className="font-medium">{rock.completionPercentage}%</span>
                   </div>
                   <div className="h-2 bg-secondary rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-primary transition-all"
+                      className={cn("h-full transition-all", getStatusColor(rock.status))}
                       style={{ width: `${rock.completionPercentage}%` }}
                     />
                   </div>
-                  <Badge
-                    variant={rock.status === "completed" ? "default" : "secondary"}
-                    data-testid={`badge-status-${rock.id}`}
-                  >
-                    {rock.status.replace("_", " ")}
-                  </Badge>
+                  <div className="flex items-center justify-between">
+                    <Badge
+                      variant={getStatusBadgeVariant(rock.status)}
+                      data-testid={`badge-status-${rock.id}`}
+                    >
+                      {rock.status?.replace("_", " ") || "not started"}
+                    </Badge>
+                    {rock.lastCheckInAt && (
+                      <span className="text-xs text-muted-foreground">
+                        Last check-in: {formatDate(rock.lastCheckInAt)}
+                      </span>
+                    )}
+                  </div>
+                  {rock.lastCheckInNote && (
+                    <p className="text-xs text-muted-foreground italic border-l-2 border-muted pl-2 mt-2">
+                      "{rock.lastCheckInNote.length > 100 ? rock.lastCheckInNote.substring(0, 100) + "..." : rock.lastCheckInNote}"
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
