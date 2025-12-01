@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ArrowRight, Sparkles } from "lucide-react";
 import { Link } from "wouter";
 import starTrailsBg from "@assets/AdobeStock_362805421_1763398687511.jpeg";
@@ -15,17 +16,18 @@ export function LandingHero() {
       
       <div className="relative z-10 max-w-7xl 2xl:max-w-[1600px] mx-auto px-6 text-white">
         <div className="max-w-3xl">
-          <div className="flex items-center gap-2 mb-6">
+          <div className="flex items-center gap-3 mb-6">
             <Sparkles className="h-6 w-6 text-primary" />
             <span className="text-sm font-medium tracking-wide uppercase">AI-Powered Company OS</span>
+            <Badge variant="secondary" className="bg-secondary/90 text-secondary-foreground">Beta</Badge>
           </div>
           <h1 className="text-7xl md:text-8xl font-bold leading-normal mb-8 pb-2 bg-gradient-to-r from-primary via-purple-400 to-secondary bg-clip-text text-transparent">
             Vega
           </h1>
-          <h2 className="text-4xl md:text-5xl font-bold leading-tight mb-6 bg-gradient-to-r from-white via-purple-200 to-primary bg-clip-text text-transparent">
+          <h2 className="text-4xl md:text-5xl font-semibold leading-tight mb-6 bg-gradient-to-r from-white via-purple-200 to-primary bg-clip-text text-transparent">
             Your AI-Augmented Company OS
           </h2>
-          <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed">
+          <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed font-light">
             Transform your organization with intelligent foundations, strategic planning, 
             and seamless M365 integration—all in one powerful platform.
           </p>

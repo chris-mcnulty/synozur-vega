@@ -2,6 +2,7 @@ import { LandingHero } from "@/components/LandingHero";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { M365IntegrationSection } from "@/components/M365IntegrationSection";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { SynozurLogo } from "@/components/SynozurLogo";
 import { Link } from "wouter";
@@ -14,7 +15,8 @@ export default function Landing() {
         <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <SynozurLogo variant="mark" className="h-8 w-8" />
-            <span className="font-bold text-xl">Vega</span>
+            <span className="font-semibold text-xl">Vega</span>
+            <Badge variant="secondary" className="text-xs">Beta</Badge>
           </div>
           <div className="flex items-center gap-4">
             <Link href="/login">
@@ -37,8 +39,8 @@ export default function Landing() {
 
         <section className="py-20 bg-primary text-primary-foreground">
           <div className="max-w-4xl 2xl:max-w-5xl mx-auto px-6 text-center">
-            <h2 className="text-4xl font-bold mb-4">Ready to Transform Your Organization?</h2>
-            <p className="text-xl mb-8 opacity-90">
+            <h2 className="text-4xl font-semibold mb-4">Ready to Transform Your Organization?</h2>
+            <p className="text-xl mb-8 opacity-90 font-light">
               Join leading companies using Vega to align strategy and execution
             </p>
             <Button size="lg" variant="secondary" className="text-base px-8" data-testid="button-cta-bottom">
@@ -53,7 +55,8 @@ export default function Landing() {
               <div>
                 <div className="flex items-center gap-3 mb-4">
                   <SynozurLogo variant="mark" className="h-8 w-8" />
-                  <span className="font-bold text-lg">Vega</span>
+                  <span className="font-semibold text-lg">Vega</span>
+                  <Badge variant="outline" className="text-xs">Beta</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Powered by The Synozur Alliance LLC
