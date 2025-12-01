@@ -11,8 +11,8 @@ import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { 
   Target, 
-  TrendingUp, 
-  CheckCircle2, 
+  Gauge, 
+  Leaf, 
   AlertTriangle, 
   Clock,
   User,
@@ -193,7 +193,7 @@ export function OKRDetailPane({
               {entityType === "objective" ? (
                 <Target className="h-5 w-5 text-primary flex-shrink-0" />
               ) : (
-                <TrendingUp className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+                <Gauge className="h-5 w-5 text-primary flex-shrink-0" />
               )}
               <SheetTitle className="text-left truncate" data-testid="text-detail-title">
                 {entity.title}
@@ -205,7 +205,7 @@ export function OKRDetailPane({
                 onClick={onCheckIn}
                 data-testid="button-detail-checkin"
               >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
+                <Leaf className="h-4 w-4 mr-2 text-teal-500" />
                 Check-in
               </Button>
             </div>

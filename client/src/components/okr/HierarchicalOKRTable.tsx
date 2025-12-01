@@ -14,11 +14,11 @@ import {
   ChevronRight, 
   ChevronDown, 
   Target, 
-  TrendingUp, 
+  Gauge, 
   MoreHorizontal,
   Pencil,
   Plus,
-  CheckCircle2,
+  Leaf,
   Trash2,
   FolderPlus,
   ArrowDownFromLine,
@@ -346,7 +346,7 @@ function ObjectiveRow({
                   title="Check-in"
                   data-testid={`button-checkin-objective-${objective.id}`}
                 >
-                  <CheckCircle2 className="h-4 w-4" />
+                  <Leaf className="h-4 w-4 text-teal-500" />
                 </Button>
                 <Button
                   size="icon"
@@ -401,7 +401,7 @@ function ObjectiveRow({
                   data-testid={`menu-checkin-${objective.id}`}
                   disabled={objective.status === 'closed'}
                 >
-                  <CheckCircle2 className="h-4 w-4 mr-2" />
+                  <Leaf className="h-4 w-4 mr-2 text-teal-500" />
                   Check-in
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -513,7 +513,7 @@ function KeyResultRow({
       <TableCell className={cn("py-2", `pl-${12 + depth * 4}`)}>
         <div className="flex items-center gap-2">
           <div className="w-6 flex-shrink-0" />
-          <TrendingUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+          <Gauge className="h-4 w-4 text-primary flex-shrink-0" />
           <span 
             className="text-sm cursor-pointer hover:text-primary hover:underline truncate"
             onClick={() => onSelectKeyResult?.(keyResult, parentObjective)}
@@ -574,7 +574,7 @@ function KeyResultRow({
               title="Check-in"
               data-testid={`button-checkin-kr-${keyResult.id}`}
             >
-              <CheckCircle2 className="h-4 w-4" />
+              <Leaf className="h-4 w-4 text-teal-500" />
             </Button>
           )}
           <DropdownMenu>
@@ -602,7 +602,7 @@ function KeyResultRow({
                 data-testid={`menu-checkin-kr-${keyResult.id}`}
                 disabled={keyResult.status === 'closed' || parentObjective.status === 'closed'}
               >
-                <CheckCircle2 className="h-4 w-4 mr-2" />
+                <Leaf className="h-4 w-4 mr-2 text-teal-500" />
                 Check-in
               </DropdownMenuItem>
               <DropdownMenuSeparator />

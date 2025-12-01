@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Target, TrendingUp, AlertCircle, CheckCircle, Clock, Pause, Ban, Plus, Edit2, Trash2, Users, User, History } from "lucide-react";
+import { ChevronDown, ChevronRight, Target, Gauge, Leaf, AlertCircle, CheckCircle, Clock, Pause, Ban, Plus, Edit2, Trash2, Users, User, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -268,7 +268,7 @@ export function OKRTreeView({
                     onClick={() => onCheckIn("objective", objective.id)}
                     data-testid={`button-checkin-${objective.id}`}
                   >
-                    <TrendingUp className="h-4 w-4" />
+                    <Leaf className="h-4 w-4 text-teal-500" />
                   </Button>
                 )}
                 {onEditObjective && (
@@ -426,7 +426,7 @@ export function OKRTreeView({
                                 onClick={() => onCheckIn("key_result", kr.id)}
                                 data-testid={`button-checkin-kr-${kr.id}`}
                               >
-                                <TrendingUp className="h-3 w-3" />
+                                <Leaf className="h-3 w-3 text-teal-500" />
                               </Button>
                             )}
                             {onViewHistory && (
@@ -513,7 +513,7 @@ export function OKRTreeView({
                                 onClick={() => onCheckIn("big_rock", rock.id)}
                                 data-testid={`button-checkin-bigrock-${rock.id}`}
                               >
-                                <TrendingUp className="h-3 w-3" />
+                                <Leaf className="h-3 w-3 text-teal-500" />
                               </Button>
                             )}
                             {onEditBigRock && (
