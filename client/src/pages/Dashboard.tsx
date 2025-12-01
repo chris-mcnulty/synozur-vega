@@ -455,6 +455,21 @@ export default function Dashboard() {
                 </div>
               ) : bigRocks && bigRocks.length > 0 ? (
                 bigRocks.map((rock) => {
+                  // Derive effective status from completion percentage if status is not set or is "not_started"
+                  const deriveEffectiveStatus = (status?: string | null, completion?: number | null): string => {
+                    const pct = completion || 0;
+                    // If status is explicitly set to something meaningful, use it
+                    if (status && status !== 'not_started') {
+                      return status;
+                    }
+                    // Auto-derive status from completion percentage
+                    if (pct >= 100) return 'completed';
+                    if (pct > 0) return 'on_track';
+                    return 'not_started';
+                  };
+                  
+                  const effectiveStatus = deriveEffectiveStatus(rock.status, rock.completionPercentage);
+                  
                   const getStatusColor = (status?: string | null) => {
                     switch (status) {
                       case "completed": return "bg-green-500";
@@ -477,13 +492,13 @@ export default function Dashboard() {
                     <div key={rock.id} className="space-y-2" data-testid={`rock-${rock.id}`}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3 flex-1">
-                          {rock.status === "completed" ? (
+                          {effectiveStatus === "completed" ? (
                             <CheckCircle2 className="h-5 w-5 text-green-500 shrink-0 mt-0.5" />
-                          ) : rock.status === "on_track" ? (
+                          ) : effectiveStatus === "on_track" ? (
                             <div className="h-5 w-5 rounded-full border-2 border-blue-500 shrink-0 mt-0.5 flex items-center justify-center">
                               <div className="h-2 w-2 rounded-full bg-blue-500" />
                             </div>
-                          ) : rock.status === "at_risk" || rock.status === "behind" ? (
+                          ) : effectiveStatus === "at_risk" || effectiveStatus === "behind" ? (
                             <AlertCircle className="h-5 w-5 text-yellow-500 shrink-0 mt-0.5" />
                           ) : (
                             <div className="h-5 w-5 rounded-full border-2 border-muted-foreground shrink-0 mt-0.5" />
@@ -491,7 +506,7 @@ export default function Dashboard() {
                           <div className="flex-1">
                             <p
                               className={`text-base ${
-                                rock.status === "completed" ? "line-through text-muted-foreground" : ""
+                                effectiveStatus === "completed" ? "line-through text-muted-foreground" : ""
                               }`}
                             >
                               {rock.title}
@@ -502,8 +517,8 @@ export default function Dashboard() {
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant={getStatusBadgeVariant(rock.status)} className="text-xs">
-                            {rock.status?.replace("_", " ") || "not started"}
+                          <Badge variant={getStatusBadgeVariant(effectiveStatus)} className="text-xs">
+                            {effectiveStatus.replace("_", " ")}
                           </Badge>
                           <span className="text-sm font-medium">{rock.completionPercentage || 0}%</span>
                         </div>
@@ -511,7 +526,7 @@ export default function Dashboard() {
                       <div className="ml-8">
                         <div className="h-1.5 bg-secondary rounded-full overflow-hidden">
                           <div
-                            className={cn("h-full transition-all", getStatusColor(rock.status))}
+                            className={cn("h-full transition-all", getStatusColor(effectiveStatus))}
                             style={{ width: `${rock.completionPercentage || 0}%` }}
                           />
                         </div>

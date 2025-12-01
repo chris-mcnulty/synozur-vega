@@ -2613,6 +2613,19 @@ function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, on
     }
   };
 
+  // Derive effective status from completion percentage if status is not set or is "not_started"
+  const deriveEffectiveStatus = (status?: string | null, completion?: number | null): string => {
+    const pct = completion || 0;
+    // If status is explicitly set to something meaningful, use it
+    if (status && status !== 'not_started') {
+      return status;
+    }
+    // Auto-derive status from completion percentage
+    if (pct >= 100) return 'completed';
+    if (pct > 0) return 'on_track';
+    return 'not_started';
+  };
+
   const formatDate = (date: Date | string | undefined) => {
     if (!date) return null;
     const d = new Date(date);
@@ -2640,7 +2653,9 @@ function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, on
         </Card>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {bigRocks.map((rock: BigRock) => (
+          {bigRocks.map((rock: BigRock) => {
+            const effectiveStatus = deriveEffectiveStatus(rock.status, rock.completionPercentage);
+            return (
             <Card key={rock.id} className="hover-elevate" data-testid={`card-bigrock-${rock.id}`}>
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
@@ -2658,7 +2673,7 @@ function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, on
                     )}
                   </div>
                   <div className="flex gap-1 flex-shrink-0">
-                    {rock.status !== 'closed' && (
+                    {effectiveStatus !== 'closed' && (
                       <Button
                         size="icon"
                         variant="ghost"
@@ -2723,16 +2738,16 @@ function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, on
                   </div>
                   <div className="h-2 bg-secondary rounded-full overflow-hidden">
                     <div
-                      className={cn("h-full transition-all", getStatusColor(rock.status))}
+                      className={cn("h-full transition-all", getStatusColor(effectiveStatus))}
                       style={{ width: `${rock.completionPercentage}%` }}
                     />
                   </div>
                   <div className="flex items-center justify-between">
                     <Badge
-                      variant={getStatusBadgeVariant(rock.status)}
+                      variant={getStatusBadgeVariant(effectiveStatus)}
                       data-testid={`badge-status-${rock.id}`}
                     >
-                      {rock.status?.replace("_", " ") || "not started"}
+                      {effectiveStatus.replace("_", " ")}
                     </Badge>
                     {rock.lastCheckInAt && (
                       <span className="text-xs text-muted-foreground">
@@ -2748,7 +2763,8 @@ function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, on
                 </div>
               </CardContent>
             </Card>
-          ))}
+          );
+          })}
         </div>
       )}
     </div>
