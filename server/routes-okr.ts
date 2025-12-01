@@ -449,6 +449,13 @@ okrRouter.post("/check-ins", async (req, res) => {
           });
         }
       }
+    } else if (entityType === "big_rock") {
+      const bigRock = await storage.getBigRockById(entityId);
+      if (bigRock?.status === 'closed') {
+        return res.status(403).json({ 
+          error: "Cannot check in on a closed Big Rock. Reopen it first." 
+        });
+      }
     }
     
     // Convert asOfDate from ISO string to Date object for Drizzle
@@ -515,6 +522,8 @@ okrRouter.post("/check-ins", async (req, res) => {
       await storage.updateBigRock(entityId, {
         completionPercentage: checkIn.newProgress,
         status: checkIn.newStatus || undefined,
+        lastCheckInAt: checkIn.createdAt,
+        lastCheckInNote: checkIn.note || undefined,
       });
     }
     
@@ -606,6 +615,8 @@ okrRouter.patch("/check-ins/:id", async (req, res) => {
       await storage.updateBigRock(entityId, {
         completionPercentage: checkIn.newProgress,
         status: checkIn.newStatus || undefined,
+        lastCheckInAt: checkIn.createdAt,
+        lastCheckInNote: checkIn.note || undefined,
       });
     }
     
