@@ -321,6 +321,60 @@ White-label deployments for enterprise customers and consultants.
 
 ---
 
+### 8a. Custom Vocabulary (Viva Goals-style) ⭐ NEW
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Effort:** 3-5 days
+
+**Description:**
+Allow tenant admins to customize terminology using pre-defined dropdown options so that the words used make sense to everyone in their organizations. This matches Viva Goals' vocabulary customization feature.
+
+**Customizable Terms:**
+
+| Default Term | Available Options |
+|--------------|-------------------|
+| **Objective** | Objective, Outcome, Theme |
+| **Key Result** | Key Result, Metric, Measure, Result |
+| **Big Rock** | Big Rock, Project, To Do, Deliverable, Milestone, Initiative, Action |
+
+**Implementation:**
+- Add `vocabulary` JSONB field to `tenants` table storing term mappings
+- Create Vocabulary Settings UI in Tenant Admin section
+- Dropdown selectors for each customizable term
+- Preview showing how terms will appear throughout the app
+- Create `useVocabulary()` hook to retrieve tenant-specific terms
+- Replace hardcoded terms throughout UI with vocabulary-aware components
+
+**Example Schema:**
+```typescript
+vocabulary: {
+  objective: 'Outcome',      // default: 'Objective'
+  keyResult: 'Metric',       // default: 'Key Result'
+  bigRock: 'Initiative'      // default: 'Big Rock'
+}
+```
+
+**Affected UI Areas:**
+- Navigation menu labels
+- Page titles and headers
+- Form field labels and placeholders
+- Button text ("Add Objective" → "Add Outcome")
+- Help text and tooltips
+- AI-generated suggestions (include vocabulary in AI context)
+
+**Business Value:**
+- Familiar terminology increases user adoption
+- Reduces training overhead for organizations with existing frameworks
+- Smoother migration path from Viva Goals
+- Enterprise customization requirement
+
+**Dependencies:**
+- Schema change to tenants table
+- React context for vocabulary distribution
+
+---
+
 ### 9. Governance & Audit Enhancements ⭐ NEW
 
 **Status:** Not Started  
