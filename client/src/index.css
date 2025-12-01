@@ -2,23 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Font file mapping based on actual internal metadata:
+   - Demi.ttf contains Regular (400)
+   - Medium.ttf contains Demi/SemiBold (600)
+   - Bold.ttf contains Bold (700)
+   - UltraLight.ttf contains Light (300)
+*/
 @font-face {
   font-family: 'Avenir Next LT Pro';
-  src: url('/fonts/AvenirNextLTPro-Regular.ttf') format('truetype');
-  font-weight: 400;
-  font-style: normal;
-}
-
-@font-face {
-  font-family: 'Avenir Next LT Pro';
-  src: url('/fonts/AvenirNextLTPro-Medium.ttf') format('truetype');
-  font-weight: 500;
+  src: url('/fonts/AvenirNextLTPro-UltraLight.ttf') format('truetype');
+  font-weight: 300;
   font-style: normal;
 }
 
 @font-face {
   font-family: 'Avenir Next LT Pro';
   src: url('/fonts/AvenirNextLTPro-Demi.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Avenir Next LT Pro';
+  src: url('/fonts/AvenirNextLTPro-Demi.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Avenir Next LT Pro';
+  src: url('/fonts/AvenirNextLTPro-Medium.ttf') format('truetype');
   font-weight: 600;
   font-style: normal;
 }
