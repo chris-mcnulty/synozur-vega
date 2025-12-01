@@ -398,6 +398,38 @@ Interactive visual graph showing how company values, annual goals, strategies, o
 
 ---
 
+### 10a. Check-in UX Improvements ⭐ NEW
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Effort:** 1-2 days
+
+**Description:**
+Smart prompts during check-in to guide users toward appropriate actions when Key Results or Big Rocks reach completion milestones.
+
+**Features:**
+- **Exceeded Target Prompt (Viva Goals-style):** When checking in on a Key Result that has already exceeded its target value (100%+ progress), display a prompt: "It looks like you're done working on this KPI. Do you want to close it instead?" with Dismiss and Close options
+- If user clicks "Close", set status to 'closed' and mark as complete
+- If user clicks "Dismiss", allow normal check-in to proceed
+- Similar prompt for Big Rocks at 100% completion
+
+**UX Reference:**
+![Viva Goals close prompt](attached_assets/image_1764598390531.png)
+
+**Business Value:**
+- Reduces clutter from completed items
+- Guides users to proper workflow (close vs. continue checking in)
+- Matches familiar Viva Goals behavior for migrating users
+
+**Technical Notes:**
+- Check `currentValue >= targetValue` (for increase metrics) or equivalent logic before showing check-in form
+- Add confirmation dialog component
+- Update check-in endpoint to handle close action
+
+**Dependencies:** None
+
+---
+
 ## LOWER PRIORITY / FUTURE
 
 ### 11. Advanced AI Features ⭐ NEW
