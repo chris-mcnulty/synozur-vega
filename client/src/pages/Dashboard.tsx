@@ -555,7 +555,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Target className="h-5 w-5 text-primary" />
-              <h2 className="text-xl font-semibold">OKRs by Department</h2>
+              <h2 className="text-xl font-semibold">Quarterly Objectives</h2>
             </div>
             <Link href="/planning">
               <Button variant="ghost" size="sm" className="gap-2" data-testid="link-okrs">
@@ -572,7 +572,14 @@ export default function Dashboard() {
                   <p>Unable to load objectives</p>
                 </div>
               ) : objectives && objectives.length > 0 ? (
-                objectives.map((okr) => (
+                [...objectives]
+                  .sort((a, b) => {
+                    const levelOrder: Record<string, number> = { organization: 0, division: 1, team: 2, individual: 3 };
+                    const levelDiff = (levelOrder[a.level] || 4) - (levelOrder[b.level] || 4);
+                    if (levelDiff !== 0) return levelDiff;
+                    return (a.title || '').localeCompare(b.title || '');
+                  })
+                  .map((okr) => (
                   <div key={okr.id} className="space-y-2">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
@@ -585,7 +592,7 @@ export default function Dashboard() {
                         {okr.progress || 0}%
                       </Badge>
                     </div>
-                    <Progress value={okr.progress || 0} />
+                    <Progress value={Math.min(okr.progress || 0, 100)} />
                   </div>
                 ))
               ) : (
