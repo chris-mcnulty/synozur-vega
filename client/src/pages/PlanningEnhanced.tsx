@@ -16,7 +16,6 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentQuarter } from "@/lib/quarters";
-import { OKRTreeView } from "@/components/okr/OKRTreeView";
 import { WeightManager } from "@/components/WeightManager";
 import { ValueTagSelector } from "@/components/ValueTagSelector";
 import { HierarchicalOKRTable } from "@/components/okr/HierarchicalOKRTable";
@@ -1189,9 +1188,6 @@ export default function PlanningEnhanced() {
             <TabsTrigger value="hierarchy" data-testid="tab-hierarchy">
               OKR Hierarchy
             </TabsTrigger>
-            <TabsTrigger value="enhanced-okrs" data-testid="tab-enhanced-okrs">
-              Tree View
-            </TabsTrigger>
             <TabsTrigger value="big-rocks" data-testid="tab-big-rocks">
               Big Rocks ({bigRocks.length})
             </TabsTrigger>
@@ -1199,28 +1195,6 @@ export default function PlanningEnhanced() {
               Progress Dashboard
             </TabsTrigger>
           </TabsList>
-
-          <TabsContent value="enhanced-okrs">
-            <OKRTreeView
-              objectives={enrichedObjectives}
-              strategies={strategies}
-              onCreateObjective={handleCreateObjective}
-              onEditObjective={handleEditObjective}
-              onDeleteObjective={handleDeleteObjective}
-              onCreateKeyResult={handleCreateKeyResult}
-              onEditKeyResult={handleEditKeyResult}
-              onDeleteKeyResult={handleDeleteKeyResult}
-              onManageWeights={handleManageWeights}
-              onPromoteKeyResult={(id) => promoteKeyResultMutation.mutate(id)}
-              onUnpromoteKeyResult={(id) => unpromoteKeyResultMutation.mutate(id)}
-              onCreateBigRock={handleCreateBigRock}
-              onCheckIn={handleCheckIn}
-              onViewHistory={(entityType, entity) => {
-                setSelectedKRForHistory(entity);
-                setCheckInHistoryDialogOpen(true);
-              }}
-            />
-          </TabsContent>
 
           <TabsContent value="hierarchy">
             <div className="space-y-4">

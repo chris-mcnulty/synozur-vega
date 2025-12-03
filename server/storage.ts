@@ -818,6 +818,9 @@ export class DatabaseStorage implements IStorage {
       });
     };
     
+    // Create a set of all objective IDs in the filtered results
+    const filteredObjectiveIds = new Set(allObjectives.map(obj => obj.id));
+    
     // For each objective, get its key results, child objectives, and linked big rocks
     const enrichedObjectives = await Promise.all(
       allObjectives.map(async (objective) => {
@@ -838,8 +841,13 @@ export class DatabaseStorage implements IStorage {
       })
     );
 
-    // Filter to only root-level objectives (no parent) and sort them
-    return sortObjectives(enrichedObjectives.filter(obj => !obj.parentId));
+    // Filter to root-level objectives OR objectives whose parent is not in the filtered results
+    // This ensures filtered objectives appear as "virtual roots" when their parent doesn't match the filter
+    const rootObjectives = enrichedObjectives.filter(obj => 
+      !obj.parentId || !filteredObjectiveIds.has(obj.parentId)
+    );
+    
+    return sortObjectives(rootObjectives);
   }
 
   async getCheckInsByEntityId(entityType: string, entityId: string): Promise<CheckIn[]> {
