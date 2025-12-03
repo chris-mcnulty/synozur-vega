@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -34,7 +34,7 @@ import {
 import { Link } from "wouter";
 import { useTenant } from "@/contexts/TenantContext";
 import { getCurrentQuarter, generateQuarters } from "@/lib/fiscal-utils";
-import type { Foundation, Strategy, Objective, BigRock, Meeting } from "@shared/schema";
+import type { Foundation, Strategy, Objective, BigRock, Meeting, Team } from "@shared/schema";
 import { ValuesAlignmentWidget } from "@/components/ValuesAlignmentWidget";
 import { ValueBadges } from "@/components/ValueBadges";
 import { ExpandableText } from "@/components/ExpandableText";
@@ -60,6 +60,12 @@ const quarters: Quarter[] = [
   ...generateQuarters(currentYear - 1),
 ];
 
+// localStorage keys for persisting user preferences
+const STORAGE_KEYS = {
+  TEAM_FILTER: 'vega-dashboard-team-filter',
+  QUARTER: 'vega-dashboard-quarter',
+};
+
 export default function Dashboard() {
   const { currentTenant } = useTenant();
   
@@ -67,9 +73,23 @@ export default function Dashboard() {
   const { quarter: currentQuarterNum, year: currentYearNum } = getCurrentQuarter();
   const defaultQuarterId = `q${currentQuarterNum}-${currentYearNum}`;
   
+  // Load saved preferences from localStorage
+  const savedQuarter = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.QUARTER) : null;
+  const savedTeamFilter = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.TEAM_FILTER) : null;
+  
   const [selectedFiscalYear, setSelectedFiscalYear] = useState(`fy${currentYearNum}`);
-  const [selectedQuarter, setSelectedQuarter] = useState(defaultQuarterId);
+  const [selectedQuarter, setSelectedQuarter] = useState(savedQuarter || defaultQuarterId);
   const [identityOpen, setIdentityOpen] = useState(false);
+  const [selectedTeam, setSelectedTeam] = useState<string>(savedTeamFilter || 'all');
+  
+  // Persist preferences to localStorage
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.QUARTER, selectedQuarter);
+  }, [selectedQuarter]);
+  
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEYS.TEAM_FILTER, selectedTeam);
+  }, [selectedTeam]);
 
   const currentQuarter = quarters.find((q) => q.id === selectedQuarter);
 
@@ -119,7 +139,12 @@ export default function Dashboard() {
     enabled: !!currentTenant.id,
   });
 
-  const isLoading = loadingFoundations || loadingStrategies || loadingObjectives || loadingBigRocks || loadingMeetings;
+  const { data: teams, isLoading: loadingTeams } = useQuery<Team[]>({
+    queryKey: [`/api/teams/${currentTenant.id}`],
+    enabled: !!currentTenant.id,
+  });
+
+  const isLoading = loadingFoundations || loadingStrategies || loadingObjectives || loadingBigRocks || loadingMeetings || loadingTeams;
 
   if (isLoading) {
     return (
@@ -144,6 +169,20 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
+          <Select value={selectedTeam} onValueChange={setSelectedTeam}>
+            <SelectTrigger className="w-44" data-testid="select-team">
+              <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
+              <SelectValue placeholder="All Teams" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Teams</SelectItem>
+              {teams?.map((team) => (
+                <SelectItem key={team.id} value={team.id}>
+                  {team.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={selectedFiscalYear} onValueChange={setSelectedFiscalYear}>
             <SelectTrigger className="w-48" data-testid="select-fiscal-year">
               <SelectValue />
@@ -549,72 +588,177 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* OKRs Section */}
+      {/* OKRs Section - Grouped by Team */}
       <div>
-        <div className="mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Target className="h-5 w-5 text-primary" />
-              <h2 className="text-xl font-semibold">Quarterly Objectives</h2>
-            </div>
-            <Link href="/planning">
-              <Button variant="ghost" size="sm" className="gap-2" data-testid="link-okrs">
-                View Details
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </Link>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Target className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-semibold">
+              {selectedTeam === 'all' ? 'Objectives by Team' : `${teams?.find(t => t.id === selectedTeam)?.name || 'Team'} Objectives`}
+            </h2>
           </div>
+          <Link href="/planning">
+            <Button variant="ghost" size="sm" className="gap-2" data-testid="link-okrs">
+              View Details
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+        
+        {objectivesError ? (
           <Card>
-            <CardContent className="pt-6 space-y-4">
-              {objectivesError ? (
-                <div className="flex items-center gap-3 p-4 text-sm text-muted-foreground">
-                  <AlertCircle className="h-5 w-5 text-muted-foreground" />
-                  <p>Unable to load objectives</p>
-                </div>
-              ) : objectives && objectives.length > 0 ? (
-                (() => {
-                  // Build set of all objective IDs in current results
-                  const objectiveIds = new Set(objectives.map(o => o.id));
-                  
-                  // Filter to root-level objectives only (no parent OR parent not in current results)
-                  const rootObjectives = objectives.filter(obj => 
-                    !obj.parentId || !objectiveIds.has(obj.parentId)
-                  );
-                  
-                  // Sort by level then by title
-                  const levelOrder: Record<string, number> = { organization: 0, division: 1, team: 2, individual: 3 };
-                  return rootObjectives
-                    .sort((a, b) => {
-                      const levelDiff = (levelOrder[a.level || ''] || 4) - (levelOrder[b.level || ''] || 4);
-                      if (levelDiff !== 0) return levelDiff;
-                      return (a.title || '').localeCompare(b.title || '');
-                    });
-                })()
-                  .map((okr) => (
-                  <div key={okr.id} className="space-y-2">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <h3 className="font-medium text-base">{okr.title}</h3>
-                        {okr.ownerEmail && (
-                          <p className="text-sm text-muted-foreground">{okr.ownerEmail}</p>
-                        )}
-                      </div>
-                      <Badge variant="secondary" className="text-xs">
-                        {okr.progress || 0}%
-                      </Badge>
-                    </div>
-                    <Progress value={Math.min(okr.progress || 0, 100)} />
-                  </div>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No OKRs for {currentQuarter?.label}
-                </p>
-              )}
+            <CardContent className="p-4">
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <AlertCircle className="h-5 w-5 text-muted-foreground" />
+                <p>Unable to load objectives</p>
+              </div>
             </CardContent>
           </Card>
-        </div>
-
+        ) : objectives && objectives.length > 0 ? (
+          (() => {
+            // Build set of all objective IDs in current results
+            const objectiveIds = new Set(objectives.map(o => o.id));
+            
+            // Filter objectives: root-level only, exclude garbage, and apply team filter
+            const rootObjectives = objectives.filter(obj => 
+              (!obj.parentId || !objectiveIds.has(obj.parentId)) &&
+              !obj.title?.startsWith('[Imported]') &&
+              (selectedTeam === 'all' || obj.teamId === selectedTeam)
+            );
+            
+            // Create team lookup
+            const teamMap = new Map(teams?.map(t => [t.id, t.name]) || []);
+            
+            // If filtering by specific team, show flat list; otherwise group by team
+            if (selectedTeam !== 'all') {
+              // Single team view - flat list sorted by title
+              const sortedObjectives = [...rootObjectives].sort((a, b) => 
+                (a.title || '').localeCompare(b.title || '')
+              );
+              
+              const teamName = teams?.find(t => t.id === selectedTeam)?.name || 'Selected Team';
+              
+              return (
+                <Card>
+                  <CardHeader className="pb-2">
+                    <div className="flex items-center gap-2">
+                      <Building2 className="h-4 w-4 text-muted-foreground" />
+                      <CardTitle className="text-base">{teamName}</CardTitle>
+                      <Badge variant="secondary" className="ml-auto">
+                        {sortedObjectives.length} objective{sortedObjectives.length !== 1 ? 's' : ''}
+                      </Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="pt-2 space-y-3">
+                    {sortedObjectives.length > 0 ? sortedObjectives.map((okr) => (
+                      <div key={okr.id} className="space-y-1.5">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <h4 className="font-medium text-sm truncate">{okr.title}</h4>
+                          </div>
+                          <Badge 
+                            variant="secondary" 
+                            className={cn(
+                              "text-xs shrink-0",
+                              (okr.progress || 0) >= 100 && "bg-green-500/10 text-green-600",
+                              (okr.progress || 0) >= 70 && (okr.progress || 0) < 100 && "bg-blue-500/10 text-blue-600",
+                              (okr.progress || 0) < 70 && (okr.progress || 0) > 0 && "bg-yellow-500/10 text-yellow-600"
+                            )}
+                          >
+                            {okr.progress || 0}%
+                          </Badge>
+                        </div>
+                        <Progress value={Math.min(okr.progress || 0, 100)} className="h-1.5" />
+                      </div>
+                    )) : (
+                      <p className="text-sm text-muted-foreground text-center py-2">
+                        No objectives for this team
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              );
+            }
+            
+            // All teams view - group by team
+            const byTeam = new Map<string, Objective[]>();
+            for (const obj of rootObjectives) {
+              const teamKey = obj.teamId || 'no-team';
+              if (!byTeam.has(teamKey)) {
+                byTeam.set(teamKey, []);
+              }
+              byTeam.get(teamKey)!.push(obj);
+            }
+            
+            // Sort teams alphabetically, put "no-team" last
+            const sortedTeamKeys = Array.from(byTeam.keys()).sort((a, b) => {
+              if (a === 'no-team') return 1;
+              if (b === 'no-team') return -1;
+              const nameA = teamMap.get(a) || a;
+              const nameB = teamMap.get(b) || b;
+              return nameA.localeCompare(nameB);
+            });
+            
+            // Sort objectives within each team by title
+            byTeam.forEach((objs) => {
+              objs.sort((a: Objective, b: Objective) => (a.title || '').localeCompare(b.title || ''));
+            });
+            
+            return (
+              <div className="space-y-4">
+                {sortedTeamKeys.map(teamKey => {
+                  const teamObjectives = byTeam.get(teamKey) || [];
+                  const teamName = teamKey === 'no-team' ? 'Unassigned' : (teamMap.get(teamKey) || 'Unknown Team');
+                  
+                  return (
+                    <Card key={teamKey}>
+                      <CardHeader className="pb-2">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-muted-foreground" />
+                          <CardTitle className="text-base">{teamName}</CardTitle>
+                          <Badge variant="secondary" className="ml-auto">
+                            {teamObjectives.length} objective{teamObjectives.length !== 1 ? 's' : ''}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent className="pt-2 space-y-3">
+                        {teamObjectives.map((okr) => (
+                          <div key={okr.id} className="space-y-1.5">
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                <h4 className="font-medium text-sm truncate">{okr.title}</h4>
+                              </div>
+                              <Badge 
+                                variant="secondary" 
+                                className={cn(
+                                  "text-xs shrink-0",
+                                  (okr.progress || 0) >= 100 && "bg-green-500/10 text-green-600",
+                                  (okr.progress || 0) >= 70 && (okr.progress || 0) < 100 && "bg-blue-500/10 text-blue-600",
+                                  (okr.progress || 0) < 70 && (okr.progress || 0) > 0 && "bg-yellow-500/10 text-yellow-600"
+                                )}
+                              >
+                                {okr.progress || 0}%
+                              </Badge>
+                            </div>
+                            <Progress value={Math.min(okr.progress || 0, 100)} className="h-1.5" />
+                          </div>
+                        ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            );
+          })()
+        ) : (
+          <Card>
+            <CardContent className="p-4">
+              <p className="text-sm text-muted-foreground text-center">
+                No objectives for {currentQuarter?.label}
+              </p>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
       {/* Focus Rhythm */}
