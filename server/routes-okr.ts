@@ -382,7 +382,7 @@ okrRouter.get("/key-results/:id/linked-big-rocks", async (req, res) => {
 // Hierarchical OKR View
 okrRouter.get("/hierarchy", async (req, res) => {
   try {
-    const { tenantId, quarter, year } = req.query;
+    const { tenantId, quarter, year, level, teamId } = req.query;
     if (!tenantId) {
       return res.status(400).json({ error: "tenantId is required" });
     }
@@ -390,7 +390,9 @@ okrRouter.get("/hierarchy", async (req, res) => {
     const hierarchy = await storage.getObjectiveHierarchy(
       tenantId as string,
       quarter ? Number(quarter) : undefined,
-      year ? Number(year) : undefined
+      year ? Number(year) : undefined,
+      level as string | undefined,
+      teamId as string | undefined
     );
     
     res.json(hierarchy);

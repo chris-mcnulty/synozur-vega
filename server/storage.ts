@@ -104,7 +104,7 @@ export interface IStorage {
   getBigRocksLinkedToKeyResult(keyResultId: string): Promise<BigRock[]>;
   
   // Hierarchy methods
-  getObjectiveHierarchy(tenantId: string, quarter?: number, year?: number): Promise<Array<Objective & {
+  getObjectiveHierarchy(tenantId: string, quarter?: number, year?: number, level?: string, teamId?: string): Promise<Array<Objective & {
     keyResults: KeyResult[];
     childObjectives: Objective[];
     linkedBigRocks: BigRock[];
@@ -792,14 +792,31 @@ export class DatabaseStorage implements IStorage {
     return links.map(link => link.big_rocks);
   }
 
-  async getObjectiveHierarchy(tenantId: string, quarter?: number, year?: number): Promise<Array<Objective & {
+  async getObjectiveHierarchy(tenantId: string, quarter?: number, year?: number, level?: string, teamId?: string): Promise<Array<Objective & {
     keyResults: KeyResult[];
     childObjectives: Objective[];
     linkedBigRocks: BigRock[];
     lastUpdated: Date | null;
   }>> {
     // Get all objectives for the tenant and time period
-    const allObjectives = await this.getObjectivesByTenantId(tenantId, quarter, year);
+    const allObjectives = await this.getObjectivesByTenantId(tenantId, quarter, year, level, teamId);
+    
+    // Define deterministic sort order for levels: organization → division → team → individual
+    const levelOrder: Record<string, number> = {
+      organization: 0,
+      division: 1,
+      team: 2,
+      individual: 3,
+    };
+    
+    // Sort function for objectives: by level, then by title
+    const sortObjectives = <T extends { level?: string | null; title: string }>(objs: T[]): T[] => {
+      return [...objs].sort((a, b) => {
+        const levelDiff = (levelOrder[a.level || 'team'] ?? 4) - (levelOrder[b.level || 'team'] ?? 4);
+        if (levelDiff !== 0) return levelDiff;
+        return (a.title || '').localeCompare(b.title || '');
+      });
+    };
     
     // For each objective, get its key results, child objectives, and linked big rocks
     const enrichedObjectives = await Promise.all(
@@ -813,16 +830,16 @@ export class DatabaseStorage implements IStorage {
 
         return {
           ...objective,
-          keyResults,
-          childObjectives,
+          keyResults: [...keyResults].sort((a, b) => (a.title || '').localeCompare(b.title || '')),
+          childObjectives: sortObjectives(childObjectives),
           linkedBigRocks,
           lastUpdated: latestCheckIn?.createdAt || objective.updatedAt,
         };
       })
     );
 
-    // Filter to only root-level objectives (no parent)
-    return enrichedObjectives.filter(obj => !obj.parentId);
+    // Filter to only root-level objectives (no parent) and sort them
+    return sortObjectives(enrichedObjectives.filter(obj => !obj.parentId));
   }
 
   async getCheckInsByEntityId(entityType: string, entityId: string): Promise<CheckIn[]> {
