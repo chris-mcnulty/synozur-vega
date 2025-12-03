@@ -572,13 +572,24 @@ export default function Dashboard() {
                   <p>Unable to load objectives</p>
                 </div>
               ) : objectives && objectives.length > 0 ? (
-                [...objectives]
-                  .sort((a, b) => {
-                    const levelOrder: Record<string, number> = { organization: 0, division: 1, team: 2, individual: 3 };
-                    const levelDiff = (levelOrder[a.level] || 4) - (levelOrder[b.level] || 4);
-                    if (levelDiff !== 0) return levelDiff;
-                    return (a.title || '').localeCompare(b.title || '');
-                  })
+                (() => {
+                  // Build set of all objective IDs in current results
+                  const objectiveIds = new Set(objectives.map(o => o.id));
+                  
+                  // Filter to root-level objectives only (no parent OR parent not in current results)
+                  const rootObjectives = objectives.filter(obj => 
+                    !obj.parentId || !objectiveIds.has(obj.parentId)
+                  );
+                  
+                  // Sort by level then by title
+                  const levelOrder: Record<string, number> = { organization: 0, division: 1, team: 2, individual: 3 };
+                  return rootObjectives
+                    .sort((a, b) => {
+                      const levelDiff = (levelOrder[a.level || ''] || 4) - (levelOrder[b.level || ''] || 4);
+                      if (levelDiff !== 0) return levelDiff;
+                      return (a.title || '').localeCompare(b.title || '');
+                    });
+                })()
                   .map((okr) => (
                   <div key={okr.id} className="space-y-2">
                     <div className="flex items-start justify-between gap-4">
