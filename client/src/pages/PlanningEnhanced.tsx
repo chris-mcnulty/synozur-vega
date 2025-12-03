@@ -103,14 +103,12 @@ export default function PlanningEnhanced() {
   const { currentTenant } = useTenant();
   const { user } = useAuth();
   const [selectedTab, setSelectedTab] = useState("hierarchy");
-  const [quarter, setQuarter] = useState(1);
+  // Unified filters for all tabs
+  const [quarter, setQuarter] = useState<number | null>(null); // null means "All Periods"
   const [year, setYear] = useState(new Date().getFullYear());
   const [level, setLevel] = useState<string>("all");
   const [teamId, setTeamId] = useState<string>("all");
-  
-  // Hierarchy view filters
-  const [hierarchyPeriod, setHierarchyPeriod] = useState<string>("all");
-  const [hierarchyStatus, setHierarchyStatus] = useState<string>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   
   // Detail pane state
   const [detailPaneOpen, setDetailPaneOpen] = useState(false);
@@ -154,16 +152,17 @@ export default function PlanningEnhanced() {
     }
   }, [foundation?.fiscalYearStartMonth]);
 
-  // Fetch enhanced OKR data
+  // Fetch enhanced OKR data (uses unified filters)
   const { data: objectives = [], isLoading: loadingObjectives } = useQuery<Objective[]>({
     queryKey: [`/api/okr/objectives`, currentTenant?.id, quarter, year, level, teamId],
     queryFn: async () => {
       if (!currentTenant?.id) {
         return [];
       }
+      const quarterParam = quarter !== null ? `&quarter=${quarter}` : '';
       const levelParam = level !== 'all' ? `&level=${level}` : '';
       const teamParam = teamId !== 'all' ? `&teamId=${teamId}` : '';
-      const res = await fetch(`/api/okr/objectives?tenantId=${currentTenant.id}&quarter=${quarter}&year=${year}${levelParam}${teamParam}`);
+      const res = await fetch(`/api/okr/objectives?tenantId=${currentTenant.id}${quarterParam}&year=${year}${levelParam}${teamParam}`);
       if (!res.ok) throw new Error("Failed to fetch objectives");
       return res.json();
     },
@@ -176,32 +175,35 @@ export default function PlanningEnhanced() {
       if (!currentTenant?.id) {
         return [];
       }
-      const res = await fetch(`/api/okr/big-rocks?tenantId=${currentTenant.id}&quarter=${quarter}&year=${year}`);
+      const quarterParam = quarter !== null ? `&quarter=${quarter}` : '';
+      const res = await fetch(`/api/okr/big-rocks?tenantId=${currentTenant.id}${quarterParam}&year=${year}`);
       if (!res.ok) throw new Error("Failed to fetch big rocks");
       return res.json();
     },
     enabled: !!currentTenant?.id,
   });
 
-  // Fetch hierarchy data
+  // Fetch hierarchy data (uses unified filters)
   const { data: hierarchyData = [], isLoading: loadingHierarchy } = useQuery<any[]>({
-    queryKey: [`/api/okr/hierarchy`, currentTenant?.id, hierarchyPeriod, year],
+    queryKey: [`/api/okr/hierarchy`, currentTenant?.id, quarter, year, level, teamId],
     queryFn: async () => {
       if (!currentTenant?.id) {
         return [];
       }
-      const periodParam = hierarchyPeriod !== 'all' ? `&quarter=${hierarchyPeriod}` : '';
-      const res = await fetch(`/api/okr/hierarchy?tenantId=${currentTenant.id}${periodParam}&year=${year}`);
+      const periodParam = quarter !== null ? `&quarter=${quarter}` : '';
+      const levelParam = level !== 'all' ? `&level=${level}` : '';
+      const teamParam = teamId !== 'all' ? `&teamId=${teamId}` : '';
+      const res = await fetch(`/api/okr/hierarchy?tenantId=${currentTenant.id}${periodParam}&year=${year}${levelParam}${teamParam}`);
       if (!res.ok) throw new Error("Failed to fetch hierarchy");
       return res.json();
     },
     enabled: !!currentTenant?.id && selectedTab === 'hierarchy',
   });
 
-  // Filter hierarchy data by status
-  const filteredHierarchyData = hierarchyStatus === 'all' 
+  // Filter hierarchy data by status (unified filter)
+  const filteredHierarchyData = statusFilter === 'all' 
     ? hierarchyData 
-    : hierarchyData.filter((obj: any) => obj.status === hierarchyStatus);
+    : hierarchyData.filter((obj: any) => obj.status === statusFilter);
 
   // Enrich objectives with their key results and big rocks
   const [enrichedObjectives, setEnrichedObjectives] = useState<any[]>([]);
@@ -784,7 +786,7 @@ export default function PlanningEnhanced() {
       parentId: parentId || "",
       ownerEmail: "",
       progressMode: "rollup",
-      quarter,
+      quarter: quarter ?? 1, // Default to Q1 if "All Periods" selected
       year,
       linkedStrategies: [],
       linkedGoals: [],
@@ -1109,17 +1111,19 @@ export default function PlanningEnhanced() {
           <div>
             <h1 className="text-3xl font-semibold">Enhanced Planning</h1>
             <p className="text-muted-foreground mt-1">
-              Hierarchical OKRs, Big Rocks, and Progress Tracking for {quarter === 0 ? 'Annual' : `Q${quarter}`} {year}
+              Hierarchical OKRs, Big Rocks, and Progress Tracking for {quarter === null ? 'All Periods' : quarter === 0 ? 'Annual' : `Q${quarter}`} {year}
               {level !== 'all' && ` - ${level.charAt(0).toUpperCase() + level.slice(1)} Level`}
               {teamId !== 'all' && teamsData.find(t => t.id === teamId) && ` - ${teamsData.find(t => t.id === teamId)?.name}`}
+              {statusFilter !== 'all' && ` - ${statusFilter.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}`}
             </p>
           </div>
-          <div className="flex gap-2">
-            <Select value={quarter.toString()} onValueChange={(v) => setQuarter(parseInt(v))}>
+          <div className="flex flex-wrap gap-2">
+            <Select value={quarter === null ? 'all' : quarter.toString()} onValueChange={(v) => setQuarter(v === 'all' ? null : parseInt(v))}>
               <SelectTrigger className="w-32" data-testid="select-quarter">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="all">All Periods</SelectItem>
                 <SelectItem value="0">Annual</SelectItem>
                 <SelectItem value="1">Q1</SelectItem>
                 <SelectItem value="2">Q2</SelectItem>
@@ -1128,7 +1132,7 @@ export default function PlanningEnhanced() {
               </SelectContent>
             </Select>
             <Select value={year.toString()} onValueChange={(v) => setYear(parseInt(v))}>
-              <SelectTrigger className="w-32" data-testid="select-year">
+              <SelectTrigger className="w-24" data-testid="select-year">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1137,8 +1141,19 @@ export default function PlanningEnhanced() {
                 <SelectItem value="2026">2026</SelectItem>
               </SelectContent>
             </Select>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-32" data-testid="select-status">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="on_track">On Track</SelectItem>
+                <SelectItem value="at_risk">At Risk</SelectItem>
+                <SelectItem value="behind">Behind</SelectItem>
+              </SelectContent>
+            </Select>
             <Select value={level} onValueChange={setLevel}>
-              <SelectTrigger className="w-40" data-testid="select-level">
+              <SelectTrigger className="w-36" data-testid="select-level">
                 <SelectValue placeholder="Level" />
               </SelectTrigger>
               <SelectContent>
@@ -1148,7 +1163,7 @@ export default function PlanningEnhanced() {
               </SelectContent>
             </Select>
             <Select value={teamId} onValueChange={setTeamId}>
-              <SelectTrigger className="w-44" data-testid="select-team">
+              <SelectTrigger className="w-40" data-testid="select-team">
                 <SelectValue placeholder="Team" />
               </SelectTrigger>
               <SelectContent>
@@ -1209,14 +1224,6 @@ export default function PlanningEnhanced() {
 
           <TabsContent value="hierarchy">
             <div className="space-y-4">
-              <OKRFilters
-                selectedPeriod={hierarchyPeriod}
-                onPeriodChange={setHierarchyPeriod}
-                selectedStatus={hierarchyStatus}
-                onStatusChange={setHierarchyStatus}
-                year={year}
-              />
-              
               {loadingHierarchy ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -1269,7 +1276,7 @@ export default function PlanningEnhanced() {
                       linkedBigRocks: [],
                       ownerEmail: user?.email || "",
                       progressMode: "rollup",
-                      quarter: quarter,
+                      quarter: quarter ?? 1, // Default to Q1 if "All Periods" selected
                       year: year,
                       linkedGoals: [],
                       phasedTargets: null,
@@ -2504,7 +2511,7 @@ export default function PlanningEnhanced() {
               progress: kr.progress || 0,
             })),
           }))}
-          quarter={quarter}
+          quarter={quarter ?? 0}
           year={year}
         />
 
