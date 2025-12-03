@@ -108,6 +108,9 @@ interface ImportResult {
     [vivaId: number]: {
       type: 'objective' | 'key_result' | 'big_rock';
       vegaId: string;
+      // For key results: store target info to calculate check-in progress correctly
+      targetValue?: number;
+      initialValue?: number;
     };
   };
 }
@@ -369,10 +372,34 @@ export class VivaGoalsImporter {
 
   /**
    * Convert Viva Goals check-in to Vega check-in
+   * For key results with absolute values (e.g., "4 webinars"), we calculate progress as percentage
    */
-  mapCheckIn(viva: VivaCheckIn, entityType: 'objective' | 'key_result' | 'big_rock', entityId: string): Partial<CheckIn> {
+  mapCheckIn(
+    viva: VivaCheckIn, 
+    entityType: 'objective' | 'key_result' | 'big_rock', 
+    entityId: string,
+    entityInfo?: { targetValue?: number; initialValue?: number }
+  ): Partial<CheckIn> {
     // For imported check-ins, we don't have historical previous values
     // Use 0 as default for previousProgress/previousValue
+    
+    // Calculate progress as percentage for key results with absolute targets
+    let newProgress = viva['Current Value'];
+    if (entityType === 'key_result' && entityInfo) {
+      const target = entityInfo.targetValue ?? 100;
+      const initial = entityInfo.initialValue ?? 0;
+      const current = viva['Current Value'];
+      
+      // Calculate progress: ((current - initial) / (target - initial)) * 100
+      // Handle edge cases: if target equals initial, avoid division by zero
+      if (target !== initial) {
+        newProgress = Math.min(100, Math.max(0, ((current - initial) / (target - initial)) * 100));
+      } else {
+        // If target equals initial and current equals target, it's 100%
+        newProgress = current >= target ? 100 : 0;
+      }
+    }
+    
     return {
       tenantId: this.options.tenantId,
       entityType,
@@ -380,7 +407,7 @@ export class VivaGoalsImporter {
       previousValue: 0, // Default for imports
       newValue: viva['Current Value'], // Preserve decimal values
       previousProgress: 0, // Default for imports
-      newProgress: viva['Current Value'], // Assuming value equals progress, preserve decimals
+      newProgress, // Calculated as percentage for absolute values
       previousStatus: 'not_started', // Default for imports
       newStatus: this.mapStatus(viva.Status),
       note: viva['Check In Note']?.['Check In Note'] || undefined,
@@ -688,9 +715,12 @@ export class VivaGoalsImporter {
           const keyResultData = this.mapKpiToKeyResult(viva, parentVegaId);
           const created = await storage.createKeyResult(keyResultData);
           
+          // Store target/initial values to calculate check-in progress correctly for absolute values
           this.result.entityMap[viva.ID] = {
             type: 'key_result',
             vegaId: created.id,
+            targetValue: viva.Outcome?.Target ?? 100,
+            initialValue: viva.Outcome?.Start ?? 0,
           };
           this.result.summary.keyResultsCreated++;
         } catch (error) {
@@ -738,10 +768,15 @@ export class VivaGoalsImporter {
               continue;
             }
 
+            // Pass entity info for progress calculation (especially for key results with absolute targets)
             const checkInData = this.mapCheckIn(
               vivaCheckIn, 
               entityMapping.type, 
-              entityMapping.vegaId
+              entityMapping.vegaId,
+              entityMapping.type === 'key_result' ? {
+                targetValue: entityMapping.targetValue,
+                initialValue: entityMapping.initialValue,
+              } : undefined
             );
             
             await storage.createCheckIn(checkInData);
