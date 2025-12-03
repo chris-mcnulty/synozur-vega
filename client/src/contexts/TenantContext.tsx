@@ -1,12 +1,19 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 
+export type DefaultTimePeriod = {
+  mode: 'current' | 'specific';
+  year?: number;
+  quarter?: number;
+};
+
 export type Tenant = {
   id: string;
   name: string;
   color: string | null;
   logoUrl?: string | null;
   allowedDomains?: string[] | null;
+  defaultTimePeriod?: DefaultTimePeriod | null;
 };
 
 type TenantContextType = {

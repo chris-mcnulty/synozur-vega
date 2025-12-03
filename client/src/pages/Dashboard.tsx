@@ -69,15 +69,30 @@ const STORAGE_KEYS = {
 export default function Dashboard() {
   const { currentTenant } = useTenant();
   
-  // Default to current quarter
+  // Compute default quarter based on tenant settings or current quarter
   const { quarter: currentQuarterNum, year: currentYearNum } = getCurrentQuarter();
-  const defaultQuarterId = `q${currentQuarterNum}-${currentYearNum}`;
+  
+  const getDefaultQuarterId = () => {
+    const tenantTimePeriod = currentTenant?.defaultTimePeriod;
+    if (tenantTimePeriod?.mode === 'specific' && tenantTimePeriod.year && tenantTimePeriod.quarter) {
+      return `q${tenantTimePeriod.quarter}-${tenantTimePeriod.year}`;
+    }
+    return `q${currentQuarterNum}-${currentYearNum}`;
+  };
+  
+  const defaultQuarterId = getDefaultQuarterId();
   
   // Load saved preferences from localStorage
   const savedQuarter = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.QUARTER) : null;
   const savedTeamFilter = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.TEAM_FILTER) : null;
   
-  const [selectedFiscalYear, setSelectedFiscalYear] = useState(`fy${currentYearNum}`);
+  const [selectedFiscalYear, setSelectedFiscalYear] = useState(() => {
+    const tenantTimePeriod = currentTenant?.defaultTimePeriod;
+    if (tenantTimePeriod?.mode === 'specific' && tenantTimePeriod.year) {
+      return `fy${tenantTimePeriod.year}`;
+    }
+    return `fy${currentYearNum}`;
+  });
   const [selectedQuarter, setSelectedQuarter] = useState(savedQuarter || defaultQuarterId);
   const [identityOpen, setIdentityOpen] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<string>(savedTeamFilter || 'all');

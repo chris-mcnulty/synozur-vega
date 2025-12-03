@@ -27,12 +27,33 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, AlertCircle, Calendar, FileSpreadsheet, Mail, Plus, Pencil, Trash2, Building2, User, Globe, X } from "lucide-react";
+import { CheckCircle2, AlertCircle, Calendar, FileSpreadsheet, Mail, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import type { Tenant } from "@/contexts/TenantContext";
+import type { DefaultTimePeriod } from "@shared/schema";
+
+const currentYear = new Date().getFullYear();
+const getCurrentQuarter = () => Math.ceil((new Date().getMonth() + 1) / 3);
+
+const generateQuarterOptions = () => {
+  const options = [];
+  for (let year = currentYear + 1; year >= currentYear - 2; year--) {
+    for (let q = 4; q >= 1; q--) {
+      options.push({
+        value: `${year}-Q${q}`,
+        label: `Q${q} ${year}`,
+        year,
+        quarter: q,
+      });
+    }
+  }
+  return options;
+};
+
+const quarterOptions = generateQuarterOptions();
 
 type User = {
   id: string;
@@ -103,6 +124,11 @@ export default function TenantAdmin() {
   const [domainDialogOpen, setDomainDialogOpen] = useState(false);
   const [selectedTenantForDomains, setSelectedTenantForDomains] = useState<Tenant | null>(null);
   const [newDomain, setNewDomain] = useState("");
+
+  const [timePeriodDialogOpen, setTimePeriodDialogOpen] = useState(false);
+  const [selectedTenantForTime, setSelectedTenantForTime] = useState<Tenant | null>(null);
+  const [timePeriodMode, setTimePeriodMode] = useState<'current' | 'specific'>('current');
+  const [selectedQuarterValue, setSelectedQuarterValue] = useState(`${currentYear}-Q${getCurrentQuarter()}`);
 
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
@@ -289,6 +315,53 @@ export default function TenantAdmin() {
     });
   };
 
+  const handleOpenTimePeriodDialog = (tenant: Tenant) => {
+    setSelectedTenantForTime(tenant);
+    const defaultTime = (tenant as any).defaultTimePeriod as DefaultTimePeriod | null;
+    if (defaultTime?.mode === 'specific' && defaultTime.year && defaultTime.quarter) {
+      setTimePeriodMode('specific');
+      setSelectedQuarterValue(`${defaultTime.year}-Q${defaultTime.quarter}`);
+    } else {
+      setTimePeriodMode('current');
+      setSelectedQuarterValue(`${currentYear}-Q${getCurrentQuarter()}`);
+    }
+    setTimePeriodDialogOpen(true);
+  };
+
+  const handleSaveTimePeriod = () => {
+    if (!selectedTenantForTime) return;
+    
+    let defaultTimePeriod: DefaultTimePeriod;
+    if (timePeriodMode === 'current') {
+      defaultTimePeriod = { mode: 'current' };
+    } else {
+      const match = selectedQuarterValue.match(/^(\d+)-Q(\d)$/);
+      if (match) {
+        defaultTimePeriod = {
+          mode: 'specific',
+          year: parseInt(match[1]),
+          quarter: parseInt(match[2]),
+        };
+      } else {
+        defaultTimePeriod = { mode: 'current' };
+      }
+    }
+    
+    updateTenantMutation.mutate({
+      id: selectedTenantForTime.id,
+      data: { defaultTimePeriod } as any,
+    });
+    setTimePeriodDialogOpen(false);
+  };
+
+  const getTimePeriodDisplay = (tenant: Tenant) => {
+    const defaultTime = (tenant as any).defaultTimePeriod as DefaultTimePeriod | null;
+    if (!defaultTime || defaultTime.mode === 'current') {
+      return 'Current Quarter';
+    }
+    return `Q${defaultTime.quarter} ${defaultTime.year}`;
+  };
+
   const handleOpenCreateUserDialog = () => {
     setEditingUser(null);
     setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE" });
@@ -425,6 +498,16 @@ export default function TenantAdmin() {
                     >
                       <Globe className="h-3 w-3 mr-1" />
                       Manage Domains ({(tenant.allowedDomains || []).length})
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => handleOpenTimePeriodDialog(tenant)}
+                      data-testid={`button-time-period-${tenant.id}`}
+                    >
+                      <Clock className="h-3 w-3 mr-1" />
+                      Default Time Period: {getTimePeriodDisplay(tenant)}
                     </Button>
                   </CardContent>
                 </Card>
@@ -780,6 +863,86 @@ export default function TenantAdmin() {
               data-testid="button-close-domains"
             >
               Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={timePeriodDialogOpen} onOpenChange={setTimePeriodDialogOpen}>
+        <DialogContent data-testid="dialog-time-period">
+          <DialogHeader>
+            <DialogTitle>
+              Default Time Period - {selectedTenantForTime?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Set the default time period that users see when they open the dashboard. This works like Viva Goals' active time period setting.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-3">
+              <div 
+                className={`flex items-center gap-3 p-3 rounded-md border cursor-pointer ${timePeriodMode === 'current' ? 'border-primary bg-primary/5' : 'border-border'}`}
+                onClick={() => setTimePeriodMode('current')}
+                data-testid="option-current-quarter"
+              >
+                <div className={`w-4 h-4 rounded-full border-2 ${timePeriodMode === 'current' ? 'border-primary bg-primary' : 'border-muted-foreground'}`}>
+                  {timePeriodMode === 'current' && <div className="w-2 h-2 bg-white rounded-full m-auto mt-0.5" />}
+                </div>
+                <div>
+                  <p className="font-medium">Current Quarter (Auto)</p>
+                  <p className="text-sm text-muted-foreground">
+                    Automatically shows Q{getCurrentQuarter()} {currentYear} - updates each quarter
+                  </p>
+                </div>
+              </div>
+              
+              <div 
+                className={`flex items-center gap-3 p-3 rounded-md border cursor-pointer ${timePeriodMode === 'specific' ? 'border-primary bg-primary/5' : 'border-border'}`}
+                onClick={() => setTimePeriodMode('specific')}
+                data-testid="option-specific-quarter"
+              >
+                <div className={`w-4 h-4 rounded-full border-2 ${timePeriodMode === 'specific' ? 'border-primary bg-primary' : 'border-muted-foreground'}`}>
+                  {timePeriodMode === 'specific' && <div className="w-2 h-2 bg-white rounded-full m-auto mt-0.5" />}
+                </div>
+                <div className="flex-1">
+                  <p className="font-medium">Specific Quarter</p>
+                  <p className="text-sm text-muted-foreground">
+                    Always show a specific quarter until manually changed
+                  </p>
+                </div>
+              </div>
+              
+              {timePeriodMode === 'specific' && (
+                <div className="ml-7 mt-2">
+                  <Select value={selectedQuarterValue} onValueChange={setSelectedQuarterValue}>
+                    <SelectTrigger data-testid="select-specific-quarter">
+                      <SelectValue placeholder="Select quarter" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {quarterOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setTimePeriodDialogOpen(false)}
+              data-testid="button-cancel-time-period"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveTimePeriod}
+              data-testid="button-save-time-period"
+            >
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>

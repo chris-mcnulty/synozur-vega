@@ -23,12 +23,19 @@ export const insertUserSchema = createInsertSchema(users).omit({
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 
+export type DefaultTimePeriod = {
+  mode: 'current' | 'specific';
+  year?: number;
+  quarter?: number;
+};
+
 export const tenants = pgTable("tenants", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull().unique(),
   color: text("color"),
   logoUrl: text("logo_url"),
   allowedDomains: jsonb("allowed_domains").$type<string[]>(),
+  defaultTimePeriod: jsonb("default_time_period").$type<DefaultTimePeriod>(),
 });
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({
