@@ -182,10 +182,30 @@ export class VivaGoalsImporter {
    * Also handles: "Quarter 1 FY25", "Quarter1 2025", "1Q 2025"
    */
   parseTimePeriod(periodName: string): { quarter: number | null; year: number } {
-    // First, try to lookup in TimePeriods export if available
+    // Check for "Annual" in period name FIRST - annual periods get quarter=0
+    if (periodName.toLowerCase().includes('annual')) {
+      // Extract year from "Annual 2025" or "Annual FY25"
+      const yearMatch = periodName.match(/(\d{4})|FY(\d{2})/i);
+      if (yearMatch) {
+        let year = parseInt(yearMatch[1] || yearMatch[2]);
+        if (year < 100) year = 2000 + year;
+        console.log(`[DEBUG] Parsed "${periodName}" as ANNUAL: Year ${year}`);
+        return { quarter: 0, year };
+      }
+    }
+    
+    // Try to lookup in TimePeriods export if available
     if (this.timePeriods.length > 0) {
       const matchingPeriod = this.timePeriods.find(tp => tp['Time Period Name'] === periodName);
       if (matchingPeriod && matchingPeriod['Start Date']) {
+        // Check if this is an annual period (name contains "Annual" or 12-month span)
+        const periodNameLower = (matchingPeriod['Time Period Name'] || '').toLowerCase();
+        if (periodNameLower.includes('annual') || periodNameLower.includes('year')) {
+          const startDate = new Date(matchingPeriod['Start Date']);
+          console.log(`[DEBUG] Parsed "${periodName}" from TimePeriods as ANNUAL: Year ${startDate.getFullYear()}`);
+          return { quarter: 0, year: startDate.getFullYear() };
+        }
+        
         // Parse the start date to extract year and derive quarter
         const startDate = new Date(matchingPeriod['Start Date']);
         const year = startDate.getFullYear();

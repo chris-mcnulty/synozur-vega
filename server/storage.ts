@@ -809,11 +809,35 @@ export class DatabaseStorage implements IStorage {
       individual: 3,
     };
     
-    // Sort function for objectives: by level, then by title
+    // Extract leading numeric prefix from title (e.g., "1. Increase..." → 1, "2. Accelerate..." → 2)
+    const extractNumericPrefix = (title: string): number | null => {
+      const match = title.match(/^\s*(\d+)\./);
+      return match ? parseInt(match[1], 10) : null;
+    };
+    
+    // Sort function for objectives: by level, then by numeric prefix (if present), then by title
     const sortObjectives = <T extends { level?: string | null; title: string }>(objs: T[]): T[] => {
       return [...objs].sort((a, b) => {
+        // First: sort by level
         const levelDiff = (levelOrder[a.level || 'team'] ?? 4) - (levelOrder[b.level || 'team'] ?? 4);
         if (levelDiff !== 0) return levelDiff;
+        
+        // Second: sort by numeric prefix if both have one
+        const aPrefix = extractNumericPrefix(a.title || '');
+        const bPrefix = extractNumericPrefix(b.title || '');
+        
+        if (aPrefix !== null && bPrefix !== null) {
+          // Both have numeric prefixes - sort numerically
+          return aPrefix - bPrefix;
+        } else if (aPrefix !== null) {
+          // Only a has prefix - it comes first
+          return -1;
+        } else if (bPrefix !== null) {
+          // Only b has prefix - it comes first
+          return 1;
+        }
+        
+        // Neither has prefix - sort alphabetically
         return (a.title || '').localeCompare(b.title || '');
       });
     };
@@ -862,9 +886,24 @@ export class DatabaseStorage implements IStorage {
       const data = objectiveDataMap.get(objective.id);
       const children = childrenByParentId.get(objective.id) || [];
       
+      // Sort key results with numeric prefix awareness
+      const sortedKeyResults = [...(data?.keyResults || [])].sort((a, b) => {
+        const aPrefix = extractNumericPrefix(a.title || '');
+        const bPrefix = extractNumericPrefix(b.title || '');
+        
+        if (aPrefix !== null && bPrefix !== null) {
+          return aPrefix - bPrefix;
+        } else if (aPrefix !== null) {
+          return -1;
+        } else if (bPrefix !== null) {
+          return 1;
+        }
+        return (a.title || '').localeCompare(b.title || '');
+      });
+      
       return {
         ...objective,
-        keyResults: [...(data?.keyResults || [])].sort((a, b) => (a.title || '').localeCompare(b.title || '')),
+        keyResults: sortedKeyResults,
         childObjectives: children.map(child => buildEnrichedObjective(child)),
         linkedBigRocks: data?.linkedBigRocks || [],
         lastUpdated: data?.latestCheckIn?.createdAt || objective.updatedAt,

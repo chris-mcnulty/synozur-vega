@@ -19,6 +19,7 @@ export function getCurrentQuarter(fiscalYearStartMonth: number = 1): { quarter: 
 }
 
 export function getQuarterLabel(quarter: number): string {
+  if (quarter === 0) return "Annual";
   return `Q${quarter}`;
 }
 
