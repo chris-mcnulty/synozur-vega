@@ -821,33 +821,64 @@ export class DatabaseStorage implements IStorage {
     // Create a set of all objective IDs in the filtered results
     const filteredObjectiveIds = new Set(allObjectives.map(obj => obj.id));
     
-    // For each objective, get its key results, child objectives, and linked big rocks
-    const enrichedObjectives = await Promise.all(
+    // For each objective, get its key results and linked big rocks
+    // Child objectives will be built from the allObjectives array for proper sorting
+    const objectiveDataMap = new Map<string, { keyResults: KeyResult[]; linkedBigRocks: BigRock[]; latestCheckIn: CheckIn | undefined }>();
+    
+    await Promise.all(
       allObjectives.map(async (objective) => {
-        const [keyResults, childObjectives, linkedBigRocks, latestCheckIn] = await Promise.all([
+        const [keyResults, linkedBigRocks, latestCheckIn] = await Promise.all([
           this.getKeyResultsByObjectiveId(objective.id),
-          this.getChildObjectives(objective.id),
           this.getBigRocksLinkedToObjective(objective.id),
           this.getLatestCheckIn('objective', objective.id),
         ]);
-
-        return {
-          ...objective,
-          keyResults: [...keyResults].sort((a, b) => (a.title || '').localeCompare(b.title || '')),
-          childObjectives: sortObjectives(childObjectives),
-          linkedBigRocks,
-          lastUpdated: latestCheckIn?.createdAt || objective.updatedAt,
-        };
+        objectiveDataMap.set(objective.id, { keyResults, linkedBigRocks, latestCheckIn });
       })
     );
+    
+    // Build a map of parent -> sorted children from allObjectives
+    const childrenByParentId = new Map<string, Objective[]>();
+    for (const obj of allObjectives) {
+      if (obj.parentId) {
+        if (!childrenByParentId.has(obj.parentId)) {
+          childrenByParentId.set(obj.parentId, []);
+        }
+        childrenByParentId.get(obj.parentId)!.push(obj);
+      }
+    }
+    
+    // Sort children for each parent
+    for (const [parentId, children] of Array.from(childrenByParentId.entries())) {
+      childrenByParentId.set(parentId, sortObjectives(children));
+    }
+    
+    // Recursive function to build enriched objective with sorted children
+    const buildEnrichedObjective = (objective: Objective): Objective & {
+      keyResults: KeyResult[];
+      childObjectives: any[];
+      linkedBigRocks: BigRock[];
+      lastUpdated: Date | null;
+    } => {
+      const data = objectiveDataMap.get(objective.id);
+      const children = childrenByParentId.get(objective.id) || [];
+      
+      return {
+        ...objective,
+        keyResults: [...(data?.keyResults || [])].sort((a, b) => (a.title || '').localeCompare(b.title || '')),
+        childObjectives: children.map(child => buildEnrichedObjective(child)),
+        linkedBigRocks: data?.linkedBigRocks || [],
+        lastUpdated: data?.latestCheckIn?.createdAt || objective.updatedAt,
+      };
+    };
 
     // Filter to root-level objectives OR objectives whose parent is not in the filtered results
     // This ensures filtered objectives appear as "virtual roots" when their parent doesn't match the filter
-    const rootObjectives = enrichedObjectives.filter(obj => 
+    const rootObjectives = allObjectives.filter(obj => 
       !obj.parentId || !filteredObjectiveIds.has(obj.parentId)
     );
     
-    return sortObjectives(rootObjectives);
+    // Sort root objectives and recursively build the tree with sorted children
+    return sortObjectives(rootObjectives).map(obj => buildEnrichedObjective(obj));
   }
 
   async getCheckInsByEntityId(entityType: string, entityId: string): Promise<CheckIn[]> {
