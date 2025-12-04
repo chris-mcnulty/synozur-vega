@@ -482,28 +482,45 @@ export class VivaGoalsImporter {
         }
       }
       
-      // For ABSOLUTE metrics (non-percentage), calculate currentValue from progress
-      // For PERCENTAGE metrics, the progress IS the current value
+      // Determine if Progress is an actual value or a percentage
+      // Key insight: In Viva Goals, for absolute metrics:
+      // - If Progress > 100, it's definitely the actual current value (e.g., 16108 visits)
+      // - If Progress <= 100 and target > 100, it could be either - we need heuristics
+      // - For percentage metrics, Progress is always 0-100
+      
       if (unit === '%') {
         // Percentage-based: progress value IS the current percentage (0-100 scale)
         currentValue = viva.Progress;
       } else {
-        // Absolute metrics: calculate current value from progress percentage
-        // Progress in Viva is already a percentage (0-100)
-        const progressFraction = viva.Progress / 100;
+        // Absolute metrics: Progress could be actual value OR percentage
+        // Heuristic: If Progress > 100 OR if Progress is in same order of magnitude as target,
+        // then Progress IS the actual current value
+        const progress = viva.Progress || 0;
         
-        if (metricType === 'increase') {
-          // Current = Start + (Target - Start) * progress
-          currentValue = initialValue + (targetValue - initialValue) * progressFraction;
-        } else if (metricType === 'decrease') {
-          // Current = Start - (Start - Target) * progress
-          currentValue = initialValue - (initialValue - targetValue) * progressFraction;
-        } else if (metricType === 'maintain') {
-          // For maintain, current should be close to target
-          currentValue = targetValue;
+        // Check if progress looks like an actual value vs percentage
+        // If progress > 100, it's definitely the actual value
+        // If progress is within reasonable range of target (same order of magnitude), it's the actual value
+        const isActualValue = progress > 100 || 
+          (targetValue > 100 && progress > 10 && progress >= targetValue * 0.01);
+        
+        if (isActualValue) {
+          // Progress IS the actual current value
+          currentValue = progress;
+          console.log(`  - Progress ${progress} interpreted as ACTUAL VALUE`);
         } else {
-          // For complete, just use progress
-          currentValue = viva.Progress;
+          // Progress is a percentage (0-100)
+          const progressFraction = progress / 100;
+          
+          if (metricType === 'increase') {
+            currentValue = initialValue + (targetValue - initialValue) * progressFraction;
+          } else if (metricType === 'decrease') {
+            currentValue = initialValue - (initialValue - targetValue) * progressFraction;
+          } else if (metricType === 'maintain') {
+            currentValue = targetValue;
+          } else {
+            currentValue = progress;
+          }
+          console.log(`  - Progress ${progress} interpreted as PERCENTAGE`);
         }
       }
       
