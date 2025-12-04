@@ -181,6 +181,7 @@ export class VivaGoalsImporter {
    * Examples: "Q1 2024" → {quarter: 1, year: 2024}, "Annual 2024" → {quarter: null, year: 2024}
    */
   parseTimePeriod(periodName: string): { quarter: number | null; year: number } {
+    // Pattern 1: "Q1 2025" or "Q1  2025" (with variable whitespace)
     const quarterMatch = periodName.match(/Q(\d)\s+(\d{4})/);
     if (quarterMatch) {
       return {
@@ -189,7 +190,27 @@ export class VivaGoalsImporter {
       };
     }
 
-    const annualMatch = periodName.match(/Annual\s+(\d{4})/);
+    // Pattern 2: "2025 Q1" (year first)
+    const yearFirstMatch = periodName.match(/(\d{4})\s+Q(\d)/);
+    if (yearFirstMatch) {
+      return {
+        quarter: parseInt(yearFirstMatch[2]),
+        year: parseInt(yearFirstMatch[1]),
+      };
+    }
+
+    // Pattern 3: "FY25 Q1" or "FY2025 Q1"
+    const fyMatch = periodName.match(/FY\d{2,4}\s+Q(\d)/i);
+    if (fyMatch) {
+      const yearMatch = periodName.match(/(\d{4})/);
+      return {
+        quarter: parseInt(fyMatch[1]),
+        year: yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear(),
+      };
+    }
+
+    // Pattern 4: "Annual 2025" or "FY 2025"
+    const annualMatch = periodName.match(/(?:Annual|FY)\s*(\d{4})/i);
     if (annualMatch) {
       return {
         quarter: null, // Annual objectives don't have a quarter
@@ -197,6 +218,31 @@ export class VivaGoalsImporter {
       };
     }
 
+    // Pattern 5: Just a year "2025"
+    const yearOnlyMatch = periodName.match(/^(\d{4})$/);
+    if (yearOnlyMatch) {
+      return {
+        quarter: null,
+        year: parseInt(yearOnlyMatch[1]),
+      };
+    }
+
+    // Pattern 6: "January 2025" or month names - extract year and derive quarter
+    const monthYearMatch = periodName.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i);
+    if (monthYearMatch) {
+      const months: Record<string, number> = {
+        january: 1, february: 1, march: 1,
+        april: 2, may: 2, june: 2,
+        july: 3, august: 3, september: 3,
+        october: 4, november: 4, december: 4,
+      };
+      return {
+        quarter: months[monthYearMatch[1].toLowerCase()],
+        year: parseInt(monthYearMatch[2]),
+      };
+    }
+
+    console.log(`[DEBUG] Could not parse time period: "${periodName}"`);
     this.result.warnings.push(`Could not parse time period: ${periodName}`);
     return { quarter: null, year: new Date().getFullYear() };
   }
