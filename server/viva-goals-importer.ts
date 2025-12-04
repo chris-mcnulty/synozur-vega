@@ -642,13 +642,34 @@ export class VivaGoalsImporter {
       }
 
       // Phase 2: Create child objectives (team/division level with parents)
+      // Sort by hierarchy depth to ensure parents are processed before children
       const childObjectives = allBigRocks.filter(obj => obj['Parent IDs']?.length > 0);
       
+      // Build a depth map - objectives whose parents are already in objectiveMap have depth 0
+      // Others have depth based on how many hops to reach an already-mapped parent
+      const getDepth = (obj: VivaObjective, visited: Set<number> = new Set()): number => {
+        if (visited.has(obj.ID)) return 999; // Prevent cycles
+        visited.add(obj.ID);
+        
+        const parentId = obj['Parent IDs']?.[0];
+        if (!parentId) return 0;
+        if (objectiveMap.has(parentId)) return 0;
+        
+        // Find parent in childObjectives
+        const parent = childObjectives.find(o => o.ID === parentId);
+        if (!parent) return 0; // Parent not in this batch, treat as root
+        
+        return 1 + getDepth(parent, visited);
+      };
+      
+      // Sort by depth (ascending) so parents are processed first
+      const sortedChildObjectives = [...childObjectives].sort((a, b) => getDepth(a) - getDepth(b));
+      
       // Debug: Log what parent IDs we're looking for
-      console.log(`\n[DEBUG] Phase 2 - Processing ${childObjectives.length} child objectives`);
+      console.log(`\n[DEBUG] Phase 2 - Processing ${sortedChildObjectives.length} child objectives (sorted by hierarchy depth)`);
       console.log(`[DEBUG] ObjectiveMap has ${objectiveMap.size} entries from Phase 1`);
       
-      for (const viva of childObjectives) {
+      for (const viva of sortedChildObjectives) {
         try {
           const objectiveData = this.mapBigRockToObjective(viva);
           
