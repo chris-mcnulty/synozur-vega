@@ -483,70 +483,40 @@ export class VivaGoalsImporter {
       console.log(`  - Parsed Start: ${initialValue}, Parsed Target: ${targetValue}`);
       console.log(`  - Determined metricType: ${metricType}`);
       
-      // Set unit FIRST - IMPORTANT: respect the actual metric unit from Viva
-      const vivaUnit = outcome['Metric Unit'];
-      if (vivaUnit === '%' || vivaUnit === 'Percentage') {
-        // Explicit percentage unit
+      // CRITICAL: Auto-detect metric VALUE TYPE from Viva's Metric Unit field
+      // This determines whether we interpret the Progress as percentage vs actual count vs currency
+      const vivaUnit = outcome['Metric Unit'] || '';
+      const unitLower = vivaUnit.toLowerCase().trim();
+      
+      // Detect percentage metrics
+      const isPercentageUnit = unitLower === '%' || unitLower === 'percentage' || unitLower === 'percent';
+      
+      // Detect currency metrics  
+      const isCurrencyUnit = unitLower === '$' || unitLower === 'dollar' || unitLower === 'dollars' ||
+                             unitLower === 'usd' || unitLower === 'eur' || unitLower === 'gbp' ||
+                             unitLower.includes('currency') || vivaUnit.startsWith('$');
+      
+      // Everything else is a count/number metric
+      const isCountUnit = !isPercentageUnit && !isCurrencyUnit;
+      
+      console.log(`  - Unit "${vivaUnit}" → isPercentage=${isPercentageUnit}, isCurrency=${isCurrencyUnit}, isCount=${isCountUnit}`);
+      
+      if (isPercentageUnit) {
+        // Percentage-based: Progress IS the current percentage (0-100 scale)
         unit = '%';
-      } else if (vivaUnit && vivaUnit !== '') {
-        // Specific unit like "webinars", "views", "$", "Dollar", etc.
-        unit = vivaUnit;
-      } else {
-        // No unit specified - check if it looks like a percentage or absolute
-        // If target is 100 with no unit AND start is 0, it's likely a percentage
-        // Otherwise it's an absolute number
-        if (targetValue === 100 && initialValue === 0) {
-          unit = '%';
-        } else {
-          unit = 'Number';
-        }
-      }
-      
-      // Determine if Progress is an actual value or a percentage
-      // Key insight: In Viva Goals, for absolute metrics:
-      // - If Progress > 100, it's definitely the actual current value (e.g., 16108 visits)
-      // - If Progress <= 100 and target > 100, it could be either - we need heuristics
-      // - For percentage metrics, Progress is always 0-100
-      
-      if (unit === '%') {
-        // Percentage-based: progress value IS the current percentage (0-100 scale)
         currentValue = viva.Progress;
+        console.log(`  - PERCENTAGE metric: currentValue = ${currentValue}%`);
       } else {
-        // Absolute metrics: Progress could be actual value OR percentage
-        // Heuristic: If Progress > 100 OR if Progress is in same order of magnitude as target,
-        // then Progress IS the actual current value
-        const progress = viva.Progress || 0;
-        
-        // Check if progress looks like an actual value vs percentage
-        // If progress > 100, it's definitely the actual value
-        // If progress is within reasonable range of target (same order of magnitude), it's the actual value
-        const isActualValue = progress > 100 || 
-          (targetValue > 100 && progress > 10 && progress >= targetValue * 0.01);
-        
-        if (isActualValue) {
-          // Progress IS the actual current value
-          currentValue = progress;
-          console.log(`  - Progress ${progress} interpreted as ACTUAL VALUE`);
-        } else {
-          // Progress is a percentage (0-100)
-          const progressFraction = progress / 100;
-          
-          if (metricType === 'increase') {
-            currentValue = initialValue + (targetValue - initialValue) * progressFraction;
-          } else if (metricType === 'decrease') {
-            currentValue = initialValue - (initialValue - targetValue) * progressFraction;
-          } else if (metricType === 'maintain') {
-            currentValue = targetValue;
-          } else {
-            currentValue = progress;
-          }
-          console.log(`  - Progress ${progress} interpreted as PERCENTAGE`);
-        }
+        // For COUNT and CURRENCY metrics, Progress IS the actual current value
+        // Viva Goals exports the actual value in Progress field for Metric types
+        unit = isCurrencyUnit ? '$' : (vivaUnit || 'Number');
+        currentValue = viva.Progress;
+        console.log(`  - ${isCurrencyUnit ? 'CURRENCY' : 'COUNT'} metric: currentValue = ${currentValue} ${unit}`);
       }
       
-      console.log(`  - Final unit: ${unit}, currentValue: ${currentValue}`);
+      console.log(`  - Final unit: ${unit}, currentValue: ${currentValue}, targetValue: ${targetValue}`);
     } else {
-      // Percentage-based outcome (not Metric type)
+      // Outcome Type = 'Percentage' (not Metric type)
       currentValue = viva.Progress;
       targetValue = 100;
       unit = '%';
@@ -1100,11 +1070,56 @@ export class VivaGoalsImporter {
         console.log(`  - Viva ${vivaId} -> Vega ${vegaId}: "${obj?.Title || 'UNKNOWN'}"`);
       });
       
+      // Create placeholder objective for orphan KPIs (those with no parent or parent ID 0)
+      let orphanObjectiveId: string | null = null;
+      const orphanKpis = kpis.filter(kpi => {
+        const parentVivaId = kpi['Parent IDs']?.[0];
+        return !parentVivaId || parentVivaId === 0 || !objectiveMap.has(parentVivaId);
+      });
+      
+      if (orphanKpis.length > 0) {
+        console.log(`\n[DEBUG] Creating placeholder objective for ${orphanKpis.length} orphan KPIs`);
+        try {
+          // Use current year for orphan objective
+          const currentYear = new Date().getFullYear();
+          
+          // Check if placeholder already exists
+          const existingObjectives = await storage.getObjectivesByTenantId(this.options.tenantId, 1, currentYear);
+          const existingOrphan = existingObjectives.find((obj: any) => obj.title === 'Orphaned Metrics (from Viva)');
+          
+          if (existingOrphan) {
+            orphanObjectiveId = existingOrphan.id;
+            console.log(`[DEBUG] Using existing orphan placeholder: ${orphanObjectiveId}`);
+          } else {
+            const orphanObjective = await storage.createObjective({
+              tenantId: this.options.tenantId,
+              title: 'Orphaned Metrics (from Viva)',
+              description: 'This objective was created to hold Key Results that had no parent in the Viva Goals export. You can reassign them to appropriate objectives.',
+              ownerEmail: this.options.userEmail,
+              status: 'on_track',
+              progress: 0,
+              quarter: 1,
+              year: currentYear,
+              level: 'organization',
+              createdBy: this.options.userId,
+              updatedBy: this.options.userId,
+            });
+            orphanObjectiveId = orphanObjective.id;
+            this.result.summary.objectivesCreated++;
+            this.result.warnings.push(`Created placeholder objective "Orphaned Metrics (from Viva)" for ${orphanKpis.length} KPIs without parents`);
+            console.log(`[DEBUG] Created orphan placeholder: ${orphanObjectiveId}`);
+          }
+        } catch (error) {
+          console.error(`[ERROR] Failed to create orphan placeholder:`, error);
+          this.result.warnings.push(`Could not create placeholder for orphan KPIs: ${error instanceof Error ? error.message : 'Unknown error'}`);
+        }
+      }
+      
       for (const viva of kpis) {
         try {
           // Find parent objective
           const parentVivaId = viva['Parent IDs']?.[0];
-          const parentVegaId = parentVivaId ? objectiveMap.get(parentVivaId) : null;
+          let parentVegaId = parentVivaId ? objectiveMap.get(parentVivaId) : null;
           
           // Debug: Trace podcast specifically
           if (viva.Title.toLowerCase().includes('podcast')) {
@@ -1115,13 +1130,14 @@ export class VivaGoalsImporter {
             console.log(`  - Original parent title: ${parentObj?.Title || 'UNKNOWN'}`);
           }
           
-          if (!parentVegaId) {
-            const parentVivaIdNum = viva['Parent IDs']?.[0];
-            if (!parentVivaIdNum || parentVivaIdNum === 0) {
-              this.result.warnings.push(`KPI "${viva.Title}" has no parent objective in Viva Goals export (orphan KPI), skipping`);
-            } else {
-              this.result.warnings.push(`KPI "${viva.Title}" parent objective (Viva ID: ${parentVivaIdNum}) was not imported, skipping`);
-            }
+          // If no parent found, use orphan placeholder if available
+          if (!parentVegaId && orphanObjectiveId) {
+            parentVegaId = orphanObjectiveId;
+            const isOrphan = !parentVivaId || parentVivaId === 0;
+            this.result.warnings.push(`KPI "${viva.Title}" ${isOrphan ? 'has no parent in Viva export' : `parent (ID: ${parentVivaId}) not imported`} - assigned to "Orphaned Metrics"`);
+          } else if (!parentVegaId) {
+            // No orphan placeholder available (shouldn't happen normally)
+            this.result.warnings.push(`KPI "${viva.Title}" has no parent and placeholder creation failed, skipping`);
             this.result.skippedItems.push({ type: 'key_result', title: viva.Title, vivaId: viva.ID });
             continue;
           }
