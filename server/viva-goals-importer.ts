@@ -179,10 +179,26 @@ export class VivaGoalsImporter {
   /**
    * Parse Viva Goals time period name to extract quarter and year
    * Examples: "Q1 2024" → {quarter: 1, year: 2024}, "Annual 2024" → {quarter: null, year: 2024}
+   * Also handles: "Quarter 1 FY25", "Quarter1 2025", "1Q 2025"
    */
   parseTimePeriod(periodName: string): { quarter: number | null; year: number } {
+    // First, try to lookup in TimePeriods export if available
+    if (this.timePeriods.length > 0) {
+      const matchingPeriod = this.timePeriods.find(tp => tp['Time Period Name'] === periodName);
+      if (matchingPeriod && matchingPeriod['Start Date']) {
+        // Parse the start date to extract year and derive quarter
+        const startDate = new Date(matchingPeriod['Start Date']);
+        const year = startDate.getFullYear();
+        const month = startDate.getMonth(); // 0-based
+        // Derive quarter from month: Jan-Mar = Q1, Apr-Jun = Q2, Jul-Sep = Q3, Oct-Dec = Q4
+        const quarter = Math.floor(month / 3) + 1;
+        console.log(`[DEBUG] Parsed "${periodName}" from TimePeriods export: Q${quarter} ${year}`);
+        return { quarter, year };
+      }
+    }
+    
     // Pattern 1: "Q1 2025" or "Q1  2025" (with variable whitespace)
-    const quarterMatch = periodName.match(/Q(\d)\s+(\d{4})/);
+    const quarterMatch = periodName.match(/Q(\d)\s+(\d{4})/i);
     if (quarterMatch) {
       return {
         quarter: parseInt(quarterMatch[1]),
@@ -191,25 +207,55 @@ export class VivaGoalsImporter {
     }
 
     // Pattern 2: "2025 Q1" (year first)
-    const yearFirstMatch = periodName.match(/(\d{4})\s+Q(\d)/);
+    const yearFirstMatch = periodName.match(/(\d{4})\s+Q(\d)/i);
     if (yearFirstMatch) {
       return {
         quarter: parseInt(yearFirstMatch[2]),
         year: parseInt(yearFirstMatch[1]),
       };
     }
-
-    // Pattern 3: "FY25 Q1" or "FY2025 Q1"
-    const fyMatch = periodName.match(/FY\d{2,4}\s+Q(\d)/i);
-    if (fyMatch) {
-      const yearMatch = periodName.match(/(\d{4})/);
+    
+    // Pattern 3: "Quarter 1 FY25" or "Quarter 1 2025" or "Quarter1 FY25"
+    const quarterWordMatch = periodName.match(/Quarter\s*(\d)\s+(?:FY)?(\d{2,4})/i);
+    if (quarterWordMatch) {
+      let year = parseInt(quarterWordMatch[2]);
+      // Handle 2-digit year: 25 → 2025
+      if (year < 100) {
+        year = 2000 + year;
+      }
       return {
-        quarter: parseInt(fyMatch[1]),
-        year: yearMatch ? parseInt(yearMatch[1]) : new Date().getFullYear(),
+        quarter: parseInt(quarterWordMatch[1]),
+        year,
+      };
+    }
+    
+    // Pattern 4: "1Q 2025" or "1Q25"
+    const numQMatch = periodName.match(/(\d)Q\s*(\d{2,4})/i);
+    if (numQMatch) {
+      let year = parseInt(numQMatch[2]);
+      if (year < 100) {
+        year = 2000 + year;
+      }
+      return {
+        quarter: parseInt(numQMatch[1]),
+        year,
       };
     }
 
-    // Pattern 4: "Annual 2025" or "FY 2025"
+    // Pattern 5: "FY25 Q1" or "FY2025 Q1"
+    const fyMatch = periodName.match(/FY\s*(\d{2,4})\s*Q(\d)/i);
+    if (fyMatch) {
+      let year = parseInt(fyMatch[1]);
+      if (year < 100) {
+        year = 2000 + year;
+      }
+      return {
+        quarter: parseInt(fyMatch[2]),
+        year,
+      };
+    }
+
+    // Pattern 6: "Annual 2025" or "FY 2025" (with no quarter)
     const annualMatch = periodName.match(/(?:Annual|FY)\s*(\d{4})/i);
     if (annualMatch) {
       return {
@@ -218,7 +264,7 @@ export class VivaGoalsImporter {
       };
     }
 
-    // Pattern 5: Just a year "2025"
+    // Pattern 7: Just a year "2025"
     const yearOnlyMatch = periodName.match(/^(\d{4})$/);
     if (yearOnlyMatch) {
       return {
@@ -227,7 +273,7 @@ export class VivaGoalsImporter {
       };
     }
 
-    // Pattern 6: "January 2025" or month names - extract year and derive quarter
+    // Pattern 8: "January 2025" or month names - extract year and derive quarter
     const monthYearMatch = periodName.match(/(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{4})/i);
     if (monthYearMatch) {
       const months: Record<string, number> = {
@@ -239,6 +285,18 @@ export class VivaGoalsImporter {
       return {
         quarter: months[monthYearMatch[1].toLowerCase()],
         year: parseInt(monthYearMatch[2]),
+      };
+    }
+    
+    // Pattern 9: Extract any 4-digit year and any single digit as quarter
+    const fallbackYear = periodName.match(/(\d{4})/);
+    const fallbackQuarter = periodName.match(/[Qq](\d)|Quarter\s*(\d)|(\d)[Qq]/i);
+    if (fallbackYear) {
+      const qNum = fallbackQuarter ? parseInt(fallbackQuarter[1] || fallbackQuarter[2] || fallbackQuarter[3]) : null;
+      console.log(`[DEBUG] Fallback parse of "${periodName}": Q${qNum} ${fallbackYear[1]}`);
+      return {
+        quarter: qNum && qNum >= 1 && qNum <= 4 ? qNum : null,
+        year: parseInt(fallbackYear[1]),
       };
     }
 
@@ -263,16 +321,49 @@ export class VivaGoalsImporter {
 
   /**
    * Map Viva Goals metric type to Vega metric type
+   * Viva Goals uses various phrases like "Keep below", "At most", "Reach", "Maintain at"
    */
   mapMetricType(targetType?: string): 'increase' | 'decrease' | 'maintain' | 'complete' {
     if (!targetType) return 'increase';
     
     const lowerType = targetType.toLowerCase();
-    if (lowerType.includes('increase')) return 'increase';
-    if (lowerType.includes('decrease')) return 'decrease';
-    if (lowerType.includes('maintain')) return 'maintain';
-    if (lowerType.includes('complete')) return 'complete';
     
+    // Decrease patterns: "Keep below", "At most", "Reduce to", "Decrease to", "Less than"
+    if (lowerType.includes('below') || 
+        lowerType.includes('at most') || 
+        lowerType.includes('decrease') ||
+        lowerType.includes('reduce') ||
+        lowerType.includes('less than') ||
+        lowerType.includes('under')) {
+      return 'decrease';
+    }
+    
+    // Maintain patterns: "Maintain at", "Keep at", "Stay at"
+    if (lowerType.includes('maintain') || 
+        lowerType.includes('keep at') || 
+        lowerType.includes('stay at') ||
+        lowerType.includes('hold at')) {
+      return 'maintain';
+    }
+    
+    // Complete patterns: "Complete", "Finish", "Done"
+    if (lowerType.includes('complete') || 
+        lowerType.includes('finish') ||
+        lowerType.includes('done')) {
+      return 'complete';
+    }
+    
+    // Increase patterns (default): "Reach", "Increase to", "Grow to", "At least", "More than"
+    if (lowerType.includes('increase') ||
+        lowerType.includes('reach') ||
+        lowerType.includes('grow') ||
+        lowerType.includes('at least') ||
+        lowerType.includes('more than') ||
+        lowerType.includes('above')) {
+      return 'increase';
+    }
+    
+    // Default to increase if no pattern matches
     return 'increase';
   }
 
@@ -319,6 +410,21 @@ export class VivaGoalsImporter {
   }
 
   /**
+   * Parse a numeric value that might be a string with commas
+   * "3,637,839" → 3637839, "22" → 22, 100 → 100
+   */
+  parseNumericValue(value: any): number {
+    if (typeof value === 'number') return value;
+    if (typeof value === 'string') {
+      // Remove commas and other formatting, then parse
+      const cleaned = value.replace(/,/g, '').replace(/\s/g, '');
+      const parsed = parseFloat(cleaned);
+      return isNaN(parsed) ? 0 : parsed;
+    }
+    return 0;
+  }
+
+  /**
    * Convert Viva Goals "Kpi" to Vega "Key Result"
    * 
    * IMPORTANT: For absolute numeric metrics (like "website traffic"), we preserve raw values
@@ -338,43 +444,72 @@ export class VivaGoalsImporter {
     let initialValue = 0;
     let unit: string | undefined = undefined;
 
+    // Debug: Log the raw outcome data for troubleshooting
+    console.log(`[DEBUG] Parsing KPI "${viva.Title}":`);
+    console.log(`  - Outcome Type: ${outcome['Outcome Type']}`);
+    console.log(`  - Target Type: ${outcome['Target Type']}`);
+    console.log(`  - Raw Start: ${outcome.Start} (type: ${typeof outcome.Start})`);
+    console.log(`  - Raw Target: ${outcome.Target} (type: ${typeof outcome.Target})`);
+    console.log(`  - Metric Unit: ${outcome['Metric Unit']}`);
+    console.log(`  - Progress: ${viva.Progress}`);
+
     if (outcome['Outcome Type'] === 'Metric') {
       metricType = this.mapMetricType(outcome['Target Type']);
-      initialValue = outcome.Start || 0;
-      targetValue = outcome.Target || 100;
       
-      // For absolute metrics, we need to calculate current value from progress
-      // Progress in Viva is already a percentage (0-100)
-      const progress = viva.Progress / 100;
-      if (metricType === 'increase') {
-        currentValue = initialValue + (targetValue - initialValue) * progress;
-      } else if (metricType === 'decrease') {
-        currentValue = initialValue - (initialValue - targetValue) * progress;
-      } else {
-        currentValue = targetValue * progress;
-      }
+      // Parse numeric values properly (handle string values with commas)
+      initialValue = this.parseNumericValue(outcome.Start);
+      targetValue = this.parseNumericValue(outcome.Target) || 100;
       
-      // Set unit - IMPORTANT: respect the actual metric unit from Viva
-      // Only treat as absolute 'Number' if there's no unit specified AND target != 100
+      console.log(`  - Parsed Start: ${initialValue}, Parsed Target: ${targetValue}`);
+      console.log(`  - Determined metricType: ${metricType}`);
+      
+      // Set unit FIRST - IMPORTANT: respect the actual metric unit from Viva
       const vivaUnit = outcome['Metric Unit'];
-      if (vivaUnit === '%') {
+      if (vivaUnit === '%' || vivaUnit === 'Percentage') {
         // Explicit percentage unit
         unit = '%';
       } else if (vivaUnit && vivaUnit !== '') {
-        // Specific unit like "webinars", "views", "$", etc.
+        // Specific unit like "webinars", "views", "$", "Dollar", etc.
         unit = vivaUnit;
       } else {
         // No unit specified - check if it looks like a percentage or absolute
-        // If target is 100 with no unit, it's likely a percentage
-        // If target is something else, it's likely an absolute number
+        // If target is 100 with no unit AND start is 0, it's likely a percentage
+        // Otherwise it's an absolute number
         if (targetValue === 100 && initialValue === 0) {
           unit = '%';
         } else {
           unit = 'Number';
         }
       }
+      
+      // For ABSOLUTE metrics (non-percentage), calculate currentValue from progress
+      // For PERCENTAGE metrics, the progress IS the current value
+      if (unit === '%') {
+        // Percentage-based: progress value IS the current percentage (0-100 scale)
+        currentValue = viva.Progress;
+      } else {
+        // Absolute metrics: calculate current value from progress percentage
+        // Progress in Viva is already a percentage (0-100)
+        const progressFraction = viva.Progress / 100;
+        
+        if (metricType === 'increase') {
+          // Current = Start + (Target - Start) * progress
+          currentValue = initialValue + (targetValue - initialValue) * progressFraction;
+        } else if (metricType === 'decrease') {
+          // Current = Start - (Start - Target) * progress
+          currentValue = initialValue - (initialValue - targetValue) * progressFraction;
+        } else if (metricType === 'maintain') {
+          // For maintain, current should be close to target
+          currentValue = targetValue;
+        } else {
+          // For complete, just use progress
+          currentValue = viva.Progress;
+        }
+      }
+      
+      console.log(`  - Final unit: ${unit}, currentValue: ${currentValue}`);
     } else {
-      // Percentage-based (preserve decimals)
+      // Percentage-based outcome (not Metric type)
       currentValue = viva.Progress;
       targetValue = 100;
       unit = '%';
