@@ -481,6 +481,32 @@ export class VivaGoalsImporter {
       const objectiveMap = new Map<number, string>(); // vivaId -> vegaId
       const teamMap = new Map<number, string>(); // vivaTeamId -> vegaTeamId
       
+      // Debug: Log all objectives to understand types and parents
+      console.log('\n=== VIVA GOALS IMPORT DEBUG ===');
+      console.log(`Total objectives in export: ${this.objectives.length}`);
+      const typeCount: Record<string, number> = {};
+      for (const obj of this.objectives) {
+        typeCount[obj.Type] = (typeCount[obj.Type] || 0) + 1;
+      }
+      console.log('Objective types:', typeCount);
+      
+      // Debug: Find specific objectives user mentioned
+      const reachAndSustain = this.objectives.find(o => o.Title.toLowerCase().includes('reach and sustain'));
+      const podcast = this.objectives.find(o => o.Title.toLowerCase().includes('podcast'));
+      
+      if (reachAndSustain) {
+        console.log(`\n[DEBUG] "Reach and sustain..." found:`);
+        console.log(`  - Viva ID: ${reachAndSustain.ID}`);
+        console.log(`  - Type: ${reachAndSustain.Type}`);
+        console.log(`  - Parent IDs: ${JSON.stringify(reachAndSustain['Parent IDs'])}`);
+      }
+      if (podcast) {
+        console.log(`\n[DEBUG] "Podcast" found:`);
+        console.log(`  - Viva ID: ${podcast.ID}`);
+        console.log(`  - Type: ${podcast.Type}`);
+        console.log(`  - Parent IDs: ${JSON.stringify(podcast['Parent IDs'])}`);
+      }
+      
       // Phase 0: Import or map teams
       if (this.options.importTeams && this.teams.length > 0) {
         for (const vivaTeam of this.teams) {
@@ -738,11 +764,36 @@ export class VivaGoalsImporter {
         }
       }
       
+      // Debug: Log all KPIs with their parent info
+      console.log(`\n[DEBUG] KPIs being processed: ${kpis.length}`);
+      for (const kpi of kpis) {
+        if (kpi.Title.toLowerCase().includes('podcast') || kpi.Title.toLowerCase().includes('social')) {
+          console.log(`  - KPI "${kpi.Title}" (Viva ID: ${kpi.ID}) -> Parent IDs: ${JSON.stringify(kpi['Parent IDs'])}`);
+          const parentId = kpi['Parent IDs']?.[0];
+          if (parentId) {
+            const parentObj = this.objectives.find(o => o.ID === parentId);
+            console.log(`    Parent Obj: ${parentObj?.Title || 'NOT FOUND'} (Type: ${parentObj?.Type})`);
+          }
+        }
+      }
+      
+      // Debug: Log which objectives are in the map after Phases 1+2
+      console.log(`\n[DEBUG] Objectives in map after Phase 1+2: ${objectiveMap.size}`);
+      
       for (const viva of kpis) {
         try {
           // Find parent objective
           const parentVivaId = viva['Parent IDs']?.[0];
           const parentVegaId = parentVivaId ? objectiveMap.get(parentVivaId) : null;
+          
+          // Debug: Trace podcast specifically
+          if (viva.Title.toLowerCase().includes('podcast')) {
+            console.log(`\n[DEBUG] Processing "Podcast" KPI:`);
+            console.log(`  - Parent Viva ID: ${parentVivaId}`);
+            console.log(`  - Parent Vega ID from map: ${parentVegaId || 'NOT FOUND'}`);
+            const parentObj = this.objectives.find(o => o.ID === parentVivaId);
+            console.log(`  - Original parent title: ${parentObj?.Title || 'UNKNOWN'}`);
+          }
           
           if (!parentVegaId) {
             this.result.warnings.push(`KPI "${viva.Title}" has no valid parent objective, skipping`);
