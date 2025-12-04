@@ -622,8 +622,24 @@ export class VivaGoalsImporter {
         }
       }
       
-      // Get all Big rock objectives
-      const allBigRocks = this.objectives.filter(obj => obj.Type === 'Big rock');
+      // Get all objectives (Viva Goals uses various Type values)
+      // Include: 'Big rock', 'BigRock', 'Objective', 'Goal', and any other non-KPI/non-Project types
+      const objectiveTypes = new Set(['Big rock', 'BigRock', 'Objective', 'Goal', 'Objective (Team)', 'Objective (Org)']);
+      const allBigRocks = this.objectives.filter(obj => 
+        objectiveTypes.has(obj.Type) || 
+        (obj.Type !== 'Kpi' && obj.Type !== 'Project')  // Fallback: include anything that's not a KPI or Project
+      );
+      
+      // Log type distribution for debugging
+      const typeDistribution = new Map<string, number>();
+      for (const obj of this.objectives) {
+        typeDistribution.set(obj.Type, (typeDistribution.get(obj.Type) || 0) + 1);
+      }
+      console.log(`\n[DEBUG] Viva Goals Type distribution in export:`);
+      Array.from(typeDistribution.entries()).forEach(([type, count]) => {
+        console.log(`  - ${type}: ${count} items`);
+      });
+      console.log(`[DEBUG] Objectives for Phase 1+2: ${allBigRocks.length}`);
       
       // Phase 1: Create organization-level objectives (no parents)
       // Sort alphabetically by title for consistent ordering
@@ -853,37 +869,64 @@ export class VivaGoalsImporter {
         }
       }
       
-      // Debug: Log all KPIs with their parent info
-      console.log(`\n[DEBUG] KPIs being processed: ${kpis.length}`);
-      // Trace problematic KPIs
-      const problematicKPIs = ['distribute msft', 'distribute partner', 'publish partner', 'impressions', 'clicks', 'clickthrough', 'total spend', 'paid media'];
+      // === COMPREHENSIVE DEBUG: Trace ALL KPIs and their parents ===
+      console.log(`\n[DEBUG] ========== KPI PARENT ANALYSIS ==========`);
+      console.log(`[DEBUG] Total KPIs to process: ${kpis.length}`);
+      console.log(`[DEBUG] ObjectiveMap size: ${objectiveMap.size}`);
+      
+      // Group KPIs by whether their parent is in objectiveMap
+      const kpisWithValidParent: string[] = [];
+      const kpisWithMissingParent: {title: string, parentId: number, parentTitle: string, parentType: string}[] = [];
+      
       for (const kpi of kpis) {
-        const lowerTitle = kpi.Title.toLowerCase();
-        if (problematicKPIs.some(p => lowerTitle.includes(p))) {
-          console.log(`\n[DEBUG] Tracing KPI: "${kpi.Title}"`);
-          console.log(`  - Viva ID: ${kpi.ID}`);
-          console.log(`  - Parent IDs from export: ${JSON.stringify(kpi['Parent IDs'])}`);
-          const parentId = kpi['Parent IDs']?.[0];
-          if (parentId) {
-            const parentObj = this.objectives.find(o => o.ID === parentId);
-            console.log(`  - Parent in export: ${parentObj?.Title || 'NOT IN EXPORT'} (Type: ${parentObj?.Type})`);
-            console.log(`  - Parent in objectiveMap: ${objectiveMap.has(parentId) ? objectiveMap.get(parentId) : 'NOT IN MAP'}`);
-          } else {
-            console.log(`  - No parent ID specified!`);
-          }
+        const parentId = kpi['Parent IDs']?.[0];
+        if (parentId && objectiveMap.has(parentId)) {
+          kpisWithValidParent.push(kpi.Title);
+        } else if (parentId) {
+          const parentObj = this.objectives.find(o => o.ID === parentId);
+          kpisWithMissingParent.push({
+            title: kpi.Title,
+            parentId: parentId,
+            parentTitle: parentObj?.Title || 'NOT IN EXPORT',
+            parentType: parentObj?.Type || 'UNKNOWN',
+          });
+        } else {
+          kpisWithMissingParent.push({
+            title: kpi.Title,
+            parentId: 0,
+            parentTitle: 'NO PARENT ID',
+            parentType: 'N/A',
+          });
         }
       }
       
-      // Also trace the "paid media" objective itself
-      const paidMediaObj = allBigRocks.find(o => o.Title.toLowerCase().includes('paid media'));
-      if (paidMediaObj) {
-        console.log(`\n[DEBUG] "Paid media" objective status:`);
-        console.log(`  - Viva ID: ${paidMediaObj.ID}`);
-        console.log(`  - In objectiveMap: ${objectiveMap.has(paidMediaObj.ID) ? objectiveMap.get(paidMediaObj.ID) : 'NOT IN MAP'}`);
+      console.log(`[DEBUG] KPIs with valid parent: ${kpisWithValidParent.length}`);
+      console.log(`[DEBUG] KPIs with MISSING parent: ${kpisWithMissingParent.length}`);
+      
+      if (kpisWithMissingParent.length > 0) {
+        console.log(`\n[DEBUG] === KPIs WITH MISSING PARENTS ===`);
+        for (const kpi of kpisWithMissingParent) {
+          console.log(`  - "${kpi.title}" -> Parent ID: ${kpi.parentId}, Title: "${kpi.parentTitle}", Type: ${kpi.parentType}`);
+        }
+        
+        // Check if any missing parents are child objectives that should have been in Phase 2
+        const missingParentTypes = new Map<string, number>();
+        for (const kpi of kpisWithMissingParent) {
+          const type = kpi.parentType;
+          missingParentTypes.set(type, (missingParentTypes.get(type) || 0) + 1);
+        }
+        console.log(`\n[DEBUG] Missing parent types breakdown:`);
+        Array.from(missingParentTypes.entries()).forEach(([type, count]) => {
+          console.log(`  - ${type}: ${count} KPIs`);
+        });
       }
       
-      // Debug: Log which objectives are in the map after Phases 1+2
-      console.log(`\n[DEBUG] Objectives in map after Phase 1+2: ${objectiveMap.size}`);
+      // Debug: Print all objectives in objectiveMap
+      console.log(`\n[DEBUG] === ALL OBJECTIVES IN MAP ===`);
+      Array.from(objectiveMap.entries()).forEach(([vivaId, vegaId]) => {
+        const obj = this.objectives.find(o => o.ID === vivaId);
+        console.log(`  - Viva ${vivaId} -> Vega ${vegaId}: "${obj?.Title || 'UNKNOWN'}"`);
+      });
       
       for (const viva of kpis) {
         try {
