@@ -1079,7 +1079,12 @@ export class VivaGoalsImporter {
           }
           
           if (!parentVegaId) {
-            this.result.warnings.push(`KPI "${viva.Title}" has no valid parent objective, skipping`);
+            const parentVivaIdNum = viva['Parent IDs']?.[0];
+            if (!parentVivaIdNum || parentVivaIdNum === 0) {
+              this.result.warnings.push(`KPI "${viva.Title}" has no parent objective in Viva Goals export (orphan KPI), skipping`);
+            } else {
+              this.result.warnings.push(`KPI "${viva.Title}" parent objective (Viva ID: ${parentVivaIdNum}) was not imported, skipping`);
+            }
             this.result.skippedItems.push({ type: 'key_result', title: viva.Title, vivaId: viva.ID });
             continue;
           }
