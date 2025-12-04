@@ -856,11 +856,11 @@ export class VivaGoalsImporter {
       // Debug: Log all KPIs with their parent info
       console.log(`\n[DEBUG] KPIs being processed: ${kpis.length}`);
       // Trace problematic KPIs
-      const problematicKPIs = ['distribute msft', 'distribute partner', 'publish partner'];
+      const problematicKPIs = ['distribute msft', 'distribute partner', 'publish partner', 'impressions', 'clicks', 'clickthrough', 'total spend', 'paid media'];
       for (const kpi of kpis) {
         const lowerTitle = kpi.Title.toLowerCase();
         if (problematicKPIs.some(p => lowerTitle.includes(p))) {
-          console.log(`\n[DEBUG] Tracing problematic KPI: "${kpi.Title}"`);
+          console.log(`\n[DEBUG] Tracing KPI: "${kpi.Title}"`);
           console.log(`  - Viva ID: ${kpi.ID}`);
           console.log(`  - Parent IDs from export: ${JSON.stringify(kpi['Parent IDs'])}`);
           const parentId = kpi['Parent IDs']?.[0];
@@ -872,6 +872,14 @@ export class VivaGoalsImporter {
             console.log(`  - No parent ID specified!`);
           }
         }
+      }
+      
+      // Also trace the "paid media" objective itself
+      const paidMediaObj = allBigRocks.find(o => o.Title.toLowerCase().includes('paid media'));
+      if (paidMediaObj) {
+        console.log(`\n[DEBUG] "Paid media" objective status:`);
+        console.log(`  - Viva ID: ${paidMediaObj.ID}`);
+        console.log(`  - In objectiveMap: ${objectiveMap.has(paidMediaObj.ID) ? objectiveMap.get(paidMediaObj.ID) : 'NOT IN MAP'}`);
       }
       
       // Debug: Log which objectives are in the map after Phases 1+2
