@@ -274,6 +274,12 @@ export class VivaGoalsImporter {
 
   /**
    * Convert Viva Goals "Kpi" to Vega "Key Result"
+   * 
+   * IMPORTANT: For absolute numeric metrics (like "website traffic"), we preserve raw values
+   * and let the UI calculate progress. Progress field stores the pre-calculated percentage
+   * for display purposes. The key distinction is:
+   * - unit = '%' or undefined: percentage-based KR, currentValue is 0-100
+   * - unit = 'Number' or specific unit: absolute KR, currentValue is raw value
    */
   mapKpiToKeyResult(viva: VivaObjective, objectiveId: string): Partial<KeyResult> {
     const owner = viva.Owner && viva.Owner.length > 0 ? viva.Owner[0] : null;
@@ -284,14 +290,15 @@ export class VivaGoalsImporter {
     let currentValue = 0;
     let targetValue = 100;
     let initialValue = 0;
-    let unit = outcome['Metric Unit'] || undefined;
+    let unit: string | undefined = undefined;
 
     if (outcome['Outcome Type'] === 'Metric') {
       metricType = this.mapMetricType(outcome['Target Type']);
       initialValue = outcome.Start || 0;
       targetValue = outcome.Target || 100;
       
-      // Calculate current value from progress (preserve decimals)
+      // For absolute metrics, we need to calculate current value from progress
+      // Progress in Viva is already a percentage (0-100)
       const progress = viva.Progress / 100;
       if (metricType === 'increase') {
         currentValue = initialValue + (targetValue - initialValue) * progress;
@@ -299,6 +306,26 @@ export class VivaGoalsImporter {
         currentValue = initialValue - (initialValue - targetValue) * progress;
       } else {
         currentValue = targetValue * progress;
+      }
+      
+      // Set unit - IMPORTANT: respect the actual metric unit from Viva
+      // Only treat as absolute 'Number' if there's no unit specified AND target != 100
+      const vivaUnit = outcome['Metric Unit'];
+      if (vivaUnit === '%') {
+        // Explicit percentage unit
+        unit = '%';
+      } else if (vivaUnit && vivaUnit !== '') {
+        // Specific unit like "webinars", "views", "$", etc.
+        unit = vivaUnit;
+      } else {
+        // No unit specified - check if it looks like a percentage or absolute
+        // If target is 100 with no unit, it's likely a percentage
+        // If target is something else, it's likely an absolute number
+        if (targetValue === 100 && initialValue === 0) {
+          unit = '%';
+        } else {
+          unit = 'Number';
+        }
       }
     } else {
       // Percentage-based (preserve decimals)
@@ -372,31 +399,40 @@ export class VivaGoalsImporter {
 
   /**
    * Convert Viva Goals check-in to Vega check-in
-   * For key results with absolute values (e.g., "4 webinars"), we calculate progress as percentage
+   * 
+   * For key results with absolute values (e.g., "website traffic = 11,250"):
+   * - newValue stores the RAW current value from check-in (e.g., 1,812,150)
+   * - newProgress stores the CALCULATED percentage (e.g., 100 if over target)
+   * 
+   * The UI should use progress for display, but show raw values in the tooltip/detail
    */
   mapCheckIn(
     viva: VivaCheckIn, 
     entityType: 'objective' | 'key_result' | 'big_rock', 
     entityId: string,
-    entityInfo?: { targetValue?: number; initialValue?: number }
+    entityInfo?: { targetValue?: number; initialValue?: number; unit?: string }
   ): Partial<CheckIn> {
     // For imported check-ins, we don't have historical previous values
     // Use 0 as default for previousProgress/previousValue
     
     // Calculate progress as percentage for key results with absolute targets
-    let newProgress = viva['Current Value'];
+    const rawValue = viva['Current Value'];
+    let newProgress = rawValue;
+    
     if (entityType === 'key_result' && entityInfo) {
       const target = entityInfo.targetValue ?? 100;
       const initial = entityInfo.initialValue ?? 0;
-      const current = viva['Current Value'];
       
       // Calculate progress: ((current - initial) / (target - initial)) * 100
       // Handle edge cases: if target equals initial, avoid division by zero
       if (target !== initial) {
-        newProgress = Math.min(100, Math.max(0, ((current - initial) / (target - initial)) * 100));
+        // For "increase" type metrics
+        const calculatedProgress = ((rawValue - initial) / (target - initial)) * 100;
+        // Cap at 100% for display purposes, but allow over 100% to track exceeding targets
+        newProgress = Math.max(0, calculatedProgress);
       } else {
         // If target equals initial and current equals target, it's 100%
-        newProgress = current >= target ? 100 : 0;
+        newProgress = rawValue >= target ? 100 : 0;
       }
     }
     
@@ -405,9 +441,9 @@ export class VivaGoalsImporter {
       entityType,
       entityId,
       previousValue: 0, // Default for imports
-      newValue: viva['Current Value'], // Preserve decimal values
+      newValue: rawValue, // Store the RAW value from the check-in
       previousProgress: 0, // Default for imports
-      newProgress, // Calculated as percentage for absolute values
+      newProgress, // Calculated progress percentage (for display)
       previousStatus: 'not_started', // Default for imports
       newStatus: this.mapStatus(viva.Status),
       note: viva['Check In Note']?.['Check In Note'] || undefined,
@@ -629,13 +665,15 @@ export class VivaGoalsImporter {
               };
               continue;
             } else if (this.options.duplicateStrategy === 'merge') {
-              // Update existing objective
+              // Update existing objective - CRITICAL: include parentId to preserve hierarchy
+              // objectiveData already has parentId set from the mapping above
               await storage.updateObjective(duplicate.id, objectiveData);
               objectiveMap.set(viva.ID, duplicate.id);
               this.result.entityMap[viva.ID] = {
                 type: 'objective',
                 vegaId: duplicate.id,
               };
+              this.result.summary.objectivesCreated++; // Count merged as created for accuracy
               continue;
             }
           }
@@ -713,7 +751,32 @@ export class VivaGoalsImporter {
           }
 
           const keyResultData = this.mapKpiToKeyResult(viva, parentVegaId);
-          const created = await storage.createKeyResult(keyResultData);
+          
+          // Check for duplicate key results (same title under same objective)
+          const existingKRs = await storage.getKeyResultsByObjectiveId(parentVegaId);
+          const duplicateKR = existingKRs.find((kr: any) => kr.title === viva.Title);
+          
+          let created;
+          if (duplicateKR) {
+            if (this.options.duplicateStrategy === 'skip') {
+              this.result.warnings.push(`Skipped duplicate key result: "${viva.Title}"`);
+              this.result.entityMap[viva.ID] = {
+                type: 'key_result',
+                vegaId: duplicateKR.id,
+                targetValue: viva.Outcome?.Target ?? 100,
+                initialValue: viva.Outcome?.Start ?? 0,
+              };
+              continue;
+            } else if (this.options.duplicateStrategy === 'merge') {
+              // Update existing KR
+              await storage.updateKeyResult(duplicateKR.id, keyResultData);
+              created = duplicateKR;
+            } else {
+              created = await storage.createKeyResult(keyResultData);
+            }
+          } else {
+            created = await storage.createKeyResult(keyResultData);
+          }
           
           // Store target/initial values to calculate check-in progress correctly for absolute values
           this.result.entityMap[viva.ID] = {
@@ -742,9 +805,34 @@ export class VivaGoalsImporter {
           
           if (parentVegaId) {
             bigRockData.objectiveId = parentVegaId;
+          } else if (parentVivaId) {
+            // Parent was in Viva but not mapped - warn about it
+            this.result.warnings.push(`Big Rock "${viva.Title}" parent (Viva ID: ${parentVivaId}) not found in import, creating unlinked`);
           }
 
-          const created = await storage.createBigRock(bigRockData);
+          // Check for duplicate big rocks (same title, same quarter/year)
+          const existingBigRocks = await storage.getBigRocksByTenantId(this.options.tenantId, bigRockData.quarter, bigRockData.year);
+          const duplicateBR = existingBigRocks.find((br: any) => br.title === viva.Title);
+          
+          let created;
+          if (duplicateBR) {
+            if (this.options.duplicateStrategy === 'skip') {
+              this.result.warnings.push(`Skipped duplicate big rock: "${viva.Title}"`);
+              this.result.entityMap[viva.ID] = {
+                type: 'big_rock',
+                vegaId: duplicateBR.id,
+              };
+              continue;
+            } else if (this.options.duplicateStrategy === 'merge') {
+              // Update existing Big Rock - CRITICAL: include objectiveId to preserve linkage
+              await storage.updateBigRock(duplicateBR.id, bigRockData);
+              created = duplicateBR;
+            } else {
+              created = await storage.createBigRock(bigRockData);
+            }
+          } else {
+            created = await storage.createBigRock(bigRockData);
+          }
           
           this.result.entityMap[viva.ID] = {
             type: 'big_rock',

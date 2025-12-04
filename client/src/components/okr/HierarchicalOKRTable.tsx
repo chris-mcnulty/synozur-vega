@@ -196,6 +196,10 @@ function formatProgressText(progress: number, metricType?: string): string {
   if (metricType === "complete") {
     return progress >= 100 ? "Complete" : "In Progress";
   }
+  // Handle over-achievement gracefully
+  if (progress > 100) {
+    return "100%+";
+  }
   return `${Math.round(progress)}%`;
 }
 
@@ -313,8 +317,10 @@ function ObjectiveRow({
                   )}
                 </div>
                 <div className="flex items-center gap-2">
-                  <Progress value={objective.progress} className="w-16 h-1.5" />
-                  <span className="text-xs text-muted-foreground">{Math.round(objective.progress)}%</span>
+                  <Progress value={Math.min(objective.progress, 100)} className="w-16 h-1.5" />
+                  <span className="text-xs text-muted-foreground">
+                    {objective.progress > 100 ? "100%+" : `${Math.round(objective.progress)}%`}
+                  </span>
                 </div>
               </div>
             );
@@ -542,7 +548,7 @@ function KeyResultRow({
             {getStatusLabel(keyResult.status)}
           </Badge>
           <div className="flex items-center gap-2">
-            <Progress value={keyResult.progress} className="w-16 h-1.5" />
+            <Progress value={Math.min(keyResult.progress, 100)} className="w-16 h-1.5" />
             <span className="text-xs text-muted-foreground">
               {formatProgressText(keyResult.progress, keyResult.metricType)}
             </span>

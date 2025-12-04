@@ -222,10 +222,14 @@ export function OKRDetailPane({
                 <div className="flex items-center gap-4">
                   <div className={`w-3 h-3 rounded-full ${getStatusColor(entity.status)}`} />
                   <span className="font-medium">{getStatusLabel(entity.status)}</span>
-                  <span className="text-2xl font-bold ml-auto">{Math.round(entity.progress)}%</span>
+                  <span className="text-2xl font-bold ml-auto">
+                    {entity.progress > 100 
+                      ? `100%+` 
+                      : `${Math.round(entity.progress)}%`}
+                  </span>
                 </div>
 
-                <Progress value={entity.progress} className="h-2" />
+                <Progress value={Math.min(entity.progress, 100)} className="h-2" />
 
                 {entity.targetValue !== undefined && (
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
