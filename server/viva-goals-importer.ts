@@ -809,13 +809,21 @@ export class VivaGoalsImporter {
       
       // Debug: Log all KPIs with their parent info
       console.log(`\n[DEBUG] KPIs being processed: ${kpis.length}`);
+      // Trace problematic KPIs
+      const problematicKPIs = ['distribute msft', 'distribute partner', 'publish partner'];
       for (const kpi of kpis) {
-        if (kpi.Title.toLowerCase().includes('podcast') || kpi.Title.toLowerCase().includes('social')) {
-          console.log(`  - KPI "${kpi.Title}" (Viva ID: ${kpi.ID}) -> Parent IDs: ${JSON.stringify(kpi['Parent IDs'])}`);
+        const lowerTitle = kpi.Title.toLowerCase();
+        if (problematicKPIs.some(p => lowerTitle.includes(p))) {
+          console.log(`\n[DEBUG] Tracing problematic KPI: "${kpi.Title}"`);
+          console.log(`  - Viva ID: ${kpi.ID}`);
+          console.log(`  - Parent IDs from export: ${JSON.stringify(kpi['Parent IDs'])}`);
           const parentId = kpi['Parent IDs']?.[0];
           if (parentId) {
             const parentObj = this.objectives.find(o => o.ID === parentId);
-            console.log(`    Parent Obj: ${parentObj?.Title || 'NOT FOUND'} (Type: ${parentObj?.Type})`);
+            console.log(`  - Parent in export: ${parentObj?.Title || 'NOT IN EXPORT'} (Type: ${parentObj?.Type})`);
+            console.log(`  - Parent in objectiveMap: ${objectiveMap.has(parentId) ? objectiveMap.get(parentId) : 'NOT IN MAP'}`);
+          } else {
+            console.log(`  - No parent ID specified!`);
           }
         }
       }
