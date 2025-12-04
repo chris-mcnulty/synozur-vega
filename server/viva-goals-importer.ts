@@ -580,7 +580,10 @@ export class VivaGoalsImporter {
       const allBigRocks = this.objectives.filter(obj => obj.Type === 'Big rock');
       
       // Phase 1: Create organization-level objectives (no parents)
-      const orgLevelObjectives = allBigRocks.filter(obj => !obj['Parent IDs']?.length);
+      // Sort alphabetically by title for consistent ordering
+      const orgLevelObjectives = allBigRocks
+        .filter(obj => !obj['Parent IDs']?.length)
+        .sort((a, b) => a.Title.localeCompare(b.Title));
       
       for (const viva of orgLevelObjectives) {
         try {
@@ -662,8 +665,12 @@ export class VivaGoalsImporter {
         return 1 + getDepth(parent, visited);
       };
       
-      // Sort by depth (ascending) so parents are processed first
-      const sortedChildObjectives = [...childObjectives].sort((a, b) => getDepth(a) - getDepth(b));
+      // Sort by depth (ascending) so parents are processed first, then alphabetically within same depth
+      const sortedChildObjectives = [...childObjectives].sort((a, b) => {
+        const depthDiff = getDepth(a) - getDepth(b);
+        if (depthDiff !== 0) return depthDiff;
+        return a.Title.localeCompare(b.Title);
+      });
       
       // Debug: Log what parent IDs we're looking for
       console.log(`\n[DEBUG] Phase 2 - Processing ${sortedChildObjectives.length} child objectives (sorted by hierarchy depth)`);
