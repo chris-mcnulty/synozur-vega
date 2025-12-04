@@ -815,14 +815,11 @@ export class DatabaseStorage implements IStorage {
       return match ? parseInt(match[1], 10) : null;
     };
     
-    // Sort function for objectives: by level, then by numeric prefix (if present), then by title
+    // Sort function for objectives: numeric prefix FIRST (if present), then by level, then by title
+    // This ensures "1. X", "2. Y", "3. Z" sort together regardless of their org level
     const sortObjectives = <T extends { level?: string | null; title: string }>(objs: T[]): T[] => {
       return [...objs].sort((a, b) => {
-        // First: sort by level
-        const levelDiff = (levelOrder[a.level || 'team'] ?? 4) - (levelOrder[b.level || 'team'] ?? 4);
-        if (levelDiff !== 0) return levelDiff;
-        
-        // Second: sort by numeric prefix if both have one
+        // First: sort by numeric prefix if either has one
         const aPrefix = extractNumericPrefix(a.title || '');
         const bPrefix = extractNumericPrefix(b.title || '');
         
@@ -837,7 +834,10 @@ export class DatabaseStorage implements IStorage {
           return 1;
         }
         
-        // Neither has prefix - sort alphabetically
+        // Neither has prefix - sort by level then alphabetically
+        const levelDiff = (levelOrder[a.level || 'team'] ?? 4) - (levelOrder[b.level || 'team'] ?? 4);
+        if (levelDiff !== 0) return levelDiff;
+        
         return (a.title || '').localeCompare(b.title || '');
       });
     };

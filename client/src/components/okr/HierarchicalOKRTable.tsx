@@ -145,8 +145,8 @@ function getStatusLabel(status: string): string {
   }
 }
 
-function getQuarterLabel(quarter: number): string {
-  if (quarter === 0) return "Annual";
+function getQuarterLabel(quarter: number | null | undefined): string {
+  if (quarter === 0 || quarter === null || quarter === undefined) return "Annual";
   return `Q${quarter}`;
 }
 
