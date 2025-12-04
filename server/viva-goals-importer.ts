@@ -644,6 +644,10 @@ export class VivaGoalsImporter {
       // Phase 2: Create child objectives (team/division level with parents)
       const childObjectives = allBigRocks.filter(obj => obj['Parent IDs']?.length > 0);
       
+      // Debug: Log what parent IDs we're looking for
+      console.log(`\n[DEBUG] Phase 2 - Processing ${childObjectives.length} child objectives`);
+      console.log(`[DEBUG] ObjectiveMap has ${objectiveMap.size} entries from Phase 1`);
+      
       for (const viva of childObjectives) {
         try {
           const objectiveData = this.mapBigRockToObjective(viva);
@@ -654,6 +658,17 @@ export class VivaGoalsImporter {
           // Link to parent objective
           const parentVivaId = viva['Parent IDs']?.[0];
           const parentVegaId = parentVivaId ? objectiveMap.get(parentVivaId) : null;
+          
+          // Debug: Trace specific objectives
+          if (viva.Title.toLowerCase().includes('podcast') || viva.Title.toLowerCase().includes('reach and sustain')) {
+            console.log(`\n[DEBUG] Processing child objective: "${viva.Title}"`);
+            console.log(`  - Viva ID: ${viva.ID}`);
+            console.log(`  - Parent Viva ID: ${parentVivaId}`);
+            console.log(`  - Parent Vega ID from map: ${parentVegaId || 'NOT FOUND'}`);
+            // Find parent in original data
+            const parentInExport = this.objectives.find(o => o.ID === parentVivaId);
+            console.log(`  - Parent in export: ${parentInExport?.Title || 'NOT IN EXPORT'} (Type: ${parentInExport?.Type})`);
+          }
           
           if (parentVegaId) {
             objectiveData.parentId = parentVegaId;
