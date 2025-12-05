@@ -1958,14 +1958,14 @@ export default function PlanningEnhanced() {
           setWeightManagementDialogOpen(open);
           if (!open) setManagedWeights([]); // Clear local state on close
         }}>
-          <DialogContent className="max-w-3xl">
-            <DialogHeader>
+          <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+            <DialogHeader className="flex-shrink-0">
               <DialogTitle>Manage Key Result Weights</DialogTitle>
               <DialogDescription>
                 {selectedObjective && `For: ${selectedObjective.title}`}
               </DialogDescription>
             </DialogHeader>
-            <div className="mt-4">
+            <div className="mt-4 overflow-y-auto flex-1 min-h-0">
               {managedWeights.length > 0 && (
                 <WeightManager
                   items={managedWeights}
@@ -1974,7 +1974,7 @@ export default function PlanningEnhanced() {
                 />
               )}
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex-shrink-0 pt-4 border-t">
               <Button 
                 variant="outline" 
                 onClick={() => {
