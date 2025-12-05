@@ -23,7 +23,8 @@ import {
   FolderPlus,
   ArrowDownFromLine,
   Lock,
-  Unlock
+  Unlock,
+  Scale
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -84,6 +85,7 @@ interface HierarchicalOKRTableProps {
   onReopenObjective?: (objectiveId: string) => void;
   onCloseKeyResult?: (keyResultId: string) => void;
   onReopenKeyResult?: (keyResultId: string) => void;
+  onManageWeights?: (objectiveId: string) => void;
 }
 
 function getStatusColor(status: string): string {
@@ -220,6 +222,7 @@ function ObjectiveRow({
   onReopenObjective,
   onCloseKeyResult,
   onReopenKeyResult,
+  onManageWeights,
 }: { 
   objective: HierarchyObjective; 
   depth?: number;
@@ -237,6 +240,7 @@ function ObjectiveRow({
   onReopenObjective?: (objectiveId: string) => void;
   onCloseKeyResult?: (keyResultId: string) => void;
   onReopenKeyResult?: (keyResultId: string) => void;
+  onManageWeights?: (objectiveId: string) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -410,6 +414,14 @@ function ObjectiveRow({
                   <Leaf className="h-4 w-4 mr-2 text-teal-500" />
                   Check-in
                 </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => onManageWeights?.(objective.id)} 
+                  data-testid={`menu-weights-${objective.id}`}
+                  disabled={objective.status === 'closed' || keyResults.length === 0}
+                >
+                  <Scale className="h-4 w-4 mr-2" />
+                  Manage Weights
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {objective.status === 'closed' ? (
                   <DropdownMenuItem 
@@ -476,6 +488,7 @@ function ObjectiveRow({
               onDeleteKeyResult={onDeleteKeyResult}
               onCloseObjective={onCloseObjective}
               onReopenObjective={onReopenObjective}
+              onManageWeights={onManageWeights}
               onCloseKeyResult={onCloseKeyResult}
               onReopenKeyResult={onReopenKeyResult}
             />
@@ -662,6 +675,7 @@ export function HierarchicalOKRTable({
   onReopenObjective,
   onCloseKeyResult,
   onReopenKeyResult,
+  onManageWeights,
 }: HierarchicalOKRTableProps) {
   if (objectives.length === 0) {
     return (
@@ -707,6 +721,7 @@ export function HierarchicalOKRTable({
               onReopenObjective={onReopenObjective}
               onCloseKeyResult={onCloseKeyResult}
               onReopenKeyResult={onReopenKeyResult}
+              onManageWeights={onManageWeights}
             />
           ))}
         </TableBody>

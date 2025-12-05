@@ -1328,6 +1328,7 @@ export default function PlanningEnhanced() {
                   onReopenKeyResult={(keyResultId) => {
                     reopenKeyResultMutation.mutate(keyResultId);
                   }}
+                  onManageWeights={handleManageWeights}
                 />
               )}
             </div>
