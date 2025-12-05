@@ -42,6 +42,8 @@ interface KeyResult {
   startValue?: number;
   unit?: string;
   metricType?: string;
+  weight?: number;
+  isWeightLocked?: boolean;
 }
 
 interface BigRock {
@@ -540,6 +542,31 @@ function KeyResultRow({
           >
             {keyResult.title}
           </span>
+          {keyResult.weight !== undefined && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge 
+                    variant="outline" 
+                    className={cn(
+                      "text-[10px] px-1.5 py-0 h-4 flex-shrink-0",
+                      keyResult.isWeightLocked ? "border-amber-400 text-amber-600 dark:text-amber-400" : ""
+                    )}
+                    data-testid={`badge-weight-${keyResult.id}`}
+                  >
+                    {keyResult.isWeightLocked && <Lock className="h-2.5 w-2.5 mr-0.5" />}
+                    {keyResult.weight}%
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">
+                    Weight: {keyResult.weight}%
+                    {keyResult.isWeightLocked && " (locked)"}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
       </TableCell>
       
