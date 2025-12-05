@@ -137,7 +137,10 @@ export interface IStorage {
   
   // Grounding documents methods (for AI context)
   getAllGroundingDocuments(): Promise<GroundingDocument[]>;
+  getGlobalGroundingDocuments(): Promise<GroundingDocument[]>;
+  getTenantGroundingDocuments(tenantId: string): Promise<GroundingDocument[]>;
   getActiveGroundingDocuments(): Promise<GroundingDocument[]>;
+  getActiveGroundingDocumentsForTenant(tenantId: string): Promise<GroundingDocument[]>;
   getGroundingDocumentById(id: string): Promise<GroundingDocument | undefined>;
   createGroundingDocument(document: InsertGroundingDocument): Promise<GroundingDocument>;
   updateGroundingDocument(id: string, document: Partial<InsertGroundingDocument>): Promise<GroundingDocument>;
@@ -1115,11 +1118,43 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(groundingDocuments.priority), groundingDocuments.category);
   }
 
+  async getGlobalGroundingDocuments(): Promise<GroundingDocument[]> {
+    return await db
+      .select()
+      .from(groundingDocuments)
+      .where(isNull(groundingDocuments.tenantId))
+      .orderBy(desc(groundingDocuments.priority), groundingDocuments.category);
+  }
+
+  async getTenantGroundingDocuments(tenantId: string): Promise<GroundingDocument[]> {
+    return await db
+      .select()
+      .from(groundingDocuments)
+      .where(eq(groundingDocuments.tenantId, tenantId))
+      .orderBy(desc(groundingDocuments.priority), groundingDocuments.category);
+  }
+
   async getActiveGroundingDocuments(): Promise<GroundingDocument[]> {
     return await db
       .select()
       .from(groundingDocuments)
       .where(eq(groundingDocuments.isActive, true))
+      .orderBy(desc(groundingDocuments.priority), groundingDocuments.category);
+  }
+
+  async getActiveGroundingDocumentsForTenant(tenantId: string): Promise<GroundingDocument[]> {
+    return await db
+      .select()
+      .from(groundingDocuments)
+      .where(
+        and(
+          eq(groundingDocuments.isActive, true),
+          or(
+            isNull(groundingDocuments.tenantId),
+            eq(groundingDocuments.tenantId, tenantId)
+          )
+        )
+      )
       .orderBy(desc(groundingDocuments.priority), groundingDocuments.category);
   }
 

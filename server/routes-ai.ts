@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { storage } from "./storage";
 import { insertGroundingDocumentSchema } from "@shared/schema";
-import { getChatCompletion, streamChatCompletion, generateOKRSuggestions, suggestBigRocks, streamProgressSummary, streamGoalSuggestions, type ChatMessage, type ProgressSummaryData, type GoalSuggestionContext } from "./ai";
+import { getChatCompletion, streamChatCompletion, generateOKRSuggestions, suggestBigRocks, streamProgressSummary, streamGoalSuggestions, streamStrategyDraft, type ChatMessage, type ProgressSummaryData, type GoalSuggestionContext, type StrategyDraftContext } from "./ai";
 import { z } from "zod";
 
 export const aiRouter = Router();
@@ -500,12 +500,13 @@ aiRouter.post("/suggest/goals/stream", requireAuth, async (req: Request, res: Re
     console.log("[Goal Suggestions] User:", user.email, "Tenant:", tenantId);
 
     // Gather all organizational context
-    const [foundation, strategies, objectives] = await Promise.all([
+    const [foundationResult, strategies, objectives] = await Promise.all([
       storage.getFoundationByTenantId(tenantId),
       storage.getStrategiesByTenantId(tenantId),
       storage.getObjectivesByTenantId(tenantId),
     ]);
-
+    
+    const foundation = foundationResult || null;
     const existingGoals = foundation?.annualGoals || [];
 
     console.log("[Goal Suggestions] Context - Foundation:", !!foundation, 
@@ -544,6 +545,67 @@ aiRouter.post("/suggest/goals/stream", requireAuth, async (req: Request, res: Re
         return res.status(400).json({ error: "Invalid request format", details: error.errors });
       }
       res.status(500).json({ error: error.message || "Failed to generate goal suggestions" });
+    } else {
+      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+      res.end();
+    }
+  }
+});
+
+// Strategy draft endpoint - generates AI-drafted strategy based on user description and grounding documents
+const strategyDraftSchema = z.object({
+  tenantId: z.string(),
+  prompt: z.string().min(10, "Please provide a more detailed description of the strategy you want to create"),
+});
+
+aiRouter.post("/strategy-draft/stream", requireAuth, async (req: Request, res: Response) => {
+  console.log("[Strategy Draft] Request received");
+  try {
+    const { tenantId, prompt } = strategyDraftSchema.parse(req.body);
+    const user = (req as any).user;
+    console.log("[Strategy Draft] User:", user.email, "Tenant:", tenantId);
+
+    // Gather organizational context
+    const [foundationResult, strategies] = await Promise.all([
+      storage.getFoundationByTenantId(tenantId),
+      storage.getStrategiesByTenantId(tenantId),
+    ]);
+    
+    const foundation = foundationResult || null;
+
+    console.log("[Strategy Draft] Context - Foundation:", !!foundation, 
+      "Existing Strategies:", strategies.length);
+
+    // Set up SSE headers
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    // Stream the strategy draft
+    const stream = streamStrategyDraft({
+      tenantId,
+      prompt,
+      foundation,
+      existingStrategies: strategies,
+    });
+
+    let chunkCount = 0;
+    for await (const chunk of stream) {
+      chunkCount++;
+      res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+    }
+
+    console.log("[Strategy Draft] Stream completed, chunks:", chunkCount);
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.end();
+  } catch (error: any) {
+    console.error("[Strategy Draft] Error:", error.message || error);
+    if (!res.headersSent) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request format", details: error.errors });
+      }
+      res.status(500).json({ error: error.message || "Failed to generate strategy draft" });
     } else {
       res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
       res.end();

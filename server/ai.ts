@@ -24,8 +24,10 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 // Build system prompt with grounding documents
 async function buildSystemPrompt(tenantId?: string): Promise<string> {
-  // Get active grounding documents sorted by priority
-  const groundingDocs = await storage.getActiveGroundingDocuments();
+  // Get active grounding documents - both global and tenant-specific if tenantId provided
+  const groundingDocs = tenantId 
+    ? await storage.getActiveGroundingDocumentsForTenant(tenantId)
+    : await storage.getActiveGroundingDocuments();
   
   // Build grounding context by category
   const groundingContext = groundingDocs
@@ -500,6 +502,88 @@ End with a brief summary of the strategic themes these goals address.`,
 
   // Use the streaming function with higher token limit for comprehensive suggestions
   const stream = streamChatCompletion(messages, { tenantId: context.tenantId, maxTokens: 4096 });
+  for await (const chunk of stream) {
+    yield chunk;
+  }
+}
+
+// Interface for strategy draft context
+export interface StrategyDraftContext {
+  tenantId: string;
+  prompt: string;
+  foundation: Foundation | null;
+  existingStrategies: Strategy[];
+}
+
+// Streaming strategy draft generation based on organizational context and grounding documents
+export async function* streamStrategyDraft(
+  context: StrategyDraftContext
+): AsyncGenerator<string, void, unknown> {
+  const { prompt, foundation, existingStrategies } = context;
+
+  // Build context about the organization
+  let organizationContext = "";
+  
+  if (foundation) {
+    if (foundation.mission) organizationContext += `**Mission:** ${foundation.mission}\n`;
+    if (foundation.vision) organizationContext += `**Vision:** ${foundation.vision}\n`;
+    if (foundation.tagline) organizationContext += `**Tagline:** ${foundation.tagline}\n`;
+    if (foundation.companySummary) organizationContext += `**Company Summary:** ${foundation.companySummary}\n`;
+    if (foundation.cultureStatement) organizationContext += `**Culture:** ${foundation.cultureStatement}\n`;
+    if (foundation.values && Array.isArray(foundation.values) && foundation.values.length > 0) {
+      const valuesText = foundation.values
+        .map((v: any) => `- ${v.title}${v.description ? `: ${v.description}` : ''}`)
+        .join('\n');
+      organizationContext += `**Values:**\n${valuesText}\n`;
+    }
+    if (foundation.annualGoals && Array.isArray(foundation.annualGoals) && foundation.annualGoals.length > 0) {
+      const goalsText = foundation.annualGoals.map((g: string) => `- ${g}`).join('\n');
+      organizationContext += `**Annual Goals:**\n${goalsText}\n`;
+    }
+  }
+
+  // Build existing strategies context
+  const existingStrategiesContext = existingStrategies.length > 0
+    ? existingStrategies.map(s => `- ${s.title}${s.description ? `: ${s.description}` : ''} (${s.priority} priority, ${s.status})`).join('\n')
+    : 'No existing strategies defined yet.';
+
+  const messages: ChatMessage[] = [
+    {
+      role: "user",
+      content: `Based on the organizational context and the user's description below, draft a comprehensive strategy.
+
+## User's Strategy Description
+${prompt}
+
+## Organization Context
+${organizationContext || 'No organizational context available yet.'}
+
+## Existing Strategies (to avoid duplication)
+${existingStrategiesContext}
+
+## Instructions
+Create a well-structured strategy that:
+1. Aligns with the organization's mission, vision, and values
+2. Complements (doesn't duplicate) existing strategies
+3. Addresses the user's described focus area
+4. Is actionable and measurable
+
+Please respond with a JSON object in the following format (no markdown, just pure JSON):
+{
+  "title": "A clear, concise strategy title (max 100 characters)",
+  "description": "A comprehensive description of the strategy (2-3 paragraphs explaining what this strategy entails, why it matters, and how it will be executed)",
+  "priority": "critical|high|medium|low",
+  "suggestedTimeline": "A suggested timeline (e.g., 'Q1-Q2 2025', '6-12 months', 'Ongoing')",
+  "linkedGoals": ["Array of annual goal titles this strategy supports"],
+  "rationale": "Brief explanation of why this strategy is important and how it aligns with the organization's direction"
+}
+
+Ensure the response is valid JSON only, with no additional text before or after.`,
+    },
+  ];
+
+  // Use the streaming function
+  const stream = streamChatCompletion(messages, { tenantId: context.tenantId, maxTokens: 2048 });
   for await (const chunk of stream) {
     yield chunk;
   }

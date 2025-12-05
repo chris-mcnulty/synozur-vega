@@ -741,9 +741,12 @@ export const insertImportHistorySchema = createInsertSchema(importHistory).omit(
 export type InsertImportHistory = z.infer<typeof insertImportHistorySchema>;
 export type ImportHistory = typeof importHistory.$inferSelect;
 
-// Master grounding documents for AI context
+// Grounding documents for AI context (supports both global/master and tenant-specific)
 export const groundingDocuments = pgTable("grounding_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Tenant association (null = global/master document, value = tenant-specific)
+  tenantId: varchar("tenant_id").references(() => tenants.id),
   
   // Document metadata
   title: text("title").notNull(),

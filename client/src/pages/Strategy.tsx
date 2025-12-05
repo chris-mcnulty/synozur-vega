@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Sparkles, Trash2, Pencil, Target, Link2 } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Plus, Sparkles, Trash2, Pencil, Target, Link2, Loader2, Check } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -63,6 +64,18 @@ export default function Strategy() {
   const [selectedStrategy, setSelectedStrategy] = useState<Strategy | null>(null);
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [aiPrompt, setAiPrompt] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [aiStreamContent, setAiStreamContent] = useState("");
+  const [aiDraftReady, setAiDraftReady] = useState(false);
+  const [parsedDraft, setParsedDraft] = useState<{
+    title: string;
+    description: string;
+    priority: string;
+    suggestedTimeline: string;
+    linkedGoals: string[];
+    rationale: string;
+  } | null>(null);
+  const aiContentRef = useRef<HTMLDivElement>(null);
   
   // Value tag states
   const [strategyValueTags, setStrategyValueTags] = useState<string[]>([]);
@@ -306,13 +319,148 @@ export default function Strategy() {
     }));
   };
 
-  const handleAiDraft = () => {
-    toast({
-      title: "AI Feature",
-      description: "AI drafting will be available in a future update.",
+  const handleAiDraft = async () => {
+    if (!aiPrompt.trim() || aiPrompt.length < 10) {
+      toast({
+        title: "Description too short",
+        description: "Please provide a more detailed description of the strategy you want to create.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    setAiStreamContent("");
+    setAiDraftReady(false);
+    setParsedDraft(null);
+
+    try {
+      const response = await fetch("/api/ai/strategy-draft/stream", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          tenantId: currentTenant.id,
+          prompt: aiPrompt,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to generate strategy draft");
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error("No response stream");
+      }
+
+      let buffer = "";
+      let fullContent = "";
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || "";
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (data.content) {
+                fullContent += data.content;
+                setAiStreamContent(fullContent);
+                if (aiContentRef.current) {
+                  aiContentRef.current.scrollTop = aiContentRef.current.scrollHeight;
+                }
+              }
+              if (data.error) {
+                throw new Error(data.error);
+              }
+            } catch (e) {
+              if (e instanceof SyntaxError) continue;
+              throw e;
+            }
+          }
+        }
+      }
+
+      // Try to parse the JSON response
+      try {
+        const jsonMatch = fullContent.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          setParsedDraft({
+            title: parsed.title || "",
+            description: parsed.description || "",
+            priority: parsed.priority || "medium",
+            suggestedTimeline: parsed.suggestedTimeline || "",
+            linkedGoals: parsed.linkedGoals || [],
+            rationale: parsed.rationale || "",
+          });
+          setAiDraftReady(true);
+        } else {
+          throw new Error("Could not parse AI response");
+        }
+      } catch (parseError) {
+        console.error("Failed to parse AI response:", parseError);
+        toast({
+          title: "Parsing Error",
+          description: "The AI response couldn't be parsed. You can copy the text manually.",
+          variant: "destructive",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error generating strategy draft:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to generate strategy draft. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleUseDraft = () => {
+    if (!parsedDraft) return;
+
+    setFormData({
+      title: parsedDraft.title,
+      description: parsedDraft.description,
+      priority: parsedDraft.priority,
+      status: "not-started",
+      owner: "",
+      timeline: parsedDraft.suggestedTimeline,
+      linkedGoals: parsedDraft.linkedGoals.filter(g => availableGoals.includes(g)),
     });
+
+    // Close AI dialog and open create dialog
     setAiDialogOpen(false);
     setAiPrompt("");
+    setAiStreamContent("");
+    setAiDraftReady(false);
+    setParsedDraft(null);
+    setCreateDialogOpen(true);
+
+    toast({
+      title: "Draft Applied",
+      description: "The AI-generated strategy has been loaded into the form. Review and save when ready.",
+    });
+  };
+
+  const handleCloseAiDialog = () => {
+    setAiDialogOpen(false);
+    setAiPrompt("");
+    setAiStreamContent("");
+    setAiDraftReady(false);
+    setParsedDraft(null);
+    setIsGenerating(false);
   };
 
   const getPriorityVariant = (priority: string) => {
@@ -365,37 +513,152 @@ export default function Strategy() {
             </p>
           </div>
           <div className="flex gap-2">
-            <Dialog open={aiDialogOpen} onOpenChange={setAiDialogOpen}>
+            <Dialog open={aiDialogOpen} onOpenChange={handleCloseAiDialog}>
               <DialogTrigger asChild>
                 <Button variant="outline" data-testid="button-ai-draft">
                   <Sparkles className="w-4 h-4 mr-2" />
                   AI Draft
                 </Button>
               </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>AI Strategy Drafting</DialogTitle>
+              <DialogContent className="max-w-2xl h-[80vh] flex flex-col p-0">
+                <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
+                  <DialogTitle className="flex items-center gap-2">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                    AI Strategy Drafting
+                  </DialogTitle>
                 </DialogHeader>
-                <div className="space-y-4">
+                
+                <div className="flex-1 min-h-0 overflow-hidden">
+                  {!aiStreamContent && !isGenerating ? (
+                    <div className="p-6 space-y-4">
+                      <div>
+                        <Label>Describe your strategic goal</Label>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Be specific about what you want to achieve. The AI will use your organization's mission, vision, values, and existing strategies for context.
+                        </p>
+                        <Textarea
+                          placeholder="E.g., Expand into European markets with focus on SaaS products, targeting mid-size enterprises..."
+                          value={aiPrompt}
+                          onChange={(e) => setAiPrompt(e.target.value)}
+                          rows={5}
+                          className="resize-none"
+                          data-testid="textarea-ai-prompt"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <ScrollArea className="h-full" ref={aiContentRef as any}>
+                      <div className="p-6 space-y-4">
+                        {parsedDraft ? (
+                          <div className="space-y-4">
+                            <Card>
+                              <CardContent className="pt-4 space-y-3">
+                                <div>
+                                  <Label className="text-xs text-muted-foreground">Strategy Title</Label>
+                                  <p className="font-medium">{parsedDraft.title}</p>
+                                </div>
+                                <div>
+                                  <Label className="text-xs text-muted-foreground">Description</Label>
+                                  <p className="text-sm whitespace-pre-wrap">{parsedDraft.description}</p>
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div>
+                                    <Label className="text-xs text-muted-foreground">Priority</Label>
+                                    <Badge variant={getPriorityVariant(parsedDraft.priority) as any} className="mt-1">
+                                      {parsedDraft.priority}
+                                    </Badge>
+                                  </div>
+                                  <div>
+                                    <Label className="text-xs text-muted-foreground">Suggested Timeline</Label>
+                                    <p className="text-sm">{parsedDraft.suggestedTimeline}</p>
+                                  </div>
+                                </div>
+                                {parsedDraft.linkedGoals.length > 0 && (
+                                  <div>
+                                    <Label className="text-xs text-muted-foreground">Linked Goals</Label>
+                                    <div className="flex flex-wrap gap-1 mt-1">
+                                      {parsedDraft.linkedGoals.map((goal, i) => (
+                                        <Badge key={i} variant="outline" className="text-xs">
+                                          {goal}
+                                        </Badge>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {parsedDraft.rationale && (
+                                  <div>
+                                    <Label className="text-xs text-muted-foreground">Rationale</Label>
+                                    <p className="text-sm text-muted-foreground italic">{parsedDraft.rationale}</p>
+                                  </div>
+                                )}
+                              </CardContent>
+                            </Card>
+                          </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="prose prose-sm dark:prose-invert max-w-none">
+                              <pre className="whitespace-pre-wrap text-sm bg-muted p-4 rounded-md overflow-x-auto">
+                                {aiStreamContent}
+                              </pre>
+                            </div>
+                            {isGenerating && (
+                              <div className="flex items-center gap-2 text-primary animate-pulse">
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <span className="text-sm">Generating strategy draft...</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </div>
+
+                <div className="flex items-center justify-between gap-2 px-6 py-4 border-t flex-shrink-0 bg-background">
                   <div>
-                    <Label>Describe your strategic goal</Label>
-                    <Textarea
-                      placeholder="E.g., Expand into European markets with focus on SaaS products..."
-                      value={aiPrompt}
-                      onChange={(e) => setAiPrompt(e.target.value)}
-                      rows={4}
-                      data-testid="textarea-ai-prompt"
-                    />
+                    {aiStreamContent && !isGenerating && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setAiStreamContent("");
+                          setAiDraftReady(false);
+                          setParsedDraft(null);
+                        }}
+                        data-testid="button-new-draft"
+                      >
+                        New Draft
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={handleCloseAiDialog}
+                    >
+                      Cancel
+                    </Button>
+                    {!aiStreamContent && !isGenerating ? (
+                      <Button 
+                        onClick={handleAiDraft} 
+                        disabled={!aiPrompt.trim() || aiPrompt.length < 10}
+                        data-testid="button-generate-draft"
+                      >
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Generate Draft
+                      </Button>
+                    ) : aiDraftReady && parsedDraft ? (
+                      <Button 
+                        onClick={handleUseDraft}
+                        data-testid="button-use-draft"
+                      >
+                        <Check className="w-4 h-4 mr-2" />
+                        Use This Draft
+                      </Button>
+                    ) : null}
                   </div>
                 </div>
-                <DialogFooter>
-                  <Button variant="outline" onClick={() => setAiDialogOpen(false)}>
-                    Cancel
-                  </Button>
-                  <Button onClick={handleAiDraft} data-testid="button-generate-draft">
-                    Generate Draft
-                  </Button>
-                </DialogFooter>
               </DialogContent>
             </Dialog>
             
