@@ -141,11 +141,11 @@ Connect weekly/monthly/quarterly/annual meetings to live OKR tracking, creating 
 
 ---
 
-### 4. Culture & Values Integration ✅ COMPLETE
+### 4. Culture & Values Integration ⚠️ PARTIAL
 
-**Status:** Completed (November 22, 2025)  
+**Status:** Partially Complete  
 **Priority:** High  
-**Effort:** 3 weeks
+**Effort:** 3 weeks (1 week remaining)
 
 **Description:**
 Tag objectives and strategies with company values to ensure values-driven decision making.
@@ -158,15 +158,22 @@ Tag objectives and strategies with company values to ensure values-driven decisi
 - ✅ Display value badges in Objective and Strategy detail views
 - ✅ Backend APIs for value tag sync (add, remove, get)
 - ✅ Values analytics endpoint (`/api/values/analytics/distribution`)
-- ✅ Values alignment dashboard widget showing distribution
 - ✅ Value badges displayed in dashboard strategic priorities section
 - ✅ Culture statement integration in dashboard (collapsible identity section)
 
+**Incomplete Features:**
+- ⚠️ **Values Alignment Dashboard Widget** - Currently shows only top-level counts, not accurate:
+  - Should count values across ALL hierarchy levels (org, team, division, individual)
+  - Should filter by current time period (quarter/year)
+  - Should show breakdown by objective level
+  - Progress bars should reflect actual distribution accurately
+  - Consider adding drill-down to see which objectives have each value
+
 **Business Value:**
 - ✅ Reinforces company culture in daily work
-- ✅ Provides values-based reporting for leadership via analytics
+- ⚠️ Provides values-based reporting for leadership via analytics (incomplete)
 - ✅ Helps teams make decisions aligned with culture
-- ✅ Visual insights into which values drive the most work
+- ⚠️ Visual insights into which values drive the most work (inaccurate)
 
 **Future Enhancements (moved to MEDIUM priority):**
 - Brand voice templates for AI-generated content
@@ -760,7 +767,7 @@ Full check-in history with inline editing capabilities.
 
 ## Quick Wins (Can be done in <1 week)
 
-1. **Values alignment dashboard widget** - Visualize which values are most represented in current work
+1. **Fix Values alignment dashboard widget** - Currently incomplete (see #4), needs accurate counting across all hierarchy levels
 2. **Email notifications for OKR updates** - Leverage existing SendGrid integration
 3. **Keyboard shortcuts** - Power user efficiency
 4. **Dark mode refinements** - Already implemented, just needs polish
