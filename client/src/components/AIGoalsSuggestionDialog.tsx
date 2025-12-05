@@ -4,16 +4,26 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
-import { Loader2, Copy, Check, Sparkles, Target, RefreshCw } from "lucide-react";
+import { Loader2, Copy, Check, Sparkles, Target, RefreshCw, Plus } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+
+interface ParsedGoal {
+  number: number;
+  title: string;
+  rationale: string;
+  fullText: string;
+}
 
 interface AIGoalsSuggestionDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onAddGoal?: (goalTitle: string) => void;
 }
 
 export function AIGoalsSuggestionDialog({
   open,
   onOpenChange,
+  onAddGoal,
 }: AIGoalsSuggestionDialogProps) {
   const { toast } = useToast();
   const { currentTenant } = useTenant();
@@ -21,6 +31,7 @@ export function AIGoalsSuggestionDialog({
   const [suggestions, setSuggestions] = useState("");
   const [copied, setCopied] = useState(false);
   const [hasGenerated, setHasGenerated] = useState(false);
+  const [addedGoals, setAddedGoals] = useState<Set<number>>(new Set());
   const suggestionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -32,6 +43,12 @@ export function AIGoalsSuggestionDialog({
   useEffect(() => {
     if (open && !hasGenerated && !isGenerating) {
       handleGenerate();
+    }
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) {
+      setAddedGoals(new Set());
     }
   }, [open]);
 
@@ -48,6 +65,7 @@ export function AIGoalsSuggestionDialog({
     setIsGenerating(true);
     setSuggestions("");
     setHasGenerated(true);
+    setAddedGoals(new Set());
 
     try {
       const response = await fetch("/api/ai/suggest/goals/stream", {
@@ -109,6 +127,49 @@ export function AIGoalsSuggestionDialog({
     }
   };
 
+  const parseGoals = (text: string): ParsedGoal[] => {
+    const goals: ParsedGoal[] = [];
+    
+    const goalPattern = /(\d+)\.\s*([^:\n]+(?::[^-\n]+)?)\s*(?:\n|$)([\s\S]*?)(?=(?:\d+\.\s)|$)/g;
+    let match;
+    
+    while ((match = goalPattern.exec(text)) !== null) {
+      const number = parseInt(match[1], 10);
+      const titlePart = match[2].trim();
+      const restContent = match[3] || "";
+      
+      let rationale = "";
+      const rationaleMatch = restContent.match(/[-–]\s*Rationale:\s*([\s\S]*?)(?=(?:\d+\.\s)|$)/i);
+      if (rationaleMatch) {
+        rationale = rationaleMatch[1].trim();
+      }
+      
+      goals.push({
+        number,
+        title: titlePart,
+        rationale,
+        fullText: `${number}. ${titlePart}${rationale ? `\n- Rationale: ${rationale}` : ''}`
+      });
+    }
+    
+    return goals;
+  };
+
+  const handleAddGoal = (goal: ParsedGoal) => {
+    if (onAddGoal) {
+      onAddGoal(goal.title);
+      setAddedGoals(prev => {
+        const next = new Set(prev);
+        next.add(goal.number);
+        return next;
+      });
+      toast({
+        title: "Goal Added",
+        description: `"${goal.title.substring(0, 50)}${goal.title.length > 50 ? '...' : ''}" has been added to your annual goals.`,
+      });
+    }
+  };
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(suggestions);
@@ -131,21 +192,19 @@ export function AIGoalsSuggestionDialog({
     onOpenChange(false);
     setSuggestions("");
     setHasGenerated(false);
+    setAddedGoals(new Set());
   };
 
-  const formatSuggestions = (text: string) => {
-    return text
-      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*([^*]+)\*/g, '<em>$1</em>')
-      .replace(/^(\d+\.)/gm, '<span class="text-primary font-semibold">$1</span>')
-      .replace(/^- /gm, '<span class="text-muted-foreground">•</span> ')
-      .replace(/\n/g, '<br/>');
-  };
+  const parsedGoals = parseGoals(suggestions);
+  const hasCompleteParsing = !isGenerating && parsedGoals.length > 0;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col" data-testid="dialog-ai-goal-suggestions">
-        <DialogHeader>
+      <DialogContent 
+        className="max-w-2xl h-[90vh] sm:h-[85vh] flex flex-col p-0" 
+        data-testid="dialog-ai-goal-suggestions"
+      >
+        <DialogHeader className="px-6 pt-6 pb-4 border-b flex-shrink-0">
           <DialogTitle className="flex items-center gap-2" data-testid="text-dialog-title">
             <Sparkles className="w-5 h-5 text-primary" />
             AI Goal Suggestions
@@ -155,8 +214,8 @@ export function AIGoalsSuggestionDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 min-h-[300px] max-h-[50vh]" ref={suggestionsRef as any}>
-          <div className="p-4 space-y-4" data-testid="container-suggestions">
+        <ScrollArea className="flex-1 min-h-0" ref={suggestionsRef as any}>
+          <div className="px-6 py-4 space-y-4" data-testid="container-suggestions">
             {isGenerating && suggestions === "" && (
               <div className="flex flex-col items-center justify-center py-12 gap-4">
                 <div className="relative">
@@ -170,24 +229,76 @@ export function AIGoalsSuggestionDialog({
               </div>
             )}
             
-            {suggestions && (
-              <div 
-                className="prose prose-sm dark:prose-invert max-w-none"
-                data-testid="text-suggestions-content"
-                dangerouslySetInnerHTML={{ __html: formatSuggestions(suggestions) }}
-              />
-            )}
-            
-            {isGenerating && suggestions && (
-              <div className="flex items-center gap-2 text-primary animate-pulse">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="text-sm">Generating...</span>
+            {hasCompleteParsing ? (
+              <div className="space-y-4">
+                {parsedGoals.map((goal) => (
+                  <Card 
+                    key={goal.number} 
+                    className="overflow-hidden"
+                    data-testid={`card-goal-${goal.number}`}
+                  >
+                    <CardContent className="p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-sm font-semibold text-primary">{goal.number}</span>
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <p className="font-medium text-sm leading-relaxed" data-testid={`text-goal-title-${goal.number}`}>
+                            {goal.title}
+                          </p>
+                          {goal.rationale && (
+                            <p className="text-xs text-muted-foreground leading-relaxed" data-testid={`text-goal-rationale-${goal.number}`}>
+                              <span className="font-medium">Rationale:</span> {goal.rationale}
+                            </p>
+                          )}
+                          <div className="pt-2">
+                            <Button
+                              size="sm"
+                              variant={addedGoals.has(goal.number) ? "secondary" : "outline"}
+                              onClick={() => handleAddGoal(goal)}
+                              disabled={addedGoals.has(goal.number) || !onAddGoal}
+                              className="h-8"
+                              data-testid={`button-add-goal-${goal.number}`}
+                            >
+                              {addedGoals.has(goal.number) ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 mr-1.5" />
+                                  Added
+                                </>
+                              ) : (
+                                <>
+                                  <Plus className="w-3.5 h-3.5 mr-1.5" />
+                                  Create Goal
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
               </div>
-            )}
+            ) : suggestions ? (
+              <div className="space-y-3">
+                <div 
+                  className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed whitespace-pre-wrap"
+                  data-testid="text-suggestions-content"
+                >
+                  {suggestions}
+                </div>
+                {isGenerating && (
+                  <div className="flex items-center gap-2 text-primary animate-pulse">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span className="text-sm">Generating...</span>
+                  </div>
+                )}
+              </div>
+            ) : null}
           </div>
         </ScrollArea>
 
-        <div className="flex items-center justify-between gap-2 pt-4 border-t">
+        <div className="flex items-center justify-between gap-2 px-6 py-4 border-t flex-shrink-0 bg-background">
           <div className="flex items-center gap-2">
             {suggestions && !isGenerating && (
               <Button

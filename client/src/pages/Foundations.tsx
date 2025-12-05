@@ -788,6 +788,11 @@ export default function Foundations() {
       <AIGoalsSuggestionDialog
         open={aiGoalsSuggestionOpen}
         onOpenChange={setAiGoalsSuggestionOpen}
+        onAddGoal={(goalTitle) => {
+          if (!goals.includes(goalTitle)) {
+            setGoals(prev => [...prev, goalTitle]);
+          }
+        }}
       />
     </div>
   );
