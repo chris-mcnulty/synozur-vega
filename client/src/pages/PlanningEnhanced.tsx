@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -23,7 +25,7 @@ import { OKRFilters } from "@/components/okr/OKRFilters";
 import { OKRDetailPane } from "@/components/okr/OKRDetailPane";
 import { MilestoneEditor, type PhasedTargets } from "@/components/okr/MilestoneEditor";
 import { MilestoneTimeline } from "@/components/okr/MilestoneTimeline";
-import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2, History, Edit, Sparkles } from "lucide-react";
+import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Foundation, CompanyValue } from "@shared/schema";
 import { ProgressSummaryDialog } from "@/components/ProgressSummaryDialog";
@@ -248,6 +250,8 @@ export default function PlanningEnhanced() {
   const [editingCheckIn, setEditingCheckIn] = useState<CheckIn | null>(null);
   const [weightManagementDialogOpen, setWeightManagementDialogOpen] = useState(false);
   const [progressSummaryDialogOpen, setProgressSummaryDialogOpen] = useState(false);
+  const [saveToMeetingDialogOpen, setSaveToMeetingDialogOpen] = useState(false);
+  const [savedSummary, setSavedSummary] = useState<{ content: string; dateRange: string } | null>(null);
   const [managedWeights, setManagedWeights] = useState<KeyResult[]>([]);
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
   const [selectedKeyResult, setSelectedKeyResult] = useState<KeyResult | null>(null);
@@ -259,6 +263,12 @@ export default function PlanningEnhanced() {
   const [objectiveValueTags, setObjectiveValueTags] = useState<string[]>([]);
   const [previousObjectiveValueTags, setPreviousObjectiveValueTags] = useState<string[]>([]);
   const [previousLinkedBigRocks, setPreviousLinkedBigRocks] = useState<string[]>([]);
+
+  // Fetch meetings for Save to Meeting functionality
+  const { data: meetings = [] } = useQuery<any[]>({
+    queryKey: [`/api/meetings/${currentTenant?.id}`],
+    enabled: !!currentTenant?.id && saveToMeetingDialogOpen,
+  });
 
   // Form data states
   const [objectiveMilestoneEditorOpen, setObjectiveMilestoneEditorOpen] = useState(false);
@@ -467,6 +477,42 @@ export default function PlanningEnhanced() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to delete Key Result", variant: "destructive" });
+    },
+  });
+
+  // Meeting mutation for Save to Meeting functionality
+  const updateMeetingMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return apiRequest("PATCH", `/api/meetings/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant?.id}`] });
+      setSaveToMeetingDialogOpen(false);
+      setSavedSummary(null);
+      setProgressSummaryDialogOpen(false);
+      toast({ title: "Success", description: "Progress summary saved to meeting" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to save summary to meeting", variant: "destructive" });
+    },
+  });
+
+  const createMeetingMutation = useMutation({
+    mutationFn: async (data: any) => {
+      return apiRequest("POST", "/api/meetings", {
+        ...data,
+        tenantId: currentTenant?.id,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant?.id}`] });
+      setSaveToMeetingDialogOpen(false);
+      setSavedSummary(null);
+      setProgressSummaryDialogOpen(false);
+      toast({ title: "Success", description: "New meeting created with progress summary" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create meeting", variant: "destructive" });
     },
   });
 
@@ -2488,7 +2534,122 @@ export default function PlanningEnhanced() {
           }))}
           quarter={quarter ?? 0}
           year={year}
+          onSaveToMeeting={(summary, dateRange) => {
+            setSavedSummary({ content: summary, dateRange });
+            setSaveToMeetingDialogOpen(true);
+          }}
         />
+
+        {/* Save to Meeting Dialog */}
+        <Dialog open={saveToMeetingDialogOpen} onOpenChange={setSaveToMeetingDialogOpen}>
+          <DialogContent className="max-w-lg">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CalendarCheck className="h-5 w-5 text-primary" />
+                Save Summary to Meeting
+              </DialogTitle>
+              <DialogDescription>
+                Choose an existing meeting to add this progress summary, or create a new meeting.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              {savedSummary && (
+                <div className="p-3 bg-muted rounded-lg text-sm">
+                  <div className="font-medium mb-1">Progress Summary ({savedSummary.dateRange})</div>
+                  <div className="text-muted-foreground line-clamp-3">
+                    {savedSummary.content.substring(0, 200)}...
+                  </div>
+                </div>
+              )}
+              
+              <div className="space-y-2">
+                <Label>Select an existing meeting:</Label>
+                <ScrollArea className="h-[200px] border rounded-lg p-2">
+                  {meetings.length === 0 ? (
+                    <div className="text-sm text-muted-foreground text-center py-8">
+                      No meetings found. Create a new meeting below.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {meetings.sort((a: any, b: any) => 
+                        new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime()
+                      ).slice(0, 10).map((meeting: any) => (
+                        <Button
+                          key={meeting.id}
+                          variant="outline"
+                          className="w-full justify-start text-left h-auto py-2"
+                          onClick={() => {
+                            const existingSummary = meeting.summary || '';
+                            const newSummary = existingSummary 
+                              ? `${existingSummary}\n\n---\n\n**Progress Report (${savedSummary?.dateRange}):**\n${savedSummary?.content}`
+                              : `**Progress Report (${savedSummary?.dateRange}):**\n${savedSummary?.content}`;
+                            updateMeetingMutation.mutate({
+                              id: meeting.id,
+                              data: { summary: newSummary }
+                            });
+                          }}
+                          data-testid={`button-select-meeting-${meeting.id}`}
+                        >
+                          <div className="flex-1">
+                            <div className="font-medium">{meeting.title}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {meeting.date ? format(new Date(meeting.date), 'MMM d, yyyy') : 'No date set'}
+                              {meeting.meetingType && ` • ${meeting.meetingType}`}
+                            </div>
+                          </div>
+                        </Button>
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </div>
+              
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">Or</span>
+                </div>
+              </div>
+              
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  createMeetingMutation.mutate({
+                    title: `Progress Review - ${savedSummary?.dateRange}`,
+                    meetingType: 'monthly',
+                    date: new Date().toISOString(),
+                    summary: `**Progress Report (${savedSummary?.dateRange}):**\n${savedSummary?.content}`,
+                  });
+                }}
+                disabled={createMeetingMutation.isPending}
+                data-testid="button-create-new-meeting"
+              >
+                {createMeetingMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4 mr-2" />
+                )}
+                Create New Meeting with Summary
+              </Button>
+            </div>
+            
+            <DialogFooter>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setSaveToMeetingDialogOpen(false);
+                  setSavedSummary(null);
+                }}
+              >
+                Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
         {/* OKR Detail Pane */}
         <OKRDetailPane
