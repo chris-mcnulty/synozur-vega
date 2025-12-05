@@ -1,6 +1,6 @@
 # Vega Platform Backlog
 
-**Last Updated:** November 22, 2025
+**Last Updated:** December 5, 2025
 
 ---
 
@@ -546,6 +546,114 @@ Clone objectives to streamline the OKR process - either duplicating OKRs across 
 - Reset status to 'not_started'
 - Generate new IDs for all cloned entities
 - Maintain parent-child relationships in cloned hierarchy
+
+**Dependencies:** None
+
+---
+
+### 10c. Key Result Weighting ⭐ NEW
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Effort:** 2-3 days
+
+**Reference:** Viva Goals weighted rollup feature
+
+**Description:**
+Allow users to adjust how much each Key Result contributes to its parent objective's overall progress. Currently all Key Results contribute equally; this feature enables weighted contributions.
+
+**Example:**
+- KR1 (weight 60%) at 100% complete = 60 points
+- KR2 (weight 40%) at 50% complete = 20 points
+- **Objective progress = 80%** (weighted average)
+
+**Features:**
+- Add optional `weight` field (0-100) to Key Results
+- Default: null (auto-equal weighting when no weights specified)
+- When any KR has explicit weight, normalize all weights to sum=100%
+- Inline weight editing in OKR detail pane
+- "Distribute Equally" quick action button
+- Weight chips displayed in hierarchy view for visibility
+- Weighted progress calculation in rollup
+
+**UI/UX:**
+- Editable numeric inputs in objective detail pane (Overview tab)
+- Percent format with validation (0-100)
+- Visual indicator when weights don't sum to 100%
+- Tooltip explaining weighted vs. equal rollup behavior
+
+**API Changes:**
+- Add `weight` column to `key_results` table (doublePrecision, nullable)
+- Update insert/update schemas
+- Modify progress rollup calculation in `getObjectiveHierarchy`
+
+**Business Value:**
+- Enables prioritization of high-impact Key Results
+- More accurate objective progress representation
+- Matches Viva Goals weighted rollup behavior
+- Essential for strategic OKR management
+
+**Dependencies:** None
+
+---
+
+### 10d. OKR Alignment (Cross-Team Linking) ⭐ NEW
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Effort:** 3-5 days
+
+**Reference:** https://learn.microsoft.com/en-us/viva/goals/viva-goals-healthy-okr-program/align-okrs-overview
+
+**Description:**
+Allow objectives to align (link) to other objectives across teams and organizational levels, enabling visibility into how team goals support broader organizational priorities. This is distinct from parent-child hierarchy—it's about strategic alignment across silos.
+
+**Alignment Types:**
+
+1. **Vertical Alignment (Up):** Team objective aligns up to organization-level objective
+2. **Horizontal Alignment (Across):** Team objective aligns to another team's objective for cross-functional collaboration
+3. **Multiple Alignment:** Single objective can align to multiple parent objectives
+
+**Features:**
+- "Align to Objective" action in objective detail pane and hover menu
+- Objective picker modal with search and filtering by:
+  - Organization/Team/Division level
+  - Time period (quarter/year)
+  - Owner
+- Display aligned objectives in detail pane (new "Alignment" tab or section)
+- Visual indicators in hierarchy view showing alignment relationships
+- Alignment badges showing count of aligned objectives
+- Bidirectional visibility (parent sees aligned children, child sees aligned parents)
+
+**Schema Changes:**
+```typescript
+// New junction table for many-to-many objective alignment
+objectiveAlignments: {
+  id: uuid primary key,
+  sourceObjectiveId: uuid (FK to objectives),
+  targetObjectiveId: uuid (FK to objectives),
+  alignmentType: enum('vertical', 'horizontal'),
+  createdAt: timestamp,
+  createdBy: uuid (FK to users)
+}
+```
+
+**API Endpoints:**
+- `POST /api/okr/objectives/:id/align` - Create alignment
+- `DELETE /api/okr/objectives/:id/align/:targetId` - Remove alignment
+- `GET /api/okr/objectives/:id/alignments` - Get all alignments for objective
+
+**Business Value:**
+- Breaks down organizational silos
+- Provides transparency on how team work connects to company priorities
+- Enables cross-functional collaboration tracking
+- Matches Viva Goals alignment model for migrating users
+- Critical for enterprise OKR programs
+
+**Technical Notes:**
+- Prevent circular alignments (A→B→C→A)
+- Consider alignment in progress rollup (optional future enhancement)
+- Index sourceObjectiveId and targetObjectiveId for query performance
 
 **Dependencies:** None
 
