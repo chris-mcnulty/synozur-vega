@@ -1,6 +1,6 @@
 # Known Issues & Technical Debt
 
-**Last Updated:** November 24, 2025
+**Last Updated:** December 6, 2025
 
 ---
 
@@ -57,69 +57,44 @@ Team import is now fully implemented in the backend.
 
 ---
 
-### Issue #3: Entity Relationship Linking - State Management Bug
+### Issue #3: Entity Relationship Linking - State Management Bug ✅ RESOLVED
 
 **Affected:** Big Rock Edit Dialog  
 **Severity:** High  
-**Status:** In Progress  
-**Reported:** November 22, 2025
+**Status:** ✅ RESOLVED  
+**Reported:** November 22, 2025  
+**Fixed:** December 6, 2025
 
 **Description:**
-When editing a Big Rock and toggling linked strategies, the `linkedStrategies` array is sent as empty `[]` to the server even though the user has selected strategies in the UI. The toggle function appears to work (badges change appearance), but the form state is not properly accumulating the selections.
+When editing a Big Rock and toggling linked strategies, the `linkedStrategies` array was sent as empty `[]` to the server even though the user selected strategies in the UI.
 
-**Symptoms:**
-- User opens Big Rock edit dialog
-- Clicks strategy badges to select/deselect
-- Badges visually change (default ↔ outline)
-- Clicks "Update Big Rock"
-- Server receives `linkedStrategies: []` in request body
-- Selected strategies do not persist
+**Fix Applied:**
+- State management in `PlanningEnhanced.tsx` now correctly tracks strategy selections
+- Big Rock → Strategy linking works properly through the UI
+- Many-to-many relationship persists correctly to database
 
-**Root Cause:**
-Frontend state management issue in `PlanningEnhanced.tsx`. The `bigRockForm.linkedStrategies` state is not properly reflecting user selections before form submission.
-
-**Investigation Notes:**
-- `toggleBigRockStrategy()` function logic appears correct
-- `handleEditBigRock()` properly initializes linkedStrategies from big rock object
-- First test passed (200 response, no errors)
-- Second comprehensive test showed regression
-- May be related to data fetching or state initialization
-
-**Potential Fixes:**
-1. Verify big rock data from API includes `linkedStrategies` field
-2. Add useEffect to log state changes for debugging
-3. Check if form state is being reset between toggle and submit
-4. Verify query cache is returning complete big rock objects
-
-**Workaround:** None currently.
-
-**Impact:** Users cannot link Big Rocks to Strategies through the UI.
+**Verification:** Big Rock strategy linking tested and confirmed working.
 
 ---
 
 ## MEDIUM SEVERITY
 
-### Issue #2: TypeScript/LSP Diagnostics in server/routes-okr.ts
+### Issue #2: TypeScript/LSP Diagnostics in server/routes-okr.ts ✅ RESOLVED
 
 **Affected:** `server/routes-okr.ts`  
 **Severity:** Medium  
-**Status:** Open  
-**Reported:** November 22, 2025
+**Status:** ✅ RESOLVED  
+**Reported:** November 22, 2025  
+**Fixed:** December 6, 2025
 
 **Description:**
-24 LSP diagnostics (likely type errors or linting warnings) in the OKR routes file.
+24 LSP diagnostics (type errors or linting warnings) were present in the OKR routes file.
 
-**Impact:**
-- Code may have type safety issues
-- Potential runtime errors
-- Reduced code quality
+**Fix Applied:**
+- All type errors and linting warnings have been resolved
+- LSP diagnostics now show zero errors across the codebase
 
-**Next Steps:**
-- Run `get_latest_lsp_diagnostics` to view specific errors
-- Fix type mismatches
-- Add proper TypeScript types where missing
-
-**Priority:** Should be fixed before adding new OKR features.
+**Verification:** `get_latest_lsp_diagnostics` returns no errors.
 
 ---
 
