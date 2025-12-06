@@ -194,26 +194,27 @@ Chat-based AI assistant with culture-grounded outputs and MCP-style agent archit
 
 **Features:**
 
-**Phase 1: Basic AI Chat (4 weeks)**
-- Q&A interface for OKR queries ("What are our Q4 objectives?")
-- Natural language reporting ("Show me all at-risk initiatives")
-- Context-aware responses (tenant-specific, user role aware)
+**Phase 1: Basic AI Chat Enhancements (4 weeks)** ❌ No Vector DB Required
+- Q&A interface for OKR queries ("What are our Q4 objectives?") - Uses function calling to query existing database
+- Natural language reporting ("Show me all at-risk initiatives") - Direct SQL queries via AI tool use
+- Context-aware responses (tenant-specific, user role aware) - Add role to existing AI context
 
-**Phase 2: Culture-Grounded Intelligence (4 weeks)**
-- Train on organization's values, mission, vision
-- Suggest objectives aligned with strategic priorities
-- Draft key results based on historical patterns
-- Generate meeting agendas incorporating company culture
-- **AI Big Rock Generator** ⭐ NEW: Suggest missing Big Rocks based on analysis of objectives, key results, strategies, and goals. Identifies execution gaps where strategic priorities lack corresponding initiatives.
-- **AI OKR Ingestion** ⭐ NEW: Parse objectives and key results from uploaded documents (PDF, Word, Excel) or text pasted into the AI chat. Extract structured OKR data and create draft objectives with suggested key results for user review and approval.
-- **AI Objective Gap Analyzer** ⭐ NEW: Identify annual goals and strategic priorities that lack corresponding objectives or have minimal activity. Suggest new objectives based on organizational context, including mission, vision, values, and existing strategies.
-- **AI Foundation Element Suggestions** ⭐ NEW: Suggest extensions or alternatives to foundation elements (mission, vision, values, goals) based on organizational descriptive information and tenant context.
+**Phase 2: Culture-Grounded Intelligence (4 weeks)** ❌ No Vector DB Required
+- Train on organization's values, mission, vision - Already implemented via grounding documents
+- Suggest objectives aligned with strategic priorities - Direct entity queries + GPT analysis
+- Draft key results based on historical patterns - Query check-in history directly
+- Generate meeting agendas incorporating company culture - Uses existing Focus Rhythm data
+- **AI Big Rock Generator** ⭐: Suggest missing Big Rocks based on analysis of objectives, key results, strategies, and goals. Identifies execution gaps where strategic priorities lack corresponding initiatives. *Implementation: Query all entities, identify orphaned strategies/objectives without initiatives.*
+- **AI OKR Ingestion** ⭐: Parse objectives and key results from uploaded documents (PDF, Word, Excel) or text pasted into the AI chat. Extract structured OKR data and create draft objectives with suggested key results for user review and approval. *Implementation: Uses existing file parsing + GPT extraction.*
+- **AI Objective Gap Analyzer** ⭐: Identify annual goals and strategic priorities that lack corresponding objectives or have minimal activity. Suggest new objectives based on organizational context. *Implementation: Cross-reference goals→strategies→objectives linkages.*
+- **AI Foundation Element Suggestions** ⭐: Suggest extensions or alternatives to foundation elements (mission, vision, values, goals) based on organizational descriptive information and tenant context.
 
-**Phase 3: Advanced Agent Features (4 weeks)**
-- Human-in-the-loop controls (approve before taking action)
-- Meeting prep automation (pull relevant OKRs, past decisions)
-- Follow-up reminders and suggestions
-- Predictive analytics (risk detection, variance alerts)
+**Phase 3: Advanced Agent Features (4 weeks)** ✅ Vector DB Recommended
+- Human-in-the-loop controls (approve before taking action) - MCP-style tool calling with confirmation UI
+- Meeting prep automation (pull relevant OKRs, past decisions) - **Vector DB enables semantic retrieval of relevant historical data**
+- Follow-up reminders and suggestions - Background analysis job
+- Predictive analytics (risk detection, variance alerts) - Statistical analysis on check-in history
+- **AI-Powered Semantic Search** ⭐: Natural language search across all Company OS data - **Requires vector embeddings**
 
 **Business Value:**
 - Reduces time spent on status reporting by 70%
@@ -223,12 +224,48 @@ Chat-based AI assistant with culture-grounded outputs and MCP-style agent archit
 
 **Technical Notes:**
 - OpenAI integration already available via Replit connector
-- Requires vector database for RAG (retrieval-augmented generation)
-- Consider MCP (Model Context Protocol) for tool use
+- Phase 1 & 2: No vector database required - uses function calling and direct queries
+- Phase 3: Vector database recommended for semantic search and efficient RAG
+- Consider MCP (Model Context Protocol) for tool use in Phase 3
 
 **Dependencies:**
-- OpenAI API key (available)
-- Vector database (Pinecone, Weaviate, or PostgreSQL pgvector)
+- OpenAI API key (available ✅)
+- Function calling / tool use (available via OpenAI ✅)
+- Vector database - Phase 3 only (see Vector Database section below)
+
+---
+
+#### Vector Database Details (Phase 3 Prerequisite)
+
+**What:** A vector database stores embeddings (numerical representations of text) enabling semantic similarity search.
+
+**Why Needed for Phase 3:**
+- **AI-Powered Search**: "Find objectives about growth" returns revenue, expansion, market share objectives
+- **Efficient RAG**: Retrieve only the 5 most relevant grounding docs per query (vs. sending all)
+- **Similar OKR Detection**: "This objective is 85% similar to one from Q2"
+- **Meeting Prep**: Intelligently retrieve only relevant past decisions
+
+**Recommended Option: PostgreSQL pgvector**
+- Uses existing Neon database (no new infrastructure)
+- Free with current database
+- Sufficient for Vega's scale (thousands of documents)
+- Can migrate to dedicated vector DB (Pinecone) later if needed
+
+**Implementation Effort:** ~2 days
+- Enable pgvector extension (5 min)
+- Add embedding columns to schema (1 hour)
+- Create embedding generation service using OpenAI `text-embedding-3-small` (2-3 hours)
+- Build semantic search API (3-4 hours)
+- Integrate with AI chat for RAG (4-6 hours)
+
+**What Gets Embedded:**
+1. Grounding Documents - Methodology, terminology, best practices
+2. Objectives & Key Results - For semantic search and similarity detection
+3. Strategies & Goals - For alignment analysis
+4. Meeting Notes - For historical context retrieval
+5. Check-in Notes - For pattern detection
+
+**Cost:** ~$0.0001 per embedding via OpenAI, so 10,000 items ≈ $1
 
 ---
 
