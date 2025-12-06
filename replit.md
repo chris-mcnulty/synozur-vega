@@ -22,11 +22,15 @@ For detailed information, see:
   - Drill-down capability to see which objectives have each value
   - Summary stats (most/least represented values)
   - Progress bars reflecting actual distribution
-- ✅ **AI Phase 1 Complete**: Full GPT-5 powered AI assistant with function calling:
+- ✅ **AI Phase 1 & 2 Complete**: Full GPT-5 powered AI assistant with function calling:
   - Grounding Documents system for master AI context (methodology, terminology, best practices)
   - Admin UI at /ai-grounding-admin for document management (category-based, priority ordering)
   - Streaming chat endpoint (/api/ai/chat/stream) with Server-Sent Events
-  - **Function Calling Tools (6 tools)**: listObjectives, listKeyResults, listBigRocks, listMeetings, getAtRiskItems, getStats
+  - **Phase 1 Function Calling Tools (6 tools)**: listObjectives, listKeyResults, listBigRocks, listMeetings, getAtRiskItems, getStats
+  - **Phase 2 Strategic Analysis Tools (3 tools)**: analyzeStrategicGaps, analyzeObjectiveGaps, getFoundationContext
+    - analyzeStrategicGaps: Identifies strategies/objectives without Big Rocks
+    - analyzeObjectiveGaps: Finds annual goals/strategies lacking quarterly objectives
+    - getFoundationContext: Provides mission, vision, values, goals, strategies context
   - **Tenant-Scoped Queries**: All AI tools respect tenant isolation with admin/consultant multi-tenant access
   - **Quick Action Buttons**: Contextual navigation buttons appear after AI responses (View Planning, View Big Rocks, etc.)
   - AI suggestions for OKRs and Big Rocks with strategic context
