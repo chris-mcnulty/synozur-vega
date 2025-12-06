@@ -145,7 +145,7 @@ export async function seedDatabase() {
   const synozurTenantId = "f328cd4e-0fe1-4893-a637-941684749c55";
 
   // Create demo users for each tenant
-  const demoPassword = "NorthStar2025!";
+  const demoPassword = process.env.VITE_DEMO_PASSWORD || "NorthStar2025!";
   
   await db.insert(users).values([
     {

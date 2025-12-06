@@ -42,7 +42,7 @@ async function seed() {
   console.log(`Using Acme Corporation tenant ID: ${acmeTenantId}`);
 
   // Create demo users for each tenant
-  const demoPassword = "NorthStar2025!"; // Demo password as per project requirements
+  const demoPassword = process.env.VITE_DEMO_PASSWORD || "NorthStar2025!";
   
   await db.insert(users).values([
     {
