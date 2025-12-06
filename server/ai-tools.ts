@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { storage } from "./storage";
-import type { Objective, KeyResult, BigRock, Meeting, User } from "@shared/schema";
+import type { Objective, KeyResult, BigRock, Meeting, User, Strategy, Foundation } from "@shared/schema";
 
 // Tool parameter schemas for validation
 export const listObjectivesParams = z.object({
@@ -38,6 +38,19 @@ export const getStatsParams = z.object({
   quarter: z.number().min(0).max(4).optional().describe("Quarter for stats (0 for annual)"),
   year: z.number().optional().describe("Year for stats"),
 });
+
+// Phase 2 AI Tools - Strategic Gap Analysis
+export const analyzeStrategicGapsParams = z.object({
+  quarter: z.number().min(1).max(4).optional().describe("Quarter to analyze (1-4)"),
+  year: z.number().optional().describe("Year to analyze"),
+});
+
+export const analyzeObjectiveGapsParams = z.object({
+  quarter: z.number().min(1).max(4).optional().describe("Quarter to analyze (1-4)"),
+  year: z.number().optional().describe("Year to analyze"),
+});
+
+export const getFoundationContextParams = z.object({});
 
 // OpenAI function definitions for tool calling
 export const AI_TOOLS: Array<{
@@ -138,6 +151,46 @@ export const AI_TOOLS: Array<{
       },
     },
   },
+  // Phase 2: Strategic Gap Analysis Tools
+  {
+    type: "function",
+    function: {
+      name: "analyzeStrategicGaps",
+      description: "Analyze strategic gaps to find strategies and objectives that lack corresponding Big Rocks (initiatives). Use this when the user asks about execution gaps, missing initiatives, what Big Rocks to create, or strategic priorities needing action.",
+      parameters: {
+        type: "object",
+        properties: {
+          quarter: { type: "number", description: "Quarter to analyze (1-4)" },
+          year: { type: "number", description: "Year to analyze" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "analyzeObjectiveGaps",
+      description: "Analyze objective gaps to find annual goals and strategies that lack corresponding quarterly objectives. Use this when the user asks about goal coverage, objective gaps, strategic alignment issues, or what objectives to create.",
+      parameters: {
+        type: "object",
+        properties: {
+          quarter: { type: "number", description: "Quarter to analyze (1-4)" },
+          year: { type: "number", description: "Year to analyze" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "getFoundationContext",
+      description: "Get the organization's foundation elements (mission, vision, values, annual goals) for context. Use this when the user asks about organizational purpose, culture, strategic direction, or needs context for suggestions.",
+      parameters: {
+        type: "object",
+        properties: {},
+      },
+    },
+  },
 ];
 
 // Result types for AI tool responses
@@ -192,6 +245,53 @@ export interface AIStats {
   bigRocks: { total: number; inProgress: number; completed: number; blocked: number };
   meetings: { total: number; thisWeek: number };
   overallProgress: number;
+}
+
+// Phase 2: Strategic Gap Analysis Types
+export interface StrategicGapAnalysis {
+  strategiesWithoutBigRocks: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    linkedGoalTitles: string[];
+  }>;
+  objectivesWithoutBigRocks: Array<{
+    id: string;
+    title: string;
+    level: string | null;
+    progress: number;
+    quarter: number | null;
+    year: number | null;
+  }>;
+  totalStrategies: number;
+  totalObjectives: number;
+  coveragePercentage: number;
+}
+
+export interface ObjectiveGapAnalysis {
+  goalsWithoutObjectives: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    category: string | null;
+  }>;
+  strategiesWithoutObjectives: Array<{
+    id: string;
+    title: string;
+    description: string | null;
+    linkedGoalTitles: string[];
+  }>;
+  totalGoals: number;
+  totalStrategies: number;
+  objectiveCoverage: number;
+}
+
+export interface FoundationContext {
+  mission: string | null;
+  vision: string | null;
+  values: Array<{ title: string; description: string | null }>;
+  goals: Array<{ id: string; title: string; description: string | null; category: string | null }>;
+  strategies: Array<{ id: string; title: string; description: string | null }>;
 }
 
 // Helper to compute status from progress
@@ -456,6 +556,196 @@ export async function executeGetStats(
   };
 }
 
+// Phase 2: Strategic Gap Analysis Functions
+export async function executeAnalyzeStrategicGaps(
+  tenantId: string,
+  params: z.infer<typeof analyzeStrategicGapsParams>
+): Promise<StrategicGapAnalysis> {
+  const { quarter, year } = params;
+  
+  // Get all strategies for tenant
+  const strategies = await storage.getStrategiesByTenantId(tenantId);
+  
+  // Get all objectives for tenant (filtered by quarter/year if specified)
+  const objectives = await storage.getObjectivesByTenantId(tenantId, quarter, year);
+  
+  // Get all big rocks for tenant
+  const bigRocks = await storage.getBigRocksByTenantId(tenantId, quarter, year);
+  
+  // Get all goals for context
+  const foundation = await storage.getFoundationByTenantId(tenantId);
+  const goals = ((foundation?.annualGoals || []) as unknown) as Array<{ id: string; title: string; description?: string; category?: string }>;
+  
+  // Create a set of strategy IDs that have Big Rocks linked
+  const strategiesWithBigRocks = new Set<string>();
+  for (const br of bigRocks) {
+    const linkedStrategies = (br as any).linkedStrategies || [];
+    linkedStrategies.forEach((sid: string) => strategiesWithBigRocks.add(sid));
+  }
+  
+  // Create a set of objective IDs that have Big Rocks linked
+  // Check each objective for linked Big Rocks via the many-to-many relationship
+  const objectivesWithBigRocks = new Set<string>();
+  for (const obj of objectives) {
+    const linkedBigRocks = await storage.getBigRocksLinkedToObjective(obj.id);
+    if (linkedBigRocks.length > 0) {
+      objectivesWithBigRocks.add(obj.id);
+    }
+  }
+  
+  // Find strategies without Big Rocks
+  const strategiesWithoutBigRocks = strategies
+    .filter(s => !strategiesWithBigRocks.has(s.id))
+    .map(s => {
+      const linkedGoalIds = (s.linkedGoals || []) as string[];
+      const linkedGoalTitles = linkedGoalIds
+        .map(gid => goals.find(g => g.id === gid)?.title || "Unknown Goal")
+        .filter(Boolean);
+      return {
+        id: s.id,
+        title: s.title,
+        description: s.description,
+        linkedGoalTitles,
+      };
+    });
+  
+  // Find objectives without Big Rocks (only those not already closed)
+  const objectivesWithoutBigRocks = objectives
+    .filter(o => !objectivesWithBigRocks.has(o.id) && o.status !== "closed")
+    .map(o => ({
+      id: o.id,
+      title: o.title,
+      level: o.level,
+      progress: o.progress || 0,
+      quarter: o.quarter,
+      year: o.year,
+    }));
+  
+  // Calculate coverage percentage
+  const totalWithCoverage = strategiesWithBigRocks.size + objectivesWithBigRocks.size;
+  const totalItems = strategies.length + objectives.filter(o => o.status !== "closed").length;
+  const coveragePercentage = totalItems > 0 ? Math.round((totalWithCoverage / totalItems) * 100) : 100;
+  
+  return {
+    strategiesWithoutBigRocks,
+    objectivesWithoutBigRocks,
+    totalStrategies: strategies.length,
+    totalObjectives: objectives.filter(o => o.status !== "closed").length,
+    coveragePercentage,
+  };
+}
+
+export async function executeAnalyzeObjectiveGaps(
+  tenantId: string,
+  params: z.infer<typeof analyzeObjectiveGapsParams>
+): Promise<ObjectiveGapAnalysis> {
+  const { quarter, year } = params;
+  
+  // Get foundation with goals
+  const foundation = await storage.getFoundationByTenantId(tenantId);
+  const goals = ((foundation?.annualGoals || []) as unknown) as Array<{ id: string; title: string; description?: string; category?: string }>;
+  
+  // Get all strategies
+  const strategies = await storage.getStrategiesByTenantId(tenantId);
+  
+  // Get all objectives (filtered by quarter/year if specified)
+  const objectives = await storage.getObjectivesByTenantId(tenantId, quarter, year);
+  
+  // Create a set of goal IDs that have objectives linked
+  // Objectives use linkedGoals (array) not linkedGoalId
+  const goalsWithObjectives = new Set<string>();
+  for (const obj of objectives) {
+    const linkedGoals = (obj.linkedGoals || []) as string[];
+    linkedGoals.forEach(gid => goalsWithObjectives.add(gid));
+  }
+  
+  // Create a set of strategy IDs that have objectives linked
+  // Objectives use linkedStrategies (array) not linkedStrategyId
+  const strategiesWithObjectives = new Set<string>();
+  for (const obj of objectives) {
+    const linkedStrategies = (obj.linkedStrategies || []) as string[];
+    linkedStrategies.forEach(sid => strategiesWithObjectives.add(sid));
+  }
+  
+  // Find goals without objectives
+  const goalsWithoutObjectives = goals
+    .filter((g: { id: string; title: string; description?: string; category?: string }) => !goalsWithObjectives.has(g.id))
+    .map((g: { id: string; title: string; description?: string; category?: string }) => ({
+      id: g.id,
+      title: g.title,
+      description: g.description || null,
+      category: g.category || null,
+    }));
+  
+  // Find strategies without objectives
+  const strategiesWithoutObjectives = strategies
+    .filter(s => !strategiesWithObjectives.has(s.id))
+    .map(s => {
+      const linkedGoalIds = (s.linkedGoals || []) as string[];
+      const linkedGoalTitles = linkedGoalIds
+        .map((gid: string) => goals.find((g: { id: string; title: string }) => g.id === gid)?.title || "Unknown Goal")
+        .filter(Boolean);
+      return {
+        id: s.id,
+        title: s.title,
+        description: s.description,
+        linkedGoalTitles,
+      };
+    });
+  
+  // Calculate coverage
+  const totalCovered = goalsWithObjectives.size + strategiesWithObjectives.size;
+  const totalItems = goals.length + strategies.length;
+  const objectiveCoverage = totalItems > 0 ? Math.round((totalCovered / totalItems) * 100) : 100;
+  
+  return {
+    goalsWithoutObjectives,
+    strategiesWithoutObjectives,
+    totalGoals: goals.length,
+    totalStrategies: strategies.length,
+    objectiveCoverage,
+  };
+}
+
+export async function executeGetFoundationContext(
+  tenantId: string,
+  _params: z.infer<typeof getFoundationContextParams>
+): Promise<FoundationContext> {
+  // Get foundation
+  const foundation = await storage.getFoundationByTenantId(tenantId);
+  
+  // Get strategies
+  const strategies = await storage.getStrategiesByTenantId(tenantId);
+  
+  // Parse values from foundation
+  const rawValues = foundation?.values || [];
+  const values = rawValues.map((v: any) => ({
+    title: typeof v === "string" ? v : v.title || "Unknown",
+    description: typeof v === "string" ? null : v.description || null,
+  }));
+  
+  // Parse goals from foundation
+  const rawGoals = foundation?.annualGoals || [];
+  const goals = (rawGoals as any[]).map((g: any) => ({
+    id: g.id || "",
+    title: g.title || "Unknown",
+    description: g.description || null,
+    category: g.category || null,
+  }));
+  
+  return {
+    mission: foundation?.mission || null,
+    vision: foundation?.vision || null,
+    values,
+    goals,
+    strategies: strategies.map(s => ({
+      id: s.id,
+      title: s.title,
+      description: s.description,
+    })),
+  };
+}
+
 // Main tool executor
 export async function executeTool(
   toolName: string,
@@ -475,6 +765,13 @@ export async function executeTool(
       return executeGetAtRiskItems(tenantId, getAtRiskItemsParams.parse(args));
     case "getStats":
       return executeGetStats(tenantId, getStatsParams.parse(args));
+    // Phase 2 tools
+    case "analyzeStrategicGaps":
+      return executeAnalyzeStrategicGaps(tenantId, analyzeStrategicGapsParams.parse(args));
+    case "analyzeObjectiveGaps":
+      return executeAnalyzeObjectiveGaps(tenantId, analyzeObjectiveGapsParams.parse(args));
+    case "getFoundationContext":
+      return executeGetFoundationContext(tenantId, getFoundationContextParams.parse(args));
     default:
       throw new Error(`Unknown tool: ${toolName}`);
   }
@@ -540,6 +837,96 @@ export function formatToolResult(toolName: string, result: any): string {
 - **Key Results:** ${stats.keyResults.total} total (${stats.keyResults.onTrack} on track, ${stats.keyResults.atRisk} at risk, ${stats.keyResults.behind} behind, ${stats.keyResults.completed} completed)
 - **Big Rocks:** ${stats.bigRocks.total} total (${stats.bigRocks.inProgress} in progress, ${stats.bigRocks.completed} completed, ${stats.bigRocks.blocked} blocked)
 - **Meetings:** ${stats.meetings.total} total, ${stats.meetings.thisWeek} this week`;
+    }
+    // Phase 2: Strategic Gap Analysis formatters
+    case "analyzeStrategicGaps": {
+      const gaps = result as StrategicGapAnalysis;
+      const parts: string[] = [];
+      parts.push(`**Strategic Gap Analysis** (${gaps.coveragePercentage}% initiative coverage)`);
+      parts.push(`- Total Strategies: ${gaps.totalStrategies}`);
+      parts.push(`- Total Active Objectives: ${gaps.totalObjectives}`);
+      
+      if (gaps.strategiesWithoutBigRocks.length > 0) {
+        parts.push(`\n**Strategies Needing Initiatives (${gaps.strategiesWithoutBigRocks.length}):**`);
+        gaps.strategiesWithoutBigRocks.forEach(s => {
+          const goalContext = s.linkedGoalTitles.length > 0 ? ` (supports: ${s.linkedGoalTitles.join(", ")})` : "";
+          parts.push(`- **${s.title}**${goalContext}`);
+        });
+      }
+      
+      if (gaps.objectivesWithoutBigRocks.length > 0) {
+        parts.push(`\n**Objectives Needing Initiatives (${gaps.objectivesWithoutBigRocks.length}):**`);
+        gaps.objectivesWithoutBigRocks.forEach(o => {
+          parts.push(`- **${o.title}** (${o.level || "team"} level, Q${o.quarter || "?"} ${o.year || ""}, ${o.progress}% progress)`);
+        });
+      }
+      
+      if (gaps.strategiesWithoutBigRocks.length === 0 && gaps.objectivesWithoutBigRocks.length === 0) {
+        parts.push("\nAll strategies and objectives have corresponding Big Rocks. Excellent execution alignment!");
+      }
+      
+      return parts.join("\n");
+    }
+    case "analyzeObjectiveGaps": {
+      const gaps = result as ObjectiveGapAnalysis;
+      const parts: string[] = [];
+      parts.push(`**Objective Coverage Analysis** (${gaps.objectiveCoverage}% coverage)`);
+      parts.push(`- Total Annual Goals: ${gaps.totalGoals}`);
+      parts.push(`- Total Strategies: ${gaps.totalStrategies}`);
+      
+      if (gaps.goalsWithoutObjectives.length > 0) {
+        parts.push(`\n**Goals Without Quarterly Objectives (${gaps.goalsWithoutObjectives.length}):**`);
+        gaps.goalsWithoutObjectives.forEach(g => {
+          const categoryLabel = g.category ? ` [${g.category}]` : "";
+          parts.push(`- **${g.title}**${categoryLabel}`);
+        });
+      }
+      
+      if (gaps.strategiesWithoutObjectives.length > 0) {
+        parts.push(`\n**Strategies Without Linked Objectives (${gaps.strategiesWithoutObjectives.length}):**`);
+        gaps.strategiesWithoutObjectives.forEach(s => {
+          const goalContext = s.linkedGoalTitles.length > 0 ? ` (supports: ${s.linkedGoalTitles.join(", ")})` : "";
+          parts.push(`- **${s.title}**${goalContext}`);
+        });
+      }
+      
+      if (gaps.goalsWithoutObjectives.length === 0 && gaps.strategiesWithoutObjectives.length === 0) {
+        parts.push("\nAll goals and strategies have corresponding objectives. Strong strategic alignment!");
+      }
+      
+      return parts.join("\n");
+    }
+    case "getFoundationContext": {
+      const context = result as FoundationContext;
+      const parts: string[] = [];
+      
+      parts.push("**Organization Foundation:**");
+      if (context.mission) parts.push(`\n**Mission:** ${context.mission}`);
+      if (context.vision) parts.push(`\n**Vision:** ${context.vision}`);
+      
+      if (context.values.length > 0) {
+        parts.push(`\n**Values (${context.values.length}):**`);
+        context.values.forEach(v => {
+          parts.push(`- **${v.title}**${v.description ? `: ${v.description}` : ""}`);
+        });
+      }
+      
+      if (context.goals.length > 0) {
+        parts.push(`\n**Annual Goals (${context.goals.length}):**`);
+        context.goals.forEach(g => {
+          const categoryLabel = g.category ? ` [${g.category}]` : "";
+          parts.push(`- **${g.title}**${categoryLabel}`);
+        });
+      }
+      
+      if (context.strategies.length > 0) {
+        parts.push(`\n**Strategies (${context.strategies.length}):**`);
+        context.strategies.forEach(s => {
+          parts.push(`- **${s.title}**`);
+        });
+      }
+      
+      return parts.join("\n");
     }
     default:
       return JSON.stringify(result, null, 2);

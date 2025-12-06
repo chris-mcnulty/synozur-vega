@@ -22,10 +22,13 @@ For detailed information, see:
   - Drill-down capability to see which objectives have each value
   - Summary stats (most/least represented values)
   - Progress bars reflecting actual distribution
-- ✅ **AI Integration Complete**: Full GPT-5 powered AI assistant with streaming responses:
+- ✅ **AI Phase 1 Complete**: Full GPT-5 powered AI assistant with function calling:
   - Grounding Documents system for master AI context (methodology, terminology, best practices)
   - Admin UI at /ai-grounding-admin for document management (category-based, priority ordering)
   - Streaming chat endpoint (/api/ai/chat/stream) with Server-Sent Events
+  - **Function Calling Tools (6 tools)**: listObjectives, listKeyResults, listBigRocks, listMeetings, getAtRiskItems, getStats
+  - **Tenant-Scoped Queries**: All AI tools respect tenant isolation with admin/consultant multi-tenant access
+  - **Quick Action Buttons**: Contextual navigation buttons appear after AI responses (View Planning, View Big Rocks, etc.)
   - AI suggestions for OKRs and Big Rocks with strategic context
   - **AI Goal Suggestions** in Foundations module: streaming suggestions based on mission, vision, values, and strategies
   - Uses Replit AI Integrations (AI_INTEGRATIONS_OPENAI_BASE_URL/API_KEY)
