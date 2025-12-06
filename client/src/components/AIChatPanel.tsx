@@ -2,11 +2,20 @@ import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { X, Send, Sparkles, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { X, Send, Sparkles, Loader2, AlertCircle, RefreshCw, Target, CheckCircle2, Rocket, Calendar, BarChart3, ExternalLink } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLocation } from "wouter";
+
+type QuickAction = {
+  id: string;
+  label: string;
+  icon: typeof Target;
+  action: () => void;
+  variant?: "default" | "outline" | "ghost";
+};
 
 type Message = {
   id: string;
@@ -14,16 +23,93 @@ type Message = {
   content: string;
   isStreaming?: boolean;
   error?: boolean;
+  quickActions?: QuickAction[];
 };
 
 type AIChatPanelProps = {
   onClose: () => void;
 };
 
+// Detect quick actions based on AI response content
+function detectQuickActions(content: string, navigate: (path: string) => void): QuickAction[] {
+  const actions: QuickAction[] = [];
+  const lowerContent = content.toLowerCase();
+  
+  // Detect objective/OKR related content
+  if (lowerContent.includes("objective") || lowerContent.includes("okr") || lowerContent.includes("key result")) {
+    actions.push({
+      id: "view-planning",
+      label: "View Planning",
+      icon: Target,
+      action: () => navigate("/planning"),
+      variant: "outline",
+    });
+  }
+  
+  // Detect at-risk or status-related content
+  if (lowerContent.includes("at risk") || lowerContent.includes("behind") || lowerContent.includes("off track") || lowerContent.includes("needs attention")) {
+    actions.push({
+      id: "check-status",
+      label: "Review At-Risk Items",
+      icon: AlertCircle,
+      action: () => navigate("/planning"),
+      variant: "outline",
+    });
+  }
+  
+  // Detect Big Rock / initiative content
+  if (lowerContent.includes("big rock") || lowerContent.includes("initiative") || lowerContent.includes("project")) {
+    actions.push({
+      id: "view-initiatives",
+      label: "View Big Rocks",
+      icon: Rocket,
+      action: () => navigate("/planning"),
+      variant: "outline",
+    });
+  }
+  
+  // Detect meeting-related content
+  if (lowerContent.includes("meeting") || lowerContent.includes("agenda") || lowerContent.includes("standup") || lowerContent.includes("review")) {
+    actions.push({
+      id: "view-meetings",
+      label: "View Meetings",
+      icon: Calendar,
+      action: () => navigate("/focus-rhythm"),
+      variant: "outline",
+    });
+  }
+  
+  // Detect strategy-related content
+  if (lowerContent.includes("strateg") || lowerContent.includes("goal") || lowerContent.includes("mission") || lowerContent.includes("vision")) {
+    actions.push({
+      id: "view-strategy",
+      label: "View Strategy",
+      icon: BarChart3,
+      action: () => navigate("/strategy"),
+      variant: "outline",
+    });
+  }
+  
+  // Detect dashboard/overview content
+  if (lowerContent.includes("overview") || lowerContent.includes("summary") || lowerContent.includes("dashboard") || lowerContent.includes("progress")) {
+    actions.push({
+      id: "view-dashboard",
+      label: "View Dashboard",
+      icon: BarChart3,
+      action: () => navigate("/dashboard"),
+      variant: "outline",
+    });
+  }
+  
+  // Limit to top 3 most relevant actions
+  return actions.slice(0, 3);
+}
+
 export function AIChatPanel({ onClose }: AIChatPanelProps) {
   const { currentTenant } = useTenant();
   const { user } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [, setLocation] = useLocation();
   
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -138,9 +224,16 @@ export function AIChatPanel({ onClose }: AIChatPanelProps) {
           }
         }
 
+        // Add quick actions when streaming completes
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantMessageId ? { ...m, isStreaming: false } : m
+            m.id === assistantMessageId 
+              ? { 
+                  ...m, 
+                  isStreaming: false,
+                  quickActions: detectQuickActions(m.content, setLocation)
+                } 
+              : m
           )
         );
       } else {
@@ -169,6 +262,7 @@ export function AIChatPanel({ onClose }: AIChatPanelProps) {
             id: assistantMessageId,
             role: "assistant",
             content: result.response,
+            quickActions: detectQuickActions(result.response, setLocation),
           },
         ]);
       }
@@ -303,6 +397,27 @@ export function AIChatPanel({ onClose }: AIChatPanelProps) {
                     <RefreshCw className="h-3 w-3 mr-1" />
                     Retry
                   </Button>
+                )}
+                {/* Quick action buttons */}
+                {message.quickActions && message.quickActions.length > 0 && !message.isStreaming && (
+                  <div className="flex flex-wrap gap-1.5 mt-3 pt-2 border-t border-border/50">
+                    {message.quickActions.map((action) => {
+                      const Icon = action.icon;
+                      return (
+                        <Button
+                          key={action.id}
+                          variant={action.variant || "outline"}
+                          size="sm"
+                          className="h-7 text-xs gap-1"
+                          onClick={action.action}
+                          data-testid={`quick-action-${action.id}`}
+                        >
+                          <Icon className="h-3 w-3" />
+                          {action.label}
+                        </Button>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             </div>
