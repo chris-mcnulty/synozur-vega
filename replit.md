@@ -13,8 +13,15 @@ For detailed information, see:
 - **[KNOWN_ISSUES.md](./KNOWN_ISSUES.md)** - Current bugs, issues, and technical debt
 - **[TECHNICAL_DECISIONS.md](./TECHNICAL_DECISIONS.md)** - Architecture Decision Records (ADRs)
 
-## Recent Changes (November 2025)
+## Recent Changes (December 2025)
 
+- ✅ **Culture & Values Integration Complete**: Full values analytics with enhanced dashboard widget:
+  - Values Alignment Widget now counts across ALL hierarchy levels (org, team, division, individual)
+  - Time period filtering (quarter/year) for objectives
+  - Level breakdown with counts and percentages
+  - Drill-down capability to see which objectives have each value
+  - Summary stats (most/least represented values)
+  - Progress bars reflecting actual distribution
 - ✅ **AI Integration Complete**: Full GPT-5 powered AI assistant with streaming responses:
   - Grounding Documents system for master AI context (methodology, terminology, best practices)
   - Admin UI at /ai-grounding-admin for document management (category-based, priority ordering)
