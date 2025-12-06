@@ -231,8 +231,26 @@ aiRouter.post("/chat/stream", requireAuth, async (req: Request, res: Response) =
     const user = (req as any).user;
     console.log("[AI Chat Stream] User:", user.email, "Messages count:", messages.length);
     
-    // Use user's tenant if not specified
-    const effectiveTenantId = tenantId || user.tenantId;
+    // Security: Validate tenant access
+    // Admin/consultant roles can access any tenant, regular users only their own
+    const adminRoles = ["admin", "global_admin", "vega_admin", "vega_consultant"];
+    const canAccessAnyTenant = adminRoles.includes(user.role);
+    
+    let effectiveTenantId = user.tenantId; // Default to user's own tenant
+    
+    if (tenantId) {
+      if (tenantId === user.tenantId || canAccessAnyTenant) {
+        effectiveTenantId = tenantId;
+      } else {
+        console.warn("[AI Chat Stream] Tenant access denied for user:", user.email, "attempted:", tenantId);
+        return res.status(403).json({ error: "Access denied to specified tenant" });
+      }
+    }
+    
+    if (!effectiveTenantId) {
+      return res.status(400).json({ error: "No tenant context available" });
+    }
+    
     console.log("[AI Chat Stream] Tenant ID:", effectiveTenantId);
 
     // Set up SSE headers
