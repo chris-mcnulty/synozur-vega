@@ -233,6 +233,7 @@ export function registerValueRoutes(app: Express) {
   });
 
   // Get values analytics - distribution across objectives and strategies
+  // Supports optional query params: quarter, year for time period filtering
   app.get("/api/values/analytics/distribution", async (req, res) => {
     try {
       if (!req.session.userId) {
@@ -245,29 +246,70 @@ export function registerValueRoutes(app: Express) {
       }
 
       const tenantId = user.tenantId;
+      const quarter = req.query.quarter ? parseInt(req.query.quarter as string) : undefined;
+      const year = req.query.year ? parseInt(req.query.year as string) : undefined;
 
       // Get foundation to know all defined values
       const foundation = await storage.getFoundationByTenantId(tenantId);
       const companyValues = foundation?.values || [];
 
-      // Calculate distribution for each value
+      // Calculate distribution for each value with level breakdown
+      type LevelBreakdown = {
+        organization: number;
+        team: number;
+        division: number;
+        individual: number;
+      };
+
       type ValueDistribution = {
         valueTitle: string;
         valueDescription: string;
         objectiveCount: number;
         strategyCount: number;
         totalCount: number;
+        levelBreakdown: LevelBreakdown;
+        objectiveIds: string[];
       };
 
       const distribution: ValueDistribution[] = await Promise.all(
         companyValues.map(async (value: { title: string; description: string }) => {
           const items = await storage.getItemsTaggedWithValue(tenantId, value.title);
+          
+          // Filter objectives by quarter/year if specified
+          let filteredObjectives = items.objectives;
+          if (quarter !== undefined && year !== undefined) {
+            filteredObjectives = items.objectives.filter(
+              (obj: any) => obj.quarter === quarter && obj.year === year
+            );
+          } else if (year !== undefined) {
+            filteredObjectives = items.objectives.filter(
+              (obj: any) => obj.year === year
+            );
+          }
+
+          // Calculate level breakdown
+          const levelBreakdown: LevelBreakdown = {
+            organization: 0,
+            team: 0,
+            division: 0,
+            individual: 0,
+          };
+
+          filteredObjectives.forEach((obj: any) => {
+            const level = obj.level?.toLowerCase() || 'organization';
+            if (level in levelBreakdown) {
+              levelBreakdown[level as keyof LevelBreakdown]++;
+            }
+          });
+
           return {
             valueTitle: value.title,
             valueDescription: value.description,
-            objectiveCount: items.objectives.length,
+            objectiveCount: filteredObjectives.length,
             strategyCount: items.strategies.length,
-            totalCount: items.objectives.length + items.strategies.length,
+            totalCount: filteredObjectives.length + items.strategies.length,
+            levelBreakdown,
+            objectiveIds: filteredObjectives.map((obj: any) => obj.id),
           };
         })
       );
@@ -275,9 +317,28 @@ export function registerValueRoutes(app: Express) {
       // Sort by total count descending
       distribution.sort((a: ValueDistribution, b: ValueDistribution) => b.totalCount - a.totalCount);
 
+      // Calculate total objectives across all levels
+      const totalObjectivesWithValues = distribution.reduce((sum, d) => sum + d.objectiveCount, 0);
+      const totalStrategiesWithValues = distribution.reduce((sum, d) => sum + d.strategyCount, 0);
+
+      // Aggregate level breakdown across all values
+      const aggregateLevelBreakdown: LevelBreakdown = {
+        organization: distribution.reduce((sum, d) => sum + d.levelBreakdown.organization, 0),
+        team: distribution.reduce((sum, d) => sum + d.levelBreakdown.team, 0),
+        division: distribution.reduce((sum, d) => sum + d.levelBreakdown.division, 0),
+        individual: distribution.reduce((sum, d) => sum + d.levelBreakdown.individual, 0),
+      };
+
       res.json({
         distribution,
         totalValues: companyValues.length,
+        totalObjectivesWithValues,
+        totalStrategiesWithValues,
+        aggregateLevelBreakdown,
+        filters: {
+          quarter: quarter || null,
+          year: year || null,
+        },
         summary: {
           mostUsedValue: distribution[0]?.valueTitle || null,
           leastUsedValue: distribution[distribution.length - 1]?.valueTitle || null,

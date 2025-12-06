@@ -413,7 +413,7 @@ export default function Dashboard() {
       </div>
 
       {/* Values Alignment Widget */}
-      <ValuesAlignmentWidget />
+      <ValuesAlignmentWidget quarter={currentQuarter?.quarter} year={currentQuarter?.year} />
 
       {/* Strategies and Planning Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
