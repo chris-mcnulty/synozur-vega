@@ -1,7 +1,7 @@
 import { Router, Request, Response } from "express";
 import { storage } from "./storage";
 import { insertGroundingDocumentSchema } from "@shared/schema";
-import { getChatCompletion, streamChatCompletion, generateOKRSuggestions, suggestBigRocks, streamProgressSummary, streamGoalSuggestions, streamStrategyDraft, type ChatMessage, type ProgressSummaryData, type GoalSuggestionContext, type StrategyDraftContext } from "./ai";
+import { getChatCompletion, streamChatCompletion, streamChatWithTools, generateOKRSuggestions, suggestBigRocks, streamProgressSummary, streamGoalSuggestions, streamStrategyDraft, type ChatMessage, type ProgressSummaryData, type GoalSuggestionContext, type StrategyDraftContext } from "./ai";
 import { z } from "zod";
 
 export const aiRouter = Router();
@@ -223,7 +223,7 @@ aiRouter.post("/chat", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// Streaming chat endpoint (Server-Sent Events)
+// Streaming chat endpoint (Server-Sent Events) - WITH TOOL SUPPORT
 aiRouter.post("/chat/stream", requireAuth, async (req: Request, res: Response) => {
   console.log("[AI Chat Stream] Request received");
   try {
@@ -241,9 +241,12 @@ aiRouter.post("/chat/stream", requireAuth, async (req: Request, res: Response) =
     res.setHeader("Connection", "keep-alive");
     res.flushHeaders();
 
-    console.log("[AI Chat Stream] Starting stream...");
-    const stream = streamChatCompletion(messages as ChatMessage[], {
+    console.log("[AI Chat Stream] Starting stream with tools...");
+    // Use the new streamChatWithTools function that supports function calling
+    const stream = streamChatWithTools(messages as ChatMessage[], {
       tenantId: effectiveTenantId,
+      enableTools: true,
+      userRole: user.role,
     });
 
     let chunkCount = 0;
@@ -257,6 +260,44 @@ aiRouter.post("/chat/stream", requireAuth, async (req: Request, res: Response) =
     res.end();
   } catch (error: any) {
     console.error("[AI Chat Stream] Error:", error.message || error);
+    if (!res.headersSent) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ error: "Invalid request format", details: error.errors });
+      }
+      res.status(500).json({ error: error.message || "Failed to stream AI response" });
+    } else {
+      res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+      res.end();
+    }
+  }
+});
+
+// Legacy streaming chat endpoint (without tools) - for backwards compatibility
+aiRouter.post("/chat/stream-legacy", requireAuth, async (req: Request, res: Response) => {
+  console.log("[AI Chat Stream Legacy] Request received");
+  try {
+    const { messages, tenantId } = chatRequestSchema.parse(req.body);
+    const user = (req as any).user;
+    
+    const effectiveTenantId = tenantId || user.tenantId;
+
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders();
+
+    const stream = streamChatCompletion(messages as ChatMessage[], {
+      tenantId: effectiveTenantId,
+    });
+
+    for await (const chunk of stream) {
+      res.write(`data: ${JSON.stringify({ content: chunk })}\n\n`);
+    }
+
+    res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+    res.end();
+  } catch (error: any) {
+    console.error("[AI Chat Stream Legacy] Error:", error.message || error);
     if (!res.headersSent) {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ error: "Invalid request format", details: error.errors });

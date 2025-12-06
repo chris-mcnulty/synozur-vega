@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import { storage } from "./storage";
 import type { GroundingDocument, Foundation, Strategy, Objective } from "@shared/schema";
+import { AI_TOOLS, executeTool, formatToolResult } from "./ai-tools";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const MODEL = "gpt-5";
@@ -190,6 +191,156 @@ export async function* streamChatCompletion(
     }
     
     throw new Error(`Failed to stream AI response: ${error.message || 'Unknown error'}`);
+  }
+}
+
+// Extended chat completion options with tool support
+export interface ChatCompletionWithToolsOptions extends ChatCompletionOptions {
+  enableTools?: boolean;
+  userRole?: string;
+}
+
+// Streaming chat completion with function calling support
+export async function* streamChatWithTools(
+  messages: ChatMessage[],
+  options: ChatCompletionWithToolsOptions = {}
+): AsyncGenerator<string, void, unknown> {
+  const { tenantId, maxTokens = 4096, enableTools = true, userRole } = options;
+  console.log("[AI Service] streamChatWithTools called, tenantId:", tenantId, "enableTools:", enableTools);
+
+  // Build system prompt with grounding documents and user role
+  let systemPrompt = await buildSystemPrompt(tenantId);
+  
+  // Add role context if available
+  if (userRole) {
+    systemPrompt += `\n\n## User Context\nThe current user has the role: ${userRole}. Tailor your responses appropriately for their access level and responsibilities.`;
+  }
+  
+  // Add tool usage instructions
+  if (enableTools) {
+    systemPrompt += `\n\n## Data Query Capabilities
+You have access to tools that can query live organizational data. When users ask questions about objectives, key results, Big Rocks, meetings, or want statistics, USE THE APPROPRIATE TOOL to get real data rather than making assumptions.
+
+Available tools:
+- listObjectives: Query objectives with filters (quarter, year, level, status)
+- listKeyResults: Query key results with filters
+- listBigRocks: Query Big Rocks/initiatives with filters
+- listMeetings: Query meetings with filters
+- getAtRiskItems: Find items that are at risk, behind, or need attention
+- getStats: Get summary statistics for the organization
+
+When presenting tool results, synthesize the data into a clear, readable response. Don't just dump raw data - explain what it means and highlight important insights.`;
+  }
+
+  // Prepare messages with system prompt
+  const fullMessages: OpenAI.ChatCompletionMessageParam[] = [
+    { role: "system", content: systemPrompt },
+    ...messages.map((msg) => ({
+      role: msg.role as "user" | "assistant",
+      content: msg.content,
+    })),
+  ];
+
+  try {
+    if (!enableTools || !tenantId) {
+      // Fall back to regular streaming without tools
+      const stream = await openai.chat.completions.create({
+        model: MODEL,
+        messages: fullMessages,
+        max_completion_tokens: maxTokens,
+        stream: true,
+      });
+
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) {
+          yield content;
+        }
+      }
+      return;
+    }
+
+    // First call with tools - non-streaming to handle tool calls
+    console.log("[AI Service] Making initial call with tools");
+    const initialResponse = await openai.chat.completions.create({
+      model: MODEL,
+      messages: fullMessages,
+      max_completion_tokens: maxTokens,
+      tools: AI_TOOLS,
+      tool_choice: "auto",
+    });
+
+    const choice = initialResponse.choices[0];
+    
+    // Check if the model wants to call tools
+    if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
+      console.log("[AI Service] Tool calls detected:", choice.message.tool_calls.length);
+      
+      // Execute all tool calls
+      const toolResults: OpenAI.ChatCompletionMessageParam[] = [
+        { role: "assistant", content: choice.message.content, tool_calls: choice.message.tool_calls },
+      ];
+
+      for (const toolCall of choice.message.tool_calls) {
+        // Handle both function tool calls and other types
+        const funcCall = (toolCall as any).function;
+        if (!funcCall) {
+          console.warn("[AI Service] Skipping non-function tool call");
+          continue;
+        }
+        
+        try {
+          console.log(`[AI Service] Executing tool: ${funcCall.name}`);
+          const args = JSON.parse(funcCall.arguments || "{}");
+          const result = await executeTool(funcCall.name, args, tenantId);
+          const formattedResult = formatToolResult(funcCall.name, result);
+          
+          toolResults.push({
+            role: "tool",
+            tool_call_id: toolCall.id,
+            content: formattedResult,
+          });
+          console.log(`[AI Service] Tool ${funcCall.name} executed successfully`);
+        } catch (error: any) {
+          console.error(`[AI Service] Tool ${funcCall.name} failed:`, error.message);
+          toolResults.push({
+            role: "tool",
+            tool_call_id: toolCall.id,
+            content: `Error executing tool: ${error.message}`,
+          });
+        }
+      }
+
+      // Now stream the final response with tool results
+      console.log("[AI Service] Streaming final response with tool results");
+      const finalStream = await openai.chat.completions.create({
+        model: MODEL,
+        messages: [...fullMessages, ...toolResults],
+        max_completion_tokens: maxTokens,
+        stream: true,
+      });
+
+      for await (const chunk of finalStream) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) {
+          yield content;
+        }
+      }
+    } else {
+      // No tool calls - just yield the content directly
+      console.log("[AI Service] No tool calls, yielding direct response");
+      if (choice.message.content) {
+        yield choice.message.content;
+      }
+    }
+  } catch (error: any) {
+    console.error("[AI Service] Error in streamChatWithTools:", error.message || error);
+    
+    if (error?.message?.includes("429") || error?.message?.includes("RATELIMIT")) {
+      throw new Error("The AI service is currently busy. Please try again in a moment.");
+    }
+    
+    throw new Error(`Failed to get AI response: ${error.message || 'Unknown error'}`);
   }
 }
 
