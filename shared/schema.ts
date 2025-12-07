@@ -804,3 +804,168 @@ export const insertGroundingDocumentSchema = createInsertSchema(groundingDocumen
 
 export type InsertGroundingDocument = z.infer<typeof insertGroundingDocumentSchema>;
 export type GroundingDocument = typeof groundingDocuments.$inferSelect;
+
+// Microsoft Graph tokens for per-user API access (Planner, etc.)
+export const graphTokens = pgTable("graph_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  
+  // Token storage (encrypted in practice)
+  accessToken: text("access_token"),
+  refreshToken: text("refresh_token"),
+  expiresAt: timestamp("expires_at"),
+  
+  // Scopes granted
+  scopes: jsonb("scopes").$type<string[]>(),
+  
+  // Sync metadata
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueUserToken: unique().on(table.userId),
+}));
+
+export const insertGraphTokenSchema = createInsertSchema(graphTokens).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertGraphToken = z.infer<typeof insertGraphTokenSchema>;
+export type GraphToken = typeof graphTokens.$inferSelect;
+
+// Microsoft Planner Plans
+export const plannerPlans = pgTable("planner_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  
+  // Microsoft Graph IDs
+  graphPlanId: text("graph_plan_id").notNull(),
+  graphGroupId: text("graph_group_id"),
+  
+  // Plan details
+  title: text("title").notNull(),
+  owner: text("owner"),
+  
+  // Sync metadata
+  lastSyncedAt: timestamp("last_synced_at"),
+  syncedBy: varchar("synced_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueTenantPlan: unique().on(table.tenantId, table.graphPlanId),
+}));
+
+export const insertPlannerPlanSchema = createInsertSchema(plannerPlans).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPlannerPlan = z.infer<typeof insertPlannerPlanSchema>;
+export type PlannerPlan = typeof plannerPlans.$inferSelect;
+
+// Microsoft Planner Buckets
+export const plannerBuckets = pgTable("planner_buckets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  planId: varchar("plan_id").notNull().references(() => plannerPlans.id, { onDelete: 'cascade' }),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  
+  // Microsoft Graph IDs
+  graphBucketId: text("graph_bucket_id").notNull(),
+  
+  // Bucket details
+  name: text("name").notNull(),
+  orderHint: text("order_hint"),
+  
+  // Sync metadata
+  lastSyncedAt: timestamp("last_synced_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniquePlanBucket: unique().on(table.planId, table.graphBucketId),
+}));
+
+export const insertPlannerBucketSchema = createInsertSchema(plannerBuckets).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPlannerBucket = z.infer<typeof insertPlannerBucketSchema>;
+export type PlannerBucket = typeof plannerBuckets.$inferSelect;
+
+// Microsoft Planner Tasks
+export const plannerTasks = pgTable("planner_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  planId: varchar("plan_id").notNull().references(() => plannerPlans.id, { onDelete: 'cascade' }),
+  bucketId: varchar("bucket_id").references(() => plannerBuckets.id, { onDelete: 'set null' }),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  
+  // Microsoft Graph IDs
+  graphTaskId: text("graph_task_id").notNull(),
+  
+  // Task details
+  title: text("title").notNull(),
+  percentComplete: integer("percent_complete").default(0),
+  priority: integer("priority"),
+  
+  // Dates
+  startDateTime: timestamp("start_date_time"),
+  dueDateTime: timestamp("due_date_time"),
+  completedDateTime: timestamp("completed_date_time"),
+  
+  // Assignments (user IDs from Graph)
+  assignments: jsonb("assignments").$type<Record<string, { assignedBy: string; assignedDateTime: string }>>(),
+  
+  // Additional details
+  description: text("description"),
+  checklist: jsonb("checklist").$type<Record<string, { title: string; isChecked: boolean }>>(),
+  references: jsonb("references").$type<Record<string, { alias: string; type: string }>>(),
+  
+  // Sync metadata
+  lastSyncedAt: timestamp("last_synced_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniquePlanTask: unique().on(table.planId, table.graphTaskId),
+}));
+
+export const insertPlannerTaskSchema = createInsertSchema(plannerTasks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertPlannerTask = z.infer<typeof insertPlannerTaskSchema>;
+export type PlannerTask = typeof plannerTasks.$inferSelect;
+
+// Junction: Link Planner tasks to Objectives
+export const objectivePlannerTasks = pgTable("objective_planner_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  objectiveId: varchar("objective_id").notNull().references(() => objectives.id, { onDelete: 'cascade' }),
+  plannerTaskId: varchar("planner_task_id").notNull().references(() => plannerTasks.id, { onDelete: 'cascade' }),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow(),
+  createdBy: varchar("created_by").references(() => users.id),
+}, (table) => ({
+  uniqueObjectivePlannerTask: unique().on(table.objectiveId, table.plannerTaskId),
+}));
+
+export type ObjectivePlannerTask = typeof objectivePlannerTasks.$inferSelect;
+
+// Junction: Link Planner tasks to Big Rocks
+export const bigRockPlannerTasks = pgTable("big_rock_planner_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  bigRockId: varchar("big_rock_id").notNull().references(() => bigRocks.id, { onDelete: 'cascade' }),
+  plannerTaskId: varchar("planner_task_id").notNull().references(() => plannerTasks.id, { onDelete: 'cascade' }),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow(),
+  createdBy: varchar("created_by").references(() => users.id),
+}, (table) => ({
+  uniqueBigRockPlannerTask: unique().on(table.bigRockId, table.plannerTaskId),
+}));
+
+export type BigRockPlannerTask = typeof bigRockPlannerTasks.$inferSelect;
