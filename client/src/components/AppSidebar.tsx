@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain } from "lucide-react";
+import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -59,6 +59,14 @@ const adminItems = [
   },
 ];
 
+const userItems = [
+  {
+    title: "My Settings",
+    url: "/settings",
+    icon: UserCog,
+  },
+];
+
 export function AppSidebar() {
   const [location] = useLocation();
 
@@ -102,6 +110,27 @@ export function AppSidebar() {
                     asChild
                     isActive={location === item.url}
                     data-testid="sidebar-admin"
+                  >
+                    <a href={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+        <SidebarGroup>
+          <SidebarGroupLabel>Account</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {userItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === item.url}
+                    data-testid={`sidebar-${item.title.toLowerCase().replace(' ', '-')}`}
                   >
                     <a href={item.url}>
                       <item.icon />

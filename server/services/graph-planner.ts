@@ -1,6 +1,7 @@
 import { Client } from '@microsoft/microsoft-graph-client';
 import { ConfidentialClientApplication, OnBehalfOfRequest } from '@azure/msal-node';
 import { storage } from '../storage';
+import { decryptToken, isEncrypted, encryptToken } from '../utils/encryption';
 import type { 
   PlannerPlan, 
   PlannerBucket, 
@@ -70,8 +71,12 @@ async function getAccessToken(userId: string): Promise<string | null> {
     return null;
   }
 
+  const accessToken = isEncrypted(graphToken.accessToken) 
+    ? decryptToken(graphToken.accessToken) 
+    : graphToken.accessToken;
+
   if (graphToken.expiresAt && new Date(graphToken.expiresAt) > new Date()) {
-    return graphToken.accessToken;
+    return accessToken;
   }
 
   if (graphToken.refreshToken) {
@@ -81,18 +86,24 @@ async function getAccessToken(userId: string): Promise<string | null> {
         return null;
       }
 
+      const decryptedRefresh = isEncrypted(graphToken.refreshToken) 
+        ? decryptToken(graphToken.refreshToken) 
+        : graphToken.refreshToken;
+
       const refreshRequest = {
-        refreshToken: graphToken.refreshToken,
+        refreshToken: decryptedRefresh,
         scopes: PLANNER_SCOPES,
       };
 
       const response = await msalClient.acquireTokenByRefreshToken(refreshRequest);
       if (response) {
+        const newRefreshToken = (response as any).refreshToken || decryptedRefresh;
+        
         await storage.upsertGraphToken({
           userId,
           tenantId: graphToken.tenantId,
-          accessToken: response.accessToken,
-          refreshToken: (response as any).refreshToken || graphToken.refreshToken,
+          accessToken: encryptToken(response.accessToken),
+          refreshToken: encryptToken(newRefreshToken),
           expiresAt: response.expiresOn ? new Date(response.expiresOn) : null,
           scopes: graphToken.scopes,
         });
@@ -103,7 +114,7 @@ async function getAccessToken(userId: string): Promise<string | null> {
     }
   }
 
-  return graphToken.accessToken;
+  return accessToken;
 }
 
 function getGraphClient(accessToken: string): Client {

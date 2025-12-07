@@ -28,6 +28,7 @@ import MeetingDetail from "@/pages/MeetingDetail";
 import TenantAdmin from "@/pages/TenantAdmin";
 import AIGroundingAdmin from "@/pages/AIGroundingAdmin";
 import Import from "@/pages/Import";
+import Settings from "@/pages/Settings";
 import VerifyEmail from "@/pages/VerifyEmail";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
@@ -207,6 +208,13 @@ function Router() {
         <ProtectedRoute>
           <ModuleLayout>
             <AIGroundingAdmin />
+          </ModuleLayout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/settings">
+        <ProtectedRoute>
+          <ModuleLayout>
+            <Settings />
           </ModuleLayout>
         </ProtectedRoute>
       </Route>

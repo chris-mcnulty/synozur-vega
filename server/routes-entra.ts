@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { ConfidentialClientApplication, Configuration, AuthorizationCodeRequest, CryptoProvider } from '@azure/msal-node';
 import { storage } from './storage';
 import { ROLES } from '../shared/rbac';
+import { encryptToken } from './utils/encryption';
 
 const router = Router();
 
@@ -356,11 +357,13 @@ router.get('/planner-callback', async (req: Request, res: Response) => {
       return res.redirect('/settings?error=user_not_found');
     }
 
+    const refreshToken = (tokenResponse as any).refreshToken || null;
+    
     await storage.upsertGraphToken({
       userId,
       tenantId: user.tenantId,
-      accessToken: tokenResponse.accessToken,
-      refreshToken: (tokenResponse as any).refreshToken || null,
+      accessToken: encryptToken(tokenResponse.accessToken),
+      refreshToken: refreshToken ? encryptToken(refreshToken) : null,
       expiresAt: tokenResponse.expiresOn ? new Date(tokenResponse.expiresOn) : null,
       scopes: PLANNER_SCOPES,
     });
