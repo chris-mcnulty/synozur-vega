@@ -772,6 +772,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { aiRouter } = await import("./routes-ai");
   app.use("/api/ai", aiRouter);
 
+  // Import and use Microsoft 365 routes (Outlook calendar sync, email)
+  const m365Routes = await import("./routes-m365");
+  app.use("/api/m365", m365Routes.default);
+
   const httpServer = createServer(app);
 
   return httpServer;

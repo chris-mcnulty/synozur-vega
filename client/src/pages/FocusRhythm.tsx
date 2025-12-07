@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Users, Pencil, Trash2, Plus, Target, CheckCircle2, FileText, AlertTriangle, Link2, Clock, Zap, ChevronRight, X, Sparkles, Search, Copy, ClipboardCheck, ExternalLink } from "lucide-react";
+import { Calendar, Users, Pencil, Trash2, Plus, Target, CheckCircle2, FileText, AlertTriangle, Link2, Clock, Zap, ChevronRight, X, Sparkles, Search, Copy, ClipboardCheck, ExternalLink, Mail, RefreshCw, Cloud, CloudOff } from "lucide-react";
 import { Link } from "wouter";
 import {
   Dialog,
@@ -386,9 +386,14 @@ interface MeetingCardProps {
   objectives: Objective[];
   bigRocks: BigRock[];
   onCopyBrief: (meeting: Meeting) => void;
+  outlookConnected?: boolean;
+  onSyncToOutlook?: (meetingId: string) => void;
+  onSendSummary?: (meetingId: string) => void;
+  isSyncing?: boolean;
+  isSendingSummary?: boolean;
 }
 
-function MeetingCard({ meeting, onEdit, onDelete, objectives, bigRocks, onCopyBrief }: MeetingCardProps) {
+function MeetingCard({ meeting, onEdit, onDelete, objectives, bigRocks, onCopyBrief, outlookConnected, onSyncToOutlook, onSendSummary, isSyncing, isSendingSummary }: MeetingCardProps) {
   const linkedObjectives = objectives.filter(o => 
     meeting.linkedObjectiveIds?.includes(o.id)
   );
@@ -419,6 +424,24 @@ function MeetingCard({ meeting, onEdit, onDelete, objectives, bigRocks, onCopyBr
                 <Badge variant="outline" className="text-xs">
                   <FileText className="w-3 h-3 mr-1" />
                   Template
+                </Badge>
+              )}
+              {(meeting as any).syncStatus === 'synced' && (
+                <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30">
+                  <Cloud className="w-3 h-3 mr-1" />
+                  Outlook
+                </Badge>
+              )}
+              {(meeting as any).syncStatus === 'error' && (
+                <Badge variant="outline" className="text-xs bg-red-500/10 text-red-600 border-red-500/30">
+                  <CloudOff className="w-3 h-3 mr-1" />
+                  Sync Error
+                </Badge>
+              )}
+              {(meeting as any).summaryEmailStatus === 'sent' && (
+                <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 border-blue-500/30">
+                  <Mail className="w-3 h-3 mr-1" />
+                  Summary Sent
                 </Badge>
               )}
             </div>
@@ -552,13 +575,48 @@ function MeetingCard({ meeting, onEdit, onDelete, objectives, bigRocks, onCopyBr
         </div>
       </CardContent>
       
-      {meeting.nextMeetingDate && (
-        <CardFooter className="pt-0">
-          <div className="text-xs text-muted-foreground">
-            Next meeting: {format(new Date(meeting.nextMeetingDate), "PPP")}
+      <CardFooter className="pt-0 flex flex-wrap items-center justify-between gap-2">
+        <div className="text-xs text-muted-foreground">
+          {meeting.nextMeetingDate && (
+            <span>Next meeting: {format(new Date(meeting.nextMeetingDate), "PPP")}</span>
+          )}
+        </div>
+        
+        {outlookConnected && (
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onSyncToOutlook?.(meeting.id)}
+              disabled={isSyncing}
+              data-testid={`button-sync-outlook-${meeting.id}`}
+            >
+              {isSyncing ? (
+                <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
+              ) : (
+                <Cloud className="w-4 h-4 mr-1" />
+              )}
+              {(meeting as any).syncStatus === 'synced' ? 'Re-sync' : 'Sync to Outlook'}
+            </Button>
+            {meeting.summary && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onSendSummary?.(meeting.id)}
+                disabled={isSendingSummary}
+                data-testid={`button-send-summary-${meeting.id}`}
+              >
+                {isSendingSummary ? (
+                  <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
+                ) : (
+                  <Mail className="w-4 h-4 mr-1" />
+                )}
+                Send Summary
+              </Button>
+            )}
           </div>
-        </CardFooter>
-      )}
+        )}
+      </CardFooter>
     </Card>
   );
 }
@@ -612,6 +670,39 @@ export default function FocusRhythm() {
       const res = await fetch(`/api/okr/big-rocks?tenantId=${currentTenant.id}`);
       if (!res.ok) return [];
       return res.json();
+    },
+  });
+  
+  const { data: outlookStatus } = useQuery<{ connected: boolean; user: { displayName: string; email: string } | null }>({
+    queryKey: ['/api/m365/status'],
+    staleTime: 60000,
+  });
+  
+  const syncToOutlookMutation = useMutation({
+    mutationFn: async (meetingId: string) => {
+      const res = await apiRequest('POST', `/api/m365/meetings/${meetingId}/sync`, {});
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant.id}`] });
+      toast({ title: "Synced to Outlook", description: "Meeting has been synced to your Outlook calendar." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Sync Failed", description: error.message || "Failed to sync meeting to Outlook.", variant: "destructive" });
+    },
+  });
+  
+  const sendSummaryMutation = useMutation({
+    mutationFn: async (meetingId: string) => {
+      const res = await apiRequest('POST', `/api/m365/meetings/${meetingId}/send-summary`, {});
+      return res.json();
+    },
+    onSuccess: (data: any) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant.id}`] });
+      toast({ title: "Summary Sent", description: `Email sent to ${data.recipientCount} recipients.` });
+    },
+    onError: (error: any) => {
+      toast({ title: "Email Failed", description: error.message || "Failed to send meeting summary.", variant: "destructive" });
     },
   });
 
@@ -1330,6 +1421,17 @@ export default function FocusRhythm() {
             </p>
           </div>
           <div className="flex gap-2 items-center">
+            {outlookStatus?.connected ? (
+              <Badge variant="outline" className="text-xs bg-green-500/10 text-green-600 border-green-500/30" data-testid="badge-outlook-connected">
+                <Cloud className="w-3 h-3 mr-1" />
+                Outlook Connected
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs text-muted-foreground" data-testid="badge-outlook-disconnected">
+                <CloudOff className="w-3 h-3 mr-1" />
+                Outlook Not Connected
+              </Badge>
+            )}
             <Select value={quarter.toString()} onValueChange={(v) => setQuarter(parseInt(v))}>
               <SelectTrigger className="w-24" data-testid="select-quarter">
                 <SelectValue />
@@ -1475,6 +1577,11 @@ export default function FocusRhythm() {
                     objectives={objectives}
                     bigRocks={bigRocks}
                     onCopyBrief={handleCopyBrief}
+                    outlookConnected={outlookStatus?.connected}
+                    onSyncToOutlook={(id) => syncToOutlookMutation.mutate(id)}
+                    onSendSummary={(id) => sendSummaryMutation.mutate(id)}
+                    isSyncing={syncToOutlookMutation.isPending}
+                    isSendingSummary={sendSummaryMutation.isPending}
                   />
                 ))}
               </div>
