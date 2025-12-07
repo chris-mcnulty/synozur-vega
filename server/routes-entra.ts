@@ -26,6 +26,18 @@ const REDIRECT_URI = process.env.AZURE_REDIRECT_URI || `${process.env.REPLIT_DEV
 
 const SCOPES = ['openid', 'profile', 'email', 'User.Read'];
 
+const PLANNER_SCOPES = [
+  'openid',
+  'profile', 
+  'email',
+  'User.Read',
+  'Tasks.ReadWrite',
+  'Group.Read.All',
+  'offline_access',
+];
+
+const PLANNER_REDIRECT_URI = process.env.AZURE_REDIRECT_URI || `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'http://localhost:5000'}/auth/entra/planner-callback`;
+
 const cryptoProvider = new CryptoProvider();
 
 let msalClient: ConfidentialClientApplication | null = null;
@@ -253,6 +265,153 @@ router.get('/tenant-config/:tenantId', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[Entra SSO] Tenant config error:', error);
     res.status(500).json({ error: 'Failed to fetch tenant SSO config' });
+  }
+});
+
+router.get('/planner/connect', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const client = getMsalClient();
+    if (!client) {
+      return res.status(503).json({ error: 'Azure AD SSO is not configured' });
+    }
+
+    const { verifier, challenge } = await cryptoProvider.generatePkceCodes();
+    const state = cryptoProvider.createNewGuid();
+    
+    (req.session as any).pkceVerifier = verifier;
+    (req.session as any).authState = state;
+    (req.session as any).plannerConnect = true;
+
+    const authCodeUrlParams = {
+      scopes: PLANNER_SCOPES,
+      redirectUri: PLANNER_REDIRECT_URI,
+      codeChallenge: challenge,
+      codeChallengeMethod: 'S256' as const,
+      state,
+      prompt: 'consent',
+    };
+
+    const authUrl = await client.getAuthCodeUrl(authCodeUrlParams);
+    res.redirect(authUrl);
+  } catch (error) {
+    console.error('[Entra Planner] Connect error:', error);
+    res.status(500).json({ error: 'Failed to initiate Planner connection' });
+  }
+});
+
+router.get('/planner-callback', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId;
+    if (!userId) {
+      return res.redirect('/settings?error=not_authenticated');
+    }
+
+    const client = getMsalClient();
+    if (!client) {
+      return res.redirect('/settings?error=sso_not_configured');
+    }
+
+    const { code, state, error, error_description } = req.query;
+
+    if (error) {
+      console.error('[Entra Planner] Auth error:', error, error_description);
+      return res.redirect(`/settings?error=${encodeURIComponent(error as string)}`);
+    }
+
+    if (!code || typeof code !== 'string') {
+      return res.redirect('/settings?error=missing_auth_code');
+    }
+
+    const sessionState = (req.session as any).authState;
+    if (state !== sessionState) {
+      console.error('[Entra Planner] State mismatch');
+      return res.redirect('/settings?error=state_mismatch');
+    }
+
+    const pkceVerifier = (req.session as any).pkceVerifier;
+    if (!pkceVerifier) {
+      return res.redirect('/settings?error=missing_pkce');
+    }
+
+    const tokenRequest: AuthorizationCodeRequest = {
+      code,
+      scopes: PLANNER_SCOPES,
+      redirectUri: PLANNER_REDIRECT_URI,
+      codeVerifier: pkceVerifier,
+    };
+
+    const tokenResponse = await client.acquireTokenByCode(tokenRequest);
+
+    if (!tokenResponse) {
+      return res.redirect('/settings?error=token_failed');
+    }
+
+    const user = await storage.getUser(userId);
+    if (!user || !user.tenantId) {
+      return res.redirect('/settings?error=user_not_found');
+    }
+
+    await storage.upsertGraphToken({
+      userId,
+      tenantId: user.tenantId,
+      accessToken: tokenResponse.accessToken,
+      refreshToken: (tokenResponse as any).refreshToken || null,
+      expiresAt: tokenResponse.expiresOn ? new Date(tokenResponse.expiresOn) : null,
+      scopes: PLANNER_SCOPES,
+    });
+
+    delete (req.session as any).pkceVerifier;
+    delete (req.session as any).authState;
+    delete (req.session as any).plannerConnect;
+
+    console.log(`[Entra Planner] Connected for user ${userId}`);
+    res.redirect('/settings?planner=connected');
+
+  } catch (error) {
+    console.error('[Entra Planner] Callback error:', error);
+    res.redirect('/settings?error=callback_failed');
+  }
+});
+
+router.get('/planner/status', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const token = await storage.getGraphToken(userId);
+    const isConfigured = !!(process.env.AZURE_CLIENT_ID && process.env.AZURE_CLIENT_SECRET);
+    
+    res.json({
+      configured: isConfigured,
+      connected: !!token,
+      expiresAt: token?.expiresAt,
+      scopes: token?.scopes || [],
+    });
+  } catch (error) {
+    console.error('[Entra Planner] Status error:', error);
+    res.status(500).json({ error: 'Failed to get Planner status' });
+  }
+});
+
+router.post('/planner/disconnect', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    await storage.deleteGraphToken(userId);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[Entra Planner] Disconnect error:', error);
+    res.status(500).json({ error: 'Failed to disconnect Planner' });
   }
 });
 

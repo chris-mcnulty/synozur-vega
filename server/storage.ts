@@ -1239,14 +1239,14 @@ export class DatabaseStorage implements IStorage {
     if (existing) {
       const [updated] = await db
         .update(graphTokens)
-        .set({ ...token, updatedAt: new Date() })
+        .set({ ...token, updatedAt: new Date() } as any)
         .where(eq(graphTokens.userId, token.userId))
         .returning();
       return updated;
     }
     const [created] = await db
       .insert(graphTokens)
-      .values(token)
+      .values(token as any)
       .returning();
     return created;
   }
