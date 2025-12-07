@@ -15,7 +15,13 @@ import {
   strategyValues,
   objectiveBigRocks, type InsertObjectiveBigRock,
   keyResultBigRocks, type InsertKeyResultBigRock,
-  groundingDocuments, type GroundingDocument, type InsertGroundingDocument
+  groundingDocuments, type GroundingDocument, type InsertGroundingDocument,
+  graphTokens, type GraphToken, type InsertGraphToken,
+  plannerPlans, type PlannerPlan, type InsertPlannerPlan,
+  plannerBuckets, type PlannerBucket, type InsertPlannerBucket,
+  plannerTasks, type PlannerTask, type InsertPlannerTask,
+  objectivePlannerTasks,
+  bigRockPlannerTasks
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull } from "drizzle-orm";
@@ -145,6 +151,38 @@ export interface IStorage {
   createGroundingDocument(document: InsertGroundingDocument): Promise<GroundingDocument>;
   updateGroundingDocument(id: string, document: Partial<InsertGroundingDocument>): Promise<GroundingDocument>;
   deleteGroundingDocument(id: string): Promise<void>;
+  
+  // Microsoft Graph token methods
+  getGraphToken(userId: string): Promise<GraphToken | undefined>;
+  upsertGraphToken(token: InsertGraphToken): Promise<GraphToken>;
+  deleteGraphToken(userId: string): Promise<void>;
+  
+  // Microsoft Planner methods
+  getPlannerPlansByTenantId(tenantId: string): Promise<PlannerPlan[]>;
+  getPlannerPlanById(id: string): Promise<PlannerPlan | undefined>;
+  getPlannerPlanByGraphId(tenantId: string, graphPlanId: string): Promise<PlannerPlan | undefined>;
+  upsertPlannerPlan(plan: InsertPlannerPlan): Promise<PlannerPlan>;
+  deletePlannerPlan(id: string): Promise<void>;
+  
+  getPlannerBucketsByPlanId(planId: string): Promise<PlannerBucket[]>;
+  getPlannerBucketById(id: string): Promise<PlannerBucket | undefined>;
+  upsertPlannerBucket(bucket: InsertPlannerBucket): Promise<PlannerBucket>;
+  deletePlannerBucket(id: string): Promise<void>;
+  
+  getPlannerTasksByPlanId(planId: string): Promise<PlannerTask[]>;
+  getPlannerTasksByBucketId(bucketId: string): Promise<PlannerTask[]>;
+  getPlannerTaskById(id: string): Promise<PlannerTask | undefined>;
+  upsertPlannerTask(task: InsertPlannerTask): Promise<PlannerTask>;
+  deletePlannerTask(id: string): Promise<void>;
+  
+  // Planner task linking
+  linkPlannerTaskToObjective(plannerTaskId: string, objectiveId: string, tenantId: string, userId?: string): Promise<void>;
+  unlinkPlannerTaskFromObjective(plannerTaskId: string, objectiveId: string): Promise<void>;
+  getPlannerTasksLinkedToObjective(objectiveId: string): Promise<PlannerTask[]>;
+  
+  linkPlannerTaskToBigRock(plannerTaskId: string, bigRockId: string, tenantId: string, userId?: string): Promise<void>;
+  unlinkPlannerTaskFromBigRock(plannerTaskId: string, bigRockId: string): Promise<void>;
+  getPlannerTasksLinkedToBigRock(bigRockId: string): Promise<PlannerTask[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1185,6 +1223,250 @@ export class DatabaseStorage implements IStorage {
 
   async deleteGroundingDocument(id: string): Promise<void> {
     await db.delete(groundingDocuments).where(eq(groundingDocuments.id, id));
+  }
+
+  // Microsoft Graph token methods
+  async getGraphToken(userId: string): Promise<GraphToken | undefined> {
+    const [token] = await db
+      .select()
+      .from(graphTokens)
+      .where(eq(graphTokens.userId, userId));
+    return token || undefined;
+  }
+
+  async upsertGraphToken(token: InsertGraphToken): Promise<GraphToken> {
+    const existing = await this.getGraphToken(token.userId);
+    if (existing) {
+      const [updated] = await db
+        .update(graphTokens)
+        .set({ ...token, updatedAt: new Date() })
+        .where(eq(graphTokens.userId, token.userId))
+        .returning();
+      return updated;
+    }
+    const [created] = await db
+      .insert(graphTokens)
+      .values(token)
+      .returning();
+    return created;
+  }
+
+  async deleteGraphToken(userId: string): Promise<void> {
+    await db.delete(graphTokens).where(eq(graphTokens.userId, userId));
+  }
+
+  // Microsoft Planner methods
+  async getPlannerPlansByTenantId(tenantId: string): Promise<PlannerPlan[]> {
+    return await db
+      .select()
+      .from(plannerPlans)
+      .where(eq(plannerPlans.tenantId, tenantId))
+      .orderBy(plannerPlans.title);
+  }
+
+  async getPlannerPlanById(id: string): Promise<PlannerPlan | undefined> {
+    const [plan] = await db
+      .select()
+      .from(plannerPlans)
+      .where(eq(plannerPlans.id, id));
+    return plan || undefined;
+  }
+
+  async getPlannerPlanByGraphId(tenantId: string, graphPlanId: string): Promise<PlannerPlan | undefined> {
+    const [plan] = await db
+      .select()
+      .from(plannerPlans)
+      .where(and(
+        eq(plannerPlans.tenantId, tenantId),
+        eq(plannerPlans.graphPlanId, graphPlanId)
+      ));
+    return plan || undefined;
+  }
+
+  async upsertPlannerPlan(plan: InsertPlannerPlan): Promise<PlannerPlan> {
+    const existing = await this.getPlannerPlanByGraphId(plan.tenantId, plan.graphPlanId);
+    if (existing) {
+      const [updated] = await db
+        .update(plannerPlans)
+        .set({ ...plan, updatedAt: new Date() })
+        .where(eq(plannerPlans.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db
+      .insert(plannerPlans)
+      .values(plan)
+      .returning();
+    return created;
+  }
+
+  async deletePlannerPlan(id: string): Promise<void> {
+    await db.delete(plannerPlans).where(eq(plannerPlans.id, id));
+  }
+
+  async getPlannerBucketsByPlanId(planId: string): Promise<PlannerBucket[]> {
+    return await db
+      .select()
+      .from(plannerBuckets)
+      .where(eq(plannerBuckets.planId, planId))
+      .orderBy(plannerBuckets.orderHint);
+  }
+
+  async getPlannerBucketById(id: string): Promise<PlannerBucket | undefined> {
+    const [bucket] = await db
+      .select()
+      .from(plannerBuckets)
+      .where(eq(plannerBuckets.id, id));
+    return bucket || undefined;
+  }
+
+  async upsertPlannerBucket(bucket: InsertPlannerBucket): Promise<PlannerBucket> {
+    const [existing] = await db
+      .select()
+      .from(plannerBuckets)
+      .where(and(
+        eq(plannerBuckets.planId, bucket.planId),
+        eq(plannerBuckets.graphBucketId, bucket.graphBucketId)
+      ));
+    if (existing) {
+      const [updated] = await db
+        .update(plannerBuckets)
+        .set({ ...bucket, updatedAt: new Date() })
+        .where(eq(plannerBuckets.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db
+      .insert(plannerBuckets)
+      .values(bucket)
+      .returning();
+    return created;
+  }
+
+  async deletePlannerBucket(id: string): Promise<void> {
+    await db.delete(plannerBuckets).where(eq(plannerBuckets.id, id));
+  }
+
+  async getPlannerTasksByPlanId(planId: string): Promise<PlannerTask[]> {
+    return await db
+      .select()
+      .from(plannerTasks)
+      .where(eq(plannerTasks.planId, planId))
+      .orderBy(plannerTasks.title);
+  }
+
+  async getPlannerTasksByBucketId(bucketId: string): Promise<PlannerTask[]> {
+    return await db
+      .select()
+      .from(plannerTasks)
+      .where(eq(plannerTasks.bucketId, bucketId))
+      .orderBy(plannerTasks.title);
+  }
+
+  async getPlannerTaskById(id: string): Promise<PlannerTask | undefined> {
+    const [task] = await db
+      .select()
+      .from(plannerTasks)
+      .where(eq(plannerTasks.id, id));
+    return task || undefined;
+  }
+
+  async upsertPlannerTask(task: InsertPlannerTask): Promise<PlannerTask> {
+    const [existing] = await db
+      .select()
+      .from(plannerTasks)
+      .where(and(
+        eq(plannerTasks.planId, task.planId),
+        eq(plannerTasks.graphTaskId, task.graphTaskId)
+      ));
+    if (existing) {
+      const [updated] = await db
+        .update(plannerTasks)
+        .set({ ...task, updatedAt: new Date() })
+        .where(eq(plannerTasks.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db
+      .insert(plannerTasks)
+      .values(task)
+      .returning();
+    return created;
+  }
+
+  async deletePlannerTask(id: string): Promise<void> {
+    await db.delete(plannerTasks).where(eq(plannerTasks.id, id));
+  }
+
+  // Planner task linking
+  async linkPlannerTaskToObjective(plannerTaskId: string, objectiveId: string, tenantId: string, userId?: string): Promise<void> {
+    await db
+      .insert(objectivePlannerTasks)
+      .values({
+        objectiveId,
+        plannerTaskId,
+        tenantId,
+        createdBy: userId || null,
+      })
+      .onConflictDoNothing();
+  }
+
+  async unlinkPlannerTaskFromObjective(plannerTaskId: string, objectiveId: string): Promise<void> {
+    await db
+      .delete(objectivePlannerTasks)
+      .where(and(
+        eq(objectivePlannerTasks.plannerTaskId, plannerTaskId),
+        eq(objectivePlannerTasks.objectiveId, objectiveId)
+      ));
+  }
+
+  async getPlannerTasksLinkedToObjective(objectiveId: string): Promise<PlannerTask[]> {
+    const links = await db
+      .select()
+      .from(objectivePlannerTasks)
+      .where(eq(objectivePlannerTasks.objectiveId, objectiveId));
+    
+    const tasks: PlannerTask[] = [];
+    for (const link of links) {
+      const task = await this.getPlannerTaskById(link.plannerTaskId);
+      if (task) tasks.push(task);
+    }
+    return tasks;
+  }
+
+  async linkPlannerTaskToBigRock(plannerTaskId: string, bigRockId: string, tenantId: string, userId?: string): Promise<void> {
+    await db
+      .insert(bigRockPlannerTasks)
+      .values({
+        bigRockId,
+        plannerTaskId,
+        tenantId,
+        createdBy: userId || null,
+      })
+      .onConflictDoNothing();
+  }
+
+  async unlinkPlannerTaskFromBigRock(plannerTaskId: string, bigRockId: string): Promise<void> {
+    await db
+      .delete(bigRockPlannerTasks)
+      .where(and(
+        eq(bigRockPlannerTasks.plannerTaskId, plannerTaskId),
+        eq(bigRockPlannerTasks.bigRockId, bigRockId)
+      ));
+  }
+
+  async getPlannerTasksLinkedToBigRock(bigRockId: string): Promise<PlannerTask[]> {
+    const links = await db
+      .select()
+      .from(bigRockPlannerTasks)
+      .where(eq(bigRockPlannerTasks.bigRockId, bigRockId));
+    
+    const tasks: PlannerTask[] = [];
+    for (const link of links) {
+      const task = await this.getPlannerTaskById(link.plannerTaskId);
+      if (task) tasks.push(task);
+    }
+    return tasks;
   }
 }
 
