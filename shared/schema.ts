@@ -410,6 +410,18 @@ export const keyResults = pgTable("key_results", {
   updatedAt: timestamp("updated_at").defaultNow(),
   lastCheckInAt: timestamp("last_check_in_at"),
   lastCheckInNote: text("last_check_in_note"),
+  
+  // Excel data source binding
+  excelSourceType: text("excel_source_type"), // 'onedrive' | 'sharepoint' | null
+  excelFileId: text("excel_file_id"), // OneDrive/SharePoint item ID
+  excelFileName: text("excel_file_name"), // Display name
+  excelFilePath: text("excel_file_path"), // Full path for display
+  excelSheetName: text("excel_sheet_name"), // Worksheet name
+  excelCellReference: text("excel_cell_reference"), // e.g., "B5" or "Sheet1!B5"
+  excelLastSyncAt: timestamp("excel_last_sync_at"),
+  excelLastSyncValue: doublePrecision("excel_last_sync_value"),
+  excelSyncError: text("excel_sync_error"),
+  excelAutoSync: boolean("excel_auto_sync").default(false), // Auto-sync on page load
 });
 
 export const bigRocks = pgTable("big_rocks", {

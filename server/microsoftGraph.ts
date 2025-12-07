@@ -699,3 +699,157 @@ export async function checkAllM365Connections(): Promise<M365ConnectionStatus> {
   
   return { outlook, onedrive, sharepoint };
 }
+
+// ==================== Excel Integration ====================
+
+export interface ExcelWorksheet {
+  id: string;
+  name: string;
+  position: number;
+  visibility: string;
+}
+
+export interface ExcelCellValue {
+  value: any;
+  text: string;
+  numberValue?: number;
+  formula?: string;
+}
+
+export interface ExcelRange {
+  address: string;
+  values: any[][];
+  text: string[][];
+  formulas?: string[][];
+}
+
+export async function getExcelWorksheets(
+  itemId: string,
+  sourceType: 'onedrive' | 'sharepoint' = 'onedrive',
+  siteId?: string
+): Promise<ExcelWorksheet[]> {
+  const client = await getMicrosoftClient(sourceType);
+  
+  let path: string;
+  if (sourceType === 'sharepoint' && siteId) {
+    path = `/sites/${siteId}/drive/items/${itemId}/workbook/worksheets`;
+  } else {
+    path = `/me/drive/items/${itemId}/workbook/worksheets`;
+  }
+  
+  const response = await client.api(path).get();
+  return response.value.map((ws: any) => ({
+    id: ws.id,
+    name: ws.name,
+    position: ws.position,
+    visibility: ws.visibility,
+  }));
+}
+
+export async function getExcelCellValue(
+  itemId: string,
+  cellReference: string, // e.g., "A1" or "Sheet1!B5"
+  sourceType: 'onedrive' | 'sharepoint' = 'onedrive',
+  siteId?: string
+): Promise<ExcelCellValue> {
+  const client = await getMicrosoftClient(sourceType);
+  
+  // Parse cell reference - could be "A1" or "Sheet1!A1"
+  let sheetName: string | undefined;
+  let cellAddress = cellReference;
+  
+  if (cellReference.includes('!')) {
+    const parts = cellReference.split('!');
+    sheetName = parts[0].replace(/^'|'$/g, ''); // Remove quotes if present
+    cellAddress = parts[1];
+  }
+  
+  let path: string;
+  if (sourceType === 'sharepoint' && siteId) {
+    if (sheetName) {
+      path = `/sites/${siteId}/drive/items/${itemId}/workbook/worksheets/${encodeURIComponent(sheetName)}/range(address='${cellAddress}')`;
+    } else {
+      path = `/sites/${siteId}/drive/items/${itemId}/workbook/worksheets/Sheet1/range(address='${cellAddress}')`;
+    }
+  } else {
+    if (sheetName) {
+      path = `/me/drive/items/${itemId}/workbook/worksheets/${encodeURIComponent(sheetName)}/range(address='${cellAddress}')`;
+    } else {
+      path = `/me/drive/items/${itemId}/workbook/worksheets/Sheet1/range(address='${cellAddress}')`;
+    }
+  }
+  
+  const response = await client.api(path).get();
+  
+  // Extract the value from the response
+  const rawValue = response.values?.[0]?.[0];
+  const textValue = response.text?.[0]?.[0] ?? String(rawValue ?? '');
+  const formula = response.formulas?.[0]?.[0];
+  
+  return {
+    value: rawValue,
+    text: textValue,
+    numberValue: typeof rawValue === 'number' ? rawValue : parseFloat(textValue) || undefined,
+    formula: formula && formula.startsWith('=') ? formula : undefined,
+  };
+}
+
+export async function getExcelRange(
+  itemId: string,
+  rangeAddress: string, // e.g., "A1:B10" or "Sheet1!A1:B10"
+  sourceType: 'onedrive' | 'sharepoint' = 'onedrive',
+  siteId?: string
+): Promise<ExcelRange> {
+  const client = await getMicrosoftClient(sourceType);
+  
+  // Parse range reference
+  let sheetName: string | undefined;
+  let rangeRef = rangeAddress;
+  
+  if (rangeAddress.includes('!')) {
+    const parts = rangeAddress.split('!');
+    sheetName = parts[0].replace(/^'|'$/g, '');
+    rangeRef = parts[1];
+  }
+  
+  let path: string;
+  if (sourceType === 'sharepoint' && siteId) {
+    if (sheetName) {
+      path = `/sites/${siteId}/drive/items/${itemId}/workbook/worksheets/${encodeURIComponent(sheetName)}/range(address='${rangeRef}')`;
+    } else {
+      path = `/sites/${siteId}/drive/items/${itemId}/workbook/worksheets/Sheet1/range(address='${rangeRef}')`;
+    }
+  } else {
+    if (sheetName) {
+      path = `/me/drive/items/${itemId}/workbook/worksheets/${encodeURIComponent(sheetName)}/range(address='${rangeRef}')`;
+    } else {
+      path = `/me/drive/items/${itemId}/workbook/worksheets/Sheet1/range(address='${rangeRef}')`;
+    }
+  }
+  
+  const response = await client.api(path).get();
+  
+  return {
+    address: response.address,
+    values: response.values,
+    text: response.text,
+    formulas: response.formulas,
+  };
+}
+
+// Search for Excel files in OneDrive
+export async function searchExcelFiles(query: string = ''): Promise<OneDriveItem[]> {
+  const client = await getMicrosoftClient('onedrive');
+  
+  // Search for xlsx files
+  const searchQuery = query ? `${query} .xlsx` : '.xlsx';
+  const response = await client.api(`/me/drive/root/search(q='${encodeURIComponent(searchQuery)}')`)
+    .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
+    .filter("file/mimeType eq 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' or endswith(name,'.xlsx') or endswith(name,'.xls')")
+    .get();
+  
+  // Filter to only Excel files
+  return response.value.filter((item: OneDriveItem) => 
+    item.file && (item.name.endsWith('.xlsx') || item.name.endsWith('.xls'))
+  );
+}

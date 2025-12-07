@@ -29,6 +29,10 @@ import {
   listSharePointDocuments,
   // Combined status
   checkAllM365Connections,
+  // Excel
+  getExcelWorksheets,
+  getExcelCellValue,
+  searchExcelFiles,
 } from './microsoftGraph';
 
 const router = Router();
@@ -505,6 +509,281 @@ router.get('/sharepoint/sites/:siteId/documents', async (req: Request, res: Resp
     res.json(documents);
   } catch (error: any) {
     console.error('Failed to list SharePoint documents:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== Excel Integration Routes ====================
+
+router.get('/excel/search', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const { q } = req.query;
+    const files = await searchExcelFiles(q as string || '');
+    res.json(files);
+  } catch (error: any) {
+    console.error('Failed to search Excel files:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/excel/files/:fileId/worksheets', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const { sourceType, siteId } = req.query;
+    const worksheets = await getExcelWorksheets(
+      req.params.fileId,
+      (sourceType as 'onedrive' | 'sharepoint') || 'onedrive',
+      siteId as string | undefined
+    );
+    res.json(worksheets);
+  } catch (error: any) {
+    console.error('Failed to get Excel worksheets:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/excel/files/:fileId/cell', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const { cell, sourceType, siteId } = req.query;
+    if (!cell) {
+      return res.status(400).json({ error: 'Cell reference required (e.g., A1 or Sheet1!B5)' });
+    }
+    
+    const cellValue = await getExcelCellValue(
+      req.params.fileId,
+      cell as string,
+      (sourceType as 'onedrive' | 'sharepoint') || 'onedrive',
+      siteId as string | undefined
+    );
+    res.json(cellValue);
+  } catch (error: any) {
+    console.error('Failed to get Excel cell value:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Link a Key Result to an Excel cell
+router.post('/key-results/:id/link-excel', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const { id } = req.params;
+    const { 
+      excelSourceType,
+      excelFileId,
+      excelFileName,
+      excelFilePath,
+      excelSheetName,
+      excelCellReference,
+      excelAutoSync
+    } = req.body;
+    
+    // Validate required fields
+    if (!excelSourceType || !excelFileId || !excelCellReference) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: excelSourceType, excelFileId, excelCellReference' 
+      });
+    }
+    
+    // Get the key result and verify access
+    const keyResult = await storage.getKeyResultById(id);
+    if (!keyResult) {
+      return res.status(404).json({ error: 'Key Result not found' });
+    }
+    
+    if (keyResult.tenantId !== user.tenantId && !['admin', 'vega_consultant', 'vega_admin'].includes(user.role)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Try to fetch the initial value from Excel
+    let excelLastSyncValue: number | null = null;
+    let excelSyncError: string | null = null;
+    
+    try {
+      const cellValue = await getExcelCellValue(
+        excelFileId,
+        excelSheetName ? `${excelSheetName}!${excelCellReference}` : excelCellReference,
+        excelSourceType as 'onedrive' | 'sharepoint'
+      );
+      
+      if (cellValue.numberValue !== undefined) {
+        excelLastSyncValue = cellValue.numberValue;
+      } else {
+        excelSyncError = 'Cell does not contain a numeric value';
+      }
+    } catch (err: any) {
+      excelSyncError = `Failed to read cell: ${err.message}`;
+    }
+    
+    // Update the key result with Excel binding
+    const updatedKR = await storage.updateKeyResult(id, {
+      excelSourceType,
+      excelFileId,
+      excelFileName: excelFileName || null,
+      excelFilePath: excelFilePath || null,
+      excelSheetName: excelSheetName || null,
+      excelCellReference,
+      excelLastSyncAt: new Date(),
+      excelLastSyncValue,
+      excelSyncError,
+      excelAutoSync: excelAutoSync ?? false,
+      // Optionally update the current value if we got a valid number
+      ...(excelLastSyncValue !== null && !excelSyncError ? { currentValue: excelLastSyncValue } : {}),
+      updatedBy: user.id,
+    });
+    
+    res.json({
+      success: true,
+      keyResult: updatedKR,
+      syncedValue: excelLastSyncValue,
+      syncError: excelSyncError,
+    });
+  } catch (error: any) {
+    console.error('Failed to link Key Result to Excel:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Unlink a Key Result from Excel
+router.delete('/key-results/:id/link-excel', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const { id } = req.params;
+    
+    const keyResult = await storage.getKeyResultById(id);
+    if (!keyResult) {
+      return res.status(404).json({ error: 'Key Result not found' });
+    }
+    
+    if (keyResult.tenantId !== user.tenantId && !['admin', 'vega_consultant', 'vega_admin'].includes(user.role)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    // Clear all Excel-related fields
+    const updatedKR = await storage.updateKeyResult(id, {
+      excelSourceType: null,
+      excelFileId: null,
+      excelFileName: null,
+      excelFilePath: null,
+      excelSheetName: null,
+      excelCellReference: null,
+      excelLastSyncAt: null,
+      excelLastSyncValue: null,
+      excelSyncError: null,
+      excelAutoSync: false,
+      updatedBy: user.id,
+    });
+    
+    res.json({ success: true, keyResult: updatedKR });
+  } catch (error: any) {
+    console.error('Failed to unlink Key Result from Excel:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Sync a Key Result's value from Excel
+router.post('/key-results/:id/sync-excel', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const { id } = req.params;
+    const { updateCurrentValue } = req.body;
+    
+    const keyResult = await storage.getKeyResultById(id);
+    if (!keyResult) {
+      return res.status(404).json({ error: 'Key Result not found' });
+    }
+    
+    if (keyResult.tenantId !== user.tenantId && !['admin', 'vega_consultant', 'vega_admin'].includes(user.role)) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+    
+    if (!keyResult.excelFileId || !keyResult.excelCellReference) {
+      return res.status(400).json({ error: 'Key Result is not linked to an Excel source' });
+    }
+    
+    // Fetch the current value from Excel
+    let excelLastSyncValue: number | null = null;
+    let excelSyncError: string | null = null;
+    
+    try {
+      const cellRef = keyResult.excelSheetName 
+        ? `${keyResult.excelSheetName}!${keyResult.excelCellReference}`
+        : keyResult.excelCellReference;
+      
+      const cellValue = await getExcelCellValue(
+        keyResult.excelFileId,
+        cellRef,
+        (keyResult.excelSourceType as 'onedrive' | 'sharepoint') || 'onedrive'
+      );
+      
+      if (cellValue.numberValue !== undefined) {
+        excelLastSyncValue = cellValue.numberValue;
+      } else {
+        excelSyncError = 'Cell does not contain a numeric value';
+      }
+    } catch (err: any) {
+      excelSyncError = `Failed to read cell: ${err.message}`;
+    }
+    
+    // Update the key result
+    const updateData: any = {
+      excelLastSyncAt: new Date(),
+      excelLastSyncValue,
+      excelSyncError,
+      updatedBy: user.id,
+    };
+    
+    // Optionally update the current value
+    if (updateCurrentValue !== false && excelLastSyncValue !== null && !excelSyncError) {
+      updateData.currentValue = excelLastSyncValue;
+      
+      // Recalculate progress based on new value
+      const initial = keyResult.initialValue ?? 0;
+      const target = keyResult.targetValue ?? 100;
+      const range = target - initial;
+      
+      if (range !== 0) {
+        const progress = Math.min(100, Math.max(0, ((excelLastSyncValue - initial) / range) * 100));
+        updateData.progress = progress;
+      }
+    }
+    
+    const updatedKR = await storage.updateKeyResult(id, updateData);
+    
+    res.json({
+      success: !excelSyncError,
+      keyResult: updatedKR,
+      syncedValue: excelLastSyncValue,
+      syncError: excelSyncError,
+      previousValue: keyResult.currentValue,
+    });
+  } catch (error: any) {
+    console.error('Failed to sync Key Result from Excel:', error);
     res.status(500).json({ error: error.message });
   }
 });
