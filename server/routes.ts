@@ -968,6 +968,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { entraRouter } = await import("./routes-entra");
   app.use("/auth/entra", entraRouter);
 
+  // Import and use Microsoft Planner routes
+  const { plannerRouter } = await import("./routes-planner");
+  app.use("/api/planner", plannerRouter);
+
   const httpServer = createServer(app);
 
   return httpServer;
