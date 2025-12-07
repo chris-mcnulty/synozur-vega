@@ -14,6 +14,9 @@ export const users = pgTable("users", {
   verificationToken: text("verification_token"),
   resetToken: text("reset_token"),
   resetTokenExpiry: timestamp("reset_token_expiry"),
+  authProvider: text("auth_provider").default("local"),
+  azureObjectId: text("azure_object_id"),
+  azureTenantId: text("azure_tenant_id"),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -36,6 +39,9 @@ export const tenants = pgTable("tenants", {
   logoUrl: text("logo_url"),
   allowedDomains: jsonb("allowed_domains").$type<string[]>(),
   defaultTimePeriod: jsonb("default_time_period").$type<DefaultTimePeriod>(),
+  azureTenantId: text("azure_tenant_id"),
+  enforceSso: boolean("enforce_sso").default(false),
+  allowLocalAuth: boolean("allow_local_auth").default(true),
 });
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({
