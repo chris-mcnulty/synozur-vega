@@ -19,14 +19,33 @@ import {
   generateResetToken,
   hashToken 
 } from "./email";
+import { 
+  loadCurrentUser, 
+  requireTenantAccess, 
+  requireRole, 
+  requirePermission,
+  rbac,
+  canModifyAnyOKR,
+  isResourceOwner
+} from "./middleware/rbac";
+import { ROLES, PERMISSIONS } from "../shared/rbac";
 
-// Authentication middleware
+// Authentication middleware (basic - just checks session)
 function requireAuth(req: Request, res: Response, next: NextFunction) {
   if (!req.session.userId) {
     return res.status(401).json({ error: "Authentication required" });
   }
   next();
 }
+
+// Combined auth middleware: requireAuth + loadCurrentUser + requireTenantAccess
+const authWithTenant = [requireAuth, loadCurrentUser, requireTenantAccess];
+
+// Admin-only middleware
+const adminOnly = [requireAuth, loadCurrentUser, requireTenantAccess, rbac.tenantAdmin];
+
+// Platform admin only
+const platformAdminOnly = [requireAuth, loadCurrentUser, rbac.platformAdmin];
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Authentication routes
@@ -318,20 +337,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Tenant CRUD endpoints
-  app.get("/api/tenants", async (req, res) => {
+  // Tenant CRUD endpoints (platform admin only for create/delete, tenant admin for read/update own)
+  app.get("/api/tenants", ...authWithTenant, async (req: Request, res: Response) => {
     try {
-      const allTenants = await storage.getAllTenants();
-      res.json(allTenants);
+      // Platform admins can see all tenants, others only see their own
+      const userRole = req.user?.role;
+      if (userRole === ROLES.VEGA_ADMIN || userRole === ROLES.GLOBAL_ADMIN || userRole === ROLES.VEGA_CONSULTANT) {
+        const allTenants = await storage.getAllTenants();
+        res.json(allTenants);
+      } else {
+        // Regular users only see their own tenant
+        const tenant = req.effectiveTenantId ? await storage.getTenantById(req.effectiveTenantId) : null;
+        res.json(tenant ? [tenant] : []);
+      }
     } catch (error) {
       console.error("Error fetching tenants:", error);
       res.status(500).json({ error: "Failed to fetch tenants" });
     }
   });
 
-  app.get("/api/tenants/:id", async (req, res) => {
+  app.get("/api/tenants/:id", ...authWithTenant, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      
+      // Check access: must be own tenant or have cross-tenant permission
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      
+      if (!canAccessAny && id !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       const tenant = await storage.getTenantById(id);
       
       if (!tenant) {
@@ -345,7 +381,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/tenants", async (req, res) => {
+  app.post("/api/tenants", ...platformAdminOnly, async (req: Request, res: Response) => {
     try {
       const validatedData = insertTenantSchema.parse(req.body);
       const tenant = await storage.createTenant(validatedData);
@@ -362,9 +398,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/tenants/:id", async (req, res) => {
+  app.patch("/api/tenants/:id", ...adminOnly, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      
+      // Tenant admins can only update their own tenant
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      
+      if (!canAccessAny && id !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       const partialSchema = insertTenantSchema.partial();
       const validatedData = partialSchema.parse(req.body);
       
@@ -382,7 +427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/tenants/:id", async (req, res) => {
+  app.delete("/api/tenants/:id", ...platformAdminOnly, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       await storage.deleteTenant(id);
@@ -393,11 +438,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // User CRUD endpoints
-  app.get("/api/users", async (req, res) => {
+  // User CRUD endpoints (tenant admin can manage users in their tenant)
+  app.get("/api/users", ...adminOnly, async (req: Request, res: Response) => {
     try {
       const { tenantId } = req.query;
-      const users = await storage.getAllUsers(tenantId as string | undefined);
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      
+      // Enforce tenant isolation - admins can only see their tenant's users unless they have cross-tenant access
+      const effectiveTenantId = canAccessAny ? (tenantId as string | undefined) : req.effectiveTenantId;
+      
+      const users = await storage.getAllUsers(effectiveTenantId);
       // Don't send password hashes to client
       const sanitizedUsers = users.map(({ password, ...user }) => user);
       res.json(sanitizedUsers);
@@ -407,13 +458,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/users/:id", async (req, res) => {
+  app.get("/api/users/:id", ...adminOnly, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const user = await storage.getUser(id);
       
       if (!user) {
         return res.status(404).json({ error: "User not found" });
+      }
+      
+      // Check tenant access
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      
+      if (!canAccessAny && user.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
       }
       
       // Don't send password hash
@@ -425,13 +484,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/users", async (req, res) => {
+  app.post("/api/users", ...adminOnly, async (req: Request, res: Response) => {
     try {
       const validatedData = insertUserSchema.parse(req.body);
+      
       // Normalize tenantId: convert "NONE" or empty string to null
       if (validatedData.tenantId === "NONE" || validatedData.tenantId === "") {
         validatedData.tenantId = null;
       }
+      
+      // Tenant admins can only create users in their own tenant
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      
+      if (!canAccessAny && validatedData.tenantId && validatedData.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Cannot create users in other tenants" });
+      }
+      
       const user = await storage.createUser(validatedData);
       // Don't send password hash
       const { password, ...sanitizedUser } = user;
@@ -448,15 +517,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/users/:id", async (req, res) => {
+  app.patch("/api/users/:id", ...adminOnly, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      
+      // Verify target user belongs to same tenant (or caller has cross-tenant access)
+      const targetUser = await storage.getUser(id);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      
+      if (!canAccessAny && targetUser.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       const partialSchema = insertUserSchema.partial();
       const validatedData = partialSchema.parse(req.body);
       
       // Normalize tenantId: convert "NONE" or empty string to null
       if (validatedData.tenantId === "NONE" || validatedData.tenantId === "") {
         validatedData.tenantId = null;
+      }
+      
+      // Prevent non-platform admins from moving users to other tenants
+      if (!canAccessAny && validatedData.tenantId && validatedData.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Cannot move users to other tenants" });
       }
       
       const user = await storage.updateUser(id, validatedData);
@@ -475,9 +563,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/users/:id", async (req, res) => {
+  app.delete("/api/users/:id", ...adminOnly, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      
+      // Verify target user belongs to same tenant (or caller has cross-tenant access)
+      const targetUser = await storage.getUser(id);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      
+      if (!canAccessAny && targetUser.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Prevent self-deletion
+      if (id === req.user?.id) {
+        return res.status(400).json({ error: "Cannot delete your own account" });
+      }
+      
       await storage.deleteUser(id);
       res.json({ success: true });
     } catch (error) {
@@ -486,10 +593,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get foundation for a tenant
-  app.get("/api/foundations/:tenantId", async (req, res) => {
+  // Get foundation for a tenant (any authenticated user can read their tenant's foundation)
+  app.get("/api/foundations/:tenantId", ...authWithTenant, async (req: Request, res: Response) => {
     try {
       const { tenantId } = req.params;
+      
+      // Enforce tenant isolation
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      
+      if (!canAccessAny && tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       const foundation = await storage.getFoundationByTenantId(tenantId);
       
       if (!foundation) {
@@ -503,10 +619,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Upsert foundation (create or update)
-  app.post("/api/foundations", async (req, res) => {
+  // Upsert foundation (create or update) - requires admin permissions
+  app.post("/api/foundations", ...adminOnly, async (req: Request, res: Response) => {
     try {
       const validatedData = insertFoundationSchema.parse(req.body);
+      
+      // Enforce tenant isolation
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      
+      if (!canAccessAny && validatedData.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       const foundation = await storage.upsertFoundation(validatedData);
       res.json(foundation);
     } catch (error) {
@@ -525,10 +650,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Strategies routes
-  app.get("/api/strategies/:tenantId", async (req, res) => {
+  // Strategies routes (any user can read, admin can write)
+  app.get("/api/strategies/:tenantId", ...authWithTenant, async (req: Request, res: Response) => {
     try {
       const { tenantId } = req.params;
+      
+      // Enforce tenant isolation
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      
+      if (!canAccessAny && tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       const strategies = await storage.getStrategiesByTenantId(tenantId);
       res.json(strategies);
     } catch (error) {
@@ -537,9 +671,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/strategies", async (req, res) => {
+  app.post("/api/strategies", ...adminOnly, async (req: Request, res: Response) => {
     try {
       const validatedData = insertStrategySchema.parse(req.body);
+      
+      // Enforce tenant isolation
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      
+      if (!canAccessAny && validatedData.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       const strategy = await storage.createStrategy(validatedData);
       res.json(strategy);
     } catch (error) {
@@ -548,7 +691,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/strategies/:id", async (req, res) => {
+  app.patch("/api/strategies/:id", ...adminOnly, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const validatedData = insertStrategySchema.partial().parse(req.body);
@@ -563,7 +706,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/strategies/:id", async (req, res) => {
+  app.delete("/api/strategies/:id", ...adminOnly, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       await storage.deleteStrategy(id);
@@ -574,10 +717,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // OKRs routes
-  app.get("/api/okrs/:tenantId", async (req, res) => {
+  // OKRs routes (any user can read/create, admin can delete)
+  app.get("/api/okrs/:tenantId", ...authWithTenant, async (req: Request, res: Response) => {
     try {
       const { tenantId } = req.params;
+      
+      // Enforce tenant isolation
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      
+      if (!canAccessAny && tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       const { quarter, year } = req.query;
       const okrs = await storage.getOkrsByTenantId(
         tenantId, 
@@ -591,9 +743,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/okrs", async (req, res) => {
+  app.post("/api/okrs", ...authWithTenant, async (req: Request, res: Response) => {
     try {
       const validatedData = insertOkrSchema.parse(req.body);
+      
+      // Enforce tenant isolation
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      
+      if (!canAccessAny && validatedData.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       const okr = await storage.createOkr(validatedData);
       res.json(okr);
     } catch (error) {
@@ -602,7 +763,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/okrs/:id", async (req, res) => {
+  app.patch("/api/okrs/:id", ...authWithTenant, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const validatedData = insertOkrSchema.partial().parse(req.body);
@@ -617,7 +778,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/okrs/:id", async (req, res) => {
+  app.delete("/api/okrs/:id", ...adminOnly, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       await storage.deleteOkr(id);
@@ -628,10 +789,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // KPIs routes
-  app.get("/api/kpis/:tenantId", async (req, res) => {
+  // KPIs routes (any user can read, admin can write)
+  app.get("/api/kpis/:tenantId", ...authWithTenant, async (req: Request, res: Response) => {
     try {
       const { tenantId } = req.params;
+      
+      // Enforce tenant isolation
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      
+      if (!canAccessAny && tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       const { quarter, year } = req.query;
       const kpis = await storage.getKpisByTenantId(
         tenantId,
@@ -645,7 +815,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/kpis", async (req, res) => {
+  app.post("/api/kpis", ...authWithTenant, async (req: Request, res: Response) => {
     try {
       const validatedData = insertKpiSchema.parse(req.body);
       const kpi = await storage.createKpi(validatedData);
@@ -656,7 +826,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/kpis/:id", async (req, res) => {
+  app.patch("/api/kpis/:id", ...authWithTenant, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const validatedData = insertKpiSchema.partial().parse(req.body);
@@ -671,7 +841,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/kpis/:id", async (req, res) => {
+  app.delete("/api/kpis/:id", ...adminOnly, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       await storage.deleteKpi(id);
@@ -682,10 +852,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Meetings routes
-  app.get("/api/meetings/:tenantId", async (req, res) => {
+  // Meetings routes (any user can read/create/update, admin can delete)
+  app.get("/api/meetings/:tenantId", ...authWithTenant, async (req: Request, res: Response) => {
     try {
       const { tenantId } = req.params;
+      
+      // Enforce tenant isolation
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      
+      if (!canAccessAny && tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       const meetings = await storage.getMeetingsByTenantId(tenantId);
       res.json(meetings);
     } catch (error) {
@@ -694,7 +873,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/meeting/:id", async (req, res) => {
+  app.get("/api/meeting/:id", ...authWithTenant, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const meeting = await storage.getMeetingById(id);
@@ -708,9 +887,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/meetings", async (req, res) => {
+  app.post("/api/meetings", ...authWithTenant, async (req: Request, res: Response) => {
     try {
       const validatedData = insertMeetingSchema.parse(req.body);
+      
+      // Enforce tenant isolation
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      
+      if (!canAccessAny && validatedData.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
       const dataToInsert = {
         ...validatedData,
         date: validatedData.date ? new Date(validatedData.date) : null,
@@ -724,7 +912,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/meetings/:id", async (req, res) => {
+  app.patch("/api/meetings/:id", ...authWithTenant, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const validatedData = insertMeetingSchema.partial().parse(req.body);
@@ -744,7 +932,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/meetings/:id", async (req, res) => {
+  app.delete("/api/meetings/:id", ...adminOnly, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       await storage.deleteMeeting(id);
