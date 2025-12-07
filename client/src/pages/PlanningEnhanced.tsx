@@ -25,7 +25,8 @@ import { OKRFilters } from "@/components/okr/OKRFilters";
 import { OKRDetailPane } from "@/components/okr/OKRDetailPane";
 import { MilestoneEditor, type PhasedTargets } from "@/components/okr/MilestoneEditor";
 import { MilestoneTimeline } from "@/components/okr/MilestoneTimeline";
-import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus } from "lucide-react";
+import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink } from "lucide-react";
+import { ExcelFilePicker } from "@/components/ExcelFilePicker";
 import { cn } from "@/lib/utils";
 import type { Foundation, CompanyValue } from "@shared/schema";
 import { ProgressSummaryDialog } from "@/components/ProgressSummaryDialog";
@@ -60,6 +61,17 @@ interface KeyResult {
   isWeightLocked?: boolean;
   status: string;
   isPromotedToKpi?: boolean;
+  // Excel source binding
+  excelSourceType?: string | null;
+  excelFileId?: string | null;
+  excelFileName?: string | null;
+  excelFilePath?: string | null;
+  excelSheetName?: string | null;
+  excelCellReference?: string | null;
+  excelLastSyncAt?: string | null;
+  excelLastSyncValue?: number | null;
+  excelSyncError?: string | null;
+  excelAutoSync?: boolean;
 }
 
 interface BigRock {
@@ -273,6 +285,8 @@ export default function PlanningEnhanced() {
   // Form data states
   const [objectiveMilestoneEditorOpen, setObjectiveMilestoneEditorOpen] = useState(false);
   const [keyResultMilestoneEditorOpen, setKeyResultMilestoneEditorOpen] = useState(false);
+  const [excelPickerOpen, setExcelPickerOpen] = useState(false);
+  const [syncingExcel, setSyncingExcel] = useState(false);
 
   const [objectiveForm, setObjectiveForm] = useState({
     title: "",
@@ -601,6 +615,56 @@ export default function PlanningEnhanced() {
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to remove from KPI dashboard", variant: "destructive" });
+    },
+  });
+
+  // Excel sync mutation
+  const syncExcelMutation = useMutation({
+    mutationFn: async (keyResultId: string) => {
+      const res = await fetch(`/api/m365/key-results/${keyResultId}/sync-excel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ updateCurrentValue: true }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to sync');
+      }
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      if (data.syncError) {
+        toast({ title: "Sync completed with warning", description: data.syncError, variant: "destructive" });
+      } else {
+        toast({ title: "Excel synced", description: `Value updated: ${data.previousValue} → ${data.syncedValue}` });
+      }
+    },
+    onError: (error: any) => {
+      toast({ title: "Sync failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  // Excel unlink mutation
+  const unlinkExcelMutation = useMutation({
+    mutationFn: async (keyResultId: string) => {
+      const res = await fetch(`/api/m365/key-results/${keyResultId}/link-excel`, {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to unlink');
+      }
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      toast({ title: "Excel unlinked", description: "Key Result is no longer connected to Excel" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Unlink failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -1769,6 +1833,96 @@ export default function PlanningEnhanced() {
                   </div>
                 )}
               </div>
+
+              {/* Excel Data Source Section - only show for existing KRs */}
+              {selectedKeyResult && (
+                <div className="border rounded-lg p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <FileSpreadsheet className="h-4 w-4 text-green-600" />
+                      <Label>Excel Data Source</Label>
+                    </div>
+                    {selectedKeyResult.excelFileId ? (
+                      <Badge variant="outline" className="text-green-600 border-green-600">
+                        <Link2 className="h-3 w-3 mr-1" />
+                        Linked
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">Not linked</Badge>
+                    )}
+                  </div>
+                  
+                  {selectedKeyResult.excelFileId ? (
+                    <div className="space-y-2">
+                      <div className="text-sm">
+                        <p className="font-medium truncate">{selectedKeyResult.excelFileName}</p>
+                        <p className="text-muted-foreground text-xs truncate">
+                          {selectedKeyResult.excelSheetName}!{selectedKeyResult.excelCellReference}
+                        </p>
+                        {selectedKeyResult.excelLastSyncAt && (
+                          <p className="text-muted-foreground text-xs mt-1">
+                            Last synced: {format(new Date(selectedKeyResult.excelLastSyncAt), "MMM d, yyyy h:mm a")}
+                            {selectedKeyResult.excelLastSyncValue !== null && (
+                              <span className="ml-2">Value: {selectedKeyResult.excelLastSyncValue}</span>
+                            )}
+                          </p>
+                        )}
+                        {selectedKeyResult.excelSyncError && (
+                          <p className="text-destructive text-xs mt-1 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />
+                            {selectedKeyResult.excelSyncError}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => syncExcelMutation.mutate(selectedKeyResult.id)}
+                          disabled={syncExcelMutation.isPending}
+                          data-testid="button-sync-excel"
+                        >
+                          {syncExcelMutation.isPending ? (
+                            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-4 w-4 mr-1" />
+                          )}
+                          Sync Now
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (confirm("Unlink this Key Result from Excel?")) {
+                              unlinkExcelMutation.mutate(selectedKeyResult.id);
+                            }
+                          }}
+                          disabled={unlinkExcelMutation.isPending}
+                          data-testid="button-unlink-excel"
+                        >
+                          <Unlink className="h-4 w-4 mr-1" />
+                          Unlink
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Connect to an Excel file in OneDrive to automatically sync the current value.
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setExcelPickerOpen(true)}
+                        data-testid="button-link-excel"
+                      >
+                        <FileSpreadsheet className="h-4 w-4 mr-1" />
+                        Link to Excel
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setKeyResultDialogOpen(false)}>
@@ -1817,6 +1971,20 @@ export default function PlanningEnhanced() {
           initialValue={keyResultForm.initialValue}
           unit={keyResultForm.unit}
         />
+
+        {/* Excel File Picker for Key Results */}
+        {selectedKeyResult && (
+          <ExcelFilePicker
+            open={excelPickerOpen}
+            onOpenChange={setExcelPickerOpen}
+            keyResultId={selectedKeyResult.id}
+            keyResultTitle={selectedKeyResult.title}
+            onSuccess={() => {
+              queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+              setKeyResultDialogOpen(false);
+            }}
+          />
+        )}
 
         {/* Create/Edit Big Rock Dialog */}
         <Dialog open={bigRockDialogOpen} onOpenChange={(open) => {
