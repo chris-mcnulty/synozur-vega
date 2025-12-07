@@ -676,6 +676,16 @@ export default function FocusRhythm() {
   const { data: outlookStatus } = useQuery<{ connected: boolean; user: { displayName: string; email: string } | null }>({
     queryKey: ['/api/m365/status'],
     staleTime: 60000,
+    queryFn: async () => {
+      const res = await fetch('/api/m365/status');
+      if (res.status === 401) {
+        return { connected: false, user: null };
+      }
+      if (!res.ok) {
+        return { connected: false, user: null };
+      }
+      return res.json();
+    },
   });
   
   const syncToOutlookMutation = useMutation({

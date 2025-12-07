@@ -17,13 +17,18 @@ const router = Router();
 
 router.get('/status', async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
     const connected = await checkOutlookConnection();
     
     if (connected) {
-      const user = await getCurrentUser();
+      const outlookUser = await getCurrentUser();
       res.json({
         connected: true,
-        user: user ? { displayName: user.displayName, email: user.mail } : null,
+        user: outlookUser ? { displayName: outlookUser.displayName, email: outlookUser.mail } : null,
       });
     } else {
       res.json({ connected: false, user: null });
@@ -35,6 +40,11 @@ router.get('/status', async (req: Request, res: Response) => {
 
 router.get('/calendars', async (req: Request, res: Response) => {
   try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
     const connected = await checkOutlookConnection();
     if (!connected) {
       return res.status(401).json({ error: 'Outlook not connected' });
