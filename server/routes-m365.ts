@@ -11,6 +11,24 @@ import {
   sendEmail,
   vegaMeetingToOutlookEvent,
   generateMeetingSummaryEmail,
+  // OneDrive
+  checkOneDriveConnection,
+  listOneDriveRoot,
+  listOneDriveFolder,
+  getOneDriveItem,
+  searchOneDrive,
+  uploadOneDriveFile,
+  createOneDriveFolder,
+  deleteOneDriveItem,
+  // SharePoint
+  checkSharePointConnection,
+  listSharePointSites,
+  getSharePointSite,
+  listSharePointLists,
+  getSharePointListItems,
+  listSharePointDocuments,
+  // Combined status
+  checkAllM365Connections,
 } from './microsoftGraph';
 
 const router = Router();
@@ -269,6 +287,224 @@ router.get('/meetings/:id/outlook-event', async (req: Request, res: Response) =>
     res.json(event);
   } catch (error: any) {
     console.error('Failed to get Outlook event:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== Combined M365 Status ====================
+
+router.get('/status/all', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const status = await checkAllM365Connections();
+    res.json(status);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== OneDrive Routes ====================
+
+router.get('/onedrive/status', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const connected = await checkOneDriveConnection();
+    res.json({ connected });
+  } catch (error: any) {
+    res.json({ connected: false, error: error.message });
+  }
+});
+
+router.get('/onedrive/files', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const { folderId } = req.query;
+    
+    const files = folderId 
+      ? await listOneDriveFolder(folderId as string)
+      : await listOneDriveRoot();
+    
+    res.json(files);
+  } catch (error: any) {
+    console.error('Failed to list OneDrive files:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/onedrive/files/:itemId', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const item = await getOneDriveItem(req.params.itemId);
+    res.json(item);
+  } catch (error: any) {
+    console.error('Failed to get OneDrive item:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/onedrive/search', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const { q } = req.query;
+    if (!q) {
+      return res.status(400).json({ error: 'Search query required' });
+    }
+    
+    const results = await searchOneDrive(q as string);
+    res.json(results);
+  } catch (error: any) {
+    console.error('Failed to search OneDrive:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/onedrive/folders', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const { name, parentFolderId } = req.body;
+    if (!name) {
+      return res.status(400).json({ error: 'Folder name required' });
+    }
+    
+    const folder = await createOneDriveFolder(parentFolderId || null, name);
+    res.json(folder);
+  } catch (error: any) {
+    console.error('Failed to create OneDrive folder:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.delete('/onedrive/files/:itemId', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    await deleteOneDriveItem(req.params.itemId);
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('Failed to delete OneDrive item:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ==================== SharePoint Routes ====================
+
+router.get('/sharepoint/status', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const connected = await checkSharePointConnection();
+    res.json({ connected });
+  } catch (error: any) {
+    res.json({ connected: false, error: error.message });
+  }
+});
+
+router.get('/sharepoint/sites', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const sites = await listSharePointSites();
+    res.json(sites);
+  } catch (error: any) {
+    console.error('Failed to list SharePoint sites:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/sharepoint/sites/:siteId', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const site = await getSharePointSite(req.params.siteId);
+    res.json(site);
+  } catch (error: any) {
+    console.error('Failed to get SharePoint site:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/sharepoint/sites/:siteId/lists', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const lists = await listSharePointLists(req.params.siteId);
+    res.json(lists);
+  } catch (error: any) {
+    console.error('Failed to list SharePoint lists:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/sharepoint/sites/:siteId/lists/:listId/items', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const items = await getSharePointListItems(req.params.siteId, req.params.listId);
+    res.json(items);
+  } catch (error: any) {
+    console.error('Failed to list SharePoint list items:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/sharepoint/sites/:siteId/documents', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const { driveId, folderId } = req.query;
+    const documents = await listSharePointDocuments(
+      req.params.siteId,
+      driveId as string | undefined,
+      folderId as string | undefined
+    );
+    res.json(documents);
+  } catch (error: any) {
+    console.error('Failed to list SharePoint documents:', error);
     res.status(500).json({ error: error.message });
   }
 });

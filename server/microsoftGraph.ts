@@ -1,12 +1,13 @@
 import { Client } from '@microsoft/microsoft-graph-client';
 
-let connectionSettings: any;
+// Cached connection settings per connector type
+let outlookConnectionSettings: any;
+let oneDriveConnectionSettings: any;
+let sharePointConnectionSettings: any;
 
-async function getAccessToken(): Promise<string> {
-  if (connectionSettings && connectionSettings.settings.expires_at && new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
-    return connectionSettings.settings.access_token;
-  }
-  
+type ConnectorType = 'outlook' | 'onedrive' | 'sharepoint';
+
+async function getAccessToken(connectorType: ConnectorType = 'outlook'): Promise<string> {
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY 
     ? 'repl ' + process.env.REPL_IDENTITY 
@@ -18,8 +19,25 @@ async function getAccessToken(): Promise<string> {
     throw new Error('X_REPLIT_TOKEN not found for repl/depl');
   }
 
+  // Get cached settings for this connector type
+  let connectionSettings: any;
+  if (connectorType === 'outlook') {
+    connectionSettings = outlookConnectionSettings;
+  } else if (connectorType === 'onedrive') {
+    connectionSettings = oneDriveConnectionSettings;
+  } else {
+    connectionSettings = sharePointConnectionSettings;
+  }
+
+  // Check if cached token is still valid
+  if (connectionSettings && connectionSettings.settings?.expires_at && 
+      new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
+    return connectionSettings.settings.access_token;
+  }
+
+  // Fetch fresh token
   connectionSettings = await fetch(
-    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=outlook',
+    `https://${hostname}/api/v2/connection?include_secrets=true&connector_names=${connectorType}`,
     {
       headers: {
         'Accept': 'application/json',
@@ -28,22 +46,39 @@ async function getAccessToken(): Promise<string> {
     }
   ).then(res => res.json()).then(data => data.items?.[0]);
 
-  const accessToken = connectionSettings?.settings?.access_token || connectionSettings?.settings?.oauth?.credentials?.access_token;
+  const accessToken = connectionSettings?.settings?.access_token || 
+                      connectionSettings?.settings?.oauth?.credentials?.access_token;
 
   if (!connectionSettings || !accessToken) {
-    throw new Error('Outlook not connected. Please connect your Microsoft account in Replit.');
+    const serviceName = connectorType.charAt(0).toUpperCase() + connectorType.slice(1);
+    throw new Error(`${serviceName} not connected. Please connect your Microsoft account in Replit.`);
   }
+
+  // Cache the settings
+  if (connectorType === 'outlook') {
+    outlookConnectionSettings = connectionSettings;
+  } else if (connectorType === 'onedrive') {
+    oneDriveConnectionSettings = connectionSettings;
+  } else {
+    sharePointConnectionSettings = connectionSettings;
+  }
+
   return accessToken;
 }
 
-async function getOutlookClient(): Promise<Client> {
-  const accessToken = await getAccessToken();
+async function getMicrosoftClient(connectorType: ConnectorType = 'outlook'): Promise<Client> {
+  const accessToken = await getAccessToken(connectorType);
 
   return Client.initWithMiddleware({
     authProvider: {
       getAccessToken: async () => accessToken
     }
   });
+}
+
+// Legacy alias for backward compatibility
+async function getOutlookClient(): Promise<Client> {
+  return getMicrosoftClient('outlook');
 }
 
 export interface OutlookCalendar {
@@ -354,4 +389,313 @@ export function generateMeetingSummaryEmail(
       emailAddress: { address: email.trim() },
     })),
   };
+}
+
+// ==================== OneDrive Integration ====================
+
+export interface OneDriveItem {
+  id: string;
+  name: string;
+  size: number;
+  createdDateTime: string;
+  lastModifiedDateTime: string;
+  webUrl: string;
+  folder?: { childCount: number };
+  file?: { mimeType: string };
+  parentReference?: { driveId: string; id: string; path: string };
+}
+
+export interface OneDriveFile {
+  id: string;
+  name: string;
+  size: number;
+  mimeType: string;
+  webUrl: string;
+  downloadUrl?: string;
+  content?: Buffer;
+}
+
+export async function checkOneDriveConnection(): Promise<boolean> {
+  try {
+    await getAccessToken('onedrive');
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+export async function listOneDriveRoot(): Promise<OneDriveItem[]> {
+  const client = await getMicrosoftClient('onedrive');
+  const response = await client.api('/me/drive/root/children')
+    .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
+    .get();
+  return response.value;
+}
+
+export async function listOneDriveFolder(folderId: string): Promise<OneDriveItem[]> {
+  const client = await getMicrosoftClient('onedrive');
+  const response = await client.api(`/me/drive/items/${folderId}/children`)
+    .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
+    .get();
+  return response.value;
+}
+
+export async function getOneDriveItem(itemId: string): Promise<OneDriveItem> {
+  const client = await getMicrosoftClient('onedrive');
+  return await client.api(`/me/drive/items/${itemId}`)
+    .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
+    .get();
+}
+
+export async function downloadOneDriveFile(itemId: string): Promise<Buffer> {
+  const client = await getMicrosoftClient('onedrive');
+  const stream = await client.api(`/me/drive/items/${itemId}/content`).get();
+  
+  // Convert stream/response to buffer
+  if (stream instanceof ArrayBuffer) {
+    return Buffer.from(stream);
+  }
+  return stream;
+}
+
+export async function uploadOneDriveFile(
+  parentFolderId: string | null,
+  fileName: string,
+  content: Buffer | string,
+  mimeType: string = 'application/octet-stream'
+): Promise<OneDriveItem> {
+  const client = await getMicrosoftClient('onedrive');
+  
+  const path = parentFolderId 
+    ? `/me/drive/items/${parentFolderId}:/${fileName}:/content`
+    : `/me/drive/root:/${fileName}:/content`;
+  
+  const uploadedFile = await client.api(path)
+    .header('Content-Type', mimeType)
+    .put(content);
+  
+  return uploadedFile;
+}
+
+export async function createOneDriveFolder(
+  parentFolderId: string | null,
+  folderName: string
+): Promise<OneDriveItem> {
+  const client = await getMicrosoftClient('onedrive');
+  
+  const path = parentFolderId
+    ? `/me/drive/items/${parentFolderId}/children`
+    : '/me/drive/root/children';
+  
+  const folder = await client.api(path).post({
+    name: folderName,
+    folder: {},
+    '@microsoft.graph.conflictBehavior': 'rename'
+  });
+  
+  return folder;
+}
+
+export async function deleteOneDriveItem(itemId: string): Promise<void> {
+  const client = await getMicrosoftClient('onedrive');
+  await client.api(`/me/drive/items/${itemId}`).delete();
+}
+
+export async function searchOneDrive(query: string): Promise<OneDriveItem[]> {
+  const client = await getMicrosoftClient('onedrive');
+  const response = await client.api(`/me/drive/root/search(q='${encodeURIComponent(query)}')`)
+    .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
+    .get();
+  return response.value;
+}
+
+// ==================== SharePoint Integration ====================
+
+export interface SharePointSite {
+  id: string;
+  name: string;
+  displayName: string;
+  webUrl: string;
+  createdDateTime: string;
+}
+
+export interface SharePointList {
+  id: string;
+  name: string;
+  displayName: string;
+  webUrl: string;
+  createdDateTime: string;
+  lastModifiedDateTime: string;
+  list?: {
+    template: string;
+    contentTypesEnabled: boolean;
+  };
+}
+
+export interface SharePointListItem {
+  id: string;
+  fields: Record<string, any>;
+  createdDateTime: string;
+  lastModifiedDateTime: string;
+  webUrl: string;
+}
+
+export async function checkSharePointConnection(): Promise<boolean> {
+  try {
+    await getAccessToken('sharepoint');
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
+export async function listSharePointSites(): Promise<SharePointSite[]> {
+  const client = await getMicrosoftClient('sharepoint');
+  
+  // Get sites that the user follows or has access to
+  const response = await client.api('/sites?search=*')
+    .select('id,name,displayName,webUrl,createdDateTime')
+    .top(50)
+    .get();
+  
+  return response.value;
+}
+
+export async function getSharePointSite(siteId: string): Promise<SharePointSite> {
+  const client = await getMicrosoftClient('sharepoint');
+  return await client.api(`/sites/${siteId}`)
+    .select('id,name,displayName,webUrl,createdDateTime')
+    .get();
+}
+
+export async function listSharePointLists(siteId: string): Promise<SharePointList[]> {
+  const client = await getMicrosoftClient('sharepoint');
+  const response = await client.api(`/sites/${siteId}/lists`)
+    .select('id,name,displayName,webUrl,createdDateTime,lastModifiedDateTime,list')
+    .get();
+  return response.value;
+}
+
+export async function getSharePointListItems(
+  siteId: string,
+  listId: string,
+  expandFields: boolean = true
+): Promise<SharePointListItem[]> {
+  const client = await getMicrosoftClient('sharepoint');
+  
+  let request = client.api(`/sites/${siteId}/lists/${listId}/items`);
+  if (expandFields) {
+    request = request.expand('fields');
+  }
+  
+  const response = await request.get();
+  return response.value;
+}
+
+export async function createSharePointListItem(
+  siteId: string,
+  listId: string,
+  fields: Record<string, any>
+): Promise<SharePointListItem> {
+  const client = await getMicrosoftClient('sharepoint');
+  
+  const item = await client.api(`/sites/${siteId}/lists/${listId}/items`)
+    .post({ fields });
+  
+  return item;
+}
+
+export async function updateSharePointListItem(
+  siteId: string,
+  listId: string,
+  itemId: string,
+  fields: Record<string, any>
+): Promise<SharePointListItem> {
+  const client = await getMicrosoftClient('sharepoint');
+  
+  const item = await client.api(`/sites/${siteId}/lists/${listId}/items/${itemId}/fields`)
+    .patch(fields);
+  
+  return { id: itemId, fields: item, createdDateTime: '', lastModifiedDateTime: '', webUrl: '' };
+}
+
+export async function deleteSharePointListItem(
+  siteId: string,
+  listId: string,
+  itemId: string
+): Promise<void> {
+  const client = await getMicrosoftClient('sharepoint');
+  await client.api(`/sites/${siteId}/lists/${listId}/items/${itemId}`).delete();
+}
+
+// Get document library items (files/folders) from a SharePoint site
+export async function listSharePointDocuments(
+  siteId: string,
+  driveId?: string,
+  folderId?: string
+): Promise<OneDriveItem[]> {
+  const client = await getMicrosoftClient('sharepoint');
+  
+  let path: string;
+  if (driveId && folderId) {
+    path = `/sites/${siteId}/drives/${driveId}/items/${folderId}/children`;
+  } else if (driveId) {
+    path = `/sites/${siteId}/drives/${driveId}/root/children`;
+  } else {
+    // Get default document library
+    path = `/sites/${siteId}/drive/root/children`;
+  }
+  
+  const response = await client.api(path)
+    .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
+    .get();
+  
+  return response.value;
+}
+
+// Upload a file to SharePoint
+export async function uploadSharePointFile(
+  siteId: string,
+  driveId: string | null,
+  parentFolderId: string | null,
+  fileName: string,
+  content: Buffer | string,
+  mimeType: string = 'application/octet-stream'
+): Promise<OneDriveItem> {
+  const client = await getMicrosoftClient('sharepoint');
+  
+  let path: string;
+  if (driveId && parentFolderId) {
+    path = `/sites/${siteId}/drives/${driveId}/items/${parentFolderId}:/${fileName}:/content`;
+  } else if (driveId) {
+    path = `/sites/${siteId}/drives/${driveId}/root:/${fileName}:/content`;
+  } else if (parentFolderId) {
+    path = `/sites/${siteId}/drive/items/${parentFolderId}:/${fileName}:/content`;
+  } else {
+    path = `/sites/${siteId}/drive/root:/${fileName}:/content`;
+  }
+  
+  const uploadedFile = await client.api(path)
+    .header('Content-Type', mimeType)
+    .put(content);
+  
+  return uploadedFile;
+}
+
+// ==================== M365 Status Check ====================
+
+export interface M365ConnectionStatus {
+  outlook: boolean;
+  onedrive: boolean;
+  sharepoint: boolean;
+}
+
+export async function checkAllM365Connections(): Promise<M365ConnectionStatus> {
+  const [outlook, onedrive, sharepoint] = await Promise.all([
+    checkOutlookConnection(),
+    checkOneDriveConnection(),
+    checkSharePointConnection(),
+  ]);
+  
+  return { outlook, onedrive, sharepoint };
 }
