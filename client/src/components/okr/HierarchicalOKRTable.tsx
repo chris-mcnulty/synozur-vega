@@ -24,7 +24,9 @@ import {
   ArrowDownFromLine,
   Lock,
   Unlock,
-  Scale
+  Scale,
+  FileSpreadsheet,
+  AlertCircle
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -44,6 +46,13 @@ interface KeyResult {
   metricType?: string;
   weight?: number;
   isWeightLocked?: boolean;
+  // Excel integration fields
+  excelFileId?: string | null;
+  excelFileName?: string | null;
+  excelSheetName?: string | null;
+  excelCellReference?: string | null;
+  excelLastSyncAt?: string | null;
+  excelSyncError?: string | null;
 }
 
 interface BigRock {
@@ -563,6 +572,47 @@ function KeyResultRow({
                     Weight: {keyResult.weight}%
                     {keyResult.isWeightLocked && " (locked)"}
                   </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
+          {keyResult.excelFileId && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge 
+                    variant="outline" 
+                    className={cn(
+                      "text-[10px] px-1.5 py-0 h-4 flex-shrink-0",
+                      keyResult.excelSyncError 
+                        ? "border-red-400 text-red-600 dark:text-red-400" 
+                        : "border-green-400 text-green-600 dark:text-green-400"
+                    )}
+                    data-testid={`badge-excel-${keyResult.id}`}
+                  >
+                    {keyResult.excelSyncError ? (
+                      <AlertCircle className="h-2.5 w-2.5 mr-0.5" />
+                    ) : (
+                      <FileSpreadsheet className="h-2.5 w-2.5 mr-0.5" />
+                    )}
+                    Excel
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <div className="text-xs">
+                    <p className="font-medium">{keyResult.excelFileName}</p>
+                    <p className="text-muted-foreground">
+                      {keyResult.excelSheetName}!{keyResult.excelCellReference}
+                    </p>
+                    {keyResult.excelLastSyncAt && (
+                      <p className="text-muted-foreground mt-1">
+                        Synced: {format(new Date(keyResult.excelLastSyncAt), "MMM d, h:mm a")}
+                      </p>
+                    )}
+                    {keyResult.excelSyncError && (
+                      <p className="text-red-500 mt-1">{keyResult.excelSyncError}</p>
+                    )}
+                  </div>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
