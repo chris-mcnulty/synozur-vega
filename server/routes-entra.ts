@@ -166,12 +166,15 @@ router.get('/callback', async (req: Request, res: Response) => {
       console.log(`[Entra SSO] Created new user via JIT: ${email}`);
     } else {
       if (!user.azureObjectId) {
-        await storage.updateUser(user.id, {
+        const updatedUser = await storage.updateUser(user.id, {
           azureObjectId,
           azureTenantId,
           authProvider: 'entra',
           emailVerified: true,
         });
+        if (updatedUser) {
+          user = updatedUser;
+        }
         console.log(`[Entra SSO] Linked existing user to Azure AD: ${email}`);
       }
     }
@@ -179,7 +182,10 @@ router.get('/callback', async (req: Request, res: Response) => {
     if (user.tenantId) {
       const tenant = await storage.getTenantById(user.tenantId);
       if (tenant?.enforceSso && user.authProvider !== 'entra') {
-        await storage.updateUser(user.id, { authProvider: 'entra' });
+        const updatedUser = await storage.updateUser(user.id, { authProvider: 'entra' });
+        if (updatedUser) {
+          user = updatedUser;
+        }
       }
     }
 
