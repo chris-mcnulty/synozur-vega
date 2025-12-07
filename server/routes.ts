@@ -964,6 +964,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const m365Routes = await import("./routes-m365");
   app.use("/api/m365", m365Routes.default);
 
+  // Import and use Entra SSO routes
+  const { entraRouter } = await import("./routes-entra");
+  app.use("/auth/entra", entraRouter);
+
   const httpServer = createServer(app);
 
   return httpServer;
