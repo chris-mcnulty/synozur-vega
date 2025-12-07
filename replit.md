@@ -71,6 +71,13 @@ For detailed information, see:
   - Auto-generate Agenda: Meeting-type aware - generates appropriate structure per cadence
   - Meeting Search: Full-text search across title, summary, facilitator, attendees, agenda, decisions, action items
   - Enhanced Schema: risks array, facilitator field, linkedObjectiveIds, linkedKeyResultIds, linkedBigRockIds
+- ✅ **Microsoft 365 Integration (Phase 1)**: Outlook calendar sync and email summaries:
+  - **Microsoft Graph Service** (server/microsoftGraph.ts): Calendar CRUD operations, email sending, Outlook OAuth integration
+  - **M365 API Routes** (server/routes-m365.ts): /status, /calendars, /meetings/:id/sync, /meetings/:id/unlink, /meetings/:id/send-summary
+  - **Focus Rhythm UI Updates**: Outlook connection badge, sync status badges on meeting cards, "Sync to Outlook" and "Send Summary" buttons
+  - **Schema Extensions**: meetings table now includes outlookEventId, outlookCalendarId, syncedAt, syncStatus, syncError, summaryEmailStatus, summaryEmailSentAt
+  - **Security**: All M365 endpoints require authentication, tenant isolation enforced
+  - Uses Replit Outlook connector for individual user OAuth (Calendar.ReadWrite, Mail.Send permissions)
 - ⭐ **Backlog**: AI Big Rock Generator added to AI roadmap (suggest missing initiatives based on strategic analysis)
 
 ## System Architecture
