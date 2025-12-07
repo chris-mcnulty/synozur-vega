@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Eye, EyeOff } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Building2, SquareStack } from "lucide-react";
 import starTrailsBg from "@assets/AdobeStock_362805421_1763398687511.jpeg";
 
 export default function Login() {
@@ -262,6 +262,28 @@ export default function Login() {
                     data-testid="button-email-login"
                   >
                     {isSubmittingLogin ? "Logging in..." : "Login"}
+                  </Button>
+                  
+                  <div className="relative my-4">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">
+                        Or continue with
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => window.location.href = '/auth/entra/login'}
+                    data-testid="button-sso-login"
+                  >
+                    <SquareStack className="mr-2 h-4 w-4" />
+                    Sign in with Microsoft
                   </Button>
                 </form>
               </CardContent>

@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, AlertCircle, Calendar, FileSpreadsheet, Mail, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock } from "lucide-react";
+import { CheckCircle2, AlertCircle, Calendar, FileSpreadsheet, Mail, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield } from "lucide-react";
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -138,6 +138,14 @@ export default function TenantAdmin() {
     name: "",
     role: "user",
     tenantId: "NONE",
+  });
+
+  const [ssoDialogOpen, setSsoDialogOpen] = useState(false);
+  const [selectedTenantForSso, setSelectedTenantForSso] = useState<Tenant | null>(null);
+  const [ssoFormData, setSsoFormData] = useState({
+    azureTenantId: "",
+    enforceSso: false,
+    allowLocalAuth: true,
   });
 
   const { data: tenants = [], isLoading: tenantsLoading } = useQuery<Tenant[]>({
@@ -412,6 +420,38 @@ export default function TenantAdmin() {
     return tenant?.name || "Unknown";
   };
 
+  const handleOpenSsoDialog = (tenant: Tenant) => {
+    setSelectedTenantForSso(tenant);
+    setSsoFormData({
+      azureTenantId: (tenant as any).azureTenantId || "",
+      enforceSso: (tenant as any).enforceSso || false,
+      allowLocalAuth: (tenant as any).allowLocalAuth !== false,
+    });
+    setSsoDialogOpen(true);
+  };
+
+  const handleSaveSsoSettings = () => {
+    if (!selectedTenantForSso) return;
+    
+    updateTenantMutation.mutate({
+      id: selectedTenantForSso.id,
+      data: {
+        azureTenantId: ssoFormData.azureTenantId || null,
+        enforceSso: ssoFormData.enforceSso,
+        allowLocalAuth: ssoFormData.allowLocalAuth,
+      } as any,
+    });
+    setSsoDialogOpen(false);
+  };
+
+  const getSsoStatus = (tenant: Tenant) => {
+    const azureTenantId = (tenant as any).azureTenantId;
+    const enforceSso = (tenant as any).enforceSso;
+    if (!azureTenantId) return { label: "Not Configured", variant: "secondary" as const };
+    if (enforceSso) return { label: "SSO Required", variant: "default" as const };
+    return { label: "SSO Available", variant: "outline" as const };
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
       <div className="mb-8">
@@ -508,6 +548,16 @@ export default function TenantAdmin() {
                     >
                       <Clock className="h-3 w-3 mr-1" />
                       Default Time Period: {getTimePeriodDisplay(tenant)}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => handleOpenSsoDialog(tenant)}
+                      data-testid={`button-sso-settings-${tenant.id}`}
+                    >
+                      <Shield className="h-3 w-3 mr-1" />
+                      SSO: <Badge variant={getSsoStatus(tenant).variant} className="ml-1 text-xs">{getSsoStatus(tenant).label}</Badge>
                     </Button>
                   </CardContent>
                 </Card>
@@ -1062,6 +1112,95 @@ export default function TenantAdmin() {
               data-testid="button-save-user"
             >
               {editingUser ? "Update" : "Create"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={ssoDialogOpen} onOpenChange={setSsoDialogOpen}>
+        <DialogContent data-testid="dialog-sso-settings">
+          <DialogHeader>
+            <DialogTitle>
+              SSO Settings - {selectedTenantForSso?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Configure Microsoft Entra ID (Azure AD) Single Sign-On for this organization.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="azure-tenant-id">Azure Tenant ID</Label>
+              <Input
+                id="azure-tenant-id"
+                type="text"
+                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                value={ssoFormData.azureTenantId}
+                onChange={(e) =>
+                  setSsoFormData({ ...ssoFormData, azureTenantId: e.target.value })
+                }
+                data-testid="input-azure-tenant-id"
+              />
+              <p className="text-xs text-muted-foreground">
+                Find this in Azure Portal under Entra ID &gt; Overview
+              </p>
+            </div>
+
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Require SSO</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Users must sign in with Microsoft SSO
+                  </p>
+                </div>
+                <Switch
+                  checked={ssoFormData.enforceSso}
+                  onCheckedChange={(checked) =>
+                    setSsoFormData({ ...ssoFormData, enforceSso: checked })
+                  }
+                  data-testid="switch-enforce-sso"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Allow Local Auth</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Users can also log in with email/password
+                  </p>
+                </div>
+                <Switch
+                  checked={ssoFormData.allowLocalAuth}
+                  onCheckedChange={(checked) =>
+                    setSsoFormData({ ...ssoFormData, allowLocalAuth: checked })
+                  }
+                  data-testid="switch-allow-local-auth"
+                />
+              </div>
+            </div>
+
+            {ssoFormData.azureTenantId && (
+              <div className="mt-4 p-3 bg-muted rounded-md">
+                <p className="text-sm font-medium">SSO Login URL</p>
+                <code className="text-xs text-muted-foreground break-all">
+                  {window.location.origin}/auth/entra/login?tenant={selectedTenantForSso?.id}
+                </code>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setSsoDialogOpen(false)}
+              data-testid="button-cancel-sso"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveSsoSettings}
+              data-testid="button-save-sso"
+            >
+              Save
             </Button>
           </DialogFooter>
         </DialogContent>
