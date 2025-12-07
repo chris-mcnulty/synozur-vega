@@ -41,6 +41,7 @@ Preferred communication style: Simple, everyday language.
 
 - **Microsoft 365 Integration**: Microsoft Graph Client for integrations with Excel, Outlook Calendar, and Microsoft Planner, utilizing OAuth.
   - **Planner Integration**: Full Microsoft Planner integration with per-user OAuth consent flow. Users connect their Planner accounts via Settings page. Supports bidirectional sync of plans, buckets, and tasks. Tasks can be linked to OKRs (objectives) and Big Rocks via many-to-many relationships. Database tables: `planner_plans`, `planner_buckets`, `planner_tasks`, `graph_tokens`, `objective_planner_tasks`, `big_rock_planner_tasks`. API routes at `/api/planner/*` and auth routes at `/auth/entra/planner/*`.
+    - **Security**: OAuth tokens encrypted at rest using AES-256-GCM with PBKDF2 key derivation (requires `TOKEN_ENCRYPTION_SECRET` env var, min 32 chars). All Planner routes protected with tenant-scoped authorization middleware. Ownership validation ensures users can only access plans/tasks within their tenant.
 - **AI Services**: GPT-5 integration via Replit AI Integrations (OpenAI-compatible API), supporting streaming chat, OKR suggestions, and Big Rock suggestions. AI context is enhanced via a Grounding Documents system.
 - **UI Component Library**: shadcn/ui (built on Radix UI primitives).
 - **Database**: Neon PostgreSQL.
