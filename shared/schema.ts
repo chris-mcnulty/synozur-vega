@@ -271,6 +271,15 @@ export const meetings = pgTable("meetings", {
   // Imported meeting notes from Outlook/Copilot/Teams
   meetingNotes: text("meeting_notes"),
   
+  // Microsoft 365 Outlook sync fields
+  outlookEventId: text("outlook_event_id"), // Outlook calendar event ID
+  outlookCalendarId: text("outlook_calendar_id"), // Which Outlook calendar it's synced to
+  syncedAt: timestamp("synced_at"), // Last sync timestamp
+  syncStatus: text("sync_status"), // 'synced', 'pending', 'error', 'not_synced'
+  syncError: text("sync_error"), // Error message if sync failed
+  summaryEmailStatus: text("summary_email_status"), // 'not_sent', 'sent', 'failed'
+  summaryEmailSentAt: timestamp("summary_email_sent_at"),
+  
   updatedBy: varchar("updated_by"),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
