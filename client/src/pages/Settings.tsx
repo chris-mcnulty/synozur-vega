@@ -3,12 +3,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import { PlannerConnectionCard } from "@/components/planner/PlannerConnectionCard";
 import { useAuth } from "@/contexts/AuthContext";
-import { User, Bell, Plug, Shield, Mail } from "lucide-react";
+import { User, Bell, Plug, Shield, Mail, LogOut } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function Settings() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const [, setLocation] = useLocation();
+
+  const handleLogout = async () => {
+    await logout();
+    setLocation('/login');
+  };
 
   return (
     <div className="flex-1 p-6 space-y-6 max-w-4xl mx-auto">
@@ -62,6 +70,16 @@ export default function Settings() {
                     </Badge>
                   </p>
                 </div>
+              </div>
+              <div className="pt-4 border-t">
+                <Button 
+                  variant="outline" 
+                  onClick={handleLogout}
+                  data-testid="button-settings-logout"
+                >
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Sign Out
+                </Button>
               </div>
             </CardContent>
           </Card>
