@@ -251,9 +251,24 @@ export function ExcelFilePicker({
             <p className="text-center text-muted-foreground">
               OneDrive is not connected. Please connect your Microsoft account to access Excel files.
             </p>
-            <Button variant="outline" onClick={() => window.open('https://replit.com', '_blank')}>
-              <ExternalLink className="mr-2 h-4 w-4" />
-              Connect in Replit Settings
+            <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground max-w-sm">
+              <p className="font-medium mb-2">To connect OneDrive:</p>
+              <ol className="list-decimal list-inside space-y-1">
+                <li>Open the Integrations panel in Replit (puzzle icon)</li>
+                <li>Find the OneDrive integration</li>
+                <li>Click "Connect" and sign in with your Microsoft account</li>
+                <li>Return here and try again</li>
+              </ol>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                // Invalidate the status query to recheck connection
+                queryClient.invalidateQueries({ queryKey: ['/api/m365/onedrive/status'] });
+              }}
+            >
+              <RefreshCw className="mr-2 h-4 w-4" />
+              Check Connection Again
             </Button>
           </div>
         </DialogContent>
