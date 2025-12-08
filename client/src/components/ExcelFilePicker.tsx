@@ -145,28 +145,11 @@ function SharePointSiteSelector({
           <Loader2 className="h-4 w-4 animate-spin" />
           <span>Loading available sites...</span>
         </div>
-      ) : (
-        <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
-          <div className="flex items-start gap-2 text-sm">
-            <AlertCircle className="h-4 w-4 mt-0.5 text-amber-600" />
-            <div className="space-y-2">
-              <p className="font-medium text-amber-800 dark:text-amber-200">SharePoint access is limited</p>
-              <p className="text-amber-700 dark:text-amber-300 text-xs">
-                The current integration doesn't have permission to browse SharePoint files directly. 
-                Your IT administrator would need to grant access to specific SharePoint sites.
-              </p>
-              <p className="text-amber-700 dark:text-amber-300 text-xs font-medium">
-                Tip: Files shared with you from SharePoint often appear in your OneDrive. 
-                Try switching to the OneDrive tab to find shared Excel files.
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      ) : null}
 
       {showUrlInput && hasSites && (
         <div className="space-y-2">
-          <Label className="text-sm">SharePoint Site URL (requires admin setup)</Label>
+          <Label className="text-sm">SharePoint Site URL</Label>
           <div className="flex gap-2">
             <Input
               placeholder="https://yourcompany.sharepoint.com/sites/yoursite"
@@ -186,9 +169,6 @@ function SharePointSiteSelector({
           {resolveError && (
             <p className="text-sm text-destructive">{resolveError}</p>
           )}
-          <p className="text-xs text-muted-foreground">
-            Note: Even after connecting, file browsing requires your IT admin to grant Vega access to this specific SharePoint site.
-          </p>
         </div>
       )}
     </div>
@@ -216,6 +196,11 @@ export function ExcelFilePicker({
   const [autoSync, setAutoSync] = useState(false);
   const [previewValue, setPreviewValue] = useState<{ value: any; text: string; error?: string } | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  
+  // Direct file URL input for SharePoint (uses Shares API)
+  const [directFileUrl, setDirectFileUrl] = useState('');
+  const [resolvingFile, setResolvingFile] = useState(false);
+  const [fileResolveError, setFileResolveError] = useState('');
 
   const { data: oneDriveStatus } = useQuery<{ connected: boolean }>({
     queryKey: ['/api/m365/onedrive/status'],
@@ -378,6 +363,72 @@ export function ExcelFilePicker({
       setStep('configure');
       setSelectedSheet('');
       setPreviewValue(null);
+    }
+  };
+
+  // Handle direct file URL resolution using Shares API
+  const handleResolveFileUrl = async () => {
+    if (!directFileUrl.trim()) return;
+    
+    // Validate URL looks like an Excel file
+    const url = directFileUrl.trim();
+    if (!url.includes('sharepoint.com') && !url.includes('onedrive.com') && !url.includes('1drv.ms')) {
+      setFileResolveError('Please enter a valid SharePoint or OneDrive file URL');
+      return;
+    }
+    
+    setResolvingFile(true);
+    setFileResolveError('');
+    
+    try {
+      const res = await fetch('/api/m365/sharepoint/resolve-file', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ fileUrl: url }),
+      });
+      
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to access file');
+      }
+      
+      const { item, driveId, siteId } = await res.json();
+      
+      // Validate it's an Excel file
+      if (!item.name.endsWith('.xlsx') && !item.name.endsWith('.xls')) {
+        throw new Error('The URL must point to an Excel file (.xlsx or .xls)');
+      }
+      
+      // Set file info with the parent reference for proper API calls
+      const fileWithRef: OneDriveItem = {
+        ...item,
+        parentReference: {
+          ...item.parentReference,
+          driveId: driveId,
+          siteId: siteId,
+        },
+      };
+      
+      setSelectedFile(fileWithRef);
+      // Store the driveId for use in worksheet/cell API calls
+      if (siteId) {
+        setSelectedSiteId(siteId);
+      }
+      setStep('configure');
+      setSelectedSheet('');
+      setPreviewValue(null);
+      setDirectFileUrl('');
+      
+      toast({
+        title: 'File found',
+        description: `Loaded ${item.name}`,
+      });
+    } catch (error: any) {
+      console.error('Failed to resolve file URL:', error);
+      setFileResolveError(error.message || 'Could not access file');
+    } finally {
+      setResolvingFile(false);
     }
   };
 
@@ -574,11 +625,51 @@ export function ExcelFilePicker({
               </div>
             )}
 
+            {/* Direct File URL Input for SharePoint */}
+            {fileSource === 'sharepoint' && (
+              <div className="mb-4 p-4 bg-muted/50 rounded-lg border">
+                <div className="flex items-start gap-2 mb-3">
+                  <ExternalLink className="h-4 w-4 mt-0.5 text-primary" />
+                  <div>
+                    <p className="font-medium text-sm">Paste Excel file URL</p>
+                    <p className="text-xs text-muted-foreground">
+                      Copy the URL from your browser when viewing the Excel file in SharePoint
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="https://yourcompany.sharepoint.com/sites/.../.xlsx"
+                    value={directFileUrl}
+                    onChange={(e) => setDirectFileUrl(e.target.value)}
+                    disabled={resolvingFile}
+                    data-testid="input-direct-file-url"
+                    className="flex-1"
+                  />
+                  <Button 
+                    onClick={handleResolveFileUrl}
+                    disabled={resolvingFile || !directFileUrl.trim()}
+                    data-testid="button-load-file"
+                  >
+                    {resolvingFile ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Load File'}
+                  </Button>
+                </div>
+                {fileResolveError && (
+                  <p className="text-sm text-destructive mt-2">{fileResolveError}</p>
+                )}
+              </div>
+            )}
+
             <ScrollArea className="h-[300px] border rounded-lg p-2">
               {fileSource === 'sharepoint' && !selectedSiteId ? (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
-                  <Globe className="h-12 w-12 mb-2" />
-                  <p>Select a SharePoint site to browse files</p>
+                  <Globe className="h-12 w-12 mb-2 opacity-50" />
+                  <p className="text-center">
+                    Paste a file URL above, or select a site to browse
+                  </p>
+                  <p className="text-xs text-center mt-1 max-w-xs">
+                    Tip: Open your Excel file in SharePoint, copy the URL from your browser, and paste it above
+                  </p>
                 </div>
               ) : isLoading ? (
                 <div className="flex items-center justify-center h-full">

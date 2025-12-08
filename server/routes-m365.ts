@@ -30,6 +30,9 @@ import {
   listSharePointDocuments,
   listSharePointDrives,
   searchSharePointExcelFiles,
+  // Shares API (direct URL access)
+  resolveFileFromUrl,
+  getSharePointFileFromUrl,
   // Combined status
   checkAllM365Connections,
   // Excel
@@ -472,6 +475,34 @@ router.post('/sharepoint/resolve-url', async (req: Request, res: Response) => {
     res.json(site);
   } catch (error: any) {
     console.error('Failed to resolve SharePoint site from URL:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Resolve a file directly from its SharePoint/OneDrive URL
+// This uses the Shares API and works with Files.Read permission
+router.post('/sharepoint/resolve-file', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const { fileUrl } = req.body;
+    if (!fileUrl) {
+      return res.status(400).json({ error: 'File URL is required' });
+    }
+    
+    const result = await getSharePointFileFromUrl(fileUrl);
+    if (!result) {
+      return res.status(404).json({ 
+        error: 'Could not access this file. Make sure the URL is correct and you have access to the file.' 
+      });
+    }
+    
+    res.json(result);
+  } catch (error: any) {
+    console.error('Failed to resolve file from URL:', error);
     res.status(500).json({ error: error.message });
   }
 });

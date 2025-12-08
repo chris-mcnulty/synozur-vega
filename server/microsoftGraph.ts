@@ -780,6 +780,85 @@ export async function listSharePointDocuments(
   return response.value;
 }
 
+// ==================== SharePoint Shares API (for direct URL access) ====================
+
+// Encode a sharing URL to a shareId token for the Shares API
+// See: https://learn.microsoft.com/en-us/graph/api/shares-get
+function encodeShareUrl(url: string): string {
+  // Base64 encode the URL, then make it URL-safe
+  const base64 = Buffer.from(url, 'utf8').toString('base64');
+  // Replace + with -, / with _, and remove trailing =
+  const urlSafe = base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return `u!${urlSafe}`;
+}
+
+// Resolve a SharePoint/OneDrive file from its web URL using Shares API
+// This works with Files.Read permission for files the user has access to
+export async function resolveFileFromUrl(fileUrl: string): Promise<OneDriveItem | null> {
+  try {
+    // Use OneDrive connector as it has Files.Read permission
+    const client = await getMicrosoftClient('onedrive');
+    const shareId = encodeShareUrl(fileUrl);
+    
+    const response = await client.api(`/shares/${shareId}/driveItem`)
+      .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
+      .get();
+    
+    return response;
+  } catch (error: any) {
+    console.error('Failed to resolve file from URL:', error.message || error);
+    return null;
+  }
+}
+
+// Get file metadata and content info from a sharing URL
+export async function getSharePointFileFromUrl(fileUrl: string): Promise<{
+  item: OneDriveItem;
+  driveId: string;
+  siteId?: string;
+} | null> {
+  try {
+    const client = await getMicrosoftClient('onedrive');
+    const shareId = encodeShareUrl(fileUrl);
+    
+    // Get the driveItem with expanded info
+    const response = await client.api(`/shares/${shareId}/driveItem`)
+      .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
+      .get();
+    
+    if (!response) {
+      return null;
+    }
+    
+    return {
+      item: response,
+      driveId: response.parentReference?.driveId || '',
+      siteId: response.parentReference?.siteId,
+    };
+  } catch (error: any) {
+    console.error('Failed to get SharePoint file from URL:', error.message || error);
+    return null;
+  }
+}
+
+// Download file content using the Shares API
+export async function downloadFileFromUrl(fileUrl: string): Promise<Buffer | null> {
+  try {
+    const client = await getMicrosoftClient('onedrive');
+    const shareId = encodeShareUrl(fileUrl);
+    
+    const stream = await client.api(`/shares/${shareId}/driveItem/content`).get();
+    
+    if (stream instanceof ArrayBuffer) {
+      return Buffer.from(stream);
+    }
+    return stream;
+  } catch (error: any) {
+    console.error('Failed to download file from URL:', error.message || error);
+    return null;
+  }
+}
+
 // Upload a file to SharePoint
 export async function uploadSharePointFile(
   siteId: string,
