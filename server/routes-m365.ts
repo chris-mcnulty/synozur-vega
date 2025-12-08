@@ -24,6 +24,7 @@ import {
   checkSharePointConnection,
   listSharePointSites,
   getSharePointSite,
+  getSharePointSiteFromUrl,
   listSharePointLists,
   getSharePointListItems,
   listSharePointDocuments,
@@ -446,6 +447,31 @@ router.get('/sharepoint/sites', async (req: Request, res: Response) => {
     res.json(sites);
   } catch (error: any) {
     console.error('Failed to list SharePoint sites:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Resolve a SharePoint site from URL
+router.post('/sharepoint/resolve-url', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const { siteUrl } = req.body;
+    if (!siteUrl) {
+      return res.status(400).json({ error: 'Site URL is required' });
+    }
+    
+    const site = await getSharePointSiteFromUrl(siteUrl);
+    if (!site) {
+      return res.status(404).json({ error: 'Could not find or access this SharePoint site' });
+    }
+    
+    res.json(site);
+  } catch (error: any) {
+    console.error('Failed to resolve SharePoint site from URL:', error);
     res.status(500).json({ error: error.message });
   }
 });

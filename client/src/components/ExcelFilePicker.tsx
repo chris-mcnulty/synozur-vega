@@ -58,6 +58,135 @@ interface ExcelFilePickerProps {
   onSuccess?: () => void;
 }
 
+// Component for selecting SharePoint sites with manual URL fallback
+function SharePointSiteSelector({
+  sites,
+  sitesLoading,
+  selectedSiteId,
+  onSiteSelect,
+}: {
+  sites: SharePointSite[];
+  sitesLoading: boolean;
+  selectedSiteId: string | null;
+  onSiteSelect: (siteId: string) => void;
+}) {
+  const [showUrlInput, setShowUrlInput] = useState(false);
+  const [siteUrl, setSiteUrl] = useState('');
+  const [resolving, setResolving] = useState(false);
+  const [resolveError, setResolveError] = useState('');
+  const { toast } = useToast();
+
+  const handleResolveUrl = async () => {
+    if (!siteUrl.trim()) return;
+    
+    setResolving(true);
+    setResolveError('');
+    
+    try {
+      const res = await fetch('/api/m365/sharepoint/resolve-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ siteUrl: siteUrl.trim() }),
+      });
+      
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to resolve site');
+      }
+      
+      const site = await res.json();
+      onSiteSelect(site.id);
+      toast({
+        title: 'Site connected',
+        description: `Connected to ${site.displayName || site.name}`,
+      });
+      setShowUrlInput(false);
+      setSiteUrl('');
+    } catch (e: any) {
+      setResolveError(e.message);
+    } finally {
+      setResolving(false);
+    }
+  };
+
+  const hasSites = sites.length > 0;
+
+  return (
+    <div className="mb-4 space-y-3">
+      {hasSites ? (
+        <>
+          <Label className="text-sm text-muted-foreground block">Select a SharePoint site</Label>
+          <Select 
+            value={selectedSiteId || ''} 
+            onValueChange={onSiteSelect}
+          >
+            <SelectTrigger data-testid="select-sharepoint-site">
+              <SelectValue placeholder={sitesLoading ? 'Loading sites...' : 'Choose a site'} />
+            </SelectTrigger>
+            <SelectContent>
+              {sites.map((site) => (
+                <SelectItem key={site.id} value={site.id}>
+                  {site.displayName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <button 
+            type="button"
+            className="text-xs text-primary underline-offset-4 hover:underline"
+            onClick={() => setShowUrlInput(!showUrlInput)}
+          >
+            {showUrlInput ? 'Hide' : "Can't find your site? Enter URL manually"}
+          </button>
+        </>
+      ) : sitesLoading ? (
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Loading available sites...</span>
+        </div>
+      ) : (
+        <div className="p-3 bg-muted rounded-lg">
+          <div className="flex items-start gap-2 text-sm">
+            <AlertCircle className="h-4 w-4 mt-0.5 text-yellow-600" />
+            <div>
+              <p className="font-medium">No sites found automatically</p>
+              <p className="text-muted-foreground">
+                Enter your SharePoint site URL below to connect directly.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(showUrlInput || !hasSites) && !sitesLoading && (
+        <div className="space-y-2">
+          <Label className="text-sm">SharePoint Site URL</Label>
+          <div className="flex gap-2">
+            <Input
+              placeholder="https://yourcompany.sharepoint.com/sites/yoursite"
+              value={siteUrl}
+              onChange={(e) => setSiteUrl(e.target.value)}
+              disabled={resolving}
+              data-testid="input-sharepoint-url"
+            />
+            <Button 
+              onClick={handleResolveUrl} 
+              disabled={resolving || !siteUrl.trim()}
+              data-testid="button-connect-sharepoint"
+            >
+              {resolving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Connect'}
+            </Button>
+          </div>
+          {resolveError && (
+            <p className="text-sm text-destructive">{resolveError}</p>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ExcelFilePicker({
   open,
   onOpenChange,
@@ -387,28 +516,16 @@ export function ExcelFilePicker({
             </Tabs>
 
             {fileSource === 'sharepoint' && (
-              <div className="mb-4">
-                <Label className="text-sm text-muted-foreground mb-2 block">Select a SharePoint site</Label>
-                <Select 
-                  value={selectedSiteId || ''} 
-                  onValueChange={(v) => {
-                    setSelectedSiteId(v);
-                    setCurrentFolderId(null);
-                    setFolderStack([]);
-                  }}
-                >
-                  <SelectTrigger data-testid="select-sharepoint-site">
-                    <SelectValue placeholder={sitesLoading ? 'Loading sites...' : 'Choose a site'} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sharePointSites?.map((site) => (
-                      <SelectItem key={site.id} value={site.id}>
-                        {site.displayName}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <SharePointSiteSelector
+                sites={sharePointSites || []}
+                sitesLoading={sitesLoading}
+                selectedSiteId={selectedSiteId}
+                onSiteSelect={(siteId) => {
+                  setSelectedSiteId(siteId);
+                  setCurrentFolderId(null);
+                  setFolderStack([]);
+                }}
+              />
             )}
 
             <div className="flex items-center gap-2 mb-4">

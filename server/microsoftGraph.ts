@@ -551,14 +551,85 @@ export async function checkSharePointConnection(): Promise<boolean> {
 
 export async function listSharePointSites(): Promise<SharePointSite[]> {
   const client = await getMicrosoftClient('sharepoint');
+  const sites: SharePointSite[] = [];
   
-  // Get sites that the user follows or has access to
-  const response = await client.api('/sites?search=*')
-    .select('id,name,displayName,webUrl,createdDateTime')
-    .top(50)
-    .get();
+  // With Sites.Selected permission, we can't list all sites
+  // Instead, try multiple approaches to find accessible sites
   
-  return response.value;
+  try {
+    // Try 1: Get user's followed sites (works with limited permissions)
+    const followedResponse = await client.api('/me/followedSites')
+      .select('id,name,displayName,webUrl,createdDateTime')
+      .top(50)
+      .get();
+    
+    if (followedResponse.value) {
+      sites.push(...followedResponse.value);
+    }
+  } catch (e: any) {
+    console.log('Could not fetch followed sites:', e.message);
+  }
+  
+  try {
+    // Try 2: Get the root site (tenant root)
+    const rootSite = await client.api('/sites/root')
+      .select('id,name,displayName,webUrl,createdDateTime')
+      .get();
+    
+    if (rootSite && !sites.find(s => s.id === rootSite.id)) {
+      sites.push(rootSite);
+    }
+  } catch (e: any) {
+    console.log('Could not fetch root site:', e.message);
+  }
+  
+  try {
+    // Try 3: Search with wildcard (requires Sites.Read.All but worth trying)
+    const searchResponse = await client.api('/sites?search=*')
+      .select('id,name,displayName,webUrl,createdDateTime')
+      .top(50)
+      .get();
+    
+    if (searchResponse.value) {
+      for (const site of searchResponse.value) {
+        if (!sites.find(s => s.id === site.id)) {
+          sites.push(site);
+        }
+      }
+    }
+  } catch (e: any) {
+    console.log('Site search not available:', e.message);
+  }
+  
+  return sites;
+}
+
+// Parse a SharePoint URL to get the site ID
+export async function getSharePointSiteFromUrl(siteUrl: string): Promise<SharePointSite | null> {
+  const client = await getMicrosoftClient('sharepoint');
+  
+  try {
+    // Extract hostname and path from URL
+    const url = new URL(siteUrl);
+    const hostname = url.hostname;
+    const pathParts = url.pathname.split('/').filter(p => p);
+    
+    // Construct the site path (e.g., "sites/teamsite" or just the root)
+    let sitePath = '';
+    if (pathParts.length >= 2 && (pathParts[0] === 'sites' || pathParts[0] === 'teams')) {
+      sitePath = `/${pathParts[0]}/${pathParts[1]}`;
+    }
+    
+    // Get the site by hostname and path
+    const site = await client.api(`/sites/${hostname}:${sitePath}`)
+      .select('id,name,displayName,webUrl,createdDateTime')
+      .get();
+    
+    return site;
+  } catch (e: any) {
+    console.error('Could not resolve SharePoint site from URL:', e.message);
+    return null;
+  }
 }
 
 export async function getSharePointSite(siteId: string): Promise<SharePointSite> {
