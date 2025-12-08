@@ -1347,6 +1347,24 @@ export default function PlanningEnhanced() {
                   }}
                   onEditKeyResult={(kr) => {
                     setSelectedKeyResult(kr as any);
+                    // Find the parent objective for this KR
+                    const parentObj = objectives.find(o => o.id === kr.objectiveId);
+                    if (parentObj) {
+                      setSelectedObjective(parentObj);
+                    }
+                    // Populate the form with existing KR data
+                    setKeyResultForm({
+                      title: kr.title,
+                      description: kr.description || "",
+                      metricType: kr.metricType || "increase",
+                      targetValue: kr.targetValue ?? 100,
+                      currentValue: kr.currentValue ?? 0,
+                      initialValue: kr.initialValue ?? 0,
+                      unit: kr.unit || "%",
+                      weight: kr.weight ?? 25,
+                      objectiveId: kr.objectiveId,
+                      phasedTargets: (kr as any).phasedTargets || null,
+                    });
                     setKeyResultDialogOpen(true);
                   }}
                   onAddChildObjective={(parentId) => {
@@ -2880,6 +2898,24 @@ export default function PlanningEnhanced() {
               setObjectiveDialogOpen(true);
             } else if (detailPaneEntityType === "key_result" && detailPaneEntity) {
               setSelectedKeyResult(detailPaneEntity as any);
+              // Find the parent objective for this KR
+              const parentObj = objectives.find(o => o.id === (detailPaneEntity as any).objectiveId);
+              if (parentObj) {
+                setSelectedObjective(parentObj);
+              }
+              // Populate the form with existing KR data
+              setKeyResultForm({
+                title: detailPaneEntity.title,
+                description: detailPaneEntity.description || "",
+                metricType: (detailPaneEntity as any).metricType || "increase",
+                targetValue: detailPaneEntity.targetValue ?? 100,
+                currentValue: detailPaneEntity.currentValue ?? 0,
+                initialValue: (detailPaneEntity as any).initialValue ?? 0,
+                unit: detailPaneEntity.unit || "%",
+                weight: (detailPaneEntity as any).weight ?? 25,
+                objectiveId: (detailPaneEntity as any).objectiveId,
+                phasedTargets: detailPaneEntity.phasedTargets || null,
+              });
               setDetailPaneOpen(false);
               setKeyResultDialogOpen(true);
             }

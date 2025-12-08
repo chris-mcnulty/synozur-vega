@@ -21,7 +21,8 @@ import {
   Activity,
   ArrowUp,
   ArrowDown,
-  Minus
+  Minus,
+  Pencil
 } from "lucide-react";
 import { format } from "date-fns";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
@@ -200,6 +201,17 @@ export function OKRDetailPane({
               </SheetTitle>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
+              {onEdit && (
+                <Button 
+                  size="sm" 
+                  variant="outline"
+                  onClick={onEdit}
+                  data-testid="button-detail-edit"
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              )}
               <Button 
                 size="sm" 
                 onClick={onCheckIn}
