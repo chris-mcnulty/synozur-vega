@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { ConfidentialClientApplication, Configuration, AuthorizationCodeRequest, CryptoProvider } from '@azure/msal-node';
 import { storage } from './storage';
 import { ROLES } from '../shared/rbac';
-import { encryptToken } from './utils/encryption';
+import { encryptToken, decryptToken } from './utils/encryption';
 
 const router = Router();
 
@@ -85,11 +85,17 @@ router.get('/login', async (req: Request, res: Response) => {
 
     const { verifier, challenge } = await cryptoProvider.generatePkceCodes();
 
-    const state = cryptoProvider.createNewGuid();
+    // Encode PKCE verifier and tenant hint in state to survive cross-domain redirect
+    // This is necessary when login starts on dev domain but callback goes to production domain
+    const statePayload = JSON.stringify({
+      nonce: cryptoProvider.createNewGuid(),
+      pkceVerifier: verifier,
+      tenantHint: tenantHint || null,
+    });
+    const encryptedState = encryptToken(statePayload);
     
-    (req.session as any).pkceVerifier = verifier;
-    (req.session as any).authState = state;
-    (req.session as any).tenantHint = tenantHint;
+    // URL-safe base64 encoding for state parameter
+    const state = Buffer.from(encryptedState).toString('base64url');
 
     const authCodeUrlParams = {
       scopes: SCOPES,
@@ -126,18 +132,24 @@ router.get('/callback', async (req: Request, res: Response) => {
       return res.redirect('/auth?error=missing_auth_code');
     }
 
-    const sessionState = (req.session as any).authState;
-    if (state !== sessionState) {
-      console.error('[Entra SSO] State mismatch');
-      return res.redirect('/auth?error=state_mismatch');
+    if (!state || typeof state !== 'string') {
+      console.error('[Entra SSO] Missing state parameter');
+      return res.redirect('/auth?error=missing_state');
     }
 
-    const pkceVerifier = (req.session as any).pkceVerifier;
-    const tenantHint = (req.session as any).tenantHint;
-
-    delete (req.session as any).pkceVerifier;
-    delete (req.session as any).authState;
-    delete (req.session as any).tenantHint;
+    // Decode state parameter to get PKCE verifier (survives cross-domain redirect)
+    let pkceVerifier: string;
+    let tenantHint: string | null;
+    try {
+      const encryptedState = Buffer.from(state, 'base64url').toString();
+      const decryptedState = decryptToken(encryptedState);
+      const statePayload = JSON.parse(decryptedState);
+      pkceVerifier = statePayload.pkceVerifier;
+      tenantHint = statePayload.tenantHint;
+    } catch (stateError) {
+      console.error('[Entra SSO] Failed to decode state:', stateError);
+      return res.redirect('/auth?error=invalid_state');
+    }
 
     const tokenRequest: AuthorizationCodeRequest = {
       code,
