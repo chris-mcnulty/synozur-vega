@@ -961,8 +961,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/ai", aiRouter);
 
   // Import and use Microsoft 365 routes (Outlook calendar sync, email)
+  // Apply loadCurrentUser middleware to populate req.user for all M365 routes
   const m365Routes = await import("./routes-m365");
-  app.use("/api/m365", m365Routes.default);
+  app.use("/api/m365", requireAuth, loadCurrentUser, m365Routes.default);
 
   // Import and use Entra SSO routes
   const { entraRouter } = await import("./routes-entra");

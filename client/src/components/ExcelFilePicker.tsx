@@ -249,17 +249,8 @@ export function ExcelFilePicker({
           <div className="flex flex-col items-center gap-4 py-8">
             <FileSpreadsheet className="h-16 w-16 text-muted-foreground" />
             <p className="text-center text-muted-foreground">
-              OneDrive is not connected. Please connect your Microsoft account to access Excel files.
+              Unable to connect to OneDrive. Please ensure you're logged in and try again.
             </p>
-            <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground max-w-sm">
-              <p className="font-medium mb-2">To connect OneDrive:</p>
-              <ol className="list-decimal list-inside space-y-1">
-                <li>Open the Integrations panel in Replit (puzzle icon)</li>
-                <li>Find the OneDrive integration</li>
-                <li>Click "Connect" and sign in with your Microsoft account</li>
-                <li>Return here and try again</li>
-              </ol>
-            </div>
             <Button 
               variant="outline" 
               onClick={() => {
@@ -268,7 +259,7 @@ export function ExcelFilePicker({
               }}
             >
               <RefreshCw className="mr-2 h-4 w-4" />
-              Check Connection Again
+              Try Again
             </Button>
           </div>
         </DialogContent>
