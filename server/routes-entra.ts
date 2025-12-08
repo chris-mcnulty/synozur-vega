@@ -23,7 +23,18 @@ const MSAL_CONFIG: Configuration = {
   },
 };
 
-const REDIRECT_URI = process.env.AZURE_REDIRECT_URI || `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'http://localhost:5000'}/auth/entra/callback`;
+// Base URL for redirects - use AZURE_BASE_URL if set, otherwise detect from environment
+const getBaseUrl = () => {
+  if (process.env.AZURE_BASE_URL) {
+    return process.env.AZURE_BASE_URL;
+  }
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  }
+  return 'http://localhost:5000';
+};
+
+const REDIRECT_URI = `${getBaseUrl()}/auth/entra/callback`;
 
 const SCOPES = ['openid', 'profile', 'email', 'User.Read'];
 
@@ -37,7 +48,7 @@ const PLANNER_SCOPES = [
   'offline_access',
 ];
 
-const PLANNER_REDIRECT_URI = process.env.AZURE_REDIRECT_URI || `${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'http://localhost:5000'}/auth/entra/planner-callback`;
+const PLANNER_REDIRECT_URI = `${getBaseUrl()}/auth/entra/planner-callback`;
 
 const cryptoProvider = new CryptoProvider();
 
