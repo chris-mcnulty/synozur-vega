@@ -231,7 +231,8 @@ router.get('/callback', async (req: Request, res: Response) => {
         console.error('[Entra SSO] Session save error:', err);
         return res.redirect('/auth?error=session_error');
       }
-      res.redirect('/');
+      // Redirect to dashboard after successful SSO login
+      res.redirect('/dashboard');
     });
 
   } catch (error) {
