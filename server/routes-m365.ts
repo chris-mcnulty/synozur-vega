@@ -27,6 +27,8 @@ import {
   listSharePointLists,
   getSharePointListItems,
   listSharePointDocuments,
+  listSharePointDrives,
+  searchSharePointExcelFiles,
   // Combined status
   checkAllM365Connections,
   // Excel
@@ -509,6 +511,39 @@ router.get('/sharepoint/sites/:siteId/documents', async (req: Request, res: Resp
     res.json(documents);
   } catch (error: any) {
     console.error('Failed to list SharePoint documents:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// List SharePoint drives (document libraries)
+router.get('/sharepoint/sites/:siteId/drives', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const drives = await listSharePointDrives(req.params.siteId);
+    res.json(drives);
+  } catch (error: any) {
+    console.error('Failed to list SharePoint drives:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Search Excel files in SharePoint site
+router.get('/sharepoint/sites/:siteId/excel-search', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const { q } = req.query;
+    const files = await searchSharePointExcelFiles(req.params.siteId, q as string | undefined);
+    res.json(files);
+  } catch (error: any) {
+    console.error('Failed to search SharePoint Excel files:', error);
     res.status(500).json({ error: error.message });
   }
 });

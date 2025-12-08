@@ -628,6 +628,62 @@ export async function deleteSharePointListItem(
   await client.api(`/sites/${siteId}/lists/${listId}/items/${itemId}`).delete();
 }
 
+// SharePoint Drive (document library) interface
+export interface SharePointDrive {
+  id: string;
+  name: string;
+  description?: string;
+  webUrl: string;
+  driveType: string;
+  createdDateTime: string;
+  lastModifiedDateTime: string;
+}
+
+// List all document libraries (drives) in a SharePoint site
+export async function listSharePointDrives(siteId: string): Promise<SharePointDrive[]> {
+  const client = await getMicrosoftClient('sharepoint');
+  const response = await client.api(`/sites/${siteId}/drives`)
+    .select('id,name,description,webUrl,driveType,createdDateTime,lastModifiedDateTime')
+    .get();
+  return response.value;
+}
+
+// Search for Excel files in SharePoint
+export async function searchSharePointExcelFiles(siteId: string, query?: string): Promise<OneDriveItem[]> {
+  const client = await getMicrosoftClient('sharepoint');
+  
+  // Get all drives in the site
+  const drives = await listSharePointDrives(siteId);
+  const allExcelFiles: OneDriveItem[] = [];
+  
+  for (const drive of drives) {
+    try {
+      let path: string;
+      if (query) {
+        path = `/sites/${siteId}/drives/${drive.id}/root/search(q='${query} .xlsx OR ${query} .xls')`;
+      } else {
+        path = `/sites/${siteId}/drives/${drive.id}/root/search(q='.xlsx OR .xls')`;
+      }
+      
+      const response = await client.api(path)
+        .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
+        .top(50)
+        .get();
+      
+      // Filter to only Excel files
+      const excelFiles = response.value.filter((item: any) => 
+        item.file && (item.name.endsWith('.xlsx') || item.name.endsWith('.xls'))
+      );
+      
+      allExcelFiles.push(...excelFiles);
+    } catch (error) {
+      console.error(`Failed to search drive ${drive.name}:`, error);
+    }
+  }
+  
+  return allExcelFiles;
+}
+
 // Get document library items (files/folders) from a SharePoint site
 export async function listSharePointDocuments(
   siteId: string,
