@@ -146,22 +146,27 @@ function SharePointSiteSelector({
           <span>Loading available sites...</span>
         </div>
       ) : (
-        <div className="p-3 bg-muted rounded-lg">
+        <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-lg">
           <div className="flex items-start gap-2 text-sm">
-            <AlertCircle className="h-4 w-4 mt-0.5 text-yellow-600" />
-            <div>
-              <p className="font-medium">No sites found automatically</p>
-              <p className="text-muted-foreground">
-                Enter your SharePoint site URL below to connect directly.
+            <AlertCircle className="h-4 w-4 mt-0.5 text-amber-600" />
+            <div className="space-y-2">
+              <p className="font-medium text-amber-800 dark:text-amber-200">SharePoint access is limited</p>
+              <p className="text-amber-700 dark:text-amber-300 text-xs">
+                The current integration doesn't have permission to browse SharePoint files directly. 
+                Your IT administrator would need to grant access to specific SharePoint sites.
+              </p>
+              <p className="text-amber-700 dark:text-amber-300 text-xs font-medium">
+                Tip: Files shared with you from SharePoint often appear in your OneDrive. 
+                Try switching to the OneDrive tab to find shared Excel files.
               </p>
             </div>
           </div>
         </div>
       )}
 
-      {(showUrlInput || !hasSites) && !sitesLoading && (
+      {showUrlInput && hasSites && (
         <div className="space-y-2">
-          <Label className="text-sm">SharePoint Site URL</Label>
+          <Label className="text-sm">SharePoint Site URL (requires admin setup)</Label>
           <div className="flex gap-2">
             <Input
               placeholder="https://yourcompany.sharepoint.com/sites/yoursite"
@@ -181,6 +186,9 @@ function SharePointSiteSelector({
           {resolveError && (
             <p className="text-sm text-destructive">{resolveError}</p>
           )}
+          <p className="text-xs text-muted-foreground">
+            Note: Even after connecting, file browsing requires your IT admin to grant Vega access to this specific SharePoint site.
+          </p>
         </div>
       )}
     </div>
