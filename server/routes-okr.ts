@@ -673,3 +673,143 @@ okrRouter.get("/objectives/:id/calculate-progress", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Helper function to calculate progress from values based on metricType
+function calculateKeyResultProgress(
+  currentValue: number,
+  targetValue: number,
+  initialValue: number,
+  metricType: string
+): number {
+  let progress = 0;
+  
+  if (metricType === "increase") {
+    const denominator = targetValue - initialValue;
+    if (denominator === 0) {
+      progress = currentValue >= targetValue ? 100 : 0;
+    } else if (denominator > 0) {
+      progress = ((currentValue - initialValue) / denominator) * 100;
+    } else {
+      progress = 0;
+    }
+  } else if (metricType === "decrease") {
+    const denominator = initialValue - targetValue;
+    if (denominator === 0) {
+      progress = currentValue <= targetValue ? 100 : 0;
+    } else if (denominator > 0) {
+      progress = ((initialValue - currentValue) / denominator) * 100;
+    } else {
+      progress = 0;
+    }
+  } else if (metricType === "maintain") {
+    if (targetValue === 0) {
+      progress = Math.abs(currentValue) <= 0.05 ? 100 : 0;
+    } else {
+      const deviation = Math.abs(currentValue - targetValue) / Math.abs(targetValue);
+      progress = deviation <= 0.05 ? 100 : Math.max(0, 100 - (deviation * 100));
+    }
+  } else if (metricType === "complete") {
+    if (targetValue === 0 || targetValue < 0) {
+      progress = 0;
+    } else {
+      progress = currentValue >= targetValue ? 100 : (currentValue / targetValue) * 100;
+    }
+  }
+  
+  // Allow >100% for exceeding targets, only clamp negative to 0
+  return isNaN(progress) ? 0 : Math.max(0, Math.round(progress));
+}
+
+// Backfill endpoint: Recalculate all Key Result progress values from currentValue/targetValue
+okrRouter.post("/backfill-progress", async (req, res) => {
+  try {
+    console.log('[Backfill] Starting progress recalculation for all Key Results...');
+    
+    // Get all key results
+    const allKeyResults = await storage.getAllKeyResults();
+    let updated = 0;
+    let errors = 0;
+    const results: any[] = [];
+    
+    for (const kr of allKeyResults) {
+      try {
+        const currentValue = kr.currentValue ?? 0;
+        const targetValue = kr.targetValue ?? 0;
+        const initialValue = kr.initialValue ?? 0;
+        const metricType = kr.metricType || "increase";
+        
+        const newProgress = calculateKeyResultProgress(
+          currentValue,
+          targetValue,
+          initialValue,
+          metricType
+        );
+        
+        const oldProgress = kr.progress || 0;
+        
+        if (newProgress !== oldProgress) {
+          await storage.updateKeyResult(kr.id, { progress: newProgress });
+          results.push({
+            id: kr.id,
+            title: kr.title,
+            currentValue,
+            targetValue,
+            initialValue,
+            metricType,
+            oldProgress,
+            newProgress,
+          });
+          updated++;
+        }
+      } catch (err) {
+        console.error(`[Backfill] Error updating KR ${kr.id}:`, err);
+        errors++;
+      }
+    }
+    
+    // Now recalculate all objective rollups
+    const allObjectives = await storage.getAllObjectives();
+    let objectivesUpdated = 0;
+    
+    for (const obj of allObjectives) {
+      if (obj.progressMode === 'rollup') {
+        try {
+          const keyResults = await storage.getKeyResultsByObjectiveId(obj.id);
+          
+          if (keyResults.length > 0) {
+            let totalWeight = 0;
+            let weightedProgress = 0;
+            
+            for (const kr of keyResults) {
+              const weight = kr.weight || 25;
+              totalWeight += weight;
+              weightedProgress += (kr.progress || 0) * weight;
+            }
+            
+            const newProgress = totalWeight > 0 ? Math.round(weightedProgress / totalWeight) : 0;
+            
+            if (newProgress !== obj.progress) {
+              await storage.updateObjective(obj.id, { progress: newProgress });
+              objectivesUpdated++;
+            }
+          }
+        } catch (err) {
+          console.error(`[Backfill] Error updating Objective ${obj.id}:`, err);
+        }
+      }
+    }
+    
+    console.log(`[Backfill] Complete: ${updated} Key Results updated, ${objectivesUpdated} Objectives recalculated, ${errors} errors`);
+    
+    res.json({
+      success: true,
+      keyResultsUpdated: updated,
+      objectivesUpdated,
+      errors,
+      details: results,
+    });
+  } catch (error) {
+    console.error('[Backfill] Failed:', error);
+    res.status(500).json({ error: error.message });
+  }
+});

@@ -85,11 +85,13 @@ export interface IStorage {
   
   getKeyResultsByObjectiveId(objectiveId: string): Promise<KeyResult[]>;
   getKeyResultById(id: string): Promise<KeyResult | undefined>;
+  getAllKeyResults(): Promise<KeyResult[]>;
   createKeyResult(keyResult: InsertKeyResult): Promise<KeyResult>;
   updateKeyResult(id: string, keyResult: Partial<InsertKeyResult>): Promise<KeyResult>;
   deleteKeyResult(id: string): Promise<void>;
   promoteKeyResultToKpi(keyResultId: string, userId: string): Promise<Kpi>;
   unpromoteKeyResultFromKpi(keyResultId: string): Promise<KeyResult>;
+  getAllObjectives(): Promise<Objective[]>;
   
   getBigRocksByTenantId(tenantId: string, quarter?: number, year?: number): Promise<BigRock[]>;
   getBigRockById(id: string): Promise<BigRock | undefined>;
@@ -603,6 +605,14 @@ export class DatabaseStorage implements IStorage {
   async getKeyResultById(id: string): Promise<KeyResult | undefined> {
     const [keyResult] = await db.select().from(keyResults).where(eq(keyResults.id, id));
     return keyResult || undefined;
+  }
+
+  async getAllKeyResults(): Promise<KeyResult[]> {
+    return await db.select().from(keyResults);
+  }
+
+  async getAllObjectives(): Promise<Objective[]> {
+    return await db.select().from(objectives);
   }
 
   async createKeyResult(insertKeyResult: InsertKeyResult): Promise<KeyResult> {
