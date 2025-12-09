@@ -6,6 +6,32 @@
 
 ## KNOWN ISSUES & BUGS 🐛
 
+### Production SSO Session Persistence Bug ⚠️ ACTIVE
+
+**Status:** Under Investigation  
+**Severity:** High
+
+**Issue:**
+When users log in via Microsoft SSO at the Replit URL (`vega-prototype-chrismcnulty1.replit.app`), the session cookie is not persisting after redirect. Users complete SSO successfully but are redirected back to the login screen instead of the dashboard.
+
+**Confirmed:**
+- `AZURE_BASE_URL` is correctly set to `https://vega-prototype-chrismcnulty1.replit.app`
+- SSO callback is reached and session is created (`req.session.save()` is called)
+- User is accessing from the same domain (Replit URL, not custom domain)
+
+**Suspected Causes:**
+1. Cookie settings (`sameSite`, `secure`, `domain`) may not work correctly behind Replit's reverse proxy
+2. Session save timing issue before redirect
+3. Cross-origin redirect behavior from `login.microsoftonline.com`
+
+**Next Steps:**
+1. Add logging to verify session ID before and after redirect
+2. Check if `trust proxy` setting is working correctly
+3. Test with explicit cookie domain setting
+4. Verify session table entries are being created
+
+---
+
 ### Microsoft Planner Integration Issues
 
 **Status:** Partially Working  
@@ -66,25 +92,42 @@
 
 ## HIGH PRIORITY (Business-Critical)
 
-### 1. RBAC Enforcement ⚠️ SECURITY GAP
+### 1. RBAC Enforcement ⚠️ SECURITY GAP - NEXT UP
 
-**Status:** Not Started  
+**Status:** Infrastructure Complete, Enforcement Needed  
 **Priority:** Critical  
-**Effort:** 2-3 weeks
+**Effort:** 1-2 weeks (reduced - infrastructure exists)
 
 **Description:**
-Role-Based Access Control is defined but not enforced. All authenticated users currently have full access regardless of their assigned role.
+Role-Based Access Control infrastructure is complete but not fully enforced. The OKR routes are completely unprotected.
 
-**Current State:**
-- 6 roles defined: `tenant_user`, `tenant_admin`, `admin`, `global_admin`, `vega_consultant`, `vega_admin`
-- Roles assigned to users in database
-- NO enforcement on API endpoints or UI
+**What's Built (✅ Complete):**
+- 6 roles defined in `shared/rbac.ts`: `tenant_user`, `tenant_admin`, `admin`, `global_admin`, `vega_consultant`, `vega_admin`
+- 20+ permissions defined (CREATE_OKR, UPDATE_ANY_OKR, MANAGE_TENANT_USERS, etc.)
+- Permission matrix in `shared/rbac.ts` mapping roles → permissions
+- RBAC middleware in `server/middleware/rbac.ts`:
+  - `requireRole()` - role-based access
+  - `requirePermission()` - permission-based access
+  - `requireTenantAccess()` - tenant isolation
+  - Pre-configured: `rbac.tenantAdmin`, `rbac.platformAdmin`, `rbac.anyUser`
 
-**Requirements:**
-- Implement middleware to check user roles on protected routes
-- Enforce tenant isolation (users can only access their tenant's data)
-- Role-specific UI restrictions (hide features based on permissions)
-- Permission matrix documentation
+**Routes WITH Protection:**
+- Tenant CRUD: `adminOnly` or `platformAdminOnly`
+- User CRUD: `adminOnly`
+- Foundations: `adminOnly` for write, `authWithTenant` for read
+- Strategies: `adminOnly` for write
+- Meetings: `adminOnly` for delete
+
+**⚠️ CRITICAL GAP - Routes WITHOUT Protection:**
+- **`/api/okr/*`** - ALL OKR routes (objectives, key results, big rocks, check-ins)
+- Router mounted in `routes.ts` line 968 without middleware: `app.use("/api/okr", okrRouter);`
+- **Anyone can currently create/edit/delete OKRs without authentication**
+
+**Remaining Work:**
+1. ⚠️ Apply `authWithTenant` middleware to OKR router (URGENT)
+2. Apply permission-based checks (UPDATE_ANY_OKR vs UPDATE_OWN_OKR)
+3. Add ownership validation (users edit own OKRs unless admin)
+4. UI restrictions based on role (hide admin features from regular users)
 
 **Future Considerations:**
 - **Team Membership (TBD):** Teams may optionally have limited membership, restricting which users can view/edit team-level objectives. This decision is pending and may affect how team-based access control is implemented.
@@ -95,14 +138,37 @@ Role-Based Access Control is defined but not enforced. All authenticated users c
 
 ---
 
-### 2. Microsoft 365 Multi-Tenant Integration ⭐ UPDATED
+### 2. Microsoft 365 Multi-Tenant Integration ⭐ ~60% COMPLETE
 
-**Status:** Not Started  
+**Status:** Phase 1 Mostly Complete, Phases 2-3 Remaining  
 **Priority:** High  
-**Effort:** 8-12 weeks (3 phases)
+**Effort:** 4-6 weeks remaining (was 8-12 weeks)
 
 **Description:**
 Enterprise-grade Microsoft 365 integration using multi-tenant OAuth with single-click admin consent. Synozur registers ONE app in Azure AD configured as multi-tenant. Customer admins click "Connect to Microsoft 365" → review permissions → accept. Done. No Azure AD portal access, no keys, no certificates required from customers.
+
+**What's Built (✅ Complete):**
+- Multi-tenant MSAL config with `/common` authority (`routes-entra.ts`)
+- Microsoft Entra ID login/callback flow
+- JIT (just-in-time) user provisioning from SSO
+- Tenant mapping via `azureTenantId` or email domain
+- SSO policy enforcement (client + server side): `enforceSso`, `allowLocalAuth`
+- User-friendly error handling for SSO failures
+- Planner Integration (partial): OAuth consent, database tables, token encryption
+- OneDrive/SharePoint file picker and drive enumeration
+
+**⚠️ Known Issues:**
+- **Production SSO Session Bug:** Login succeeds but session cookie doesn't persist after redirect (under investigation)
+- Planner requires Outlook connection first
+- SharePoint Sites.Selected permission limitations
+
+**Remaining Work (Phases 2-3):**
+1. Fix production SSO session persistence bug
+2. Admin consent endpoint (`/common/adminconsent`)
+3. Excel data binding for Key Results
+4. Outlook Calendar sync for Focus Rhythm meetings
+5. Incremental consent for Mail.Send
+6. Custom app registration support for high-security tenants
 
 ---
 
@@ -172,22 +238,34 @@ Enterprise-grade Microsoft 365 integration using multi-tenant OAuth with single-
 
 ---
 
-### 3. Focus Rhythm Integration ⭐ NEW
+### 3. Focus Rhythm Integration ⭐ ~70% COMPLETE
 
-**Status:** Not Started  
+**Status:** Core Complete, Advanced Features Remaining  
 **Priority:** High  
-**Effort:** 4-6 weeks
+**Effort:** 2-3 weeks remaining (was 4-6 weeks)
 
 **Description:**
 Connect weekly/monthly/quarterly/annual meetings to live OKR tracking, creating a continuous improvement loop.
 
-**Features:**
-- Meeting templates for different cadences (weekly standup, monthly review, quarterly planning, annual strategy)
-- Link meetings to specific objectives, key results, and big rocks
-- Log decisions, risks, and assignments per meeting
-- Meeting minutes with action items
-- Automatic agenda generation based on OKR status
-- Meeting history and searchable archives
+**What's Built (✅ Complete):**
+- Full CRUD for meetings
+- Meeting types: weekly, monthly, quarterly, annual
+- Meeting templates defined in `shared/schema.ts` (MEETING_TEMPLATES)
+- Agenda items (JSONB array)
+- OKR linking modal (many-to-many with objectives/key results/big rocks)
+- Meeting notes field (for Outlook Copilot paste)
+- Full-text search on meetings
+- Calendar-style meeting list
+- Template selection with auto-populated agenda
+- Outlook connection status display
+- Detail view with linked OKRs
+
+**Remaining Work:**
+1. Decisions/Risks/Assignments tracking per meeting
+2. Meeting minutes with action items
+3. Smarter agenda generation from live OKR status (not just templates)
+4. Outlook Calendar sync (blocked by M365 Phase 2)
+5. Meeting history archive and searchable past decisions
 
 **Business Value:**
 - Closes the execution gap between planning and doing
@@ -196,8 +274,7 @@ Connect weekly/monthly/quarterly/annual meetings to live OKR tracking, creating 
 - Drives accountability through tracked commitments
 
 **Dependencies:**
-- Existing `meetings` table in schema (already present)
-- May integrate with Outlook Calendar (Phase 2 of Entra integration)
+- Outlook Calendar sync requires M365 Phase 2 completion
 
 ---
 
