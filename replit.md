@@ -27,7 +27,9 @@ Preferred communication style: Simple, everyday language.
 - **System Design Choices**:
     - `IStorage` interface for CRUD operations, implemented by `DatabaseStorage`.
     - Session-based authentication using Express sessions and `connect-pg-simple`, secure password hashing (bcryptjs), and SendGrid integration for email verification.
-    - **Microsoft Entra ID SSO**: MSAL-based Azure AD authentication with PKCE flow, just-in-time user provisioning, and tenant mapping via `azureTenantId` or email domain.
+    - **Microsoft Entra ID SSO**: Multi-tenant MSAL-based Azure AD authentication with PKCE flow, just-in-time user provisioning, and tenant mapping via `azureTenantId` or email domain. Uses 'common' authority for true multi-tenant support.
+      - **SSO Policy Enforcement**: Tenant-level SSO policies (enforceSso, allowLocalAuth) enforced both client-side and server-side. Login page checks `/auth/entra/check-policy` endpoint to determine SSO requirements and shows appropriate UI. Server-side blocks password login attempts when SSO is required.
+      - **Error Handling**: User-friendly error messages for SSO failures, including consent required, access denied, and tenant not registered scenarios.
     - Multi-tenancy with data isolation per tenant, managed via `TenantContext` and `TenantSwitcher`, supporting tenant-specific branding, email domains, and SSO configuration.
     - Full RBAC enforcement with 6 roles: `tenant_user`, `tenant_admin`, `admin`, `global_admin`, `vega_consultant`, `vega_admin`.
 
