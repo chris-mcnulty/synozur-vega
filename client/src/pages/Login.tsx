@@ -51,6 +51,42 @@ export default function Login() {
   const [ssoPolicy, setSsoPolicy] = useState<SsoPolicy | null>(null);
   const [checkingPolicy, setCheckingPolicy] = useState(false);
   
+  // SSO error messages mapping
+  const ssoErrorMessages: Record<string, string> = {
+    'sso_not_configured': 'Microsoft SSO is not configured for this application. Please contact your administrator.',
+    'token_acquisition_failed': 'Failed to complete authentication. Please try again.',
+    'no_email_claim': 'Unable to retrieve your email from Microsoft. Please ensure your account has a valid email.',
+    'no_tenant_access': 'Your organization is not registered in Vega. Please contact your administrator.',
+    'session_error': 'Failed to create your session. Please try again.',
+    'callback_failed': 'Authentication callback failed. Please try again.',
+    'missing_auth_code': 'Authentication code was not received. Please try again.',
+    'missing_state': 'Authentication state was lost. Please try again.',
+    'invalid_state': 'Authentication state is invalid. This may be a security issue. Please try again.',
+    'access_denied': 'Access was denied. You may have cancelled the login or lack permissions.',
+    'consent_required': 'Your organization administrator needs to grant consent for this application.',
+    'interaction_required': 'Additional interaction is required. Please try signing in again.',
+  };
+  
+  // Check for SSO errors in URL on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const error = params.get('error');
+    const errorDescription = params.get('error_description');
+    const message = params.get('message');
+    
+    if (error) {
+      const friendlyMessage = ssoErrorMessages[error] || errorDescription || message || `Authentication error: ${error}`;
+      toast({
+        variant: "destructive",
+        title: "Sign-in Failed",
+        description: friendlyMessage,
+        duration: 8000,
+      });
+      // Clean up URL
+      window.history.replaceState({}, '', '/auth');
+    }
+  }, [toast]);
+  
   // Debounced SSO policy check
   const checkSsoPolicy = useCallback(async (email: string) => {
     if (!email || !email.includes('@')) {
