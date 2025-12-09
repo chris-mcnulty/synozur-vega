@@ -1128,34 +1128,45 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createImportHistory(data: any): Promise<any> {
-    // Direct SQL insert since importHistory table is not in schema yet
-    const result = await db.execute(sql`
-      INSERT INTO import_history (
-        tenant_id, import_type, file_name, file_size, status,
-        objectives_created, key_results_created, big_rocks_created,
-        check_ins_created, teams_created, warnings, errors,
-        skipped_items, duplicate_strategy, fiscal_year_start_month,
-        imported_by
-      ) VALUES (
-        ${data.tenantId}, ${data.importType}, ${data.fileName}, ${data.fileSize}, ${data.status},
-        ${data.objectivesCreated}, ${data.keyResultsCreated}, ${data.bigRocksCreated},
-        ${data.checkInsCreated}, ${data.teamsCreated}, ${JSON.stringify(data.warnings)}, ${JSON.stringify(data.errors)},
-        ${JSON.stringify(data.skippedItems)}, ${data.duplicateStrategy}, ${data.fiscalYearStartMonth},
-        ${data.importedBy}
-      )
-      RETURNING *
-    `);
-    return result.rows?.[0] || result;
+    try {
+      const result = await db.execute(sql`
+        INSERT INTO import_history (
+          tenant_id, import_type, file_name, file_size, status,
+          objectives_created, key_results_created, big_rocks_created,
+          check_ins_created, teams_created, warnings, errors,
+          skipped_items, duplicate_strategy, fiscal_year_start_month,
+          imported_by
+        ) VALUES (
+          ${data.tenantId}, ${data.importType}, ${data.fileName}, ${data.fileSize}, ${data.status},
+          ${data.objectivesCreated}, ${data.keyResultsCreated}, ${data.bigRocksCreated},
+          ${data.checkInsCreated}, ${data.teamsCreated}, ${JSON.stringify(data.warnings)}, ${JSON.stringify(data.errors)},
+          ${JSON.stringify(data.skippedItems)}, ${data.duplicateStrategy}, ${data.fiscalYearStartMonth},
+          ${data.importedBy}
+        )
+        RETURNING *
+      `);
+      return result.rows?.[0] || result;
+    } catch (error: any) {
+      // Table might not exist in production yet - log and return empty
+      console.warn('Import history table not available:', error.message);
+      return { id: 'temp-' + Date.now(), ...data };
+    }
   }
 
   async getImportHistory(tenantId: string): Promise<any[]> {
-    const results = await db.execute(sql`
-      SELECT * FROM import_history
-      WHERE tenant_id = ${tenantId}
-      ORDER BY imported_at DESC
-      LIMIT 50
-    `);
-    return results.rows || [];
+    try {
+      const results = await db.execute(sql`
+        SELECT * FROM import_history
+        WHERE tenant_id = ${tenantId}
+        ORDER BY imported_at DESC
+        LIMIT 50
+      `);
+      return results.rows || [];
+    } catch (error: any) {
+      // Table might not exist in production yet - return empty array
+      console.warn('Import history table not available:', error.message);
+      return [];
+    }
   }
 
   // Grounding documents methods (for AI context)
