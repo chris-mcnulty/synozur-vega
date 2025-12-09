@@ -205,11 +205,33 @@ function getEffectiveStatus(objective: HierarchyObjective): { status: string; is
   return { status: objective.status || "not_started", isDerived: false };
 }
 
-function formatProgressText(progress: number, metricType?: string): string {
+function formatProgressText(
+  progress: number, 
+  metricType?: string, 
+  unit?: string, 
+  currentValue?: number
+): string {
   if (metricType === "complete") {
     return progress >= 100 ? "Complete" : "In Progress";
   }
-  // Handle over-achievement gracefully
+  // For percent-based metrics, show progress percentage
+  if (unit === '%' || unit === 'percent') {
+    if (progress > 100) {
+      return "100%+";
+    }
+    return `${Math.round(progress)}%`;
+  }
+  // For number-based metrics, show current value
+  if (currentValue !== undefined && currentValue !== null) {
+    if (unit === '$' || unit === 'currency' || unit === 'USD') {
+      return `$${currentValue.toLocaleString()}`;
+    }
+    if (unit) {
+      return `${currentValue.toLocaleString()} ${unit}`;
+    }
+    return currentValue.toLocaleString();
+  }
+  // Fallback to percentage if no current value
   if (progress > 100) {
     return "100%+";
   }
@@ -640,7 +662,7 @@ function KeyResultRow({
           <div className="flex items-center gap-2">
             <Progress value={Math.min(keyResult.progress, 100)} className="w-16 h-1.5" />
             <span className="text-xs text-muted-foreground">
-              {formatProgressText(keyResult.progress, keyResult.metricType)}
+              {formatProgressText(keyResult.progress, keyResult.metricType, keyResult.unit, keyResult.currentValue)}
             </span>
           </div>
           {keyResult.targetValue !== undefined && keyResult.unit && (

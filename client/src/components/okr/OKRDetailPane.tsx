@@ -235,9 +235,13 @@ export function OKRDetailPane({
                   <div className={`w-3 h-3 rounded-full ${getStatusColor(entity.status)}`} />
                   <span className="font-medium">{getStatusLabel(entity.status)}</span>
                   <span className="text-2xl font-bold ml-auto">
-                    {entity.progress > 100 
-                      ? `100%+` 
-                      : `${Math.round(entity.progress)}%`}
+                    {entity.unit === '%' || entity.unit === 'percent' ? (
+                      entity.progress > 100 
+                        ? `100%+` 
+                        : `${Math.round(entity.progress)}%`
+                    ) : (
+                      formatValue(entity.currentValue ?? entity.progress, entity.unit)
+                    )}
                   </span>
                 </div>
 
