@@ -171,11 +171,13 @@ router.get('/export-cos', async (req: Request, res: Response) => {
       strategies,
       objectives,
       bigRocks,
+      groundingDocuments,
     ] = await Promise.all([
       storage.getFoundationsByTenantId(tenantId),
       storage.getStrategiesByTenantId(tenantId),
       storage.getAllObjectives().then(objs => objs.filter(o => o.tenantId === tenantId)),
       storage.getBigRocksByTenantId(tenantId),
+      storage.getGroundingDocumentsByTenantId(tenantId),
     ]);
 
     // Get all Key Results for the objectives
@@ -214,6 +216,7 @@ router.get('/export-cos', async (req: Request, res: Response) => {
         keyResults,
         bigRocks,
         checkIns,
+        groundingDocuments,
       },
       metadata: {
         counts: {
@@ -223,6 +226,7 @@ router.get('/export-cos', async (req: Request, res: Response) => {
           keyResults: keyResults.length,
           bigRocks: bigRocks.length,
           checkIns: checkIns.length,
+          groundingDocuments: groundingDocuments.length,
         },
       },
     };
@@ -318,17 +322,19 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
       keyResults: { created: 0, updated: 0, skipped: 0, errors: 0 },
       bigRocks: { created: 0, updated: 0, skipped: 0, errors: 0 },
       checkIns: { created: 0, updated: 0, skipped: 0, errors: 0 },
+      groundingDocuments: { created: 0, updated: 0, skipped: 0, errors: 0 },
     };
 
     // Map old IDs to new IDs for relationships
     const idMap = new Map<string, string>();
 
     // Pre-fetch existing data for efficiency (avoid repeated lookups in loops)
-    const [existingFoundations, existingStrategies, existingObjectives, existingBigRocks] = await Promise.all([
+    const [existingFoundations, existingStrategies, existingObjectives, existingBigRocks, existingGroundingDocs] = await Promise.all([
       storage.getFoundationsByTenantId(targetTenantId),
       storage.getStrategiesByTenantId(targetTenantId),
       storage.getObjectivesByTenantId(targetTenantId),
       storage.getBigRocksByTenantId(targetTenantId),
+      storage.getGroundingDocumentsByTenantId(targetTenantId),
     ]);
 
     // Import foundations
@@ -676,6 +682,63 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
         } catch (err) {
           console.error('Error importing check-in:', err);
           results.checkIns.errors++;
+        }
+      }
+    }
+
+    // Import grounding documents (AI context)
+    if (importData.data.groundingDocuments) {
+      for (const doc of importData.data.groundingDocuments) {
+        try {
+          // Match by title
+          const existingMatch = existingGroundingDocs.find(d => d.title === doc.title);
+
+          if (existingMatch) {
+            if (options.duplicateStrategy === 'skip') {
+              idMap.set(doc.id, existingMatch.id);
+              results.groundingDocuments.skipped++;
+            } else if (options.duplicateStrategy === 'replace') {
+              await storage.updateGroundingDocument(existingMatch.id, {
+                description: doc.description,
+                category: doc.category,
+                content: doc.content,
+                priority: doc.priority || 0,
+                isActive: doc.isActive !== false,
+                updatedBy: user.id,
+              });
+              idMap.set(doc.id, existingMatch.id);
+              results.groundingDocuments.updated++;
+            } else {
+              const newDoc = await storage.createGroundingDocument({
+                tenantId: targetTenantId,
+                title: doc.title,
+                description: doc.description,
+                category: doc.category,
+                content: doc.content,
+                priority: doc.priority || 0,
+                isActive: doc.isActive !== false,
+                createdBy: user.id,
+              });
+              idMap.set(doc.id, newDoc.id);
+              results.groundingDocuments.created++;
+            }
+          } else {
+            const newDoc = await storage.createGroundingDocument({
+              tenantId: targetTenantId,
+              title: doc.title,
+              description: doc.description,
+              category: doc.category,
+              content: doc.content,
+              priority: doc.priority || 0,
+              isActive: doc.isActive !== false,
+              createdBy: user.id,
+            });
+            idMap.set(doc.id, newDoc.id);
+            results.groundingDocuments.created++;
+          }
+        } catch (err) {
+          console.error('Error importing grounding document:', err);
+          results.groundingDocuments.errors++;
         }
       }
     }

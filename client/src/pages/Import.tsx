@@ -382,6 +382,9 @@ export default function Import() {
                         <li>{cosImportResult.results.objectives.created} objectives created, {cosImportResult.results.objectives.updated} updated, {cosImportResult.results.objectives.skipped} skipped</li>
                         <li>{cosImportResult.results.keyResults.created} key results created, {cosImportResult.results.keyResults.updated} updated, {cosImportResult.results.keyResults.skipped} skipped</li>
                         <li>{cosImportResult.results.bigRocks.created} big rocks created, {cosImportResult.results.bigRocks.updated} updated, {cosImportResult.results.bigRocks.skipped} skipped</li>
+                        {cosImportResult.results.groundingDocuments && (
+                          <li>{cosImportResult.results.groundingDocuments.created} AI grounding docs created, {cosImportResult.results.groundingDocuments.updated} updated, {cosImportResult.results.groundingDocuments.skipped} skipped</li>
+                        )}
                         {cosImportCheckIns && (
                           <li>{cosImportResult.results.checkIns.created} check-ins created, {cosImportResult.results.checkIns.skipped} skipped</li>
                         )}
