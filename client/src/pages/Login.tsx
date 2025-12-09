@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -7,8 +7,22 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Eye, EyeOff, Building2, SquareStack } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Building2, SquareStack, Shield, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import starTrailsBg from "@assets/AdobeStock_362805421_1763398687511.jpeg";
+
+interface SsoPolicy {
+  tenantFound: boolean;
+  tenantId?: string;
+  tenantName?: string;
+  ssoEnabled: boolean;
+  enforceSso: boolean;
+  allowLocalAuth: boolean;
+  ssoRequired: boolean;
+  existingUser?: boolean;
+  authProvider?: string | null;
+  message?: string;
+}
 
 export default function Login() {
   const { login, signup } = useAuth();
@@ -32,6 +46,47 @@ export default function Login() {
   const [signupPassword, setSignupPassword] = useState("");
   const [isSubmittingSignup, setIsSubmittingSignup] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
+  
+  // SSO policy state
+  const [ssoPolicy, setSsoPolicy] = useState<SsoPolicy | null>(null);
+  const [checkingPolicy, setCheckingPolicy] = useState(false);
+  
+  // Debounced SSO policy check
+  const checkSsoPolicy = useCallback(async (email: string) => {
+    if (!email || !email.includes('@')) {
+      setSsoPolicy(null);
+      return;
+    }
+    
+    setCheckingPolicy(true);
+    try {
+      const response = await fetch('/auth/entra/check-policy', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+      
+      if (response.ok) {
+        const policy = await response.json();
+        setSsoPolicy(policy);
+      }
+    } catch (error) {
+      console.error('Failed to check SSO policy:', error);
+    } finally {
+      setCheckingPolicy(false);
+    }
+  }, []);
+  
+  // Check SSO policy when email changes (with debounce)
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (loginEmail.includes('@')) {
+        checkSsoPolicy(loginEmail);
+      }
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [loginEmail, checkSsoPolicy]);
 
   const handleDemoLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,6 +115,26 @@ export default function Login() {
 
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Check if SSO is required for this user's organization
+    if (ssoPolicy?.ssoRequired) {
+      toast({
+        title: "SSO Required",
+        description: `${ssoPolicy.tenantName || 'Your organization'} requires Microsoft SSO login. Redirecting...`,
+      });
+      // Redirect to SSO login with tenant hint
+      setTimeout(() => {
+        window.location.href = `/auth/entra/login${ssoPolicy.tenantId ? `?tenant=${ssoPolicy.tenantId}` : ''}`;
+      }, 1500);
+      return;
+    }
+    
+    // If SSO is enabled but local auth is allowed, warn but proceed
+    if (ssoPolicy?.ssoEnabled && ssoPolicy?.enforceSso && ssoPolicy?.allowLocalAuth) {
+      // User can use either, but SSO is preferred
+      console.log('SSO is enabled but local auth is allowed');
+    }
+    
     setIsSubmittingLogin(true);
 
     try {
@@ -220,49 +295,77 @@ export default function Login() {
                       required
                     />
                   </div>
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label htmlFor="login-password">Password</Label>
-                      <Link href="/forgot-password">
+                  
+                  {/* SSO Policy Alert */}
+                  {ssoPolicy?.ssoRequired && (
+                    <Alert className="border-primary/50 bg-primary/10">
+                      <Shield className="h-4 w-4" />
+                      <AlertDescription>
+                        <span className="font-medium">{ssoPolicy.tenantName || 'Your organization'}</span> requires Microsoft SSO login.
+                        Click "Sign in with Microsoft" below.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  {ssoPolicy?.ssoEnabled && !ssoPolicy?.ssoRequired && (
+                    <Alert className="border-blue-500/50 bg-blue-500/10">
+                      <Shield className="h-4 w-4 text-blue-500" />
+                      <AlertDescription className="text-blue-700 dark:text-blue-300">
+                        <span className="font-medium">{ssoPolicy.tenantName}</span> supports Microsoft SSO.
+                        You can use either SSO or your password.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  
+                  {/* Password field - only show if not SSO required */}
+                  {!ssoPolicy?.ssoRequired && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="login-password">Password</Label>
+                        <Link href="/forgot-password">
+                          <button
+                            type="button"
+                            className="text-xs text-primary hover:underline"
+                            data-testid="link-forgot-password"
+                          >
+                            Forgot password?
+                          </button>
+                        </Link>
+                      </div>
+                      <div className="relative">
+                        <Input
+                          id="login-password"
+                          type={showLoginPassword ? "text" : "password"}
+                          value={loginPassword}
+                          onChange={(e) => setLoginPassword(e.target.value)}
+                          placeholder="Enter your password"
+                          data-testid="input-login-password"
+                          className="pr-10"
+                          required={!ssoPolicy?.ssoRequired}
+                        />
                         <button
                           type="button"
-                          className="text-xs text-primary hover:underline"
-                          data-testid="link-forgot-password"
+                          onClick={() => setShowLoginPassword(!showLoginPassword)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                          data-testid="button-toggle-login-password"
+                          aria-label={showLoginPassword ? "Hide password" : "Show password"}
                         >
-                          Forgot password?
+                          {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                         </button>
-                      </Link>
+                      </div>
                     </div>
-                    <div className="relative">
-                      <Input
-                        id="login-password"
-                        type={showLoginPassword ? "text" : "password"}
-                        value={loginPassword}
-                        onChange={(e) => setLoginPassword(e.target.value)}
-                        placeholder="Enter your password"
-                        data-testid="input-login-password"
-                        className="pr-10"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowLoginPassword(!showLoginPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        data-testid="button-toggle-login-password"
-                        aria-label={showLoginPassword ? "Hide password" : "Show password"}
-                      >
-                        {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isSubmittingLogin}
-                    data-testid="button-email-login"
-                  >
-                    {isSubmittingLogin ? "Logging in..." : "Login"}
-                  </Button>
+                  )}
+                  
+                  {!ssoPolicy?.ssoRequired && (
+                    <Button
+                      type="submit"
+                      className="w-full"
+                      disabled={isSubmittingLogin}
+                      data-testid="button-email-login"
+                    >
+                      {isSubmittingLogin ? "Logging in..." : "Login"}
+                    </Button>
+                  )}
                   
                   <div className="relative my-4">
                     <div className="absolute inset-0 flex items-center">
@@ -270,16 +373,16 @@ export default function Login() {
                     </div>
                     <div className="relative flex justify-center text-xs uppercase">
                       <span className="bg-background px-2 text-muted-foreground">
-                        Or continue with
+                        {ssoPolicy?.ssoRequired ? "Continue with" : "Or continue with"}
                       </span>
                     </div>
                   </div>
                   
                   <Button
                     type="button"
-                    variant="outline"
+                    variant={ssoPolicy?.ssoRequired ? "default" : "outline"}
                     className="w-full"
-                    onClick={() => window.location.href = '/auth/entra/login'}
+                    onClick={() => window.location.href = `/auth/entra/login${ssoPolicy?.tenantId ? `?tenant=${ssoPolicy.tenantId}` : ''}`}
                     data-testid="button-sso-login"
                   >
                     <SquareStack className="mr-2 h-4 w-4" />
