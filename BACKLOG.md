@@ -1,6 +1,66 @@
 # Vega Platform Backlog
 
-**Last Updated:** December 5, 2025
+**Last Updated:** December 9, 2025
+
+---
+
+## KNOWN ISSUES & BUGS 🐛
+
+### Microsoft Planner Integration Issues
+
+**Status:** Partially Working  
+**Severity:** Medium
+
+**Current Issues:**
+1. **Token Dependency on Outlook:** Planner integration requires Outlook connection first. If a user hasn't connected Outlook, Planner auth may fail silently.
+2. **Scope Limitations:** `Tasks.Read` permission provides read-only access. Task creation/updates require `Tasks.ReadWrite` which isn't currently requested.
+3. **Rate Limiting:** Planner has restrictive throttling (100 req/10 sec). Bulk operations may fail under load.
+4. **Sync Status Tracking:** `lastSyncAt` is tracked but no automatic sync scheduler exists - requires manual refresh.
+5. **Error Handling:** Some Planner API errors (especially permission-related) may not surface user-friendly messages.
+
+**Workarounds:**
+- Ensure Outlook is connected before attempting Planner connection
+- Manual refresh for task updates
+- Check Settings page for connection status
+
+---
+
+### Microsoft SharePoint Integration Issues
+
+**Status:** Partially Working  
+**Severity:** Medium
+
+**Current Issues:**
+1. **Sites.Selected Permission Limitation:** Cannot list all SharePoint sites with current permissions. Uses fallback methods (followed sites, root site, wildcard search) which may miss some sites.
+2. **Sites.Read.All Required for Search:** Wildcard site search only works with broader permissions that customers may be hesitant to grant.
+3. **URL Resolution Issues:** `getSharePointSiteFromUrl` may fail on certain URL formats or when user lacks access to the resolved site.
+4. **Drive Discovery:** `/me/drives` endpoint may not surface all SharePoint document libraries, especially those the user hasn't recently accessed.
+5. **Access Denied Handling:** Some permission errors from Shares API return generic errors instead of actionable guidance.
+
+**Workarounds:**
+- Use direct SharePoint URLs when possible
+- Ensure admin consent for SharePoint scopes
+- Follow sites in SharePoint to make them discoverable
+
+---
+
+### Database Schema Issues (Production)
+
+**Status:** Resolved (with fallbacks)  
+**Severity:** Low
+
+**Recent Fix (Dec 9):**
+- Added try-catch fallbacks for `import_history` table queries
+- App gracefully handles missing tables in production until schema is pushed
+- Schema push needed on production for full import history functionality
+
+---
+
+### Progress Calculation Bug (FIXED)
+
+**Status:** ✅ Resolved (Dec 9)  
+**Issue:** Progress was incorrectly capped at 100% maximum
+**Fix:** Removed 0-100% clamping - now correctly displays >100% achievement
 
 ---
 
@@ -308,21 +368,32 @@ Point-in-time snapshots for audit trails and branded report generation.
 
 ## MEDIUM PRIORITY
 
-### 7. Company OS Export/Import System
+### 7. Company OS Export/Import System ✅ COMPLETE
 
-**Status:** Not Started  
+**Status:** Complete  
 **Priority:** Medium  
-**Effort:** 2-3 weeks
+**Effort:** 2-3 weeks  
+**Completed:** December 2025
 
 **Description:**
 Export and import complete Company OS data for portability, backups, and migrations.
 
-**Features:**
-- Export to `.cos` JSON file format
-- Tenant-specific and year-specific filtering
-- Import to different tenant or server
-- Data validation and conflict resolution
-- Dry-run import mode (preview changes)
+**Completed Features:**
+- ✅ Export to `.cos` JSON file format
+- ✅ Tenant-specific and year-specific filtering
+- ✅ Import to different tenant or server
+- ✅ Data validation and conflict resolution
+- ✅ Duplicate handling strategies: Skip, Replace, Create Duplicate
+- ✅ ID remapping for cross-tenant imports
+- ✅ Tenant-specific AI grounding documents included in export/import
+- ✅ Optimized import performance with cached tenant collections
+- ✅ Graceful fallbacks for missing database tables
+
+**Technical Notes:**
+- Export format includes: foundation, strategies, objectives, key results, big rocks, check-ins, teams, grounding documents
+- Import performs ID remapping to maintain relationships
+- Replace strategy updates existing items without cascade-deleting children
+- Progress calculation correctly displays >100% achievement
 
 **Use Cases:**
 - Data portability between environments
@@ -331,9 +402,9 @@ Export and import complete Company OS data for portability, backups, and migrati
 - Consultant templates (pre-built Company OS structures)
 
 **Business Value:**
-- De-risks platform adoption (no lock-in)
-- Enables consultant playbooks
-- Supports migration workflows
+- ✅ De-risks platform adoption (no lock-in)
+- ✅ Enables consultant playbooks
+- ✅ Supports migration workflows
 
 ---
 
@@ -781,6 +852,15 @@ Features to drive employee adoption and engagement with the Company OS.
 ---
 
 ## Recently Completed ✅
+
+### ✅ Company OS Export/Import (December 2025)
+Full export/import system with .cos file format, duplicate strategies (skip/replace/create), ID remapping, grounding documents support, and optimized performance.
+
+### ✅ Progress Calculation Fix (December 2025)
+Removed incorrect 0-100% clamping - now correctly displays >100% achievement for exceeded targets.
+
+### ✅ Database Fallbacks (December 2025)
+Added graceful fallbacks for import_history queries to prevent crashes when tables don't exist in production.
 
 ### ✅ Dashboard Resilience (November 2025)
 Per-section error handling to prevent entire dashboard failure.
