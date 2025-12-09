@@ -2327,13 +2327,13 @@ export default function PlanningEnhanced() {
                         }
                       }
                       
-                      // Clamp progress to 0-100 range and ensure no NaN
-                      const clampedProgress = isNaN(progress) ? 0 : Math.max(0, Math.min(100, Math.round(progress)));
+                      // Allow progress >100% for exceeding targets, only clamp negative to 0
+                      const finalProgress = isNaN(progress) ? 0 : Math.max(0, Math.round(progress));
                       
                       setCheckInForm({ 
                         ...checkInForm, 
                         newValue: newVal,
-                        newProgress: clampedProgress
+                        newProgress: finalProgress
                       });
                     }}
                     data-testid="input-checkin-value"
