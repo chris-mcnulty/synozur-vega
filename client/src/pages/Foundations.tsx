@@ -15,6 +15,8 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
 import { ValueDetailView } from "@/components/ValueDetailView";
 import { AIGoalsSuggestionDialog } from "@/components/AIGoalsSuggestionDialog";
+import { ValuesAlignmentWidget } from "@/components/ValuesAlignmentWidget";
+import { getCurrentQuarter } from "@/lib/fiscal-utils";
 import type { Foundation, CompanyValue } from "@shared/schema";
 
 // Suggested options for quick selection
@@ -620,6 +622,9 @@ export default function Foundations() {
               </div>
             </CardContent>
           </Card>
+
+          {/* Values Alignment Widget */}
+          <ValuesAlignmentWidget />
 
           {/* Goals Section */}
           <Card data-testid="card-goals">

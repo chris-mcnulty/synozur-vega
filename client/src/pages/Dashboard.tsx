@@ -35,7 +35,6 @@ import { Link } from "wouter";
 import { useTenant } from "@/contexts/TenantContext";
 import { getCurrentQuarter, generateQuarters } from "@/lib/fiscal-utils";
 import type { Foundation, Strategy, Objective, BigRock, Meeting, Team } from "@shared/schema";
-import { ValuesAlignmentWidget } from "@/components/ValuesAlignmentWidget";
 import { ValueBadges } from "@/components/ValueBadges";
 import { ExpandableText } from "@/components/ExpandableText";
 
@@ -412,8 +411,6 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Values Alignment Widget */}
-      <ValuesAlignmentWidget quarter={currentQuarter?.quarter} year={currentQuarter?.year} />
 
       {/* Strategies and Planning Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
