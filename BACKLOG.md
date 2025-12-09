@@ -92,14 +92,14 @@ When users log in via Microsoft SSO at the Replit URL (`vega-prototype-chrismcnu
 
 ## HIGH PRIORITY (Business-Critical)
 
-### 1. RBAC Enforcement ⚠️ SECURITY GAP - NEXT UP
+### 1. RBAC Enforcement ✅ CORE SECURITY FIXED
 
-**Status:** Infrastructure Complete, Enforcement Needed  
-**Priority:** Critical  
-**Effort:** 1-2 weeks (reduced - infrastructure exists)
+**Status:** Auth + Tenant Isolation Complete, Fine-Grained Permissions Remaining  
+**Priority:** High (was Critical)  
+**Effort:** 1 week remaining (reduced scope)
 
 **Description:**
-Role-Based Access Control infrastructure is complete but not fully enforced. The OKR routes are completely unprotected.
+Role-Based Access Control infrastructure is complete. All routes now require authentication and tenant isolation.
 
 **What's Built (✅ Complete):**
 - 6 roles defined in `shared/rbac.ts`: `tenant_user`, `tenant_admin`, `admin`, `global_admin`, `vega_consultant`, `vega_admin`
@@ -111,23 +111,22 @@ Role-Based Access Control infrastructure is complete but not fully enforced. The
   - `requireTenantAccess()` - tenant isolation
   - Pre-configured: `rbac.tenantAdmin`, `rbac.platformAdmin`, `rbac.anyUser`
 
-**Routes WITH Protection:**
-- Tenant CRUD: `adminOnly` or `platformAdminOnly`
-- User CRUD: `adminOnly`
-- Foundations: `adminOnly` for write, `authWithTenant` for read
-- Strategies: `adminOnly` for write
-- Meetings: `adminOnly` for delete
+**All Routes NOW Protected (Dec 9, 2025):**
+- ✅ **OKR routes** (`/api/okr/*`): `authWithTenant` middleware applied
+- ✅ Tenant CRUD: `adminOnly` or `platformAdminOnly`
+- ✅ User CRUD: `adminOnly`
+- ✅ Foundations: `adminOnly` for write, `authWithTenant` for read
+- ✅ Strategies: `adminOnly` for write
+- ✅ Meetings: `adminOnly` for delete
+- ✅ Import routes: Internal session checks
+- ✅ AI routes: Internal `requireAuth` per route
+- ✅ Planner routes: Internal `requireAuth` + `requireTenantAccess`
+- ✅ M365 routes: `requireAuth` + `loadCurrentUser`
 
-**⚠️ CRITICAL GAP - Routes WITHOUT Protection:**
-- **`/api/okr/*`** - ALL OKR routes (objectives, key results, big rocks, check-ins)
-- Router mounted in `routes.ts` line 968 without middleware: `app.use("/api/okr", okrRouter);`
-- **Anyone can currently create/edit/delete OKRs without authentication**
-
-**Remaining Work:**
-1. ⚠️ Apply `authWithTenant` middleware to OKR router (URGENT)
-2. Apply permission-based checks (UPDATE_ANY_OKR vs UPDATE_OWN_OKR)
-3. Add ownership validation (users edit own OKRs unless admin)
-4. UI restrictions based on role (hide admin features from regular users)
+**Remaining Work (Enhancement, not security-critical):**
+1. Apply permission-based checks (UPDATE_ANY_OKR vs UPDATE_OWN_OKR)
+2. Add ownership validation (users edit own OKRs unless admin)
+3. UI restrictions based on role (hide admin features from regular users)
 
 **Future Considerations:**
 - **Team Membership (TBD):** Teams may optionally have limited membership, restricting which users can view/edit team-level objectives. This decision is pending and may affect how team-based access control is implemented.
