@@ -420,6 +420,7 @@ export const keyResults = pgTable("key_results", {
   // Excel data source binding
   excelSourceType: text("excel_source_type"), // 'onedrive' | 'sharepoint' | null
   excelFileId: text("excel_file_id"), // OneDrive/SharePoint item ID
+  excelDriveId: text("excel_drive_id"), // Drive ID for SharePoint files (required for proper API calls)
   excelFileName: text("excel_file_name"), // Display name
   excelFilePath: text("excel_file_path"), // Full path for display
   excelSheetName: text("excel_sheet_name"), // Worksheet name

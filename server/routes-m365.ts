@@ -757,6 +757,7 @@ router.post('/key-results/:id/link-excel', async (req: Request, res: Response) =
     const { 
       excelSourceType,
       excelFileId,
+      excelDriveId,
       excelFileName,
       excelFilePath,
       excelSheetName,
@@ -786,10 +787,13 @@ router.post('/key-results/:id/link-excel', async (req: Request, res: Response) =
     let excelSyncError: string | null = null;
     
     try {
+      // Use driveId for SharePoint files (more reliable API path)
       const cellValue = await getExcelCellValue(
         excelFileId,
         excelSheetName ? `${excelSheetName}!${excelCellReference}` : excelCellReference,
-        excelSourceType as 'onedrive' | 'sharepoint'
+        excelSourceType as 'onedrive' | 'sharepoint',
+        undefined, // siteId - not needed when we have driveId
+        excelDriveId || undefined
       );
       
       if (cellValue.numberValue !== undefined) {
@@ -805,6 +809,7 @@ router.post('/key-results/:id/link-excel', async (req: Request, res: Response) =
     const updatedKR = await storage.updateKeyResult(id, {
       excelSourceType,
       excelFileId,
+      excelDriveId: excelDriveId || null,
       excelFileName: excelFileName || null,
       excelFilePath: excelFilePath || null,
       excelSheetName: excelSheetName || null,
@@ -853,6 +858,7 @@ router.delete('/key-results/:id/link-excel', async (req: Request, res: Response)
     const updatedKR = await storage.updateKeyResult(id, {
       excelSourceType: null,
       excelFileId: null,
+      excelDriveId: null,
       excelFileName: null,
       excelFilePath: null,
       excelSheetName: null,
@@ -907,7 +913,9 @@ router.post('/key-results/:id/sync-excel', async (req: Request, res: Response) =
       const cellValue = await getExcelCellValue(
         keyResult.excelFileId,
         cellRef,
-        (keyResult.excelSourceType as 'onedrive' | 'sharepoint') || 'onedrive'
+        (keyResult.excelSourceType as 'onedrive' | 'sharepoint') || 'onedrive',
+        undefined, // siteId - not needed when we have driveId
+        keyResult.excelDriveId || undefined
       );
       
       if (cellValue.numberValue !== undefined) {
