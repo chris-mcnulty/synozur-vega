@@ -263,7 +263,6 @@ const cosUpload = multer({
 const cosImportOptionsSchema = z.object({
   duplicateStrategy: z.enum(['skip', 'replace', 'create']).default('skip'),
   importCheckIns: z.boolean().default(true),
-  clearExisting: z.boolean().default(false), // Dangerous: clears all existing data first
 });
 
 /**
@@ -313,27 +312,52 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
 
     const targetTenantId = req.body.tenantId || user.tenantId;
     const results = {
-      foundations: { created: 0, skipped: 0, errors: 0 },
-      strategies: { created: 0, skipped: 0, errors: 0 },
-      objectives: { created: 0, skipped: 0, errors: 0 },
-      keyResults: { created: 0, skipped: 0, errors: 0 },
-      bigRocks: { created: 0, skipped: 0, errors: 0 },
-      checkIns: { created: 0, skipped: 0, errors: 0 },
+      foundations: { created: 0, updated: 0, skipped: 0, errors: 0 },
+      strategies: { created: 0, updated: 0, skipped: 0, errors: 0 },
+      objectives: { created: 0, updated: 0, skipped: 0, errors: 0 },
+      keyResults: { created: 0, updated: 0, skipped: 0, errors: 0 },
+      bigRocks: { created: 0, updated: 0, skipped: 0, errors: 0 },
+      checkIns: { created: 0, updated: 0, skipped: 0, errors: 0 },
     };
 
     // Map old IDs to new IDs for relationships
     const idMap = new Map<string, string>();
 
+    // Pre-fetch existing data for efficiency (avoid repeated lookups in loops)
+    const [existingFoundations, existingStrategies, existingObjectives, existingBigRocks] = await Promise.all([
+      storage.getFoundationsByTenantId(targetTenantId),
+      storage.getStrategiesByTenantId(targetTenantId),
+      storage.getObjectivesByTenantId(targetTenantId),
+      storage.getBigRocksByTenantId(targetTenantId),
+    ]);
+
     // Import foundations
     if (importData.data.foundations) {
       for (const foundation of importData.data.foundations) {
         try {
-          const existing = await storage.getFoundationsByTenantId(targetTenantId);
-          const existingMatch = existing.find(f => f.mission === foundation.mission);
+          const existingMatch = existingFoundations.find(f => f.mission === foundation.mission);
           
-          if (existingMatch && options.duplicateStrategy === 'skip') {
-            idMap.set(foundation.id, existingMatch.id);
-            results.foundations.skipped++;
+          if (existingMatch) {
+            if (options.duplicateStrategy === 'skip') {
+              idMap.set(foundation.id, existingMatch.id);
+              results.foundations.skipped++;
+            } else if (options.duplicateStrategy === 'replace') {
+              await storage.updateFoundation(existingMatch.id, {
+                vision: foundation.vision,
+                values: foundation.values,
+              });
+              idMap.set(foundation.id, existingMatch.id);
+              results.foundations.updated++;
+            } else {
+              const newFoundation = await storage.createFoundation({
+                tenantId: targetTenantId,
+                mission: foundation.mission,
+                vision: foundation.vision,
+                values: foundation.values,
+              });
+              idMap.set(foundation.id, newFoundation.id);
+              results.foundations.created++;
+            }
           } else {
             const newFoundation = await storage.createFoundation({
               tenantId: targetTenantId,
@@ -355,12 +379,31 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
     if (importData.data.strategies) {
       for (const strategy of importData.data.strategies) {
         try {
-          const existing = await storage.getStrategiesByTenantId(targetTenantId);
-          const existingMatch = existing.find(s => s.title === strategy.title);
+          const existingMatch = existingStrategies.find(s => s.title === strategy.title);
           
-          if (existingMatch && options.duplicateStrategy === 'skip') {
-            idMap.set(strategy.id, existingMatch.id);
-            results.strategies.skipped++;
+          if (existingMatch) {
+            if (options.duplicateStrategy === 'skip') {
+              idMap.set(strategy.id, existingMatch.id);
+              results.strategies.skipped++;
+            } else if (options.duplicateStrategy === 'replace') {
+              await storage.updateStrategy(existingMatch.id, {
+                description: strategy.description,
+                status: strategy.status || 'active',
+                linkedGoals: strategy.linkedGoals || [],
+              });
+              idMap.set(strategy.id, existingMatch.id);
+              results.strategies.updated++;
+            } else {
+              const newStrategy = await storage.createStrategy({
+                tenantId: targetTenantId,
+                title: strategy.title,
+                description: strategy.description,
+                status: strategy.status || 'active',
+                linkedGoals: strategy.linkedGoals || [],
+              });
+              idMap.set(strategy.id, newStrategy.id);
+              results.strategies.created++;
+            }
           } else {
             const newStrategy = await storage.createStrategy({
               tenantId: targetTenantId,
@@ -383,16 +426,49 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
     if (importData.data.objectives) {
       for (const objective of importData.data.objectives) {
         try {
-          const existing = await storage.getObjectivesByTenantId(targetTenantId);
-          const existingMatch = existing.find(o => o.title === objective.title);
+          const existingMatch = existingObjectives.find(o => o.title === objective.title);
+          const parentId = objective.parentId ? idMap.get(objective.parentId) : null;
           
-          if (existingMatch && options.duplicateStrategy === 'skip') {
-            idMap.set(objective.id, existingMatch.id);
-            results.objectives.skipped++;
+          if (existingMatch) {
+            if (options.duplicateStrategy === 'skip') {
+              idMap.set(objective.id, existingMatch.id);
+              results.objectives.skipped++;
+            } else if (options.duplicateStrategy === 'replace') {
+              await storage.updateObjective(existingMatch.id, {
+                description: objective.description,
+                parentId: parentId || null,
+                level: objective.level || 'organization',
+                quarter: objective.quarter,
+                year: objective.year,
+                progress: objective.progress || 0,
+                progressMode: objective.progressMode || 'rollup',
+                status: objective.status || 'on_track',
+                linkedStrategies: objective.linkedStrategies?.map((id: string) => idMap.get(id) || id) || [],
+                linkedGoals: objective.linkedGoals || [],
+              });
+              idMap.set(objective.id, existingMatch.id);
+              results.objectives.updated++;
+            } else {
+              const newObjective = await storage.createObjective({
+                tenantId: targetTenantId,
+                title: objective.title,
+                description: objective.description,
+                ownerId: user.id,
+                ownerEmail: user.email,
+                parentId: parentId || null,
+                level: objective.level || 'organization',
+                quarter: objective.quarter,
+                year: objective.year,
+                progress: objective.progress || 0,
+                progressMode: objective.progressMode || 'rollup',
+                status: objective.status || 'on_track',
+                linkedStrategies: objective.linkedStrategies?.map((id: string) => idMap.get(id) || id) || [],
+                linkedGoals: objective.linkedGoals || [],
+              });
+              idMap.set(objective.id, newObjective.id);
+              results.objectives.created++;
+            }
           } else {
-            // Map parent ID if exists
-            const parentId = objective.parentId ? idMap.get(objective.parentId) : null;
-            
             const newObjective = await storage.createObjective({
               tenantId: targetTenantId,
               title: objective.title,
@@ -429,24 +505,68 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
             continue;
           }
 
-          const newKr = await storage.createKeyResult({
-            tenantId: targetTenantId,
-            objectiveId,
-            title: kr.title,
-            description: kr.description,
-            targetValue: kr.targetValue,
-            currentValue: kr.currentValue || 0,
-            initialValue: kr.initialValue || 0,
-            unit: kr.unit,
-            metricType: kr.metricType || 'increase',
-            weight: kr.weight || 25,
-            progress: kr.progress || 0,
-            status: kr.status || 'on_track',
-            ownerId: user.id,
-            ownerEmail: user.email,
-          });
-          idMap.set(kr.id, newKr.id);
-          results.keyResults.created++;
+          // Find existing KR by title within the same objective
+          const existingKrs = await storage.getKeyResultsByObjectiveId(objectiveId);
+          const existingMatch = existingKrs.find(k => k.title === kr.title);
+
+          if (existingMatch) {
+            if (options.duplicateStrategy === 'skip') {
+              idMap.set(kr.id, existingMatch.id);
+              results.keyResults.skipped++;
+            } else if (options.duplicateStrategy === 'replace') {
+              await storage.updateKeyResult(existingMatch.id, {
+                description: kr.description,
+                targetValue: kr.targetValue,
+                currentValue: kr.currentValue || 0,
+                initialValue: kr.initialValue || 0,
+                unit: kr.unit,
+                metricType: kr.metricType || 'increase',
+                weight: kr.weight || 25,
+                progress: kr.progress || 0,
+                status: kr.status || 'on_track',
+              });
+              idMap.set(kr.id, existingMatch.id);
+              results.keyResults.updated++;
+            } else {
+              const newKr = await storage.createKeyResult({
+                tenantId: targetTenantId,
+                objectiveId,
+                title: kr.title,
+                description: kr.description,
+                targetValue: kr.targetValue,
+                currentValue: kr.currentValue || 0,
+                initialValue: kr.initialValue || 0,
+                unit: kr.unit,
+                metricType: kr.metricType || 'increase',
+                weight: kr.weight || 25,
+                progress: kr.progress || 0,
+                status: kr.status || 'on_track',
+                ownerId: user.id,
+                ownerEmail: user.email,
+              });
+              idMap.set(kr.id, newKr.id);
+              results.keyResults.created++;
+            }
+          } else {
+            const newKr = await storage.createKeyResult({
+              tenantId: targetTenantId,
+              objectiveId,
+              title: kr.title,
+              description: kr.description,
+              targetValue: kr.targetValue,
+              currentValue: kr.currentValue || 0,
+              initialValue: kr.initialValue || 0,
+              unit: kr.unit,
+              metricType: kr.metricType || 'increase',
+              weight: kr.weight || 25,
+              progress: kr.progress || 0,
+              status: kr.status || 'on_track',
+              ownerId: user.id,
+              ownerEmail: user.email,
+            });
+            idMap.set(kr.id, newKr.id);
+            results.keyResults.created++;
+          }
         } catch (err) {
           console.error('Error importing key result:', err);
           results.keyResults.errors++;
@@ -461,22 +581,62 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
           const objectiveId = br.objectiveId ? idMap.get(br.objectiveId) : null;
           const keyResultId = br.keyResultId ? idMap.get(br.keyResultId) : null;
 
-          const newBr = await storage.createBigRock({
-            tenantId: targetTenantId,
-            title: br.title,
-            description: br.description,
-            objectiveId: objectiveId || null,
-            keyResultId: keyResultId || null,
-            ownerId: user.id,
-            ownerEmail: user.email,
-            quarter: br.quarter,
-            year: br.year,
-            completionPercentage: br.completionPercentage || 0,
-            status: br.status || 'not_started',
-            linkedStrategies: br.linkedStrategies?.map((id: string) => idMap.get(id) || id) || [],
-          });
-          idMap.set(br.id, newBr.id);
-          results.bigRocks.created++;
+          // Find existing big rock by title (use pre-fetched data)
+          const existingMatch = existingBigRocks.find(b => b.title === br.title);
+
+          if (existingMatch) {
+            if (options.duplicateStrategy === 'skip') {
+              idMap.set(br.id, existingMatch.id);
+              results.bigRocks.skipped++;
+            } else if (options.duplicateStrategy === 'replace') {
+              await storage.updateBigRock(existingMatch.id, {
+                description: br.description,
+                objectiveId: objectiveId || null,
+                keyResultId: keyResultId || null,
+                quarter: br.quarter,
+                year: br.year,
+                completionPercentage: br.completionPercentage || 0,
+                status: br.status || 'not_started',
+                linkedStrategies: br.linkedStrategies?.map((id: string) => idMap.get(id) || id) || [],
+              });
+              idMap.set(br.id, existingMatch.id);
+              results.bigRocks.updated++;
+            } else {
+              const newBr = await storage.createBigRock({
+                tenantId: targetTenantId,
+                title: br.title,
+                description: br.description,
+                objectiveId: objectiveId || null,
+                keyResultId: keyResultId || null,
+                ownerId: user.id,
+                ownerEmail: user.email,
+                quarter: br.quarter,
+                year: br.year,
+                completionPercentage: br.completionPercentage || 0,
+                status: br.status || 'not_started',
+                linkedStrategies: br.linkedStrategies?.map((id: string) => idMap.get(id) || id) || [],
+              });
+              idMap.set(br.id, newBr.id);
+              results.bigRocks.created++;
+            }
+          } else {
+            const newBr = await storage.createBigRock({
+              tenantId: targetTenantId,
+              title: br.title,
+              description: br.description,
+              objectiveId: objectiveId || null,
+              keyResultId: keyResultId || null,
+              ownerId: user.id,
+              ownerEmail: user.email,
+              quarter: br.quarter,
+              year: br.year,
+              completionPercentage: br.completionPercentage || 0,
+              status: br.status || 'not_started',
+              linkedStrategies: br.linkedStrategies?.map((id: string) => idMap.get(id) || id) || [],
+            });
+            idMap.set(br.id, newBr.id);
+            results.bigRocks.created++;
+          }
         } catch (err) {
           console.error('Error importing big rock:', err);
           results.bigRocks.errors++;
@@ -526,6 +686,7 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
       results,
       totals: {
         created: Object.values(results).reduce((sum, r) => sum + r.created, 0),
+        updated: Object.values(results).reduce((sum, r) => sum + r.updated, 0),
         skipped: Object.values(results).reduce((sum, r) => sum + r.skipped, 0),
         errors: Object.values(results).reduce((sum, r) => sum + r.errors, 0),
       },
