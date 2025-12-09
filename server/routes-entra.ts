@@ -6,10 +6,12 @@ import { encryptToken, decryptToken } from './utils/encryption';
 
 const router = Router();
 
+// Use 'common' authority for multi-tenant app to accept users from any Azure AD tenant
+// The AZURE_TENANT_ID is only used as a reference for admin operations, not to restrict logins
 const MSAL_CONFIG: Configuration = {
   auth: {
     clientId: process.env.AZURE_CLIENT_ID || '',
-    authority: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID || 'common'}`,
+    authority: 'https://login.microsoftonline.com/common',
     clientSecret: process.env.AZURE_CLIENT_SECRET || '',
   },
   system: {
@@ -290,6 +292,76 @@ router.get('/tenant-config/:tenantId', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[Entra SSO] Tenant config error:', error);
     res.status(500).json({ error: 'Failed to fetch tenant SSO config' });
+  }
+});
+
+// Check SSO policy by email domain - used by login page to enforce SSO
+router.post('/check-policy', async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email || typeof email !== 'string') {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+    
+    const emailDomain = email.split('@')[1]?.toLowerCase();
+    if (!emailDomain) {
+      return res.status(400).json({ error: 'Invalid email format' });
+    }
+    
+    // Check if user already exists
+    const existingUser = await storage.getUserByEmail(email.toLowerCase());
+    
+    // Find tenant by email domain or existing user's tenant
+    let tenant = null;
+    if (existingUser?.tenantId) {
+      tenant = await storage.getTenantById(existingUser.tenantId);
+    }
+    
+    // If no user found, try to find tenant by allowed domain
+    if (!tenant) {
+      const allTenants = await storage.getAllTenants();
+      tenant = allTenants.find(t => {
+        const domains = t.allowedDomains || [];
+        return domains.includes(emailDomain);
+      }) || null;
+    }
+    
+    // If still no tenant, check if any tenant has this Azure tenant configured
+    if (!tenant) {
+      const allTenants = await storage.getAllTenants();
+      // Can't determine Azure tenant from email alone, so just return unknown
+      res.json({
+        tenantFound: false,
+        ssoEnabled: false,
+        enforceSso: false,
+        allowLocalAuth: true,
+        message: 'Email domain not registered with any organization',
+      });
+      return;
+    }
+    
+    const ssoEnabled = !!tenant.azureTenantId;
+    const enforceSso = tenant.enforceSso ?? false;
+    const allowLocalAuth = tenant.allowLocalAuth !== false;
+    
+    // Determine if SSO is required for this user
+    const ssoRequired = ssoEnabled && enforceSso && !allowLocalAuth;
+    
+    res.json({
+      tenantFound: true,
+      tenantId: tenant.id,
+      tenantName: tenant.name,
+      ssoEnabled,
+      enforceSso,
+      allowLocalAuth,
+      ssoRequired,
+      existingUser: !!existingUser,
+      authProvider: existingUser?.authProvider || null,
+    });
+  } catch (error) {
+    console.error('[Entra SSO] Check policy error:', error);
+    res.status(500).json({ error: 'Failed to check SSO policy' });
   }
 });
 
