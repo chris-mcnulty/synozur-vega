@@ -32,6 +32,14 @@ interface SharePointSite {
   webUrl: string;
 }
 
+interface UserDrive {
+  id: string;
+  name: string;
+  driveType: string;
+  webUrl?: string;
+  owner?: { user?: { displayName: string } };
+}
+
 interface ExcelWorksheet {
   id: string;
   name: string;
@@ -187,6 +195,7 @@ export function ExcelFilePicker({
   const [step, setStep] = useState<'browse' | 'configure'>('browse');
   const [fileSource, setFileSource] = useState<FileSourceType>('onedrive');
   const [selectedSiteId, setSelectedSiteId] = useState<string | null>(null);
+  const [selectedDriveId, setSelectedDriveId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [currentFolderId, setCurrentFolderId] = useState<string | null>(null);
   const [folderStack, setFolderStack] = useState<{ id: string; name: string }[]>([]);
@@ -217,6 +226,15 @@ export function ExcelFilePicker({
     enabled: open && fileSource === 'sharepoint' && sharePointStatus?.connected,
   });
 
+  // Get all drives user has access to (OneDrive + SharePoint document libraries)
+  const { data: userDrives, isLoading: drivesLoading } = useQuery<UserDrive[]>({
+    queryKey: ['/api/m365/drives'],
+    enabled: open && fileSource === 'sharepoint' && sharePointStatus?.connected,
+  });
+
+  // Filter to only SharePoint document libraries (exclude personal OneDrive)
+  const sharePointDrives = userDrives?.filter(d => d.driveType === 'documentLibrary') || [];
+
   // OneDrive file browsing
   const { data: oneDriveFiles, isLoading: oneDriveFilesLoading } = useQuery<OneDriveItem[]>({
     queryKey: ['/api/m365/onedrive/files', currentFolderId],
@@ -242,11 +260,11 @@ export function ExcelFilePicker({
     enabled: open && step === 'browse' && fileSource === 'onedrive' && searchQuery.length > 0,
   });
 
-  // SharePoint document library browsing
+  // SharePoint document library browsing using drives API
   const { data: sharePointFiles, isLoading: sharePointFilesLoading } = useQuery<OneDriveItem[]>({
-    queryKey: ['/api/m365/sharepoint/sites', selectedSiteId, 'documents', currentFolderId],
+    queryKey: ['/api/m365/drives', selectedDriveId, 'files', currentFolderId],
     queryFn: async () => {
-      let url = `/api/m365/sharepoint/sites/${selectedSiteId}/documents`;
+      let url = `/api/m365/drives/${selectedDriveId}/files`;
       if (currentFolderId) {
         url += `?folderId=${currentFolderId}`;
       }
@@ -254,29 +272,32 @@ export function ExcelFilePicker({
       if (!res.ok) throw new Error('Failed to load SharePoint documents');
       return res.json();
     },
-    enabled: open && step === 'browse' && fileSource === 'sharepoint' && !!selectedSiteId && !searchQuery,
+    enabled: open && step === 'browse' && fileSource === 'sharepoint' && !!selectedDriveId && !searchQuery,
   });
 
-  // SharePoint Excel search
+  // SharePoint Excel search using drives API
   const { data: sharePointSearchResults, isLoading: sharePointSearchLoading } = useQuery<OneDriveItem[]>({
-    queryKey: ['/api/m365/sharepoint/sites', selectedSiteId, 'excel-search', searchQuery],
+    queryKey: ['/api/m365/drives', selectedDriveId, 'search', searchQuery],
     queryFn: async () => {
       const res = await fetch(
-        `/api/m365/sharepoint/sites/${selectedSiteId}/excel-search?q=${encodeURIComponent(searchQuery)}`,
+        `/api/m365/drives/${selectedDriveId}/search?q=${encodeURIComponent(searchQuery)}`,
         { credentials: 'include' }
       );
       if (!res.ok) throw new Error('Failed to search SharePoint');
       return res.json();
     },
-    enabled: open && step === 'browse' && fileSource === 'sharepoint' && !!selectedSiteId && searchQuery.length > 0,
+    enabled: open && step === 'browse' && fileSource === 'sharepoint' && !!selectedDriveId && searchQuery.length > 0,
   });
 
+  // Get driveId from the selected file or from the selected drive
+  const selectedFileDriveId = selectedFile?.parentReference?.driveId || selectedDriveId;
+
   const { data: worksheets, isLoading: worksheetsLoading } = useQuery<ExcelWorksheet[]>({
-    queryKey: ['/api/m365/excel/files', selectedFile?.id, 'worksheets', fileSource, selectedSiteId],
+    queryKey: ['/api/m365/excel/files', selectedFile?.id, 'worksheets', fileSource, selectedFileDriveId],
     queryFn: async () => {
       let url = `/api/m365/excel/files/${selectedFile!.id}/worksheets?sourceType=${fileSource}`;
-      if (fileSource === 'sharepoint' && selectedSiteId) {
-        url += `&siteId=${selectedSiteId}`;
+      if (fileSource === 'sharepoint' && selectedFileDriveId) {
+        url += `&driveId=${selectedFileDriveId}`;
       }
       const res = await fetch(url, { credentials: 'include' });
       if (!res.ok) throw new Error('Failed to load worksheets');
@@ -331,8 +352,8 @@ export function ExcelFilePicker({
     try {
       const cellRef = selectedSheet ? `${selectedSheet}!${cellReference}` : cellReference;
       let url = `/api/m365/excel/files/${selectedFile.id}/cell?cell=${encodeURIComponent(cellRef)}&sourceType=${fileSource}`;
-      if (fileSource === 'sharepoint' && selectedSiteId) {
-        url += `&siteId=${selectedSiteId}`;
+      if (fileSource === 'sharepoint' && selectedFileDriveId) {
+        url += `&driveId=${selectedFileDriveId}`;
       }
       const res = await fetch(url, { credentials: 'include' });
       
@@ -575,16 +596,41 @@ export function ExcelFilePicker({
             </Tabs>
 
             {fileSource === 'sharepoint' && (
-              <SharePointSiteSelector
-                sites={sharePointSites || []}
-                sitesLoading={sitesLoading}
-                selectedSiteId={selectedSiteId}
-                onSiteSelect={(siteId) => {
-                  setSelectedSiteId(siteId);
-                  setCurrentFolderId(null);
-                  setFolderStack([]);
-                }}
-              />
+              <div className="mb-4">
+                <Label className="text-sm font-medium mb-2 block">Document Library</Label>
+                <Select
+                  value={selectedDriveId || ''}
+                  onValueChange={(value) => {
+                    setSelectedDriveId(value);
+                    setCurrentFolderId(null);
+                    setFolderStack([]);
+                  }}
+                >
+                  <SelectTrigger data-testid="select-drive" className="w-full">
+                    <SelectValue placeholder={drivesLoading ? "Loading document libraries..." : "Select a document library"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {sharePointDrives.map((drive) => (
+                      <SelectItem key={drive.id} value={drive.id}>
+                        <div className="flex items-center gap-2">
+                          <Globe className="h-4 w-4 text-primary" />
+                          <span>{drive.name}</span>
+                          {drive.owner?.user?.displayName && (
+                            <span className="text-xs text-muted-foreground">
+                              ({drive.owner.user.displayName})
+                            </span>
+                          )}
+                        </div>
+                      </SelectItem>
+                    ))}
+                    {!drivesLoading && sharePointDrives.length === 0 && (
+                      <div className="p-2 text-sm text-muted-foreground text-center">
+                        No SharePoint document libraries found. Try using the direct URL option below.
+                      </div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
 
             <div className="flex items-center gap-2 mb-4">
@@ -595,7 +641,7 @@ export function ExcelFilePicker({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="pl-9"
-                  disabled={fileSource === 'sharepoint' && !selectedSiteId}
+                  disabled={fileSource === 'sharepoint' && !selectedDriveId}
                   data-testid="input-excel-search"
                 />
               </div>
@@ -661,14 +707,14 @@ export function ExcelFilePicker({
             )}
 
             <ScrollArea className="h-[300px] border rounded-lg p-2">
-              {fileSource === 'sharepoint' && !selectedSiteId ? (
+              {fileSource === 'sharepoint' && !selectedDriveId ? (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                   <Globe className="h-12 w-12 mb-2 opacity-50" />
                   <p className="text-center">
-                    Paste a file URL above, or select a site to browse
+                    Select a document library above, or paste a file URL
                   </p>
                   <p className="text-xs text-center mt-1 max-w-xs">
-                    Tip: Open your Excel file in SharePoint, copy the URL from your browser, and paste it above
+                    Tip: SharePoint document libraries you have access to will appear in the dropdown above
                   </p>
                 </div>
               ) : isLoading ? (

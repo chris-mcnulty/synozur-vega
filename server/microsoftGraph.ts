@@ -821,14 +821,20 @@ export async function getSharePointFileFromUrl(fileUrl: string): Promise<{
     const client = await getMicrosoftClient('onedrive');
     const shareId = encodeShareUrl(fileUrl);
     
+    console.log('[SharePoint] Resolving file URL:', fileUrl);
+    console.log('[SharePoint] Encoded shareId:', shareId);
+    
     // Get the driveItem with expanded info
     const response = await client.api(`/shares/${shareId}/driveItem`)
       .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
       .get();
     
     if (!response) {
+      console.log('[SharePoint] No response from Shares API');
       return null;
     }
+    
+    console.log('[SharePoint] Successfully resolved file:', response.name);
     
     return {
       item: response,
@@ -836,8 +842,79 @@ export async function getSharePointFileFromUrl(fileUrl: string): Promise<{
       siteId: response.parentReference?.siteId,
     };
   } catch (error: any) {
-    console.error('Failed to get SharePoint file from URL:', error.message || error);
-    return null;
+    console.error('[SharePoint] Failed to get file from URL:', error.code, error.message);
+    if (error.body) {
+      try {
+        const body = JSON.parse(error.body);
+        console.error('[SharePoint] Error details:', body.error?.message || body);
+      } catch (e) {
+        console.error('[SharePoint] Error body:', error.body);
+      }
+    }
+    throw error; // Re-throw so the route can return proper error
+  }
+}
+
+// Get all drives the user has access to (OneDrive + SharePoint document libraries)
+export async function getUserDrives(): Promise<Array<{
+  id: string;
+  name: string;
+  driveType: string;
+  webUrl?: string;
+  owner?: { user?: { displayName: string } };
+}>> {
+  try {
+    const client = await getMicrosoftClient('onedrive');
+    
+    // Get all drives accessible to the user
+    const response = await client.api('/me/drives')
+      .select('id,name,driveType,webUrl,owner')
+      .get();
+    
+    return response.value || [];
+  } catch (error: any) {
+    console.error('[SharePoint] Failed to get user drives:', error.message);
+    return [];
+  }
+}
+
+// Browse files in any drive (OneDrive or SharePoint document library)
+export async function getDriveFiles(driveId: string, folderId?: string): Promise<OneDriveItem[]> {
+  try {
+    const client = await getMicrosoftClient('onedrive');
+    
+    const path = folderId 
+      ? `/drives/${driveId}/items/${folderId}/children`
+      : `/drives/${driveId}/root/children`;
+    
+    const response = await client.api(path)
+      .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
+      .orderby('name')
+      .top(100)
+      .get();
+    
+    return response.value || [];
+  } catch (error: any) {
+    console.error('[SharePoint] Failed to get drive files:', error.message);
+    return [];
+  }
+}
+
+// Search for Excel files across all drives
+export async function searchDriveForExcel(driveId: string, query: string): Promise<OneDriveItem[]> {
+  try {
+    const client = await getMicrosoftClient('onedrive');
+    
+    const response = await client.api(`/drives/${driveId}/root/search(q='${query}')`)
+      .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
+      .filter("file/mimeType eq 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' or file/mimeType eq 'application/vnd.ms-excel'")
+      .top(50)
+      .get();
+    
+    return response.value || [];
+  } catch (error: any) {
+    console.error('[SharePoint] Failed to search drive:', error.message);
+    return [];
   }
 }
 
@@ -932,12 +1009,16 @@ export interface ExcelRange {
 export async function getExcelWorksheets(
   itemId: string,
   sourceType: 'onedrive' | 'sharepoint' = 'onedrive',
-  siteId?: string
+  siteId?: string,
+  driveId?: string
 ): Promise<ExcelWorksheet[]> {
-  const client = await getMicrosoftClient(sourceType);
+  const client = await getMicrosoftClient(sourceType === 'sharepoint' ? 'onedrive' : sourceType);
   
   let path: string;
-  if (sourceType === 'sharepoint' && siteId) {
+  // Prefer driveId if provided (works with Files.Read permission)
+  if (driveId) {
+    path = `/drives/${driveId}/items/${itemId}/workbook/worksheets`;
+  } else if (sourceType === 'sharepoint' && siteId) {
     path = `/sites/${siteId}/drive/items/${itemId}/workbook/worksheets`;
   } else {
     path = `/me/drive/items/${itemId}/workbook/worksheets`;
@@ -956,9 +1037,10 @@ export async function getExcelCellValue(
   itemId: string,
   cellReference: string, // e.g., "A1" or "Sheet1!B5"
   sourceType: 'onedrive' | 'sharepoint' = 'onedrive',
-  siteId?: string
+  siteId?: string,
+  driveId?: string
 ): Promise<ExcelCellValue> {
-  const client = await getMicrosoftClient(sourceType);
+  const client = await getMicrosoftClient(sourceType === 'sharepoint' ? 'onedrive' : sourceType);
   
   // Parse cell reference - could be "A1" or "Sheet1!A1"
   let sheetName: string | undefined;
@@ -971,18 +1053,15 @@ export async function getExcelCellValue(
   }
   
   let path: string;
-  if (sourceType === 'sharepoint' && siteId) {
-    if (sheetName) {
-      path = `/sites/${siteId}/drive/items/${itemId}/workbook/worksheets/${encodeURIComponent(sheetName)}/range(address='${cellAddress}')`;
-    } else {
-      path = `/sites/${siteId}/drive/items/${itemId}/workbook/worksheets/Sheet1/range(address='${cellAddress}')`;
-    }
+  const worksheetName = sheetName || 'Sheet1';
+  
+  // Prefer driveId if provided (works with Files.Read permission)
+  if (driveId) {
+    path = `/drives/${driveId}/items/${itemId}/workbook/worksheets/${encodeURIComponent(worksheetName)}/range(address='${cellAddress}')`;
+  } else if (sourceType === 'sharepoint' && siteId) {
+    path = `/sites/${siteId}/drive/items/${itemId}/workbook/worksheets/${encodeURIComponent(worksheetName)}/range(address='${cellAddress}')`;
   } else {
-    if (sheetName) {
-      path = `/me/drive/items/${itemId}/workbook/worksheets/${encodeURIComponent(sheetName)}/range(address='${cellAddress}')`;
-    } else {
-      path = `/me/drive/items/${itemId}/workbook/worksheets/Sheet1/range(address='${cellAddress}')`;
-    }
+    path = `/me/drive/items/${itemId}/workbook/worksheets/${encodeURIComponent(worksheetName)}/range(address='${cellAddress}')`;
   }
   
   const response = await client.api(path).get();

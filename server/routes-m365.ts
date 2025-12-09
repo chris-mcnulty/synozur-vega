@@ -33,6 +33,9 @@ import {
   // Shares API (direct URL access)
   resolveFileFromUrl,
   getSharePointFileFromUrl,
+  getUserDrives,
+  getDriveFiles,
+  searchDriveForExcel,
   // Combined status
   checkAllM365Connections,
   // Excel
@@ -503,6 +506,78 @@ router.post('/sharepoint/resolve-file', async (req: Request, res: Response) => {
     res.json(result);
   } catch (error: any) {
     console.error('Failed to resolve file from URL:', error);
+    // Return more specific error message
+    const errorCode = error.code || error.statusCode;
+    let errorMessage = 'Could not access file';
+    
+    if (errorCode === 'accessDenied' || errorCode === 403) {
+      errorMessage = 'Access denied. Make sure you have permission to view this file.';
+    } else if (errorCode === 'itemNotFound' || errorCode === 404) {
+      errorMessage = 'File not found. Check that the URL is correct.';
+    } else if (errorCode === 'invalidRequest' || errorCode === 400) {
+      errorMessage = 'Invalid URL format. Please copy the URL directly from your browser when viewing the file.';
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+    
+    res.status(error.statusCode || 500).json({ error: errorMessage });
+  }
+});
+
+// Get all drives the user has access to (OneDrive + SharePoint)
+router.get('/drives', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const drives = await getUserDrives();
+    res.json(drives);
+  } catch (error: any) {
+    console.error('Failed to get user drives:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Browse files in a specific drive
+router.get('/drives/:driveId/files', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const { driveId } = req.params;
+    const { folderId } = req.query;
+    
+    const files = await getDriveFiles(driveId, folderId as string | undefined);
+    res.json(files);
+  } catch (error: any) {
+    console.error('Failed to get drive files:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Search for Excel files in a drive
+router.get('/drives/:driveId/search', async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+    
+    const { driveId } = req.params;
+    const { q } = req.query;
+    
+    if (!q) {
+      return res.status(400).json({ error: 'Search query is required' });
+    }
+    
+    const files = await searchDriveForExcel(driveId, q as string);
+    res.json(files);
+  } catch (error: any) {
+    console.error('Failed to search drive:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -630,11 +705,12 @@ router.get('/excel/files/:fileId/worksheets', async (req: Request, res: Response
       return res.status(401).json({ error: 'Not authenticated' });
     }
     
-    const { sourceType, siteId } = req.query;
+    const { sourceType, siteId, driveId } = req.query;
     const worksheets = await getExcelWorksheets(
       req.params.fileId,
       (sourceType as 'onedrive' | 'sharepoint') || 'onedrive',
-      siteId as string | undefined
+      siteId as string | undefined,
+      driveId as string | undefined
     );
     res.json(worksheets);
   } catch (error: any) {
@@ -650,7 +726,7 @@ router.get('/excel/files/:fileId/cell', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
     
-    const { cell, sourceType, siteId } = req.query;
+    const { cell, sourceType, siteId, driveId } = req.query;
     if (!cell) {
       return res.status(400).json({ error: 'Cell reference required (e.g., A1 or Sheet1!B5)' });
     }
@@ -659,7 +735,8 @@ router.get('/excel/files/:fileId/cell', async (req: Request, res: Response) => {
       req.params.fileId,
       cell as string,
       (sourceType as 'onedrive' | 'sharepoint') || 'onedrive',
-      siteId as string | undefined
+      siteId as string | undefined,
+      driveId as string | undefined
     );
     res.json(cellValue);
   } catch (error: any) {
