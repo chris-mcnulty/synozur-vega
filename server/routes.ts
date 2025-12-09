@@ -85,6 +85,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!user) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
+      
+      // Server-side SSO enforcement: Check if tenant requires SSO
+      if (user.tenantId) {
+        const tenant = await storage.getTenantById(user.tenantId);
+        if (tenant) {
+          const ssoEnabled = !!tenant.azureTenantId;
+          const enforceSso = tenant.enforceSso ?? false;
+          const allowLocalAuth = tenant.allowLocalAuth !== false;
+          
+          // If SSO is enforced and local auth is not allowed, block password login
+          if (ssoEnabled && enforceSso && !allowLocalAuth) {
+            return res.status(403).json({ 
+              error: `${tenant.name} requires Microsoft SSO login. Please use the "Sign in with Microsoft" button.`,
+              ssoRequired: true,
+              tenantId: tenant.id
+            });
+          }
+        }
+      }
 
       const isValid = await verifyPassword(password, user.password);
       if (!isValid) {
