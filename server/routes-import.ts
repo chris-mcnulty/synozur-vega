@@ -163,26 +163,29 @@ router.get('/export-cos', async (req: Request, res: Response) => {
     }
 
     const tenantId = user.tenantId;
-    const tenant = await storage.getTenant(tenantId);
+    const tenant = await storage.getTenantById(tenantId);
 
     // Gather all Company OS data
     const [
-      foundations,
+      foundation,
       strategies,
       objectives,
       bigRocks,
       groundingDocuments,
     ] = await Promise.all([
-      storage.getFoundationsByTenantId(tenantId),
+      storage.getFoundationByTenantId(tenantId),
       storage.getStrategiesByTenantId(tenantId),
-      storage.getAllObjectives().then(objs => objs.filter(o => o.tenantId === tenantId)),
+      storage.getObjectivesByTenantId(tenantId),
       storage.getBigRocksByTenantId(tenantId),
-      storage.getGroundingDocumentsByTenantId(tenantId),
+      storage.getTenantGroundingDocuments(tenantId),
     ]);
+
+    // Wrap foundation in array for export (there's only one per tenant)
+    const foundations = foundation ? [foundation] : [];
 
     // Get all Key Results for the objectives
     const keyResults = await Promise.all(
-      objectives.map(obj => storage.getKeyResultsByObjectiveId(obj.id))
+      objectives.map((obj: any) => storage.getKeyResultsByObjectiveId(obj.id))
     ).then(results => results.flat());
 
     // Get check-ins for objectives, key results, and big rocks
@@ -329,55 +332,64 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
     const idMap = new Map<string, string>();
 
     // Pre-fetch existing data for efficiency (avoid repeated lookups in loops)
-    const [existingFoundations, existingStrategies, existingObjectives, existingBigRocks, existingGroundingDocs] = await Promise.all([
-      storage.getFoundationsByTenantId(targetTenantId),
+    const [existingFoundation, existingStrategies, existingObjectives, existingBigRocks, existingGroundingDocs] = await Promise.all([
+      storage.getFoundationByTenantId(targetTenantId),
       storage.getStrategiesByTenantId(targetTenantId),
       storage.getObjectivesByTenantId(targetTenantId),
       storage.getBigRocksByTenantId(targetTenantId),
-      storage.getGroundingDocumentsByTenantId(targetTenantId),
+      storage.getTenantGroundingDocuments(targetTenantId),
     ]);
 
-    // Import foundations
-    if (importData.data.foundations) {
-      for (const foundation of importData.data.foundations) {
-        try {
-          const existingMatch = existingFoundations.find(f => f.mission === foundation.mission);
-          
-          if (existingMatch) {
-            if (options.duplicateStrategy === 'skip') {
-              idMap.set(foundation.id, existingMatch.id);
-              results.foundations.skipped++;
-            } else if (options.duplicateStrategy === 'replace') {
-              await storage.updateFoundation(existingMatch.id, {
-                vision: foundation.vision,
-                values: foundation.values,
-              });
-              idMap.set(foundation.id, existingMatch.id);
-              results.foundations.updated++;
-            } else {
-              const newFoundation = await storage.createFoundation({
-                tenantId: targetTenantId,
-                mission: foundation.mission,
-                vision: foundation.vision,
-                values: foundation.values,
-              });
-              idMap.set(foundation.id, newFoundation.id);
-              results.foundations.created++;
-            }
+    // Import foundations (only one per tenant, uses upsert)
+    if (importData.data.foundations && importData.data.foundations.length > 0) {
+      // Take the first foundation from import (there should only be one per tenant)
+      const foundationData = importData.data.foundations[0];
+      try {
+        if (existingFoundation) {
+          if (options.duplicateStrategy === 'skip') {
+            idMap.set(foundationData.id, existingFoundation.id);
+            results.foundations.skipped++;
           } else {
-            const newFoundation = await storage.createFoundation({
+            // For 'replace' or 'create', upsert the foundation
+            const updated = await storage.upsertFoundation({
               tenantId: targetTenantId,
-              mission: foundation.mission,
-              vision: foundation.vision,
-              values: foundation.values,
+              mission: foundationData.mission,
+              vision: foundationData.vision,
+              values: foundationData.values,
+              annualGoals: foundationData.annualGoals,
+              fiscalYearStartMonth: foundationData.fiscalYearStartMonth,
+              tagline: foundationData.tagline,
+              companySummary: foundationData.companySummary,
+              messagingStatement: foundationData.messagingStatement,
+              cultureStatement: foundationData.cultureStatement,
+              brandVoice: foundationData.brandVoice,
+              updatedBy: user.id,
             });
-            idMap.set(foundation.id, newFoundation.id);
-            results.foundations.created++;
+            idMap.set(foundationData.id, updated.id);
+            results.foundations.updated++;
           }
-        } catch (err) {
-          console.error('Error importing foundation:', err);
-          results.foundations.errors++;
+        } else {
+          // No existing foundation, create new
+          const created = await storage.upsertFoundation({
+            tenantId: targetTenantId,
+            mission: foundationData.mission,
+            vision: foundationData.vision,
+            values: foundationData.values,
+            annualGoals: foundationData.annualGoals,
+            fiscalYearStartMonth: foundationData.fiscalYearStartMonth,
+            tagline: foundationData.tagline,
+            companySummary: foundationData.companySummary,
+            messagingStatement: foundationData.messagingStatement,
+            cultureStatement: foundationData.cultureStatement,
+            brandVoice: foundationData.brandVoice,
+            updatedBy: user.id,
+          });
+          idMap.set(foundationData.id, created.id);
+          results.foundations.created++;
         }
+      } catch (err) {
+        console.error('Error importing foundation:', err);
+        results.foundations.errors++;
       }
     }
 
@@ -430,10 +442,10 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
 
     // Import objectives
     if (importData.data.objectives) {
-      for (const objective of importData.data.objectives) {
+      for (const objective of importData.data.objectives as any[]) {
         try {
-          const existingMatch = existingObjectives.find(o => o.title === objective.title);
-          const parentId = objective.parentId ? idMap.get(objective.parentId) : null;
+          const existingMatch = existingObjectives.find((o: any) => o.title === objective.title);
+          const parentId = objective.parentId ? idMap.get(objective.parentId) : undefined;
           
           if (existingMatch) {
             if (options.duplicateStrategy === 'skip') {
@@ -442,7 +454,7 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
             } else if (options.duplicateStrategy === 'replace') {
               await storage.updateObjective(existingMatch.id, {
                 description: objective.description,
-                parentId: parentId || null,
+                parentId: parentId,
                 level: objective.level || 'organization',
                 quarter: objective.quarter,
                 year: objective.year,
@@ -451,7 +463,7 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
                 status: objective.status || 'on_track',
                 linkedStrategies: objective.linkedStrategies?.map((id: string) => idMap.get(id) || id) || [],
                 linkedGoals: objective.linkedGoals || [],
-              });
+              } as any);
               idMap.set(objective.id, existingMatch.id);
               results.objectives.updated++;
             } else {
@@ -461,7 +473,7 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
                 description: objective.description,
                 ownerId: user.id,
                 ownerEmail: user.email,
-                parentId: parentId || null,
+                parentId: parentId,
                 level: objective.level || 'organization',
                 quarter: objective.quarter,
                 year: objective.year,
@@ -470,7 +482,7 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
                 status: objective.status || 'on_track',
                 linkedStrategies: objective.linkedStrategies?.map((id: string) => idMap.get(id) || id) || [],
                 linkedGoals: objective.linkedGoals || [],
-              });
+              } as any);
               idMap.set(objective.id, newObjective.id);
               results.objectives.created++;
             }
@@ -481,7 +493,7 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
               description: objective.description,
               ownerId: user.id,
               ownerEmail: user.email,
-              parentId: parentId || null,
+              parentId: parentId,
               level: objective.level || 'organization',
               quarter: objective.quarter,
               year: objective.year,
@@ -490,7 +502,7 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
               status: objective.status || 'on_track',
               linkedStrategies: objective.linkedStrategies?.map((id: string) => idMap.get(id) || id) || [],
               linkedGoals: objective.linkedGoals || [],
-            });
+            } as any);
             idMap.set(objective.id, newObjective.id);
             results.objectives.created++;
           }
@@ -548,7 +560,6 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
                 progress: kr.progress || 0,
                 status: kr.status || 'on_track',
                 ownerId: user.id,
-                ownerEmail: user.email,
               });
               idMap.set(kr.id, newKr.id);
               results.keyResults.created++;
@@ -568,7 +579,6 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
               progress: kr.progress || 0,
               status: kr.status || 'on_track',
               ownerId: user.id,
-              ownerEmail: user.email,
             });
             idMap.set(kr.id, newKr.id);
             results.keyResults.created++;
@@ -662,6 +672,7 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
 
           await storage.createCheckIn({
             tenantId: targetTenantId,
+            userId: user.id,
             entityType: checkIn.entityType,
             entityId,
             previousValue: checkIn.previousValue,
@@ -674,8 +685,6 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
             achievements: checkIn.achievements,
             challenges: checkIn.challenges,
             nextSteps: checkIn.nextSteps,
-            createdBy: user.id,
-            createdByEmail: user.email,
             asOfDate: checkIn.asOfDate ? new Date(checkIn.asOfDate) : new Date(),
           });
           results.checkIns.created++;
