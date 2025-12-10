@@ -38,15 +38,19 @@ export function registerValueRoutes(app: Express) {
       }
 
       const { valueTitle } = result.data;
-      const tenantId = user.tenantId;
 
-      // Verify objective belongs to tenant
+      // Verify objective exists and user has access
       const objective = await storage.getObjectiveById(objectiveId);
-      if (!objective || objective.tenantId !== tenantId) {
+      if (!objective) {
+        return res.status(404).json({ error: "Objective not found" });
+      }
+      
+      // Allow access if user has cross-tenant role or belongs to the objective's tenant
+      if (objective.tenantId !== user.tenantId && !hasCrossTenantAccess(user.role)) {
         return res.status(403).json({ error: "Forbidden" });
       }
 
-      await storage.addValueToObjective(objectiveId, valueTitle, tenantId);
+      await storage.addValueToObjective(objectiveId, valueTitle, objective.tenantId);
       res.json({ success: true });
     } catch (error: any) {
       console.error("POST /api/objectives/:id/values failed", error);
@@ -73,15 +77,19 @@ export function registerValueRoutes(app: Express) {
       }
 
       const { valueTitle } = result.data;
-      const tenantId = user.tenantId;
 
-      // Verify objective belongs to tenant
+      // Verify objective exists and user has access
       const objective = await storage.getObjectiveById(objectiveId);
-      if (!objective || objective.tenantId !== tenantId) {
+      if (!objective) {
+        return res.status(404).json({ error: "Objective not found" });
+      }
+      
+      // Allow access if user has cross-tenant role or belongs to the objective's tenant
+      if (objective.tenantId !== user.tenantId && !hasCrossTenantAccess(user.role)) {
         return res.status(403).json({ error: "Forbidden" });
       }
 
-      await storage.removeValueFromObjective(objectiveId, valueTitle, tenantId);
+      await storage.removeValueFromObjective(objectiveId, valueTitle, objective.tenantId);
       res.json({ success: true });
     } catch (error: any) {
       console.error("DELETE /api/objectives/:id/values failed", error);
@@ -101,15 +109,19 @@ export function registerValueRoutes(app: Express) {
       }
 
       const objectiveId = req.params.id;
-      const tenantId = user.tenantId;
 
-      // Verify objective belongs to tenant
+      // Verify objective exists and user has access
       const objective = await storage.getObjectiveById(objectiveId);
-      if (!objective || objective.tenantId !== tenantId) {
+      if (!objective) {
+        return res.status(404).json({ error: "Objective not found" });
+      }
+      
+      // Allow access if user has cross-tenant role or belongs to the objective's tenant
+      if (objective.tenantId !== user.tenantId && !hasCrossTenantAccess(user.role)) {
         return res.status(403).json({ error: "Forbidden" });
       }
 
-      const values = await storage.getValuesByObjectiveId(objectiveId, tenantId);
+      const values = await storage.getValuesByObjectiveId(objectiveId, objective.tenantId);
       res.json(values);
     } catch (error: any) {
       console.error("GET /api/objectives/:id/values failed", error);

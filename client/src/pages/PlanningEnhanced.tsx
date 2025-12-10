@@ -1717,7 +1717,7 @@ export default function PlanningEnhanced() {
                 )}
               </div>
             </div>
-            <DialogFooter>
+            <DialogFooter className="flex-shrink-0 border-t pt-4 mt-4">
               <Button variant="outline" onClick={() => setObjectiveDialogOpen(false)}>
                 Cancel
               </Button>
