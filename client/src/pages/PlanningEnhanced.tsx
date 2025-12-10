@@ -1344,14 +1344,14 @@ export default function PlanningEnhanced() {
                       description: obj.description,
                       level: obj.level || 'organization',
                       parentId: obj.parentId || '',
-                      linkedStrategies: [],
+                      linkedStrategies: Array.isArray((obj as any).linkedStrategies) ? (obj as any).linkedStrategies : [],
                       linkedBigRocks: [],
                       ownerEmail: obj.ownerEmail || '',
                       teamId: (obj as any).teamId || '',
                       progressMode: "rollup",
                       quarter: obj.quarter,
                       year: obj.year,
-                      linkedGoals: [],
+                      linkedGoals: Array.isArray((obj as any).linkedGoals) ? (obj as any).linkedGoals : [],
                       phasedTargets: obj.phasedTargets || null,
                     });
                     setObjectiveDialogOpen(true);
@@ -2916,14 +2916,14 @@ export default function PlanningEnhanced() {
                 description: detailPaneEntity.description || "",
                 level: detailPaneEntity.level || 'organization',
                 parentId: detailPaneEntity.parentId || '',
-                linkedStrategies: [],
+                linkedStrategies: Array.isArray((detailPaneEntity as any).linkedStrategies) ? (detailPaneEntity as any).linkedStrategies : [],
                 linkedBigRocks: [],
                 ownerEmail: detailPaneEntity.ownerEmail || '',
                 teamId: (detailPaneEntity as any).teamId || '',
                 progressMode: "rollup",
                 quarter: detailPaneEntity.quarter,
                 year: detailPaneEntity.year,
-                linkedGoals: [],
+                linkedGoals: Array.isArray((detailPaneEntity as any).linkedGoals) ? (detailPaneEntity as any).linkedGoals : [],
                 phasedTargets: detailPaneEntity.phasedTargets || null,
               });
               setDetailPaneOpen(false);
