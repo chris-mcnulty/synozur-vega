@@ -294,6 +294,7 @@ export default function PlanningEnhanced() {
     level: "organization",
     parentId: "",
     ownerEmail: "",
+    teamId: "" as string,
     progressMode: "rollup",
     quarter: 1,
     year: new Date().getFullYear(),
@@ -894,6 +895,7 @@ export default function PlanningEnhanced() {
       level: parentId ? "team" : "organization",
       parentId: parentId || "",
       ownerEmail: "",
+      teamId: "",
       progressMode: "rollup",
       quarter: quarter ?? 1, // Default to Q1 if "All Periods" selected
       year,
@@ -916,6 +918,7 @@ export default function PlanningEnhanced() {
       level: objective.level || "organization",
       parentId: objective.parentId || "",
       ownerEmail: objective.ownerEmail || "",
+      teamId: objective.teamId || "",
       progressMode: "rollup" as const,
       quarter: objective.quarter || 1,
       year: objective.year || new Date().getFullYear(),
@@ -1640,6 +1643,25 @@ export default function PlanningEnhanced() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div>
+                  <Label htmlFor="obj-team">Assign to Team</Label>
+                  <Select
+                    value={objectiveForm.teamId || "none"}
+                    onValueChange={(value) => setObjectiveForm({ ...objectiveForm, teamId: value === "none" ? "" : value })}
+                  >
+                    <SelectTrigger data-testid="select-objective-team">
+                      <SelectValue placeholder="Select team..." />
+                    </SelectTrigger>
+                    <SelectContent className="z-[60]">
+                      <SelectItem value="none">No team (Organization-wide)</SelectItem>
+                      {teamsData.map((team) => (
+                        <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <Label htmlFor="obj-owner">Owner Email</Label>
                   <Input
