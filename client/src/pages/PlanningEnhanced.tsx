@@ -1290,6 +1290,13 @@ export default function PlanningEnhanced() {
               <Sparkles className="h-4 w-4 mr-2" />
               Generate Summary
             </Button>
+            <Button
+              onClick={() => handleCreateObjective()}
+              data-testid="button-add-objective"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Objective
+            </Button>
           </div>
         </div>
 
@@ -1482,14 +1489,14 @@ export default function PlanningEnhanced() {
 
         {/* Create/Edit Objective Dialog */}
         <Dialog open={objectiveDialogOpen} onOpenChange={setObjectiveDialogOpen}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>{selectedObjective ? "Edit" : "Create"} Objective</DialogTitle>
               <DialogDescription>
                 {selectedObjective ? "Update the objective details" : `Define a new objective`}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
+            <div className="space-y-4 overflow-y-auto flex-1 pr-2">
               <div>
                 <Label htmlFor="obj-title">Title *</Label>
                 <Input
