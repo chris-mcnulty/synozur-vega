@@ -10,6 +10,13 @@ const removeValueSchema = z.object({
   valueTitle: z.string().min(1),
 });
 
+// Roles that can access resources across tenants
+const CROSS_TENANT_ROLES = ['admin', 'global_admin', 'vega_consultant', 'vega_admin'];
+
+function hasCrossTenantAccess(role: string | undefined): boolean {
+  return role ? CROSS_TENANT_ROLES.includes(role) : false;
+}
+
 export function registerValueRoutes(app: Express) {
   // Objective value tagging
   app.post("/api/objectives/:id/values", async (req, res) => {
@@ -130,15 +137,20 @@ export function registerValueRoutes(app: Express) {
       }
 
       const { valueTitle } = result.data;
-      const tenantId = user.tenantId;
 
-      // Verify strategy belongs to tenant
+      // Verify strategy exists and user has access
       const strategy = await storage.getStrategyById(strategyId);
-      if (!strategy || strategy.tenantId !== tenantId) {
+      if (!strategy) {
+        return res.status(404).json({ error: "Strategy not found" });
+      }
+      
+      // Allow access if user has cross-tenant role or belongs to the strategy's tenant
+      if (strategy.tenantId !== user.tenantId && !hasCrossTenantAccess(user.role)) {
         return res.status(403).json({ error: "Forbidden" });
       }
 
-      await storage.addValueToStrategy(strategyId, valueTitle, tenantId);
+      // Use the strategy's tenant ID for the value
+      await storage.addValueToStrategy(strategyId, valueTitle, strategy.tenantId);
       res.json({ success: true });
     } catch (error: any) {
       console.error("POST /api/strategies/:id/values failed", error);
@@ -165,15 +177,20 @@ export function registerValueRoutes(app: Express) {
       }
 
       const { valueTitle } = result.data;
-      const tenantId = user.tenantId;
 
-      // Verify strategy belongs to tenant
+      // Verify strategy exists and user has access
       const strategy = await storage.getStrategyById(strategyId);
-      if (!strategy || strategy.tenantId !== tenantId) {
+      if (!strategy) {
+        return res.status(404).json({ error: "Strategy not found" });
+      }
+      
+      // Allow access if user has cross-tenant role or belongs to the strategy's tenant
+      if (strategy.tenantId !== user.tenantId && !hasCrossTenantAccess(user.role)) {
         return res.status(403).json({ error: "Forbidden" });
       }
 
-      await storage.removeValueFromStrategy(strategyId, valueTitle, tenantId);
+      // Use the strategy's tenant ID for the value
+      await storage.removeValueFromStrategy(strategyId, valueTitle, strategy.tenantId);
       res.json({ success: true });
     } catch (error: any) {
       console.error("DELETE /api/strategies/:id/values failed", error);
@@ -193,15 +210,20 @@ export function registerValueRoutes(app: Express) {
       }
 
       const strategyId = req.params.id;
-      const tenantId = user.tenantId;
 
-      // Verify strategy belongs to tenant
+      // Verify strategy exists and user has access
       const strategy = await storage.getStrategyById(strategyId);
-      if (!strategy || strategy.tenantId !== tenantId) {
+      if (!strategy) {
+        return res.status(404).json({ error: "Strategy not found" });
+      }
+      
+      // Allow access if user has cross-tenant role or belongs to the strategy's tenant
+      if (strategy.tenantId !== user.tenantId && !hasCrossTenantAccess(user.role)) {
         return res.status(403).json({ error: "Forbidden" });
       }
 
-      const values = await storage.getValuesByStrategyId(strategyId, tenantId);
+      // Use the strategy's tenant ID for fetching values
+      const values = await storage.getValuesByStrategyId(strategyId, strategy.tenantId);
       res.json(values);
     } catch (error: any) {
       console.error("GET /api/strategies/:id/values failed", error);
