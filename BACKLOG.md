@@ -4,6 +4,65 @@
 
 ---
 
+## EXECUTIVE SUMMARY & PRIORITY SEQUENCE
+
+### Current Status Assessment (December 10, 2025)
+
+| Item | Backlog Status | Actual Status | Notes |
+|------|----------------|---------------|-------|
+| **1. RBAC** | ~95% | ✅ 95% | Core security complete. Fine-grained permissions remaining. |
+| **2. M365 Multi-Tenant** | ~60% | ~65% | SSO, Planner, SharePoint/OneDrive working. Admin consent, Calendar sync remaining. |
+| **3. Focus Rhythm** | ~70% | ~75% | Schema has decisions/risks fields. UI tracking not built. |
+| **4. Culture & Values** | Complete | ✅ Complete | |
+| **5. M365 Copilot Agent** | Not Started | Not Started | **January deadline - CLIENT REQUIREMENT** |
+| **6. AI-Powered Assistance** | Not Started | ~40% | 7 AI tools implemented (listObjectives, listKeyResults, listBigRocks, listMeetings, getAtRiskItems, analyzeStrategicGaps, analyzeObjectiveGaps, getFoundationContext). Q&A chat with function calling works. |
+| **7. Enhanced Reporting** | Not Started | ~10% | Basic review_snapshots table exists. No PDF/export. |
+| **8. Export/Import** | Complete | ✅ Complete | |
+| **9. Customizable Branding** | Not Started | Not Started | |
+| **10. Governance & Audit** | Not Started | Not Started | |
+| **10c. KR Weighting** | Not Started | ✅ 90% Complete | Schema has weight field! Just needs UI exposure. |
+
+### Recommended Priority Sequence (Next 8 Weeks)
+
+```
+PHASE 1: Client Deadline (Weeks 1-4, Dec 16 - Jan 10)
+├── M365 Copilot Agent ⭐ CRITICAL PATH
+│   ├── Week 1: OpenAPI spec for Vega endpoints
+│   ├── Week 2: Declarative agent manifest + instructions
+│   ├── Week 3: Testing in M365 dev tenant
+│   └── Week 4: Client deployment + refinement
+│
+PHASE 2: M365 Completion (Weeks 2-5, Dec 23 - Jan 17)
+├── Fix Production SSO Session Bug (1-2 days)
+├── Admin Consent Endpoint (3-4 days)
+└── Outlook Calendar Sync (1 week)
+
+PHASE 3: Quick Wins (Weeks 4-6, Jan 6 - Jan 24)
+├── KR Weighting UI (2-3 days) - Schema exists!
+├── Focus Rhythm Decisions/Risks UI (2-3 days) - Schema exists!
+├── Check-in UX Improvements (1-2 days)
+└── OKR Cloning (3-5 days)
+
+PHASE 4: Differentiation (Weeks 6-8, Jan 20 - Feb 7)
+├── Enhanced Reporting & Snapshots
+├── Custom Vocabulary
+└── OKR Alignment (Cross-Team Linking)
+```
+
+### Blocking Issues
+
+1. **Production SSO Session Bug** - Blocks enterprise deployment
+2. **No OpenAPI Spec** - Blocks M365 Copilot Agent
+3. **Admin Consent Endpoint Missing** - Blocks enterprise M365 onboarding
+
+### Quick Wins Available Now
+
+1. **KR Weighting UI** - Schema already has `weight` and `isWeightLocked` fields
+2. **Focus Rhythm Decisions/Risks** - Schema already has `decisions` and `risks` JSONB fields
+3. **Check-in Close Prompt** - Simple UI enhancement
+
+---
+
 ## KNOWN ISSUES & BUGS 🐛
 
 ### Production SSO Session Persistence Bug ⚠️ ACTIVE
@@ -409,31 +468,43 @@ Once built, the same function definitions can be exposed as:
 
 ---
 
-### 6. AI-Powered Assistance ⭐ EXPANDED
+### 6. AI-Powered Assistance ⭐ ~40% COMPLETE
 
-**Status:** Not Started  
+**Status:** Phase 1 Complete, Phase 2 Partial  
 **Priority:** High  
-**Effort:** 8-12 weeks
+**Effort:** 4-6 weeks remaining
 
 **Description:**
 Chat-based AI assistant with culture-grounded outputs and MCP-style agent architecture.
 
-**Features:**
+**What's Built (✅ Complete):**
+- Streaming AI chat with function calling (`/api/ai/chat/stream`)
+- 7 AI tools implemented in `server/ai-tools.ts`:
+  - `listObjectives` - Query objectives with filters
+  - `listKeyResults` - Query key results
+  - `listBigRocks` - Query Big Rocks/initiatives
+  - `listMeetings` - Query meetings
+  - `getAtRiskItems` - Find at-risk items
+  - `analyzeStrategicGaps` - Identify strategies/objectives without Big Rocks
+  - `analyzeObjectiveGaps` - Find goals without objectives
+  - `getFoundationContext` - Access mission, vision, values
+- Tenant-scoped AI context (user role, tenant isolation)
+- Grounding documents system for culture-aware responses
 
-**Phase 1: Basic AI Chat Enhancements (4 weeks)** ❌ No Vector DB Required
-- Q&A interface for OKR queries ("What are our Q4 objectives?") - Uses function calling to query existing database
-- Natural language reporting ("Show me all at-risk initiatives") - Direct SQL queries via AI tool use
-- Context-aware responses (tenant-specific, user role aware) - Add role to existing AI context
+**Phase 1: Basic AI Chat Enhancements** ✅ COMPLETE
+- Q&A interface for OKR queries ("What are our Q4 objectives?") - Uses function calling ✅
+- Natural language reporting ("Show me all at-risk initiatives") - getAtRiskItems tool ✅
+- Context-aware responses (tenant-specific, user role aware) ✅
 
-**Phase 2: Culture-Grounded Intelligence (4 weeks)** ❌ No Vector DB Required
-- Train on organization's values, mission, vision - Already implemented via grounding documents
-- Suggest objectives aligned with strategic priorities - Direct entity queries + GPT analysis
-- Draft key results based on historical patterns - Query check-in history directly
-- Generate meeting agendas incorporating company culture - Uses existing Focus Rhythm data
-- **AI Big Rock Generator** ✅ COMPLETE: Suggest missing Big Rocks based on analysis of objectives, key results, strategies, and goals. Identifies execution gaps where strategic priorities lack corresponding initiatives. *Implementation: analyzeStrategicGaps tool queries all entities, identifies strategies/objectives without Big Rocks, returns gap analysis for AI narration.*
-- **AI OKR Ingestion** ⭐: Parse objectives and key results from uploaded documents (PDF, Word, Excel) or text pasted into the AI chat. Extract structured OKR data and create draft objectives with suggested key results for user review and approval. *Implementation: Uses existing file parsing + GPT extraction.*
-- **AI Objective Gap Analyzer** ✅ COMPLETE: Identify annual goals and strategic priorities that lack corresponding objectives or have minimal activity. Suggest new objectives based on organizational context. *Implementation: analyzeObjectiveGaps tool cross-references goals→strategies→objectives linkages, returns coverage analysis.*
-- **AI Foundation Element Suggestions** ✅ COMPLETE: Suggest extensions or alternatives to foundation elements (mission, vision, values, goals) based on organizational descriptive information and tenant context. *Implementation: getFoundationContext tool provides mission, vision, values, goals, strategies context for AI analysis.*
+**Phase 2: Culture-Grounded Intelligence (4 weeks)** ~50% Complete
+- Train on organization's values, mission, vision - ✅ Implemented via grounding documents
+- Suggest objectives aligned with strategic priorities - ✅ getFoundationContext tool
+- Draft key results based on historical patterns - ❌ Not implemented
+- Generate meeting agendas incorporating company culture - ❌ Not implemented
+- **AI Big Rock Generator** ✅ COMPLETE: analyzeStrategicGaps tool
+- **AI OKR Ingestion** ❌ Not Started: Parse OKRs from uploaded documents
+- **AI Objective Gap Analyzer** ✅ COMPLETE: analyzeObjectiveGaps tool
+- **AI Foundation Element Suggestions** ✅ COMPLETE: getFoundationContext tool
 
 **Phase 3: Advanced Agent Features (4 weeks)** ✅ Vector DB Recommended
 - Human-in-the-loop controls (approve before taking action) - MCP-style tool calling with confirmation UI
@@ -831,16 +902,26 @@ Clone objectives to streamline the OKR process - either duplicating OKRs across 
 
 ---
 
-### 10c. Key Result Weighting ⭐ NEW
+### 10c. Key Result Weighting ⭐ 90% COMPLETE
 
-**Status:** Not Started  
+**Status:** Schema Complete, UI Needed  
 **Priority:** Medium  
-**Effort:** 2-3 days
+**Effort:** 1-2 days (just UI exposure)
 
 **Reference:** Viva Goals weighted rollup feature
 
 **Description:**
-Allow users to adjust how much each Key Result contributes to its parent objective's overall progress. Currently all Key Results contribute equally; this feature enables weighted contributions.
+Allow users to adjust how much each Key Result contributes to its parent objective's overall progress.
+
+**What's Built (✅ Complete):**
+- `weight` field in key_results table (integer, default 25)
+- `isWeightLocked` field for locking weights
+- Backend schema and types ready
+
+**Remaining Work:**
+- Expose weight editing in OKR detail pane UI
+- Add "Distribute Equally" quick action
+- Show weight chips in hierarchy view
 
 **Example:**
 - KR1 (weight 60%) at 100% complete = 60 points
