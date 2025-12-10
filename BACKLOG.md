@@ -1,6 +1,6 @@
 # Vega Platform Backlog
 
-**Last Updated:** December 9, 2025
+**Last Updated:** December 10, 2025
 
 ---
 
@@ -319,7 +319,97 @@ Tag objectives and strategies with company values to ensure values-driven decisi
 
 ---
 
-### 5. AI-Powered Assistance ⭐ EXPANDED
+### 5. M365 Copilot Agent (Declarative Agent) ⭐ CLIENT REQUIREMENT
+
+**Status:** Not Started  
+**Priority:** High  
+**Target:** January 2025  
+**Effort:** 4 weeks
+
+**Description:**
+Build a Vega agent that surfaces directly in Microsoft 365 Copilot, allowing users to query OKRs, check progress, and get meeting information without leaving their M365 environment.
+
+**Architecture:**
+```
+M365 Copilot ←→ Declarative Agent ←→ API Plugin (OpenAPI) ←→ Vega APIs
+```
+
+**Approach: Declarative Agent with API Plugin**
+- Uses Microsoft 365 Agents Toolkit (VS Code extension)
+- No separate hosting required - runs on Copilot infrastructure
+- Connects to Vega's existing authenticated APIs
+- Inherits M365 security and compliance
+
+**What to Build:**
+
+| Component | Description |
+|-----------|-------------|
+| **OpenAPI Spec** | Expose Vega endpoints as OpenAPI-compliant plugin |
+| **Agent Manifest** | JSON defining persona, instructions, conversation starters |
+| **App Package** | Teams app manifest bundling everything for deployment |
+
+**API Plugin Endpoints:**
+- `/api/objectives` - Query and create OKRs
+- `/api/key-results` - Check progress, update values
+- `/api/meetings` - Get upcoming meetings, agendas
+- `/api/big-rocks` - View initiatives and status
+- `/api/foundation` - Access mission, vision, values, goals
+
+**Implementation Timeline:**
+
+| Week | Milestone |
+|------|-----------|
+| Week 1 | OpenAPI spec for Vega endpoints + OAuth setup |
+| Week 2 | Declarative agent manifest + instructions |
+| Week 3 | Testing in M365 dev tenant |
+| Week 4 | Client deployment + refinement |
+
+**Key Considerations:**
+1. **Authentication** - Existing Entra ID SSO works; plugin uses OAuth to call Vega APIs
+2. **Hosting** - Vega APIs already hosted; no new infrastructure
+3. **Licensing** - No Copilot Studio license required; works with M365 Copilot licenses
+4. **Development** - VS Code with Microsoft 365 Agents Toolkit extension
+
+**Sample Agent Manifest Structure:**
+```json
+{
+  "name": "Vega Company OS",
+  "description": "Query OKRs, check initiative status, view meeting agendas",
+  "instructions": "You are a Company OS assistant. Help users track objectives, key results, and strategic initiatives...",
+  "actions": [{ "id": "VegaAPI", "file": "ai-plugin.json" }],
+  "conversation_starters": [
+    { "title": "My OKRs", "text": "What are my current objectives?" },
+    { "title": "At-Risk", "text": "Show me any at-risk initiatives" },
+    { "title": "Upcoming Meetings", "text": "What Focus Rhythm meetings are scheduled?" }
+  ]
+}
+```
+
+**Future Migration Path:**
+Once built, the same function definitions can be exposed as:
+- Copilot Studio actions (if more customization needed)
+- MCP tools (if industry standard emerges)
+- Azure AI Agent functions
+
+**Business Value:**
+- Meet client deadline for January delivery
+- Users access Vega data without leaving M365
+- Leverages existing Copilot investment
+- No additional infrastructure cost
+
+**Dependencies:**
+- M365 Copilot licenses for client tenant
+- Vega APIs must be publicly accessible (HTTPS)
+- OAuth app registration for API plugin auth
+
+**Resources:**
+- [Declarative Agents Overview](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/overview-declarative-agent)
+- [Build Declarative Agents](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/build-declarative-agents)
+- [API Plugin Tutorial](https://microsoft.github.io/TechExcel-Extending-Copilot-for-Microsoft365/docs/Ex03/Ex03.html)
+
+---
+
+### 6. AI-Powered Assistance ⭐ EXPANDED
 
 **Status:** Not Started  
 **Priority:** High  
@@ -405,7 +495,7 @@ Chat-based AI assistant with culture-grounded outputs and MCP-style agent archit
 
 ---
 
-### 6. Enhanced Reporting & Snapshots
+### 7. Enhanced Reporting & Snapshots
 
 **Status:** Not Started  
 **Priority:** High  
@@ -444,7 +534,7 @@ Point-in-time snapshots for audit trails and branded report generation.
 
 ## MEDIUM PRIORITY
 
-### 7. Company OS Export/Import System ✅ COMPLETE
+### 8. Company OS Export/Import System ✅ COMPLETE
 
 **Status:** Complete  
 **Priority:** Medium  
@@ -484,7 +574,7 @@ Export and import complete Company OS data for portability, backups, and migrati
 
 ---
 
-### 8. Customizable Branding ⭐ NEW
+### 9. Customizable Branding ⭐ NEW
 
 **Status:** Not Started  
 **Priority:** Medium  
@@ -565,7 +655,7 @@ vocabulary: {
 
 ---
 
-### 9. Governance & Audit Enhancements ⭐ NEW
+### 10. Governance & Audit Enhancements ⭐ NEW
 
 **Status:** Not Started  
 **Priority:** Medium  
@@ -589,7 +679,7 @@ Compliance features for regulated industries and enterprise governance.
 
 ---
 
-### 10. Strategic Alignment Mind Map ⭐ NEW
+### 11. Strategic Alignment Mind Map ⭐ NEW
 
 **Status:** Not Started  
 **Priority:** Medium  
@@ -851,7 +941,7 @@ objectiveAlignments: {
 
 ## LOWER PRIORITY / FUTURE
 
-### 11. Advanced AI Features ⭐ NEW
+### 12. Advanced AI Features ⭐ NEW
 
 **Status:** Not Started  
 **Priority:** Low  
@@ -873,7 +963,7 @@ objectiveAlignments: {
 
 ---
 
-### 12. Sector-Specific Playbooks ⭐ NEW
+### 13. Sector-Specific Playbooks ⭐ NEW
 
 **Status:** Not Started  
 **Priority:** Low  
@@ -892,7 +982,7 @@ Pre-built Company OS templates for different industries.
 
 ---
 
-### 13. Microsoft 365 Deep Integration
+### 14. Microsoft 365 Deep Integration
 
 **Status:** Infrastructure Ready  
 **Priority:** Low (superseded by Entra SSO backlog item)  
@@ -907,7 +997,7 @@ See "Microsoft Entra SSO Integration" (High Priority #2) for full scope.
 
 ---
 
-### 13. Employee Experience & Engagement ⭐ NEW
+### 15. Employee Experience & Engagement ⭐ NEW
 
 **Status:** Not Started  
 **Priority:** Low  
