@@ -1347,6 +1347,7 @@ export default function PlanningEnhanced() {
                       linkedStrategies: [],
                       linkedBigRocks: [],
                       ownerEmail: obj.ownerEmail || '',
+                      teamId: (obj as any).teamId || '',
                       progressMode: "rollup",
                       quarter: obj.quarter,
                       year: obj.year,
@@ -1387,6 +1388,7 @@ export default function PlanningEnhanced() {
                       linkedStrategies: [],
                       linkedBigRocks: [],
                       ownerEmail: user?.email || "",
+                      teamId: "",
                       progressMode: "rollup",
                       quarter: quarter ?? 1, // Default to Q1 if "All Periods" selected
                       year: year,
@@ -2917,6 +2919,7 @@ export default function PlanningEnhanced() {
                 linkedStrategies: [],
                 linkedBigRocks: [],
                 ownerEmail: detailPaneEntity.ownerEmail || '',
+                teamId: (detailPaneEntity as any).teamId || '',
                 progressMode: "rollup",
                 quarter: detailPaneEntity.quarter,
                 year: detailPaneEntity.year,
