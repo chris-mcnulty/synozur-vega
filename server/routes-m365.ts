@@ -435,7 +435,7 @@ router.get('/sharepoint/status', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
     
-    const connected = await checkSharePointConnection();
+    const connected = await checkSharePointConnection(user.id);
     res.json({ connected });
   } catch (error: any) {
     res.json({ connected: false, error: error.message });

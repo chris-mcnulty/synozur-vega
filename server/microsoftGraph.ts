@@ -705,8 +705,21 @@ export interface SharePointListItem {
   webUrl: string;
 }
 
-export async function checkSharePointConnection(): Promise<boolean> {
-  // First check if Entra app is available (has proper SharePoint permissions)
+export async function checkSharePointConnection(userId?: string): Promise<boolean> {
+  // First priority: Check if user has a delegated token (for multi-tenant SSO)
+  if (userId) {
+    try {
+      const userClient = await getUserGraphClient(userId);
+      if (userClient) {
+        console.log('[SharePoint] User delegated token available for SharePoint access');
+        return true;
+      }
+    } catch (error) {
+      console.log('[SharePoint] User token check failed, trying Entra app');
+    }
+  }
+  
+  // Second: Check if Entra app is available (has proper SharePoint permissions)
   if (hasEntraAppCredentials()) {
     try {
       await getEntraAppAccessToken();
