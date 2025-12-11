@@ -472,13 +472,20 @@ router.post('/sharepoint/resolve-url', async (req: Request, res: Response) => {
     
     const site = await getSharePointSiteFromUrl(siteUrl, user.id);
     if (!site) {
-      return res.status(404).json({ error: 'Could not find or access this SharePoint site' });
+      return res.status(404).json({ error: 'Could not find or access this SharePoint site. Check the URL and your permissions.' });
     }
     
     res.json(site);
   } catch (error: any) {
     console.error('Failed to resolve SharePoint site from URL:', error);
-    res.status(500).json({ error: error.message });
+    // Check for token expiration
+    if (error.code === 'TOKEN_EXPIRED' || error.message?.includes('expired') || error.message?.includes('log out')) {
+      return res.status(401).json({ 
+        error: 'Your Microsoft 365 session has expired. Please log out and log back in to reconnect.',
+        code: 'TOKEN_EXPIRED'
+      });
+    }
+    res.status(500).json({ error: error.message || 'Failed to access SharePoint site' });
   }
 });
 

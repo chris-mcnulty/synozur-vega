@@ -152,8 +152,9 @@ async function getUserGraphToken(userId: string): Promise<string | null> {
     }
   }
 
-  // Return existing token even if expired - might still work
-  return accessToken;
+  // Token is expired and we couldn't refresh it
+  console.log(`[Graph] Token expired for user ${userId}, needs re-authentication`);
+  return null;
 }
 
 async function getUserGraphClient(userId: string): Promise<Client | null> {
@@ -809,7 +810,17 @@ export async function listSharePointSites(userId?: string): Promise<SharePointSi
 
 // Parse a SharePoint URL to get the site ID
 export async function getSharePointSiteFromUrl(siteUrl: string, userId?: string): Promise<SharePointSite | null> {
-  const client = await getMicrosoftClient('sharepoint', userId);
+  let client;
+  try {
+    client = await getMicrosoftClient('sharepoint', userId);
+  } catch (e: any) {
+    if (e.message?.includes('expired') || e.message?.includes('token')) {
+      const error = new Error('Your session has expired. Please log out and log back in to reconnect to SharePoint.');
+      (error as any).code = 'TOKEN_EXPIRED';
+      throw error;
+    }
+    throw e;
+  }
   
   try {
     // Extract hostname and path from URL
@@ -831,6 +842,12 @@ export async function getSharePointSiteFromUrl(siteUrl: string, userId?: string)
     return site;
   } catch (e: any) {
     console.error('Could not resolve SharePoint site from URL:', e.message);
+    // Check for token expiration in Graph API errors
+    if (e.message?.includes('expired') || e.code === 'InvalidAuthenticationToken') {
+      const error = new Error('Your session has expired. Please log out and log back in to reconnect to SharePoint.');
+      (error as any).code = 'TOKEN_EXPIRED';
+      throw error;
+    }
     return null;
   }
 }
