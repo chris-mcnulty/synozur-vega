@@ -449,7 +449,7 @@ router.get('/sharepoint/sites', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
     
-    const sites = await listSharePointSites();
+    const sites = await listSharePointSites(user.id);
     res.json(sites);
   } catch (error: any) {
     console.error('Failed to list SharePoint sites:', error);
@@ -470,7 +470,7 @@ router.post('/sharepoint/resolve-url', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Site URL is required' });
     }
     
-    const site = await getSharePointSiteFromUrl(siteUrl);
+    const site = await getSharePointSiteFromUrl(siteUrl, user.id);
     if (!site) {
       return res.status(404).json({ error: 'Could not find or access this SharePoint site' });
     }
@@ -590,7 +590,7 @@ router.get('/sharepoint/sites/:siteId', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
     
-    const site = await getSharePointSite(req.params.siteId);
+    const site = await getSharePointSite(req.params.siteId, user.id);
     res.json(site);
   } catch (error: any) {
     console.error('Failed to get SharePoint site:', error);
@@ -605,7 +605,7 @@ router.get('/sharepoint/sites/:siteId/lists', async (req: Request, res: Response
       return res.status(401).json({ error: 'Not authenticated' });
     }
     
-    const lists = await listSharePointLists(req.params.siteId);
+    const lists = await listSharePointLists(req.params.siteId, user.id);
     res.json(lists);
   } catch (error: any) {
     console.error('Failed to list SharePoint lists:', error);
@@ -620,7 +620,7 @@ router.get('/sharepoint/sites/:siteId/lists/:listId/items', async (req: Request,
       return res.status(401).json({ error: 'Not authenticated' });
     }
     
-    const items = await getSharePointListItems(req.params.siteId, req.params.listId);
+    const items = await getSharePointListItems(req.params.siteId, req.params.listId, true, user.id);
     res.json(items);
   } catch (error: any) {
     console.error('Failed to list SharePoint list items:', error);
@@ -639,7 +639,8 @@ router.get('/sharepoint/sites/:siteId/documents', async (req: Request, res: Resp
     const documents = await listSharePointDocuments(
       req.params.siteId,
       driveId as string | undefined,
-      folderId as string | undefined
+      folderId as string | undefined,
+      user.id // Pass user ID for delegated token access
     );
     res.json(documents);
   } catch (error: any) {
@@ -656,7 +657,7 @@ router.get('/sharepoint/sites/:siteId/drives', async (req: Request, res: Respons
       return res.status(401).json({ error: 'Not authenticated' });
     }
     
-    const drives = await listSharePointDrives(req.params.siteId);
+    const drives = await listSharePointDrives(req.params.siteId, user.id);
     res.json(drives);
   } catch (error: any) {
     console.error('Failed to list SharePoint drives:', error);
@@ -673,7 +674,7 @@ router.get('/sharepoint/sites/:siteId/excel-search', async (req: Request, res: R
     }
     
     const { q } = req.query;
-    const files = await searchSharePointExcelFiles(req.params.siteId, q as string | undefined);
+    const files = await searchSharePointExcelFiles(req.params.siteId, q as string | undefined, user.id);
     res.json(files);
   } catch (error: any) {
     console.error('Failed to search SharePoint Excel files:', error);

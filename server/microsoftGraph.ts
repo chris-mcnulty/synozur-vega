@@ -221,7 +221,17 @@ async function getAccessToken(connectorType: ConnectorType = 'outlook'): Promise
   return accessToken;
 }
 
-async function getMicrosoftClient(connectorType: ConnectorType = 'outlook'): Promise<Client> {
+async function getMicrosoftClient(connectorType: ConnectorType = 'outlook', userId?: string): Promise<Client> {
+  // If userId is provided, try user's delegated token first (for multi-tenant access)
+  if (userId) {
+    const userClient = await getUserGraphClient(userId);
+    if (userClient) {
+      console.log(`[Graph] Using user delegated token for ${connectorType}`);
+      return userClient;
+    }
+    console.log(`[Graph] No user token found, falling back to connector for ${connectorType}`);
+  }
+  
   const accessToken = await getAccessToken(connectorType);
 
   return Client.initWithMiddleware({
@@ -716,8 +726,8 @@ export async function checkSharePointConnection(): Promise<boolean> {
   }
 }
 
-export async function listSharePointSites(): Promise<SharePointSite[]> {
-  const client = await getMicrosoftClient('sharepoint');
+export async function listSharePointSites(userId?: string): Promise<SharePointSite[]> {
+  const client = await getMicrosoftClient('sharepoint', userId);
   const sites: SharePointSite[] = [];
   
   // With Sites.Selected permission, we can't list all sites
@@ -772,8 +782,8 @@ export async function listSharePointSites(): Promise<SharePointSite[]> {
 }
 
 // Parse a SharePoint URL to get the site ID
-export async function getSharePointSiteFromUrl(siteUrl: string): Promise<SharePointSite | null> {
-  const client = await getMicrosoftClient('sharepoint');
+export async function getSharePointSiteFromUrl(siteUrl: string, userId?: string): Promise<SharePointSite | null> {
+  const client = await getMicrosoftClient('sharepoint', userId);
   
   try {
     // Extract hostname and path from URL
@@ -799,15 +809,15 @@ export async function getSharePointSiteFromUrl(siteUrl: string): Promise<SharePo
   }
 }
 
-export async function getSharePointSite(siteId: string): Promise<SharePointSite> {
-  const client = await getMicrosoftClient('sharepoint');
+export async function getSharePointSite(siteId: string, userId?: string): Promise<SharePointSite> {
+  const client = await getMicrosoftClient('sharepoint', userId);
   return await client.api(`/sites/${siteId}`)
     .select('id,name,displayName,webUrl,createdDateTime')
     .get();
 }
 
-export async function listSharePointLists(siteId: string): Promise<SharePointList[]> {
-  const client = await getMicrosoftClient('sharepoint');
+export async function listSharePointLists(siteId: string, userId?: string): Promise<SharePointList[]> {
+  const client = await getMicrosoftClient('sharepoint', userId);
   const response = await client.api(`/sites/${siteId}/lists`)
     .select('id,name,displayName,webUrl,createdDateTime,lastModifiedDateTime,list')
     .get();
@@ -817,9 +827,10 @@ export async function listSharePointLists(siteId: string): Promise<SharePointLis
 export async function getSharePointListItems(
   siteId: string,
   listId: string,
-  expandFields: boolean = true
+  expandFields: boolean = true,
+  userId?: string
 ): Promise<SharePointListItem[]> {
-  const client = await getMicrosoftClient('sharepoint');
+  const client = await getMicrosoftClient('sharepoint', userId);
   
   let request = client.api(`/sites/${siteId}/lists/${listId}/items`);
   if (expandFields) {
@@ -878,8 +889,8 @@ export interface SharePointDrive {
 }
 
 // List all document libraries (drives) in a SharePoint site
-export async function listSharePointDrives(siteId: string): Promise<SharePointDrive[]> {
-  const client = await getMicrosoftClient('sharepoint');
+export async function listSharePointDrives(siteId: string, userId?: string): Promise<SharePointDrive[]> {
+  const client = await getMicrosoftClient('sharepoint', userId);
   const response = await client.api(`/sites/${siteId}/drives`)
     .select('id,name,description,webUrl,driveType,createdDateTime,lastModifiedDateTime')
     .get();
@@ -887,11 +898,11 @@ export async function listSharePointDrives(siteId: string): Promise<SharePointDr
 }
 
 // Search for Excel files in SharePoint
-export async function searchSharePointExcelFiles(siteId: string, query?: string): Promise<OneDriveItem[]> {
-  const client = await getMicrosoftClient('sharepoint');
+export async function searchSharePointExcelFiles(siteId: string, query?: string, userId?: string): Promise<OneDriveItem[]> {
+  const client = await getMicrosoftClient('sharepoint', userId);
   
   // Get all drives in the site
-  const drives = await listSharePointDrives(siteId);
+  const drives = await listSharePointDrives(siteId, userId);
   const allExcelFiles: OneDriveItem[] = [];
   
   for (const drive of drives) {
@@ -926,9 +937,10 @@ export async function searchSharePointExcelFiles(siteId: string, query?: string)
 export async function listSharePointDocuments(
   siteId: string,
   driveId?: string,
-  folderId?: string
+  folderId?: string,
+  userId?: string
 ): Promise<OneDriveItem[]> {
-  const client = await getMicrosoftClient('sharepoint');
+  const client = await getMicrosoftClient('sharepoint', userId);
   
   let path: string;
   if (driveId && folderId) {
