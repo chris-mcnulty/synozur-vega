@@ -559,7 +559,8 @@ router.get('/drives/:driveId/files', async (req: Request, res: Response) => {
     const { driveId } = req.params;
     const { folderId } = req.query;
     
-    const files = await getDriveFiles(driveId, folderId as string | undefined);
+    // Pass userId to use user's delegated token for SharePoint access
+    const files = await getDriveFiles(driveId, folderId as string | undefined, user.id);
     res.json(files);
   } catch (error: any) {
     console.error('Failed to get drive files:', error);
@@ -582,7 +583,8 @@ router.get('/drives/:driveId/search', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Search query is required' });
     }
     
-    const files = await searchDriveForExcel(driveId, q as string);
+    // Pass userId to use user's delegated token for SharePoint access
+    const files = await searchDriveForExcel(driveId, q as string, user.id);
     res.json(files);
   } catch (error: any) {
     console.error('Failed to search drive:', error);

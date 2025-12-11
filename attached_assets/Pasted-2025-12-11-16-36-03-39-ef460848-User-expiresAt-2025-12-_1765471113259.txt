@@ -1,0 +1,141 @@
+2025-12-11 16:36:03.39
+ef460848
+User
+expiresAt: 2025-12-11T17:42:50.000Z
+
+2025-12-11 16:36:03.41
+ef460848
+User
+[Graph] Using user delegated token for sharepoint
+2025-12-11 16:36:03.65
+ef460848
+User
+[SharePoint] Failed to get SharePoint sites: Sharepoint not connected. Please connect your Microsoft account in Replit.
+2025-12-11 16:36:03.67
+ef460848
+User
+4:36:03 PM [express] GET /api/m365/drives 304 in 359ms :: [{"id":"b!BVy7_8heDEaewkni4C-EGma9z-3b3v5K…
+2025-12-11 16:36:08.40
+ef460848
+User
+4:36:08 PM [express] GET /api/m365/sharepoint/sites 200 in 5082ms :: [{"id":"synozur.sharepoint.com,…
+2025-12-11 16:36:30.66
+ef460848
+User
+[Graph] getUserGraphToken called for userId: 53ac8557-dc08-482c-90e0-8b19f430a762
+2025-12-11 16:36:30.69
+ef460848
+User
+}
+2025-12-11 16:36:30.69
+ef460848
+User
+[Graph] getGraphToken result: {
+2025-12-11 16:36:30.69
+ef460848
+User
+tenantId: '8ebd7efe-32ed-4546-b0be-0112b8feed9f',
+2025-12-11 16:36:30.69
+ef460848
+User
+expiresAt: 2025-12-11T17:42:50.000Z
+2025-12-11 16:36:30.69
+ef460848
+User
+hasAccessToken: true,
+2025-12-11 16:36:30.69
+ef460848
+User
+userId: '53ac8557-dc08-482c-90e0-8b19f430a762',
+2025-12-11 16:36:30.69
+ef460848
+User
+hasRefreshToken: false,
+2025-12-11 16:36:30.71
+ef460848
+User
+[Graph] Using user delegated token for sharepoint
+2025-12-11 16:36:30.93
+ef460848
+User
+4:36:30 PM [express] POST /api/m365/sharepoint/resolve-url 200 in 291ms :: {"@odata.context":"https:…
+2025-12-11 16:36:31.88
+ef460848
+User
+[Graph] getUserGraphToken called for userId: 53ac8557-dc08-482c-90e0-8b19f430a762
+2025-12-11 16:36:31.92
+ef460848
+User
+expiresAt: 2025-12-11T17:42:50.000Z
+2025-12-11 16:36:31.92
+ef460848
+User
+tenantId: '8ebd7efe-32ed-4546-b0be-0112b8feed9f',
+2025-12-11 16:36:31.92
+ef460848
+User
+hasRefreshToken: false,
+2025-12-11 16:36:31.92
+ef460848
+User
+}
+2025-12-11 16:36:31.92
+ef460848
+User
+userId: '53ac8557-dc08-482c-90e0-8b19f430a762',
+2025-12-11 16:36:31.92
+ef460848
+User
+[Graph] getGraphToken result: {
+2025-12-11 16:36:31.92
+ef460848
+User
+hasAccessToken: true,
+2025-12-11 16:36:31.94
+ef460848
+User
+[Graph] Using user delegated token for sharepoint
+2025-12-11 16:36:32.20
+ef460848
+User
+4:36:32 PM [express] GET /api/m365/sharepoint/sites/synozur.sharepoint.com,a9fb3918-550e-4d3a-8c42-b…
+2025-12-11 16:36:38.94
+ef460848
+User
+[SharePoint] Failed to get drive files: Access denied
+2025-12-11 16:36:38.97
+ef460848
+User
+4:36:38 PM [express] GET /api/m365/drives/b!GDn7qQ5VOk2MQrhg_9DOPpXc0K03Rd9MgBonsmc7CeJaQrda72pyTolG…
+2025-12-11 16:36:44.56
+ef460848
+User
+[SharePoint] Failed to search drive: Access denied
+2025-12-11 16:36:44.58
+ef460848
+User
+4:36:44 PM [express] GET /api/m365/drives/b!GDn7qQ5VOk2MQrhg_9DOPpXc0K03Rd9MgBonsmc7CeJaQrda72pyTolG…
+2025-12-11 16:36:44.58
+ef460848
+User
+[SharePoint] Failed to search drive: Access denied
+2025-12-11 16:36:44.61
+ef460848
+User
+4:36:44 PM [express] GET /api/m365/drives/b!GDn7qQ5VOk2MQrhg_9DOPpXc0K03Rd9MgBonsmc7CeJaQrda72pyTolG…
+2025-12-11 16:36:44.69
+ef460848
+User
+[SharePoint] Failed to search drive: Access denied
+2025-12-11 16:36:44.72
+ef460848
+User
+4:36:44 PM [express] GET /api/m365/drives/b!GDn7qQ5VOk2MQrhg_9DOPpXc0K03Rd9MgBonsmc7CeJaQrda72pyTolG…
+2025-12-11 16:36:45.06
+ef460848
+User
+[SharePoint] Failed to search drive: Access denied
+2025-12-11 16:36:45.08
+ef460848
+User
+4:36:45 PM [express] GET /api/m365/drives/b!GDn7qQ5VOk2MQrhg_9DOPpXc0K03Rd9MgBonsmc7CeJaQrda72pyTolG…

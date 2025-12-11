@@ -1207,9 +1207,10 @@ export async function getUserDrives(): Promise<Array<{
 }
 
 // Browse files in any drive (OneDrive or SharePoint document library)
-export async function getDriveFiles(driveId: string, folderId?: string): Promise<OneDriveItem[]> {
+export async function getDriveFiles(driveId: string, folderId?: string, userId?: string): Promise<OneDriveItem[]> {
   try {
-    const client = await getMicrosoftClient('onedrive');
+    // Use sharepoint client type to use user's delegated token for SharePoint drives
+    const client = await getMicrosoftClient('sharepoint', userId);
     
     const path = folderId 
       ? `/drives/${driveId}/items/${folderId}/children`
@@ -1229,9 +1230,10 @@ export async function getDriveFiles(driveId: string, folderId?: string): Promise
 }
 
 // Search for Excel files across all drives
-export async function searchDriveForExcel(driveId: string, query: string): Promise<OneDriveItem[]> {
+export async function searchDriveForExcel(driveId: string, query: string, userId?: string): Promise<OneDriveItem[]> {
   try {
-    const client = await getMicrosoftClient('onedrive');
+    // Use sharepoint client type to use user's delegated token
+    const client = await getMicrosoftClient('sharepoint', userId);
     
     const response = await client.api(`/drives/${driveId}/root/search(q='${query}')`)
       .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
