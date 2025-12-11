@@ -695,14 +695,28 @@ export function ExcelFilePicker({
                   <Cloud className="h-4 w-4 mr-2" />
                   OneDrive
                 </TabsTrigger>
-                <TabsTrigger value="sharepoint" disabled={!sharePointStatus?.connected} data-testid="tab-sharepoint">
+                <TabsTrigger 
+                  value="sharepoint" 
+                  disabled={!sharePointStatus?.connected && !oneDriveStatus?.connected} 
+                  data-testid="tab-sharepoint"
+                >
                   <Globe className="h-4 w-4 mr-2" />
                   SharePoint
                 </TabsTrigger>
               </TabsList>
             </Tabs>
 
-            {fileSource === 'sharepoint' && (
+            {fileSource === 'sharepoint' && !sharePointStatus?.connected && oneDriveStatus?.connected && (
+              <div className="mb-4 p-3 bg-muted rounded-lg text-sm">
+                <p className="font-medium mb-1">SharePoint browsing unavailable</p>
+                <p className="text-muted-foreground">
+                  Use the "Paste File URL" option above to link Excel files from SharePoint. 
+                  Copy the URL from your browser when viewing the file in SharePoint.
+                </p>
+              </div>
+            )}
+
+            {fileSource === 'sharepoint' && sharePointStatus?.connected && (
               <div className="mb-4">
                 <Label className="text-sm font-medium mb-2 block">Document Library</Label>
                 <Select
@@ -779,14 +793,16 @@ export function ExcelFilePicker({
             )}
 
             <ScrollArea className="h-[250px] border rounded-lg p-2">
-              {fileSource === 'sharepoint' && !selectedDriveId ? (
+              {fileSource === 'sharepoint' && (!sharePointStatus?.connected || !selectedDriveId) ? (
                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                   <Globe className="h-12 w-12 mb-2 opacity-50" />
                   <p className="text-center">
-                    Select a document library above to browse
+                    {sharePointStatus?.connected 
+                      ? "Select a document library above to browse"
+                      : "SharePoint browsing not available"}
                   </p>
                   <p className="text-xs text-center mt-1 max-w-xs">
-                    Or use the "Paste File URL" option above for direct access to any SharePoint file
+                    Use the "Paste File URL" option above for direct access to any SharePoint file
                   </p>
                 </div>
               ) : isLoading ? (
