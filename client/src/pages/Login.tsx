@@ -160,6 +160,7 @@ export default function Login() {
       });
       // Redirect to SSO login with tenant hint
       setTimeout(() => {
+        sessionStorage.setItem('vega_sso_pending', Date.now().toString());
         window.location.href = `/auth/entra/login${ssoPolicy.tenantId ? `?tenant=${ssoPolicy.tenantId}` : ''}`;
       }, 1500);
       return;
@@ -418,7 +419,10 @@ export default function Login() {
                     type="button"
                     variant={ssoPolicy?.ssoRequired ? "default" : "outline"}
                     className="w-full"
-                    onClick={() => window.location.href = `/auth/entra/login${ssoPolicy?.tenantId ? `?tenant=${ssoPolicy.tenantId}` : ''}`}
+                    onClick={() => {
+                      sessionStorage.setItem('vega_sso_pending', Date.now().toString());
+                      window.location.href = `/auth/entra/login${ssoPolicy?.tenantId ? `?tenant=${ssoPolicy.tenantId}` : ''}`;
+                    }}
                     data-testid="button-sso-login"
                   >
                     <SquareStack className="mr-2 h-4 w-4" />
