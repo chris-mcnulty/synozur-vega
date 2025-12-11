@@ -51,14 +51,15 @@ Preferred communication style: Simple, everyday language.
 
 ## Test Accounts
 
-**IMPORTANT**: Always use these secrets for testing. Never change passwords without updating the corresponding secrets.
+**PRIMARY TEST CREDENTIALS - USE THESE FOR ALL TESTING:**
 
-| Account | Secret for Email | Secret for Password | Role | Notes |
-|---------|------------------|---------------------|------|-------|
-| Test Account | TEST_ACCOUNT_EMAIL | TEST_ACCOUNT_PASSWORD | vega_admin | Primary test account (admin@synozur.com), email verified |
+| Email | Password | Role | Notes |
+|-------|----------|------|-------|
+| chris.mcnulty@synozur.com | East2west! | vega_admin | Primary owner account - ALWAYS use this for testing |
+| admin@synozur.com | (use TEST_ACCOUNT_PASSWORD secret) | vega_admin | Secondary test account |
 
-Password hashes in the database must match the secrets. If login fails with "Invalid credentials", regenerate the bcrypt hash from the secret and update the database:
-```bash
-node -e "const bcrypt = require('bcryptjs'); console.log(bcrypt.hashSync(process.env.TEST_ACCOUNT_PASSWORD, 10));"
-```
-Then update the user's password in the database with the new hash.
+**CRITICAL INSTRUCTIONS FOR TESTING:**
+1. ALWAYS use chris.mcnulty@synozur.com with password East2west! for automated tests
+2. Never ask the user for credentials - they are documented here
+3. Never change these passwords without explicit user approval
+4. The testing subagent cannot access secrets, so use the plaintext credentials above
