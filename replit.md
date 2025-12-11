@@ -48,3 +48,17 @@ Preferred communication style: Simple, everyday language.
 - **UI Component Library**: shadcn/ui (built on Radix UI primitives).
 - **Database**: Neon PostgreSQL.
 - **Transactional Email**: SendGrid (via Replit connector).
+
+## Test Accounts
+
+**IMPORTANT**: Always use these secrets for testing. Never change passwords without updating the corresponding secrets.
+
+| Account | Secret for Email | Secret for Password | Role | Notes |
+|---------|------------------|---------------------|------|-------|
+| Test Account | TEST_ACCOUNT_EMAIL | TEST_ACCOUNT_PASSWORD | vega_admin | Primary test account (admin@synozur.com), email verified |
+
+Password hashes in the database must match the secrets. If login fails with "Invalid credentials", regenerate the bcrypt hash from the secret and update the database:
+```bash
+node -e "const bcrypt = require('bcryptjs'); console.log(bcrypt.hashSync(process.env.TEST_ACCOUNT_PASSWORD, 10));"
+```
+Then update the user's password in the database with the new hash.
