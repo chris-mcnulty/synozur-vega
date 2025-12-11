@@ -817,42 +817,62 @@ export async function getSharePointFileFromUrl(fileUrl: string): Promise<{
   driveId: string;
   siteId?: string;
 } | null> {
-  try {
-    const client = await getMicrosoftClient('onedrive');
-    const shareId = encodeShareUrl(fileUrl);
-    
-    console.log('[SharePoint] Resolving file URL:', fileUrl);
-    console.log('[SharePoint] Encoded shareId:', shareId);
-    
-    // Get the driveItem with expanded info
-    const response = await client.api(`/shares/${shareId}/driveItem`)
-      .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
-      .get();
-    
-    if (!response) {
-      console.log('[SharePoint] No response from Shares API');
-      return null;
+  const shareId = encodeShareUrl(fileUrl);
+  console.log('[SharePoint] Resolving file URL:', fileUrl);
+  console.log('[SharePoint] Encoded shareId:', shareId);
+  
+  // Determine which connector to try first based on URL
+  const isSharePointUrl = fileUrl.includes('.sharepoint.com');
+  const connectorOrder: ConnectorType[] = isSharePointUrl 
+    ? ['sharepoint', 'onedrive'] 
+    : ['onedrive', 'sharepoint'];
+  
+  let lastError: any = null;
+  
+  for (const connectorType of connectorOrder) {
+    try {
+      console.log(`[SharePoint] Trying ${connectorType} connector...`);
+      const client = await getMicrosoftClient(connectorType);
+      
+      // Get the driveItem with expanded info
+      const response = await client.api(`/shares/${shareId}/driveItem`)
+        .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
+        .get();
+      
+      if (!response) {
+        console.log(`[SharePoint] No response from ${connectorType} Shares API`);
+        continue;
+      }
+      
+      console.log(`[SharePoint] Successfully resolved file via ${connectorType}:`, response.name);
+      
+      return {
+        item: response,
+        driveId: response.parentReference?.driveId || '',
+        siteId: response.parentReference?.siteId,
+      };
+    } catch (error: any) {
+      console.log(`[SharePoint] ${connectorType} connector failed:`, error.code, error.message);
+      lastError = error;
+      // Continue to try next connector
     }
-    
-    console.log('[SharePoint] Successfully resolved file:', response.name);
-    
-    return {
-      item: response,
-      driveId: response.parentReference?.driveId || '',
-      siteId: response.parentReference?.siteId,
-    };
-  } catch (error: any) {
-    console.error('[SharePoint] Failed to get file from URL:', error.code, error.message);
-    if (error.body) {
+  }
+  
+  // All connectors failed, throw the last error
+  if (lastError) {
+    console.error('[SharePoint] All connectors failed to resolve file');
+    if (lastError.body) {
       try {
-        const body = JSON.parse(error.body);
+        const body = JSON.parse(lastError.body);
         console.error('[SharePoint] Error details:', body.error?.message || body);
       } catch (e) {
-        console.error('[SharePoint] Error body:', error.body);
+        console.error('[SharePoint] Error body:', lastError.body);
       }
     }
-    throw error; // Re-throw so the route can return proper error
+    throw lastError;
   }
+  
+  return null;
 }
 
 // Get all drives the user has access to (OneDrive + SharePoint document libraries)
