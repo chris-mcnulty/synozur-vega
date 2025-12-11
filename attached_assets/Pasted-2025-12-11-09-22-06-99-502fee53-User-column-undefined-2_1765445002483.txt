@@ -1,0 +1,96 @@
+2025-12-11 09:22:06.99
+502fee53
+User
+column: undefined,
+2025-12-11 09:22:06.99
+502fee53
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2025-12-11 09:22:06.99
+502fee53
+User
+code: '23503',
+2025-12-11 09:22:06.99
+502fee53
+User
+at async file:///home/runner/workspace/dist/index.js:7979:13 {
+2025-12-11 09:22:06.99
+502fee53
+User
+internalPosition: undefined,
+2025-12-11 09:22:06.99
+502fee53
+User
+constraint: 'graph_tokens_tenant_id_fkey',
+2025-12-11 09:22:06.99
+502fee53
+User
+severity: 'ERROR',
+2025-12-11 09:22:06.99
+502fee53
+User
+[Entra SSO] Failed to store Graph token: error: insert or update on table "graph_tokens" violates foreign key constraint "graph_tokens_tenant_id_fkey"
+2025-12-11 09:22:06.99
+502fee53
+User
+line: '2608',
+2025-12-11 09:22:06.99
+502fee53
+User
+file: 'ri_triggers.c',
+2025-12-11 09:22:06.99
+502fee53
+User
+routine: 'ri_ReportViolation'
+2025-12-11 09:22:06.99
+502fee53
+User
+table: 'graph_tokens',
+2025-12-11 09:22:06.99
+502fee53
+User
+dataType: undefined,
+2025-12-11 09:22:06.99
+502fee53
+User
+at async NeonPreparedQuery.execute (file:///home/runner/workspace/node_modules/drizzle-orm/neon-serverless/session.js:76:20)
+2025-12-11 09:22:06.99
+502fee53
+User
+length: 313,
+2025-12-11 09:22:06.99
+502fee53
+User
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2025-12-11 09:22:06.99
+502fee53
+User
+hint: undefined,
+2025-12-11 09:22:06.99
+502fee53
+User
+detail: 'Key (tenant_id)=(b4fbeaf7-1c91-43bb-8031-49eb8d4175ee) is not present in table "tenants".',
+2025-12-11 09:22:06.99
+502fee53
+User
+schema: 'public',
+2025-12-11 09:22:06.99
+502fee53
+User
+internalQuery: undefined,
+2025-12-11 09:22:06.99
+502fee53
+User
+position: undefined,
+2025-12-11 09:22:06.99
+502fee53
+User
+}
+2025-12-11 09:22:06.99
+502fee53
+User
+at async DatabaseStorage.upsertGraphToken (file:///home/runner/workspace/dist/index.js:1596:27)
+2025-12-11 09:22:06.99
+502fee53
+User
+where: undefined,

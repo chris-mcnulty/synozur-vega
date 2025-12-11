@@ -237,11 +237,12 @@ router.get('/callback', async (req: Request, res: Response) => {
     }
 
     // Store the Graph token for SharePoint/OneDrive access
-    if (tokenResponse.accessToken) {
+    // Use the user's Vega tenant ID (not Azure tenant ID) for the foreign key
+    if (tokenResponse.accessToken && user.tenantId) {
       try {
         await storage.upsertGraphToken({
           userId: user.id,
-          tenantId: azureTenantId,
+          tenantId: user.tenantId, // Vega tenant ID, not Azure tenant ID
           accessToken: encryptToken(tokenResponse.accessToken),
           refreshToken: (tokenResponse as any).refreshToken ? encryptToken((tokenResponse as any).refreshToken) : null,
           expiresAt: tokenResponse.expiresOn || null,
