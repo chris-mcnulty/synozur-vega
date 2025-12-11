@@ -61,3 +61,26 @@ Preferred communication style: Simple, everyday language.
 **Testing Instructions:**
 - Use secrets for authentication in tests
 - Never expose credentials in code or documentation
+
+## Feature Backlog
+
+### Planner Progress Mapping (Priority: High)
+Map Key Results or Big Rocks to Microsoft Planner plans/buckets to derive progress from task completion:
+- Add `plannerPlanId`, `plannerBucketId`, `plannerSyncEnabled` fields to Key Results and Big Rocks
+- Calculate progress as percentage of completed tasks in the mapped plan/bucket
+- Support mapping to entire plan OR specific bucket (category)
+- Auto-sync progress on page load or manual refresh
+- UI: Planner mapping selector in KR/Big Rock detail pane
+
+### Focus Rhythm Enhancements (Priority: Medium)
+- Rich agenda with live OKR links that show current progress
+- Import meeting notes from Outlook Calendar
+- AI-powered meeting recap parser (extract action items, decisions, blockers)
+- Meeting templates with pre-configured OKR check-in sections
+- Recurring meeting series support
+
+### OpenAPI Spec for M365 Copilot Agent (Priority: High - January 2025 deadline)
+- Generate OpenAPI 3.0 spec for all Vega API endpoints
+- Focus on OKR CRUD, Big Rock management, and meeting operations
+- Support natural language queries about company strategy and progress
+- Target SharePoint site: https://synozur.sharepoint.com/sites/Marketing
