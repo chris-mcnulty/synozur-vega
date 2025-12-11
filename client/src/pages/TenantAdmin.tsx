@@ -27,7 +27,11 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, AlertCircle, Calendar, FileSpreadsheet, Mail, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield } from "lucide-react";
+import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield, Settings2, Cloud } from "lucide-react";
+import excelIcon from "@assets/Excel_512_1765494903271.png";
+import oneDriveIcon from "@assets/OneDrive_512_1765494903274.png";
+import outlookIcon from "@assets/Outlook_512_1765494903276.png";
+import sharePointIcon from "@assets/SharePoint_512_1765494903279.png";
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -63,30 +67,41 @@ type User = {
   tenantId: string | null;
 };
 
-const m365Services = [
+const m365Connectors = [
   {
-    id: "excel",
-    name: "Microsoft Excel",
-    icon: FileSpreadsheet,
-    description: "Data sync and analytics integration",
-    connected: true,
-    lastSync: "2 minutes ago",
+    id: "onedrive",
+    key: "connectorOneDrive",
+    name: "OneDrive",
+    icon: oneDriveIcon,
+    description: "Access personal files and documents stored in OneDrive",
+  },
+  {
+    id: "sharepoint",
+    key: "connectorSharePoint",
+    name: "SharePoint",
+    icon: sharePointIcon,
+    description: "Access shared documents and sites in SharePoint",
   },
   {
     id: "outlook",
-    name: "Microsoft Outlook",
-    icon: Mail,
-    description: "Calendar and email integration",
-    connected: true,
-    lastSync: "5 minutes ago",
+    key: "connectorOutlook",
+    name: "Outlook",
+    icon: outlookIcon,
+    description: "Calendar integration for meetings and scheduling",
+  },
+  {
+    id: "excel",
+    key: "connectorExcel",
+    name: "Excel",
+    icon: excelIcon,
+    description: "Sync Key Result data from Excel spreadsheets",
   },
   {
     id: "planner",
-    name: "Microsoft Planner",
-    icon: Calendar,
-    description: "Task management synchronization",
-    connected: true,
-    lastSync: "1 hour ago",
+    key: "connectorPlanner",
+    name: "Planner",
+    iconLucide: Calendar,
+    description: "Sync tasks and plans with Microsoft Planner",
   },
 ];
 
@@ -146,6 +161,16 @@ export default function TenantAdmin() {
     azureTenantId: "",
     enforceSso: false,
     allowLocalAuth: true,
+  });
+
+  const [connectorsDialogOpen, setConnectorsDialogOpen] = useState(false);
+  const [selectedTenantForConnectors, setSelectedTenantForConnectors] = useState<Tenant | null>(null);
+  const [connectorFormData, setConnectorFormData] = useState({
+    connectorOneDrive: false,
+    connectorSharePoint: false,
+    connectorOutlook: false,
+    connectorExcel: false,
+    connectorPlanner: false,
   });
 
   const { data: tenants = [], isLoading: tenantsLoading } = useQuery<Tenant[]>({
@@ -444,6 +469,39 @@ export default function TenantAdmin() {
     setSsoDialogOpen(false);
   };
 
+  const handleOpenConnectorsDialog = (tenant: Tenant) => {
+    setSelectedTenantForConnectors(tenant);
+    setConnectorFormData({
+      connectorOneDrive: (tenant as any).connectorOneDrive || false,
+      connectorSharePoint: (tenant as any).connectorSharePoint || false,
+      connectorOutlook: (tenant as any).connectorOutlook || false,
+      connectorExcel: (tenant as any).connectorExcel || false,
+      connectorPlanner: (tenant as any).connectorPlanner || false,
+    });
+    setConnectorsDialogOpen(true);
+  };
+
+  const handleSaveConnectorSettings = () => {
+    if (!selectedTenantForConnectors) return;
+    
+    updateTenantMutation.mutate({
+      id: selectedTenantForConnectors.id,
+      data: connectorFormData as any,
+    });
+    setConnectorsDialogOpen(false);
+  };
+
+  const getConnectorCount = (tenant: Tenant) => {
+    const t = tenant as any;
+    let count = 0;
+    if (t.connectorOneDrive) count++;
+    if (t.connectorSharePoint) count++;
+    if (t.connectorOutlook) count++;
+    if (t.connectorExcel) count++;
+    if (t.connectorPlanner) count++;
+    return count;
+  };
+
   const getSsoStatus = (tenant: Tenant) => {
     const azureTenantId = (tenant as any).azureTenantId;
     const enforceSso = (tenant as any).enforceSso;
@@ -559,6 +617,16 @@ export default function TenantAdmin() {
                       <Shield className="h-3 w-3 mr-1" />
                       SSO: <Badge variant={getSsoStatus(tenant).variant} className="ml-1 text-xs">{getSsoStatus(tenant).label}</Badge>
                     </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => handleOpenConnectorsDialog(tenant)}
+                      data-testid={`button-connectors-${tenant.id}`}
+                    >
+                      <Cloud className="h-3 w-3 mr-1" />
+                      M365 Connectors: <Badge variant={getConnectorCount(tenant) > 0 ? "default" : "secondary"} className="ml-1 text-xs">{getConnectorCount(tenant)} enabled</Badge>
+                    </Button>
                   </CardContent>
                 </Card>
               ))
@@ -636,91 +704,27 @@ export default function TenantAdmin() {
         </div>
 
         <div>
-          <h2 className="text-xl font-semibold mb-4">M365 Service Connections</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {m365Services.map((service) => (
-              <Card key={service.id} data-testid={`service-card-${service.id}`}>
-                <CardHeader>
-                  <div className="flex items-start justify-between">
+          <h2 className="text-xl font-semibold mb-4">Microsoft 365 Connectors</h2>
+          <p className="text-muted-foreground mb-4">
+            Configure which Microsoft 365 integrations are available for each organization using the "M365 Connectors" button on each organization card above.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {m365Connectors.map((connector) => (
+              <Card key={connector.id} className="text-center" data-testid={`connector-info-${connector.id}`}>
+                <CardContent className="pt-6 pb-4 flex flex-col items-center gap-2">
+                  {'icon' in connector ? (
+                    <img src={connector.icon} alt={connector.name} className="w-12 h-12 object-contain" />
+                  ) : (
                     <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center">
-                      <service.icon className="h-6 w-6 text-primary" />
+                      <connector.iconLucide className="h-6 w-6 text-primary" />
                     </div>
-                    <Badge
-                      variant={service.connected ? "default" : "secondary"}
-                      className="gap-1"
-                    >
-                      {service.connected ? (
-                        <>
-                          <CheckCircle2 className="h-3 w-3" />
-                          Connected
-                        </>
-                      ) : (
-                        <>
-                          <AlertCircle className="h-3 w-3" />
-                          Disconnected
-                        </>
-                      )}
-                    </Badge>
-                  </div>
-                  <CardTitle className="text-lg mt-4">{service.name}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    {service.description}
-                  </p>
-                  {service.connected && (
-                    <p className="text-xs text-muted-foreground">
-                      Last synced: {service.lastSync}
-                    </p>
                   )}
-                  <Button
-                    variant={service.connected ? "outline" : "default"}
-                    size="sm"
-                    className="w-full"
-                    data-testid={`button-${service.connected ? 'disconnect' : 'connect'}-${service.id}`}
-                  >
-                    {service.connected ? "Disconnect" : "Connect"}
-                  </Button>
+                  <p className="font-medium text-sm">{connector.name}</p>
+                  <p className="text-xs text-muted-foreground">{connector.description}</p>
                 </CardContent>
               </Card>
             ))}
           </div>
-        </div>
-
-        <div>
-          <h2 className="text-xl font-semibold mb-4">App Permissions</h2>
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-4">
-                {permissions.map((permission) => (
-                  <div
-                    key={permission.id}
-                    className="flex items-center justify-between py-3 border-b last:border-b-0"
-                    data-testid={`permission-${permission.id}`}
-                  >
-                    <div>
-                      <p className="font-medium">{permission.label}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {permissionStates[permission.id]
-                          ? "Application can access this resource"
-                          : "Access is disabled"}
-                      </p>
-                    </div>
-                    <Switch
-                      checked={permissionStates[permission.id]}
-                      onCheckedChange={(checked) =>
-                        setPermissionStates({
-                          ...permissionStates,
-                          [permission.id]: checked,
-                        })
-                      }
-                      data-testid={`switch-${permission.id}`}
-                    />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
         </div>
       </div>
 
@@ -1199,6 +1203,64 @@ export default function TenantAdmin() {
             <Button
               onClick={handleSaveSsoSettings}
               data-testid="button-save-sso"
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={connectorsDialogOpen} onOpenChange={setConnectorsDialogOpen}>
+        <DialogContent data-testid="dialog-connectors-settings" className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>
+              M365 Connectors - {selectedTenantForConnectors?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Enable Microsoft 365 integrations for this organization. Users will be able to connect their accounts to use these services.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {m365Connectors.map((connector) => (
+              <div 
+                key={connector.id}
+                className="flex items-center justify-between py-3 border-b last:border-b-0"
+                data-testid={`connector-toggle-${connector.id}`}
+              >
+                <div className="flex items-center gap-3">
+                  {'icon' in connector ? (
+                    <img src={connector.icon} alt={connector.name} className="w-10 h-10 object-contain" />
+                  ) : (
+                    <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                      <connector.iconLucide className="h-5 w-5 text-primary" />
+                    </div>
+                  )}
+                  <div>
+                    <p className="font-medium">{connector.name}</p>
+                    <p className="text-xs text-muted-foreground">{connector.description}</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={connectorFormData[connector.key as keyof typeof connectorFormData]}
+                  onCheckedChange={(checked) =>
+                    setConnectorFormData({ ...connectorFormData, [connector.key]: checked })
+                  }
+                  data-testid={`switch-${connector.id}`}
+                />
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConnectorsDialogOpen(false)}
+              data-testid="button-cancel-connectors"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveConnectorSettings}
+              data-testid="button-save-connectors"
             >
               Save
             </Button>
