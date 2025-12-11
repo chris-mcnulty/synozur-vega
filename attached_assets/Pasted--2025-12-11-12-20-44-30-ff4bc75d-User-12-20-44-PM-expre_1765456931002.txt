@@ -1,0 +1,149 @@
+
+2025-12-11 12:20:44.30
+ff4bc75d
+User
+12:20:44 PM [express] serving on port 5000
+2025-12-11 12:41:17.08
+91934100
+User
+12:41:17 PM [express] GET /api/okr/objectives/ab78b4fd-8ad2-4f62-83d4-defabe82c626/key-results 304 in…
+2025-12-11 12:41:17.09
+91934100
+User
+12:41:17 PM [express] GET /api/okr/objectives/c79afed4-13c8-4447-b484-8419effde97a/key-results 304 in…
+2025-12-11 12:41:17.09
+91934100
+User
+12:41:17 PM [express] GET /api/okr/objectives/5495697e-f33b-4a55-8ced-e15585cc0804/key-results 304 in…
+2025-12-11 12:41:17.09
+91934100
+User
+12:41:17 PM [express] GET /api/okr/objectives/7f58d2fa-725c-4051-bcc7-327e131adba0/key-results 304 in…
+2025-12-11 12:41:17.11
+91934100
+User
+12:41:17 PM [express] GET /api/okr/objectives/074dcc25-a275-412c-bb46-42f458168f7f/key-results 304 in…
+2025-12-11 12:41:17.11
+91934100
+User
+12:41:17 PM [express] GET /api/okr/objectives/ba6b7a0f-dc3d-40ac-9b8c-7f598d1bac25/key-results 304 in…
+2025-12-11 12:41:17.13
+91934100
+User
+12:41:17 PM [express] GET /api/okr/objectives/5544024d-f304-47bc-bc34-2f5932ed18a8/key-results 304 in…
+2025-12-11 12:41:17.13
+91934100
+User
+12:41:17 PM [express] GET /api/okr/objectives/7be456c9-1ecc-468c-b9b5-5978f258753e/key-results 304 in…
+2025-12-11 12:41:23.32
+91934100
+User
+12:41:23 PM [express] GET /api/okr/check-ins 304 in 109ms :: [{"id":"cf22e1f3-da2e-4b5a-b1a3-8b1d10fb…
+2025-12-11 12:41:28.18
+91934100
+User
+[SharePoint] checkSharePointConnection called with userId: 53ac8557-dc08-482c-90e0-8b19f430a762
+2025-12-11 12:41:28.18
+91934100
+User
+[SharePoint] Checking for user delegated token...
+2025-12-11 12:41:28.18
+91934100
+User
+[Graph] getUserGraphToken called for userId: 53ac8557-dc08-482c-90e0-8b19f430a762
+2025-12-11 12:41:28.22
+91934100
+User
+hasAccessToken: true,
+2025-12-11 12:41:28.22
+91934100
+User
+userId: '53ac8557-dc08-482c-90e0-8b19f430a762',
+2025-12-11 12:41:28.22
+91934100
+User
+[Graph] getGraphToken result: {
+2025-12-11 12:41:28.22
+91934100
+User
+}
+2025-12-11 12:41:28.22
+91934100
+User
+expiresAt: 2025-12-11T13:55:30.000Z
+2025-12-11 12:41:28.22
+91934100
+User
+hasRefreshToken: false,
+2025-12-11 12:41:28.22
+91934100
+User
+tenantId: '8ebd7efe-32ed-4546-b0be-0112b8feed9f',
+2025-12-11 12:41:28.24
+91934100
+User
+[SharePoint] User delegated token available for SharePoint access
+2025-12-11 12:41:28.27
+91934100
+User
+12:41:28 PM [express] GET /api/m365/sharepoint/status 200 in 114ms :: {"connected":true}
+2025-12-11 12:41:28.36
+91934100
+User
+12:41:28 PM [express] GET /api/m365/onedrive/status 304 in 119ms :: {"connected":true}
+2025-12-11 12:41:29.10
+91934100
+User
+12:41:29 PM [express] GET /api/m365/onedrive/files 304 in 855ms :: [{"@odata.etag":"\"{93D535A5-EAAF-…
+2025-12-11 12:41:30.48
+91934100
+User
+[Graph] getUserGraphToken called for userId: 53ac8557-dc08-482c-90e0-8b19f430a762
+2025-12-11 12:41:30.50
+91934100
+User
+tenantId: '8ebd7efe-32ed-4546-b0be-0112b8feed9f',
+2025-12-11 12:41:30.50
+91934100
+User
+expiresAt: 2025-12-11T13:55:30.000Z
+2025-12-11 12:41:30.50
+91934100
+User
+}
+2025-12-11 12:41:30.50
+91934100
+User
+hasAccessToken: true,
+2025-12-11 12:41:30.50
+91934100
+User
+hasRefreshToken: false,
+2025-12-11 12:41:30.50
+91934100
+User
+userId: '53ac8557-dc08-482c-90e0-8b19f430a762',
+2025-12-11 12:41:30.50
+91934100
+User
+[Graph] getGraphToken result: {
+2025-12-11 12:41:30.53
+91934100
+User
+[Graph] Using user delegated token for sharepoint
+2025-12-11 12:41:30.89
+91934100
+User
+[SharePoint] Failed to get SharePoint sites: Sharepoint not connected. Please connect your Microsoft account in Replit.
+2025-12-11 12:41:30.92
+91934100
+User
+12:41:30 PM [express] GET /api/m365/drives 304 in 445ms :: [{"id":"b!BVy7_8heDEaewkni4C-EGma9z-3b3v5K…
+2025-12-11 12:41:34.56
+91934100
+User
+12:41:34 PM [express] GET /api/m365/sharepoint/sites 200 in 4107ms :: [{"id":"synozur.sharepoint.com,…
+2025-12-11 12:41:34.56
+91934100
+User
+12:41:34 PM [express] GET /api/m365/sharepoint/sites 200 in 4107ms :: [{"
