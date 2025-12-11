@@ -1,11 +1,87 @@
 import { Client } from '@microsoft/microsoft-graph-client';
+import { ClientSecretCredential } from '@azure/identity';
 
-// Cached connection settings per connector type
+// Cached connection settings per connector type (Replit connectors)
 let outlookConnectionSettings: any;
 let oneDriveConnectionSettings: any;
 let sharePointConnectionSettings: any;
 
+// Cached token for Entra app confidential client
+let entraAppToken: { token: string; expiresAt: number } | null = null;
+
 type ConnectorType = 'outlook' | 'onedrive' | 'sharepoint';
+
+// ==================== Entra App Confidential Client ====================
+// Uses the user's own Azure Entra app registration with proper SharePoint permissions
+
+function hasEntraAppCredentials(): boolean {
+  return !!(
+    process.env.AZURE_CLIENT_ID &&
+    process.env.AZURE_CLIENT_SECRET &&
+    process.env.AZURE_TENANT_ID
+  );
+}
+
+async function getEntraAppAccessToken(): Promise<string> {
+  const clientId = process.env.AZURE_CLIENT_ID;
+  const clientSecret = process.env.AZURE_CLIENT_SECRET;
+  const tenantId = process.env.AZURE_TENANT_ID;
+
+  if (!clientId || !clientSecret || !tenantId) {
+    throw new Error('Entra app credentials not configured (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID)');
+  }
+
+  // Check if cached token is still valid (with 5 min buffer)
+  if (entraAppToken && entraAppToken.expiresAt > Date.now() + 5 * 60 * 1000) {
+    return entraAppToken.token;
+  }
+
+  console.log('[EntraApp] Acquiring new token via client credentials flow...');
+  
+  const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
+  
+  // Request token for Microsoft Graph API
+  const tokenResponse = await credential.getToken('https://graph.microsoft.com/.default');
+  
+  if (!tokenResponse || !tokenResponse.token) {
+    throw new Error('Failed to acquire token from Entra app');
+  }
+
+  // Cache the token
+  entraAppToken = {
+    token: tokenResponse.token,
+    expiresAt: tokenResponse.expiresOnTimestamp || (Date.now() + 3600 * 1000), // Default 1 hour
+  };
+
+  console.log('[EntraApp] Token acquired successfully');
+  return entraAppToken.token;
+}
+
+async function getEntraAppGraphClient(): Promise<Client> {
+  const accessToken = await getEntraAppAccessToken();
+
+  return Client.initWithMiddleware({
+    authProvider: {
+      getAccessToken: async () => accessToken
+    }
+  });
+}
+
+export async function checkEntraAppConnection(): Promise<boolean> {
+  if (!hasEntraAppCredentials()) {
+    return false;
+  }
+  
+  try {
+    await getEntraAppAccessToken();
+    return true;
+  } catch (error) {
+    console.error('[EntraApp] Connection check failed:', error);
+    return false;
+  }
+}
+
+// ==================== Replit Connector Functions ====================
 
 async function getAccessToken(connectorType: ConnectorType = 'outlook'): Promise<string> {
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
@@ -541,6 +617,18 @@ export interface SharePointListItem {
 }
 
 export async function checkSharePointConnection(): Promise<boolean> {
+  // First check if Entra app is available (has proper SharePoint permissions)
+  if (hasEntraAppCredentials()) {
+    try {
+      await getEntraAppAccessToken();
+      console.log('[SharePoint] Entra app credentials available for SharePoint access');
+      return true;
+    } catch (error) {
+      console.log('[SharePoint] Entra app token failed, trying Replit connector');
+    }
+  }
+  
+  // Fall back to Replit connector
   try {
     await getAccessToken('sharepoint');
     return true;
@@ -821,20 +909,44 @@ export async function getSharePointFileFromUrl(fileUrl: string): Promise<{
   console.log('[SharePoint] Resolving file URL:', fileUrl);
   console.log('[SharePoint] Encoded shareId:', shareId);
   
-  // Determine which connector to try first based on URL
   const isSharePointUrl = fileUrl.includes('.sharepoint.com');
+  let lastError: any = null;
+  
+  // For SharePoint URLs, try the Entra app first (has Sites.Read.All permission)
+  if (isSharePointUrl && hasEntraAppCredentials()) {
+    try {
+      console.log('[SharePoint] Trying Entra app confidential client...');
+      const client = await getEntraAppGraphClient();
+      
+      const response = await client.api(`/shares/${shareId}/driveItem`)
+        .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
+        .get();
+      
+      if (response) {
+        console.log('[SharePoint] Successfully resolved file via Entra app:', response.name);
+        return {
+          item: response,
+          driveId: response.parentReference?.driveId || '',
+          siteId: response.parentReference?.siteId,
+        };
+      }
+    } catch (error: any) {
+      console.log('[SharePoint] Entra app failed:', error.code, error.message);
+      lastError = error;
+      // Fall through to try Replit connectors
+    }
+  }
+  
+  // Fall back to Replit connectors
   const connectorOrder: ConnectorType[] = isSharePointUrl 
     ? ['sharepoint', 'onedrive'] 
     : ['onedrive', 'sharepoint'];
-  
-  let lastError: any = null;
   
   for (const connectorType of connectorOrder) {
     try {
       console.log(`[SharePoint] Trying ${connectorType} connector...`);
       const client = await getMicrosoftClient(connectorType);
       
-      // Get the driveItem with expanded info
       const response = await client.api(`/shares/${shareId}/driveItem`)
         .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
         .get();
@@ -854,13 +966,12 @@ export async function getSharePointFileFromUrl(fileUrl: string): Promise<{
     } catch (error: any) {
       console.log(`[SharePoint] ${connectorType} connector failed:`, error.code, error.message);
       lastError = error;
-      // Continue to try next connector
     }
   }
   
-  // All connectors failed, throw the last error
+  // All methods failed
   if (lastError) {
-    console.error('[SharePoint] All connectors failed to resolve file');
+    console.error('[SharePoint] All methods failed to resolve file');
     if (lastError.body) {
       try {
         const body = JSON.parse(lastError.body);
