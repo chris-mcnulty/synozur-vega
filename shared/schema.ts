@@ -42,6 +42,12 @@ export const tenants = pgTable("tenants", {
   azureTenantId: text("azure_tenant_id"),
   enforceSso: boolean("enforce_sso").default(false),
   allowLocalAuth: boolean("allow_local_auth").default(true),
+  // M365 Connector Configuration
+  connectorOneDrive: boolean("connector_onedrive").default(false),
+  connectorSharePoint: boolean("connector_sharepoint").default(false),
+  connectorOutlook: boolean("connector_outlook").default(false),
+  connectorExcel: boolean("connector_excel").default(false),
+  connectorPlanner: boolean("connector_planner").default(false),
 });
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({
