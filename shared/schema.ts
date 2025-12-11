@@ -48,6 +48,10 @@ export const tenants = pgTable("tenants", {
   connectorOutlook: boolean("connector_outlook").default(false),
   connectorExcel: boolean("connector_excel").default(false),
   connectorPlanner: boolean("connector_planner").default(false),
+  // Admin Consent for Multi-Tenant M365 Integration
+  adminConsentGranted: boolean("admin_consent_granted").default(false),
+  adminConsentGrantedAt: timestamp("admin_consent_granted_at"),
+  adminConsentGrantedBy: varchar("admin_consent_granted_by"),
 });
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({

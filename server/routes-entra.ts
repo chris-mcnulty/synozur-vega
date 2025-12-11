@@ -60,6 +60,31 @@ const PLANNER_SCOPES = [
 ];
 
 const PLANNER_REDIRECT_URI = `${getBaseUrl()}/auth/entra/planner-callback`;
+const ADMIN_CONSENT_REDIRECT_URI = `${getBaseUrl()}/auth/entra/admin-consent-callback`;
+
+// All scopes needed for Vega platform (including Copilot agent)
+const ALL_SCOPES = [
+  // Basic user profile
+  'openid',
+  'profile',
+  'email',
+  'User.Read',
+  'User.Read.All',        // Read all users in org (for Copilot agent)
+  // Files and SharePoint
+  'Files.Read.All',
+  'Sites.Read.All',
+  // Planner
+  'Tasks.Read.All',
+  'Tasks.ReadWrite.All',
+  'Group.Read.All',
+  // Calendar and Mail
+  'Calendars.Read',
+  'Calendars.ReadWrite',
+  'Mail.Read',
+  'Mail.Send',
+  // Offline access
+  'offline_access',
+];
 
 const cryptoProvider = new CryptoProvider();
 
@@ -539,6 +564,229 @@ router.post('/planner/disconnect', async (req: Request, res: Response) => {
   } catch (error) {
     console.error('[Entra Planner] Disconnect error:', error);
     res.status(500).json({ error: 'Failed to disconnect Planner' });
+  }
+});
+
+// ==================== Admin Consent Flow ====================
+// For multi-tenant apps, tenant admins must grant consent for the org
+
+/**
+ * GET /auth/entra/admin-consent
+ * Initiates admin consent flow - redirects admin to Microsoft consent page
+ * Query params:
+ *   - tenantId: The Vega tenant ID to associate consent with
+ */
+router.get('/admin-consent', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    // Verify user is a tenant admin or higher
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(403).json({ error: 'User not found' });
+    }
+
+    const adminRoles = [ROLES.TENANT_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_ADMIN, ROLES.VEGA_CONSULTANT];
+    if (!adminRoles.includes(user.role as any)) {
+      return res.status(403).json({ error: 'Admin privileges required to grant org-wide consent' });
+    }
+
+    const vegaTenantId = req.query.tenantId as string || user.tenantId;
+    if (!vegaTenantId) {
+      return res.status(400).json({ error: 'Tenant ID required' });
+    }
+
+    // Verify tenant exists
+    const tenant = await storage.getTenantById(vegaTenantId);
+    if (!tenant) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    if (!process.env.AZURE_CLIENT_ID) {
+      return res.status(503).json({ error: 'Azure AD SSO is not configured' });
+    }
+
+    // Build state to pass through the consent flow
+    const statePayload = JSON.stringify({
+      nonce: cryptoProvider.createNewGuid(),
+      vegaTenantId,
+      userId,
+    });
+    const encryptedState = encryptToken(statePayload);
+    const state = Buffer.from(encryptedState).toString('base64url');
+
+    // Build admin consent URL
+    // For multi-tenant apps, we use /adminconsent endpoint
+    const adminConsentUrl = new URL('https://login.microsoftonline.com/organizations/v2.0/adminconsent');
+    adminConsentUrl.searchParams.set('client_id', process.env.AZURE_CLIENT_ID);
+    adminConsentUrl.searchParams.set('redirect_uri', ADMIN_CONSENT_REDIRECT_URI);
+    adminConsentUrl.searchParams.set('scope', ALL_SCOPES.join(' '));
+    adminConsentUrl.searchParams.set('state', state);
+
+    console.log('[Entra Admin Consent] Initiating admin consent for tenant:', vegaTenantId);
+    res.redirect(adminConsentUrl.toString());
+  } catch (error) {
+    console.error('[Entra Admin Consent] Error initiating consent:', error);
+    res.status(500).json({ error: 'Failed to initiate admin consent' });
+  }
+});
+
+/**
+ * GET /auth/entra/admin-consent-callback
+ * Handles callback after admin grants (or denies) consent
+ */
+router.get('/admin-consent-callback', async (req: Request, res: Response) => {
+  try {
+    const { admin_consent, state, error, error_description, tenant: azureTenantId } = req.query;
+
+    // Decode state to get original context
+    let vegaTenantId: string;
+    let userId: string;
+    
+    if (!state || typeof state !== 'string') {
+      console.error('[Entra Admin Consent] Missing state parameter');
+      return res.redirect('/tenant-admin?error=missing_state');
+    }
+
+    try {
+      const encryptedState = Buffer.from(state, 'base64url').toString();
+      const decryptedState = decryptToken(encryptedState);
+      const statePayload = JSON.parse(decryptedState);
+      vegaTenantId = statePayload.vegaTenantId;
+      userId = statePayload.userId;
+    } catch (stateError) {
+      console.error('[Entra Admin Consent] Failed to decode state:', stateError);
+      return res.redirect('/tenant-admin?error=invalid_state');
+    }
+
+    // Check for errors
+    if (error) {
+      console.error('[Entra Admin Consent] Consent error:', error, error_description);
+      
+      // Provide user-friendly error messages
+      let userMessage = 'consent_denied';
+      if (error === 'access_denied') {
+        userMessage = 'consent_denied';
+      } else if (error === 'consent_required') {
+        userMessage = 'consent_required';
+      }
+      
+      return res.redirect(`/tenant-admin?error=${userMessage}&tenantId=${vegaTenantId}`);
+    }
+
+    // Verify consent was granted
+    if (admin_consent !== 'True') {
+      console.error('[Entra Admin Consent] Consent not granted');
+      return res.redirect(`/tenant-admin?error=consent_not_granted&tenantId=${vegaTenantId}`);
+    }
+
+    // Update tenant with admin consent status
+    const tenant = await storage.getTenantById(vegaTenantId);
+    if (!tenant) {
+      return res.redirect('/tenant-admin?error=tenant_not_found');
+    }
+
+    // Update tenant record
+    await storage.updateTenant(vegaTenantId, {
+      adminConsentGranted: true,
+      adminConsentGrantedAt: new Date(),
+      adminConsentGrantedBy: userId,
+      // If Azure tenant ID was provided in callback, store it
+      azureTenantId: (azureTenantId as string) || tenant.azureTenantId,
+    });
+
+    console.log(`[Entra Admin Consent] Admin consent granted for Vega tenant ${vegaTenantId} (Azure tenant: ${azureTenantId})`);
+    
+    // Redirect back to tenant admin with success
+    res.redirect(`/tenant-admin?consent=granted&tenantId=${vegaTenantId}`);
+
+  } catch (error) {
+    console.error('[Entra Admin Consent] Callback error:', error);
+    res.redirect('/tenant-admin?error=callback_failed');
+  }
+});
+
+/**
+ * GET /auth/entra/admin-consent/status
+ * Check if admin consent has been granted for a tenant
+ */
+router.get('/admin-consent/status', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(403).json({ error: 'User not found' });
+    }
+
+    const vegaTenantId = req.query.tenantId as string || user.tenantId;
+    if (!vegaTenantId) {
+      return res.status(400).json({ error: 'Tenant ID required' });
+    }
+
+    const tenant = await storage.getTenantById(vegaTenantId);
+    if (!tenant) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    res.json({
+      tenantId: vegaTenantId,
+      tenantName: tenant.name,
+      adminConsentGranted: tenant.adminConsentGranted || false,
+      adminConsentGrantedAt: tenant.adminConsentGrantedAt,
+      azureTenantId: tenant.azureTenantId,
+      requiredScopes: ALL_SCOPES,
+    });
+  } catch (error) {
+    console.error('[Entra Admin Consent] Status error:', error);
+    res.status(500).json({ error: 'Failed to get admin consent status' });
+  }
+});
+
+/**
+ * POST /auth/entra/admin-consent/revoke
+ * Revoke admin consent record (doesn't revoke in Azure, just clears local record)
+ */
+router.post('/admin-consent/revoke', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(403).json({ error: 'User not found' });
+    }
+
+    // Only admins can revoke consent
+    const adminRoles = [ROLES.TENANT_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_ADMIN];
+    if (!adminRoles.includes(user.role as any)) {
+      return res.status(403).json({ error: 'Admin privileges required' });
+    }
+
+    const vegaTenantId = req.body.tenantId || user.tenantId;
+    if (!vegaTenantId) {
+      return res.status(400).json({ error: 'Tenant ID required' });
+    }
+
+    await storage.updateTenant(vegaTenantId, {
+      adminConsentGranted: false,
+      adminConsentGrantedAt: null,
+      adminConsentGrantedBy: null,
+    });
+
+    console.log(`[Entra Admin Consent] Admin consent revoked for tenant ${vegaTenantId}`);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[Entra Admin Consent] Revoke error:', error);
+    res.status(500).json({ error: 'Failed to revoke admin consent' });
   }
 });
 
