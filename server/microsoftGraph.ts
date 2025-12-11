@@ -862,19 +862,75 @@ export async function getUserDrives(): Promise<Array<{
   driveType: string;
   webUrl?: string;
   owner?: { user?: { displayName: string } };
+  siteName?: string;
 }>> {
+  const allDrives: Array<{
+    id: string;
+    name: string;
+    driveType: string;
+    webUrl?: string;
+    owner?: { user?: { displayName: string } };
+    siteName?: string;
+  }> = [];
+  
   try {
     const client = await getMicrosoftClient('onedrive');
     
-    // Get all drives accessible to the user
-    const response = await client.api('/me/drives')
-      .select('id,name,driveType,webUrl,owner')
-      .get();
+    // Get personal OneDrive drives
+    try {
+      const personalDrives = await client.api('/me/drives')
+        .select('id,name,driveType,webUrl,owner')
+        .get();
+      
+      if (personalDrives.value) {
+        allDrives.push(...personalDrives.value);
+      }
+    } catch (error: any) {
+      console.error('[SharePoint] Failed to get personal drives:', error.message);
+    }
     
-    return response.value || [];
+    // Get SharePoint sites the user has access to
+    try {
+      const spClient = await getMicrosoftClient('sharepoint');
+      const sitesResponse = await spClient.api('/sites?search=*')
+        .select('id,displayName,name,webUrl')
+        .top(50)
+        .get();
+      
+      const sites = sitesResponse.value || [];
+      
+      // For each site, get document libraries
+      for (const site of sites) {
+        try {
+          const drivesResponse = await spClient.api(`/sites/${site.id}/drives`)
+            .select('id,name,driveType,webUrl,description')
+            .get();
+          
+          const siteDrives = drivesResponse.value || [];
+          for (const drive of siteDrives) {
+            // Only include document libraries
+            if (drive.driveType === 'documentLibrary') {
+              allDrives.push({
+                id: drive.id,
+                name: `${site.displayName || site.name} - ${drive.name}`,
+                driveType: drive.driveType,
+                webUrl: drive.webUrl,
+                siteName: site.displayName || site.name,
+              });
+            }
+          }
+        } catch (driveError: any) {
+          console.error(`[SharePoint] Failed to get drives for site ${site.displayName}:`, driveError.message);
+        }
+      }
+    } catch (sitesError: any) {
+      console.error('[SharePoint] Failed to get SharePoint sites:', sitesError.message);
+    }
+    
+    return allDrives;
   } catch (error: any) {
     console.error('[SharePoint] Failed to get user drives:', error.message);
-    return [];
+    return allDrives;
   }
 }
 
