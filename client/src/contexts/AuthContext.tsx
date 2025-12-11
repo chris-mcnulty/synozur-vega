@@ -19,15 +19,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Fetch current user on mount
   // Use returnNull on 401 to avoid throwing errors when not authenticated
-  const { data, isLoading } = useQuery<{ user: User } | null>({
+  const { data, isLoading, refetch } = useQuery<{ user: User } | null>({
     queryKey: ["/api/auth/me"],
     queryFn: getQueryFn({ on401: "returnNull" }),
-    retry: false,
-    staleTime: 5 * 60 * 1000, // Consider data fresh for 5 minutes
+    retry: 1, // Retry once in case of transient issues
+    staleTime: 30 * 1000, // Consider data fresh for 30 seconds (shorter for SSO redirect scenarios)
     gcTime: 10 * 60 * 1000, // Keep in cache for 10 minutes
     refetchOnWindowFocus: false, // Don't refetch when window regains focus
-    refetchOnMount: false, // Don't refetch on component mount if data exists
+    refetchOnMount: 'always', // Always refetch on mount to handle SSO redirects
   });
+
+  // Force refetch when the page loads after potential SSO redirect
+  useEffect(() => {
+    // Check if we came from SSO callback (URL contains no error params and we're on dashboard)
+    if (typeof window !== 'undefined' && window.location.pathname === '/dashboard' && !data) {
+      console.log('[AuthContext] On dashboard without user data, triggering refetch...');
+      refetch();
+    }
+  }, [refetch, data]);
 
   useEffect(() => {
     // Only update user state when we have data
