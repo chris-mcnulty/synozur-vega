@@ -51,15 +51,13 @@ Preferred communication style: Simple, everyday language.
 
 ## Test Accounts
 
-**PRIMARY TEST CREDENTIALS - USE THESE FOR ALL TESTING:**
+**Test credentials are stored as secrets - never hardcode passwords in files.**
 
-| Email | Password | Role | Notes |
-|-------|----------|------|-------|
-| chris.mcnulty@synozur.com | East2west! | vega_admin | Primary owner account - ALWAYS use this for testing |
-| admin@synozur.com | (use TEST_ACCOUNT_PASSWORD secret) | vega_admin | Secondary test account |
+| Email | Password Secret | Role |
+|-------|-----------------|------|
+| chris.mcnulty@synozur.com | VITE_DEMO_PASSWORD | vega_admin (primary owner) |
+| admin@synozur.com | TEST_ACCOUNT_PASSWORD | vega_admin |
 
-**CRITICAL INSTRUCTIONS FOR TESTING:**
-1. ALWAYS use chris.mcnulty@synozur.com with password East2west! for automated tests
-2. Never ask the user for credentials - they are documented here
-3. Never change these passwords without explicit user approval
-4. The testing subagent cannot access secrets, so use the plaintext credentials above
+**Testing Instructions:**
+- Use secrets for authentication in tests
+- Never expose credentials in code or documentation
