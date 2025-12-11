@@ -88,7 +88,16 @@ import { storage } from './storage';
 import { decryptToken, isEncrypted } from './utils/encryption';
 
 async function getUserGraphToken(userId: string): Promise<string | null> {
+  console.log(`[Graph] getUserGraphToken called for userId: ${userId}`);
   const graphToken = await storage.getGraphToken(userId);
+  console.log(`[Graph] getGraphToken result:`, graphToken ? { 
+    userId: graphToken.userId, 
+    tenantId: graphToken.tenantId, 
+    hasAccessToken: !!graphToken.accessToken,
+    hasRefreshToken: !!graphToken.refreshToken,
+    expiresAt: graphToken.expiresAt 
+  } : 'null');
+  
   if (!graphToken || !graphToken.accessToken) {
     console.log(`[Graph] No token found for user ${userId}`);
     return null;
@@ -706,16 +715,20 @@ export interface SharePointListItem {
 }
 
 export async function checkSharePointConnection(userId?: string): Promise<boolean> {
+  console.log(`[SharePoint] checkSharePointConnection called with userId: ${userId}`);
+  
   // First priority: Check if user has a delegated token (for multi-tenant SSO)
   if (userId) {
     try {
+      console.log(`[SharePoint] Checking for user delegated token...`);
       const userClient = await getUserGraphClient(userId);
       if (userClient) {
         console.log('[SharePoint] User delegated token available for SharePoint access');
         return true;
       }
-    } catch (error) {
-      console.log('[SharePoint] User token check failed, trying Entra app');
+      console.log('[SharePoint] getUserGraphClient returned null');
+    } catch (error: any) {
+      console.log('[SharePoint] User token check failed:', error.message);
     }
   }
   
