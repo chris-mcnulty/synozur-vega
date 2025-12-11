@@ -889,19 +889,14 @@ export async function getUserDrives(): Promise<Array<{
       console.error('[SharePoint] Failed to get personal drives:', error.message);
     }
     
-    // Get SharePoint sites the user has access to
+    // Get SharePoint sites using existing function that handles permission fallbacks
     try {
-      const spClient = await getMicrosoftClient('sharepoint');
-      const sitesResponse = await spClient.api('/sites?search=*')
-        .select('id,displayName,name,webUrl')
-        .top(50)
-        .get();
-      
-      const sites = sitesResponse.value || [];
+      const sites = await listSharePointSites();
       
       // For each site, get document libraries
       for (const site of sites) {
         try {
+          const spClient = await getMicrosoftClient('sharepoint');
           const drivesResponse = await spClient.api(`/sites/${site.id}/drives`)
             .select('id,name,driveType,webUrl,description')
             .get();
