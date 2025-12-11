@@ -55,7 +55,7 @@ Preferred communication style: Simple, everyday language.
 
 | Email | Password Secret | Role |
 |-------|-----------------|------|
-| chris.mcnulty@synozur.com | VITE_DEMO_PASSWORD | vega_admin (primary owner) |
+| chris.mcnulty@synozur.com | TEST_ACCOUNT_PASSWORD | vega_admin (primary owner) |
 | admin@synozur.com | TEST_ACCOUNT_PASSWORD | vega_admin |
 
 **Testing Instructions:**
