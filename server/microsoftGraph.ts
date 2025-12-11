@@ -1340,9 +1340,11 @@ export async function getExcelWorksheets(
   itemId: string,
   sourceType: 'onedrive' | 'sharepoint' = 'onedrive',
   siteId?: string,
-  driveId?: string
+  driveId?: string,
+  userId?: string
 ): Promise<ExcelWorksheet[]> {
-  const client = await getMicrosoftClient(sourceType === 'sharepoint' ? 'onedrive' : sourceType);
+  // Use sharepoint type to access user's delegated token for SharePoint files
+  const client = await getMicrosoftClient(sourceType === 'sharepoint' ? 'sharepoint' : 'onedrive', userId);
   
   let path: string;
   // Prefer driveId if provided (works with Files.Read permission)
@@ -1354,6 +1356,7 @@ export async function getExcelWorksheets(
     path = `/me/drive/items/${itemId}/workbook/worksheets`;
   }
   
+  console.log(`[Excel] Getting worksheets - path: ${path}, userId: ${userId || 'none'}`);
   const response = await client.api(path).get();
   return response.value.map((ws: any) => ({
     id: ws.id,
@@ -1368,9 +1371,11 @@ export async function getExcelCellValue(
   cellReference: string, // e.g., "A1" or "Sheet1!B5"
   sourceType: 'onedrive' | 'sharepoint' = 'onedrive',
   siteId?: string,
-  driveId?: string
+  driveId?: string,
+  userId?: string
 ): Promise<ExcelCellValue> {
-  const client = await getMicrosoftClient(sourceType === 'sharepoint' ? 'onedrive' : sourceType);
+  // Use sharepoint type to access user's delegated token for SharePoint files
+  const client = await getMicrosoftClient(sourceType === 'sharepoint' ? 'sharepoint' : 'onedrive', userId);
   
   // Parse cell reference - could be "A1" or "Sheet1!A1"
   let sheetName: string | undefined;
@@ -1394,6 +1399,7 @@ export async function getExcelCellValue(
     path = `/me/drive/items/${itemId}/workbook/worksheets/${encodeURIComponent(worksheetName)}/range(address='${cellAddress}')`;
   }
   
+  console.log(`[Excel] Getting cell value - path: ${path}, userId: ${userId || 'none'}`);
   const response = await client.api(path).get();
   
   // Extract the value from the response

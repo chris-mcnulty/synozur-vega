@@ -717,11 +717,13 @@ router.get('/excel/files/:fileId/worksheets', async (req: Request, res: Response
     }
     
     const { sourceType, siteId, driveId } = req.query;
+    // Pass userId to use user's delegated token for SharePoint files
     const worksheets = await getExcelWorksheets(
       req.params.fileId,
       (sourceType as 'onedrive' | 'sharepoint') || 'onedrive',
       siteId as string | undefined,
-      driveId as string | undefined
+      driveId as string | undefined,
+      user.id
     );
     res.json(worksheets);
   } catch (error: any) {
@@ -742,12 +744,14 @@ router.get('/excel/files/:fileId/cell', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Cell reference required (e.g., A1 or Sheet1!B5)' });
     }
     
+    // Pass userId to use user's delegated token for SharePoint files
     const cellValue = await getExcelCellValue(
       req.params.fileId,
       cell as string,
       (sourceType as 'onedrive' | 'sharepoint') || 'onedrive',
       siteId as string | undefined,
-      driveId as string | undefined
+      driveId as string | undefined,
+      user.id
     );
     res.json(cellValue);
   } catch (error: any) {
@@ -799,12 +803,14 @@ router.post('/key-results/:id/link-excel', async (req: Request, res: Response) =
     
     try {
       // Use driveId for SharePoint files (more reliable API path)
+      // Pass userId to use user's delegated token for SharePoint access
       const cellValue = await getExcelCellValue(
         excelFileId,
         excelSheetName ? `${excelSheetName}!${excelCellReference}` : excelCellReference,
         excelSourceType as 'onedrive' | 'sharepoint',
         undefined, // siteId - not needed when we have driveId
-        excelDriveId || undefined
+        excelDriveId || undefined,
+        user.id
       );
       
       if (cellValue.numberValue !== undefined) {
@@ -813,6 +819,7 @@ router.post('/key-results/:id/link-excel', async (req: Request, res: Response) =
         excelSyncError = 'Cell does not contain a numeric value';
       }
     } catch (err: any) {
+      console.error('[Excel] Failed to read cell during link:', err);
       excelSyncError = `Failed to read cell: ${err.message}`;
     }
     
@@ -921,12 +928,14 @@ router.post('/key-results/:id/sync-excel', async (req: Request, res: Response) =
         ? `${keyResult.excelSheetName}!${keyResult.excelCellReference}`
         : keyResult.excelCellReference;
       
+      // Pass userId to use user's delegated token for SharePoint access
       const cellValue = await getExcelCellValue(
         keyResult.excelFileId,
         cellRef,
         (keyResult.excelSourceType as 'onedrive' | 'sharepoint') || 'onedrive',
         undefined, // siteId - not needed when we have driveId
-        keyResult.excelDriveId || undefined
+        keyResult.excelDriveId || undefined,
+        user.id
       );
       
       if (cellValue.numberValue !== undefined) {
@@ -935,6 +944,7 @@ router.post('/key-results/:id/sync-excel', async (req: Request, res: Response) =
         excelSyncError = 'Cell does not contain a numeric value';
       }
     } catch (err: any) {
+      console.error('[Excel] Failed to read cell during sync:', err);
       excelSyncError = `Failed to read cell: ${err.message}`;
     }
     
