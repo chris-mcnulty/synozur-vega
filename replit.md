@@ -64,6 +64,14 @@ Preferred communication style: Simple, everyday language.
 
 ## Feature Backlog
 
+### Completed
+- [x] **RBAC Standardization**: Comprehensive permission-based access control using central middleware system across all route files
+- [x] **Tenant-level M365 Connector Configuration**: Toggle switches for OneDrive, SharePoint, Outlook, Excel, and Planner services per tenant
+- [x] **Multi-tenant Admin Consent Flow**: Three endpoints for admin consent initiation, callback, and status checking with AES-256-GCM state encryption
+- [x] **Admin Consent Tracking**: Schema fields (adminConsentGranted, adminConsentGrantedAt, adminConsentGrantedBy) and UI in Tenant Admin page
+- [x] **Microsoft Planner Integration**: Full bidirectional sync with per-user OAuth consent, encrypted token storage, task linking to OKRs/Big Rocks
+- [x] **Excel Data Binding for Key Results**: URL paste support for OneDrive/SharePoint Excel files with cell reference binding
+
 ### Planner Progress Mapping (Priority: High)
 Map Key Results or Big Rocks to Microsoft Planner plans/buckets to derive progress from task completion:
 - Add `plannerPlanId`, `plannerBucketId`, `plannerSyncEnabled` fields to Key Results and Big Rocks
