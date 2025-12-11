@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { storage } from './storage';
+import { hasPermission, PERMISSIONS, Role } from '@shared/rbac';
 import {
   checkOutlookConnection,
   getCurrentUser,
@@ -46,11 +47,20 @@ import {
 
 const router = Router();
 
+// Helper to check M365 permission (all routes protected by authWithTenant middleware)
+function checkM365Permission(req: Request): boolean {
+  const user = req.user;
+  if (!user) return false;
+  return hasPermission(user.role as Role, PERMISSIONS.USE_M365_FEATURES);
+}
+
 router.get('/status', async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user) {
-      return res.status(401).json({ error: 'Not authenticated' });
+    const user = req.user!;
+    
+    // Check M365 permission
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'M365 features not available for your role' });
     }
     
     const connected = await checkOutlookConnection();
@@ -71,9 +81,8 @@ router.get('/status', async (req: Request, res: Response) => {
 
 router.get('/calendars', async (req: Request, res: Response) => {
   try {
-    const user = (req as any).user;
-    if (!user) {
-      return res.status(401).json({ error: 'Not authenticated' });
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'M365 features not available for your role' });
     }
     
     const connected = await checkOutlookConnection();
@@ -93,10 +102,10 @@ router.post('/meetings/:id/sync', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const { calendarId, durationMinutes = 60 } = req.body;
-    const user = (req as any).user;
+    const user = req.user!;
     
-    if (!user) {
-      return res.status(401).json({ error: 'Not authenticated' });
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'M365 features not available for your role' });
     }
     
     const connected = await checkOutlookConnection();

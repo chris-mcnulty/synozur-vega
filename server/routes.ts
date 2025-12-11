@@ -971,26 +971,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { registerValueRoutes } = await import("./routes-values");
   registerValueRoutes(app);
 
-  // Import and use import routes (Viva Goals, etc.)
+  // Import and use import routes (Viva Goals, etc.) - requires admin permissions
   const { importRouter } = await import("./routes-import");
-  app.use("/api/import", importRouter);
+  app.use("/api/import", ...adminOnly, importRouter);
 
   // Import and use AI routes (grounding documents + chat)
   const { aiRouter } = await import("./routes-ai");
   app.use("/api/ai", aiRouter);
 
   // Import and use Microsoft 365 routes (Outlook calendar sync, email)
-  // Apply loadCurrentUser middleware to populate req.user for all M365 routes
+  // Apply full auth + tenant isolation middleware for all M365 routes
   const m365Routes = await import("./routes-m365");
-  app.use("/api/m365", requireAuth, loadCurrentUser, m365Routes.default);
+  app.use("/api/m365", ...authWithTenant, m365Routes.default);
 
   // Import and use Entra SSO routes
   const { entraRouter } = await import("./routes-entra");
   app.use("/auth/entra", entraRouter);
 
-  // Import and use Microsoft Planner routes
+  // Import and use Microsoft Planner routes - with auth and tenant access
   const { plannerRouter } = await import("./routes-planner");
-  app.use("/api/planner", plannerRouter);
+  app.use("/api/planner", ...authWithTenant, plannerRouter);
 
   const httpServer = createServer(app);
 

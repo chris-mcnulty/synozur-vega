@@ -9,37 +9,18 @@ import {
   updatePlannerTaskProgress,
   getPlannerIntegrationStatus
 } from './services/graph-planner';
+import { hasPermission, PERMISSIONS, Role } from '@shared/rbac';
 
 const router = Router();
 
-function requireAuth(req: Request, res: Response, next: NextFunction) {
-  if (!(req.session as any)?.userId) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-  next();
-}
-
-async function requireTenantAccess(req: Request, res: Response, next: NextFunction) {
-  const userId = (req.session as any)?.userId;
-  if (!userId) {
-    return res.status(401).json({ error: 'Authentication required' });
-  }
-
-  const user = await storage.getUser(userId);
-  if (!user?.tenantId) {
-    return res.status(403).json({ error: 'User has no tenant access' });
-  }
-
-  (req as any).user = user;
-  (req as any).tenantId = user.tenantId;
-  next();
-}
+// Note: All routes are protected by authWithTenant middleware at the router level
+// These ownership validators ensure tenant-scoped data access
 
 async function validatePlanOwnership(req: Request, res: Response, next: NextFunction) {
   const { planId } = req.params;
   if (!planId) return next();
 
-  const tenantId = (req as any).tenantId;
+  const tenantId = req.effectiveTenantId;
   const plan = await storage.getPlannerPlanById(planId);
   
   if (!plan) {
@@ -58,7 +39,7 @@ async function validateBucketOwnership(req: Request, res: Response, next: NextFu
   const { bucketId } = req.params;
   if (!bucketId) return next();
 
-  const tenantId = (req as any).tenantId;
+  const tenantId = req.effectiveTenantId;
   const bucket = await storage.getPlannerBucketById(bucketId);
   
   if (!bucket) {
@@ -78,7 +59,7 @@ async function validateTaskOwnership(req: Request, res: Response, next: NextFunc
   const { taskId } = req.params;
   if (!taskId) return next();
 
-  const tenantId = (req as any).tenantId;
+  const tenantId = req.effectiveTenantId;
   const task = await storage.getPlannerTaskById(taskId);
   
   if (!task) {
@@ -93,9 +74,9 @@ async function validateTaskOwnership(req: Request, res: Response, next: NextFunc
   next();
 }
 
-router.get('/status', requireAuth, async (req: Request, res: Response) => {
+router.get('/status', async (req: Request, res: Response) => {
   try {
-    const userId = (req.session as any).userId;
+    const userId = req.user!.id;
     const status = await getPlannerIntegrationStatus(userId);
     res.json(status);
   } catch (error) {
@@ -104,10 +85,10 @@ router.get('/status', requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-router.post('/sync', requireAuth, requireTenantAccess, async (req: Request, res: Response) => {
+router.post('/sync', async (req: Request, res: Response) => {
   try {
-    const userId = (req.session as any).userId;
-    const tenantId = (req as any).tenantId;
+    const userId = req.user!.id;
+    const tenantId = req.effectiveTenantId!;
 
     const result = await syncAllPlannerData(userId, tenantId);
     
@@ -126,9 +107,9 @@ router.post('/sync', requireAuth, requireTenantAccess, async (req: Request, res:
   }
 });
 
-router.get('/plans', requireAuth, requireTenantAccess, async (req: Request, res: Response) => {
+router.get('/plans', async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.effectiveTenantId!;
     const plans = await storage.getPlannerPlansByTenantId(tenantId);
     res.json(plans);
   } catch (error) {
@@ -137,7 +118,7 @@ router.get('/plans', requireAuth, requireTenantAccess, async (req: Request, res:
   }
 });
 
-router.get('/plans/:planId', requireAuth, requireTenantAccess, validatePlanOwnership, async (req: Request, res: Response) => {
+router.get('/plans/:planId', validatePlanOwnership, async (req: Request, res: Response) => {
   try {
     res.json((req as any).plan);
   } catch (error) {
@@ -146,7 +127,7 @@ router.get('/plans/:planId', requireAuth, requireTenantAccess, validatePlanOwner
   }
 });
 
-router.get('/plans/:planId/buckets', requireAuth, requireTenantAccess, validatePlanOwnership, async (req: Request, res: Response) => {
+router.get('/plans/:planId/buckets', validatePlanOwnership, async (req: Request, res: Response) => {
   try {
     const { planId } = req.params;
     const buckets = await storage.getPlannerBucketsByPlanId(planId);
@@ -157,7 +138,7 @@ router.get('/plans/:planId/buckets', requireAuth, requireTenantAccess, validateP
   }
 });
 
-router.get('/plans/:planId/tasks', requireAuth, requireTenantAccess, validatePlanOwnership, async (req: Request, res: Response) => {
+router.get('/plans/:planId/tasks', validatePlanOwnership, async (req: Request, res: Response) => {
   try {
     const { planId } = req.params;
     const tasks = await storage.getPlannerTasksByPlanId(planId);
@@ -168,7 +149,7 @@ router.get('/plans/:planId/tasks', requireAuth, requireTenantAccess, validatePla
   }
 });
 
-router.get('/buckets/:bucketId/tasks', requireAuth, requireTenantAccess, validateBucketOwnership, async (req: Request, res: Response) => {
+router.get('/buckets/:bucketId/tasks', validateBucketOwnership, async (req: Request, res: Response) => {
   try {
     const { bucketId } = req.params;
     const tasks = await storage.getPlannerTasksByBucketId(bucketId);
@@ -179,7 +160,7 @@ router.get('/buckets/:bucketId/tasks', requireAuth, requireTenantAccess, validat
   }
 });
 
-router.get('/tasks/:taskId', requireAuth, requireTenantAccess, validateTaskOwnership, async (req: Request, res: Response) => {
+router.get('/tasks/:taskId', validateTaskOwnership, async (req: Request, res: Response) => {
   try {
     res.json((req as any).task);
   } catch (error) {
@@ -188,10 +169,10 @@ router.get('/tasks/:taskId', requireAuth, requireTenantAccess, validateTaskOwner
   }
 });
 
-router.post('/tasks', requireAuth, requireTenantAccess, async (req: Request, res: Response) => {
+router.post('/tasks', async (req: Request, res: Response) => {
   try {
-    const userId = (req.session as any).userId;
-    const tenantId = (req as any).tenantId;
+    const userId = req.user!.id;
+    const tenantId = req.effectiveTenantId;
     const { planId, bucketId, title, dueDate } = req.body;
     
     if (!planId || !bucketId || !title) {
@@ -221,9 +202,9 @@ router.post('/tasks', requireAuth, requireTenantAccess, async (req: Request, res
   }
 });
 
-router.patch('/tasks/:taskId/progress', requireAuth, requireTenantAccess, validateTaskOwnership, async (req: Request, res: Response) => {
+router.patch('/tasks/:taskId/progress', validateTaskOwnership, async (req: Request, res: Response) => {
   try {
-    const userId = (req.session as any).userId;
+    const userId = req.user!.id;
     const { taskId } = req.params;
     const { percentComplete } = req.body;
     
@@ -242,10 +223,10 @@ router.patch('/tasks/:taskId/progress', requireAuth, requireTenantAccess, valida
   }
 });
 
-router.post('/link/objective/:objectiveId/task/:taskId', requireAuth, requireTenantAccess, validateTaskOwnership, async (req: Request, res: Response) => {
+router.post('/link/objective/:objectiveId/task/:taskId', validateTaskOwnership, async (req: Request, res: Response) => {
   try {
-    const userId = (req.session as any).userId;
-    const tenantId = (req as any).tenantId;
+    const userId = req.user!.id;
+    const tenantId = req.effectiveTenantId;
     const { objectiveId, taskId } = req.params;
     
     const objective = await storage.getOkrById(objectiveId);
@@ -268,9 +249,9 @@ router.post('/link/objective/:objectiveId/task/:taskId', requireAuth, requireTen
   }
 });
 
-router.delete('/link/objective/:objectiveId/task/:taskId', requireAuth, requireTenantAccess, async (req: Request, res: Response) => {
+router.delete('/link/objective/:objectiveId/task/:taskId', async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.effectiveTenantId;
     const { objectiveId, taskId } = req.params;
 
     const objective = await storage.getOkrById(objectiveId);
@@ -289,9 +270,9 @@ router.delete('/link/objective/:objectiveId/task/:taskId', requireAuth, requireT
   }
 });
 
-router.get('/objectives/:objectiveId/tasks', requireAuth, requireTenantAccess, async (req: Request, res: Response) => {
+router.get('/objectives/:objectiveId/tasks', async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.effectiveTenantId;
     const { objectiveId } = req.params;
     
     const objective = await storage.getOkrById(objectiveId);
@@ -307,10 +288,10 @@ router.get('/objectives/:objectiveId/tasks', requireAuth, requireTenantAccess, a
   }
 });
 
-router.post('/link/bigrock/:bigRockId/task/:taskId', requireAuth, requireTenantAccess, validateTaskOwnership, async (req: Request, res: Response) => {
+router.post('/link/bigrock/:bigRockId/task/:taskId', validateTaskOwnership, async (req: Request, res: Response) => {
   try {
-    const userId = (req.session as any).userId;
-    const tenantId = (req as any).tenantId;
+    const userId = req.user!.id;
+    const tenantId = req.effectiveTenantId;
     const { bigRockId, taskId } = req.params;
     
     const bigRock = await storage.getOkrById(bigRockId);
@@ -333,9 +314,9 @@ router.post('/link/bigrock/:bigRockId/task/:taskId', requireAuth, requireTenantA
   }
 });
 
-router.delete('/link/bigrock/:bigRockId/task/:taskId', requireAuth, requireTenantAccess, async (req: Request, res: Response) => {
+router.delete('/link/bigrock/:bigRockId/task/:taskId', async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.effectiveTenantId;
     const { bigRockId, taskId } = req.params;
     
     const bigRock = await storage.getOkrById(bigRockId);
@@ -354,9 +335,9 @@ router.delete('/link/bigrock/:bigRockId/task/:taskId', requireAuth, requireTenan
   }
 });
 
-router.get('/bigrocks/:bigRockId/tasks', requireAuth, requireTenantAccess, async (req: Request, res: Response) => {
+router.get('/bigrocks/:bigRockId/tasks', async (req: Request, res: Response) => {
   try {
-    const tenantId = (req as any).tenantId;
+    const tenantId = req.effectiveTenantId;
     const { bigRockId } = req.params;
     
     const bigRock = await storage.getOkrById(bigRockId);

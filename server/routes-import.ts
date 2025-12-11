@@ -32,19 +32,12 @@ const importOptionsSchema = z.object({
 /**
  * POST /api/import/viva-goals
  * Upload and import Viva Goals export ZIP file
+ * Note: Routes are protected by adminOnly middleware at registration
  */
 router.post('/viva-goals', upload.single('file'), async (req: Request, res: Response) => {
   try {
-    // Check if user is authenticated
-    if (!req.session.userId) {
-      return res.status(401).json({ error: 'Authentication required' });
-    }
-
-    // Get user info
-    const user = await storage.getUser(req.session.userId);
-    if (!user) {
-      return res.status(403).json({ error: 'User not found' });
-    }
+    // User is guaranteed by adminOnly middleware
+    const user = req.user!;
 
     // Check if file was uploaded
     if (!req.file) {
@@ -63,8 +56,8 @@ router.post('/viva-goals', upload.single('file'), async (req: Request, res: Resp
       });
     }
 
-    // Use tenant from request body (from dropdown) or fall back to user's default tenant
-    const targetTenantId = req.body.tenantId || user.tenantId;
+    // Use tenant from request body (from dropdown) or fall back to effectiveTenantId
+    const targetTenantId = req.body.tenantId || req.effectiveTenantId;
     if (!targetTenantId) {
       return res.status(400).json({ error: 'No tenant selected for import' });
     }

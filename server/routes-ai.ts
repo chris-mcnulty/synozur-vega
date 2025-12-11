@@ -1,46 +1,47 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
 import { insertGroundingDocumentSchema } from "@shared/schema";
 import { getChatCompletion, streamChatCompletion, streamChatWithTools, generateOKRSuggestions, suggestBigRocks, streamProgressSummary, streamGoalSuggestions, streamStrategyDraft, type ChatMessage, type ProgressSummaryData, type GoalSuggestionContext, type StrategyDraftContext } from "./ai";
 import { z } from "zod";
+import { hasPermission, PERMISSIONS, Role } from "@shared/rbac";
+import { loadCurrentUser, requireTenantAccess } from "./middleware/rbac";
 
 export const aiRouter = Router();
 
-// Middleware to check if user is admin (for grounding documents management)
-async function requireAdmin(req: Request, res: Response, next: Function) {
-  const userId = (req.session as any)?.userId;
-  if (!userId) {
+// Apply auth middleware to all AI routes
+aiRouter.use(async (req: Request, res: Response, next: NextFunction) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ error: "Authentication required" });
+  }
+  next();
+});
+
+// Load user for all routes
+aiRouter.use(loadCurrentUser);
+
+// Middleware to check if user has admin permissions for grounding documents
+function requireAIAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!req.user) {
     return res.status(401).json({ error: "Authentication required" });
   }
 
-  const user = await storage.getUser(userId);
-  if (!user) {
-    return res.status(401).json({ error: "User not found" });
+  if (!hasPermission(req.user.role as Role, PERMISSIONS.MANAGE_AI_GROUNDING)) {
+    return res.status(403).json({ error: "Admin access required for AI grounding management" });
   }
 
-  // Check if user has admin-level role
-  const adminRoles = ["admin", "global_admin", "vega_admin", "vega_consultant"];
-  if (!adminRoles.includes(user.role)) {
-    return res.status(403).json({ error: "Admin access required" });
-  }
-
-  (req as any).user = user;
   next();
 }
 
-// Simple auth check for regular users
-async function requireAuth(req: Request, res: Response, next: Function) {
-  const userId = (req.session as any)?.userId;
-  if (!userId) {
+// Middleware to check if user can use AI chat
+function requireAIChat(req: Request, res: Response, next: NextFunction) {
+  if (!req.user) {
     return res.status(401).json({ error: "Authentication required" });
   }
 
-  const user = await storage.getUser(userId);
-  if (!user) {
-    return res.status(401).json({ error: "User not found" });
+  if (!hasPermission(req.user.role as Role, PERMISSIONS.USE_AI_CHAT)) {
+    return res.status(403).json({ error: "AI chat not available for your role" });
   }
 
-  (req as any).user = user;
   next();
 }
 
@@ -49,7 +50,7 @@ async function requireAuth(req: Request, res: Response, next: Function) {
 // ============================================
 
 // Parse PDF file and extract text
-aiRouter.post("/parse-pdf", requireAdmin, async (req: Request, res: Response) => {
+aiRouter.post("/parse-pdf", requireAIAdmin, async (req: Request, res: Response) => {
   try {
     const chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -72,7 +73,7 @@ aiRouter.post("/parse-pdf", requireAdmin, async (req: Request, res: Response) =>
 });
 
 // Parse DOCX file and extract text
-aiRouter.post("/parse-docx", requireAdmin, async (req: Request, res: Response) => {
+aiRouter.post("/parse-docx", requireAIAdmin, async (req: Request, res: Response) => {
   try {
     const chunks: Buffer[] = [];
     req.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -98,7 +99,7 @@ aiRouter.post("/parse-docx", requireAdmin, async (req: Request, res: Response) =
 // ============================================
 
 // Get all grounding documents
-aiRouter.get("/grounding-documents", requireAdmin, async (req: Request, res: Response) => {
+aiRouter.get("/grounding-documents", requireAIAdmin, async (req: Request, res: Response) => {
   try {
     const documents = await storage.getAllGroundingDocuments();
     res.json(documents);
@@ -109,7 +110,7 @@ aiRouter.get("/grounding-documents", requireAdmin, async (req: Request, res: Res
 });
 
 // Get single grounding document
-aiRouter.get("/grounding-documents/:id", requireAdmin, async (req: Request, res: Response) => {
+aiRouter.get("/grounding-documents/:id", requireAIAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const document = await storage.getGroundingDocumentById(id);
@@ -124,7 +125,7 @@ aiRouter.get("/grounding-documents/:id", requireAdmin, async (req: Request, res:
 });
 
 // Create grounding document
-aiRouter.post("/grounding-documents", requireAdmin, async (req: Request, res: Response) => {
+aiRouter.post("/grounding-documents", requireAIAdmin, async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;
     const validatedData = insertGroundingDocumentSchema.parse({
@@ -144,7 +145,7 @@ aiRouter.post("/grounding-documents", requireAdmin, async (req: Request, res: Re
 });
 
 // Update grounding document
-aiRouter.patch("/grounding-documents/:id", requireAdmin, async (req: Request, res: Response) => {
+aiRouter.patch("/grounding-documents/:id", requireAIAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const user = (req as any).user;
@@ -171,7 +172,7 @@ aiRouter.patch("/grounding-documents/:id", requireAdmin, async (req: Request, re
 });
 
 // Delete grounding document
-aiRouter.delete("/grounding-documents/:id", requireAdmin, async (req: Request, res: Response) => {
+aiRouter.delete("/grounding-documents/:id", requireAIAdmin, async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     
@@ -201,7 +202,7 @@ const chatRequestSchema = z.object({
   tenantId: z.string().optional(),
 });
 
-aiRouter.post("/chat", requireAuth, async (req: Request, res: Response) => {
+aiRouter.post("/chat", requireAIChat, async (req: Request, res: Response) => {
   try {
     const { messages, tenantId } = chatRequestSchema.parse(req.body);
     const user = (req as any).user;
@@ -224,7 +225,7 @@ aiRouter.post("/chat", requireAuth, async (req: Request, res: Response) => {
 });
 
 // Streaming chat endpoint (Server-Sent Events) - WITH TOOL SUPPORT
-aiRouter.post("/chat/stream", requireAuth, async (req: Request, res: Response) => {
+aiRouter.post("/chat/stream", requireAIChat, async (req: Request, res: Response) => {
   console.log("[AI Chat Stream] Request received");
   try {
     const { messages, tenantId } = chatRequestSchema.parse(req.body);
@@ -291,7 +292,7 @@ aiRouter.post("/chat/stream", requireAuth, async (req: Request, res: Response) =
 });
 
 // Legacy streaming chat endpoint (without tools) - for backwards compatibility
-aiRouter.post("/chat/stream-legacy", requireAuth, async (req: Request, res: Response) => {
+aiRouter.post("/chat/stream-legacy", requireAIChat, async (req: Request, res: Response) => {
   console.log("[AI Chat Stream Legacy] Request received");
   try {
     const { messages, tenantId } = chatRequestSchema.parse(req.body);
@@ -336,7 +337,7 @@ const okrSuggestionSchema = z.object({
   year: z.number().optional(),
 });
 
-aiRouter.post("/suggest/okrs", requireAuth, async (req: Request, res: Response) => {
+aiRouter.post("/suggest/okrs", requireAIChat, async (req: Request, res: Response) => {
   try {
     const { tenantId, focusArea, quarter, year } = okrSuggestionSchema.parse(req.body);
     
@@ -369,7 +370,7 @@ const bigRockSuggestionSchema = z.object({
   objectiveId: z.string(),
 });
 
-aiRouter.post("/suggest/big-rocks", requireAuth, async (req: Request, res: Response) => {
+aiRouter.post("/suggest/big-rocks", requireAIChat, async (req: Request, res: Response) => {
   try {
     const { tenantId, objectiveId } = bigRockSuggestionSchema.parse(req.body);
     
@@ -420,7 +421,7 @@ const progressSummarySchema = z.object({
   customPrompt: z.string().optional(),
 });
 
-aiRouter.post("/progress-summary/stream", requireAuth, async (req: Request, res: Response) => {
+aiRouter.post("/progress-summary/stream", requireAIChat, async (req: Request, res: Response) => {
   console.log("[Progress Summary] Request received");
   try {
     const parsed = progressSummarySchema.parse(req.body);
@@ -551,7 +552,7 @@ const goalSuggestionSchema = z.object({
   tenantId: z.string(),
 });
 
-aiRouter.post("/suggest/goals/stream", requireAuth, async (req: Request, res: Response) => {
+aiRouter.post("/suggest/goals/stream", requireAIChat, async (req: Request, res: Response) => {
   console.log("[Goal Suggestions] Request received");
   try {
     const { tenantId } = goalSuggestionSchema.parse(req.body);
@@ -617,7 +618,7 @@ const strategyDraftSchema = z.object({
   prompt: z.string().min(10, "Please provide a more detailed description of the strategy you want to create"),
 });
 
-aiRouter.post("/strategy-draft/stream", requireAuth, async (req: Request, res: Response) => {
+aiRouter.post("/strategy-draft/stream", requireAIChat, async (req: Request, res: Response) => {
   console.log("[Strategy Draft] Request received");
   try {
     const { tenantId, prompt } = strategyDraftSchema.parse(req.body);
