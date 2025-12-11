@@ -40,6 +40,14 @@ interface UserDrive {
   owner?: { user?: { displayName: string } };
 }
 
+interface SharePointDrive {
+  id: string;
+  name: string;
+  description?: string;
+  webUrl?: string;
+  driveType?: string;
+}
+
 interface ExcelWorksheet {
   id: string;
   name: string;
@@ -211,6 +219,12 @@ export function ExcelFilePicker({
   const [directFileUrl, setDirectFileUrl] = useState('');
   const [resolvingFile, setResolvingFile] = useState(false);
   const [fileResolveError, setFileResolveError] = useState('');
+  
+  // Direct site URL for browsing specific SharePoint site
+  const [siteUrl, setSiteUrl] = useState('');
+  const [resolvingSite, setResolvingSite] = useState(false);
+  const [siteResolveError, setSiteResolveError] = useState('');
+  const [resolvedSite, setResolvedSite] = useState<SharePointSite | null>(null);
 
   const { data: oneDriveStatus } = useQuery<{ connected: boolean }>({
     queryKey: ['/api/m365/onedrive/status'],
@@ -235,6 +249,17 @@ export function ExcelFilePicker({
 
   // Filter to only SharePoint document libraries (exclude personal OneDrive)
   const sharePointDrives = userDrives?.filter(d => d.driveType === 'documentLibrary') || [];
+  
+  // Get drives from a specific resolved site
+  const { data: siteDrives, isLoading: siteDrivesLoading, refetch: refetchSiteDrives } = useQuery<SharePointDrive[]>({
+    queryKey: ['/api/m365/sharepoint/sites', resolvedSite?.id, 'drives'],
+    queryFn: async () => {
+      const res = await fetch(`/api/m365/sharepoint/sites/${resolvedSite?.id}/drives`, { credentials: 'include' });
+      if (!res.ok) throw new Error('Failed to load document libraries');
+      return res.json();
+    },
+    enabled: open && fileSource === 'sharepoint' && !!resolvedSite?.id,
+  });
 
   // OneDrive file browsing
   const { data: oneDriveFiles, isLoading: oneDriveFilesLoading } = useQuery<OneDriveItem[]>({
@@ -504,6 +529,54 @@ export function ExcelFilePicker({
     }
   };
 
+  // Resolve a SharePoint site URL to browse its document libraries
+  const handleResolveSiteUrl = async () => {
+    if (!siteUrl.trim()) return;
+    
+    let url = siteUrl.trim();
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+    
+    // Basic validation for SharePoint URL
+    if (!url.includes('sharepoint.com')) {
+      setSiteResolveError('Please enter a valid SharePoint site URL (e.g., https://yourcompany.sharepoint.com/sites/Marketing)');
+      return;
+    }
+    
+    setResolvingSite(true);
+    setSiteResolveError('');
+    
+    try {
+      const res = await fetch('/api/m365/sharepoint/resolve-url', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ siteUrl: url }),
+      });
+      
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Failed to access site');
+      }
+      
+      const site: SharePointSite = await res.json();
+      setResolvedSite(site);
+      setSelectedSiteId(site.id);
+      setSiteUrl('');
+      
+      toast({
+        title: 'Site connected',
+        description: `Now browsing ${site.displayName || site.name}`,
+      });
+    } catch (error: any) {
+      console.error('Failed to resolve site URL:', error);
+      setSiteResolveError(error.message || 'Could not access this SharePoint site. Check the URL and your permissions.');
+    } finally {
+      setResolvingSite(false);
+    }
+  };
+
   const handleBack = () => {
     if (step === 'configure') {
       setStep('browse');
@@ -697,7 +770,6 @@ export function ExcelFilePicker({
                 </TabsTrigger>
                 <TabsTrigger 
                   value="sharepoint" 
-                  disabled={!sharePointStatus?.connected && !oneDriveStatus?.connected} 
                   data-testid="tab-sharepoint"
                 >
                   <Globe className="h-4 w-4 mr-2" />
@@ -706,51 +778,97 @@ export function ExcelFilePicker({
               </TabsList>
             </Tabs>
 
-            {fileSource === 'sharepoint' && !sharePointStatus?.connected && oneDriveStatus?.connected && (
-              <div className="mb-4 p-3 bg-muted rounded-lg text-sm">
-                <p className="font-medium mb-1">SharePoint browsing unavailable</p>
-                <p className="text-muted-foreground">
-                  Use the "Paste File URL" option above to link Excel files from SharePoint. 
-                  Copy the URL from your browser when viewing the file in SharePoint.
-                </p>
-              </div>
-            )}
-
-            {fileSource === 'sharepoint' && sharePointStatus?.connected && (
+            {fileSource === 'sharepoint' && (
               <div className="mb-4">
-                <Label className="text-sm font-medium mb-2 block">Document Library</Label>
-                <Select
-                  value={selectedDriveId || ''}
-                  onValueChange={(value) => {
-                    setSelectedDriveId(value);
-                    setCurrentFolderId(null);
-                    setFolderStack([]);
-                  }}
-                >
-                  <SelectTrigger data-testid="select-drive" className="w-full">
-                    <SelectValue placeholder={drivesLoading ? "Loading document libraries..." : "Select a document library"} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sharePointDrives.map((drive) => (
-                      <SelectItem key={drive.id} value={drive.id}>
-                        <div className="flex items-center gap-2">
-                          <Globe className="h-4 w-4 text-primary" />
-                          <span>{drive.name}</span>
-                          {drive.owner?.user?.displayName && (
-                            <span className="text-xs text-muted-foreground">
-                              ({drive.owner.user.displayName})
-                            </span>
-                          )}
-                        </div>
-                      </SelectItem>
-                    ))}
-                    {!drivesLoading && sharePointDrives.length === 0 && (
-                      <div className="p-2 text-sm text-muted-foreground text-center">
-                        No document libraries found. Use the URL paste option above instead.
+                {/* Show resolved site or site URL input */}
+                {resolvedSite ? (
+                  <div className="mb-3 p-3 bg-muted rounded-lg">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <Globe className="h-4 w-4 text-primary" />
+                        <span className="font-medium">{resolvedSite.displayName || resolvedSite.name}</span>
                       </div>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={() => {
+                          setResolvedSite(null);
+                          setSelectedSiteId(null);
+                          setSelectedDriveId(null);
+                          setCurrentFolderId(null);
+                          setFolderStack([]);
+                        }}
+                        data-testid="button-change-site"
+                      >
+                        Change Site
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mb-3">
+                    <Label className="text-sm font-medium mb-2 block">SharePoint Site URL</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        placeholder="https://yourcompany.sharepoint.com/sites/Marketing"
+                        value={siteUrl}
+                        onChange={(e) => {
+                          setSiteUrl(e.target.value);
+                          setSiteResolveError('');
+                        }}
+                        disabled={resolvingSite}
+                        data-testid="input-site-url"
+                        className="flex-1"
+                      />
+                      <Button 
+                        onClick={handleResolveSiteUrl}
+                        disabled={resolvingSite || !siteUrl.trim()}
+                        data-testid="button-connect-site"
+                      >
+                        {resolvingSite ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Connect'}
+                      </Button>
+                    </div>
+                    {siteResolveError && (
+                      <p className="text-sm text-destructive mt-2">{siteResolveError}</p>
                     )}
-                  </SelectContent>
-                </Select>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Enter the URL of your SharePoint site to browse its document libraries
+                    </p>
+                  </div>
+                )}
+
+                {/* Document library selector - show when site is resolved */}
+                {resolvedSite && (
+                  <div>
+                    <Label className="text-sm font-medium mb-2 block">Document Library</Label>
+                    <Select
+                      value={selectedDriveId || ''}
+                      onValueChange={(value) => {
+                        setSelectedDriveId(value);
+                        setCurrentFolderId(null);
+                        setFolderStack([]);
+                      }}
+                    >
+                      <SelectTrigger data-testid="select-drive" className="w-full">
+                        <SelectValue placeholder={siteDrivesLoading ? "Loading document libraries..." : "Select a document library"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {siteDrives?.map((drive) => (
+                          <SelectItem key={drive.id} value={drive.id}>
+                            <div className="flex items-center gap-2">
+                              <Globe className="h-4 w-4 text-primary" />
+                              <span>{drive.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                        {!siteDrivesLoading && (!siteDrives || siteDrives.length === 0) && (
+                          <div className="p-2 text-sm text-muted-foreground text-center">
+                            No document libraries found in this site.
+                          </div>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
             )}
 

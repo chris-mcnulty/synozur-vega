@@ -1,0 +1,108 @@
+025-12-11 13:43:51.73
+2140f884
+User
+[SharePoint] Checking for user delegated token...
+2025-12-11 13:43:51.73
+2140f884
+User
+[SharePoint] checkSharePointConnection called with userId: 53ac8557-dc08-482c-90e0-8b19f430a762
+2025-12-11 13:43:51.73
+2140f884
+User
+[Graph] getUserGraphToken called for userId: 53ac8557-dc08-482c-90e0-8b19f430a762
+2025-12-11 13:43:51.77
+2140f884
+User
+hasRefreshToken: false,
+2025-12-11 13:43:51.77
+2140f884
+User
+userId: '53ac8557-dc08-482c-90e0-8b19f430a762',
+2025-12-11 13:43:51.77
+2140f884
+User
+hasAccessToken: true,
+2025-12-11 13:43:51.77
+2140f884
+User
+}
+2025-12-11 13:43:51.77
+2140f884
+User
+expiresAt: 2025-12-11T14:51:33.000Z
+2025-12-11 13:43:51.77
+2140f884
+User
+[Graph] getGraphToken result: {
+2025-12-11 13:43:51.77
+2140f884
+User
+tenantId: '8ebd7efe-32ed-4546-b0be-0112b8feed9f',
+2025-12-11 13:43:51.83
+2140f884
+User
+[SharePoint] User delegated token available for SharePoint access
+2025-12-11 13:43:51.83
+2140f884
+User
+1:43:51 PM [express] GET /api/m365/onedrive/status 304 in 206ms :: {"connected":true}
+2025-12-11 13:43:51.86
+2140f884
+User
+1:43:51 PM [express] GET /api/m365/sharepoint/status 304 in 151ms :: {"connected":true}
+2025-12-11 13:43:52.34
+2140f884
+User
+1:43:52 PM [express] GET /api/m365/onedrive/files 304 in 639ms :: [{"@odata.etag":"\"{93D535A5-EAAF-…
+2025-12-11 13:43:55.86
+2140f884
+User
+[Graph] getUserGraphToken called for userId: 53ac8557-dc08-482c-90e0-8b19f430a762
+2025-12-11 13:43:55.88
+2140f884
+User
+expiresAt: 2025-12-11T14:51:33.000Z
+2025-12-11 13:43:55.88
+2140f884
+User
+}
+2025-12-11 13:43:55.88
+2140f884
+User
+hasAccessToken: true,
+2025-12-11 13:43:55.88
+2140f884
+User
+hasRefreshToken: false,
+2025-12-11 13:43:55.88
+2140f884
+User
+[Graph] getGraphToken result: {
+2025-12-11 13:43:55.88
+2140f884
+User
+userId: '53ac8557-dc08-482c-90e0-8b19f430a762',
+2025-12-11 13:43:55.88
+2140f884
+User
+tenantId: '8ebd7efe-32ed-4546-b0be-0112b8feed9f',
+2025-12-11 13:43:55.94
+2140f884
+User
+[Graph] Using user delegated token for sharepoint
+2025-12-11 13:43:56.30
+2140f884
+User
+[SharePoint] Failed to get SharePoint sites: Sharepoint not connected. Please connect your Microsoft account in Replit.
+2025-12-11 13:43:56.32
+2140f884
+User
+1:43:56 PM [express] GET /api/m365/drives 304 in 481ms :: [{"id":"b!BVy7_8heDEaewkni4C-EGma9z-3b3v5K…
+2025-12-11 13:43:59.45
+2140f884
+User
+1:43:59 PM [express] GET /api/m365/sharepoint/sites 200 in 3610ms :: [{"id":"synozur.sharepoint.com,…
+2025-12-11 13:43:59.45
+2140f884
+User
+1:43:59 PM [express] GET /api/m365/sharepoint/sites 200 in 3610ms :: [{"id":"synoz
