@@ -27,7 +27,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield, Settings2, Cloud } from "lucide-react";
+import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield, Settings2, Cloud, ShieldCheck, ExternalLink } from "lucide-react";
 import excelIcon from "@assets/Excel_512_1765494903271.png";
 import oneDriveIcon from "@assets/OneDrive_512_1765494903274.png";
 import outlookIcon from "@assets/Outlook_512_1765494903276.png";
@@ -704,8 +704,107 @@ export default function TenantAdmin() {
         </div>
 
         <div>
-          <h2 className="text-xl font-semibold mb-4">Microsoft 365 Connectors</h2>
-          <p className="text-muted-foreground mb-4">
+          <h2 className="text-xl font-semibold mb-4">Microsoft 365 Integration</h2>
+          
+          {/* Admin Consent Section */}
+          <Card className="mb-6" data-testid="admin-consent-section">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <ShieldCheck className="h-5 w-5 text-primary" />
+                Multi-Tenant Admin Consent
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground text-sm mb-4">
+                For Microsoft 365 features to work across your organization, an Azure AD administrator must grant consent 
+                for the Vega application. This authorizes Vega to access Microsoft Graph APIs on behalf of users.
+              </p>
+              
+              <div className="space-y-3">
+                {tenants.map((tenant) => {
+                  const hasConsent = (tenant as any).adminConsentGranted;
+                  const consentDate = (tenant as any).adminConsentGrantedAt;
+                  
+                  return (
+                    <div 
+                      key={tenant.id} 
+                      className="flex items-center justify-between p-3 border rounded-md"
+                      data-testid={`admin-consent-row-${tenant.id}`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-3 h-3 rounded-full"
+                          style={{ backgroundColor: tenant.color || '#6366F1' }}
+                        />
+                        <div>
+                          <p className="font-medium text-sm">{tenant.name}</p>
+                          {hasConsent && consentDate && (
+                            <p className="text-xs text-muted-foreground">
+                              Granted {new Date(consentDate).toLocaleDateString()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        {hasConsent ? (
+                          <>
+                            <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Consent Granted
+                            </Badge>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                if (confirm('Revoke admin consent record? Note: This does not revoke permissions in Azure AD.')) {
+                                  apiRequest('POST', '/auth/entra/admin-consent/revoke', { tenantId: tenant.id })
+                                    .then(() => {
+                                      queryClient.invalidateQueries({ queryKey: ['/api/tenants'] });
+                                      toast({ title: 'Admin consent record cleared' });
+                                    })
+                                    .catch(() => toast({ title: 'Failed to revoke', variant: 'destructive' }));
+                                }
+                              }}
+                              data-testid={`button-revoke-consent-${tenant.id}`}
+                            >
+                              Revoke
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Badge variant="secondary">
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              Consent Required
+                            </Badge>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => {
+                                window.location.href = `/auth/entra/admin-consent?tenantId=${tenant.id}`;
+                              }}
+                              data-testid={`button-grant-consent-${tenant.id}`}
+                            >
+                              <ExternalLink className="h-3 w-3 mr-1" />
+                              Grant Admin Consent
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              
+              <p className="text-xs text-muted-foreground mt-4">
+                Required scopes: User.Read.All, Files.Read.All, Sites.Read.All, Tasks.ReadWrite.All, Calendars.ReadWrite, Mail.Read
+              </p>
+            </CardContent>
+          </Card>
+          
+          {/* M365 Connectors Info */}
+          <h3 className="text-lg font-medium mb-3">Available Connectors</h3>
+          <p className="text-muted-foreground text-sm mb-4">
             Configure which Microsoft 365 integrations are available for each organization using the "M365 Connectors" button on each organization card above.
           </p>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
