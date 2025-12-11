@@ -892,17 +892,21 @@ export async function getUserDrives(): Promise<Array<{
     // Get SharePoint sites using existing function that handles permission fallbacks
     try {
       const sites = await listSharePointSites();
+      console.log(`[SharePoint] Found ${sites.length} sites to check for document libraries`);
       
       // For each site, get document libraries
       for (const site of sites) {
         try {
+          console.log(`[SharePoint] Fetching drives for site: ${site.displayName || site.name} (${site.id})`);
           const spClient = await getMicrosoftClient('sharepoint');
           const drivesResponse = await spClient.api(`/sites/${site.id}/drives`)
             .select('id,name,driveType,webUrl,description')
             .get();
           
           const siteDrives = drivesResponse.value || [];
+          console.log(`[SharePoint] Site ${site.displayName} has ${siteDrives.length} drives`);
           for (const drive of siteDrives) {
+            console.log(`[SharePoint]   Drive: ${drive.name}, type: ${drive.driveType}`);
             // Only include document libraries
             if (drive.driveType === 'documentLibrary') {
               allDrives.push({
