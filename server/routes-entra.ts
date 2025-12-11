@@ -38,7 +38,16 @@ const getBaseUrl = () => {
 
 const REDIRECT_URI = `${getBaseUrl()}/auth/entra/callback`;
 
-const SCOPES = ['openid', 'profile', 'email', 'User.Read'];
+// Include SharePoint/Files scopes for Excel binding feature
+const SCOPES = [
+  'openid', 
+  'profile', 
+  'email', 
+  'User.Read',
+  'Files.Read.All',      // Read files from OneDrive and SharePoint
+  'Sites.Read.All',      // Read SharePoint sites
+  'offline_access',      // Get refresh token
+];
 
 const PLANNER_SCOPES = [
   'openid',
@@ -224,6 +233,24 @@ router.get('/callback', async (req: Request, res: Response) => {
         if (updatedUser) {
           user = updatedUser;
         }
+      }
+    }
+
+    // Store the Graph token for SharePoint/OneDrive access
+    if (tokenResponse.accessToken) {
+      try {
+        await storage.upsertGraphToken({
+          userId: user.id,
+          tenantId: azureTenantId,
+          accessToken: encryptToken(tokenResponse.accessToken),
+          refreshToken: (tokenResponse as any).refreshToken ? encryptToken((tokenResponse as any).refreshToken) : null,
+          expiresAt: tokenResponse.expiresOn || null,
+          scopes: SCOPES,
+        });
+        console.log(`[Entra SSO] Stored Graph token for user ${email}`);
+      } catch (tokenError) {
+        console.warn('[Entra SSO] Failed to store Graph token:', tokenError);
+        // Continue - this is not critical for login
       }
     }
 

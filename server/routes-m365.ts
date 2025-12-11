@@ -496,7 +496,8 @@ router.post('/sharepoint/resolve-file', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'File URL is required' });
     }
     
-    const result = await getSharePointFileFromUrl(fileUrl);
+    // Pass userId to use user's delegated token for multi-tenant SharePoint access
+    const result = await getSharePointFileFromUrl(fileUrl, user.id);
     if (!result) {
       return res.status(404).json({ 
         error: 'Could not access this file. Make sure the URL is correct and you have access to the file.' 

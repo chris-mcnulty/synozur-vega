@@ -81,6 +81,85 @@ export async function checkEntraAppConnection(): Promise<boolean> {
   }
 }
 
+// ==================== User Delegated Token Client ====================
+// Uses the user's SSO token stored in graphTokens table
+
+import { storage } from './storage';
+import { decryptToken, isEncrypted } from './utils/encryption';
+
+async function getUserGraphToken(userId: string): Promise<string | null> {
+  const graphToken = await storage.getGraphToken(userId);
+  if (!graphToken || !graphToken.accessToken) {
+    console.log(`[Graph] No token found for user ${userId}`);
+    return null;
+  }
+
+  const accessToken = isEncrypted(graphToken.accessToken) 
+    ? decryptToken(graphToken.accessToken) 
+    : graphToken.accessToken;
+
+  // Check if token is still valid (with 5 min buffer)
+  if (graphToken.expiresAt && new Date(graphToken.expiresAt) > new Date(Date.now() + 5 * 60 * 1000)) {
+    return accessToken;
+  }
+
+  // Try to refresh token if available
+  if (graphToken.refreshToken) {
+    try {
+      const { ConfidentialClientApplication } = await import('@azure/msal-node');
+      const msalConfig = {
+        auth: {
+          clientId: process.env.AZURE_CLIENT_ID || '',
+          authority: `https://login.microsoftonline.com/${graphToken.tenantId || 'common'}`,
+          clientSecret: process.env.AZURE_CLIENT_SECRET || '',
+        },
+      };
+      const client = new ConfidentialClientApplication(msalConfig);
+      
+      const decryptedRefresh = isEncrypted(graphToken.refreshToken) 
+        ? decryptToken(graphToken.refreshToken) 
+        : graphToken.refreshToken;
+      
+      const response = await client.acquireTokenByRefreshToken({
+        refreshToken: decryptedRefresh,
+        scopes: ['Files.Read.All', 'Sites.Read.All', 'User.Read'],
+      });
+
+      if (response?.accessToken) {
+        const { encryptToken } = await import('./utils/encryption');
+        await storage.upsertGraphToken({
+          userId,
+          tenantId: graphToken.tenantId || '',
+          accessToken: encryptToken(response.accessToken),
+          refreshToken: graphToken.refreshToken, // Keep existing refresh token
+          expiresAt: response.expiresOn || null,
+          scopes: graphToken.scopes || ['Files.Read.All', 'Sites.Read.All', 'User.Read'],
+        });
+        console.log(`[Graph] Refreshed token for user ${userId}`);
+        return response.accessToken;
+      }
+    } catch (error) {
+      console.error(`[Graph] Token refresh failed for user ${userId}:`, error);
+    }
+  }
+
+  // Return existing token even if expired - might still work
+  return accessToken;
+}
+
+async function getUserGraphClient(userId: string): Promise<Client | null> {
+  const accessToken = await getUserGraphToken(userId);
+  if (!accessToken) {
+    return null;
+  }
+
+  return Client.initWithMiddleware({
+    authProvider: {
+      getAccessToken: async () => accessToken
+    }
+  });
+}
+
 // ==================== Replit Connector Functions ====================
 
 async function getAccessToken(connectorType: ConnectorType = 'outlook'): Promise<string> {
@@ -900,7 +979,8 @@ export async function resolveFileFromUrl(fileUrl: string): Promise<OneDriveItem 
 }
 
 // Get file metadata and content info from a sharing URL
-export async function getSharePointFileFromUrl(fileUrl: string): Promise<{
+// userId: optional - if provided, uses user's delegated token (for multi-tenant access)
+export async function getSharePointFileFromUrl(fileUrl: string, userId?: string): Promise<{
   item: OneDriveItem;
   driveId: string;
   siteId?: string;
@@ -908,36 +988,43 @@ export async function getSharePointFileFromUrl(fileUrl: string): Promise<{
   const shareId = encodeShareUrl(fileUrl);
   console.log('[SharePoint] Resolving file URL:', fileUrl);
   console.log('[SharePoint] Encoded shareId:', shareId);
+  if (userId) {
+    console.log('[SharePoint] Using user delegated token for userId:', userId);
+  }
   
   const isSharePointUrl = fileUrl.includes('.sharepoint.com');
   let lastError: any = null;
   
-  // For SharePoint URLs, try the Entra app first (has Sites.Read.All permission)
-  if (isSharePointUrl && hasEntraAppCredentials()) {
+  // PRIORITY 1: Use user's delegated token (best for multi-tenant SharePoint access)
+  if (userId) {
     try {
-      console.log('[SharePoint] Trying Entra app confidential client...');
-      const client = await getEntraAppGraphClient();
+      console.log('[SharePoint] Trying user delegated token...');
+      const userClient = await getUserGraphClient(userId);
       
-      const response = await client.api(`/shares/${shareId}/driveItem`)
-        .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
-        .get();
-      
-      if (response) {
-        console.log('[SharePoint] Successfully resolved file via Entra app:', response.name);
-        return {
-          item: response,
-          driveId: response.parentReference?.driveId || '',
-          siteId: response.parentReference?.siteId,
-        };
+      if (userClient) {
+        const response = await userClient.api(`/shares/${shareId}/driveItem`)
+          .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
+          .get();
+        
+        if (response) {
+          console.log('[SharePoint] Successfully resolved file via user token:', response.name);
+          return {
+            item: response,
+            driveId: response.parentReference?.driveId || '',
+            siteId: response.parentReference?.siteId,
+          };
+        }
+      } else {
+        console.log('[SharePoint] No user token available, will try other methods');
       }
     } catch (error: any) {
-      console.log('[SharePoint] Entra app failed:', error.code, error.message);
+      console.log('[SharePoint] User delegated token failed:', error.code, error.message);
       lastError = error;
-      // Fall through to try Replit connectors
+      // Fall through to try other methods
     }
   }
   
-  // Fall back to Replit connectors
+  // PRIORITY 2: Fall back to Replit connectors
   const connectorOrder: ConnectorType[] = isSharePointUrl 
     ? ['sharepoint', 'onedrive'] 
     : ['onedrive', 'sharepoint'];
