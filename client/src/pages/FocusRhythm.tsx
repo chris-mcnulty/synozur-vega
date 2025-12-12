@@ -52,6 +52,9 @@ interface MeetingFormData {
   linkedKeyResultIds: string[];
   linkedBigRockIds: string[];
   meetingNotes: string;
+  isRecurring: boolean;
+  recurrencePattern: string;
+  recurrenceEndDate: string;
 }
 
 const initialFormData: MeetingFormData = {
@@ -71,40 +74,68 @@ const initialFormData: MeetingFormData = {
   linkedKeyResultIds: [],
   linkedBigRockIds: [],
   meetingNotes: "",
+  isRecurring: false,
+  recurrencePattern: "",
+  recurrenceEndDate: "",
 };
 
 function TemplateSelector({ onSelect }: { onSelect: (template: MeetingTemplate) => void }) {
+  const countOkrItems = (agenda: string[]) => {
+    return agenda.filter(item => item.startsWith('[OKR]')).length;
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {MEETING_TEMPLATES.map((template) => (
-        <Card 
-          key={template.id} 
-          className="cursor-pointer hover-elevate transition-all"
-          onClick={() => onSelect(template)}
-          data-testid={`template-${template.id}`}
-        >
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <Badge variant="outline" className="text-xs">
-                {template.cadence}
-              </Badge>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                <Clock className="w-3 h-3" />
-                {template.defaultDuration} min
+      {MEETING_TEMPLATES.map((template) => {
+        const okrCount = countOkrItems(template.defaultAgenda);
+        const hasOkrSection = okrCount > 0;
+        
+        return (
+          <Card 
+            key={template.id} 
+            className="cursor-pointer hover-elevate transition-all"
+            onClick={() => onSelect(template)}
+            data-testid={`template-${template.id}`}
+          >
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className="text-xs">
+                    {template.cadence}
+                  </Badge>
+                  {hasOkrSection && (
+                    <Badge variant="default" className="text-xs bg-primary/10 text-primary border-primary/20">
+                      <Target className="w-3 h-3 mr-1" />
+                      OKR Check-in
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                  <Clock className="w-3 h-3" />
+                  {template.defaultDuration} min
+                </div>
               </div>
-            </div>
-            <CardTitle className="text-lg mt-2">{template.name}</CardTitle>
-            <CardDescription className="text-sm">
-              {template.description}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="text-xs text-muted-foreground">
-              <span className="font-medium">Agenda items:</span> {template.defaultAgenda.length}
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+              <CardTitle className="text-lg mt-2">{template.name}</CardTitle>
+              <CardDescription className="text-sm">
+                {template.description}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                <span>
+                  <span className="font-medium">Agenda:</span> {template.defaultAgenda.length} items
+                </span>
+                {okrCount > 0 && (
+                  <span className="text-primary">
+                    <Target className="w-3 h-3 inline mr-1" />
+                    {okrCount} OKR items
+                  </span>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })}
       <Card 
         className="cursor-pointer hover-elevate transition-all border-dashed"
         onClick={() => onSelect({ 
@@ -444,6 +475,12 @@ function MeetingCard({ meeting, onEdit, onDelete, objectives, bigRocks, onCopyBr
                   Summary Sent
                 </Badge>
               )}
+              {meeting.isRecurring && (
+                <Badge variant="outline" className="text-xs bg-purple-500/10 text-purple-600 border-purple-500/30">
+                  <RefreshCw className="w-3 h-3 mr-1" />
+                  {meeting.recurrencePattern || 'Recurring'}
+                </Badge>
+              )}
             </div>
             <CardTitle className="mt-2 text-xl">{meeting.title}</CardTitle>
             <CardDescription className="mt-1">
@@ -777,11 +814,14 @@ export default function FocusRhythm() {
 
   const createMutation = useMutation({
     mutationFn: async (data: MeetingFormData) => {
+      const seriesId = data.isRecurring ? crypto.randomUUID() : undefined;
       return apiRequest("POST", "/api/meetings", {
         tenantId: currentTenant.id,
         ...data,
         date: data.date ? new Date(data.date).toISOString() : null,
         nextMeetingDate: data.nextMeetingDate ? new Date(data.nextMeetingDate).toISOString() : null,
+        recurrenceEndDate: data.recurrenceEndDate ? new Date(data.recurrenceEndDate).toISOString() : null,
+        seriesId,
         updatedBy: "Current User",
       });
     },
@@ -810,6 +850,7 @@ export default function FocusRhythm() {
         ...data,
         date: data.date ? new Date(data.date).toISOString() : undefined,
         nextMeetingDate: data.nextMeetingDate ? new Date(data.nextMeetingDate).toISOString() : undefined,
+        recurrenceEndDate: data.recurrenceEndDate ? new Date(data.recurrenceEndDate).toISOString() : undefined,
         updatedBy: "Current User",
       });
     },
@@ -1022,6 +1063,9 @@ export default function FocusRhythm() {
       linkedKeyResultIds: meeting.linkedKeyResultIds || [],
       linkedBigRockIds: meeting.linkedBigRockIds || [],
       meetingNotes: meeting.meetingNotes || "",
+      isRecurring: meeting.isRecurring || false,
+      recurrencePattern: meeting.recurrencePattern || "",
+      recurrenceEndDate: formatDateForInput(meeting.recurrenceEndDate),
     });
     setEditDialogOpen(true);
   };
@@ -1261,6 +1305,57 @@ export default function FocusRhythm() {
           </div>
         </div>
         
+        <div className="border rounded-lg p-3 bg-muted/30">
+          <div className="flex items-center gap-2 mb-3">
+            <Checkbox
+              id="isRecurring"
+              checked={formData.isRecurring}
+              onCheckedChange={(checked) => setFormData({ 
+                ...formData, 
+                isRecurring: !!checked,
+                recurrencePattern: checked ? (formData.recurrencePattern || formData.meetingType) : ""
+              })}
+              data-testid="checkbox-recurring"
+            />
+            <Label htmlFor="isRecurring" className="flex items-center gap-2 cursor-pointer">
+              <RefreshCw className="w-4 h-4 text-muted-foreground" />
+              Make this a recurring meeting series
+            </Label>
+          </div>
+          
+          {formData.isRecurring && (
+            <div className="grid grid-cols-2 gap-4 pl-6">
+              <div>
+                <Label htmlFor="recurrencePattern">Recurrence Pattern</Label>
+                <Select
+                  value={formData.recurrencePattern}
+                  onValueChange={(value) => setFormData({ ...formData, recurrencePattern: value })}
+                >
+                  <SelectTrigger data-testid="select-recurrence-pattern">
+                    <SelectValue placeholder="Select pattern" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="weekly">Weekly</SelectItem>
+                    <SelectItem value="biweekly">Every 2 weeks</SelectItem>
+                    <SelectItem value="monthly">Monthly</SelectItem>
+                    <SelectItem value="quarterly">Quarterly</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="recurrenceEndDate">Series End Date</Label>
+                <Input
+                  id="recurrenceEndDate"
+                  type="date"
+                  value={formData.recurrenceEndDate}
+                  onChange={(e) => setFormData({ ...formData, recurrenceEndDate: e.target.value })}
+                  data-testid="input-recurrence-end-date"
+                />
+              </div>
+            </div>
+          )}
+        </div>
+        
         <div className="grid grid-cols-2 gap-4">
           <div>
             <Label htmlFor="facilitator">Facilitator</Label>
@@ -1440,21 +1535,56 @@ export default function FocusRhythm() {
               Add
             </Button>
           </div>
-          <ScrollArea className="h-32 mt-2">
-            {formData.agenda.map((item, index) => (
-              <div key={index} className="flex items-center gap-2 p-2 hover:bg-muted rounded group">
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-                <span className="flex-1 text-sm">{item}</span>
-                <Button 
-                  variant="ghost" 
-                  size="icon" 
-                  className="h-6 w-6 opacity-0 group-hover:opacity-100"
-                  onClick={() => removeListItem('agenda', index)}
-                >
-                  <X className="w-3 h-3" />
-                </Button>
-              </div>
-            ))}
+          <ScrollArea className="h-40 mt-2">
+            {formData.agenda.map((item, index) => {
+              const isSection = item.startsWith('---') && item.endsWith('---');
+              const isOkrItem = item.startsWith('[OKR]');
+              const displayText = isOkrItem ? item.replace('[OKR] ', '') : item;
+              const sectionText = isSection ? item.replace(/^---\s*/, '').replace(/\s*---$/, '') : '';
+              
+              if (isSection) {
+                return (
+                  <div key={index} className="flex items-center gap-2 py-2 px-2 mt-1 group">
+                    <div className="flex-1 flex items-center gap-2">
+                      <div className="h-px bg-border flex-1" />
+                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                        {sectionText}
+                      </span>
+                      <div className="h-px bg-border flex-1" />
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                      onClick={() => removeListItem('agenda', index)}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                );
+              }
+              
+              return (
+                <div key={index} className={`flex items-center gap-2 p-2 hover:bg-muted rounded group ${isOkrItem ? 'bg-primary/5' : ''}`}>
+                  {isOkrItem ? (
+                    <Target className="w-4 h-4 text-primary shrink-0" />
+                  ) : (
+                    <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                  )}
+                  <span className={`flex-1 text-sm ${isOkrItem ? 'text-primary font-medium' : ''}`}>
+                    {displayText}
+                  </span>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100"
+                    onClick={() => removeListItem('agenda', index)}
+                  >
+                    <X className="w-3 h-3" />
+                  </Button>
+                </div>
+              );
+            })}
           </ScrollArea>
         </div>
         

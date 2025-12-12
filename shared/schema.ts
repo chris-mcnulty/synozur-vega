@@ -187,22 +187,46 @@ export type MeetingTemplate = {
   description: string;
 };
 
-// Predefined meeting templates
+// Predefined meeting templates with OKR check-in sections
+// Agenda items prefixed with [OKR] indicate OKR-specific check-in items
+// Section headers use --- SECTION NAME --- format
 export const MEETING_TEMPLATES: MeetingTemplate[] = [
+  {
+    id: 'okr-checkin',
+    name: 'OKR Check-in',
+    cadence: 'weekly',
+    defaultDuration: 30,
+    defaultAgenda: [
+      '--- OKR PROGRESS REVIEW ---',
+      '[OKR] Review linked Objectives - current progress vs target',
+      '[OKR] Key Results status update - Red/Yellow/Green assessment',
+      '[OKR] Confidence level check - Are we on track to hit targets?',
+      '--- BLOCKERS & RISKS ---',
+      'Surface any blockers preventing progress',
+      'Identify dependencies on other teams',
+      '--- ACTION ITEMS ---',
+      'Agree on priority actions for the coming week',
+      'Assign owners and due dates',
+    ],
+    suggestedAttendees: ['OKR Owner', 'Team Members', 'Stakeholders'],
+    description: 'Focused OKR review: Link your objectives and track progress systematically',
+  },
   {
     id: 'weekly-standup',
     name: 'Weekly Standup',
     cadence: 'weekly',
     defaultDuration: 30,
     defaultAgenda: [
-      'Big Rock check-ins: Status updates on major initiatives',
-      'Review related Key Results and metrics',
+      '--- BIG ROCK CHECK-IN ---',
+      '[OKR] Big Rock status updates - what moved this week?',
+      '[OKR] Key Results impacted by Big Rock progress',
+      '--- TEAM SYNC ---',
       'Identify blockers and dependencies',
       'Commitments for this week',
       'Quick wins and celebrations',
     ],
     suggestedAttendees: ['Team Lead', 'Team Members'],
-    description: 'Project-focused check-in: Big Rocks progress and related measures',
+    description: 'Project-focused check-in with OKR alignment: Big Rocks and metrics',
   },
   {
     id: 'monthly-review',
@@ -210,14 +234,20 @@ export const MEETING_TEMPLATES: MeetingTemplate[] = [
     cadence: 'monthly',
     defaultDuration: 60,
     defaultAgenda: [
-      'Review Objectives and outcome progress',
-      'Analyze Key Results against success measures',
-      'Assess strategic alignment: Are OKRs moving us toward our goals?',
-      'Discuss at-risk objectives and remediation',
-      'Decisions and next steps',
+      '--- OKR SCORECARD ---',
+      '[OKR] Review all Objectives - progress summary by level',
+      '[OKR] Key Results performance - identify at-risk metrics (below 40%)',
+      '[OKR] Celebrate wins - highlight objectives exceeding targets',
+      '--- STRATEGIC ALIGNMENT ---',
+      'Assess: Are OKRs moving us toward annual goals?',
+      'Discuss course corrections for underperforming objectives',
+      'Resource reallocation decisions',
+      '--- DECISIONS & ACTIONS ---',
+      'Key decisions made',
+      'Action items with owners',
     ],
     suggestedAttendees: ['Leadership Team', 'Department Heads'],
-    description: 'Outcome-focused review: OKRs and strategic alignment',
+    description: 'Outcome-focused review with OKR scorecard and strategic alignment',
   },
   {
     id: 'quarterly-planning',
@@ -225,21 +255,23 @@ export const MEETING_TEMPLATES: MeetingTemplate[] = [
     cadence: 'quarterly',
     defaultDuration: 180,
     defaultAgenda: [
-      '--- STRATEGY REVIEW ---',
-      'Review OKR performance against linked goals',
-      'Assess strategic progress and course corrections',
-      'Lessons learned from this quarter',
-      '--- BIG ROCK PLANNING ---',
-      'Validate Big Rocks for next quarter',
-      'Identify additions and subtractions',
-      'Assign ownership and resources',
-      '--- VALUES ALIGNMENT ---',
-      'Reflect on how initiatives aligned with our values',
-      'Celebrate values-driven wins',
-      'Identify areas for values improvement',
+      '--- QUARTER RETROSPECTIVE ---',
+      '[OKR] Final OKR scores - grade each objective and key result',
+      '[OKR] Analyze what drove success vs. what caused misses',
+      'Lessons learned and best practices to carry forward',
+      '--- STRATEGY ALIGNMENT ---',
+      'Review annual goals progress',
+      'Assess strategic priorities - any shifts needed?',
+      '--- NEXT QUARTER OKRs ---',
+      '[OKR] Draft new Objectives - org, department, team levels',
+      '[OKR] Define Key Results - measurable success criteria',
+      '[OKR] Map Big Rocks to new OKRs',
+      '--- RESOURCE PLANNING ---',
+      'Assign OKR owners and contributors',
+      'Identify resource needs and dependencies',
     ],
     suggestedAttendees: ['Executive Team', 'Department Heads', 'Key Stakeholders'],
-    description: 'Strategic review, Big Rock planning, and values alignment',
+    description: 'Strategic OKR planning: Grade current quarter, set next quarter OKRs',
   },
   {
     id: 'annual-strategy',
@@ -247,17 +279,25 @@ export const MEETING_TEMPLATES: MeetingTemplate[] = [
     cadence: 'annual',
     defaultDuration: 480,
     defaultAgenda: [
-      'Year in review - achievements and learnings',
+      '--- YEAR IN REVIEW ---',
+      '[OKR] Annual OKR performance summary - what we achieved',
       'Mission, vision, and values alignment check',
+      'Celebrate major wins and milestones',
+      '--- STRATEGIC PLANNING ---',
       'Market and competitive landscape analysis',
       'Strategic priorities for next year',
       'Annual goals definition',
+      '--- OKR FRAMEWORK ---',
+      '[OKR] Set annual-level Objectives',
+      '[OKR] Define organizational Key Results and targets',
+      'Cascade framework to departments',
+      '--- EXECUTION PLANNING ---',
       'Resource and budget planning',
       'Key initiatives and Big Rocks roadmap',
-      'Success metrics and milestones',
+      'Quarterly milestone checkpoints',
     ],
     suggestedAttendees: ['Board', 'Executive Team', 'Strategic Advisors'],
-    description: 'Comprehensive annual planning to set organizational direction',
+    description: 'Comprehensive annual planning: Set direction and establish OKR framework',
   },
 ];
 
@@ -296,6 +336,13 @@ export const meetings = pgTable("meetings", {
   summaryEmailStatus: text("summary_email_status"), // 'not_sent', 'sent', 'failed'
   summaryEmailSentAt: timestamp("summary_email_sent_at"),
   
+  // Recurring meeting series fields
+  seriesId: varchar("series_id"), // Links instances of same recurring series
+  isRecurring: boolean("is_recurring").default(false),
+  recurrencePattern: text("recurrence_pattern"), // 'daily', 'weekly', 'biweekly', 'monthly', 'quarterly'
+  recurrenceEndDate: timestamp("recurrence_end_date"), // When the series ends
+  recurrenceDay: integer("recurrence_day"), // Day of week (0-6) or day of month (1-31)
+  
   updatedBy: varchar("updated_by"),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
@@ -313,6 +360,10 @@ export const insertMeetingSchema = createInsertSchema(meetings).omit({
   linkedObjectiveIds: z.array(z.string()).nullable().optional(),
   linkedKeyResultIds: z.array(z.string()).nullable().optional(),
   linkedBigRockIds: z.array(z.string()).nullable().optional(),
+  isRecurring: z.boolean().optional(),
+  recurrencePattern: z.enum(['daily', 'weekly', 'biweekly', 'monthly', 'quarterly']).nullable().optional(),
+  recurrenceEndDate: z.string().datetime().or(z.date()).nullable().optional(),
+  recurrenceDay: z.number().nullable().optional(),
 });
 
 export type InsertMeeting = z.infer<typeof insertMeetingSchema>;

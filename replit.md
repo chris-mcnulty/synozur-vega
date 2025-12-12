@@ -73,12 +73,12 @@ Preferred communication style: Simple, everyday language.
 - [x] **Excel Data Binding for Key Results**: URL paste support for OneDrive/SharePoint Excel files with cell reference binding
 - [x] **Planner Progress Mapping**: Map Key Results or Big Rocks to Planner plans/buckets to derive progress from task completion percentage. Schema fields (`plannerPlanId`, `plannerBucketId`, `plannerSyncEnabled`, `plannerLastSyncAt`, `plannerSyncError`), API endpoints for mapping management and progress sync, PlannerProgressMapping UI component in Key Result detail pane. Automatic schema migration on startup via `ensureSchemaColumns()` in server/init.ts.
 
-### Focus Rhythm Enhancements (Priority: Medium)
+### Focus Rhythm Enhancements (Priority: Medium) - COMPLETE
 - [x] Rich agenda with live OKR links that show current progress (color-coded status indicators: green ≥70%, yellow 40-69%, red <40%)
 - [x] Import meeting notes from Outlook Calendar (via `/api/m365/calendar/events` endpoint with date range filtering)
 - [x] AI-powered meeting recap parser (GPT-5 powered extraction of action items, decisions, blockers via `/api/ai/parse-meeting-recap`)
-- Meeting templates with pre-configured OKR check-in sections
-- Recurring meeting series support
+- [x] Meeting templates with pre-configured OKR check-in sections: New OKR Check-in template, enhanced templates with `[OKR]` prefixed items and `--- SECTION ---` headers for visual separation. TemplateSelector shows OKR badge counts.
+- [x] Recurring meeting series support: Schema fields (`seriesId`, `isRecurring`, `recurrencePattern`, `recurrenceEndDate`), UI controls in meeting form, recurring badge on meeting cards. Patterns: weekly, biweekly, monthly, quarterly.
 
 ### Objective Progress Overview UX Improvements (Priority: Low)
 - Sort objectives by level (org first), then by lowest progress to highlight issues
