@@ -39,6 +39,48 @@ async function ensureSchemaColumns() {
       }
     }
     
+    // Check and add missing columns for key_results table (Planner mapping)
+    const keyResultColumns = [
+      { name: 'planner_plan_id', type: 'varchar(255)' },
+      { name: 'planner_bucket_id', type: 'varchar(255)' },
+      { name: 'planner_sync_enabled', type: 'boolean DEFAULT false' },
+      { name: 'planner_last_sync_at', type: 'timestamp' },
+      { name: 'planner_sync_error', type: 'text' },
+    ];
+    
+    for (const col of keyResultColumns) {
+      const checkResult = await client.query(`
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_name = 'key_results' AND column_name = $1
+      `, [col.name]);
+      
+      if (checkResult.rows.length === 0) {
+        console.log(`  Adding missing column: key_results.${col.name}`);
+        await client.query(`ALTER TABLE key_results ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
+      }
+    }
+    
+    // Check and add missing columns for big_rocks table (Planner mapping)
+    const bigRockColumns = [
+      { name: 'planner_plan_id', type: 'varchar(255)' },
+      { name: 'planner_bucket_id', type: 'varchar(255)' },
+      { name: 'planner_sync_enabled', type: 'boolean DEFAULT false' },
+      { name: 'planner_last_sync_at', type: 'timestamp' },
+      { name: 'planner_sync_error', type: 'text' },
+    ];
+    
+    for (const col of bigRockColumns) {
+      const checkResult = await client.query(`
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_name = 'big_rocks' AND column_name = $1
+      `, [col.name]);
+      
+      if (checkResult.rows.length === 0) {
+        console.log(`  Adding missing column: big_rocks.${col.name}`);
+        await client.query(`ALTER TABLE big_rocks ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
+      }
+    }
+    
     console.log("✓ Database schema verified");
   } catch (error) {
     console.error("Schema check error:", error);

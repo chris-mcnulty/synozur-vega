@@ -439,6 +439,13 @@ export const keyResults = pgTable("key_results", {
   excelLastSyncValue: doublePrecision("excel_last_sync_value"),
   excelSyncError: text("excel_sync_error"),
   excelAutoSync: boolean("excel_auto_sync").default(false), // Auto-sync on page load
+  
+  // Planner progress mapping - derive progress from task completion in a plan/bucket
+  plannerPlanId: varchar("planner_plan_id").references(() => plannerPlans.id),
+  plannerBucketId: varchar("planner_bucket_id").references(() => plannerBuckets.id),
+  plannerSyncEnabled: boolean("planner_sync_enabled").default(false),
+  plannerLastSyncAt: timestamp("planner_last_sync_at"),
+  plannerSyncError: text("planner_sync_error"),
 });
 
 export const bigRocks = pgTable("big_rocks", {
@@ -491,6 +498,13 @@ export const bigRocks = pgTable("big_rocks", {
   // Check-in tracking (synced from last check-in)
   lastCheckInAt: timestamp("last_check_in_at"),
   lastCheckInNote: text("last_check_in_note"),
+  
+  // Planner progress mapping - derive progress from task completion in a plan/bucket
+  plannerPlanId: varchar("planner_plan_id").references(() => plannerPlans.id),
+  plannerBucketId: varchar("planner_bucket_id").references(() => plannerBuckets.id),
+  plannerSyncEnabled: boolean("planner_sync_enabled").default(false),
+  plannerLastSyncAt: timestamp("planner_last_sync_at"),
+  plannerSyncError: text("planner_sync_error"),
 }, (table) => ({
   uniqueTenantBigRock: unique().on(table.tenantId, table.title, table.quarter, table.year),
 }));
