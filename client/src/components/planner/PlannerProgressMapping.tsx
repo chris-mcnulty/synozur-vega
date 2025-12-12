@@ -19,9 +19,9 @@ import {
   AlertCircle, 
   Clock, 
   Loader2,
-  Unlink,
-  Target
+  Unlink
 } from "lucide-react";
+import plannerIcon from "@assets/IMG_6924_1765505101956.png";
 
 interface PlannerPlan {
   id: string;
@@ -183,7 +183,7 @@ export function PlannerProgressMapping({
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between gap-2">
             <CardTitle className="text-sm flex items-center gap-2">
-              <Target className="h-4 w-4" />
+              <img src={plannerIcon} alt="Microsoft Planner" className="h-4 w-4 rounded-sm" data-testid="img-planner-logo" />
               Planner Progress
             </CardTitle>
             <div className="flex gap-1">
@@ -270,7 +270,10 @@ export function PlannerProgressMapping({
       <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Configure Planner Progress Mapping</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <img src={plannerIcon} alt="Microsoft Planner" className="h-5 w-5 rounded-sm" />
+              Configure Planner Progress Mapping
+            </DialogTitle>
             <DialogDescription>
               Map this {entityType === "keyresult" ? "Key Result" : "Big Rock"} to a Microsoft Planner plan or bucket 
               to automatically calculate progress from task completion.
