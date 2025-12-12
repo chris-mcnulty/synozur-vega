@@ -353,4 +353,298 @@ router.get('/bigrocks/:bigRockId/tasks', async (req: Request, res: Response) => 
   }
 });
 
+// ===== Planner Progress Mapping Endpoints =====
+
+// Set or update Planner mapping for a Key Result
+router.put('/mapping/keyresult/:keyResultId', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.effectiveTenantId;
+    const { keyResultId } = req.params;
+    const { plannerPlanId, plannerBucketId, plannerSyncEnabled } = req.body;
+    
+    const keyResult = await storage.getKeyResultById(keyResultId);
+    if (!keyResult || keyResult.tenantId !== tenantId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // If enabling sync, validate the plan/bucket belong to this tenant
+    if (plannerPlanId) {
+      const plan = await storage.getPlannerPlanById(plannerPlanId);
+      if (!plan || plan.tenantId !== tenantId) {
+        return res.status(400).json({ error: 'Invalid plan ID' });
+      }
+      
+      if (plannerBucketId) {
+        const bucket = await storage.getPlannerBucketById(plannerBucketId);
+        if (!bucket || bucket.planId !== plannerPlanId) {
+          return res.status(400).json({ error: 'Invalid bucket ID' });
+        }
+      }
+    }
+
+    const updated = await storage.updateKeyResult(keyResultId, {
+      plannerPlanId: plannerPlanId || null,
+      plannerBucketId: plannerBucketId || null,
+      plannerSyncEnabled: plannerSyncEnabled ?? false,
+    });
+
+    res.json({ success: true, keyResult: updated });
+  } catch (error: any) {
+    console.error('[Planner API] Set KR mapping error:', error);
+    res.status(500).json({ error: 'Failed to set Planner mapping', message: error.message });
+  }
+});
+
+// Set or update Planner mapping for a Big Rock
+router.put('/mapping/bigrock/:bigRockId', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.effectiveTenantId;
+    const { bigRockId } = req.params;
+    const { plannerPlanId, plannerBucketId, plannerSyncEnabled } = req.body;
+    
+    const bigRock = await storage.getBigRockById(bigRockId);
+    if (!bigRock || bigRock.tenantId !== tenantId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    // If enabling sync, validate the plan/bucket belong to this tenant
+    if (plannerPlanId) {
+      const plan = await storage.getPlannerPlanById(plannerPlanId);
+      if (!plan || plan.tenantId !== tenantId) {
+        return res.status(400).json({ error: 'Invalid plan ID' });
+      }
+      
+      if (plannerBucketId) {
+        const bucket = await storage.getPlannerBucketById(plannerBucketId);
+        if (!bucket || bucket.planId !== plannerPlanId) {
+          return res.status(400).json({ error: 'Invalid bucket ID' });
+        }
+      }
+    }
+
+    const updated = await storage.updateBigRock(bigRockId, {
+      plannerPlanId: plannerPlanId || null,
+      plannerBucketId: plannerBucketId || null,
+      plannerSyncEnabled: plannerSyncEnabled ?? false,
+    });
+
+    res.json({ success: true, bigRock: updated });
+  } catch (error: any) {
+    console.error('[Planner API] Set Big Rock mapping error:', error);
+    res.status(500).json({ error: 'Failed to set Planner mapping', message: error.message });
+  }
+});
+
+// Calculate and sync progress for a Key Result from Planner
+router.post('/mapping/keyresult/:keyResultId/sync', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.effectiveTenantId;
+    const userId = req.user!.id;
+    const { keyResultId } = req.params;
+    
+    const keyResult = await storage.getKeyResultById(keyResultId);
+    if (!keyResult || keyResult.tenantId !== tenantId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (!keyResult.plannerPlanId) {
+      return res.status(400).json({ error: 'No Planner mapping configured' });
+    }
+
+    // Calculate progress from tasks in the mapped plan/bucket
+    const progress = await calculatePlannerProgress(
+      keyResult.plannerPlanId, 
+      keyResult.plannerBucketId || null,
+      tenantId
+    );
+
+    // Update key result with calculated progress
+    const updated = await storage.updateKeyResult(keyResultId, {
+      progress: progress.percentage,
+      plannerLastSyncAt: new Date(),
+      plannerSyncError: null,
+    });
+
+    res.json({ 
+      success: true, 
+      progress: progress.percentage,
+      totalTasks: progress.totalTasks,
+      completedTasks: progress.completedTasks,
+      keyResult: updated
+    });
+  } catch (error: any) {
+    console.error('[Planner API] Sync KR progress error:', error);
+    // Store the error for display
+    await storage.updateKeyResult(req.params.keyResultId, {
+      plannerSyncError: error.message,
+      plannerLastSyncAt: new Date(),
+    }).catch(() => {});
+    res.status(500).json({ error: 'Failed to sync progress', message: error.message });
+  }
+});
+
+// Calculate and sync progress for a Big Rock from Planner
+router.post('/mapping/bigrock/:bigRockId/sync', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.effectiveTenantId;
+    const userId = req.user!.id;
+    const { bigRockId } = req.params;
+    
+    const bigRock = await storage.getBigRockById(bigRockId);
+    if (!bigRock || bigRock.tenantId !== tenantId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (!bigRock.plannerPlanId) {
+      return res.status(400).json({ error: 'No Planner mapping configured' });
+    }
+
+    // Calculate progress from tasks in the mapped plan/bucket
+    const progress = await calculatePlannerProgress(
+      bigRock.plannerPlanId, 
+      bigRock.plannerBucketId || null,
+      tenantId
+    );
+
+    // Update big rock with calculated progress
+    const updated = await storage.updateBigRock(bigRockId, {
+      completionPercentage: Math.round(progress.percentage),
+      plannerLastSyncAt: new Date(),
+      plannerSyncError: null,
+    });
+
+    res.json({ 
+      success: true, 
+      progress: progress.percentage,
+      totalTasks: progress.totalTasks,
+      completedTasks: progress.completedTasks,
+      bigRock: updated
+    });
+  } catch (error: any) {
+    console.error('[Planner API] Sync Big Rock progress error:', error);
+    // Store the error for display
+    await storage.updateBigRock(req.params.bigRockId, {
+      plannerSyncError: error.message,
+      plannerLastSyncAt: new Date(),
+    }).catch(() => {});
+    res.status(500).json({ error: 'Failed to sync progress', message: error.message });
+  }
+});
+
+// Helper function to calculate progress from Planner tasks
+async function calculatePlannerProgress(
+  planId: string, 
+  bucketId: string | null,
+  tenantId: string
+): Promise<{ percentage: number; totalTasks: number; completedTasks: number }> {
+  // Get all tasks from the plan or specific bucket
+  let tasks;
+  if (bucketId) {
+    tasks = await storage.getPlannerTasksByBucketId(bucketId);
+  } else {
+    tasks = await storage.getPlannerTasksByPlanId(planId);
+  }
+
+  if (!tasks || tasks.length === 0) {
+    return { percentage: 0, totalTasks: 0, completedTasks: 0 };
+  }
+
+  // Count completed tasks (percentComplete === 100)
+  const completedTasks = tasks.filter(t => t.percentComplete === 100).length;
+  const totalTasks = tasks.length;
+  const percentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
+  return {
+    percentage: Math.round(percentage * 10) / 10, // Round to 1 decimal
+    totalTasks,
+    completedTasks
+  };
+}
+
+// Get Planner progress summary for a Key Result
+router.get('/mapping/keyresult/:keyResultId/progress', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.effectiveTenantId;
+    const { keyResultId } = req.params;
+    
+    const keyResult = await storage.getKeyResultById(keyResultId);
+    if (!keyResult || keyResult.tenantId !== tenantId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (!keyResult.plannerPlanId) {
+      return res.json({ mapped: false });
+    }
+
+    const plan = await storage.getPlannerPlanById(keyResult.plannerPlanId);
+    const bucket = keyResult.plannerBucketId 
+      ? await storage.getPlannerBucketById(keyResult.plannerBucketId) 
+      : null;
+
+    const progress = await calculatePlannerProgress(
+      keyResult.plannerPlanId,
+      keyResult.plannerBucketId || null,
+      tenantId
+    );
+
+    res.json({
+      mapped: true,
+      planId: keyResult.plannerPlanId,
+      planTitle: plan?.title || 'Unknown Plan',
+      bucketId: keyResult.plannerBucketId,
+      bucketName: bucket?.name || null,
+      syncEnabled: keyResult.plannerSyncEnabled,
+      lastSyncAt: keyResult.plannerLastSyncAt,
+      syncError: keyResult.plannerSyncError,
+      ...progress
+    });
+  } catch (error: any) {
+    console.error('[Planner API] Get KR progress error:', error);
+    res.status(500).json({ error: 'Failed to get progress', message: error.message });
+  }
+});
+
+// Get Planner progress summary for a Big Rock
+router.get('/mapping/bigrock/:bigRockId/progress', async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.effectiveTenantId;
+    const { bigRockId } = req.params;
+    
+    const bigRock = await storage.getBigRockById(bigRockId);
+    if (!bigRock || bigRock.tenantId !== tenantId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (!bigRock.plannerPlanId) {
+      return res.json({ mapped: false });
+    }
+
+    const plan = await storage.getPlannerPlanById(bigRock.plannerPlanId);
+    const bucket = bigRock.plannerBucketId 
+      ? await storage.getPlannerBucketById(bigRock.plannerBucketId) 
+      : null;
+
+    const progress = await calculatePlannerProgress(
+      bigRock.plannerPlanId,
+      bigRock.plannerBucketId || null,
+      tenantId
+    );
+
+    res.json({
+      mapped: true,
+      planId: bigRock.plannerPlanId,
+      planTitle: plan?.title || 'Unknown Plan',
+      bucketId: bigRock.plannerBucketId,
+      bucketName: bucket?.name || null,
+      syncEnabled: bigRock.plannerSyncEnabled,
+      lastSyncAt: bigRock.plannerLastSyncAt,
+      syncError: bigRock.plannerSyncError,
+      ...progress
+    });
+  } catch (error: any) {
+    console.error('[Planner API] Get Big Rock progress error:', error);
+    res.status(500).json({ error: 'Failed to get progress', message: error.message });
+  }
+});
+
 export const plannerRouter = router;
