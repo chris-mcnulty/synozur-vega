@@ -264,6 +264,8 @@ export default function PlanningEnhanced() {
   const [weightManagementDialogOpen, setWeightManagementDialogOpen] = useState(false);
   const [progressSummaryDialogOpen, setProgressSummaryDialogOpen] = useState(false);
   const [saveToMeetingDialogOpen, setSaveToMeetingDialogOpen] = useState(false);
+  const [alignmentDialogOpen, setAlignmentDialogOpen] = useState(false);
+  const [alignmentTargetObjective, setAlignmentTargetObjective] = useState<string | null>(null);
   const [savedSummary, setSavedSummary] = useState<{ content: string; dateRange: string } | null>(null);
   const [managedWeights, setManagedWeights] = useState<KeyResult[]>([]);
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
@@ -302,6 +304,7 @@ export default function PlanningEnhanced() {
     linkedStrategies: [] as string[],
     linkedGoals: [] as string[],
     linkedBigRocks: [] as string[],
+    alignedToObjectiveIds: [] as string[], // Objectives this one "ladders up" to (supports)
     phasedTargets: null as PhasedTargets | null,
   });
 
@@ -1353,6 +1356,7 @@ export default function PlanningEnhanced() {
                       quarter: obj.quarter,
                       year: obj.year,
                       linkedGoals: Array.isArray((obj as any).linkedGoals) ? (obj as any).linkedGoals : [],
+                      alignedToObjectiveIds: Array.isArray((obj as any).alignedToObjectiveIds) ? (obj as any).alignedToObjectiveIds : [],
                       phasedTargets: obj.phasedTargets || null,
                     });
                     setObjectiveDialogOpen(true);
@@ -1394,9 +1398,15 @@ export default function PlanningEnhanced() {
                       quarter: quarter ?? 1, // Default to Q1 if "All Periods" selected
                       year: year,
                       linkedGoals: [],
+                      alignedToObjectiveIds: [],
                       phasedTargets: null,
                     });
                     setObjectiveDialogOpen(true);
+                  }}
+                  onAlignObjective={(targetObjectiveId) => {
+                    // Open alignment dialog to select existing objectives to link
+                    setAlignmentTargetObjective(targetObjectiveId);
+                    setAlignmentDialogOpen(true);
                   }}
                   onAddKeyResult={(objectiveId) => {
                     setSelectedKeyResult(null);
@@ -1604,7 +1614,8 @@ export default function PlanningEnhanced() {
               </div>
 
               <div>
-                <Label>Link to Child Objectives</Label>
+                <Label>Link to Parent Objective</Label>
+                <p className="text-xs text-muted-foreground mb-2">Select a parent objective for direct hierarchy</p>
                 <div className="flex flex-wrap gap-2 mt-2">
                   {objectives.filter(obj => obj.id !== selectedObjective?.id).length === 0 ? (
                     <p className="text-sm text-muted-foreground">No other objectives available</p>
@@ -1620,9 +1631,51 @@ export default function PlanningEnhanced() {
                             parentId: objectiveForm.parentId === obj.id ? "" : obj.id 
                           });
                         }}
-                        data-testid={`badge-child-objective-${obj.id}`}
+                        data-testid={`badge-parent-objective-${obj.id}`}
                       >
                         {obj.title}
+                      </Badge>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <Label className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4" />
+                  Aligns To / Supports (Ladder Up)
+                </Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Link this objective to existing objectives it supports. Creates a virtual parent-child relationship without changing the hierarchy.
+                </p>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {objectives.filter(obj => 
+                    obj.id !== selectedObjective?.id && 
+                    obj.id !== objectiveForm.parentId
+                  ).length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No objectives available to align to</p>
+                  ) : (
+                    objectives.filter(obj => 
+                      obj.id !== selectedObjective?.id && 
+                      obj.id !== objectiveForm.parentId
+                    ).map((obj: Objective) => (
+                      <Badge
+                        key={obj.id}
+                        variant={(objectiveForm.alignedToObjectiveIds || []).includes(obj.id) ? "default" : "outline"}
+                        className="cursor-pointer toggle-elevate"
+                        onClick={() => {
+                          const current = objectiveForm.alignedToObjectiveIds || [];
+                          if (current.includes(obj.id)) {
+                            setObjectiveForm({ ...objectiveForm, alignedToObjectiveIds: current.filter(id => id !== obj.id) });
+                          } else {
+                            setObjectiveForm({ ...objectiveForm, alignedToObjectiveIds: [...current, obj.id] });
+                          }
+                        }}
+                        data-testid={`badge-align-objective-${obj.id}`}
+                      >
+                        <Link2 className="h-3 w-3 mr-1" />
+                        {obj.title}
+                        {obj.level && <span className="ml-1 text-xs opacity-70">({obj.level})</span>}
                       </Badge>
                     ))
                   )}
@@ -2877,6 +2930,153 @@ export default function PlanningEnhanced() {
                 }}
               >
                 Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Alignment Dialog - Link existing objectives to a target */}
+        <Dialog open={alignmentDialogOpen} onOpenChange={setAlignmentDialogOpen}>
+          <DialogContent className="sm:max-w-[600px]">
+            <DialogHeader>
+              <DialogTitle>Link Objectives</DialogTitle>
+              <DialogDescription>
+                Select objectives to align with "{objectives.find(o => o.id === alignmentTargetObjective)?.title || 'this objective'}". 
+                Aligned objectives will appear as supporting items in the hierarchy.
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              {/* Filter for objectives that can be aligned (not the target itself, not already aligned) */}
+              <ScrollArea className="h-[300px] border rounded-lg p-2">
+                {objectives
+                  .filter(obj => 
+                    obj.id !== alignmentTargetObjective && 
+                    obj.parentId !== alignmentTargetObjective &&
+                    obj.level !== 'organization' // Only team/individual can align to org
+                  )
+                  .map((obj) => {
+                    const isAligned = obj.alignedToObjectiveIds?.includes(alignmentTargetObjective || '');
+                    return (
+                      <div
+                        key={obj.id}
+                        className={cn(
+                          "flex items-center justify-between p-3 rounded-md mb-2 hover-elevate cursor-pointer",
+                          isAligned ? "bg-purple-100 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700" : "border"
+                        )}
+                        onClick={async () => {
+                          // Toggle alignment
+                          const currentAligned = obj.alignedToObjectiveIds || [];
+                          let newAligned: string[];
+                          if (isAligned) {
+                            newAligned = currentAligned.filter(id => id !== alignmentTargetObjective);
+                          } else {
+                            newAligned = [...currentAligned, alignmentTargetObjective!];
+                          }
+                          
+                          // Update the objective
+                          try {
+                            await apiRequest(`/api/okr/objectives/${obj.id}`, {
+                              method: 'PATCH',
+                              body: JSON.stringify({ alignedToObjectiveIds: newAligned }),
+                            });
+                            queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+                            queryClient.invalidateQueries({ queryKey: ['/api/okr/hierarchy'] });
+                            toast({
+                              title: isAligned ? "Alignment removed" : "Objective aligned",
+                              description: isAligned 
+                                ? `"${obj.title}" is no longer aligned to this objective`
+                                : `"${obj.title}" now supports this objective`,
+                            });
+                          } catch (error) {
+                            toast({
+                              title: "Error",
+                              description: "Failed to update alignment",
+                              variant: "destructive",
+                            });
+                          }
+                        }}
+                        data-testid={`alignment-option-${obj.id}`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {isAligned ? (
+                            <Link2 className="h-4 w-4 text-purple-500" />
+                          ) : (
+                            <Target className="h-4 w-4 text-muted-foreground" />
+                          )}
+                          <div>
+                            <div className="font-medium">{obj.title}</div>
+                            <div className="text-xs text-muted-foreground">
+                              {obj.level} • Q{obj.quarter} {obj.year}
+                              {obj.ownerEmail && ` • ${obj.ownerEmail.split('@')[0]}`}
+                            </div>
+                          </div>
+                        </div>
+                        <Badge variant={isAligned ? "default" : "outline"} className="text-xs">
+                          {isAligned ? "Aligned" : "Click to align"}
+                        </Badge>
+                      </div>
+                    );
+                  })
+                }
+                {objectives.filter(obj => 
+                  obj.id !== alignmentTargetObjective && 
+                  obj.parentId !== alignmentTargetObjective &&
+                  obj.level !== 'organization'
+                ).length === 0 && (
+                  <div className="text-sm text-muted-foreground text-center py-8">
+                    No team or individual objectives available to align.
+                    Create team-level objectives first.
+                  </div>
+                )}
+              </ScrollArea>
+              
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">Or</span>
+                </div>
+              </div>
+              
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setAlignmentDialogOpen(false);
+                  setSelectedObjective(null);
+                  setObjectiveForm({
+                    title: "",
+                    description: "",
+                    level: "team",
+                    parentId: "",
+                    linkedStrategies: [],
+                    linkedBigRocks: [],
+                    ownerEmail: user?.email || "",
+                    teamId: "",
+                    progressMode: "rollup",
+                    quarter: quarter ?? 1,
+                    year: year,
+                    linkedGoals: [],
+                    alignedToObjectiveIds: alignmentTargetObjective ? [alignmentTargetObjective] : [],
+                    phasedTargets: null,
+                  });
+                  setObjectiveDialogOpen(true);
+                }}
+                data-testid="button-create-aligned-objective"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create New Aligned Objective
+              </Button>
+            </div>
+            
+            <DialogFooter>
+              <Button
+                variant="ghost"
+                onClick={() => setAlignmentDialogOpen(false)}
+              >
+                Done
               </Button>
             </DialogFooter>
           </DialogContent>

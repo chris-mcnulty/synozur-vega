@@ -585,6 +585,7 @@ export class DatabaseStorage implements IStorage {
         coOwnerIds: updateData.coOwnerIds ? [...updateData.coOwnerIds] : undefined,
         linkedStrategies: updateData.linkedStrategies ? [...updateData.linkedStrategies] : undefined,
         linkedGoals: updateData.linkedGoals ? [...updateData.linkedGoals] : undefined,
+        alignedToObjectiveIds: updateData.alignedToObjectiveIds ? [...updateData.alignedToObjectiveIds] : undefined,
       } as any)
       .where(eq(objectives.id, id))
       .returning();

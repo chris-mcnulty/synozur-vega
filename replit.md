@@ -72,6 +72,7 @@ Preferred communication style: Simple, everyday language.
 - [x] **Microsoft Planner Integration**: Full bidirectional sync with per-user OAuth consent, encrypted token storage, task linking to OKRs/Big Rocks
 - [x] **Excel Data Binding for Key Results**: URL paste support for OneDrive/SharePoint Excel files with cell reference binding
 - [x] **Planner Progress Mapping**: Map Key Results or Big Rocks to Planner plans/buckets to derive progress from task completion percentage. Schema fields (`plannerPlanId`, `plannerBucketId`, `plannerSyncEnabled`, `plannerLastSyncAt`, `plannerSyncError`), API endpoints for mapping management and progress sync, PlannerProgressMapping UI component in Key Result detail pane. Automatic schema migration on startup via `ensureSchemaColumns()` in server/init.ts.
+- [x] **Objective Alignment/Laddering**: Many-to-many objective alignment allowing team/individual objectives to "ladder up" or support multiple org-level objectives. Schema field `alignedToObjectiveIds` on objectives table. "Link Existing Objective" menu option in HierarchicalOKRTable. Alignment dialog for selecting/toggling objective alignments. Aligned objectives displayed as "virtual children" under target objectives with Link2 icon and purple styling to distinguish from direct children.
 
 ### Focus Rhythm Enhancements (Priority: Medium) - COMPLETE
 - [x] Rich agenda with live OKR links that show current progress (color-coded status indicators: green ≥70%, yellow 40-69%, red <40%)

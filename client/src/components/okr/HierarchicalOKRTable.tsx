@@ -26,7 +26,8 @@ import {
   Unlock,
   Scale,
   FileSpreadsheet,
-  AlertCircle
+  AlertCircle,
+  Link2
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
@@ -76,6 +77,8 @@ interface HierarchyObjective {
   year: number;
   keyResults: KeyResult[];
   childObjectives: HierarchyObjective[];
+  alignedObjectives?: HierarchyObjective[]; // Objectives that "ladder up" to this one
+  isAligned?: boolean; // Flag indicating this objective is rendered as an aligned child
   linkedBigRocks: BigRock[];
   lastUpdated: Date | null;
 }
@@ -87,6 +90,7 @@ interface HierarchicalOKRTableProps {
   onEditObjective?: (objective: HierarchyObjective) => void;
   onEditKeyResult?: (keyResult: KeyResult) => void;
   onAddChildObjective?: (parentId: string) => void;
+  onAlignObjective?: (targetObjectiveId: string) => void; // Link an existing objective to this one
   onAddKeyResult?: (objectiveId: string) => void;
   onCheckInObjective?: (objective: HierarchyObjective) => void;
   onCheckInKeyResult?: (keyResult: KeyResult) => void;
@@ -246,6 +250,7 @@ function ObjectiveRow({
   onEditObjective,
   onEditKeyResult,
   onAddChildObjective,
+  onAlignObjective,
   onAddKeyResult,
   onCheckInObjective,
   onCheckInKeyResult,
@@ -264,6 +269,7 @@ function ObjectiveRow({
   onEditObjective?: (objective: HierarchyObjective) => void;
   onEditKeyResult?: (keyResult: KeyResult) => void;
   onAddChildObjective?: (parentId: string) => void;
+  onAlignObjective?: (targetObjectiveId: string) => void;
   onAddKeyResult?: (objectiveId: string) => void;
   onCheckInObjective?: (objective: HierarchyObjective) => void;
   onCheckInKeyResult?: (keyResult: KeyResult) => void;
@@ -280,12 +286,14 @@ function ObjectiveRow({
   
   const keyResults = objective.keyResults || [];
   const childObjectives = objective.childObjectives || [];
-  const hasChildren = childObjectives.length > 0 || keyResults.length > 0;
+  const alignedObjectives = objective.alignedObjectives || [];
+  const hasChildren = childObjectives.length > 0 || keyResults.length > 0 || alignedObjectives.length > 0;
+  const isAligned = objective.isAligned === true;
 
   return (
     <>
       <TableRow 
-        className="hover-elevate group"
+        className={cn("hover-elevate group", isAligned && "bg-purple-50/50 dark:bg-purple-900/10")}
         data-testid={`row-objective-${objective.id}`}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
@@ -308,7 +316,11 @@ function ObjectiveRow({
             ) : (
               <div className="w-6 flex-shrink-0" />
             )}
-            <Target className="h-4 w-4 text-primary flex-shrink-0" />
+            {isAligned ? (
+              <Link2 className="h-4 w-4 text-purple-500 flex-shrink-0" />
+            ) : (
+              <Target className="h-4 w-4 text-primary flex-shrink-0" />
+            )}
             <span 
               className="font-medium cursor-pointer hover:text-primary hover:underline truncate" 
               onClick={() => onSelectObjective?.(objective)}
@@ -316,6 +328,12 @@ function ObjectiveRow({
             >
               {objective.title}
             </span>
+            {isAligned && (
+              <Badge variant="outline" className="text-xs bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-700">
+                <Link2 className="h-3 w-3 mr-1" />
+                Aligned
+              </Badge>
+            )}
           </div>
         </TableCell>
         
@@ -432,6 +450,14 @@ function ObjectiveRow({
                   Add Child Objective
                 </DropdownMenuItem>
                 <DropdownMenuItem 
+                  onClick={() => onAlignObjective?.(objective.id)} 
+                  data-testid={`menu-align-${objective.id}`}
+                  disabled={objective.status === 'closed'}
+                >
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Link Existing Objective
+                </DropdownMenuItem>
+                <DropdownMenuItem 
                   onClick={() => onAddKeyResult?.(objective.id)} 
                   data-testid={`menu-add-kr-${objective.id}`}
                   disabled={objective.status === 'closed'}
@@ -514,6 +540,32 @@ function ObjectiveRow({
               onEditObjective={onEditObjective}
               onEditKeyResult={onEditKeyResult}
               onAddChildObjective={onAddChildObjective}
+              onAlignObjective={onAlignObjective}
+              onAddKeyResult={onAddKeyResult}
+              onCheckInObjective={onCheckInObjective}
+              onCheckInKeyResult={onCheckInKeyResult}
+              onDeleteObjective={onDeleteObjective}
+              onDeleteKeyResult={onDeleteKeyResult}
+              onCloseObjective={onCloseObjective}
+              onReopenObjective={onReopenObjective}
+              onManageWeights={onManageWeights}
+              onCloseKeyResult={onCloseKeyResult}
+              onReopenKeyResult={onReopenKeyResult}
+            />
+          ))}
+          
+          {/* Render aligned objectives (virtual children that "ladder up" to this objective) */}
+          {(objective.alignedObjectives || []).map((aligned) => (
+            <ObjectiveRow
+              key={`aligned-${aligned.id}`}
+              objective={{ ...aligned, isAligned: true }}
+              depth={depth + 1}
+              onSelectObjective={onSelectObjective}
+              onSelectKeyResult={onSelectKeyResult}
+              onEditObjective={onEditObjective}
+              onEditKeyResult={onEditKeyResult}
+              onAddChildObjective={onAddChildObjective}
+              onAlignObjective={onAlignObjective}
               onAddKeyResult={onAddKeyResult}
               onCheckInObjective={onCheckInObjective}
               onCheckInKeyResult={onCheckInKeyResult}
@@ -765,6 +817,7 @@ export function HierarchicalOKRTable({
   onEditObjective,
   onEditKeyResult,
   onAddChildObjective,
+  onAlignObjective,
   onAddKeyResult,
   onCheckInObjective,
   onCheckInKeyResult,
@@ -811,6 +864,7 @@ export function HierarchicalOKRTable({
               onEditObjective={onEditObjective}
               onEditKeyResult={onEditKeyResult}
               onAddChildObjective={onAddChildObjective}
+              onAlignObjective={onAlignObjective}
               onAddKeyResult={onAddKeyResult}
               onCheckInObjective={onCheckInObjective}
               onCheckInKeyResult={onCheckInKeyResult}
