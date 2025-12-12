@@ -403,6 +403,7 @@ export const objectives = pgTable("objectives", {
   linkedStrategies: jsonb("linked_strategies").$type<string[]>(),
   linkedGoals: jsonb("linked_goals").$type<string[]>(),
   linkedValues: jsonb("linked_values").$type<string[]>(),
+  alignedToObjectiveIds: jsonb("aligned_to_objective_ids").$type<string[]>(), // Many-to-many: objectives that this objective supports/ladders up to
   
   // Goal type and phased targets (Viva Goals compatibility)
   goalType: text("goal_type").default('committed'), // 'aspirational' or 'committed'
