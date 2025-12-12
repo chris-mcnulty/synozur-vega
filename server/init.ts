@@ -1,7 +1,52 @@
-import { db } from "./db";
+import { db, pool } from "./db";
 import { tenants, foundations, strategies, okrs, kpis, meetings, users, bigRocks } from "@shared/schema";
 import { hashPassword } from "./auth";
 import { eq } from "drizzle-orm";
+
+/**
+ * Ensure all required schema columns exist in the database.
+ * This handles the case where production database is out of sync with code.
+ */
+async function ensureSchemaColumns() {
+  console.log("Checking database schema...");
+  
+  const client = await pool.connect();
+  try {
+    // Check and add missing columns for tenants table
+    const tenantColumns = [
+      { name: 'connector_onedrive', type: 'boolean DEFAULT false' },
+      { name: 'connector_sharepoint', type: 'boolean DEFAULT false' },
+      { name: 'connector_outlook', type: 'boolean DEFAULT false' },
+      { name: 'connector_excel', type: 'boolean DEFAULT false' },
+      { name: 'connector_planner', type: 'boolean DEFAULT false' },
+      { name: 'admin_consent_granted', type: 'boolean DEFAULT false' },
+      { name: 'admin_consent_granted_at', type: 'timestamp' },
+      { name: 'admin_consent_granted_by', type: 'varchar(255)' },
+      { name: 'azure_tenant_id', type: 'varchar(255)' },
+      { name: 'enforce_sso', type: 'boolean DEFAULT false' },
+      { name: 'allow_local_auth', type: 'boolean DEFAULT true' },
+    ];
+    
+    for (const col of tenantColumns) {
+      const checkResult = await client.query(`
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_name = 'tenants' AND column_name = $1
+      `, [col.name]);
+      
+      if (checkResult.rows.length === 0) {
+        console.log(`  Adding missing column: tenants.${col.name}`);
+        await client.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
+      }
+    }
+    
+    console.log("✓ Database schema verified");
+  } catch (error) {
+    console.error("Schema check error:", error);
+    // Don't throw - let the app continue and fail more gracefully if needed
+  } finally {
+    client.release();
+  }
+}
 
 /**
  * Initialize database with essential admin users and optionally seed demo data.
@@ -9,6 +54,9 @@ import { eq } from "drizzle-orm";
  */
 export async function initializeDatabase() {
   try {
+    // First ensure all required columns exist
+    await ensureSchemaColumns();
+    
     // Always ensure global admin users exist (safe with existing data)
     await ensureGlobalAdmins();
 
