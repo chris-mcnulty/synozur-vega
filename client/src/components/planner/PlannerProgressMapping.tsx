@@ -85,7 +85,7 @@ export function PlannerProgressMapping({
     enabled: !!plannerStatus?.connected,
   });
 
-  const { data: plans = [] } = useQuery<PlannerPlan[]>({
+  const { data: plans = [], isLoading: plansLoading, refetch: refetchPlans } = useQuery<PlannerPlan[]>({
     queryKey: ["/api/planner/plans"],
     enabled: plannerStatus?.connected && configDialogOpen,
   });
@@ -94,6 +94,34 @@ export function PlannerProgressMapping({
     queryKey: ["/api/planner/plans", selectedPlanId, "buckets"],
     enabled: !!selectedPlanId && configDialogOpen,
   });
+
+  // Sync plans from Microsoft Graph
+  const syncPlansMutation = useMutation({
+    mutationFn: async () => {
+      return await apiRequest("POST", "/api/planner/sync");
+    },
+    onSuccess: (data: any) => {
+      toast({ 
+        title: "Plans synced", 
+        description: `Found ${data.planCount} plans with ${data.taskCount} tasks` 
+      });
+      refetchPlans();
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Sync failed", 
+        description: error.message,
+        variant: "destructive" 
+      });
+    },
+  });
+
+  // Auto-sync plans when dialog opens and no plans are cached
+  useEffect(() => {
+    if (configDialogOpen && plannerStatus?.connected && plans.length === 0 && !plansLoading && !syncPlansMutation.isPending) {
+      syncPlansMutation.mutate();
+    }
+  }, [configDialogOpen, plannerStatus?.connected, plans.length, plansLoading]);
 
   useEffect(() => {
     if (mappingProgress?.mapped && configDialogOpen) {
@@ -282,22 +310,54 @@ export function PlannerProgressMapping({
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Plan</Label>
-              <Select value={selectedPlanId} onValueChange={(value) => {
-                setSelectedPlanId(value);
-                setSelectedBucketId("");
-              }}>
-                <SelectTrigger data-testid="select-planner-plan">
-                  <SelectValue placeholder="Select a plan" />
-                </SelectTrigger>
-                <SelectContent>
-                  {plans.map((plan) => (
-                    <SelectItem key={plan.id} value={plan.id}>
-                      {plan.title}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex items-center justify-between">
+                <Label>Plan</Label>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => syncPlansMutation.mutate()}
+                  disabled={syncPlansMutation.isPending || plansLoading}
+                  data-testid="button-refresh-plans"
+                >
+                  <RefreshCw className={`h-3 w-3 mr-1 ${syncPlansMutation.isPending ? "animate-spin" : ""}`} />
+                  {syncPlansMutation.isPending ? "Syncing..." : "Refresh"}
+                </Button>
+              </div>
+              {(plansLoading || syncPlansMutation.isPending) ? (
+                <div className="flex items-center gap-2 p-3 border rounded-md text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Fetching plans from Microsoft Planner...
+                </div>
+              ) : plans.length === 0 ? (
+                <div className="p-3 border rounded-md text-sm text-muted-foreground text-center">
+                  <p className="mb-2">No plans found.</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => syncPlansMutation.mutate()}
+                    data-testid="button-sync-planner-now"
+                  >
+                    <RefreshCw className="h-3 w-3 mr-1" />
+                    Sync from Planner
+                  </Button>
+                </div>
+              ) : (
+                <Select value={selectedPlanId} onValueChange={(value) => {
+                  setSelectedPlanId(value);
+                  setSelectedBucketId("");
+                }}>
+                  <SelectTrigger data-testid="select-planner-plan">
+                    <SelectValue placeholder="Select a plan" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {plans.map((plan) => (
+                      <SelectItem key={plan.id} value={plan.id}>
+                        {plan.title}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
 
             {selectedPlanId && (
