@@ -73,9 +73,9 @@ const ALL_SCOPES = [
   // Files and SharePoint
   'Files.Read.All',
   'Sites.Read.All',
-  // Planner
-  'Tasks.Read.All',
-  'Tasks.ReadWrite.All',
+  // Planner (Note: Tasks.Read.All and Tasks.ReadWrite.All don't exist - use without .All suffix)
+  'Tasks.Read',
+  'Tasks.ReadWrite',
   'Group.Read.All',
   // Calendar and Mail
   'Calendars.Read',
