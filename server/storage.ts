@@ -115,6 +115,7 @@ export interface IStorage {
   getObjectiveHierarchy(tenantId: string, quarter?: number, year?: number, level?: string, teamId?: string): Promise<Array<Objective & {
     keyResults: KeyResult[];
     childObjectives: Objective[];
+    alignedObjectives: Objective[]; // Objectives that "ladder up" to this one (virtual children)
     linkedBigRocks: BigRock[];
     lastUpdated: Date | null;
   }>>;
@@ -846,6 +847,7 @@ export class DatabaseStorage implements IStorage {
   async getObjectiveHierarchy(tenantId: string, quarter?: number, year?: number, level?: string, teamId?: string): Promise<Array<Objective & {
     keyResults: KeyResult[];
     childObjectives: Objective[];
+    alignedObjectives: Objective[]; // Objectives that "ladder up" to this one (virtual children)
     linkedBigRocks: BigRock[];
     lastUpdated: Date | null;
   }>> {
@@ -922,20 +924,56 @@ export class DatabaseStorage implements IStorage {
       }
     }
     
+    // Build a map of aligned objectives (objectives that "ladder up" to each objective)
+    // These are objectives that have this objective in their alignedToObjectiveIds array
+    const alignedChildrenByObjectiveId = new Map<string, Objective[]>();
+    for (const obj of allObjectives) {
+      const alignedToIds = (obj as any).alignedToObjectiveIds as string[] | null;
+      if (alignedToIds && Array.isArray(alignedToIds)) {
+        for (const alignedToId of alignedToIds) {
+          if (!alignedChildrenByObjectiveId.has(alignedToId)) {
+            alignedChildrenByObjectiveId.set(alignedToId, []);
+          }
+          alignedChildrenByObjectiveId.get(alignedToId)!.push(obj);
+        }
+      }
+    }
+    
     // Sort children for each parent
     for (const [parentId, children] of Array.from(childrenByParentId.entries())) {
       childrenByParentId.set(parentId, sortObjectives(children));
     }
     
+    // Sort aligned children for each objective
+    for (const [objectiveId, children] of Array.from(alignedChildrenByObjectiveId.entries())) {
+      alignedChildrenByObjectiveId.set(objectiveId, sortObjectives(children));
+    }
+    
     // Recursive function to build enriched objective with sorted children
-    const buildEnrichedObjective = (objective: Objective): Objective & {
+    const buildEnrichedObjective = (objective: Objective, processedIds: Set<string> = new Set()): Objective & {
       keyResults: KeyResult[];
       childObjectives: any[];
+      alignedObjectives: any[]; // Objectives that "ladder up" to this one (virtual children)
       linkedBigRocks: BigRock[];
       lastUpdated: Date | null;
     } => {
+      // Prevent infinite recursion by tracking processed objectives
+      if (processedIds.has(objective.id)) {
+        const data = objectiveDataMap.get(objective.id);
+        return {
+          ...objective,
+          keyResults: data?.keyResults || [],
+          childObjectives: [],
+          alignedObjectives: [],
+          linkedBigRocks: data?.linkedBigRocks || [],
+          lastUpdated: data?.latestCheckIn?.createdAt || objective.updatedAt,
+        };
+      }
+      processedIds.add(objective.id);
+      
       const data = objectiveDataMap.get(objective.id);
       const children = childrenByParentId.get(objective.id) || [];
+      const alignedChildren = alignedChildrenByObjectiveId.get(objective.id) || [];
       
       // Sort key results with numeric prefix awareness
       const sortedKeyResults = [...(data?.keyResults || [])].sort((a, b) => {
@@ -955,7 +993,11 @@ export class DatabaseStorage implements IStorage {
       return {
         ...objective,
         keyResults: sortedKeyResults,
-        childObjectives: children.map(child => buildEnrichedObjective(child)),
+        childObjectives: children.map(child => buildEnrichedObjective(child, new Set(processedIds))),
+        alignedObjectives: alignedChildren.map(aligned => ({
+          ...buildEnrichedObjective(aligned, new Set(processedIds)),
+          isAligned: true, // Mark as aligned (virtual child) for UI differentiation
+        })),
         linkedBigRocks: data?.linkedBigRocks || [],
         lastUpdated: data?.latestCheckIn?.createdAt || objective.updatedAt,
       };
