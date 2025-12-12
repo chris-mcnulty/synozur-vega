@@ -28,6 +28,7 @@ import { format } from "date-fns";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import type { CheckIn, Objective, KeyResult, Strategy, BigRock } from "@shared/schema";
 import { MilestoneTimeline, type PhasedTargets } from "./MilestoneTimeline";
+import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
 
 interface OKRDetailPaneProps {
   open: boolean;
@@ -459,6 +460,14 @@ export function OKRDetailPane({
                     )}
                   </CardContent>
                 </Card>
+
+                {entityType === "key_result" && (
+                  <PlannerProgressMapping
+                    entityType="keyresult"
+                    entityId={entity.id}
+                    entityTitle={entity.title}
+                  />
+                )}
               </TabsContent>
 
               <TabsContent value="activity" className="mt-4">

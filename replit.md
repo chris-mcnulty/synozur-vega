@@ -71,14 +71,7 @@ Preferred communication style: Simple, everyday language.
 - [x] **Admin Consent Tracking**: Schema fields (adminConsentGranted, adminConsentGrantedAt, adminConsentGrantedBy) and UI in Tenant Admin page
 - [x] **Microsoft Planner Integration**: Full bidirectional sync with per-user OAuth consent, encrypted token storage, task linking to OKRs/Big Rocks
 - [x] **Excel Data Binding for Key Results**: URL paste support for OneDrive/SharePoint Excel files with cell reference binding
-
-### Planner Progress Mapping (Priority: High)
-Map Key Results or Big Rocks to Microsoft Planner plans/buckets to derive progress from task completion:
-- Add `plannerPlanId`, `plannerBucketId`, `plannerSyncEnabled` fields to Key Results and Big Rocks
-- Calculate progress as percentage of completed tasks in the mapped plan/bucket
-- Support mapping to entire plan OR specific bucket (category)
-- Auto-sync progress on page load or manual refresh
-- UI: Planner mapping selector in KR/Big Rock detail pane
+- [x] **Planner Progress Mapping**: Map Key Results or Big Rocks to Planner plans/buckets to derive progress from task completion percentage. Schema fields (`plannerPlanId`, `plannerBucketId`, `plannerSyncEnabled`, `plannerLastSyncAt`, `plannerSyncError`), API endpoints for mapping management and progress sync, PlannerProgressMapping UI component in Key Result detail pane. Automatic schema migration on startup via `ensureSchemaColumns()` in server/init.ts.
 
 ### Focus Rhythm Enhancements (Priority: Medium)
 - Rich agenda with live OKR links that show current progress

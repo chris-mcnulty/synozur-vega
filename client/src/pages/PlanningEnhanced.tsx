@@ -27,6 +27,7 @@ import { MilestoneEditor, type PhasedTargets } from "@/components/okr/MilestoneE
 import { MilestoneTimeline } from "@/components/okr/MilestoneTimeline";
 import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink } from "lucide-react";
 import { ExcelFilePicker } from "@/components/ExcelFilePicker";
+import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
 import { cn } from "@/lib/utils";
 import type { Foundation, CompanyValue } from "@shared/schema";
 import { ProgressSummaryDialog } from "@/components/ProgressSummaryDialog";
@@ -2117,6 +2118,19 @@ export default function PlanningEnhanced() {
                     data-testid="slider-bigrock-progress"
                   />
                 </div>
+
+                {selectedBigRock && (
+                  <div className="pt-2">
+                    <PlannerProgressMapping
+                      entityType="bigrock"
+                      entityId={selectedBigRock.id}
+                      entityTitle={selectedBigRock.title}
+                      onProgressUpdate={(progress) => {
+                        setBigRockForm({ ...bigRockForm, completionPercentage: Math.round(progress) });
+                      }}
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               <div className="space-y-4 mt-4">
