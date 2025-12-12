@@ -5,6 +5,7 @@ import {
   checkOutlookConnection,
   getCurrentUser,
   listCalendars,
+  listCalendarEvents,
   createCalendarEvent,
   updateCalendarEvent,
   deleteCalendarEvent,
@@ -94,6 +95,55 @@ router.get('/calendars', async (req: Request, res: Response) => {
     res.json(calendars);
   } catch (error: any) {
     console.error('Failed to list calendars:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/calendar/events', async (req: Request, res: Response) => {
+  try {
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'M365 features not available for your role' });
+    }
+    
+    const connected = await checkOutlookConnection();
+    if (!connected) {
+      return res.status(401).json({ error: 'Outlook not connected' });
+    }
+    
+    const { startDate, endDate } = req.query;
+    
+    const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const end = endDate ? new Date(endDate as string) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    
+    const events = await listCalendarEvents(start, end);
+    res.json(events);
+  } catch (error: any) {
+    console.error('Failed to list calendar events:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get('/calendar/events/:eventId', async (req: Request, res: Response) => {
+  try {
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'M365 features not available for your role' });
+    }
+    
+    const connected = await checkOutlookConnection();
+    if (!connected) {
+      return res.status(401).json({ error: 'Outlook not connected' });
+    }
+    
+    const { eventId } = req.params;
+    const event = await getCalendarEvent(eventId);
+    
+    if (!event) {
+      return res.status(404).json({ error: 'Event not found' });
+    }
+    
+    res.json(event);
+  } catch (error: any) {
+    console.error('Failed to get calendar event:', error);
     res.status(500).json({ error: error.message });
   }
 });

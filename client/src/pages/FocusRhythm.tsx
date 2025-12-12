@@ -505,19 +505,55 @@ function MeetingCard({ meeting, onEdit, onDelete, objectives, bigRocks, onCopyBr
       
       <CardContent className="space-y-4">
         {(linkedObjectives.length > 0 || linkedBigRocks.length > 0) && (
-          <div className="flex flex-wrap gap-2">
-            {linkedObjectives.map(obj => (
-              <Badge key={obj.id} variant="outline" className="text-xs">
-                <Target className="w-3 h-3 mr-1" />
-                {obj.title.length > 30 ? obj.title.slice(0, 30) + '...' : obj.title}
-              </Badge>
-            ))}
-            {linkedBigRocks.map(rock => (
-              <Badge key={rock.id} variant="secondary" className="text-xs">
-                <Zap className="w-3 h-3 mr-1" />
-                {rock.title.length > 30 ? rock.title.slice(0, 30) + '...' : rock.title}
-              </Badge>
-            ))}
+          <div className="space-y-2">
+            {linkedObjectives.length > 0 && (
+              <div className="space-y-1">
+                <div className="text-xs text-muted-foreground font-medium">Linked Objectives</div>
+                {linkedObjectives.map(obj => {
+                  const progress = obj.progress || 0;
+                  const statusColor = progress >= 70 ? 'text-green-600' : progress >= 40 ? 'text-amber-600' : 'text-red-600';
+                  const bgColor = progress >= 70 ? 'bg-green-500' : progress >= 40 ? 'bg-amber-500' : 'bg-red-500';
+                  return (
+                    <div key={obj.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
+                      <Target className="w-4 h-4 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{obj.title}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                            <div className={`h-full ${bgColor} transition-all`} style={{ width: `${Math.min(progress, 100)}%` }} />
+                          </div>
+                          <span className={`text-xs font-medium ${statusColor}`}>{progress}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            {linkedBigRocks.length > 0 && (
+              <div className="space-y-1">
+                <div className="text-xs text-muted-foreground font-medium">Linked Big Rocks</div>
+                {linkedBigRocks.map(rock => {
+                  const progress = rock.completionPercentage || 0;
+                  const statusColor = progress >= 70 ? 'text-green-600' : progress >= 40 ? 'text-amber-600' : 'text-red-600';
+                  const bgColor = progress >= 70 ? 'bg-green-500' : progress >= 40 ? 'bg-amber-500' : 'bg-red-500';
+                  return (
+                    <div key={rock.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
+                      <Zap className="w-4 h-4 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{rock.title}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                            <div className={`h-full ${bgColor} transition-all`} style={{ width: `${Math.min(progress, 100)}%` }} />
+                          </div>
+                          <span className={`text-xs font-medium ${statusColor}`}>{progress}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
         
@@ -628,6 +664,15 @@ export default function FocusRhythm() {
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [linkingModalOpen, setLinkingModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [outlookImportDialogOpen, setOutlookImportDialogOpen] = useState(false);
+  const [aiRecapResult, setAiRecapResult] = useState<{
+    actionItems: Array<{ description: string; assignee?: string; dueDate?: string; priority?: string }>;
+    decisions: Array<{ description: string; rationale?: string; owner?: string }>;
+    blockers: Array<{ description: string; impact?: string; suggestedResolution?: string }>;
+    summary: string;
+    keyTakeaways: string[];
+  } | null>(null);
+  const [isAnalyzingNotes, setIsAnalyzingNotes] = useState(false);
   
   const { data: foundation } = useQuery<Foundation>({
     queryKey: [`/api/foundations/${currentTenant.id}`],
@@ -684,6 +729,20 @@ export default function FocusRhythm() {
       if (!res.ok) {
         return { connected: false, user: null };
       }
+      return res.json();
+    },
+  });
+  
+  const { data: calendarEvents = [], isLoading: calendarEventsLoading } = useQuery<any[]>({
+    queryKey: ['/api/m365/calendar/events'],
+    enabled: outlookStatus?.connected && outlookImportDialogOpen,
+    queryFn: async () => {
+      const startDate = new Date();
+      startDate.setDate(startDate.getDate() - 30);
+      const endDate = new Date();
+      endDate.setDate(endDate.getDate() + 7);
+      const res = await fetch(`/api/m365/calendar/events?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`);
+      if (!res.ok) return [];
       return res.json();
     },
   });
@@ -796,6 +855,131 @@ export default function FocusRhythm() {
 
   const resetForm = () => {
     setFormData(initialFormData);
+    setAiRecapResult(null);
+  };
+
+  const handleAnalyzeNotes = async () => {
+    if (!formData.meetingNotes || formData.meetingNotes.length < 20) {
+      toast({
+        title: "Notes too short",
+        description: "Please add more meeting notes to analyze (at least 20 characters).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAnalyzingNotes(true);
+    setAiRecapResult(null);
+
+    try {
+      const linkedOKRs: Array<{ type: string; title: string }> = [];
+      formData.linkedObjectiveIds.forEach(id => {
+        const obj = objectives.find(o => o.id === id);
+        if (obj) linkedOKRs.push({ type: "Objective", title: obj.title });
+      });
+      formData.linkedBigRockIds.forEach(id => {
+        const rock = bigRocks.find(b => b.id === id);
+        if (rock) linkedOKRs.push({ type: "Big Rock", title: rock.title });
+      });
+
+      const res = await apiRequest("POST", "/api/ai/parse-meeting-recap", {
+        meetingNotes: formData.meetingNotes,
+        tenantId: currentTenant.id,
+        meetingTitle: formData.title || "Untitled Meeting",
+        meetingType: formData.meetingType,
+        linkedOKRs,
+      });
+
+      const result = await res.json();
+      setAiRecapResult(result);
+      
+      toast({
+        title: "Notes analyzed",
+        description: `Found ${result.actionItems.length} action items, ${result.decisions.length} decisions, ${result.blockers.length} blockers.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Analysis failed",
+        description: error.message || "Failed to analyze meeting notes",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzingNotes(false);
+    }
+  };
+
+  const applyAiRecapToForm = () => {
+    if (!aiRecapResult) return;
+    
+    const updates: Partial<MeetingFormData> = {};
+    let addedCount = 0;
+    
+    // Only add action items if AI found any
+    if (aiRecapResult.actionItems.length > 0) {
+      const newActionItems = [...formData.actionItems];
+      aiRecapResult.actionItems.forEach(item => {
+        const text = item.assignee 
+          ? `${item.description} (${item.assignee}${item.dueDate ? `, due: ${item.dueDate}` : ''})`
+          : item.description;
+        if (!newActionItems.includes(text)) {
+          newActionItems.push(text);
+          addedCount++;
+        }
+      });
+      updates.actionItems = newActionItems;
+    }
+
+    // Only add decisions if AI found any
+    if (aiRecapResult.decisions.length > 0) {
+      const newDecisions = [...formData.decisions];
+      aiRecapResult.decisions.forEach(d => {
+        if (!newDecisions.includes(d.description)) {
+          newDecisions.push(d.description);
+          addedCount++;
+        }
+      });
+      updates.decisions = newDecisions;
+    }
+
+    // Only add blockers as risks if AI found any
+    if (aiRecapResult.blockers.length > 0) {
+      const newRisks = [...formData.risks];
+      aiRecapResult.blockers.forEach(b => {
+        const text = b.suggestedResolution 
+          ? `${b.description} - Resolution: ${b.suggestedResolution}`
+          : b.description;
+        if (!newRisks.includes(text)) {
+          newRisks.push(text);
+          addedCount++;
+        }
+      });
+      updates.risks = newRisks;
+    }
+
+    // Only update summary if AI generated a meaningful one
+    if (aiRecapResult.summary && aiRecapResult.summary !== "Unable to generate summary from the provided notes.") {
+      updates.summary = formData.summary 
+        ? formData.summary + "\n\n" + aiRecapResult.summary 
+        : aiRecapResult.summary;
+    }
+
+    if (Object.keys(updates).length === 0) {
+      toast({
+        title: "Nothing to apply",
+        description: "The AI analysis didn't find new items to add.",
+      });
+      return;
+    }
+
+    setFormData({
+      ...formData,
+      ...updates,
+    });
+
+    toast({
+      title: "Applied to form",
+      description: `Added ${addedCount} new items from AI analysis.`,
+    });
   };
 
   const handleTemplateSelect = (template: MeetingTemplate) => {
@@ -1361,31 +1545,53 @@ export default function FocusRhythm() {
         </div>
         
         {totalLinkedItems > 0 && (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {formData.linkedObjectiveIds.length > 0 && (
-              <div>
-                <Label className="text-xs text-muted-foreground">Linked Objectives</Label>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {objectives.filter(o => formData.linkedObjectiveIds.includes(o.id)).map(obj => (
-                    <Badge key={obj.id} variant="outline">
-                      <Target className="w-3 h-3 mr-1" />
-                      {obj.title.length > 40 ? obj.title.slice(0, 40) + '...' : obj.title}
-                    </Badge>
-                  ))}
-                </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground font-medium">Linked Objectives</Label>
+                {objectives.filter(o => formData.linkedObjectiveIds.includes(o.id)).map(obj => {
+                  const progress = obj.progress || 0;
+                  const statusColor = progress >= 70 ? 'text-green-600' : progress >= 40 ? 'text-amber-600' : 'text-red-600';
+                  const bgColor = progress >= 70 ? 'bg-green-500' : progress >= 40 ? 'bg-amber-500' : 'bg-red-500';
+                  return (
+                    <div key={obj.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                      <Target className="w-5 h-5 flex-shrink-0 text-muted-foreground" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{obj.title}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
+                            <div className={`h-full ${bgColor} transition-all`} style={{ width: `${Math.min(progress, 100)}%` }} />
+                          </div>
+                          <span className={`text-sm font-medium ${statusColor}`}>{progress}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
             {formData.linkedBigRockIds.length > 0 && (
-              <div>
-                <Label className="text-xs text-muted-foreground">Linked Big Rocks</Label>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {bigRocks.filter(b => formData.linkedBigRockIds.includes(b.id)).map(rock => (
-                    <Badge key={rock.id} variant="secondary">
-                      <Zap className="w-3 h-3 mr-1" />
-                      {rock.title.length > 40 ? rock.title.slice(0, 40) + '...' : rock.title}
-                    </Badge>
-                  ))}
-                </div>
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground font-medium">Linked Big Rocks</Label>
+                {bigRocks.filter(b => formData.linkedBigRockIds.includes(b.id)).map(rock => {
+                  const progress = rock.completionPercentage || 0;
+                  const statusColor = progress >= 70 ? 'text-green-600' : progress >= 40 ? 'text-amber-600' : 'text-red-600';
+                  const bgColor = progress >= 70 ? 'bg-green-500' : progress >= 40 ? 'bg-amber-500' : 'bg-red-500';
+                  return (
+                    <div key={rock.id} className="flex items-center gap-3 p-3 rounded-lg border bg-card">
+                      <Zap className="w-5 h-5 flex-shrink-0 text-muted-foreground" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium truncate">{rock.title}</div>
+                        <div className="flex items-center gap-2 mt-1">
+                          <div className="flex-1 h-2 bg-secondary rounded-full overflow-hidden">
+                            <div className={`h-full ${bgColor} transition-all`} style={{ width: `${Math.min(progress, 100)}%` }} />
+                          </div>
+                          <span className={`text-sm font-medium ${statusColor}`}>{progress}%</span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1394,19 +1600,48 @@ export default function FocusRhythm() {
       
       <TabsContent value="notes" className="space-y-4 mt-4">
         <div>
-          <div className="flex items-center gap-2 mb-2">
-            <ClipboardCheck className="w-5 h-5 text-muted-foreground" />
-            <Label htmlFor="meetingNotes" className="text-base font-medium">Imported Meeting Notes</Label>
+          <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <ClipboardCheck className="w-5 h-5 text-muted-foreground" />
+              <Label htmlFor="meetingNotes" className="text-base font-medium">Meeting Notes</Label>
+            </div>
+            <div className="flex items-center gap-2">
+              {outlookStatus?.connected && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setOutlookImportDialogOpen(true)}
+                  data-testid="button-import-from-outlook"
+                >
+                  <Cloud className="w-4 h-4 mr-2" />
+                  Import from Outlook
+                </Button>
+              )}
+              <Button
+                variant="default"
+                size="sm"
+                onClick={handleAnalyzeNotes}
+                disabled={isAnalyzingNotes || !formData.meetingNotes || formData.meetingNotes.length < 20}
+                data-testid="button-analyze-with-ai"
+              >
+                {isAnalyzingNotes ? (
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Sparkles className="w-4 h-4 mr-2" />
+                )}
+                {isAnalyzingNotes ? "Analyzing..." : "Analyze with AI"}
+              </Button>
+            </div>
           </div>
           <p className="text-sm text-muted-foreground mb-3">
-            Paste auto-generated notes from Outlook Copilot or Teams here. These notes will be available for AI analysis.
+            Import notes from Outlook or paste content, then use AI to extract action items, decisions, and blockers.
           </p>
           <Textarea
             id="meetingNotes"
-            placeholder="Paste meeting notes from Outlook Copilot or Teams transcription here..."
+            placeholder="Paste meeting notes or import from Outlook calendar..."
             value={formData.meetingNotes}
             onChange={(e) => setFormData({ ...formData, meetingNotes: e.target.value })}
-            rows={12}
+            rows={10}
             className="font-mono text-sm"
             data-testid="textarea-meeting-notes"
           />
@@ -1416,6 +1651,125 @@ export default function FocusRhythm() {
             </div>
           )}
         </div>
+        
+        {aiRecapResult && (
+          <div className="space-y-4 pt-4 border-t">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-primary" />
+                <Label className="text-base font-medium">AI Analysis Results</Label>
+              </div>
+              <Button
+                size="sm"
+                onClick={applyAiRecapToForm}
+                data-testid="button-apply-ai-results"
+              >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Apply to Form
+              </Button>
+            </div>
+            
+            <div className="p-4 rounded-lg bg-muted/50 space-y-1">
+              <Label className="text-sm font-medium">Summary</Label>
+              <p className="text-sm text-muted-foreground">{aiRecapResult.summary}</p>
+            </div>
+            
+            {aiRecapResult.keyTakeaways.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Key Takeaways</Label>
+                <ul className="list-disc list-inside text-sm text-muted-foreground space-y-1">
+                  {aiRecapResult.keyTakeaways.map((takeaway, i) => (
+                    <li key={i}>{takeaway}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {aiRecapResult.actionItems.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <Target className="w-4 h-4 text-blue-500" />
+                  Action Items ({aiRecapResult.actionItems.length})
+                </Label>
+                <div className="space-y-2">
+                  {aiRecapResult.actionItems.map((item, i) => (
+                    <div key={i} className="p-3 rounded-lg border bg-card">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">{item.description}</div>
+                          <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                            {item.assignee && <span>Assignee: {item.assignee}</span>}
+                            {item.dueDate && <span>Due: {item.dueDate}</span>}
+                          </div>
+                        </div>
+                        {item.priority && (
+                          <Badge 
+                            variant={item.priority === 'high' ? 'destructive' : item.priority === 'medium' ? 'default' : 'secondary'}
+                            className="text-xs shrink-0"
+                          >
+                            {item.priority}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {aiRecapResult.decisions.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-green-500" />
+                  Decisions ({aiRecapResult.decisions.length})
+                </Label>
+                <div className="space-y-2">
+                  {aiRecapResult.decisions.map((decision, i) => (
+                    <div key={i} className="p-3 rounded-lg border bg-card">
+                      <div className="font-medium text-sm">{decision.description}</div>
+                      {decision.rationale && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Rationale: {decision.rationale}
+                        </div>
+                      )}
+                      {decision.owner && (
+                        <div className="text-xs text-muted-foreground">
+                          Owner: {decision.owner}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {aiRecapResult.blockers.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                  Blockers ({aiRecapResult.blockers.length})
+                </Label>
+                <div className="space-y-2">
+                  {aiRecapResult.blockers.map((blocker, i) => (
+                    <div key={i} className="p-3 rounded-lg border bg-card border-amber-500/30">
+                      <div className="font-medium text-sm">{blocker.description}</div>
+                      {blocker.impact && (
+                        <div className="text-xs text-muted-foreground mt-1">
+                          Impact: {blocker.impact}
+                        </div>
+                      )}
+                      {blocker.suggestedResolution && (
+                        <div className="text-xs text-green-600 mt-1">
+                          Suggested resolution: {blocker.suggestedResolution}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </TabsContent>
     </Tabs>
   );
@@ -1653,6 +2007,86 @@ export default function FocusRhythm() {
           onSave={handleLinksSave}
           tenantId={currentTenant.id}
         />
+        
+        <Dialog open={outlookImportDialogOpen} onOpenChange={setOutlookImportDialogOpen}>
+          <DialogContent className="max-w-2xl max-h-[80vh]">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Cloud className="w-5 h-5" />
+                Import Notes from Outlook
+              </DialogTitle>
+              <DialogDescription>
+                Select a calendar event to import its body content as meeting notes.
+              </DialogDescription>
+            </DialogHeader>
+            <ScrollArea className="max-h-[50vh] pr-4">
+              {calendarEventsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="w-6 h-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : calendarEvents.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <Calendar className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                  <p>No calendar events found in the past 30 days.</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {calendarEvents.map((event: any) => {
+                    const eventDate = event.start?.dateTime ? new Date(event.start.dateTime) : null;
+                    const hasBody = event.body?.content && event.body.content.length > 50;
+                    return (
+                      <div
+                        key={event.id}
+                        className={`p-3 rounded-lg border cursor-pointer hover-elevate ${hasBody ? '' : 'opacity-50'}`}
+                        onClick={() => {
+                          if (event.body?.content) {
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = event.body.content;
+                            const textContent = tempDiv.textContent || tempDiv.innerText || '';
+                            const cleanedText = textContent.replace(/\s+/g, ' ').trim();
+                            const existingNotes = formData.meetingNotes ? formData.meetingNotes + '\n\n---\n\n' : '';
+                            setFormData({
+                              ...formData,
+                              meetingNotes: existingNotes + `Imported from: ${event.subject}\nDate: ${eventDate ? format(eventDate, 'PPP p') : 'N/A'}\n\n${cleanedText}`,
+                            });
+                            setOutlookImportDialogOpen(false);
+                            toast({ title: "Notes imported", description: `Imported notes from "${event.subject}"` });
+                          } else {
+                            toast({ title: "No content", description: "This event has no body content to import.", variant: "destructive" });
+                          }
+                        }}
+                        data-testid={`outlook-event-${event.id}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{event.subject || 'Untitled Event'}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {eventDate ? format(eventDate, 'PPP p') : 'No date'}
+                            </div>
+                          </div>
+                          {hasBody ? (
+                            <Badge variant="outline" className="text-xs shrink-0">
+                              Has Notes
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs shrink-0">
+                              No Notes
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </ScrollArea>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setOutlookImportDialogOpen(false)}>
+                Cancel
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

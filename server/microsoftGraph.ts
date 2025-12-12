@@ -416,6 +416,44 @@ export async function getCalendarEvent(eventId: string): Promise<OutlookEvent | 
   }
 }
 
+export async function listCalendarEvents(
+  startDate: Date, 
+  endDate: Date,
+  top: number = 50
+): Promise<OutlookEvent[]> {
+  try {
+    const client = await getOutlookClient();
+    
+    const startIso = startDate.toISOString();
+    const endIso = endDate.toISOString();
+    
+    const response = await client
+      .api('/me/calendarView')
+      .query({
+        startDateTime: startIso,
+        endDateTime: endIso,
+      })
+      .top(top)
+      .orderby('start/dateTime')
+      .select('id,subject,start,end,body,location,attendees,organizer')
+      .get();
+    
+    return (response.value || []).map((event: any) => ({
+      id: event.id,
+      subject: event.subject,
+      start: event.start,
+      end: event.end,
+      body: event.body,
+      location: event.location,
+      attendees: event.attendees,
+      organizer: event.organizer,
+    }));
+  } catch (error) {
+    console.error('Failed to list calendar events:', error);
+    return [];
+  }
+}
+
 export async function sendEmail(message: EmailMessage): Promise<boolean> {
   try {
     const client = await getOutlookClient();

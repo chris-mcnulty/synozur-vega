@@ -74,11 +74,21 @@ Preferred communication style: Simple, everyday language.
 - [x] **Planner Progress Mapping**: Map Key Results or Big Rocks to Planner plans/buckets to derive progress from task completion percentage. Schema fields (`plannerPlanId`, `plannerBucketId`, `plannerSyncEnabled`, `plannerLastSyncAt`, `plannerSyncError`), API endpoints for mapping management and progress sync, PlannerProgressMapping UI component in Key Result detail pane. Automatic schema migration on startup via `ensureSchemaColumns()` in server/init.ts.
 
 ### Focus Rhythm Enhancements (Priority: Medium)
-- Rich agenda with live OKR links that show current progress
-- Import meeting notes from Outlook Calendar
-- AI-powered meeting recap parser (extract action items, decisions, blockers)
+- [x] Rich agenda with live OKR links that show current progress (color-coded status indicators: green ≥70%, yellow 40-69%, red <40%)
+- [x] Import meeting notes from Outlook Calendar (via `/api/m365/calendar/events` endpoint with date range filtering)
+- [x] AI-powered meeting recap parser (GPT-5 powered extraction of action items, decisions, blockers via `/api/ai/parse-meeting-recap`)
 - Meeting templates with pre-configured OKR check-in sections
 - Recurring meeting series support
+
+### Objective Progress Overview UX Improvements (Priority: Low)
+- Sort objectives by level (org first), then by lowest progress to highlight issues
+- Status-colored progress bars: Green (≥70%), Yellow (40-69%), Red (<40%)
+- Cap display at 100% with "Exceeds Target" badge for >100%
+- Add click-to-view to jump to objective details
+- Status icons for quick scanning (checkmark, warning, alert)
+- Show Key Results count context (e.g., "3/5 KRs complete")
+- Filter tabs for At-Risk, On-Track, Completed
+- Clear quarter context header
 
 ### OpenAPI Spec for M365 Copilot Agent (Priority: High - January 2025 deadline)
 - Generate OpenAPI 3.0 spec for all Vega API endpoints

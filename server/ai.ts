@@ -739,3 +739,172 @@ Ensure the response is valid JSON only, with no additional text before or after.
     yield chunk;
   }
 }
+
+// Meeting recap parser - extract action items, decisions, and blockers
+export interface MeetingRecapResult {
+  actionItems: Array<{
+    description: string;
+    assignee?: string;
+    dueDate?: string;
+    priority?: "high" | "medium" | "low";
+  }>;
+  decisions: Array<{
+    description: string;
+    rationale?: string;
+    owner?: string;
+  }>;
+  blockers: Array<{
+    description: string;
+    impact?: string;
+    suggestedResolution?: string;
+  }>;
+  summary: string;
+  keyTakeaways: string[];
+}
+
+export async function parseMeetingRecap(
+  meetingNotes: string,
+  context: {
+    tenantId?: string;
+    meetingTitle?: string;
+    meetingType?: string;
+    linkedOKRs?: Array<{ type: string; title: string }>;
+  }
+): Promise<MeetingRecapResult> {
+  const okrContext = context.linkedOKRs?.length
+    ? `\n\n**Linked OKRs for context:**\n${context.linkedOKRs.map((okr) => `- ${okr.type}: ${okr.title}`).join("\n")}`
+    : "";
+
+  const messages: ChatMessage[] = [
+    {
+      role: "user",
+      content: `You are an expert meeting analyst. Please analyze the following meeting notes and extract key information.
+
+**Meeting:** ${context.meetingTitle || "Untitled Meeting"}
+**Type:** ${context.meetingType || "General Meeting"}${okrContext}
+
+**Meeting Notes:**
+${meetingNotes}
+
+---
+
+Please extract and return a JSON object with the following structure:
+{
+  "actionItems": [
+    {
+      "description": "Clear action item description",
+      "assignee": "Person responsible (if mentioned)",
+      "dueDate": "Due date if mentioned (format: YYYY-MM-DD or descriptive like 'next week')",
+      "priority": "high|medium|low (infer from context)"
+    }
+  ],
+  "decisions": [
+    {
+      "description": "Decision that was made",
+      "rationale": "Why this decision was made (if mentioned)",
+      "owner": "Who owns implementing this decision"
+    }
+  ],
+  "blockers": [
+    {
+      "description": "Issue blocking progress",
+      "impact": "What is impacted by this blocker",
+      "suggestedResolution": "Potential solution if discussed"
+    }
+  ],
+  "summary": "A brief 2-3 sentence summary of the meeting",
+  "keyTakeaways": ["List of 3-5 key points from the meeting"]
+}
+
+IMPORTANT:
+- Only include items that are explicitly mentioned or clearly implied in the notes
+- If no action items, decisions, or blockers are present, return empty arrays
+- Keep descriptions concise but complete
+- For priorities, infer from urgency words (ASAP, critical, urgent = high; soon, next week = medium; when possible = low)
+- Return ONLY valid JSON, no additional text`,
+    },
+  ];
+
+  try {
+    const response = await getChatCompletion(messages, {
+      tenantId: context.tenantId,
+      maxTokens: 2048,
+    });
+
+    // Parse the JSON response with robust cleaning
+    const cleanedResponse = response
+      .replace(/```json\s*/g, "")
+      .replace(/```\s*/g, "")
+      .replace(/^[^{]*/, "")
+      .replace(/[^}]*$/, "")
+      .trim();
+    
+    let parsed: any;
+    try {
+      parsed = JSON.parse(cleanedResponse);
+    } catch (parseError) {
+      console.error("[AI Service] JSON parse error:", parseError);
+      throw new Error("AI response was not in valid JSON format. Please try again.");
+    }
+
+    // Validate and sanitize the response with strict defaults
+    const validateActionItem = (item: any) => {
+      if (!item || typeof item.description !== 'string' || !item.description.trim()) return null;
+      return {
+        description: item.description.trim(),
+        assignee: typeof item.assignee === 'string' ? item.assignee.trim() : undefined,
+        dueDate: typeof item.dueDate === 'string' ? item.dueDate.trim() : undefined,
+        priority: ['high', 'medium', 'low'].includes(item.priority) ? item.priority : undefined,
+      };
+    };
+
+    const validateDecision = (item: any) => {
+      if (!item || typeof item.description !== 'string' || !item.description.trim()) return null;
+      return {
+        description: item.description.trim(),
+        rationale: typeof item.rationale === 'string' ? item.rationale.trim() : undefined,
+        owner: typeof item.owner === 'string' ? item.owner.trim() : undefined,
+      };
+    };
+
+    const validateBlocker = (item: any) => {
+      if (!item || typeof item.description !== 'string' || !item.description.trim()) return null;
+      return {
+        description: item.description.trim(),
+        impact: typeof item.impact === 'string' ? item.impact.trim() : undefined,
+        suggestedResolution: typeof item.suggestedResolution === 'string' ? item.suggestedResolution.trim() : undefined,
+      };
+    };
+
+    const actionItems = Array.isArray(parsed.actionItems)
+      ? parsed.actionItems.map(validateActionItem).filter(Boolean)
+      : [];
+
+    const decisions = Array.isArray(parsed.decisions)
+      ? parsed.decisions.map(validateDecision).filter(Boolean)
+      : [];
+
+    const blockers = Array.isArray(parsed.blockers)
+      ? parsed.blockers.map(validateBlocker).filter(Boolean)
+      : [];
+
+    const summary = typeof parsed.summary === 'string' && parsed.summary.trim()
+      ? parsed.summary.trim()
+      : "Unable to generate summary from the provided notes.";
+
+    const keyTakeaways = Array.isArray(parsed.keyTakeaways)
+      ? parsed.keyTakeaways.filter((t: any) => typeof t === 'string' && t.trim()).map((t: string) => t.trim())
+      : [];
+
+    return {
+      actionItems,
+      decisions,
+      blockers,
+      summary,
+      keyTakeaways,
+    };
+  } catch (error: any) {
+    console.error("[AI Service] Error parsing meeting recap:", error.message);
+    throw new Error(`Failed to parse meeting notes: ${error.message}`);
+  }
+}

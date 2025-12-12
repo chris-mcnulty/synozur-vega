@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
 import { insertGroundingDocumentSchema } from "@shared/schema";
-import { getChatCompletion, streamChatCompletion, streamChatWithTools, generateOKRSuggestions, suggestBigRocks, streamProgressSummary, streamGoalSuggestions, streamStrategyDraft, type ChatMessage, type ProgressSummaryData, type GoalSuggestionContext, type StrategyDraftContext } from "./ai";
+import { getChatCompletion, streamChatCompletion, streamChatWithTools, generateOKRSuggestions, suggestBigRocks, streamProgressSummary, streamGoalSuggestions, streamStrategyDraft, parseMeetingRecap, type ChatMessage, type ProgressSummaryData, type GoalSuggestionContext, type StrategyDraftContext, type MeetingRecapResult } from "./ai";
 import { z } from "zod";
 import { hasPermission, PERMISSIONS, Role } from "@shared/rbac";
 import { loadCurrentUser, requireTenantAccess } from "./middleware/rbac";
@@ -57,7 +57,7 @@ aiRouter.post("/parse-pdf", requireAIAdmin, async (req: Request, res: Response) 
     req.on('end', async () => {
       try {
         const buffer = Buffer.concat(chunks);
-        const pdfParseModule = await import("pdf-parse");
+        const pdfParseModule = await import("pdf-parse") as any;
         const pdfParse = pdfParseModule.default || pdfParseModule;
         const data = await pdfParse(buffer);
         res.json({ text: data.text });
@@ -670,5 +670,50 @@ aiRouter.post("/strategy-draft/stream", requireAIChat, async (req: Request, res:
       res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
       res.end();
     }
+  }
+});
+
+// ============================================
+// MEETING RECAP PARSER
+// ============================================
+
+const meetingRecapSchema = z.object({
+  meetingNotes: z.string().min(10, "Meeting notes must be at least 10 characters"),
+  tenantId: z.string(),
+  meetingTitle: z.string().optional(),
+  meetingType: z.string().optional(),
+  linkedOKRs: z.array(z.object({
+    type: z.string(),
+    title: z.string(),
+  })).optional(),
+});
+
+aiRouter.post("/parse-meeting-recap", requireAIChat, async (req: Request, res: Response) => {
+  try {
+    const { meetingNotes, tenantId, meetingTitle, meetingType, linkedOKRs } = meetingRecapSchema.parse(req.body);
+    
+    console.log("[Meeting Recap] Parsing notes for meeting:", meetingTitle || "Untitled");
+    console.log("[Meeting Recap] Notes length:", meetingNotes.length);
+
+    const result = await parseMeetingRecap(meetingNotes, {
+      tenantId,
+      meetingTitle,
+      meetingType,
+      linkedOKRs,
+    });
+
+    console.log("[Meeting Recap] Parsed successfully:", {
+      actionItems: result.actionItems.length,
+      decisions: result.decisions.length,
+      blockers: result.blockers.length,
+    });
+
+    res.json(result);
+  } catch (error: any) {
+    console.error("[Meeting Recap] Error:", error.message || error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid request format", details: error.errors });
+    }
+    res.status(500).json({ error: error.message || "Failed to parse meeting notes" });
   }
 });
