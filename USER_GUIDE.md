@@ -2,7 +2,7 @@
 
 **Welcome to Vega - The Synozur Alliance Company Operating System**
 
-Version 1.0 | Last Updated: December 2025
+Version 1.0 | Last Updated: December 13, 2025
 
 ---
 
@@ -1311,14 +1311,13 @@ Vega uses role-based permissions to control access:
 
 ## Document Version History
 
-- **v1.0** (December 2025): Initial comprehensive user guide
+- **v1.0** (December 13, 2025): Initial comprehensive user guide
 
 ---
 
 **Need More Help?**
 
-Contact: support@synozur.com  
-Website: https://vega.synozur.com (example)
+Contact your organization's Vega administrator or The Synozur Alliance support team.
 
 **The Synozur Alliance LLC**  
 Empowering organizations through strategic alignment.
