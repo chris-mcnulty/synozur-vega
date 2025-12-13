@@ -1046,3 +1046,25 @@ export const bigRockPlannerTasks = pgTable("big_rock_planner_tasks", {
 }));
 
 export type BigRockPlannerTask = typeof bigRockPlannerTasks.$inferSelect;
+
+// Consultant Tenant Access Grants
+// Consultants can only access tenants they've been explicitly granted access to
+export const consultantTenantAccess = pgTable("consultant_tenant_access", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  consultantUserId: varchar("consultant_user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  grantedBy: varchar("granted_by").notNull().references(() => users.id),
+  grantedAt: timestamp("granted_at").defaultNow(),
+  expiresAt: timestamp("expires_at"),
+  notes: text("notes"),
+}, (table) => ({
+  uniqueConsultantTenant: unique().on(table.consultantUserId, table.tenantId),
+}));
+
+export const insertConsultantTenantAccessSchema = createInsertSchema(consultantTenantAccess).omit({
+  id: true,
+  grantedAt: true,
+});
+
+export type InsertConsultantTenantAccess = z.infer<typeof insertConsultantTenantAccessSchema>;
+export type ConsultantTenantAccess = typeof consultantTenantAccess.$inferSelect;
