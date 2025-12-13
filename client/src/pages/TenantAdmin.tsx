@@ -28,7 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield, Settings2, Cloud, ShieldCheck, ExternalLink } from "lucide-react";
+import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield, Settings2, Cloud, ShieldCheck, ExternalLink, UserPlus, Users } from "lucide-react";
 import excelIcon from "@assets/Excel_512_1765494903271.png";
 import oneDriveIcon from "@assets/OneDrive_512_1765494903274.png";
 import outlookIcon from "@assets/Outlook_512_1765494903276.png";
@@ -66,6 +66,18 @@ type User = {
   name: string | null;
   role: string;
   tenantId: string | null;
+};
+
+type ConsultantAccessGrant = {
+  id: string;
+  consultantUserId: string;
+  tenantId: string;
+  grantedBy: string;
+  grantedAt: string;
+  expiresAt: string | null;
+  notes: string | null;
+  consultantEmail?: string;
+  consultantName?: string | null;
 };
 
 const m365Connectors = [
@@ -124,6 +136,84 @@ const standardColors = [
   { name: "Indigo", value: "#6366F1" },
 ];
 
+function ConsultantAccessCard({ 
+  tenant, 
+  onOpenGrantDialog, 
+  onRevokeAccess 
+}: { 
+  tenant: Tenant; 
+  onOpenGrantDialog: (tenant: Tenant) => void;
+  onRevokeAccess: (userId: string) => void;
+}) {
+  const { data: grants = [], isLoading } = useQuery<ConsultantAccessGrant[]>({
+    queryKey: ["/api/consultant-access/tenant", tenant.id],
+  });
+
+  return (
+    <Card data-testid={`consultant-access-card-${tenant.id}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div 
+              className="w-3 h-3 rounded-full"
+              style={{ backgroundColor: tenant.color || '#6366F1' }}
+            />
+            <CardTitle className="text-base">{tenant.name}</CardTitle>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => onOpenGrantDialog(tenant)}
+            data-testid={`button-grant-access-${tenant.id}`}
+          >
+            <UserPlus className="h-3 w-3 mr-1" />
+            Grant Access
+          </Button>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0">
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading...</p>
+        ) : grants.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No consultants have access</p>
+        ) : (
+          <div className="space-y-2">
+            {grants.map((grant) => (
+              <div 
+                key={grant.id} 
+                className="flex items-center justify-between p-2 border rounded-md text-sm"
+                data-testid={`consultant-grant-${grant.id}`}
+              >
+                <div>
+                  <p className="font-medium">{grant.consultantName || grant.consultantEmail}</p>
+                  <p className="text-xs text-muted-foreground">{grant.consultantEmail}</p>
+                  {grant.expiresAt && (
+                    <p className="text-xs text-muted-foreground">
+                      Expires: {new Date(grant.expiresAt).toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    if (confirm(`Revoke access for ${grant.consultantEmail}?`)) {
+                      onRevokeAccess(grant.consultantUserId);
+                    }
+                  }}
+                  data-testid={`button-revoke-${grant.id}`}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 export default function TenantAdmin() {
   const { toast } = useToast();
   const [permissionStates, setPermissionStates] = useState(
@@ -175,12 +265,22 @@ export default function TenantAdmin() {
     connectorPlanner: false,
   });
 
+  const [consultantAccessDialogOpen, setConsultantAccessDialogOpen] = useState(false);
+  const [selectedTenantForAccess, setSelectedTenantForAccess] = useState<Tenant | null>(null);
+  const [selectedConsultantId, setSelectedConsultantId] = useState<string>("");
+  const [accessExpiresAt, setAccessExpiresAt] = useState<string>("");
+  const [accessNotes, setAccessNotes] = useState<string>("");
+
   const { data: tenants = [], isLoading: tenantsLoading } = useQuery<Tenant[]>({
     queryKey: ["/api/tenants"],
   });
 
   const { data: users = [], isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ["/api/users"],
+  });
+
+  const { data: consultants = [] } = useQuery<User[]>({
+    queryKey: ["/api/consultants"],
   });
 
   const createTenantMutation = useMutation({
@@ -279,6 +379,42 @@ export default function TenantAdmin() {
     onError: () => {
       toast({ 
         title: "Failed to delete user", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const grantConsultantAccessMutation = useMutation({
+    mutationFn: (data: { consultantUserId: string; tenantId: string; expiresAt?: string; notes?: string }) =>
+      apiRequest("POST", "/api/consultant-access", data),
+    onSuccess: () => {
+      if (selectedTenantForAccess) {
+        queryClient.invalidateQueries({ queryKey: ["/api/consultant-access/tenant", selectedTenantForAccess.id] });
+      }
+      setConsultantAccessDialogOpen(false);
+      setSelectedConsultantId("");
+      setAccessExpiresAt("");
+      setAccessNotes("");
+      toast({ title: "Consultant access granted successfully" });
+    },
+    onError: () => {
+      toast({ 
+        title: "Failed to grant consultant access", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const revokeConsultantAccessMutation = useMutation({
+    mutationFn: ({ userId, tenantId }: { userId: string; tenantId: string }) =>
+      apiRequest("DELETE", `/api/consultant-access/${userId}/${tenantId}`),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/consultant-access/tenant", variables.tenantId] });
+      toast({ title: "Consultant access revoked" });
+    },
+    onError: () => {
+      toast({ 
+        title: "Failed to revoke consultant access", 
         variant: "destructive" 
       });
     },
@@ -513,6 +649,25 @@ export default function TenantAdmin() {
     return { label: "SSO Available", variant: "outline" as const };
   };
 
+  const handleOpenConsultantAccessDialog = (tenant: Tenant) => {
+    setSelectedTenantForAccess(tenant);
+    setSelectedConsultantId("");
+    setAccessExpiresAt("");
+    setAccessNotes("");
+    setConsultantAccessDialogOpen(true);
+  };
+
+  const handleGrantConsultantAccess = () => {
+    if (!selectedTenantForAccess || !selectedConsultantId) return;
+    
+    grantConsultantAccessMutation.mutate({
+      consultantUserId: selectedConsultantId,
+      tenantId: selectedTenantForAccess.id,
+      expiresAt: accessExpiresAt || undefined,
+      notes: accessNotes || undefined,
+    });
+  };
+
   return (
     <div className="max-w-7xl mx-auto">
       <div className="mb-8">
@@ -704,6 +859,25 @@ export default function TenantAdmin() {
               )}
             </CardContent>
           </Card>
+        </div>
+
+        <div>
+          <h2 className="text-xl font-semibold mb-4">Consultant Access Management</h2>
+          <p className="text-muted-foreground text-sm mb-4">
+            Grant consultants access to specific organizations. Consultants can only access tenants where they have been explicitly granted access.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {tenants.map((tenant) => (
+              <ConsultantAccessCard 
+                key={tenant.id} 
+                tenant={tenant} 
+                onOpenGrantDialog={handleOpenConsultantAccessDialog}
+                onRevokeAccess={(userId: string) => 
+                  revokeConsultantAccessMutation.mutate({ userId, tenantId: tenant.id })
+                }
+              />
+            ))}
+          </div>
         </div>
 
         <div>
@@ -1381,6 +1555,82 @@ export default function TenantAdmin() {
               data-testid="button-save-connectors"
             >
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={consultantAccessDialogOpen} onOpenChange={setConsultantAccessDialogOpen}>
+        <DialogContent data-testid="dialog-grant-consultant-access">
+          <DialogHeader>
+            <DialogTitle>
+              Grant Consultant Access - {selectedTenantForAccess?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Select a consultant to grant access to this organization.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="consultant-select">Select Consultant</Label>
+              <Select
+                value={selectedConsultantId}
+                onValueChange={setSelectedConsultantId}
+              >
+                <SelectTrigger data-testid="select-consultant">
+                  <SelectValue placeholder="Choose a consultant" />
+                </SelectTrigger>
+                <SelectContent>
+                  {consultants.map((consultant) => (
+                    <SelectItem key={consultant.id} value={consultant.id}>
+                      {consultant.name || consultant.email} ({consultant.email})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {consultants.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No consultants found. Create a user with the vega_consultant role first.
+                </p>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="expires-at">Expiration Date (optional)</Label>
+              <Input
+                id="expires-at"
+                type="date"
+                value={accessExpiresAt}
+                onChange={(e) => setAccessExpiresAt(e.target.value)}
+                data-testid="input-expires-at"
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="notes">Notes (optional)</Label>
+              <Input
+                id="notes"
+                placeholder="Reason for access grant..."
+                value={accessNotes}
+                onChange={(e) => setAccessNotes(e.target.value)}
+                data-testid="input-access-notes"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setConsultantAccessDialogOpen(false)}
+              data-testid="button-cancel-grant-access"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleGrantConsultantAccess}
+              disabled={!selectedConsultantId || grantConsultantAccessMutation.isPending}
+              data-testid="button-confirm-grant-access"
+            >
+              {grantConsultantAccessMutation.isPending ? "Granting..." : "Grant Access"}
             </Button>
           </DialogFooter>
         </DialogContent>

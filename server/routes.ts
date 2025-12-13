@@ -995,7 +995,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  
+  // Consultant Access Grant endpoints
+  // Get all consultants with access to a specific tenant
+  app.get("/api/consultant-access/tenant/:tenantId", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { tenantId } = req.params;
+      
+      // Check access: must be own tenant or have cross-tenant permission
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      
+      if (!canAccessAny && tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const grants = await storage.getConsultantsWithAccessToTenant(tenantId);
+      
+      // Enrich with user details
+      const enrichedGrants = await Promise.all(
+        grants.map(async (grant) => {
+          const user = await storage.getUser(grant.consultantUserId);
+          return {
+            ...grant,
+            consultantEmail: user?.email,
+            consultantName: user?.name,
+          };
+        })
+      );
+      
+      res.json(enrichedGrants);
+    } catch (error) {
+      console.error("Error fetching consultant access grants:", error);
+      res.status(500).json({ error: "Failed to fetch consultant access" });
+    }
+  });
+
+  // Get access grants for a specific consultant
+  app.get("/api/consultant-access/user/:userId", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const { userId } = req.params;
+      const grants = await storage.getConsultantTenantAccess(userId);
+      
+      // Enrich with tenant details
+      const enrichedGrants = await Promise.all(
+        grants.map(async (grant) => {
+          const tenant = await storage.getTenantById(grant.tenantId);
+          return {
+            ...grant,
+            tenantName: tenant?.name,
+          };
+        })
+      );
+      
+      res.json(enrichedGrants);
+    } catch (error) {
+      console.error("Error fetching consultant grants:", error);
+      res.status(500).json({ error: "Failed to fetch consultant grants" });
+    }
+  });
+
+  // Grant consultant access to a tenant
+  app.post("/api/consultant-access", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { consultantUserId, tenantId, expiresAt, notes } = req.body;
+      
+      if (!consultantUserId || !tenantId) {
+        return res.status(400).json({ error: "consultantUserId and tenantId are required" });
+      }
+      
+      // Check access: tenant admins can only grant access to their own tenant
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      
+      if (!canAccessAny && tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Cannot grant access to other tenants" });
+      }
+      
+      // Verify the target user exists and is a consultant
+      const targetUser = await storage.getUser(consultantUserId);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      if (targetUser.role !== ROLES.VEGA_CONSULTANT) {
+        return res.status(400).json({ error: "User is not a consultant" });
+      }
+      
+      const grant = await storage.grantConsultantAccess({
+        consultantUserId,
+        tenantId,
+        grantedBy: req.user!.id,
+        expiresAt: expiresAt ? new Date(expiresAt) : null,
+        notes: notes || null,
+      });
+      
+      res.json(grant);
+    } catch (error) {
+      console.error("Error granting consultant access:", error);
+      res.status(500).json({ error: "Failed to grant consultant access" });
+    }
+  });
+
+  // Revoke consultant access from a tenant
+  app.delete("/api/consultant-access/:userId/:tenantId", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { userId, tenantId } = req.params;
+      
+      // Check access: tenant admins can only revoke access to their own tenant
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      
+      if (!canAccessAny && tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Cannot revoke access from other tenants" });
+      }
+      
+      // Check if grant exists first
+      const hasAccess = await storage.hasConsultantAccess(userId, tenantId);
+      if (!hasAccess) {
+        return res.status(404).json({ error: "Access grant not found" });
+      }
+      
+      await storage.revokeConsultantAccess(userId, tenantId);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error revoking consultant access:", error);
+      res.status(500).json({ error: "Failed to revoke consultant access" });
+    }
+  });
+
+  // Get consultants (filtered to just consultant role users)
+  app.get("/api/consultants", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      // Get all users and filter to just consultants
+      const allUsers = await storage.getAllUsers();
+      const consultants = allUsers
+        .filter(u => u.role === ROLES.VEGA_CONSULTANT)
+        .map(({ password, ...user }) => user);
+      
+      res.json(consultants);
+    } catch (error) {
+      console.error("Error fetching consultants:", error);
+      res.status(500).json({ error: "Failed to fetch consultants" });
+    }
+  });
+
   // Import and use enhanced OKR routes (with auth + tenant isolation)
   const { okrRouter } = await import("./routes-okr");
   app.use("/api/okr", ...authWithTenant, okrRouter);
