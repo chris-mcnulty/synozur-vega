@@ -314,6 +314,18 @@ export async function sendWelcomeEmail(to: string, userName?: string, organizati
                         </a>
                       </div>
                       
+                      <div style="margin: 30px 0; padding: 20px; background-color: rgba(230, 12, 179, 0.1); border-radius: 8px;">
+                        <h3 style="margin: 0 0 10px; font-size: 16px; font-weight: 600; color: #ffffff;">
+                          Learn About Company OS
+                        </h3>
+                        <p style="margin: 0 0 15px; font-size: 14px; line-height: 1.6; color: #cccccc;">
+                          Want to understand how a Company Operating System can transform your organization?
+                        </p>
+                        <a href="https://www.synozur.com/solutions/company-os" style="display: inline-block; padding: 10px 20px; font-size: 14px; font-weight: 500; color: #E60CB3; text-decoration: none; border: 1px solid #E60CB3; border-radius: 6px;">
+                          Learn More
+                        </a>
+                      </div>
+                      
                       <p style="margin: 30px 0 0; font-size: 14px; line-height: 1.6; color: #999999;">
                         If you have any questions, reach out to your administrator or consultant.
                       </p>
@@ -338,7 +350,7 @@ export async function sendWelcomeEmail(to: string, userName?: string, organizati
         </body>
       </html>
     `,
-    text: `Welcome${userName ? `, ${userName}` : ''}!\n\nYour Vega account has been created${organizationName ? ` for ${organizationName}` : ''}.\n\nSign in at: ${loginUrl}\n\nCheck out our User Guide to get started: ${userGuideUrl}\n\nIf you have any questions, reach out to your administrator or consultant.`
+    text: `Welcome${userName ? `, ${userName}` : ''}!\n\nYour Vega account has been created${organizationName ? ` for ${organizationName}` : ''}.\n\nSign in at: ${loginUrl}\n\nCheck out our User Guide to get started: ${userGuideUrl}\n\nLearn more about Company OS and how it can transform your organization: https://www.synozur.com/solutions/company-os\n\nIf you have any questions, reach out to your administrator or consultant.`
   };
   
   await client.send(msg);
