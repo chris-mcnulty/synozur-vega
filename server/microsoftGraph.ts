@@ -81,6 +81,51 @@ export async function checkEntraAppConnection(): Promise<boolean> {
   }
 }
 
+// ==================== Azure AD User Search ====================
+// Search for users in Azure AD using app-level permissions
+
+export interface AzureADUser {
+  id: string;
+  displayName: string;
+  mail: string | null;
+  userPrincipalName: string;
+  jobTitle: string | null;
+  department: string | null;
+}
+
+export async function searchAzureADUsers(query: string, top: number = 10): Promise<AzureADUser[]> {
+  if (!hasEntraAppCredentials()) {
+    throw new Error('Azure AD credentials not configured');
+  }
+
+  try {
+    const client = await getEntraAppGraphClient();
+    
+    // Search users by displayName or mail starting with query
+    // Note: Graph API requires encoding special characters
+    const encodedQuery = encodeURIComponent(query);
+    
+    const response = await client
+      .api('/users')
+      .filter(`startswith(displayName,'${query}') or startswith(mail,'${query}') or startswith(userPrincipalName,'${query}')`)
+      .select('id,displayName,mail,userPrincipalName,jobTitle,department')
+      .top(top)
+      .get();
+
+    return (response.value || []).map((user: any) => ({
+      id: user.id,
+      displayName: user.displayName,
+      mail: user.mail || null,
+      userPrincipalName: user.userPrincipalName,
+      jobTitle: user.jobTitle || null,
+      department: user.department || null,
+    }));
+  } catch (error) {
+    console.error('[AzureAD] User search failed:', error);
+    throw error;
+  }
+}
+
 // ==================== User Delegated Token Client ====================
 // Uses the user's SSO token stored in graphTokens table
 

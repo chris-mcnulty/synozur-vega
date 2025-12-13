@@ -790,4 +790,54 @@ router.post('/admin-consent/revoke', async (req: Request, res: Response) => {
   }
 });
 
+// ==================== Azure AD User Search ====================
+
+import { searchAzureADUsers } from './microsoftGraph';
+
+/**
+ * GET /auth/entra/users/search
+ * Search for users in Azure AD
+ * Query params:
+ *   - q: Search query (searches displayName, mail, userPrincipalName)
+ *   - limit: Max results (default 10)
+ */
+router.get('/users/search', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(403).json({ error: 'User not found' });
+    }
+
+    // Only admins can search Azure AD users
+    const adminRoles = [ROLES.TENANT_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_ADMIN, ROLES.VEGA_CONSULTANT];
+    if (!adminRoles.includes(user.role as any)) {
+      return res.status(403).json({ error: 'Admin privileges required to search Azure AD users' });
+    }
+
+    const query = req.query.q as string;
+    if (!query || query.trim().length < 2) {
+      return res.status(400).json({ error: 'Search query must be at least 2 characters' });
+    }
+
+    const limit = Math.min(parseInt(req.query.limit as string) || 10, 50);
+
+    const users = await searchAzureADUsers(query.trim(), limit);
+    res.json({ users });
+  } catch (error: any) {
+    console.error('[Entra User Search] Error:', error);
+    
+    // Handle specific error cases
+    if (error.message?.includes('credentials not configured')) {
+      return res.status(503).json({ error: 'Azure AD integration not configured' });
+    }
+    
+    res.status(500).json({ error: 'Failed to search Azure AD users' });
+  }
+});
+
 export const entraRouter = router;
