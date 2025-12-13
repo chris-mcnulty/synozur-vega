@@ -96,5 +96,5 @@ For questions about screenshot requirements or specifications, refer to:
 
 ---
 
-**Last Updated**: December 13, 2025  
+**Last Updated**: December 13, 2024  
 **Status**: Placeholders added, awaiting image capture
