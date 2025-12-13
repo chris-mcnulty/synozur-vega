@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield, Settings2, Cloud, ShieldCheck, ExternalLink } from "lucide-react";
 import excelIcon from "@assets/Excel_512_1765494903271.png";
 import oneDriveIcon from "@assets/OneDrive_512_1765494903274.png";
@@ -153,6 +154,7 @@ export default function TenantAdmin() {
     name: "",
     role: "user",
     tenantId: "NONE",
+    sendWelcomeEmail: false,
   });
 
   const [ssoDialogOpen, setSsoDialogOpen] = useState(false);
@@ -397,7 +399,7 @@ export default function TenantAdmin() {
 
   const handleOpenCreateUserDialog = () => {
     setEditingUser(null);
-    setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE" });
+    setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false });
     setUserDialogOpen(true);
   };
 
@@ -409,6 +411,7 @@ export default function TenantAdmin() {
       name: user.name || "",
       role: user.role,
       tenantId: user.tenantId || "NONE",
+      sendWelcomeEmail: false,
     });
     setUserDialogOpen(true);
   };
@@ -435,7 +438,7 @@ export default function TenantAdmin() {
         });
         return;
       }
-      createUserMutation.mutate({ ...userData, password: userFormData.password });
+      createUserMutation.mutate({ ...userData, password: userFormData.password, sendWelcomeEmail: userFormData.sendWelcomeEmail });
     }
   };
 
@@ -1200,6 +1203,22 @@ export default function TenantAdmin() {
                 </SelectContent>
               </Select>
             </div>
+
+            {!editingUser && (
+              <div className="flex items-center space-x-2 pt-2">
+                <Checkbox
+                  id="send-welcome-email"
+                  checked={userFormData.sendWelcomeEmail}
+                  onCheckedChange={(checked) =>
+                    setUserFormData({ ...userFormData, sendWelcomeEmail: checked === true })
+                  }
+                  data-testid="checkbox-send-welcome-email"
+                />
+                <Label htmlFor="send-welcome-email" className="text-sm font-normal cursor-pointer">
+                  Send welcome email with login instructions and user guide
+                </Label>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button

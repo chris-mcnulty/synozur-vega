@@ -40,9 +40,18 @@ export async function getUncachableSendGridClient() {
   };
 }
 
-const APP_URL = process.env.REPLIT_DEV_DOMAIN 
-  ? `https://${process.env.REPLIT_DEV_DOMAIN}` 
-  : 'http://localhost:5000';
+// Use AZURE_BASE_URL for production, fall back to REPLIT_DEV_DOMAIN or localhost
+const getAppUrl = () => {
+  if (process.env.AZURE_BASE_URL) {
+    return process.env.AZURE_BASE_URL;
+  }
+  if (process.env.REPLIT_DEV_DOMAIN) {
+    return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  }
+  return 'http://localhost:5000';
+};
+
+const APP_URL = getAppUrl();
 
 export async function sendVerificationEmail(to: string, verificationToken: string, userName?: string) {
   const { client, fromEmail } = await getUncachableSendGridClient();
@@ -231,6 +240,105 @@ export async function sendPasswordResetEmail(to: string, resetToken: string, use
       </html>
     `,
     text: `Password Reset Request\n\n${userName ? `Hi ${userName}, we` : 'We'} received a request to reset your Vega password. Visit the following link to create a new password:\n\n${resetUrl}\n\nThis link will expire in 1 hour.\n\nIf you didn't request a password reset, you can safely ignore this email.`
+  };
+  
+  await client.send(msg);
+}
+
+export async function sendWelcomeEmail(to: string, userName?: string, organizationName?: string) {
+  const { client, fromEmail } = await getUncachableSendGridClient();
+  
+  const loginUrl = `${APP_URL}/login`;
+  const userGuideUrl = `${APP_URL}/help`;
+  
+  const msg = {
+    to,
+    from: fromEmail,
+    subject: `Welcome to Vega${organizationName ? ` - ${organizationName}` : ''}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Welcome to Vega</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a; color: #ffffff;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #0a0a0a;">
+            <tr>
+              <td style="padding: 40px 20px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 12px; border: 1px solid #2a2a2a;">
+                  <!-- Header -->
+                  <tr>
+                    <td style="padding: 40px 40px 20px; text-align: center;">
+                      <h1 style="margin: 0; font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #810FFB 0%, #E60CB3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                        Vega
+                      </h1>
+                      <p style="margin: 10px 0 0; font-size: 14px; color: #999999;">
+                        AI-Augmented Company OS
+                      </p>
+                    </td>
+                  </tr>
+                  
+                  <!-- Content -->
+                  <tr>
+                    <td style="padding: 40px;">
+                      <h2 style="margin: 0 0 20px; font-size: 24px; font-weight: 600; color: #ffffff;">
+                        Welcome${userName ? `, ${userName}` : ''}!
+                      </h2>
+                      
+                      <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #cccccc;">
+                        Your account has been created${organizationName ? ` for <strong>${organizationName}</strong>` : ''}. You can now access Vega to manage your organization's strategy, OKRs, and focus rhythm.
+                      </p>
+                      
+                      <!-- CTA Button -->
+                      <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 30px 0;">
+                        <tr>
+                          <td style="border-radius: 8px; background: linear-gradient(135deg, #810FFB 0%, #E60CB3 100%);">
+                            <a href="${loginUrl}" target="_blank" style="display: inline-block; padding: 16px 40px; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none; border-radius: 8px;">
+                              Sign In to Vega
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+                      
+                      <div style="margin: 30px 0; padding: 20px; background-color: rgba(129, 15, 251, 0.1); border-radius: 8px;">
+                        <h3 style="margin: 0 0 10px; font-size: 16px; font-weight: 600; color: #ffffff;">
+                          Getting Started
+                        </h3>
+                        <p style="margin: 0 0 15px; font-size: 14px; line-height: 1.6; color: #cccccc;">
+                          Check out our User Guide to learn how to make the most of Vega:
+                        </p>
+                        <a href="${userGuideUrl}" style="display: inline-block; padding: 10px 20px; font-size: 14px; font-weight: 500; color: #810FFB; text-decoration: none; border: 1px solid #810FFB; border-radius: 6px;">
+                          View User Guide
+                        </a>
+                      </div>
+                      
+                      <p style="margin: 30px 0 0; font-size: 14px; line-height: 1.6; color: #999999;">
+                        If you have any questions, reach out to your administrator or consultant.
+                      </p>
+                    </td>
+                  </tr>
+                  
+                  <!-- Footer -->
+                  <tr>
+                    <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a;">
+                      <p style="margin: 0; font-size: 12px; color: #666666; text-align: center;">
+                        This is an automated welcome message.
+                      </p>
+                      <p style="margin: 10px 0 0; font-size: 12px; color: #666666; text-align: center;">
+                        © ${new Date().getFullYear()} Synozur Alliance LLC. All rights reserved.
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `,
+    text: `Welcome${userName ? `, ${userName}` : ''}!\n\nYour Vega account has been created${organizationName ? ` for ${organizationName}` : ''}.\n\nSign in at: ${loginUrl}\n\nCheck out our User Guide to get started: ${userGuideUrl}\n\nIf you have any questions, reach out to your administrator or consultant.`
   };
   
   await client.send(msg);

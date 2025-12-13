@@ -17,6 +17,7 @@ import {
 import { 
   sendVerificationEmail, 
   sendPasswordResetEmail, 
+  sendWelcomeEmail,
   generateVerificationToken, 
   generateResetToken,
   hashToken 
@@ -519,7 +520,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/users", ...adminOnly, async (req: Request, res: Response) => {
     try {
-      const validatedData = insertUserSchema.parse(req.body);
+      const { sendWelcomeEmail: shouldSendWelcome, ...userData } = req.body;
+      const validatedData = insertUserSchema.parse(userData);
       
       // Normalize tenantId: convert "NONE" or empty string to null
       if (validatedData.tenantId === "NONE" || validatedData.tenantId === "") {
@@ -535,6 +537,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const user = await storage.createUser(validatedData);
+      
+      // Send welcome email if requested
+      if (shouldSendWelcome && user.email) {
+        try {
+          let tenantName: string | undefined;
+          if (user.tenantId) {
+            const tenant = await storage.getTenantById(user.tenantId);
+            tenantName = tenant?.name;
+          }
+          await sendWelcomeEmail(user.email, user.name || undefined, tenantName);
+          console.log(`[User Creation] Welcome email sent to ${user.email}`);
+        } catch (emailError) {
+          console.error(`[User Creation] Failed to send welcome email to ${user.email}:`, emailError);
+          // Continue - user was created successfully, email failure is non-fatal
+        }
+      }
+      
       // Don't send password hash
       const { password, ...sanitizedUser } = user;
       res.json(sanitizedUser);
