@@ -6,6 +6,9 @@ Vega is a responsive web application that functions as a comprehensive Company O
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+## Standing Instructions
+- **Keep USER_GUIDE.md current**: When new features or capabilities are added to Vega, update the USER_GUIDE.md file to document them for end users. This file is the primary user-facing documentation.
+
 ## System Architecture
 
 ### Frontend
