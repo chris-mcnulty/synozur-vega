@@ -284,15 +284,15 @@ router.get('/callback', async (req: Request, res: Response) => {
     req.session.save((err) => {
       if (err) {
         console.error('[Entra SSO] Session save error:', err);
-        return res.redirect('/auth?error=session_error');
+        return res.redirect(`${getBaseUrl()}/auth?error=session_error`);
       }
-      // Redirect to dashboard after successful SSO login
-      res.redirect('/dashboard');
+      // Redirect to dashboard after successful SSO login (absolute URL)
+      res.redirect(`${getBaseUrl()}/dashboard`);
     });
 
   } catch (error) {
     console.error('[Entra SSO] Callback error:', error);
-    res.redirect('/auth?error=callback_failed');
+    res.redirect(`${getBaseUrl()}/auth?error=callback_failed`);
   }
 });
 
@@ -305,7 +305,7 @@ router.post('/logout', (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Failed to logout' });
     }
     
-    const postLogoutRedirect = encodeURIComponent(`${process.env.REPLIT_DEV_DOMAIN ? `https://${process.env.REPLIT_DEV_DOMAIN}` : 'http://localhost:5000'}/auth`);
+    const postLogoutRedirect = encodeURIComponent(`${getBaseUrl()}/auth`);
     const azureLogoutUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/logout?post_logout_redirect_uri=${postLogoutRedirect}`;
     
     res.json({ logoutUrl: azureLogoutUrl });
