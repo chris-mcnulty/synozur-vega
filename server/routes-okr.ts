@@ -5,11 +5,71 @@ import {
   insertKeyResultSchema, 
   insertBigRockSchema,
   insertCheckInSchema,
-  updateCheckInSchema
+  updateCheckInSchema,
+  Objective
 } from "@shared/schema";
 import { z } from "zod";
 
 export const okrRouter = Router();
+
+// Helper function to detect circular dependencies in objective alignment
+async function detectCircularAlignment(
+  objectiveId: string,
+  targetAlignmentIds: string[],
+  allObjectives: Objective[]
+): Promise<{ hasCircle: boolean; chainPath?: string[] }> {
+  const objectivesMap = new Map(allObjectives.map(obj => [obj.id, obj]));
+  
+  // For each target alignment, trace up the chain to see if we reach back to objectiveId
+  for (const targetId of targetAlignmentIds) {
+    const visited = new Set<string>();
+    const path: string[] = [objectiveId, targetId];
+    
+    // BFS/DFS to trace the alignment chain
+    const queue = [targetId];
+    visited.add(objectiveId); // Mark the source as visited
+    
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+      
+      if (currentId === objectiveId) {
+        // Found a cycle back to the original objective
+        return { hasCircle: true, chainPath: path };
+      }
+      
+      if (visited.has(currentId)) continue;
+      visited.add(currentId);
+      
+      const current = objectivesMap.get(currentId);
+      if (current) {
+        // Check alignedToObjectiveIds (what this objective aligns to)
+        const alignedTo = (current as any).alignedToObjectiveIds as string[] | null;
+        if (alignedTo && alignedTo.length > 0) {
+          for (const nextId of alignedTo) {
+            if (!visited.has(nextId)) {
+              queue.push(nextId);
+              if (nextId === objectiveId) {
+                path.push(nextId);
+                return { hasCircle: true, chainPath: path };
+              }
+            }
+          }
+        }
+        
+        // Also check parentId for hierarchical relationship
+        if (current.parentId && !visited.has(current.parentId)) {
+          queue.push(current.parentId);
+          if (current.parentId === objectiveId) {
+            path.push(current.parentId);
+            return { hasCircle: true, chainPath: path };
+          }
+        }
+      }
+    }
+  }
+  
+  return { hasCircle: false };
+}
 
 // Teams
 okrRouter.get("/teams", async (req, res) => {
@@ -91,13 +151,43 @@ okrRouter.patch("/objectives/:id", async (req, res) => {
     
     // Check if objective is closed - only allow status changes (reopen)
     const existingObjective = await storage.getObjectiveById(req.params.id);
-    if (existingObjective?.status === 'closed') {
+    if (!existingObjective) {
+      return res.status(404).json({ error: "Objective not found" });
+    }
+    
+    if (existingObjective.status === 'closed') {
       const isStatusChange = updateData.status && updateData.status !== 'closed';
       
       // Only allow reopening (status change from closed to another status)
       if (!isStatusChange) {
         return res.status(403).json({ 
           error: "This objective is closed. Change the status to reopen it before making other edits." 
+        });
+      }
+    }
+    
+    // Check for circular dependencies when updating alignedToObjectiveIds
+    if (updateData.alignedToObjectiveIds && updateData.alignedToObjectiveIds.length > 0) {
+      // Prevent self-alignment
+      if (updateData.alignedToObjectiveIds.includes(req.params.id)) {
+        return res.status(400).json({ 
+          error: "An objective cannot be aligned to itself." 
+        });
+      }
+      
+      // Get all objectives for the tenant to check for circular dependencies
+      const allObjectives = await storage.getObjectivesByTenantId(existingObjective.tenantId);
+      
+      const circularCheck = await detectCircularAlignment(
+        req.params.id,
+        updateData.alignedToObjectiveIds,
+        allObjectives
+      );
+      
+      if (circularCheck.hasCircle) {
+        return res.status(400).json({ 
+          error: "Circular dependency detected. This alignment would create a loop in the objective hierarchy.",
+          details: "One of the selected objectives already aligns to this objective (directly or through a chain)."
         });
       }
     }
