@@ -179,7 +179,11 @@ This directory contains screenshots referenced in the USER_GUIDE.md. Below is a 
 1. Set up a clean demo environment with realistic sample data
 2. Navigate to the appropriate page/feature
 3. Ensure the UI is in the desired state (e.g., forms filled in, data loaded)
-4. Use screenshot tool (macOS: Cmd+Shift+4, Windows: Windows+Shift+S, or browser extension)
+4. Use screenshot tool:
+   - **macOS**: Cmd+Shift+4
+   - **Windows**: Windows+Shift+S
+   - **Linux**: gnome-screenshot, flameshot, or Spectacle
+   - **Browser**: Browser extension or built-in developer tools
 5. Save with the exact filename specified above
 6. Optimize/compress the image if needed
 7. Verify the screenshot displays correctly in the USER_GUIDE.md

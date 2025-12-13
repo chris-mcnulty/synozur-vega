@@ -95,7 +95,7 @@ After logging in for the first time:
 3. **Review Foundations**: Understand your organization's mission, vision, and values
 4. **Check Your Objectives**: See what objectives and key results are assigned to you
 
-![Screenshot 1: Login Page](./screenshots/01-login-page.png)
+![Vega login interface showing email and password input fields with a Sign in with Microsoft SSO button](./screenshots/01-login-page.png)
 *Screenshot showing the Vega login page with both email/password and Microsoft SSO options*
 
 ### Understanding the Interface
@@ -120,7 +120,7 @@ The left sidebar provides access to all major modules:
 - **Theme Toggle**: Switch between light and dark mode
 - **Profile Menu**: Access settings and logout
 
-![Screenshot 2: Main Navigation Interface](./screenshots/02-main-navigation.png)
+![Vega main interface with left sidebar showing Dashboard, Foundations, Strategy, Planning navigation links and top bar with AI chat icon, theme toggle, and profile menu](./screenshots/02-main-navigation.png)
 *Screenshot highlighting the left sidebar navigation and top bar elements including AI chat icon, theme toggle, and profile menu*
 
 ---
@@ -185,7 +185,7 @@ See all active objectives for the selected quarter, organized by level:
 
 Click any objective to view details and manage Key Results.
 
-![Screenshot 3: Dashboard Overview](./screenshots/03-dashboard-overview.png)
+![Complete Vega Dashboard displaying fiscal year and quarter selectors at top, collapsible Company Identity section, Strategic Priorities with progress indicators, Active Objectives organized by level, and Upcoming Meetings widget](./screenshots/03-dashboard-overview.png)
 *Screenshot showing the complete Dashboard with fiscal year/quarter selectors, Company Identity section, Strategic Priorities, Active Objectives by level, and Upcoming Meetings*
 
 #### 4. Upcoming Meetings
@@ -269,7 +269,7 @@ How your organization works together and what makes your culture unique.
 
 Guidelines for communication tone and style.
 
-![Screenshot 4: Foundations Module](./screenshots/04-foundations-module.png)
+![Foundations module page showing organization's Mission statement, Vision statement, Company Values with colored tags, Annual Goals list, and additional identity components](./screenshots/04-foundations-module.png)
 *Screenshot displaying the Foundations page with Mission, Vision, Values (with tags), Annual Goals, and other identity components*
 
 ### Editing Foundations (Admin Only)
@@ -346,7 +346,7 @@ Each strategy shows:
 - **Overall Progress**: Rolled up from linked objectives
 - **At-Risk Indicators**: If linked objectives are behind schedule
 
-![Screenshot 5: Strategy Module](./screenshots/05-strategy-module.png)
+![Strategy module displaying list of strategic initiatives with High, Medium, Low priority badges, linked annual goals, value tags, progress bars, and Add Strategy button](./screenshots/05-strategy-module.png)
 *Screenshot showing the Strategy page with list of strategies including priority indicators, linked goals, value tags, and progress tracking*
 
 ---
@@ -418,7 +418,7 @@ Vega supports four levels of objectives:
 
 4. Click **"Save"**
 
-![Screenshot 6: Creating an Objective](./screenshots/06-create-objective.png)
+![Create Objective form with title and description fields, level dropdown showing Organization/Team/Division/Individual options, owner assignment selector, quarter and year pickers, parent objective dropdown, strategy and annual goal linking sections, and value tags checkboxes](./screenshots/06-create-objective.png)
 *Screenshot of the Add/Edit Objective form showing all fields including title, description, level selector, owner assignment, time period, parent objective selection, and value/strategy tagging options*
 
 ### Adding Key Results to an Objective
@@ -473,7 +473,7 @@ Regular check-ins update progress and add context.
 **Smart Prompts:**
 - If you check in on a Key Result that has exceeded its target (100%+), Vega will prompt you to close it instead of continuing check-ins
 
-![Screenshot 7: Objective Detail with Key Results](./screenshots/07-objective-detail-key-results.png)
+![Expanded objective detail view showing objective title and description at top, overall progress percentage, and list of Key Results below each displaying progress bar, start/current/target values, unit type, owner name, status indicator, and check-in button](./screenshots/07-objective-detail-key-results.png)
 *Screenshot showing an expanded objective view with multiple Key Results, their progress bars, current vs target values, check-in buttons, and overall objective progress rollup*
 
 ### Big Rocks (Major Initiatives)
@@ -538,7 +538,7 @@ By default, all Key Results contribute equally to objective progress. You can cu
 - KR2: 40% weight at 50% complete = 20 points
 - **Objective Progress: 80%**
 
-![Screenshot 8: Key Result Check-In](./screenshots/08-key-result-checkin.png)
+![Key Result check-in dialog modal with current value number input field, status dropdown menu showing On Track, At Risk, and Behind options, notes textarea for progress commentary, and Save Check-In button](./screenshots/08-key-result-checkin.png)
 *Screenshot of the Key Result check-in dialog showing current value input, status selection (On Track/At Risk/Behind), and notes field for progress commentary*
 
 ---
@@ -662,7 +662,7 @@ Click any meeting to see:
 - Meeting notes
 - Action items
 
-![Screenshot 9: Focus Rhythm Meeting Details](./screenshots/09-focus-rhythm-meeting.png)
+![Focus Rhythm meeting detail page displaying meeting title, type badge (Weekly/Monthly/Quarterly/Annual), scheduled date and time, numbered agenda items list, linked OKRs section showing objective titles with progress percentages and status badges, and meeting notes text area](./screenshots/09-focus-rhythm-meeting.png)
 *Screenshot of a meeting detail page showing meeting type, date/time, agenda items, linked OKRs with their current progress, and notes section*
 
 ---
@@ -757,7 +757,7 @@ Behind the scenes, the AI uses specialized tools:
 - Request comparisons and trends
 - Get insights on patterns
 
-![Screenshot 10: AI Assistant Chat Panel](./screenshots/10-ai-assistant-chat.png)
+![AI Assistant chat panel showing conversation with user query asking about Q4 objectives and AI response with formatted list of objectives including progress percentages, followed by follow-up question about at-risk items with AI analysis and insights](./screenshots/10-ai-assistant-chat.png)
 *Screenshot showing the AI chat panel interface with example queries and responses, demonstrating the AI analyzing OKR data and providing strategic insights*
 
 ---
@@ -853,7 +853,7 @@ Access and link files from SharePoint and OneDrive.
 - Ensure admin has granted tenant-wide consent (for some features)
 - Contact your IT administrator for permission issues
 
-![Screenshot 11: Microsoft 365 Integration Settings](./screenshots/11-m365-integration.png)
+![Settings page Microsoft 365 integration section displaying connection status with green checkmarks for connected services including Planner, SharePoint, OneDrive, and Outlook, with Connect to Microsoft 365 button and Disconnect options for each service](./screenshots/11-m365-integration.png)
 *Screenshot of the Settings page showing Microsoft 365 connection status, available integrations (Planner, SharePoint, OneDrive), and connect/disconnect buttons*
 
 ---
@@ -927,7 +927,7 @@ Import data previously exported from another Vega tenant:
 - Teams
 - AI grounding documents
 
-![Screenshot 12: Import Interface](./screenshots/12-import-interface.png)
+![Import page with drag-and-drop file upload zone, format selection radio buttons for Viva Goals or Vega .cos file types, import options panel showing time period dropdowns for quarter and year selection, duplicate handling strategy dropdown with Skip, Replace, and Create Duplicate options, Upload and Process button, and import results summary showing counts of imported objectives, strategies, and key results](./screenshots/12-import-interface.png)
 *Screenshot of the Import page showing file upload area, format selection (Viva Goals vs Vega .cos), import options (time period, duplicate strategy), and import results summary*
 
 ### Exporting Data
