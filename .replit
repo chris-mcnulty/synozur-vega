@@ -45,4 +45,4 @@ integrations = ["javascript_mem_db:1.0.0", "outlook:1.0.0", "javascript_openai_a
 
 [userenv.shared]
 TOKEN_ENCRYPTION_SECRET = "VegaSecureToken2024xK9mPqRsT5nL8wY3jF6vB2hD4cE7gA1iO0uZ"
-AZURE_BASE_URL = "https://vega-prototype-chrismcnulty1.replit.app"
+AZURE_BASE_URL = "https://vega.synozur.com"
