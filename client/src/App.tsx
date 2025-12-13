@@ -29,6 +29,7 @@ import TenantAdmin from "@/pages/TenantAdmin";
 import AIGroundingAdmin from "@/pages/AIGroundingAdmin";
 import Import from "@/pages/Import";
 import Settings from "@/pages/Settings";
+import UserGuide from "@/pages/UserGuide";
 import VerifyEmail from "@/pages/VerifyEmail";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
@@ -242,6 +243,13 @@ function Router() {
         <ProtectedRoute>
           <ModuleLayout>
             <Settings />
+          </ModuleLayout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/help">
+        <ProtectedRoute>
+          <ModuleLayout>
+            <UserGuide />
           </ModuleLayout>
         </ProtectedRoute>
       </Route>

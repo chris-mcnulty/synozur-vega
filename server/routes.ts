@@ -1,5 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
+import { readFile } from "fs/promises";
+import { join } from "path";
 import { storage } from "./storage";
 import { verifyPassword } from "./auth";
 import { z } from "zod";
@@ -48,6 +50,18 @@ const adminOnly = [requireAuth, loadCurrentUser, requireTenantAccess, rbac.tenan
 const platformAdminOnly = [requireAuth, loadCurrentUser, rbac.platformAdmin];
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // User Guide route - serve the markdown file
+  app.get("/api/user-guide", async (req, res) => {
+    try {
+      const guidePath = join(process.cwd(), "USER_GUIDE.md");
+      const content = await readFile(guidePath, "utf-8");
+      res.type("text/markdown").send(content);
+    } catch (error) {
+      console.error("Error reading user guide:", error);
+      res.status(500).json({ error: "Failed to load user guide" });
+    }
+  });
+
   // Authentication routes
   app.post("/api/auth/login", async (req, res) => {
     try {

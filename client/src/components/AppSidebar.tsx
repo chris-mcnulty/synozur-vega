@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut } from "lucide-react";
+import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -163,6 +163,16 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-4 border-t">
+        <div className="mb-3">
+          <a 
+            href="/help" 
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            data-testid="link-user-guide"
+          >
+            <HelpCircle className="h-4 w-4" />
+            <span>User Guide</span>
+          </a>
+        </div>
         <div className="flex items-center gap-3">
           <Avatar className="h-8 w-8">
             <AvatarFallback className="bg-primary/10 text-primary text-xs">
