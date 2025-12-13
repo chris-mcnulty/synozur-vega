@@ -134,8 +134,16 @@ export function resolveTenantContext(req: Request): { tenantId: string | null; s
 }
 
 /**
+ * Check if a user is a consultant (vega_consultant role)
+ */
+function isConsultant(role: Role): boolean {
+  return role === ROLES.VEGA_CONSULTANT;
+}
+
+/**
  * Middleware to enforce tenant access
  * Ensures users can only access their own tenant's data unless they have cross-tenant permissions
+ * Consultants require explicit grants to access tenants other than their home tenant
  */
 export async function requireTenantAccess(req: Request, res: Response, next: NextFunction) {
   if (!req.user) {
@@ -145,8 +153,42 @@ export async function requireTenantAccess(req: Request, res: Response, next: Nex
   const userRole = req.user.role as Role;
   const { tenantId, source } = resolveTenantContext(req);
 
-  // Multi-tenant users (consultants, vega_admin, global_admin) can specify tenant via header
-  if (canAccessAnyTenant(userRole)) {
+  // Consultants have special handling - they need explicit grants for non-home tenants
+  if (isConsultant(userRole)) {
+    if (tenantId) {
+      // Verify the tenant exists
+      const tenant = await storage.getTenantById(tenantId);
+      if (!tenant) {
+        return res.status(404).json({ error: 'Tenant not found' });
+      }
+      
+      // Check if this is their home tenant OR they have an explicit grant
+      const isHomeTenant = req.user.tenantId === tenantId;
+      const hasGrant = await storage.hasConsultantAccess(req.user.id, tenantId);
+      
+      if (!isHomeTenant && !hasGrant) {
+        console.warn(`Consultant access denied: User ${req.user.email} does not have access to tenant ${tenantId}`);
+        return res.status(403).json({ 
+          error: 'Access denied',
+          message: 'You do not have access to this organization. Please request access from an administrator.'
+        });
+      }
+      
+      req.effectiveTenantId = tenantId;
+      req.isMultiTenantAccess = !isHomeTenant;
+    } else if (!req.user.tenantId) {
+      // Consultant without a home tenant and no specified tenant
+      return res.status(400).json({ 
+        error: 'Tenant selection required',
+        message: 'Please specify a tenant using the x-tenant-id header'
+      });
+    } else {
+      req.effectiveTenantId = req.user.tenantId;
+      req.isMultiTenantAccess = false;
+    }
+  }
+  // Multi-tenant users (vega_admin, global_admin) can access any tenant
+  else if (canAccessAnyTenant(userRole)) {
     if (tenantId) {
       // Verify the tenant exists
       const tenant = await storage.getTenantById(tenantId);

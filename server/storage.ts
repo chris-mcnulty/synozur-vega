@@ -21,7 +21,8 @@ import {
   plannerBuckets, type PlannerBucket, type InsertPlannerBucket,
   plannerTasks, type PlannerTask, type InsertPlannerTask,
   objectivePlannerTasks,
-  bigRockPlannerTasks
+  bigRockPlannerTasks,
+  consultantTenantAccess, type ConsultantTenantAccess, type InsertConsultantTenantAccess
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull } from "drizzle-orm";
@@ -186,6 +187,13 @@ export interface IStorage {
   linkPlannerTaskToBigRock(plannerTaskId: string, bigRockId: string, tenantId: string, userId?: string): Promise<void>;
   unlinkPlannerTaskFromBigRock(plannerTaskId: string, bigRockId: string): Promise<void>;
   getPlannerTasksLinkedToBigRock(bigRockId: string): Promise<PlannerTask[]>;
+  
+  // Consultant tenant access grants
+  getConsultantTenantAccess(userId: string): Promise<ConsultantTenantAccess[]>;
+  grantConsultantAccess(data: InsertConsultantTenantAccess): Promise<ConsultantTenantAccess>;
+  revokeConsultantAccess(consultantUserId: string, tenantId: string): Promise<void>;
+  hasConsultantAccess(consultantUserId: string, tenantId: string): Promise<boolean>;
+  getConsultantsWithAccessToTenant(tenantId: string): Promise<ConsultantTenantAccess[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1531,6 +1539,66 @@ export class DatabaseStorage implements IStorage {
       if (task) tasks.push(task);
     }
     return tasks;
+  }
+
+  // Consultant tenant access grant methods
+  async getConsultantTenantAccess(userId: string): Promise<ConsultantTenantAccess[]> {
+    return await db
+      .select()
+      .from(consultantTenantAccess)
+      .where(eq(consultantTenantAccess.consultantUserId, userId));
+  }
+
+  async grantConsultantAccess(data: InsertConsultantTenantAccess): Promise<ConsultantTenantAccess> {
+    const [grant] = await db
+      .insert(consultantTenantAccess)
+      .values(data)
+      .onConflictDoUpdate({
+        target: [consultantTenantAccess.consultantUserId, consultantTenantAccess.tenantId],
+        set: {
+          grantedBy: data.grantedBy,
+          grantedAt: new Date(),
+          expiresAt: data.expiresAt,
+          notes: data.notes,
+        },
+      })
+      .returning();
+    return grant;
+  }
+
+  async revokeConsultantAccess(consultantUserId: string, tenantId: string): Promise<void> {
+    await db
+      .delete(consultantTenantAccess)
+      .where(and(
+        eq(consultantTenantAccess.consultantUserId, consultantUserId),
+        eq(consultantTenantAccess.tenantId, tenantId)
+      ));
+  }
+
+  async hasConsultantAccess(consultantUserId: string, tenantId: string): Promise<boolean> {
+    const [grant] = await db
+      .select()
+      .from(consultantTenantAccess)
+      .where(and(
+        eq(consultantTenantAccess.consultantUserId, consultantUserId),
+        eq(consultantTenantAccess.tenantId, tenantId)
+      ));
+    
+    if (!grant) return false;
+    
+    // Check if grant has expired
+    if (grant.expiresAt && new Date(grant.expiresAt) < new Date()) {
+      return false;
+    }
+    
+    return true;
+  }
+
+  async getConsultantsWithAccessToTenant(tenantId: string): Promise<ConsultantTenantAccess[]> {
+    return await db
+      .select()
+      .from(consultantTenantAccess)
+      .where(eq(consultantTenantAccess.tenantId, tenantId));
   }
 }
 

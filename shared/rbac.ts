@@ -146,7 +146,7 @@ export const PERMISSION_MATRIX: Record<Role, Permission[]> = {
     PERMISSIONS.ACCESS_ANY_TENANT,
   ],
   
-  // Vega consultant - can access client tenants for advisory work
+  // Vega consultant - can access client tenants they've been explicitly granted access to
   [ROLES.VEGA_CONSULTANT]: [
     PERMISSIONS.READ_TENANT_DATA,
     PERMISSIONS.CREATE_OKR,
@@ -162,7 +162,7 @@ export const PERMISSION_MATRIX: Record<Role, Permission[]> = {
     PERMISSIONS.MANAGE_AI_GROUNDING,
     PERMISSIONS.IMPORT_DATA,
     PERMISSIONS.EXPORT_DATA,
-    PERMISSIONS.ACCESS_ANY_TENANT,
+    // Note: Consultants do NOT have ACCESS_ANY_TENANT - they need explicit grants
   ],
   
   // Vega admin - platform superuser
