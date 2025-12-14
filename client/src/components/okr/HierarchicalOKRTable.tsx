@@ -720,7 +720,13 @@ function KeyResultRow({
       
       <TableCell className="py-2" data-testid={`cell-status-${keyResult.id}`}>
         <div className="flex items-center gap-3">
-          <CircularProgress progress={keyResult.progress} size={28} strokeWidth={2.5} />
+          {(() => {
+            // Calculate actual progress from currentValue and targetValue if available
+            const calculatedProgress = keyResult.targetValue && keyResult.targetValue > 0 
+              ? Math.min(((keyResult.currentValue ?? 0) / keyResult.targetValue) * 100, 100)
+              : keyResult.progress;
+            return <CircularProgress progress={calculatedProgress} size={28} strokeWidth={2.5} />;
+          })()}
           <div className="flex flex-col gap-0.5">
             <Badge 
               variant="outline" 
