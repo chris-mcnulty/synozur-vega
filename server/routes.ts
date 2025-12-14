@@ -645,6 +645,135 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Resend welcome email to a user
+  app.post("/api/users/:id/resend-welcome", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      
+      const targetUser = await storage.getUser(id);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      
+      if (!canAccessAny && targetUser.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      let tenantName: string | undefined;
+      if (targetUser.tenantId) {
+        const tenant = await storage.getTenantById(targetUser.tenantId);
+        tenantName = tenant?.name;
+      }
+      
+      await sendWelcomeEmail(targetUser.email, targetUser.name || undefined, tenantName);
+      console.log(`[Resend Welcome] Welcome email sent to ${targetUser.email}`);
+      
+      res.json({ success: true, message: `Welcome email sent to ${targetUser.email}` });
+    } catch (error) {
+      console.error("Error resending welcome email:", error);
+      res.status(500).json({ error: "Failed to send welcome email" });
+    }
+  });
+
+  // Bulk import users from CSV
+  app.post("/api/users/bulk-import", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { users: usersData, sendWelcomeEmails, defaultTenantId } = req.body;
+      
+      if (!Array.isArray(usersData) || usersData.length === 0) {
+        return res.status(400).json({ error: "No users provided" });
+      }
+      
+      if (usersData.length > 100) {
+        return res.status(400).json({ error: "Maximum 100 users per import" });
+      }
+      
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      
+      // Enforce tenant restrictions
+      const effectiveTenantId = canAccessAny ? (defaultTenantId || null) : req.effectiveTenantId;
+      
+      const results: { email: string; success: boolean; error?: string }[] = [];
+      const createdUsers: any[] = [];
+      
+      for (const userData of usersData) {
+        try {
+          const { email, name, role = "tenant_user", password } = userData;
+          
+          if (!email || !password) {
+            results.push({ email: email || "unknown", success: false, error: "Email and password required" });
+            continue;
+          }
+          
+          // Check for existing user
+          const existingUser = await storage.getUserByEmail(email);
+          if (existingUser) {
+            results.push({ email, success: false, error: "User already exists" });
+            continue;
+          }
+          
+          // Validate role
+          const validRoles = ["tenant_user", "tenant_admin", "admin", "global_admin", "vega_consultant", "vega_admin"];
+          const userRoleToUse = validRoles.includes(role) ? role : "tenant_user";
+          
+          const user = await storage.createUser({
+            email,
+            password,
+            name: name || email.split('@')[0],
+            role: userRoleToUse,
+            tenantId: effectiveTenantId,
+          });
+          
+          createdUsers.push(user);
+          results.push({ email, success: true });
+          
+        } catch (userError: any) {
+          results.push({ 
+            email: userData.email || "unknown", 
+            success: false, 
+            error: userError.message || "Failed to create user" 
+          });
+        }
+      }
+      
+      // Send welcome emails if requested
+      if (sendWelcomeEmails && createdUsers.length > 0) {
+        let tenantName: string | undefined;
+        if (effectiveTenantId) {
+          const tenant = await storage.getTenantById(effectiveTenantId);
+          tenantName = tenant?.name;
+        }
+        
+        for (const user of createdUsers) {
+          try {
+            await sendWelcomeEmail(user.email, user.name || undefined, tenantName);
+            console.log(`[Bulk Import] Welcome email sent to ${user.email}`);
+          } catch (emailError) {
+            console.error(`[Bulk Import] Failed to send welcome email to ${user.email}:`, emailError);
+          }
+        }
+      }
+      
+      const successCount = results.filter(r => r.success).length;
+      const failCount = results.filter(r => !r.success).length;
+      
+      res.json({ 
+        success: true, 
+        message: `Created ${successCount} users${failCount > 0 ? `, ${failCount} failed` : ""}`,
+        results,
+        created: successCount,
+        failed: failCount
+      });
+    } catch (error) {
+      console.error("Error in bulk import:", error);
+      res.status(500).json({ error: "Failed to import users" });
+    }
+  });
+
   // Get foundation for a tenant (any authenticated user can read their tenant's foundation)
   app.get("/api/foundations/:tenantId", ...authWithTenant, async (req: Request, res: Response) => {
     try {
