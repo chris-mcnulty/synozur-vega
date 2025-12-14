@@ -28,7 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield, Settings2, Cloud, ShieldCheck, ExternalLink, UserPlus, Users } from "lucide-react";
+import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield, Settings2, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search } from "lucide-react";
 import excelIcon from "@assets/Excel_512_1765494903271.png";
 import oneDriveIcon from "@assets/OneDrive_512_1765494903274.png";
 import outlookIcon from "@assets/Outlook_512_1765494903276.png";
@@ -270,6 +270,10 @@ export default function TenantAdmin() {
   const [selectedConsultantId, setSelectedConsultantId] = useState<string>("");
   const [accessExpiresAt, setAccessExpiresAt] = useState<string>("");
   const [accessNotes, setAccessNotes] = useState<string>("");
+
+  const [entraSearchQuery, setEntraSearchQuery] = useState("");
+  const [entraSearchResults, setEntraSearchResults] = useState<any[]>([]);
+  const [isSearchingEntra, setIsSearchingEntra] = useState(false);
 
   const { data: tenants = [], isLoading: tenantsLoading } = useQuery<Tenant[]>({
     queryKey: ["/api/tenants"],
@@ -666,6 +670,36 @@ export default function TenantAdmin() {
       expiresAt: accessExpiresAt || undefined,
       notes: accessNotes || undefined,
     });
+  };
+
+  const handleEntraSearch = async (query: string) => {
+    if (query.length < 2) {
+      setEntraSearchResults([]);
+      return;
+    }
+    setIsSearchingEntra(true);
+    try {
+      const response = await fetch(`/auth/entra/users/search?q=${encodeURIComponent(query)}&limit=10`, {
+        credentials: 'include'
+      });
+      const data = await response.json();
+      setEntraSearchResults(data.users || []);
+    } catch (error) {
+      console.error('Entra search failed:', error);
+      setEntraSearchResults([]);
+    } finally {
+      setIsSearchingEntra(false);
+    }
+  };
+
+  const handleSelectEntraUser = (user: any) => {
+    setUserFormData({
+      ...userFormData,
+      email: user.mail || user.userPrincipalName,
+      name: user.displayName || "",
+    });
+    setEntraSearchQuery("");
+    setEntraSearchResults([]);
   };
 
   return (
@@ -1291,6 +1325,43 @@ export default function TenantAdmin() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {!editingUser && (
+              <div className="space-y-2 pb-3 border-b">
+                <Label>Search Entra Directory</Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name or email..."
+                    value={entraSearchQuery}
+                    onChange={(e) => {
+                      setEntraSearchQuery(e.target.value);
+                      handleEntraSearch(e.target.value);
+                    }}
+                    className="pl-9"
+                    data-testid="input-entra-search"
+                  />
+                </div>
+                {isSearchingEntra && (
+                  <p className="text-sm text-muted-foreground">Searching...</p>
+                )}
+                {entraSearchResults.length > 0 && (
+                  <div className="border rounded-md divide-y max-h-40 overflow-y-auto">
+                    {entraSearchResults.map((user) => (
+                      <div
+                        key={user.id}
+                        className="p-2 cursor-pointer hover-elevate"
+                        onClick={() => handleSelectEntraUser(user)}
+                        data-testid={`entra-user-${user.id}`}
+                      >
+                        <p className="font-medium text-sm">{user.displayName}</p>
+                        <p className="text-xs text-muted-foreground">{user.mail || user.userPrincipalName}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label htmlFor="user-email">Email</Label>
               <Input
