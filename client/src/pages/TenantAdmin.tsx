@@ -591,6 +591,32 @@ export default function TenantAdmin() {
     setBulkImportDialogOpen(true);
   };
 
+  const parseCsvLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      
+      if (char === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        result.push(current.trim());
+        current = '';
+      } else {
+        current += char;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  };
+
   const handleCsvFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -602,14 +628,14 @@ export default function TenantAdmin() {
     reader.onload = (e) => {
       try {
         const text = e.target?.result as string;
-        const lines = text.split('\n').filter(line => line.trim());
+        const lines = text.split(/\r?\n/).filter(line => line.trim());
         
         if (lines.length < 2) {
           setCsvError("CSV must have a header row and at least one data row");
           return;
         }
 
-        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const headers = parseCsvLine(lines[0]).map(h => h.toLowerCase());
         const emailIdx = headers.findIndex(h => h === 'email');
         const nameIdx = headers.findIndex(h => h === 'name');
         const roleIdx = headers.findIndex(h => h === 'role');
@@ -627,7 +653,7 @@ export default function TenantAdmin() {
         const parsedUsers: { email: string; name?: string; role?: string; password: string }[] = [];
 
         for (let i = 1; i < lines.length; i++) {
-          const values = lines[i].split(',').map(v => v.trim());
+          const values = parseCsvLine(lines[i]);
           const email = values[emailIdx];
           const password = values[passwordIdx];
           
