@@ -28,7 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield, Settings2, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search } from "lucide-react";
+import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield, Settings2, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, FileText, Download } from "lucide-react";
 import excelIcon from "@assets/Excel_512_1765494903271.png";
 import oneDriveIcon from "@assets/OneDrive_512_1765494903274.png";
 import outlookIcon from "@assets/Outlook_512_1765494903276.png";
@@ -275,6 +275,13 @@ export default function TenantAdmin() {
   const [entraSearchResults, setEntraSearchResults] = useState<any[]>([]);
   const [isSearchingEntra, setIsSearchingEntra] = useState(false);
 
+  const [bulkImportDialogOpen, setBulkImportDialogOpen] = useState(false);
+  const [csvData, setCsvData] = useState<{ email: string; name?: string; role?: string; password: string }[]>([]);
+  const [csvError, setCsvError] = useState<string | null>(null);
+  const [sendBulkWelcomeEmails, setSendBulkWelcomeEmails] = useState(true);
+  const [bulkImportTenantId, setBulkImportTenantId] = useState<string>("NONE");
+  const [importResults, setImportResults] = useState<{ email: string; success: boolean; error?: string }[] | null>(null);
+
   const { data: tenants = [], isLoading: tenantsLoading } = useQuery<Tenant[]>({
     queryKey: ["/api/tenants"],
   });
@@ -424,6 +431,38 @@ export default function TenantAdmin() {
     },
   });
 
+  const resendWelcomeEmailMutation = useMutation({
+    mutationFn: (userId: string) =>
+      apiRequest("POST", `/api/users/${userId}/resend-welcome`),
+    onSuccess: () => {
+      toast({ title: "Welcome email sent successfully" });
+    },
+    onError: () => {
+      toast({ 
+        title: "Failed to send welcome email", 
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const bulkImportMutation = useMutation({
+    mutationFn: (data: { users: any[]; sendWelcomeEmails: boolean; defaultTenantId: string | null }) =>
+      apiRequest("POST", "/api/users/bulk-import", data),
+    onSuccess: (response: any) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setImportResults(response.results || []);
+      toast({ 
+        title: `Import complete: ${response.created} created, ${response.failed} failed` 
+      });
+    },
+    onError: () => {
+      toast({ 
+        title: "Failed to import users", 
+        variant: "destructive" 
+      });
+    },
+  });
+
   const handleOpenCreateDialog = () => {
     setEditingTenant(null);
     setTenantFormData({ name: "", color: "#3B82F6", logoUrl: "" });
@@ -541,6 +580,99 @@ export default function TenantAdmin() {
     setEditingUser(null);
     setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false });
     setUserDialogOpen(true);
+  };
+
+  const handleOpenBulkImportDialog = () => {
+    setCsvData([]);
+    setCsvError(null);
+    setImportResults(null);
+    setSendBulkWelcomeEmails(true);
+    setBulkImportTenantId("NONE");
+    setBulkImportDialogOpen(true);
+  };
+
+  const handleCsvFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setCsvError(null);
+    setImportResults(null);
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+          setCsvError("CSV must have a header row and at least one data row");
+          return;
+        }
+
+        const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+        const emailIdx = headers.findIndex(h => h === 'email');
+        const nameIdx = headers.findIndex(h => h === 'name');
+        const roleIdx = headers.findIndex(h => h === 'role');
+        const passwordIdx = headers.findIndex(h => h === 'password');
+
+        if (emailIdx === -1) {
+          setCsvError("CSV must have an 'email' column");
+          return;
+        }
+        if (passwordIdx === -1) {
+          setCsvError("CSV must have a 'password' column");
+          return;
+        }
+
+        const parsedUsers: { email: string; name?: string; role?: string; password: string }[] = [];
+
+        for (let i = 1; i < lines.length; i++) {
+          const values = lines[i].split(',').map(v => v.trim());
+          const email = values[emailIdx];
+          const password = values[passwordIdx];
+          
+          if (!email || !password) continue;
+
+          parsedUsers.push({
+            email,
+            password,
+            name: nameIdx >= 0 ? values[nameIdx] || undefined : undefined,
+            role: roleIdx >= 0 ? values[roleIdx] || undefined : undefined,
+          });
+        }
+
+        if (parsedUsers.length === 0) {
+          setCsvError("No valid users found in CSV");
+          return;
+        }
+
+        setCsvData(parsedUsers);
+      } catch (err) {
+        setCsvError("Failed to parse CSV file");
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleBulkImport = () => {
+    if (csvData.length === 0) return;
+
+    bulkImportMutation.mutate({
+      users: csvData,
+      sendWelcomeEmails: sendBulkWelcomeEmails,
+      defaultTenantId: bulkImportTenantId === "NONE" ? null : bulkImportTenantId,
+    });
+  };
+
+  const downloadSampleCsv = () => {
+    const sampleCsv = "email,name,role,password\njohn.doe@example.com,John Doe,tenant_user,SecurePassword123\njane.smith@example.com,Jane Smith,tenant_admin,AnotherPassword456";
+    const blob = new Blob([sampleCsv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'user-import-template.csv';
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleOpenEditUserDialog = (user: User) => {
@@ -829,13 +961,23 @@ export default function TenantAdmin() {
         <div>
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">User Management</h2>
-            <Button 
-              onClick={handleOpenCreateUserDialog}
-              data-testid="button-create-user"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Add User
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline"
+                onClick={handleOpenBulkImportDialog}
+                data-testid="button-bulk-import"
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Import CSV
+              </Button>
+              <Button 
+                onClick={handleOpenCreateUserDialog}
+                data-testid="button-create-user"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add User
+              </Button>
+            </div>
           </div>
           <Card>
             <CardContent className="pt-6">
@@ -862,24 +1004,39 @@ export default function TenantAdmin() {
                         </TableCell>
                         <TableCell>{getTenantName(user.tenantId)}</TableCell>
                         <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
+                          <div className="flex justify-end gap-1">
                             <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleOpenEditUserDialog(user)}
-                              data-testid={`button-edit-user-${user.id}`}
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                if (confirm(`Send welcome email to ${user.email}?`)) {
+                                  resendWelcomeEmailMutation.mutate(user.id);
+                                }
+                              }}
+                              disabled={resendWelcomeEmailMutation.isPending}
+                              title="Resend welcome email"
+                              data-testid={`button-resend-welcome-${user.id}`}
                             >
-                              <Pencil className="h-3 w-3 mr-1" />
-                              Edit
+                              <Mail className="h-3 w-3" />
                             </Button>
                             <Button
-                              variant="outline"
-                              size="sm"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleOpenEditUserDialog(user)}
+                              title="Edit user"
+                              data-testid={`button-edit-user-${user.id}`}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               onClick={() => {
                                 if (confirm(`Are you sure you want to delete user "${user.email}"?`)) {
                                   deleteUserMutation.mutate(user.id);
                                 }
                               }}
+                              title="Delete user"
                               data-testid={`button-delete-user-${user.id}`}
                             >
                               <Trash2 className="h-3 w-3" />
@@ -1703,6 +1860,135 @@ export default function TenantAdmin() {
             >
               {grantConsultantAccessMutation.isPending ? "Granting..." : "Grant Access"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkImportDialogOpen} onOpenChange={setBulkImportDialogOpen}>
+        <DialogContent className="max-w-2xl" data-testid="dialog-bulk-import">
+          <DialogHeader>
+            <DialogTitle>
+              Bulk Import Users from CSV
+            </DialogTitle>
+            <DialogDescription>
+              Upload a CSV file to create multiple users at once. The CSV must have 'email' and 'password' columns. Optional columns: 'name', 'role'.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={downloadSampleCsv}
+                data-testid="button-download-sample-csv"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download Sample CSV
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Upload CSV File</Label>
+              <Input
+                type="file"
+                accept=".csv"
+                onChange={handleCsvFileUpload}
+                data-testid="input-csv-file"
+              />
+            </div>
+
+            {csvError && (
+              <div className="p-3 bg-destructive/10 text-destructive rounded-md text-sm" data-testid="csv-error">
+                {csvError}
+              </div>
+            )}
+
+            {csvData.length > 0 && !importResults && (
+              <>
+                <div className="p-3 bg-muted rounded-md">
+                  <p className="text-sm font-medium">Found {csvData.length} users to import:</p>
+                  <div className="max-h-40 overflow-y-auto mt-2 space-y-1">
+                    {csvData.map((user, idx) => (
+                      <p key={idx} className="text-xs text-muted-foreground font-mono">
+                        {user.email} {user.name ? `(${user.name})` : ""} - {user.role || "tenant_user"}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Assign to Organization</Label>
+                  <Select
+                    value={bulkImportTenantId}
+                    onValueChange={setBulkImportTenantId}
+                  >
+                    <SelectTrigger data-testid="select-bulk-import-tenant">
+                      <SelectValue placeholder="Select organization" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="NONE">Global (No Organization)</SelectItem>
+                      {tenants.map((tenant) => (
+                        <SelectItem key={tenant.id} value={tenant.id}>
+                          {tenant.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="send-bulk-welcome"
+                    checked={sendBulkWelcomeEmails}
+                    onCheckedChange={(checked) => setSendBulkWelcomeEmails(checked === true)}
+                    data-testid="checkbox-send-bulk-welcome"
+                  />
+                  <Label htmlFor="send-bulk-welcome" className="text-sm font-normal cursor-pointer">
+                    Send welcome emails to all imported users
+                  </Label>
+                </div>
+              </>
+            )}
+
+            {importResults && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Import Results:</p>
+                <div className="max-h-60 overflow-y-auto space-y-1 border rounded-md p-3">
+                  {importResults.map((result, idx) => (
+                    <div 
+                      key={idx} 
+                      className={`flex items-center gap-2 text-xs p-1.5 rounded ${result.success ? 'bg-green-500/10' : 'bg-destructive/10'}`}
+                    >
+                      {result.success ? (
+                        <CheckCircle2 className="h-3 w-3 text-green-500" />
+                      ) : (
+                        <AlertCircle className="h-3 w-3 text-destructive" />
+                      )}
+                      <span className="font-mono">{result.email}</span>
+                      {result.error && <span className="text-destructive">- {result.error}</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBulkImportDialogOpen(false)}
+              data-testid="button-cancel-bulk-import"
+            >
+              {importResults ? "Close" : "Cancel"}
+            </Button>
+            {!importResults && csvData.length > 0 && (
+              <Button
+                onClick={handleBulkImport}
+                disabled={bulkImportMutation.isPending}
+                data-testid="button-confirm-bulk-import"
+              >
+                {bulkImportMutation.isPending ? "Importing..." : `Import ${csvData.length} Users`}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
