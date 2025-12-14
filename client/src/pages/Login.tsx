@@ -7,7 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Eye, EyeOff, Building2, SquareStack, Shield, AlertCircle } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Building2, Shield, AlertCircle } from "lucide-react";
+import microsoftLogo from "@assets/Microsoft_Icon_6_1765741102026.jpeg";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import starTrailsBg from "@assets/AdobeStock_362805421_1763398687511.jpeg";
 
@@ -425,7 +426,7 @@ export default function Login() {
                     }}
                     data-testid="button-sso-login"
                   >
-                    <SquareStack className="mr-2 h-4 w-4" />
+                    <img src={microsoftLogo} alt="Microsoft" className="mr-2 h-4 w-4" />
                     Sign in with Microsoft
                   </Button>
                 </form>
