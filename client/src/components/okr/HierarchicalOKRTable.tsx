@@ -3,6 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +33,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
+import { CircularProgress } from "./CircularProgress";
 
 interface KeyResult {
   id: string;
@@ -339,7 +341,14 @@ function ObjectiveRow({
         
         <TableCell className="py-3" data-testid={`text-owner-${objective.id}`}>
           {objective.ownerEmail ? (
-            <span className="text-sm">{objective.ownerEmail.split('@')[0]}</span>
+            <div className="flex items-center gap-2">
+              <Avatar className="h-6 w-6">
+                <AvatarFallback className="text-xs bg-primary/10 text-primary">
+                  {objective.ownerEmail.charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm">{objective.ownerEmail.split('@')[0]}</span>
+            </div>
           ) : (
             <span className="text-sm text-muted-foreground">-</span>
           )}
@@ -349,30 +358,30 @@ function ObjectiveRow({
           {(() => {
             const { status: effectiveStatus, isDerived } = getEffectiveStatus(objective);
             return (
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-1.5">
-                  <Badge 
-                    variant="outline" 
-                    className={cn("text-xs w-fit", getStatusBadgeStyles(effectiveStatus))}
-                  >
-                    <div className={cn("w-2 h-2 rounded-full mr-1.5", getStatusColor(effectiveStatus))} />
-                    {getStatusLabel(effectiveStatus)}
-                  </Badge>
-                  {isDerived && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <ArrowDownFromLine className="h-3 w-3 text-muted-foreground" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="text-xs">Status derived from children</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <Progress value={Math.min(objective.progress, 100)} className="w-16 h-1.5" />
+              <div className="flex items-center gap-3">
+                <CircularProgress progress={objective.progress} size={36} strokeWidth={3} />
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <Badge 
+                      variant="outline" 
+                      className={cn("text-xs w-fit", getStatusBadgeStyles(effectiveStatus))}
+                    >
+                      <div className={cn("w-2 h-2 rounded-full mr-1.5", getStatusColor(effectiveStatus))} />
+                      {getStatusLabel(effectiveStatus)}
+                    </Badge>
+                    {isDerived && (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <ArrowDownFromLine className="h-3 w-3 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">Status derived from children</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    )}
+                  </div>
                   <span className="text-xs text-muted-foreground">
                     {objective.progress > 100 ? "100%+" : `${Math.round(objective.progress)}%`}
                   </span>
@@ -696,33 +705,40 @@ function KeyResultRow({
       
       <TableCell className="py-2" data-testid={`text-owner-${keyResult.id}`}>
         {keyResult.ownerEmail ? (
-          <span className="text-sm">{keyResult.ownerEmail.split('@')[0]}</span>
+          <div className="flex items-center gap-2">
+            <Avatar className="h-5 w-5">
+              <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                {keyResult.ownerEmail.charAt(0).toUpperCase()}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-sm">{keyResult.ownerEmail.split('@')[0]}</span>
+          </div>
         ) : (
           <span className="text-sm text-muted-foreground">-</span>
         )}
       </TableCell>
       
       <TableCell className="py-2" data-testid={`cell-status-${keyResult.id}`}>
-        <div className="flex flex-col gap-1">
-          <Badge 
-            variant="outline" 
-            className={cn("text-xs w-fit", getStatusBadgeStyles(keyResult.status))}
-          >
-            <div className={cn("w-2 h-2 rounded-full mr-1.5", getStatusColor(keyResult.status))} />
-            {getStatusLabel(keyResult.status)}
-          </Badge>
-          <div className="flex items-center gap-2">
-            <Progress value={Math.min(keyResult.progress, 100)} className="w-16 h-1.5" />
+        <div className="flex items-center gap-3">
+          <CircularProgress progress={keyResult.progress} size={28} strokeWidth={2.5} />
+          <div className="flex flex-col gap-0.5">
+            <Badge 
+              variant="outline" 
+              className={cn("text-xs w-fit", getStatusBadgeStyles(keyResult.status))}
+            >
+              <div className={cn("w-2 h-2 rounded-full mr-1.5", getStatusColor(keyResult.status))} />
+              {getStatusLabel(keyResult.status)}
+            </Badge>
             <span className="text-xs text-muted-foreground">
               {formatProgressText(keyResult.progress, keyResult.metricType, keyResult.unit, keyResult.currentValue)}
             </span>
+            {keyResult.targetValue !== undefined && keyResult.unit && (
+              <span className="text-[10px] text-muted-foreground">
+                {keyResult.currentValue !== undefined ? `${keyResult.currentValue} / ` : ''}
+                {keyResult.targetValue} {keyResult.unit}
+              </span>
+            )}
           </div>
-          {keyResult.targetValue !== undefined && keyResult.unit && (
-            <span className="text-xs text-muted-foreground">
-              {keyResult.currentValue !== undefined ? `${keyResult.currentValue} / ` : ''}
-              {keyResult.targetValue} {keyResult.unit}
-            </span>
-          )}
         </div>
       </TableCell>
       

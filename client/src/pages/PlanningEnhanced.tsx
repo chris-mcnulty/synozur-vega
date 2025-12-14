@@ -23,6 +23,7 @@ import { ValueTagSelector } from "@/components/ValueTagSelector";
 import { HierarchicalOKRTable } from "@/components/okr/HierarchicalOKRTable";
 import { OKRFilters } from "@/components/okr/OKRFilters";
 import { OKRDetailPane } from "@/components/okr/OKRDetailPane";
+import { ProgressSummaryBar } from "@/components/okr/ProgressSummaryBar";
 import { MilestoneEditor, type PhasedTargets } from "@/components/okr/MilestoneEditor";
 import { MilestoneTimeline } from "@/components/okr/MilestoneTimeline";
 import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink } from "lucide-react";
@@ -1322,6 +1323,9 @@ export default function PlanningEnhanced() {
 
           <TabsContent value="hierarchy">
             <div className="space-y-4">
+              {!loadingHierarchy && filteredHierarchyData.length > 0 && (
+                <ProgressSummaryBar objectives={filteredHierarchyData} />
+              )}
               {loadingHierarchy ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
