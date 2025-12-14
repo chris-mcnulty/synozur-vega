@@ -169,6 +169,35 @@ function getQuarterLabel(quarter: number | null | undefined): string {
   return `Q${quarter}`;
 }
 
+function calculateObjectiveProgress(keyResults: KeyResult[], childObjectives: HierarchyObjective[]): number {
+  // Calculate progress from Key Results based on their actual currentValue/targetValue
+  const krProgressValues = keyResults.map(kr => {
+    if (kr.targetValue && kr.targetValue > 0) {
+      return {
+        progress: Math.min(((kr.currentValue ?? 0) / kr.targetValue) * 100, 100),
+        weight: kr.weight ?? (100 / keyResults.length)
+      };
+    }
+    return { progress: kr.progress, weight: kr.weight ?? (100 / keyResults.length) };
+  });
+
+  // If there are Key Results, calculate weighted average
+  if (krProgressValues.length > 0) {
+    const totalWeight = krProgressValues.reduce((sum, kr) => sum + kr.weight, 0);
+    if (totalWeight > 0) {
+      return krProgressValues.reduce((sum, kr) => sum + (kr.progress * kr.weight / totalWeight), 0);
+    }
+  }
+
+  // If no Key Results, fall back to child objectives
+  if (childObjectives.length > 0) {
+    const childProgress = childObjectives.map(obj => obj.progress);
+    return childProgress.reduce((sum, p) => sum + p, 0) / childProgress.length;
+  }
+
+  return 0;
+}
+
 function deriveStatusFromChildren(keyResults: KeyResult[], childObjectives: HierarchyObjective[]): string {
   const allChildren = [
     ...keyResults.map(kr => kr.status),
@@ -357,9 +386,14 @@ function ObjectiveRow({
         <TableCell className="py-3" data-testid={`cell-status-${objective.id}`}>
           {(() => {
             const { status: effectiveStatus, isDerived } = getEffectiveStatus(objective);
+            // Calculate progress from Key Results if available, otherwise use stored progress
+            const calculatedProgress = (objective.keyResults && objective.keyResults.length > 0) || 
+                                       (objective.childObjectives && objective.childObjectives.length > 0)
+              ? calculateObjectiveProgress(objective.keyResults || [], objective.childObjectives || [])
+              : objective.progress;
             return (
               <div className="flex items-center gap-3">
-                <CircularProgress progress={objective.progress} size={36} strokeWidth={3} />
+                <CircularProgress progress={calculatedProgress} size={36} strokeWidth={3} />
                 <div className="flex flex-col gap-0.5">
                   <div className="flex items-center gap-1.5">
                     <Badge 
@@ -383,7 +417,7 @@ function ObjectiveRow({
                     )}
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    {objective.progress > 100 ? "100%+" : `${Math.round(objective.progress)}%`}
+                    {calculatedProgress > 100 ? "100%+" : `${Math.round(calculatedProgress)}%`}
                   </span>
                 </div>
               </div>
