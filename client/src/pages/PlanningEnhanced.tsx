@@ -113,17 +113,49 @@ interface CheckIn {
   createdAt: Date;
 }
 
+// Helper to get saved planning filters from localStorage
+function getSavedPlanningFilters() {
+  try {
+    const saved = localStorage.getItem("planningFilters");
+    if (saved) {
+      return JSON.parse(saved);
+    }
+  } catch (e) {
+    // Ignore parse errors
+  }
+  return null;
+}
+
 export default function PlanningEnhanced() {
   const { toast } = useToast();
   const { currentTenant } = useTenant();
   const { user } = useAuth();
-  const [selectedTab, setSelectedTab] = useState("hierarchy");
+  
+  // Load saved filters from localStorage
+  const savedFilters = getSavedPlanningFilters();
+  
+  const [selectedTab, setSelectedTab] = useState(savedFilters?.selectedTab || "hierarchy");
   // Unified filters for all tabs
-  const [quarter, setQuarter] = useState<number | null>(null); // null means "All Periods"
-  const [year, setYear] = useState(new Date().getFullYear());
-  const [level, setLevel] = useState<string>("all");
-  const [teamId, setTeamId] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [quarter, setQuarter] = useState<number | null>(savedFilters?.quarter ?? null); // null means "All Periods"
+  const [year, setYear] = useState(savedFilters?.year || new Date().getFullYear());
+  const [level, setLevel] = useState<string>(savedFilters?.level || "all");
+  const [teamId, setTeamId] = useState<string>(savedFilters?.teamId || "all");
+  const [statusFilter, setStatusFilter] = useState<string>(savedFilters?.statusFilter || "all");
+  const [filtersInitialized, setFiltersInitialized] = useState(!!savedFilters);
+  
+  // Save filters to localStorage whenever they change
+  useEffect(() => {
+    if (filtersInitialized) {
+      localStorage.setItem("planningFilters", JSON.stringify({
+        selectedTab,
+        quarter,
+        year,
+        level,
+        teamId,
+        statusFilter,
+      }));
+    }
+  }, [selectedTab, quarter, year, level, teamId, statusFilter, filtersInitialized]);
   
   // Detail pane state
   const [detailPaneOpen, setDetailPaneOpen] = useState(false);
@@ -157,15 +189,19 @@ export default function PlanningEnhanced() {
     enabled: !!currentTenant?.id,
   });
 
-  // Set initial quarter/year based on tenant's fiscal year
+  // Set initial quarter/year based on tenant's fiscal year (only if no saved filters)
   useEffect(() => {
-    if (foundation) {
-      const fiscalYearStartMonth = foundation.fiscalYearStartMonth || 1;
-      const currentPeriod = getCurrentQuarter(fiscalYearStartMonth);
-      setQuarter(currentPeriod.quarter);
-      setYear(currentPeriod.year);
+    if (!filtersInitialized) {
+      if (foundation) {
+        const fiscalYearStartMonth = foundation.fiscalYearStartMonth || 1;
+        const currentPeriod = getCurrentQuarter(fiscalYearStartMonth);
+        setQuarter(currentPeriod.quarter);
+        setYear(currentPeriod.year);
+      }
+      // Mark as initialized after first render so filters will be saved
+      setFiltersInitialized(true);
     }
-  }, [foundation?.fiscalYearStartMonth]);
+  }, [foundation?.fiscalYearStartMonth, filtersInitialized]);
 
   // Fetch enhanced OKR data (uses unified filters)
   const { data: objectives = [], isLoading: loadingObjectives } = useQuery<Objective[]>({
