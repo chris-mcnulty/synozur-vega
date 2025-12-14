@@ -71,6 +71,11 @@ async function getAccessToken(userId: string): Promise<string | null> {
     return null;
   }
 
+  if (!graphToken.accessToken) {
+    console.warn(`[Graph Planner] Token found but accessToken is null for user ${userId}`);
+    return null;
+  }
+
   const accessToken = isEncrypted(graphToken.accessToken) 
     ? decryptToken(graphToken.accessToken) 
     : graphToken.accessToken;

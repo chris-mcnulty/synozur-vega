@@ -24,8 +24,19 @@ export function PlannerConnectionCard() {
 
   const syncMutation = useMutation({
     mutationFn: async () => {
-      const res = await apiRequest("POST", "/api/planner/sync");
-      return res.json();
+      const tenantId = localStorage.getItem("currentTenantId");
+      const res = await fetch("/api/planner/sync", {
+        method: "POST",
+        credentials: "include",
+        headers: tenantId ? { "x-tenant-id": tenantId } : {},
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const error = new Error(data.error || data.message || "Sync failed");
+        (error as any).reconnectRequired = data.reconnectRequired;
+        throw error;
+      }
+      return data;
     },
     onSuccess: (data: any) => {
       toast({ 
@@ -35,6 +46,9 @@ export function PlannerConnectionCard() {
       queryClient.invalidateQueries({ queryKey: ["/api/planner"] });
     },
     onError: (error: any) => {
+      if (error.reconnectRequired) {
+        queryClient.invalidateQueries({ queryKey: ["/auth/entra/planner/status"] });
+      }
       toast({ 
         title: "Sync failed", 
         description: error.message,

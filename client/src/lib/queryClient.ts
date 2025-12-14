@@ -7,14 +7,26 @@ async function throwIfResNotOk(res: Response) {
   }
 }
 
+function getTenantHeader(): Record<string, string> {
+  const tenantId = localStorage.getItem("currentTenantId");
+  return tenantId ? { "x-tenant-id": tenantId } : {};
+}
+
 export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
+  const headers: Record<string, string> = {
+    ...getTenantHeader(),
+  };
+  if (data) {
+    headers["Content-Type"] = "application/json";
+  }
+  
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers,
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -32,6 +44,7 @@ export const getQueryFn: <T>(options: {
     const res = await fetch(queryKey.join("/") as string, {
       credentials: "include",
       cache: "no-cache", // Disable HTTP caching to avoid 304 responses
+      headers: getTenantHeader(),
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {

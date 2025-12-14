@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 
 export type DefaultTimePeriod = {
   mode: 'current' | 'specific';
@@ -56,8 +57,14 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   }, [tenants]);
 
   const handleSetCurrentTenant = (tenant: Tenant) => {
+    const previousTenantId = currentTenant?.id;
     setCurrentTenant(tenant);
     localStorage.setItem("currentTenantId", tenant.id);
+    
+    // Invalidate all queries when tenant changes to refetch data for new tenant
+    if (previousTenantId && previousTenantId !== tenant.id) {
+      queryClient.invalidateQueries();
+    }
   };
 
   return (

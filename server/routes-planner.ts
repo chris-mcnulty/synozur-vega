@@ -100,9 +100,32 @@ router.post('/sync', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('[Planner API] Sync error:', error);
-    res.status(500).json({ 
-      error: 'Failed to sync Planner data',
-      message: error.message 
+    
+    // Provide user-friendly error messages for common issues
+    let userMessage = 'Failed to sync Planner data';
+    let statusCode = 500;
+    
+    if (error.message?.includes('No valid access token') || 
+        error.message?.includes('accessToken is null')) {
+      userMessage = 'Your Planner connection has expired. Please reconnect by clicking "Connect Microsoft Planner" in Settings.';
+      statusCode = 401;
+    } else if (error.code === 'InvalidAuthenticationToken' ||
+               error.statusCode === 401) {
+      userMessage = 'Your Planner authorization has expired. Please reconnect in Settings.';
+      statusCode = 401;
+    } else if (error.code === 'Authorization_RequestDenied' ||
+               error.statusCode === 403) {
+      userMessage = 'Access denied. Please ensure you have permission to access Planner in your Microsoft 365 account.';
+      statusCode = 403;
+    } else if (error.code === 'Request_ResourceNotFound') {
+      userMessage = 'No Planner plans found. Make sure you have access to at least one Planner plan in Microsoft 365.';
+      statusCode = 404;
+    }
+    
+    res.status(statusCode).json({ 
+      error: userMessage,
+      message: error.message,
+      reconnectRequired: statusCode === 401
     });
   }
 });
