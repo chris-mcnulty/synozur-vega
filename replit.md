@@ -118,3 +118,12 @@ Preferred communication style: Simple, everyday language.
   - Users who don't need to see the full strategic hierarchy
 - Toggle between full view and team mode at organization or team level
 - Reduces visual clutter while preserving underlying alignment relationships
+
+### Vocabulary Module (Priority: Medium)
+- Master lists of terminology for core objects at the organization level:
+  - Goals, Strategies, Objectives, Key Results, Big Rocks
+- Support for multiple names/synonyms per term (e.g., "Big Rocks" could also be called "Initiatives" or "Priorities")
+- Organization-level defaults that can be overridden at tenant level
+- Tenant admins can customize terminology to match their organization's language
+- UI dynamically displays the configured term names throughout the application
+- Similar pattern to SCDP vocabulary management
