@@ -99,3 +99,22 @@ Preferred communication style: Simple, everyday language.
 - Focus on OKR CRUD, Big Rock management, and meeting operations
 - Support natural language queries about company strategy and progress
 - Target SharePoint site: https://synozur.sharepoint.com/sites/Marketing
+
+### Power BI Integration for Key Results (Priority: Medium)
+- Link Key Results to Power BI measures from specific reports or dashboards
+- Use Power BI measure values as the data source for KR metrics
+- Part of M365 connector ecosystem alongside Excel, Planner integrations
+- OAuth flow similar to Planner integration for per-user consent
+- Periodic sync to pull latest measure values from Power BI
+
+### Team Mode - Simplified Interface (Priority: Medium)
+- Streamlined dashboard view for teams focused on weekly execution
+- Shows only: Goals, Strategies, Key Results, and Big Rocks
+- Primary focus on Key Results and Big Rocks for weekly review meetings
+- Hides organizational hierarchy complexity while maintaining data connections (KRs still roll up to objectives)
+- Designed for:
+  - Less sophisticated organizations adopting Vega
+  - Team-level weekly review meetings
+  - Users who don't need to see the full strategic hierarchy
+- Toggle between full view and team mode at organization or team level
+- Reduces visual clutter while preserving underlying alignment relationships
