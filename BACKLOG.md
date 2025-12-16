@@ -12,41 +12,55 @@
 |------|----------------|---------------|-------|
 | **1. RBAC** | ~95% | ✅ 95% | Core security complete. Fine-grained permissions remaining. |
 | **2. M365 Multi-Tenant** | ~60% | ~65% | SSO, Planner, SharePoint/OneDrive working. Admin consent, Calendar sync remaining. |
-| **3. Focus Rhythm** | ~70% | ~75% | Schema has decisions/risks fields. UI tracking not built. |
+| **3. Focus Rhythm** | ~70% | ✅ ~85% | Decisions/Risks UI complete. OKR linking complete. Meeting templates complete. |
 | **4. Culture & Values** | Complete | ✅ Complete | |
 | **5. M365 Copilot Agent** | Not Started | Not Started | **January deadline - CLIENT REQUIREMENT** |
-| **6. AI-Powered Assistance** | Not Started | ~40% | 7 AI tools implemented (listObjectives, listKeyResults, listBigRocks, listMeetings, getAtRiskItems, analyzeStrategicGaps, analyzeObjectiveGaps, getFoundationContext). Q&A chat with function calling works. |
+| **6. AI-Powered Assistance** | Not Started | ~40% | 7 AI tools implemented. Q&A chat with function calling works. |
+| **6a. AI Usage Reporting** | Not Started | Not Started | **NEW - Schema change required** |
 | **7. Enhanced Reporting** | Not Started | ~10% | Basic review_snapshots table exists. No PDF/export. |
 | **8. Export/Import** | Complete | ✅ Complete | |
-| **9. Customizable Branding** | Not Started | Not Started | |
-| **10. Governance & Audit** | Not Started | Not Started | |
-| **10c. KR Weighting** | Not Started | ✅ 90% Complete | Schema has weight field! Just needs UI exposure. |
+| **9. Customizable Branding** | Not Started | Not Started | Schema change required |
+| **10. Governance & Audit** | Not Started | Not Started | Schema change required |
+| **10c. KR Weighting** | Not Started | ✅ Complete | WeightManager UI complete. |
+| **10a. Check-in Close Prompt** | Not Started | ✅ Complete | Dec 16, 2025 |
+| **Custom Vocabulary** | Complete | ✅ Complete | VocabularyContext + system/tenant overrides |
+| **Team Mode** | Complete | ✅ Complete | /team route with filtered views |
+| **Objective Alignment** | Complete | ✅ Complete | alignedToObjectiveIds many-to-many |
 
 ### Recommended Priority Sequence (Next 8 Weeks)
 
 ```
-PHASE 1: Client Deadline (Weeks 1-4, Dec 16 - Jan 10)
-├── M365 Copilot Agent ⭐ CRITICAL PATH
-│   ├── Week 1: OpenAPI spec for Vega endpoints
-│   ├── Week 2: Declarative agent manifest + instructions
-│   ├── Week 3: Testing in M365 dev tenant
-│   └── Week 4: Client deployment + refinement
-│
-PHASE 2: M365 Completion (Weeks 2-5, Dec 23 - Jan 17)
+PHASE 1: Schema Changes First (Weeks 1-2, Dec 16 - Dec 27)
+├── Enhanced Reporting & Snapshots Schema (1-2 days)
+│   ├── Expand review_snapshots table
+│   ├── Add snapshot configuration fields to tenants
+│   └── Add report templates table
+├── AI Usage Reporting Schema (1 day) ⭐ NEW
+│   ├── Add ai_usage_logs table for tracking
+│   └── Add tenant-level usage limits
+├── Customizable Branding Schema (1 day)
+│   ├── Add branding fields to tenants table
+│   └── Add report templates with branding
+└── Governance & Audit Schema (1-2 days)
+    ├── Add audit_logs table
+    └── Add access control fields
+
+PHASE 2: M365 Copilot Agent (Weeks 2-5, Dec 23 - Jan 17)
+├── OpenAPI spec for Vega endpoints
+├── Declarative agent manifest + instructions
+├── Testing in M365 dev tenant
+└── Client deployment + refinement
+
+PHASE 3: M365 Completion (Weeks 3-5)
 ├── Fix Production SSO Session Bug (1-2 days)
 ├── Admin Consent Endpoint (3-4 days)
 └── Outlook Calendar Sync (1 week)
 
-PHASE 3: Quick Wins (Weeks 4-6, Jan 6 - Jan 24)
-├── KR Weighting UI (2-3 days) - Schema exists!
-├── Focus Rhythm Decisions/Risks UI (2-3 days) - Schema exists!
-├── Check-in UX Improvements (1-2 days)
-└── OKR Cloning (3-5 days)
-
-PHASE 4: Differentiation (Weeks 6-8, Jan 20 - Feb 7)
-├── Enhanced Reporting & Snapshots
-├── Custom Vocabulary
-└── OKR Alignment (Cross-Team Linking)
+PHASE 4: Feature Implementation (Weeks 5-8, Jan 13 - Feb 7)
+├── AI Usage Reporting UI & API
+├── Enhanced Reporting UI
+├── Customizable Branding UI
+└── OKR Cloning
 ```
 
 ### Blocking Issues
@@ -57,9 +71,9 @@ PHASE 4: Differentiation (Weeks 6-8, Jan 20 - Feb 7)
 
 ### Quick Wins Available Now
 
-1. **KR Weighting UI** - Schema already has `weight` and `isWeightLocked` fields
-2. **Focus Rhythm Decisions/Risks** - Schema already has `decisions` and `risks` JSONB fields
-3. **Check-in Close Prompt** - Simple UI enhancement
+1. **KR Weighting UI** - Schema already has `weight` and `isWeightLocked` fields ✅ COMPLETE
+2. **Focus Rhythm Decisions/Risks** - Schema already has `decisions` and `risks` JSONB fields ✅ COMPLETE
+3. **Check-in Close Prompt** - Simple UI enhancement ✅ COMPLETE (Dec 16, 2025)
 
 ---
 
@@ -529,6 +543,87 @@ Chat-based AI assistant with culture-grounded outputs and MCP-style agent archit
 - OpenAI API key (available ✅)
 - Function calling / tool use (available via OpenAI ✅)
 - Vector database - Phase 3 only (see Vector Database section below)
+
+---
+
+### 6a. AI Usage Reporting ⭐ NEW
+
+**Status:** Not Started  
+**Priority:** High (Schema Change Required)  
+**Effort:** 2-3 days
+
+**Description:**
+Track and report AI usage across the platform to enable billing, monitoring, and usage optimization. Essential for understanding AI costs and tenant-level usage patterns.
+
+**Schema Changes Required:**
+
+```typescript
+// New table: ai_usage_logs
+aiUsageLogs: {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").references(() => users.id),
+  
+  // Request details
+  feature: text("feature").notNull(), // 'chat', 'okr_suggestion', 'meeting_recap', etc.
+  model: text("model").notNull(), // 'gpt-4o', 'gpt-4o-mini', etc.
+  
+  // Token usage
+  promptTokens: integer("prompt_tokens").notNull(),
+  completionTokens: integer("completion_tokens").notNull(),
+  totalTokens: integer("total_tokens").notNull(),
+  
+  // Cost tracking (in cents/microdollars)
+  estimatedCostCents: doublePrecision("estimated_cost_cents"),
+  
+  // Timing
+  latencyMs: integer("latency_ms"),
+  createdAt: timestamp("created_at").defaultNow(),
+}
+
+// Add to tenants table
+aiUsageLimit: integer("ai_usage_limit"), // Monthly token limit (null = unlimited)
+aiUsageResetDate: timestamp("ai_usage_reset_date"), // Monthly reset date
+```
+
+**Features:**
+
+1. **Usage Logging:**
+   - Log every AI API call with token counts
+   - Track by feature (chat, suggestions, recap parsing)
+   - Record latency for performance monitoring
+
+2. **Tenant Usage Dashboard:**
+   - Monthly usage summary (tokens, estimated cost)
+   - Usage by feature breakdown
+   - Usage trend over time
+   - Comparison to limits (if set)
+
+3. **Admin Reports:**
+   - Cross-tenant usage comparison
+   - Total platform AI costs
+   - Heavy user identification
+   - Feature popularity ranking
+
+4. **Usage Limits (Optional):**
+   - Set monthly token limits per tenant
+   - Warning notifications at 80% usage
+   - Soft/hard limits (warning vs. blocking)
+
+**API Endpoints:**
+- `POST /api/ai/log-usage` - Internal: log AI usage (called by AI services)
+- `GET /api/ai/usage/summary` - Get tenant usage summary
+- `GET /api/ai/usage/history` - Get detailed usage history
+- `GET /api/admin/ai-usage` - Platform-wide usage (admin only)
+
+**Business Value:**
+- Cost visibility for platform operations
+- Enable future usage-based billing
+- Identify optimization opportunities
+- Prevent runaway AI costs
+
+**Dependencies:**
+- OpenAI token counting (tiktoken or response metadata)
 
 ---
 
