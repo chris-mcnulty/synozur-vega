@@ -109,14 +109,22 @@ Preferred communication style: Simple, everyday language.
 - Periodic sync to pull latest measure values from Power BI
 
 ### Team Mode - Simplified Interface (Priority: Medium)
+- **Separate menu option** (not a toggle) - distinct context with URL-addressable route (`/team`)
 - Streamlined dashboard view for teams focused on weekly execution
-- Shows only: Goals, Strategies, Key Results, and Big Rocks
+- Shows: Goals, Strategies, Key Results, and Big Rocks relevant to the team
 - Primary focus on Key Results and Big Rocks for weekly review meetings
-- Hides organizational hierarchy complexity while maintaining data connections (KRs still roll up to objectives)
-- Designed for:
-  - Less sophisticated organizations adopting Vega
-  - Team-level weekly review meetings
-  - Users who don't need to see the full strategic hierarchy
-- Toggle between full view and team mode at organization or team level
-- Reduces visual clutter while preserving underlying alignment relationships
+- Hides organizational hierarchy complexity while maintaining data connections
+- Designed for less sophisticated organizations and team-level weekly reviews
+
+**Implementation approach:**
+- Add `teamId` field to Big Rocks schema (explicit team assignment)
+- Users can belong to multiple teams (matrix membership, e.g., Marketing + Executive Leadership)
+- KRs shown if parent objective is owned by the team
+- Big Rocks shown if explicitly assigned to the team
+- Goals/Strategies shown only if connected to team's objectives (derived, not separately owned)
+
+**Deferred considerations:**
+- DRI (Directly Responsible Individual) field on Big Rocks - may imply team membership
+- Team-based RBAC (executives see all, team members scoped to their teams)
+- Goals/Strategies ownership by team (currently derived through objective relationships)
 
