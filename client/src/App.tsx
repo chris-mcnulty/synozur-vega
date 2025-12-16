@@ -21,6 +21,7 @@ import { useLocation } from "wouter";
 import Login from "@/pages/Login";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
+import TeamDashboard from "@/pages/TeamDashboard";
 import Foundations from "@/pages/Foundations";
 import Strategy from "@/pages/Strategy";
 import PlanningEnhanced from "@/pages/PlanningEnhanced";
@@ -182,6 +183,13 @@ function Router() {
         <ProtectedRoute>
           <ModuleLayout>
             <Dashboard />
+          </ModuleLayout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/team">
+        <ProtectedRoute>
+          <ModuleLayout>
+            <TeamDashboard />
           </ModuleLayout>
         </ProtectedRoute>
       </Route>

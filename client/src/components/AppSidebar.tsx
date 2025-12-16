@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield } from "lucide-react";
+import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -21,6 +21,11 @@ const menuItems = [
     title: "Company OS",
     url: "/dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    title: "Team Mode",
+    url: "/team",
+    icon: Users,
   },
   {
     title: "Foundations",
