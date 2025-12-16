@@ -298,6 +298,8 @@ export default function PlanningEnhanced() {
   const [selectedBigRockForHistory, setSelectedBigRockForHistory] = useState<BigRock | null>(null);
   const [bigRockCheckInHistoryDialogOpen, setBigRockCheckInHistoryDialogOpen] = useState(false);
   const [editingCheckIn, setEditingCheckIn] = useState<CheckIn | null>(null);
+  const [closePromptDialogOpen, setClosePromptDialogOpen] = useState(false);
+  const [closePromptEntity, setClosePromptEntity] = useState<{ type: string; id: string; title: string; progress: number } | null>(null);
   const [weightManagementDialogOpen, setWeightManagementDialogOpen] = useState(false);
   const [progressSummaryDialogOpen, setProgressSummaryDialogOpen] = useState(false);
   const [saveToMeetingDialogOpen, setSaveToMeetingDialogOpen] = useState(false);
@@ -867,6 +869,26 @@ export default function PlanningEnhanced() {
     },
   });
 
+  // Close/Complete entity mutation (for close prompt)
+  const closeEntityMutation = useMutation({
+    mutationFn: async ({ entityType, entityId }: { entityType: string; entityId: string }) => {
+      const endpoint = entityType === "key_result" 
+        ? `/api/okr/key-results/${entityId}`
+        : `/api/okr/objectives/${entityId}`;
+      return apiRequest("PATCH", endpoint, { status: "completed" });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      setClosePromptDialogOpen(false);
+      setClosePromptEntity(null);
+      toast({ title: "Success", description: "Item marked as completed" });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to close item", variant: "destructive" });
+    },
+  });
+
   // Fetch check-in history for selected Key Result
   const { data: checkInHistory = [] } = useQuery<CheckIn[]>({
     queryKey: [`/api/okr/check-ins`, selectedKRForHistory?.id],
@@ -1174,6 +1196,19 @@ export default function PlanningEnhanced() {
     let current = null;
     if (entityType === "objective") {
       current = objectives.find(o => o.id === entityId);
+      
+      // Check if objective has exceeded target (100%+) and show close prompt
+      if (current && current.progress >= 100 && current.status !== "completed") {
+        setClosePromptEntity({
+          type: entityType,
+          id: entityId,
+          title: current.title,
+          progress: current.progress,
+        });
+        setClosePromptDialogOpen(true);
+        return;
+      }
+      
       setCheckInEntity({ type: entityType, id: entityId, current });
       setCheckInForm({
         newValue: 0,
@@ -1191,7 +1226,70 @@ export default function PlanningEnhanced() {
         const res = await fetch(`/api/okr/key-results/${entityId}`);
         if (res.ok) {
           current = await res.json();
+          
+          // Check if KR has exceeded target (100%+) and show close prompt
+          if (current && current.progress >= 100 && current.status !== "completed") {
+            setClosePromptEntity({
+              type: entityType,
+              id: entityId,
+              title: current.title,
+              progress: current.progress,
+            });
+            setClosePromptDialogOpen(true);
+            return;
+          }
+          
           setCheckInEntity({ type: entityType, id: entityId, current });
+          const currentVal = current?.currentValue || 0;
+          setCheckInForm({
+            newValue: currentVal,
+            newProgress: current?.progress || 0,
+            newStatus: current?.status || "on_track",
+            note: "",
+            achievements: [""],
+            challenges: [""],
+            nextSteps: [""],
+            asOfDate: new Date().toISOString().split('T')[0],
+          });
+          setValueInputDraft(currentVal.toString());
+        }
+      } catch (error) {
+        console.error("Failed to fetch Key Result data:", error);
+      }
+    }
+    setEditingCheckIn(null);
+    setCheckInDialogOpen(true);
+  };
+  
+  // Handler to proceed with check-in after dismissing close prompt
+  const handleProceedWithCheckIn = async () => {
+    if (!closePromptEntity) return;
+    
+    setClosePromptDialogOpen(false);
+    const { type, id } = closePromptEntity;
+    setClosePromptEntity(null);
+    
+    // Now actually open the check-in dialog
+    let current = null;
+    if (type === "objective") {
+      current = objectives.find(o => o.id === id);
+      setCheckInEntity({ type, id, current });
+      setCheckInForm({
+        newValue: 0,
+        newProgress: current?.progress || 0,
+        newStatus: current?.status || "on_track",
+        note: "",
+        achievements: [""],
+        challenges: [""],
+        nextSteps: [""],
+        asOfDate: new Date().toISOString().split('T')[0],
+      });
+    } else if (type === "key_result") {
+      try {
+        const res = await fetch(`/api/okr/key-results/${id}`);
+        if (res.ok) {
+          current = await res.json();
+          setCheckInEntity({ type, id, current });
           const currentVal = current?.currentValue || 0;
           setCheckInForm({
             newValue: currentVal,
@@ -1465,6 +1563,17 @@ export default function PlanningEnhanced() {
                     setKeyResultDialogOpen(true);
                   }}
                   onCheckInObjective={(obj) => {
+                    // Check if objective has exceeded target (100%+) and show close prompt
+                    if (obj.progress >= 100 && obj.status !== "completed") {
+                      setClosePromptEntity({
+                        type: "objective",
+                        id: obj.id,
+                        title: obj.title,
+                        progress: obj.progress,
+                      });
+                      setClosePromptDialogOpen(true);
+                      return;
+                    }
                     setCheckInEntity({ type: 'objective', id: obj.id, current: obj });
                     setCheckInForm({
                       newValue: 0,
@@ -1479,6 +1588,17 @@ export default function PlanningEnhanced() {
                     setCheckInDialogOpen(true);
                   }}
                   onCheckInKeyResult={(kr) => {
+                    // Check if KR has exceeded target (100%+) and show close prompt
+                    if (kr.progress >= 100 && kr.status !== "completed") {
+                      setClosePromptEntity({
+                        type: "key_result",
+                        id: kr.id,
+                        title: kr.title,
+                        progress: kr.progress,
+                      });
+                      setClosePromptDialogOpen(true);
+                      return;
+                    }
                     setCheckInEntity({ type: 'key_result', id: kr.id, current: kr });
                     setValueInputDraft(String(kr.currentValue || 0));
                     setCheckInForm({
@@ -2360,6 +2480,56 @@ export default function PlanningEnhanced() {
                 data-testid="button-save-weights"
               >
                 Save Changes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Close/Complete Prompt Dialog */}
+        <Dialog open={closePromptDialogOpen} onOpenChange={setClosePromptDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-green-500" />
+                Target Exceeded
+              </DialogTitle>
+              <DialogDescription>
+                This {closePromptEntity?.type === "key_result" ? "Key Result" : "Objective"} has already exceeded its target.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-4">
+              <div className="p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+                <p className="font-medium text-sm mb-1">{closePromptEntity?.title}</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {closePromptEntity?.progress}% complete
+                </p>
+              </div>
+              <p className="text-sm text-muted-foreground mt-4">
+                It looks like you're done working on this. Would you like to close it instead of checking in?
+              </p>
+            </div>
+            <DialogFooter className="gap-2 sm:gap-0">
+              <Button
+                variant="outline"
+                onClick={handleProceedWithCheckIn}
+                data-testid="button-continue-checkin"
+              >
+                Continue Check-in
+              </Button>
+              <Button
+                onClick={() => {
+                  if (closePromptEntity) {
+                    closeEntityMutation.mutate({
+                      entityType: closePromptEntity.type,
+                      entityId: closePromptEntity.id,
+                    });
+                  }
+                }}
+                disabled={closeEntityMutation.isPending}
+                className="bg-green-600 hover:bg-green-700"
+                data-testid="button-close-entity"
+              >
+                {closeEntityMutation.isPending ? "Closing..." : "Close It"}
               </Button>
             </DialogFooter>
           </DialogContent>
