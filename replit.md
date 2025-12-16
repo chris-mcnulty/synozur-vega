@@ -108,20 +108,23 @@ Preferred communication style: Simple, everyday language.
 - OAuth flow similar to Planner integration for per-user consent
 - Periodic sync to pull latest measure values from Power BI
 
-### Team Mode - Simplified Interface (Priority: Medium)
-- **Separate menu option** (not a toggle) - distinct context with URL-addressable route (`/team`)
-- Streamlined dashboard view for teams focused on weekly execution
-- Shows: Goals, Strategies, Key Results, and Big Rocks relevant to the team
-- Primary focus on Key Results and Big Rocks for weekly review meetings
-- Hides organizational hierarchy complexity while maintaining data connections
-- Designed for less sophisticated organizations and team-level weekly reviews
+### Team Mode - Simplified Interface (Priority: Medium) - COMPLETE
+- [x] **Separate menu option** (not a toggle) - distinct context with URL-addressable route (`/team`)
+- [x] Streamlined dashboard view for teams focused on weekly execution
+- [x] Shows: Goals, Strategies, Key Results, and Big Rocks relevant to the team
+- [x] Primary focus on Key Results and Big Rocks for weekly review meetings
+- [x] Hides organizational hierarchy complexity while maintaining data connections
+- [x] Designed for less sophisticated organizations and team-level weekly reviews
 
-**Implementation approach:**
-- Add `teamId` field to Big Rocks schema (explicit team assignment)
-- Users can belong to multiple teams (matrix membership, e.g., Marketing + Executive Leadership)
-- KRs shown if parent objective is owned by the team
-- Big Rocks shown if explicitly assigned to the team
-- Goals/Strategies shown only if connected to team's objectives (derived, not separately owned)
+**Implementation details:**
+- TeamDashboard component at `/team` route with dedicated sidebar navigation (Users icon)
+- Team selector dropdown for users with multiple team memberships (matrix membership supported)
+- Quarter selector with persistence in localStorage
+- KRs shown from objectives that belong to the selected team
+- Big Rocks filtered by `teamId` field (explicit team assignment)
+- Strategies derived from team objectives' linked strategies (not separately owned)
+- Summary stats card showing KR count, average progress, and Big Rocks completion
+- Color-coded progress bars and status icons for at-a-glance assessment
 
 **Deferred considerations:**
 - DRI (Directly Responsible Individual) field on Big Rocks - may imply team membership
