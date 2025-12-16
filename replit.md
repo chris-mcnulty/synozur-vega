@@ -76,6 +76,7 @@ Preferred communication style: Simple, everyday language.
 - [x] **Excel Data Binding for Key Results**: URL paste support for OneDrive/SharePoint Excel files with cell reference binding
 - [x] **Planner Progress Mapping**: Map Key Results or Big Rocks to Planner plans/buckets to derive progress from task completion percentage. Schema fields (`plannerPlanId`, `plannerBucketId`, `plannerSyncEnabled`, `plannerLastSyncAt`, `plannerSyncError`), API endpoints for mapping management and progress sync, PlannerProgressMapping UI component in Key Result detail pane. Automatic schema migration on startup via `ensureSchemaColumns()` in server/init.ts.
 - [x] **Objective Alignment/Laddering**: Many-to-many objective alignment allowing team/individual objectives to "ladder up" or support multiple org-level objectives. Schema field `alignedToObjectiveIds` on objectives table. "Link Existing Objective" menu option in HierarchicalOKRTable. Alignment dialog for selecting/toggling objective alignments. Aligned objectives displayed as "virtual children" under target objectives with Link2 icon and purple styling to distinguish from direct children.
+- [x] **Vocabulary Module**: Customizable terminology for core objects (Goals, Strategies, Objectives, Key Results, Big Rocks, Meetings, Focus Rhythm). System-level defaults in `system_vocabulary` table managed via System Admin page (platform admins only). Tenant-level overrides in `vocabularyOverrides` JSONB field on tenants table, configured via Tenant Admin page. VocabularyContext provides `useVocabulary` hook with `t(term, 'singular'|'plural')` helper. Dashboard and other key UI components use vocabulary context for dynamic terminology.
 
 ### Focus Rhythm Enhancements (Priority: Medium) - COMPLETE
 - [x] Rich agenda with live OKR links that show current progress (color-coded status indicators: green ≥70%, yellow 40-69%, red <40%)
@@ -119,11 +120,3 @@ Preferred communication style: Simple, everyday language.
 - Toggle between full view and team mode at organization or team level
 - Reduces visual clutter while preserving underlying alignment relationships
 
-### Vocabulary Module (Priority: Medium)
-- Master lists of terminology for core objects at the organization level:
-  - Goals, Strategies, Objectives, Key Results, Big Rocks
-- Support for multiple names/synonyms per term (e.g., "Big Rocks" could also be called "Initiatives" or "Priorities")
-- Organization-level defaults that can be overridden at tenant level
-- Tenant admins can customize terminology to match their organization's language
-- UI dynamically displays the configured term names throughout the application
-- Similar pattern to SCDP vocabulary management

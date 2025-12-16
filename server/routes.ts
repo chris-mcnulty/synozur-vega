@@ -12,7 +12,9 @@ import {
   insertOkrSchema,
   insertKpiSchema,
   insertMeetingSchema,
-  insertUserSchema
+  insertUserSchema,
+  type VocabularyTerms,
+  defaultVocabulary
 } from "@shared/schema";
 import { 
   sendVerificationEmail, 
@@ -469,6 +471,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting tenant:", error);
       res.status(500).json({ error: "Failed to delete tenant" });
+    }
+  });
+
+  // Vocabulary endpoints
+  // Get effective vocabulary for current tenant (any authenticated user)
+  app.get("/api/vocabulary", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const vocabulary = await storage.getEffectiveVocabulary(req.effectiveTenantId || null);
+      res.json(vocabulary);
+    } catch (error) {
+      console.error("Error fetching vocabulary:", error);
+      res.status(500).json({ error: "Failed to fetch vocabulary" });
+    }
+  });
+
+  // Get system vocabulary defaults (platform admin only)
+  app.get("/api/vocabulary/system", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const systemVocab = await storage.getSystemVocabulary();
+      // Return system vocabulary if it exists, otherwise return built-in defaults
+      res.json(systemVocab?.terms || defaultVocabulary);
+    } catch (error) {
+      console.error("Error fetching system vocabulary:", error);
+      res.status(500).json({ error: "Failed to fetch system vocabulary" });
+    }
+  });
+
+  // Update system vocabulary defaults (platform admin only)
+  app.put("/api/vocabulary/system", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const terms = req.body as VocabularyTerms;
+      
+      // Basic validation - ensure all required terms are present
+      const requiredTerms = ['goal', 'strategy', 'objective', 'keyResult', 'bigRock', 'meeting', 'focusRhythm'];
+      for (const term of requiredTerms) {
+        if (!terms[term as keyof VocabularyTerms] || 
+            !terms[term as keyof VocabularyTerms].singular || 
+            !terms[term as keyof VocabularyTerms].plural) {
+          return res.status(400).json({ 
+            error: `Missing or invalid term: ${term}. Each term must have singular and plural values.` 
+          });
+        }
+      }
+      
+      const updated = await storage.upsertSystemVocabulary(terms, req.user?.id || 'system');
+      res.json(updated.terms);
+    } catch (error) {
+      console.error("Error updating system vocabulary:", error);
+      res.status(500).json({ error: "Failed to update system vocabulary" });
+    }
+  });
+
+  // Get tenant vocabulary overrides (tenant admin)
+  app.get("/api/vocabulary/tenant/:tenantId", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { tenantId } = req.params;
+      
+      // Check access
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      
+      if (!canAccessAny && tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const tenant = await storage.getTenantById(tenantId);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+      
+      res.json(tenant.vocabularyOverrides || {});
+    } catch (error) {
+      console.error("Error fetching tenant vocabulary:", error);
+      res.status(500).json({ error: "Failed to fetch tenant vocabulary" });
+    }
+  });
+
+  // Update tenant vocabulary overrides (tenant admin)
+  app.put("/api/vocabulary/tenant/:tenantId", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { tenantId } = req.params;
+      
+      // Check access
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      
+      if (!canAccessAny && tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const vocabularyOverrides = req.body as Partial<VocabularyTerms>;
+      
+      const tenant = await storage.updateTenant(tenantId, { vocabularyOverrides } as any);
+      res.json(tenant.vocabularyOverrides || {});
+    } catch (error) {
+      console.error("Error updating tenant vocabulary:", error);
+      res.status(500).json({ error: "Failed to update tenant vocabulary" });
     }
   });
 

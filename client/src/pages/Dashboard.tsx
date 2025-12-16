@@ -33,6 +33,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { useTenant } from "@/contexts/TenantContext";
+import { useVocabulary } from "@/contexts/VocabularyContext";
 import { getCurrentQuarter, generateQuarters } from "@/lib/fiscal-utils";
 import type { Foundation, Strategy, Objective, BigRock, Meeting, Team } from "@shared/schema";
 import { ValueBadges } from "@/components/ValueBadges";
@@ -67,6 +68,7 @@ const STORAGE_KEYS = {
 
 export default function Dashboard() {
   const { currentTenant } = useTenant();
+  const { t } = useVocabulary();
   
   // Compute default quarter based on tenant settings or current quarter
   const { quarter: currentQuarterNum, year: currentYearNum } = getCurrentQuarter();
@@ -287,7 +289,7 @@ export default function Dashboard() {
             <div className="flex gap-6">
               <div className="text-center">
                 <p className="text-3xl font-bold text-primary">{(strategies || []).length}</p>
-                <p className="text-sm text-muted-foreground">Active Strategies</p>
+                <p className="text-sm text-muted-foreground">Active {t('strategy', 'plural')}</p>
               </div>
               <div className="text-center">
                 <p className="text-3xl font-bold text-primary">{objectives?.length || 0}</p>
@@ -298,7 +300,7 @@ export default function Dashboard() {
                   {bigRocks?.filter((r) => r.status === "completed").length || 0}/
                   {bigRocks?.length || 0}
                 </p>
-                <p className="text-sm text-muted-foreground">Rocks Complete</p>
+                <p className="text-sm text-muted-foreground">{t('bigRock', 'plural')} Complete</p>
               </div>
             </div>
           </div>
@@ -391,7 +393,7 @@ export default function Dashboard() {
                 </div>
                 <Separator className="my-4" />
                 <div className="space-y-3">
-                  <h3 className="font-semibold">Annual Goals ({currentQuarter?.year})</h3>
+                  <h3 className="font-semibold">Annual {t('goal', 'plural')} ({currentQuarter?.year})</h3>
                   {foundations?.annualGoals && foundations.annualGoals.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                       {foundations.annualGoals.map((goal, idx) => (
@@ -419,7 +421,7 @@ export default function Dashboard() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <TrendingUp className="h-5 w-5 text-primary" />
-              <h2 className="text-xl font-semibold">Strategies</h2>
+              <h2 className="text-xl font-semibold">{t('strategy', 'plural')}</h2>
             </div>
             <Link href="/strategy">
               <Button variant="ghost" size="sm" className="gap-2" data-testid="link-strategy">
@@ -606,7 +608,7 @@ export default function Dashboard() {
           <div className="flex items-center gap-2">
             <Target className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold">
-              {selectedTeam === 'all' ? 'Objectives by Team' : `${teams?.find(t => t.id === selectedTeam)?.name || 'Team'} Objectives`}
+              {selectedTeam === 'all' ? `${t('objective', 'plural')} by Team` : `${teams?.find(team => team.id === selectedTeam)?.name || 'Team'} ${t('objective', 'plural')}`}
             </h2>
           </div>
           <Link href="/planning">

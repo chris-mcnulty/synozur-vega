@@ -22,7 +22,8 @@ import {
   plannerTasks, type PlannerTask, type InsertPlannerTask,
   objectivePlannerTasks,
   bigRockPlannerTasks,
-  consultantTenantAccess, type ConsultantTenantAccess, type InsertConsultantTenantAccess
+  consultantTenantAccess, type ConsultantTenantAccess, type InsertConsultantTenantAccess,
+  systemVocabulary, type SystemVocabulary, type VocabularyTerms, defaultVocabulary
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull } from "drizzle-orm";
@@ -194,6 +195,11 @@ export interface IStorage {
   revokeConsultantAccess(consultantUserId: string, tenantId: string): Promise<void>;
   hasConsultantAccess(consultantUserId: string, tenantId: string): Promise<boolean>;
   getConsultantsWithAccessToTenant(tenantId: string): Promise<ConsultantTenantAccess[]>;
+  
+  // Vocabulary methods
+  getSystemVocabulary(): Promise<SystemVocabulary | undefined>;
+  upsertSystemVocabulary(terms: VocabularyTerms, updatedBy: string): Promise<SystemVocabulary>;
+  getEffectiveVocabulary(tenantId: string | null): Promise<VocabularyTerms>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1599,6 +1605,58 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(consultantTenantAccess)
       .where(eq(consultantTenantAccess.tenantId, tenantId));
+  }
+
+  // Vocabulary methods
+  async getSystemVocabulary(): Promise<SystemVocabulary | undefined> {
+    const [vocab] = await db.select().from(systemVocabulary);
+    return vocab || undefined;
+  }
+
+  async upsertSystemVocabulary(terms: VocabularyTerms, updatedBy: string): Promise<SystemVocabulary> {
+    const existing = await this.getSystemVocabulary();
+    
+    if (existing) {
+      const [updated] = await db
+        .update(systemVocabulary)
+        .set({ terms, updatedBy, updatedAt: new Date() })
+        .where(eq(systemVocabulary.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db
+        .insert(systemVocabulary)
+        .values({ terms, updatedBy })
+        .returning();
+      return created;
+    }
+  }
+
+  async getEffectiveVocabulary(tenantId: string | null): Promise<VocabularyTerms> {
+    // Start with built-in defaults
+    let effectiveVocab: VocabularyTerms = { ...defaultVocabulary };
+    
+    // Apply system-level defaults if they exist
+    const systemVocab = await this.getSystemVocabulary();
+    if (systemVocab?.terms) {
+      effectiveVocab = { ...effectiveVocab, ...systemVocab.terms };
+    }
+    
+    // Apply tenant-level overrides if tenant exists and has overrides
+    if (tenantId) {
+      const tenant = await this.getTenantById(tenantId);
+      if (tenant?.vocabularyOverrides) {
+        // Merge each term individually to preserve non-overridden properties
+        const overrides = tenant.vocabularyOverrides as Partial<VocabularyTerms>;
+        for (const key of Object.keys(overrides) as Array<keyof VocabularyTerms>) {
+          if (overrides[key]) {
+            effectiveVocab[key] = { ...effectiveVocab[key], ...overrides[key] };
+          }
+        }
+      }
+    }
+    
+    return effectiveVocab;
   }
 }
 

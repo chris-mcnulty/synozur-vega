@@ -28,7 +28,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield, Settings2, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, FileText, Download } from "lucide-react";
+import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield, Settings2, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, FileText, Download, BookOpen } from "lucide-react";
 import excelIcon from "@assets/Excel_512_1765494903271.png";
 import oneDriveIcon from "@assets/OneDrive_512_1765494903274.png";
 import outlookIcon from "@assets/Outlook_512_1765494903276.png";
@@ -263,6 +263,26 @@ export default function TenantAdmin() {
     connectorOutlook: false,
     connectorExcel: false,
     connectorPlanner: false,
+  });
+
+  const [vocabularyDialogOpen, setVocabularyDialogOpen] = useState(false);
+  const [selectedTenantForVocabulary, setSelectedTenantForVocabulary] = useState<Tenant | null>(null);
+  const [vocabularyFormData, setVocabularyFormData] = useState<{
+    goal: { singular: string; plural: string };
+    strategy: { singular: string; plural: string };
+    objective: { singular: string; plural: string };
+    keyResult: { singular: string; plural: string };
+    bigRock: { singular: string; plural: string };
+    meeting: { singular: string; plural: string };
+    focusRhythm: { singular: string; plural: string };
+  }>({
+    goal: { singular: "", plural: "" },
+    strategy: { singular: "", plural: "" },
+    objective: { singular: "", plural: "" },
+    keyResult: { singular: "", plural: "" },
+    bigRock: { singular: "", plural: "" },
+    meeting: { singular: "", plural: "" },
+    focusRhythm: { singular: "", plural: "" },
   });
 
   const [consultantAccessDialogOpen, setConsultantAccessDialogOpen] = useState(false);
@@ -803,6 +823,50 @@ export default function TenantAdmin() {
     return count;
   };
 
+  const handleOpenVocabularyDialog = (tenant: Tenant) => {
+    setSelectedTenantForVocabulary(tenant);
+    const overrides = (tenant as any).vocabularyOverrides || {};
+    setVocabularyFormData({
+      goal: overrides.goal || { singular: "", plural: "" },
+      strategy: overrides.strategy || { singular: "", plural: "" },
+      objective: overrides.objective || { singular: "", plural: "" },
+      keyResult: overrides.keyResult || { singular: "", plural: "" },
+      bigRock: overrides.bigRock || { singular: "", plural: "" },
+      meeting: overrides.meeting || { singular: "", plural: "" },
+      focusRhythm: overrides.focusRhythm || { singular: "", plural: "" },
+    });
+    setVocabularyDialogOpen(true);
+  };
+
+  const handleSaveVocabularySettings = async () => {
+    if (!selectedTenantForVocabulary) return;
+    
+    const cleanedOverrides: Record<string, { singular: string; plural: string }> = {};
+    Object.entries(vocabularyFormData).forEach(([key, value]) => {
+      if (value.singular || value.plural) {
+        cleanedOverrides[key] = value;
+      }
+    });
+    
+    try {
+      await apiRequest("PUT", `/api/vocabulary/tenant/${selectedTenantForVocabulary.id}`, cleanedOverrides);
+      queryClient.invalidateQueries({ queryKey: ["/api/tenants"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/vocabulary"] });
+      toast({ title: "Vocabulary settings saved" });
+      setVocabularyDialogOpen(false);
+    } catch (error: any) {
+      toast({ title: "Failed to save vocabulary", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const getVocabularyOverrideCount = (tenant: Tenant) => {
+    const overrides = (tenant as any).vocabularyOverrides || {};
+    return Object.keys(overrides).filter(key => {
+      const value = overrides[key];
+      return value && (value.singular || value.plural);
+    }).length;
+  };
+
   const getSsoStatus = (tenant: Tenant) => {
     const azureTenantId = (tenant as any).azureTenantId;
     const enforceSso = (tenant as any).enforceSso;
@@ -976,6 +1040,16 @@ export default function TenantAdmin() {
                     >
                       <Cloud className="h-3 w-3 mr-1" />
                       M365 Connectors: <Badge variant={getConnectorCount(tenant) > 0 ? "default" : "secondary"} className="ml-1 text-xs">{getConnectorCount(tenant)} enabled</Badge>
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => handleOpenVocabularyDialog(tenant)}
+                      data-testid={`button-vocabulary-${tenant.id}`}
+                    >
+                      <BookOpen className="h-3 w-3 mr-1" />
+                      Vocabulary: <Badge variant={getVocabularyOverrideCount(tenant) > 0 ? "default" : "secondary"} className="ml-1 text-xs">{getVocabularyOverrideCount(tenant)} customized</Badge>
                     </Button>
                   </CardContent>
                 </Card>
@@ -1807,6 +1881,69 @@ export default function TenantAdmin() {
             <Button
               onClick={handleSaveConnectorSettings}
               data-testid="button-save-connectors"
+            >
+              Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={vocabularyDialogOpen} onOpenChange={setVocabularyDialogOpen}>
+        <DialogContent data-testid="dialog-vocabulary-settings" className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Vocabulary Settings - {selectedTenantForVocabulary?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Customize terminology for this organization. Leave fields empty to use system defaults.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            {(['goal', 'strategy', 'objective', 'keyResult', 'bigRock', 'meeting', 'focusRhythm'] as const).map((termKey) => (
+              <div key={termKey} className="grid gap-2 p-3 rounded-md border">
+                <h4 className="font-medium capitalize">{termKey.replace(/([A-Z])/g, ' $1').trim()}</h4>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <Label htmlFor={`${termKey}-singular`} className="text-xs">Singular</Label>
+                    <Input
+                      id={`${termKey}-singular`}
+                      value={vocabularyFormData[termKey].singular}
+                      onChange={(e) => setVocabularyFormData({
+                        ...vocabularyFormData,
+                        [termKey]: { ...vocabularyFormData[termKey], singular: e.target.value }
+                      })}
+                      placeholder="Use default"
+                      data-testid={`input-vocab-${termKey}-singular`}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor={`${termKey}-plural`} className="text-xs">Plural</Label>
+                    <Input
+                      id={`${termKey}-plural`}
+                      value={vocabularyFormData[termKey].plural}
+                      onChange={(e) => setVocabularyFormData({
+                        ...vocabularyFormData,
+                        [termKey]: { ...vocabularyFormData[termKey], plural: e.target.value }
+                      })}
+                      placeholder="Use default"
+                      data-testid={`input-vocab-${termKey}-plural`}
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setVocabularyDialogOpen(false)}
+              data-testid="button-cancel-vocabulary"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveVocabularySettings}
+              data-testid="button-save-vocabulary"
             >
               Save
             </Button>

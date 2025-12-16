@@ -12,6 +12,7 @@ import { AIChatPanel } from "@/components/AIChatPanel";
 import { ConsultingModeToggle } from "@/components/ConsultingModeToggle";
 import { SynozurLogo } from "@/components/SynozurLogo";
 import { TenantProvider } from "@/contexts/TenantContext";
+import { VocabularyProvider } from "@/contexts/VocabularyContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { Sparkles } from "lucide-react";
 import React, { useState } from "react";
@@ -26,6 +27,7 @@ import PlanningEnhanced from "@/pages/PlanningEnhanced";
 import FocusRhythm from "@/pages/FocusRhythm";
 import MeetingDetail from "@/pages/MeetingDetail";
 import TenantAdmin from "@/pages/TenantAdmin";
+import SystemAdmin from "@/pages/SystemAdmin";
 import AIGroundingAdmin from "@/pages/AIGroundingAdmin";
 import Import from "@/pages/Import";
 import Settings from "@/pages/Settings";
@@ -225,6 +227,13 @@ function Router() {
           </ModuleLayout>
         </ProtectedRoute>
       </Route>
+      <Route path="/system-admin">
+        <ProtectedRoute>
+          <ModuleLayout>
+            <SystemAdmin />
+          </ModuleLayout>
+        </ProtectedRoute>
+      </Route>
       <Route path="/import">
         <ProtectedRoute>
           <ModuleLayout>
@@ -269,12 +278,14 @@ function App() {
       <ThemeProvider>
         <AuthProvider>
           <TenantProvider>
-            <TooltipProvider>
-              <SidebarProvider style={style as React.CSSProperties}>
-                <Router />
-              </SidebarProvider>
-              <Toaster />
-            </TooltipProvider>
+            <VocabularyProvider>
+              <TooltipProvider>
+                <SidebarProvider style={style as React.CSSProperties}>
+                  <Router />
+                </SidebarProvider>
+                <Toaster />
+              </TooltipProvider>
+            </VocabularyProvider>
           </TenantProvider>
         </AuthProvider>
       </ThemeProvider>

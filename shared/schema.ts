@@ -32,6 +32,33 @@ export type DefaultTimePeriod = {
   quarter?: number;
 };
 
+// Vocabulary types for customizable terminology (must be before tenants table)
+export type VocabularyTerm = {
+  singular: string;
+  plural: string;
+};
+
+export type VocabularyTerms = {
+  goal: VocabularyTerm;
+  strategy: VocabularyTerm;
+  objective: VocabularyTerm;
+  keyResult: VocabularyTerm;
+  bigRock: VocabularyTerm;
+  meeting: VocabularyTerm;
+  focusRhythm: VocabularyTerm;
+};
+
+// Default vocabulary terms used when no overrides exist
+export const defaultVocabulary: VocabularyTerms = {
+  goal: { singular: "Goal", plural: "Goals" },
+  strategy: { singular: "Strategy", plural: "Strategies" },
+  objective: { singular: "Objective", plural: "Objectives" },
+  keyResult: { singular: "Key Result", plural: "Key Results" },
+  bigRock: { singular: "Big Rock", plural: "Big Rocks" },
+  meeting: { singular: "Meeting", plural: "Meetings" },
+  focusRhythm: { singular: "Focus Rhythm", plural: "Focus Rhythms" },
+};
+
 export const tenants = pgTable("tenants", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull().unique(),
@@ -52,6 +79,8 @@ export const tenants = pgTable("tenants", {
   adminConsentGranted: boolean("admin_consent_granted").default(false),
   adminConsentGrantedAt: timestamp("admin_consent_granted_at"),
   adminConsentGrantedBy: varchar("admin_consent_granted_by"),
+  // Vocabulary overrides for this tenant (partial - only overridden terms)
+  vocabularyOverrides: jsonb("vocabulary_overrides").$type<Partial<VocabularyTerms>>(),
 });
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({
@@ -66,6 +95,22 @@ export const insertTenantSchema = createInsertSchema(tenants).omit({
 
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
 export type Tenant = typeof tenants.$inferSelect;
+
+// System-wide vocabulary defaults (managed by vega_admin/global_admin)
+export const systemVocabulary = pgTable("system_vocabulary", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  terms: jsonb("terms").$type<VocabularyTerms>().notNull(),
+  updatedBy: varchar("updated_by"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSystemVocabularySchema = createInsertSchema(systemVocabulary).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertSystemVocabulary = z.infer<typeof insertSystemVocabularySchema>;
+export type SystemVocabulary = typeof systemVocabulary.$inferSelect;
 
 export type CompanyValue = {
   title: string;

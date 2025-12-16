@@ -1,4 +1,4 @@
-import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle } from "lucide-react";
+import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -59,6 +59,14 @@ const adminItems = [
     title: "Tenant Admin",
     url: "/tenant-admin",
     icon: Settings,
+  },
+];
+
+const platformAdminItems = [
+  {
+    title: "System Admin",
+    url: "/system-admin",
+    icon: Shield,
   },
 ];
 
@@ -129,6 +137,20 @@ export function AppSidebar() {
                     asChild
                     isActive={location === item.url}
                     data-testid="sidebar-admin"
+                  >
+                    <a href={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </a>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+              {(user?.role === 'vega_admin' || user?.role === 'global_admin') && platformAdminItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton
+                    asChild
+                    isActive={location === item.url}
+                    data-testid="sidebar-system-admin"
                   >
                     <a href={item.url}>
                       <item.icon />
