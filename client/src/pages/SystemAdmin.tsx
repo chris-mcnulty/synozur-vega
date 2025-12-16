@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Shield, BookOpen, Save, RotateCcw } from "lucide-react";
@@ -43,6 +43,64 @@ const TERM_DESCRIPTIONS: Record<keyof VocabularyTerms, string> = {
   bigRock: "Major initiatives or projects that drive results",
   meeting: "Scheduled sessions for team collaboration",
   focusRhythm: "Regular cadence of strategic planning sessions",
+};
+
+const VOCABULARY_OPTIONS: Record<keyof VocabularyTerms, VocabularyTerm[]> = {
+  goal: [
+    { singular: "Goal", plural: "Goals" },
+    { singular: "Annual Goal", plural: "Annual Goals" },
+    { singular: "Strategic Goal", plural: "Strategic Goals" },
+    { singular: "Target", plural: "Targets" },
+    { singular: "Priority", plural: "Priorities" },
+    { singular: "Theme", plural: "Themes" },
+  ],
+  strategy: [
+    { singular: "Strategy", plural: "Strategies" },
+    { singular: "Strategic Initiative", plural: "Strategic Initiatives" },
+    { singular: "Strategic Pillar", plural: "Strategic Pillars" },
+    { singular: "Focus Area", plural: "Focus Areas" },
+    { singular: "Strategic Priority", plural: "Strategic Priorities" },
+  ],
+  objective: [
+    { singular: "Objective", plural: "Objectives" },
+    { singular: "OKR", plural: "OKRs" },
+    { singular: "Quarterly Objective", plural: "Quarterly Objectives" },
+    { singular: "Team Objective", plural: "Team Objectives" },
+    { singular: "Goal", plural: "Goals" },
+    { singular: "Outcome", plural: "Outcomes" },
+  ],
+  keyResult: [
+    { singular: "Key Result", plural: "Key Results" },
+    { singular: "KR", plural: "KRs" },
+    { singular: "Measure", plural: "Measures" },
+    { singular: "Metric", plural: "Metrics" },
+    { singular: "Success Metric", plural: "Success Metrics" },
+    { singular: "KPI", plural: "KPIs" },
+  ],
+  bigRock: [
+    { singular: "Big Rock", plural: "Big Rocks" },
+    { singular: "Initiative", plural: "Initiatives" },
+    { singular: "Project", plural: "Projects" },
+    { singular: "Priority", plural: "Priorities" },
+    { singular: "Action Item", plural: "Action Items" },
+    { singular: "Milestone", plural: "Milestones" },
+    { singular: "Deliverable", plural: "Deliverables" },
+  ],
+  meeting: [
+    { singular: "Meeting", plural: "Meetings" },
+    { singular: "Session", plural: "Sessions" },
+    { singular: "Sync", plural: "Syncs" },
+    { singular: "Check-in", plural: "Check-ins" },
+    { singular: "Standup", plural: "Standups" },
+    { singular: "Review", plural: "Reviews" },
+  ],
+  focusRhythm: [
+    { singular: "Focus Rhythm", plural: "Focus Rhythms" },
+    { singular: "Cadence", plural: "Cadences" },
+    { singular: "Rhythm", plural: "Rhythms" },
+    { singular: "Planning Cycle", plural: "Planning Cycles" },
+    { singular: "Review Cycle", plural: "Review Cycles" },
+  ],
 };
 
 export default function SystemAdmin() {
@@ -85,17 +143,17 @@ export default function SystemAdmin() {
 
   const handleTermChange = (
     termKey: keyof VocabularyTerms, 
-    field: 'singular' | 'plural', 
-    value: string
+    singular: string
   ) => {
-    setVocabulary(prev => ({
-      ...prev,
-      [termKey]: {
-        ...prev[termKey],
-        [field]: value,
-      },
-    }));
-    setHasChanges(true);
+    const options = VOCABULARY_OPTIONS[termKey];
+    const selectedOption = options.find(opt => opt.singular === singular);
+    if (selectedOption) {
+      setVocabulary(prev => ({
+        ...prev,
+        [termKey]: selectedOption,
+      }));
+      setHasChanges(true);
+    }
   };
 
   const handleSave = () => {
@@ -203,27 +261,30 @@ export default function SystemAdmin() {
                         <p className="text-sm text-muted-foreground">{TERM_DESCRIPTIONS[termKey]}</p>
                       </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor={`${termKey}-singular`}>Singular</Label>
-                        <Input
-                          id={`${termKey}-singular`}
-                          value={vocabulary[termKey].singular}
-                          onChange={(e) => handleTermChange(termKey, 'singular', e.target.value)}
-                          placeholder={DEFAULT_VOCABULARY[termKey].singular}
-                          data-testid={`input-${termKey}-singular`}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor={`${termKey}-plural`}>Plural</Label>
-                        <Input
-                          id={`${termKey}-plural`}
-                          value={vocabulary[termKey].plural}
-                          onChange={(e) => handleTermChange(termKey, 'plural', e.target.value)}
-                          placeholder={DEFAULT_VOCABULARY[termKey].plural}
-                          data-testid={`input-${termKey}-plural`}
-                        />
-                      </div>
+                    <div className="space-y-2">
+                      <Label>Term</Label>
+                      <Select
+                        value={vocabulary[termKey].singular}
+                        onValueChange={(value) => handleTermChange(termKey, value)}
+                      >
+                        <SelectTrigger data-testid={`select-${termKey}`}>
+                          <SelectValue placeholder="Select a term" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {VOCABULARY_OPTIONS[termKey].map((option) => (
+                            <SelectItem 
+                              key={option.singular} 
+                              value={option.singular}
+                              data-testid={`option-${termKey}-${option.singular.toLowerCase().replace(/\s+/g, '-')}`}
+                            >
+                              {option.singular} / {option.plural}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Current: <span className="font-medium">{vocabulary[termKey].singular}</span> (singular) / <span className="font-medium">{vocabulary[termKey].plural}</span> (plural)
+                      </p>
                     </div>
                   </div>
                 ))}
