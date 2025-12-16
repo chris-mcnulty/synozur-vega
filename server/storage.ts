@@ -26,7 +26,7 @@ import {
   systemVocabulary, type SystemVocabulary, type VocabularyTerms, defaultVocabulary
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, sql, isNull } from "drizzle-orm";
+import { eq, and, or, desc, sql, isNull, inArray } from "drizzle-orm";
 import { hashPassword } from "./auth";
 
 export interface IStorage {
@@ -86,6 +86,7 @@ export interface IStorage {
   deleteObjective(id: string): Promise<void>;
   
   getKeyResultsByObjectiveId(objectiveId: string): Promise<KeyResult[]>;
+  getKeyResultsByTenantId(tenantId: string, quarter?: number, year?: number, teamId?: string): Promise<KeyResult[]>;
   getKeyResultById(id: string): Promise<KeyResult | undefined>;
   getAllKeyResults(): Promise<KeyResult[]>;
   createKeyResult(keyResult: InsertKeyResult): Promise<KeyResult>;
@@ -616,6 +617,19 @@ export class DatabaseStorage implements IStorage {
 
   async getKeyResultsByObjectiveId(objectiveId: string): Promise<KeyResult[]> {
     return await db.select().from(keyResults).where(eq(keyResults.objectiveId, objectiveId));
+  }
+
+  async getKeyResultsByTenantId(tenantId: string, quarter?: number, year?: number, teamId?: string): Promise<KeyResult[]> {
+    // Key results don't have tenant/quarter/year directly - get them through their parent objectives
+    const matchingObjectives = await this.getObjectivesByTenantId(tenantId, quarter, year, undefined, teamId);
+    const objectiveIds = matchingObjectives.map(o => o.id);
+    
+    if (objectiveIds.length === 0) {
+      return [];
+    }
+    
+    // Fetch all key results for these objectives
+    return await db.select().from(keyResults).where(inArray(keyResults.objectiveId, objectiveIds));
   }
 
   async getKeyResultById(id: string): Promise<KeyResult | undefined> {

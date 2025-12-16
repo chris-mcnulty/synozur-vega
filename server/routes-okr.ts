@@ -218,6 +218,27 @@ okrRouter.get("/objectives/:objectiveId/key-results", async (req, res) => {
   }
 });
 
+// Get all key results for a tenant (optionally filtered by quarter/year/team)
+okrRouter.get("/key-results", async (req, res) => {
+  try {
+    const { tenantId, quarter, year, teamId } = req.query;
+    if (!tenantId) {
+      return res.status(400).json({ error: "tenantId is required" });
+    }
+    
+    const keyResults = await storage.getKeyResultsByTenantId(
+      tenantId as string,
+      quarter ? Number(quarter) : undefined,
+      year ? Number(year) : undefined,
+      teamId as string | undefined
+    );
+    
+    res.json(keyResults);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 okrRouter.get("/key-results/:id", async (req, res) => {
   try {
     const keyResult = await storage.getKeyResultById(req.params.id);

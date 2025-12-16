@@ -209,27 +209,21 @@ export default function TeamDashboard() {
     enabled: !!currentTenant.id && !!currentQuarter && !!selectedTeamId,
   });
 
-  const objectiveIds = useMemo(() => objectives?.map((o) => o.id) || [], [objectives]);
-
-  const { data: allKeyResults, isLoading: loadingKeyResults } = useQuery<KeyResult[]>({
-    queryKey: ["/api/okr/key-results", currentTenant.id, currentQuarter?.quarter, currentQuarter?.year],
+  const { data: keyResults = [], isLoading: loadingKeyResults } = useQuery<KeyResult[]>({
+    queryKey: ["/api/okr/key-results", currentTenant.id, currentQuarter?.quarter, currentQuarter?.year, selectedTeamId],
     queryFn: async () => {
       const params = new URLSearchParams({
         tenantId: currentTenant.id,
         ...(currentQuarter?.quarter && { quarter: String(currentQuarter.quarter) }),
         ...(currentQuarter?.year && { year: String(currentQuarter.year) }),
+        ...(selectedTeamId && { teamId: selectedTeamId }),
       });
       const res = await fetch(`/api/okr/key-results?${params}`);
       if (!res.ok) throw new Error('Failed to fetch key results');
       return res.json();
     },
-    enabled: !!currentTenant.id && !!currentQuarter,
+    enabled: !!currentTenant.id && !!currentQuarter && !!selectedTeamId,
   });
-
-  const keyResults = useMemo(() => {
-    if (!allKeyResults || !objectiveIds.length) return [];
-    return allKeyResults.filter((kr) => objectiveIds.includes(kr.objectiveId));
-  }, [allKeyResults, objectiveIds]);
 
   const { data: allBigRocks, isLoading: loadingBigRocks } = useQuery<BigRock[]>({
     queryKey: ["/api/okr/big-rocks", currentTenant.id, currentQuarter?.quarter, currentQuarter?.year],
