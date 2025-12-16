@@ -1,10 +1,13 @@
 import { useState, useEffect, useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -13,6 +16,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Target,
   TrendingUp,
@@ -25,13 +36,19 @@ import {
   AlertTriangle,
   Circle,
   Mountain,
+  Edit3,
+  History,
+  Flag,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVocabulary } from "@/contexts/VocabularyContext";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCurrentQuarter, generateQuarters } from "@/lib/fiscal-utils";
-import type { Objective, KeyResult, BigRock, Strategy, Team } from "@shared/schema";
+import { format } from "date-fns";
+import type { Objective, KeyResult, BigRock, Strategy, Team, Foundation, CheckIn } from "@shared/schema";
 
 type Quarter = {
   id: string;
@@ -93,6 +110,18 @@ export default function TeamDashboard() {
   const { currentTenant } = useTenant();
   const { user } = useAuth();
   const { t } = useVocabulary();
+  const { toast } = useToast();
+
+  // Check-in dialog state
+  const [checkInDialogOpen, setCheckInDialogOpen] = useState(false);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [selectedKR, setSelectedKR] = useState<KeyResult | null>(null);
+  const [checkInForm, setCheckInForm] = useState({
+    newValue: 0,
+    newProgress: 0,
+    newStatus: "on_track",
+    note: "",
+  });
   
   const { quarter: currentQuarterNum, year: currentYearNum } = getCurrentQuarter();
   
@@ -250,6 +279,49 @@ export default function TeamDashboard() {
     enabled: !!currentTenant.id,
   });
 
+  // Fetch foundation for annual goals
+  const { data: foundation } = useQuery<Foundation>({
+    queryKey: [`/api/foundations/${currentTenant.id}`],
+    enabled: !!currentTenant.id,
+  });
+
+  // Fetch check-in history for selected KR
+  const { data: checkInHistory = [] } = useQuery<CheckIn[]>({
+    queryKey: ["/api/okr/check-ins", selectedKR?.id],
+    queryFn: async () => {
+      if (!selectedKR) return [];
+      const res = await fetch(`/api/okr/check-ins?entityType=key_result&entityId=${selectedKR.id}`);
+      if (!res.ok) throw new Error("Failed to fetch check-ins");
+      return res.json();
+    },
+    enabled: !!selectedKR && historyDialogOpen,
+  });
+
+  // Check-in mutation
+  const createCheckInMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const checkInData = {
+        ...data,
+        userId: user?.id,
+        userEmail: user?.email,
+        tenantId: currentTenant.id,
+        asOfDate: new Date().toISOString(),
+      };
+      return apiRequest("POST", "/api/okr/check-ins", checkInData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/okr/key-results", currentTenant.id, currentQuarter?.quarter, currentQuarter?.year, selectedTeamId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives", currentTenant.id, currentQuarter?.quarter, currentQuarter?.year, selectedTeamId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/okr/check-ins"] });
+      setCheckInDialogOpen(false);
+      setSelectedKR(null);
+      toast({ title: "Check-in recorded", description: "Your progress has been saved" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to record check-in", variant: "destructive" });
+    },
+  });
+
   const relevantStrategies = useMemo(() => {
     if (!strategies || !objectives) return [];
     const linkedStrategyIds = new Set<string>();
@@ -261,6 +333,65 @@ export default function TeamDashboard() {
     });
     return strategies.filter((s) => linkedStrategyIds.has(s.id));
   }, [strategies, objectives]);
+
+  const annualGoals = foundation?.annualGoals as string[] | undefined;
+
+  // Helper function to open check-in dialog
+  const openCheckInDialog = (kr: KeyResult) => {
+    setSelectedKR(kr);
+    setCheckInForm({
+      newValue: kr.currentValue || 0,
+      newProgress: kr.progress || 0,
+      newStatus: kr.status || "on_track",
+      note: "",
+    });
+    setCheckInDialogOpen(true);
+  };
+
+  // Helper function to open history dialog
+  const openHistoryDialog = (kr: KeyResult) => {
+    setSelectedKR(kr);
+    setHistoryDialogOpen(true);
+  };
+
+  // Calculate progress from new value
+  const calculateProgress = (newValue: number, kr: KeyResult) => {
+    const initialValue = kr.initialValue ?? 0;
+    const targetValue = kr.targetValue ?? 0;
+    const metricType = kr.metricType || "increase";
+    
+    let progress = 0;
+    if (metricType === "increase") {
+      const denominator = targetValue - initialValue;
+      if (denominator === 0) {
+        progress = newValue >= targetValue ? 100 : 0;
+      } else if (denominator > 0) {
+        progress = ((newValue - initialValue) / denominator) * 100;
+      }
+    } else if (metricType === "decrease") {
+      const denominator = initialValue - targetValue;
+      if (denominator === 0) {
+        progress = newValue <= targetValue ? 100 : 0;
+      } else if (denominator > 0) {
+        progress = ((initialValue - newValue) / denominator) * 100;
+      }
+    }
+    
+    return Math.max(0, Math.min(100, Math.round(progress)));
+  };
+
+  // Handle check-in submission
+  const handleCheckIn = () => {
+    if (!selectedKR) return;
+    createCheckInMutation.mutate({
+      entityType: "key_result",
+      entityId: selectedKR.id,
+      newValue: checkInForm.newValue,
+      newProgress: checkInForm.newProgress,
+      newStatus: checkInForm.newStatus,
+      note: checkInForm.note,
+    });
+  };
 
   const isLoading = loadingTeams || loadingObjectives || loadingKeyResults || loadingBigRocks || loadingStrategies;
 
@@ -371,6 +502,37 @@ export default function TeamDashboard() {
         </CardContent>
       </Card>
 
+      {/* Annual Goals - Compact Section */}
+      {annualGoals && annualGoals.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Flag className="h-5 w-5 text-primary" />
+              <h2 className="text-lg font-semibold">{t('goal', 'plural')}</h2>
+              <Badge variant="secondary" className="text-xs">{annualGoals.length}</Badge>
+            </div>
+            <Link href="/foundations">
+              <Button variant="ghost" size="sm" className="gap-1 text-xs" data-testid="link-goals">
+                Manage
+                <ChevronRight className="h-3 w-3" />
+              </Button>
+            </Link>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {annualGoals.map((goal, index) => (
+              <Badge 
+                key={index} 
+                variant="outline" 
+                className="py-1.5 px-3 text-sm"
+                data-testid={`badge-goal-${index}`}
+              >
+                {goal}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
+
       {relevantStrategies.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-4">
@@ -454,9 +616,29 @@ export default function TeamDashboard() {
                           </span>
                         </div>
                       </div>
-                      <Badge variant="outline" className="shrink-0">
-                        {progress}%
-                      </Badge>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openCheckInDialog(kr)}
+                          title="Check in"
+                          data-testid={`button-checkin-${kr.id}`}
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openHistoryDialog(kr)}
+                          title="View history"
+                          data-testid={`button-history-${kr.id}`}
+                        >
+                          <History className="h-4 w-4" />
+                        </Button>
+                        <Badge variant="outline">
+                          {progress}%
+                        </Badge>
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -533,6 +715,163 @@ export default function TeamDashboard() {
           </div>
         )}
       </div>
+
+      {/* Check-in Dialog */}
+      <Dialog open={checkInDialogOpen} onOpenChange={setCheckInDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Check In</DialogTitle>
+            <DialogDescription>
+              Update progress for: {selectedKR?.title}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="checkin-value">
+                Current Value {selectedKR?.unit && `(${selectedKR.unit})`}
+              </Label>
+              <Input
+                id="checkin-value"
+                type="number"
+                value={checkInForm.newValue}
+                onChange={(e) => {
+                  const newValue = parseFloat(e.target.value) || 0;
+                  const progress = selectedKR ? calculateProgress(newValue, selectedKR) : 0;
+                  setCheckInForm({
+                    ...checkInForm,
+                    newValue,
+                    newProgress: progress,
+                  });
+                }}
+                data-testid="input-checkin-value"
+              />
+              <p className="text-xs text-muted-foreground">
+                Target: {selectedKR?.targetValue ?? 0} {selectedKR?.unit || ''}
+              </p>
+            </div>
+            <div className="p-3 bg-secondary/20 rounded-md">
+              <p className="text-sm font-medium">Calculated Progress: {checkInForm.newProgress}%</p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="checkin-status">Status</Label>
+              <Select
+                value={checkInForm.newStatus}
+                onValueChange={(value) => setCheckInForm({ ...checkInForm, newStatus: value })}
+              >
+                <SelectTrigger data-testid="select-checkin-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="not_started">Not Started</SelectItem>
+                  <SelectItem value="on_track">On Track</SelectItem>
+                  <SelectItem value="behind">Behind</SelectItem>
+                  <SelectItem value="at_risk">At Risk</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="checkin-note">Note (optional)</Label>
+              <Textarea
+                id="checkin-note"
+                value={checkInForm.note}
+                onChange={(e) => setCheckInForm({ ...checkInForm, note: e.target.value })}
+                placeholder="Add any context about this update..."
+                rows={3}
+                data-testid="textarea-checkin-note"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCheckInDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleCheckIn}
+              disabled={createCheckInMutation.isPending}
+              data-testid="button-save-checkin"
+            >
+              {createCheckInMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Check-in"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* History Dialog */}
+      <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Check-in History</DialogTitle>
+            <DialogDescription>
+              {selectedKR?.title}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto py-4">
+            {checkInHistory.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <History className="h-10 w-10 text-muted-foreground mb-3" />
+                <p className="text-muted-foreground">No check-ins recorded yet</p>
+                <Button 
+                  variant="outline" 
+                  className="mt-4"
+                  onClick={() => {
+                    setHistoryDialogOpen(false);
+                    if (selectedKR) openCheckInDialog(selectedKR);
+                  }}
+                  data-testid="button-first-checkin"
+                >
+                  <Edit3 className="h-4 w-4 mr-2" />
+                  Record First Check-in
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {checkInHistory.map((checkIn) => (
+                  <div 
+                    key={checkIn.id} 
+                    className="border rounded-lg p-4 space-y-2"
+                    data-testid={`history-item-${checkIn.id}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(checkIn.newStatus || 'not_started')}
+                        <span className="font-medium">
+                          {checkIn.newValue ?? checkIn.newProgress}
+                          {selectedKR?.unit && ` ${selectedKR.unit}`}
+                        </span>
+                        <Badge variant="outline">{checkIn.newProgress}%</Badge>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {checkIn.createdAt ? format(new Date(checkIn.createdAt), 'MMM d, yyyy h:mm a') : 'Unknown date'}
+                      </span>
+                    </div>
+                    {checkIn.note && (
+                      <p className="text-sm text-muted-foreground">{checkIn.note}</p>
+                    )}
+                    {checkIn.userEmail && (
+                      <p className="text-xs text-muted-foreground">
+                        By: {checkIn.userEmail}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setHistoryDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
