@@ -48,10 +48,11 @@ const quarters: Quarter[] = [
   ...generateQuarters(currentYear - 1),
 ];
 
-const STORAGE_KEYS = {
-  TEAM: 'vega-team-dashboard-team',
-  QUARTER: 'vega-team-dashboard-quarter',
-};
+// Storage keys are scoped by tenant to prevent cross-tenant team ID conflicts
+const getStorageKeys = (tenantId: string) => ({
+  TEAM: `vega-team-dashboard-team-${tenantId}`,
+  QUARTER: 'vega-team-dashboard-quarter', // Quarter can be shared across tenants
+});
 
 function getStatusIcon(status: string) {
   switch (status) {
@@ -105,23 +106,48 @@ export default function TeamDashboard() {
   
   const defaultQuarterId = getDefaultQuarterId();
   
-  const savedQuarter = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.QUARTER) : null;
-  const savedTeam = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.TEAM) : null;
+  // Get tenant-scoped storage keys - memoized to avoid recalculating on every render
+  const storageKeys = useMemo(() => {
+    if (!currentTenant?.id) return null;
+    return getStorageKeys(currentTenant.id);
+  }, [currentTenant?.id]);
+  
+  // Read from localStorage only when tenant is loaded
+  const savedQuarter = typeof window !== 'undefined' && storageKeys 
+    ? localStorage.getItem(storageKeys.QUARTER) 
+    : null;
+  const savedTeam = typeof window !== 'undefined' && storageKeys 
+    ? localStorage.getItem(storageKeys.TEAM) 
+    : null;
   
   const [selectedQuarter, setSelectedQuarter] = useState(savedQuarter || defaultQuarterId);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(savedTeam);
   
+  // Update state when tenant loads and we have saved values
   useEffect(() => {
-    if (selectedQuarter) {
-      localStorage.setItem(STORAGE_KEYS.QUARTER, selectedQuarter);
+    if (storageKeys) {
+      const storedQuarter = localStorage.getItem(storageKeys.QUARTER);
+      const storedTeam = localStorage.getItem(storageKeys.TEAM);
+      if (storedQuarter && !selectedQuarter) {
+        setSelectedQuarter(storedQuarter);
+      }
+      if (storedTeam && !selectedTeamId) {
+        setSelectedTeamId(storedTeam);
+      }
     }
-  }, [selectedQuarter]);
+  }, [storageKeys]);
   
   useEffect(() => {
-    if (selectedTeamId) {
-      localStorage.setItem(STORAGE_KEYS.TEAM, selectedTeamId);
+    if (selectedQuarter && storageKeys) {
+      localStorage.setItem(storageKeys.QUARTER, selectedQuarter);
     }
-  }, [selectedTeamId]);
+  }, [selectedQuarter, storageKeys]);
+  
+  useEffect(() => {
+    if (selectedTeamId && storageKeys) {
+      localStorage.setItem(storageKeys.TEAM, selectedTeamId);
+    }
+  }, [selectedTeamId, storageKeys]);
 
   const currentQuarter = quarters.find((q) => q.id === selectedQuarter);
 
@@ -144,10 +170,24 @@ export default function TeamDashboard() {
   }, [teams, user]);
 
   useEffect(() => {
+    // Validate that selectedTeamId exists in current tenant's teams
+    // If not (e.g., user switched tenants), reset to first available team
+    if (selectedTeamId && teams && teams.length > 0) {
+      const teamExists = teams.some(t => t.id === selectedTeamId);
+      if (!teamExists) {
+        // Saved team ID is from a different tenant, reset it
+        const firstTeam = userTeams.length > 0 ? userTeams[0] : teams[0];
+        setSelectedTeamId(firstTeam?.id || null);
+        return;
+      }
+    }
+    // Set default team if none selected
     if (!selectedTeamId && userTeams.length > 0) {
       setSelectedTeamId(userTeams[0].id);
+    } else if (!selectedTeamId && teams && teams.length > 0) {
+      setSelectedTeamId(teams[0].id);
     }
-  }, [userTeams, selectedTeamId]);
+  }, [userTeams, teams, selectedTeamId]);
 
   const selectedTeam = useMemo(() => {
     return teams?.find((t) => t.id === selectedTeamId);
