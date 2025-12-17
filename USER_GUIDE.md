@@ -2,7 +2,7 @@
 
 **Welcome to Vega - The Synozur Alliance Company Operating System**
 
-Version 1.0 | Last Updated: December 13, 2025
+Version 1.1 | Last Updated: December 17, 2025
 
 ---
 
@@ -525,6 +525,8 @@ Big Rocks are significant projects or initiatives that drive Key Results forward
 
 By default, all Key Results contribute equally to objective progress. You can customize this with weights.
 
+> **Note:** Key Result weighting is supported in the database schema. UI controls for setting weights are being enhanced for easier access.
+
 **To Set Weights:**
 
 1. Open an objective
@@ -537,6 +539,20 @@ By default, all Key Results contribute equally to objective progress. You can cu
 - KR1: 60% weight at 100% complete = 60 points
 - KR2: 40% weight at 50% complete = 20 points
 - **Objective Progress: 80%**
+
+**Weight Lock Feature:**
+Once weights are finalized, they can be locked to prevent accidental changes during active tracking periods.
+
+### Phased Targets and Milestones
+
+> **Coming Soon:** The database schema supports phased targets (milestones) for long-term objectives and key results. This feature allows you to define progressive target values over time to track if you're on pace. UI implementation is planned for an upcoming release.
+
+**Planned Capabilities:**
+- Define monthly, quarterly, or custom milestone targets
+- Track if progress is on pace with intermediate goals
+- Early warning system when falling behind schedule
+- Visual timeline showing milestone achievement
+- Automatic pace calculation and alerts
 
 ![Key Result check-in dialog with value input and status options](./screenshots/08-key-result-checkin.png)
 *Screenshot of the Key Result check-in dialog showing current value input, status selection (On Track/At Risk/Behind), and notes field for progress commentary*
@@ -650,6 +666,8 @@ Capture decisions and action items:
    - Blockers identified
    - Important discussions
 
+> **Enhanced Tracking:** The database supports structured tracking of decisions and risks. UI enhancements for these features are in development.
+
 **AI Integration:**
 - If you use Microsoft Copilot in Outlook meetings, you can paste meeting summaries directly into Vega
 
@@ -670,6 +688,8 @@ Click any meeting to see:
 ## AI Assistant
 
 Vega includes an AI-powered assistant to help you analyze data, answer questions, and generate insights.
+
+> **Note:** The AI Assistant is currently in development. Core query capabilities are functional, while advanced features are being refined.
 
 ### Accessing the AI Assistant
 
@@ -766,13 +786,16 @@ Behind the scenes, the AI uses specialized tools:
 
 Vega integrates with Microsoft 365 to sync data and enhance your workflow.
 
+> **Current Status:** Microsoft SSO, Planner, SharePoint, and OneDrive integrations are operational. Calendar sync and admin consent features are planned for future releases.
+
 ### Available Integrations
 
-1. **Microsoft SSO**: Log in with your Microsoft 365 account
-2. **Planner**: Sync tasks and initiatives
-3. **SharePoint**: Access documents and files
-4. **OneDrive**: Link files to objectives
-5. **Outlook Calendar** (planned): Sync Focus Rhythm meetings
+1. **Microsoft SSO**: Log in with your Microsoft 365 account ✅
+2. **Planner**: Sync tasks and initiatives ✅
+3. **SharePoint**: Access documents and files ✅
+4. **OneDrive**: Link files to objectives ✅
+5. **Outlook Calendar**: Sync Focus Rhythm meetings (Planned)
+6. **Admin Consent Endpoint**: Simplified tenant-wide authorization (Planned)
 
 ### Connecting Microsoft 365
 
@@ -956,6 +979,21 @@ Export your entire Company OS for backup, migration, or analysis.
 - **Templates**: Export a well-structured Company OS to reuse
 - **Analysis**: Extract data for custom reporting
 
+### Progress Snapshots and Reporting
+
+> **Development Status:** The system includes database support for review snapshots to capture point-in-time progress data. Enhanced reporting features including PDF generation and advanced analytics are planned for future releases.
+
+**Current Capabilities:**
+- Historical check-in data is preserved
+- Progress trends can be viewed over time within objectives
+- Export functionality provides data for external analysis
+
+**Planned Enhancements:**
+- Automated snapshot capture at period boundaries (quarter-end, year-end)
+- PDF report generation for executive summaries
+- Trend analysis and forecasting
+- Comparative reporting across teams and time periods
+
 ---
 
 ## Settings & Administration
@@ -1046,8 +1084,10 @@ Configure organization-wide settings:
 
 **General Settings:**
 - **Organization Name**: Display name
-- **Logo**: Upload company logo
-- **Primary Color**: Brand color for UI elements
+- **Logo**: Upload company logo (Planned)
+- **Primary Color**: Brand color for UI elements (Planned)
+
+> **Note:** Advanced branding customization features including custom logos, colors, and themes are planned for future releases.
 
 **SSO Settings:**
 - **Enforce SSO**: Require Microsoft SSO for all users
@@ -1097,9 +1137,27 @@ Admin-level import and export functions:
 - **View Import History**: See past imports
 - **Manage Templates**: Export for reuse
 
+#### 6. Governance and Audit Tracking
+
+> **Planned Feature:** Enhanced governance and audit capabilities are on the roadmap to provide comprehensive tracking of changes, approvals, and compliance requirements.
+
+**Planned Capabilities:**
+- Detailed audit logs for all administrative actions
+- Change history tracking for objectives and strategies
+- Approval workflows for strategic initiatives
+- Compliance reporting and data retention policies
+- User activity monitoring and analytics
+
+**Current Audit Support:**
+- Session-based activity tracking
+- Import/export history preservation
+- Check-in history with timestamps and authors
+
 ### Role-Based Access Control (RBAC)
 
-Vega uses role-based permissions to control access:
+Vega uses role-based permissions to control access.
+
+> **Security Status:** Core RBAC implementation is 95% complete, providing comprehensive security and access control. Fine-grained permissions for specific features continue to be refined.
 
 **Permission Levels:**
 
@@ -1116,6 +1174,8 @@ Vega uses role-based permissions to control access:
 - Tenant isolation (users only see their organization's data)
 - Row-level security on sensitive operations
 - Audit logging (for admin actions)
+- Email verification required for new accounts
+- Secure session management with PostgreSQL storage
 
 ---
 
@@ -1197,6 +1257,16 @@ Vega uses role-based permissions to control access:
 - Delete test data
 - Use consistent naming conventions
 
+### Quarterly Planning
+
+**Planning for the Next Quarter:**
+- Review previous quarter results during quarterly meetings
+- Identify carryover objectives that need continuation
+- Create new objectives aligned with updated strategies
+- Consider organizational changes and team restructuring
+
+> **Coming Soon:** OKR cloning features will allow you to quickly duplicate and adjust objectives for the next quarter, streamlining the planning process.
+
 ---
 
 ## Troubleshooting
@@ -1217,6 +1287,8 @@ Vega uses role-based permissions to control access:
   - Check with IT admin for tenant-wide consent
   - Clear browser cookies and try again
   - Try a different browser
+
+> **Known Issue:** In some production environments, SSO session cookies may not persist correctly after redirect. If you experience repeated login prompts after successful SSO authentication, please contact your administrator. A fix is in development.
 
 **Issue**: Session expires quickly
 - **Solution**: 
@@ -1239,6 +1311,8 @@ Vega uses role-based permissions to control access:
   - Ensure Outlook is connected first (prerequisite)
   - Check that you have Planner tasks in M365
   - Reconnect if needed
+
+> **Known Issue:** Planner integration requires an active Outlook connection. If Outlook hasn't been connected, Planner authentication may fail silently. Always connect Outlook first when setting up M365 integrations.
 
 #### Import/Export Issues
 
@@ -1333,6 +1407,10 @@ Vega uses role-based permissions to control access:
 
 **OKR**: Objectives and Key Results - a goal-setting framework for defining and tracking objectives and their outcomes.
 
+**Phased Target**: Progressive milestone values defined for long-term objectives or key results to track if progress is on pace with intermediate goals.
+
+**RBAC**: Role-Based Access Control - security model that restricts system access based on user roles and permissions.
+
 **Rollup**: The aggregation of Key Result progress to calculate overall Objective progress.
 
 **Strategy**: A high-level plan or initiative designed to achieve annual goals.
@@ -1348,6 +1426,18 @@ Vega uses role-based permissions to control access:
 ## Document Version History
 
 - **v1.0** (December 13, 2025): Initial comprehensive user guide
+- **v1.1** (December 17, 2025): Updated to reflect actual implementation status
+  - Added development status notes for features in progress
+  - Clarified AI Assistant capabilities (~40% implementation)
+  - Updated M365 integration status (SSO, Planner, SharePoint, OneDrive operational; admin consent and calendar sync planned)
+  - Added information about Key Result weighting (schema ready, UI enhancement planned)
+  - Documented phased targets/milestones support in schema (UI planned)
+  - Added notes about Focus Rhythm decisions/risks tracking (schema ready, UI planned)
+  - Included information about enhanced reporting and snapshot capabilities (in development)
+  - Added governance and audit tracking features (planned)
+  - Updated RBAC security status (95% complete)
+  - Added known issues related to SSO session persistence and Planner integration
+  - Added information about OKR cloning (planned feature)
 
 ---
 
