@@ -927,11 +927,14 @@ export const insertGroundingDocumentSchema = createInsertSchema(groundingDocumen
 export type InsertGroundingDocument = z.infer<typeof insertGroundingDocumentSchema>;
 export type GroundingDocument = typeof groundingDocuments.$inferSelect;
 
-// Microsoft Graph tokens for per-user API access (Planner, etc.)
+// Microsoft Graph tokens for per-user API access (Planner, Outlook, etc.)
 export const graphTokens = pgTable("graph_tokens", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
   tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  
+  // Service identifier (planner, outlook) - allows multiple tokens per user
+  service: varchar("service").notNull().default('planner'),
   
   // Token storage (encrypted in practice)
   accessToken: text("access_token"),
@@ -946,7 +949,7 @@ export const graphTokens = pgTable("graph_tokens", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
-  uniqueUserToken: unique().on(table.userId),
+  uniqueUserServiceToken: unique().on(table.userId, table.service),
 }));
 
 export const insertGraphTokenSchema = createInsertSchema(graphTokens).omit({

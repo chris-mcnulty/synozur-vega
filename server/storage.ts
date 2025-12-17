@@ -158,10 +158,10 @@ export interface IStorage {
   updateGroundingDocument(id: string, document: Partial<InsertGroundingDocument>): Promise<GroundingDocument>;
   deleteGroundingDocument(id: string): Promise<void>;
   
-  // Microsoft Graph token methods
-  getGraphToken(userId: string): Promise<GraphToken | undefined>;
+  // Microsoft Graph token methods (service-scoped: 'planner' | 'outlook')
+  getGraphToken(userId: string, service?: string): Promise<GraphToken | undefined>;
   upsertGraphToken(token: InsertGraphToken): Promise<GraphToken>;
-  deleteGraphToken(userId: string): Promise<void>;
+  deleteGraphToken(userId: string, service?: string): Promise<void>;
   
   // Microsoft Planner methods
   getPlannerPlansByTenantId(tenantId: string): Promise<PlannerPlan[]>;
@@ -1317,34 +1317,44 @@ export class DatabaseStorage implements IStorage {
     await db.delete(groundingDocuments).where(eq(groundingDocuments.id, id));
   }
 
-  // Microsoft Graph token methods
-  async getGraphToken(userId: string): Promise<GraphToken | undefined> {
+  // Microsoft Graph token methods (service-scoped: 'planner' | 'outlook')
+  async getGraphToken(userId: string, service: string = 'planner'): Promise<GraphToken | undefined> {
     const [token] = await db
       .select()
       .from(graphTokens)
-      .where(eq(graphTokens.userId, userId));
+      .where(and(
+        eq(graphTokens.userId, userId),
+        eq(graphTokens.service, service)
+      ));
     return token || undefined;
   }
 
   async upsertGraphToken(token: InsertGraphToken): Promise<GraphToken> {
-    const existing = await this.getGraphToken(token.userId);
+    const service = token.service || 'planner';
+    const existing = await this.getGraphToken(token.userId, service);
     if (existing) {
       const [updated] = await db
         .update(graphTokens)
         .set({ ...token, updatedAt: new Date() } as any)
-        .where(eq(graphTokens.userId, token.userId))
+        .where(and(
+          eq(graphTokens.userId, token.userId),
+          eq(graphTokens.service, service)
+        ))
         .returning();
       return updated;
     }
     const [created] = await db
       .insert(graphTokens)
-      .values(token as any)
+      .values({ ...token, service } as any)
       .returning();
     return created;
   }
 
-  async deleteGraphToken(userId: string): Promise<void> {
-    await db.delete(graphTokens).where(eq(graphTokens.userId, userId));
+  async deleteGraphToken(userId: string, service: string = 'planner'): Promise<void> {
+    await db.delete(graphTokens).where(and(
+      eq(graphTokens.userId, userId),
+      eq(graphTokens.service, service)
+    ));
   }
 
   // Microsoft Planner methods
