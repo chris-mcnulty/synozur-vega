@@ -123,6 +123,9 @@ export default function TeamDashboard() {
     note: "",
   });
   
+  // KR filter state - defaults to showing incomplete
+  const [krFilter, setKrFilter] = useState<'all' | 'incomplete' | 'at_risk'>('incomplete');
+  
   const { quarter: currentQuarterNum, year: currentYearNum } = getCurrentQuarter();
   
   const getDefaultQuarterId = () => {
@@ -565,87 +568,158 @@ export default function TeamDashboard() {
       )}
 
       <div>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <TrendingUp className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold">{t('keyResult', 'plural')}</h2>
             <Badge variant="secondary">{keyResults.length}</Badge>
           </div>
-          <Link href="/planning">
-            <Button variant="ghost" size="sm" className="gap-2" data-testid="link-planning">
-              View All OKRs
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
-        {keyResults.length === 0 ? (
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center gap-3 text-muted-foreground">
-                <AlertCircle className="h-5 w-5" />
-                <p>No {t('keyResult', 'plural').toLowerCase()} found for this team in {currentQuarter?.label}</p>
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {keyResults.map((kr) => {
-              const progress = kr.targetValue ? Math.min(100, Math.round((kr.currentValue || 0) / kr.targetValue * 100)) : 0;
-              const objective = objectives?.find((o) => o.id === kr.objectiveId);
-              return (
-                <Card key={kr.id} className="hover-elevate" data-testid={`card-key-result-${kr.id}`}>
-                  <CardContent className="pt-4">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          {getStatusIcon(kr.status || 'not_started')}
-                          <h3 className="font-medium truncate">{kr.title}</h3>
-                        </div>
-                        {objective && (
-                          <p className="text-xs text-muted-foreground mb-2">
-                            {t('objective', 'singular')}: {objective.title}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-3">
-                          <Progress 
-                            value={progress} 
-                            className={cn("h-2 flex-1", getProgressColor(progress))}
-                          />
-                          <span className="text-sm font-medium whitespace-nowrap">
-                            {kr.currentValue ?? 0} / {kr.targetValue ?? 0} {kr.unit || ''}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openCheckInDialog(kr)}
-                          title="Check in"
-                          data-testid={`button-checkin-${kr.id}`}
-                        >
-                          <Edit3 className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openHistoryDialog(kr)}
-                          title="View history"
-                          data-testid={`button-history-${kr.id}`}
-                        >
-                          <History className="h-4 w-4" />
-                        </Button>
-                        <Badge variant="outline">
-                          {progress}%
-                        </Badge>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+          <div className="flex items-center gap-2">
+            <div className="flex border rounded-md">
+              <Button
+                variant={krFilter === 'incomplete' ? 'default' : 'ghost'}
+                size="sm"
+                className="rounded-r-none"
+                onClick={() => setKrFilter('incomplete')}
+                data-testid="button-filter-incomplete"
+              >
+                Open
+              </Button>
+              <Button
+                variant={krFilter === 'at_risk' ? 'default' : 'ghost'}
+                size="sm"
+                className="rounded-none border-x"
+                onClick={() => setKrFilter('at_risk')}
+                data-testid="button-filter-at-risk"
+              >
+                At Risk
+              </Button>
+              <Button
+                variant={krFilter === 'all' ? 'default' : 'ghost'}
+                size="sm"
+                className="rounded-l-none"
+                onClick={() => setKrFilter('all')}
+                data-testid="button-filter-all"
+              >
+                All
+              </Button>
+            </div>
+            <Link href="/planning">
+              <Button variant="ghost" size="sm" className="gap-2" data-testid="link-planning">
+                View All OKRs
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </Link>
           </div>
-        )}
+        </div>
+        {(() => {
+          const filteredKRs = keyResults.filter((kr) => {
+            const progress = kr.targetValue ? Math.min(100, Math.round((kr.currentValue || 0) / kr.targetValue * 100)) : 0;
+            if (krFilter === 'incomplete') {
+              return kr.status !== 'completed' && progress < 100;
+            }
+            if (krFilter === 'at_risk') {
+              return kr.status === 'at_risk' || kr.status === 'behind' || progress < 40;
+            }
+            return true;
+          });
+          
+          return filteredKRs.length === 0 ? (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3 text-muted-foreground">
+                  <AlertCircle className="h-5 w-5" />
+                  <p>
+                    {krFilter === 'all' 
+                      ? `No ${t('keyResult', 'plural').toLowerCase()} found for this team in ${currentQuarter?.label}`
+                      : krFilter === 'incomplete'
+                        ? `All ${t('keyResult', 'plural').toLowerCase()} are complete!`
+                        : `No at-risk ${t('keyResult', 'plural').toLowerCase()} found`
+                    }
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {filteredKRs.map((kr) => {
+                const progress = kr.targetValue ? Math.min(100, Math.round((kr.currentValue || 0) / kr.targetValue * 100)) : 0;
+                const objective = objectives?.find((o) => o.id === kr.objectiveId);
+                const lastUpdate = kr.lastCheckInAt ? new Date(kr.lastCheckInAt) : null;
+                return (
+                  <Card key={kr.id} className="hover-elevate" data-testid={`card-key-result-${kr.id}`}>
+                    <CardContent className="pt-4 pb-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
+                            {getStatusIcon(kr.status || 'not_started')}
+                            <h3 className="font-medium truncate">{kr.title}</h3>
+                            <Badge 
+                              variant={kr.status === 'completed' ? 'default' : kr.status === 'at_risk' ? 'destructive' : 'outline'}
+                              className="text-xs"
+                            >
+                              {getStatusLabel(kr.status || 'not_started')}
+                            </Badge>
+                          </div>
+                          {objective && (
+                            <p className="text-xs text-muted-foreground mb-2">
+                              {t('objective', 'singular')}: {objective.title}
+                            </p>
+                          )}
+                          <div className="flex items-center gap-3 mb-2">
+                            <Progress 
+                              value={progress} 
+                              className={cn("h-2 flex-1", getProgressColor(progress))}
+                            />
+                            <span className="text-sm font-medium whitespace-nowrap">
+                              {kr.currentValue ?? 0} / {kr.targetValue ?? 0} {kr.unit || ''}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                            {lastUpdate && (
+                              <span className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                Updated {format(lastUpdate, 'MMM d, yyyy')}
+                              </span>
+                            )}
+                            {kr.lastCheckInNote && (
+                              <span className="truncate max-w-[200px]" title={kr.lastCheckInNote}>
+                                "{kr.lastCheckInNote}"
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openCheckInDialog(kr)}
+                            title="Check in"
+                            data-testid={`button-checkin-${kr.id}`}
+                          >
+                            <Edit3 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openHistoryDialog(kr)}
+                            title="View history"
+                            data-testid={`button-history-${kr.id}`}
+                          >
+                            <History className="h-4 w-4" />
+                          </Button>
+                          <Badge variant="outline" className="font-semibold">
+                            {progress}%
+                          </Badge>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
 
       <div>
