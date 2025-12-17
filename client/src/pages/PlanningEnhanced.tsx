@@ -567,6 +567,7 @@ export default function PlanningEnhanced() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
       setKeyResultDialogOpen(false);
       toast({ title: "Success", description: "Key Result created successfully" });
     },
@@ -582,6 +583,7 @@ export default function PlanningEnhanced() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
       setKeyResultDialogOpen(false);
       setSelectedKeyResult(null);
       toast({ title: "Success", description: "Key Result updated successfully" });
@@ -598,6 +600,7 @@ export default function PlanningEnhanced() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
       toast({ title: "Success", description: "Key Result deleted successfully" });
     },
     onError: () => {
@@ -896,12 +899,13 @@ export default function PlanningEnhanced() {
       return apiRequest("POST", "/api/okr/check-ins", checkInData);
     },
     onSuccess: () => {
-      // Invalidate the specific query keys that need to refresh
+      // Invalidate all related query keys that need to refresh
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/check-ins`] });
-      // Also invalidate all key-results queries to ensure they refetch
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      // Also invalidate hierarchy to sync progress between views
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
       setCheckInDialogOpen(false);
       toast({ title: "Success", description: "Check-in recorded successfully" });
     },
@@ -920,12 +924,13 @@ export default function PlanningEnhanced() {
       return apiRequest("PATCH", `/api/okr/check-ins/${id}`, checkInData);
     },
     onSuccess: () => {
-      // Invalidate the specific query keys that need to refresh
+      // Invalidate all related query keys that need to refresh
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/check-ins`] });
-      // Also invalidate all key-results queries to ensure they refetch
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      // Also invalidate hierarchy to sync progress between views
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
       setCheckInDialogOpen(false);
       setEditingCheckIn(null);
       toast({ title: "Success", description: "Check-in updated successfully" });
@@ -946,6 +951,7 @@ export default function PlanningEnhanced() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
       setClosePromptDialogOpen(false);
       setClosePromptEntity(null);
       toast({ title: "Success", description: "Item marked as completed" });
