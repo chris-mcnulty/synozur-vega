@@ -1395,6 +1395,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { plannerRouter } = await import("./routes-planner");
   app.use("/api/planner", ...authWithTenant, plannerRouter);
 
+  // Import and use Outlook Calendar routes (per-user OAuth) - with auth and tenant access
+  const { outlookRouter } = await import("./routes-outlook");
+  app.use("/api/outlook", ...authWithTenant, outlookRouter);
+
   const httpServer = createServer(app);
 
   return httpServer;
