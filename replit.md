@@ -67,6 +67,8 @@ Preferred communication style: Simple, everyday language.
 
 ## Feature Backlog
 
+> **📋 Complete Backlog:** See [BACKLOG.md](./BACKLOG.md) for the full prioritized backlog with effort estimates, blocking issues, junior developer quick wins, and detailed implementation notes.
+
 ### Completed
 - [x] **RBAC Standardization**: Comprehensive permission-based access control using central middleware system across all route files
 - [x] **Tenant-level M365 Connector Configuration**: Toggle switches for OneDrive, SharePoint, Outlook, Excel, and Planner services per tenant

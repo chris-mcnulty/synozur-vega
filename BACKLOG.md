@@ -75,6 +75,46 @@ PHASE 4: Feature Implementation (Weeks 5-8, Jan 13 - Feb 7)
 2. **Focus Rhythm Decisions/Risks** - Schema already has `decisions` and `risks` JSONB fields ✅ COMPLETE
 3. **Check-in Close Prompt** - Simple UI enhancement ✅ COMPLETE (Dec 16, 2025)
 
+### 🎯 Junior Developer Quick Wins (Recommended Next 3)
+
+These tasks are ideal for junior developers - well-scoped, low-risk, and provide immediate value:
+
+#### QW-1: Remove Temporary Logging Code 🧹
+**Effort:** 30 minutes | **Risk:** None | **Files:** 2-3
+
+Remove debug `console.log` statements added during development:
+- `client/src/pages/PlanningEnhanced.tsx` - Line ~1330: Big Rock submit logging
+- `server/routes-okr.ts` - Lines ~231-236: Big Rock update logging
+- Search codebase for other `console.log` with `[DEBUG]` or development notes
+
+**Success Criteria:** No development console.log statements in production code.
+
+#### QW-2: Objective Progress Overview UX Polish 🎨
+**Effort:** 2-4 hours | **Risk:** Low | **Files:** 1-2
+
+Improve the objective progress display on the Company OS Dashboard:
+- Sort objectives by level (org first), then by lowest progress to highlight issues
+- Status-colored progress bars: Green (≥70%), Yellow (40-69%), Red (<40%)
+- Cap display at 100% with "Exceeds Target" badge for >100%
+- Add status icons for quick scanning (checkmark, warning, alert)
+
+**Location:** `client/src/pages/CompanyOSDashboard.tsx` or related progress components
+
+**Success Criteria:** Progress bars show color-coded status, sorted to highlight at-risk items.
+
+#### QW-3: Hide Admin Features from Regular Users 👁️
+**Effort:** 2-3 hours | **Risk:** Low | **Files:** 3-5
+
+Add role-based UI restrictions to hide admin-only features:
+- Use existing `useUser()` hook to check `user.role`
+- Hide "Tenant Admin" menu item for non-admins
+- Hide "Delete" buttons on meetings for non-admins
+- Conditionally render admin sections in settings
+
+**Reference:** Check `shared/rbac.ts` for role definitions and `platformAdminRoles` array
+
+**Success Criteria:** Regular users don't see admin-only UI elements; no functional regressions.
+
 ---
 
 ## KNOWN ISSUES & BUGS 🐛
