@@ -1,10 +1,66 @@
 import OpenAI from "openai";
 import { storage } from "./storage";
-import type { GroundingDocument, Foundation, Strategy, Objective } from "@shared/schema";
+import type { GroundingDocument, Foundation, Strategy, Objective, InsertAiUsageLog } from "@shared/schema";
+import { AI_PROVIDERS, AI_FEATURES, type AIFeature } from "@shared/schema";
 import { AI_TOOLS, executeTool, formatToolResult } from "./ai-tools";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const MODEL = "gpt-5";
+const CURRENT_PROVIDER = AI_PROVIDERS.REPLIT;
+
+// Cost per 1K tokens in microdollars (1 cent = 10000 microdollars)
+// GPT-5 estimated pricing based on GPT-4 pricing patterns
+const COST_PER_1K_TOKENS = {
+  'gpt-5': { prompt: 50000, completion: 150000 },  // ~$5/$15 per 1M tokens
+  'gpt-4o': { prompt: 25000, completion: 100000 }, // ~$2.50/$10 per 1M tokens
+  'gpt-4': { prompt: 30000, completion: 60000 },
+  'default': { prompt: 10000, completion: 30000 }
+};
+
+// Helper to log AI usage after each API call
+async function logAiUsage(params: {
+  tenantId?: string;
+  userId?: string;
+  feature: AIFeature;
+  promptTokens: number;
+  completionTokens: number;
+  latencyMs?: number;
+  wasStreaming?: boolean;
+  requestId?: string;
+  errorCode?: string;
+  errorMessage?: string;
+}): Promise<void> {
+  try {
+    const totalTokens = params.promptTokens + params.completionTokens;
+    const costs = COST_PER_1K_TOKENS[MODEL as keyof typeof COST_PER_1K_TOKENS] || COST_PER_1K_TOKENS.default;
+    const estimatedCost = Math.round(
+      (params.promptTokens / 1000) * costs.prompt +
+      (params.completionTokens / 1000) * costs.completion
+    );
+
+    const log: InsertAiUsageLog = {
+      tenantId: params.tenantId || null,
+      userId: params.userId || null,
+      provider: CURRENT_PROVIDER,
+      model: MODEL,
+      feature: params.feature,
+      promptTokens: params.promptTokens,
+      completionTokens: params.completionTokens,
+      totalTokens,
+      estimatedCostMicrodollars: estimatedCost,
+      latencyMs: params.latencyMs,
+      wasStreaming: params.wasStreaming || false,
+      requestId: params.requestId,
+      errorCode: params.errorCode,
+      errorMessage: params.errorMessage,
+    };
+
+    await storage.createAiUsageLog(log);
+  } catch (error) {
+    // Don't let logging failures affect the main AI functionality
+    console.error("[AI Usage Logging] Failed to log usage:", error);
+  }
+}
 
 // Initialize OpenAI client using Replit AI Integrations
 // This uses Replit's AI Integrations service, which provides OpenAI-compatible API access
@@ -102,9 +158,11 @@ export interface ChatCompletionOptions {
 // Main chat completion function
 export async function getChatCompletion(
   messages: ChatMessage[],
-  options: ChatCompletionOptions = {}
+  options: ChatCompletionOptions = {},
+  feature: AIFeature = AI_FEATURES.CHAT
 ): Promise<string> {
   const { tenantId, maxTokens = 4096 } = options;
+  const startTime = Date.now();
 
   // Build system prompt with grounding documents
   const systemPrompt = await buildSystemPrompt(tenantId);
@@ -125,9 +183,34 @@ export async function getChatCompletion(
       max_completion_tokens: maxTokens,
     });
 
+    const latencyMs = Date.now() - startTime;
+    
+    // Log AI usage
+    await logAiUsage({
+      tenantId,
+      feature,
+      promptTokens: response.usage?.prompt_tokens || 0,
+      completionTokens: response.usage?.completion_tokens || 0,
+      latencyMs,
+      wasStreaming: false,
+      requestId: response.id,
+    });
+
     return response.choices[0]?.message?.content || "I apologize, but I was unable to generate a response. Please try again.";
   } catch (error: any) {
     console.error("OpenAI API Error:", error);
+    
+    // Log error
+    await logAiUsage({
+      tenantId,
+      feature,
+      promptTokens: 0,
+      completionTokens: 0,
+      latencyMs: Date.now() - startTime,
+      wasStreaming: false,
+      errorCode: error?.code || 'unknown',
+      errorMessage: error?.message,
+    });
     
     // Handle rate limiting
     if (error?.message?.includes("429") || error?.message?.includes("RATELIMIT")) {
@@ -141,9 +224,11 @@ export async function getChatCompletion(
 // Streaming chat completion for better UX
 export async function* streamChatCompletion(
   messages: ChatMessage[],
-  options: ChatCompletionOptions = {}
+  options: ChatCompletionOptions = {},
+  feature: AIFeature = AI_FEATURES.CHAT
 ): AsyncGenerator<string, void, unknown> {
   const { tenantId, maxTokens = 4096 } = options;
+  const startTime = Date.now();
   console.log("[AI Service] streamChatCompletion called, tenantId:", tenantId);
 
   // Build system prompt with grounding documents
@@ -160,6 +245,11 @@ export async function* streamChatCompletion(
   ];
   console.log("[AI Service] Full messages count:", fullMessages.length);
 
+  // Estimate prompt tokens (rough: ~4 chars per token)
+  const estimatedPromptTokens = Math.ceil(
+    fullMessages.reduce((acc, m) => acc + (typeof m.content === 'string' ? m.content.length : 0), 0) / 4
+  );
+
   try {
     console.log("[AI Service] Calling OpenAI API with model:", MODEL);
     console.log("[AI Service] Base URL:", process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ? "configured" : "NOT SET");
@@ -174,17 +264,44 @@ export async function* streamChatCompletion(
     console.log("[AI Service] Stream created successfully");
 
     let chunkCount = 0;
+    let totalContent = "";
     for await (const chunk of stream) {
       const content = chunk.choices[0]?.delta?.content;
       if (content) {
         chunkCount++;
+        totalContent += content;
         yield content;
       }
     }
     console.log("[AI Service] Stream completed, total chunks:", chunkCount);
+
+    // Estimate completion tokens
+    const estimatedCompletionTokens = Math.ceil(totalContent.length / 4);
+    
+    // Log AI usage after streaming completes
+    await logAiUsage({
+      tenantId,
+      feature,
+      promptTokens: estimatedPromptTokens,
+      completionTokens: estimatedCompletionTokens,
+      latencyMs: Date.now() - startTime,
+      wasStreaming: true,
+    });
   } catch (error: any) {
     console.error("[AI Service] OpenAI Streaming Error:", error.message || error);
     console.error("[AI Service] Full error:", JSON.stringify(error, null, 2));
+    
+    // Log error
+    await logAiUsage({
+      tenantId,
+      feature,
+      promptTokens: estimatedPromptTokens,
+      completionTokens: 0,
+      latencyMs: Date.now() - startTime,
+      wasStreaming: true,
+      errorCode: error?.code || 'unknown',
+      errorMessage: error?.message,
+    });
     
     if (error?.message?.includes("429") || error?.message?.includes("RATELIMIT")) {
       throw new Error("The AI service is currently busy. Please try again in a moment.");
@@ -206,6 +323,9 @@ export async function* streamChatWithTools(
   options: ChatCompletionWithToolsOptions = {}
 ): AsyncGenerator<string, void, unknown> {
   const { tenantId, maxTokens = 4096, enableTools = true, userRole } = options;
+  const startTime = Date.now();
+  let totalPromptTokens = 0;
+  let totalCompletionTokens = 0;
   console.log("[AI Service] streamChatWithTools called, tenantId:", tenantId, "enableTools:", enableTools);
 
   // Build system prompt with grounding documents and user role
@@ -241,6 +361,11 @@ When presenting tool results, synthesize the data into a clear, readable respons
     })),
   ];
 
+  // Estimate prompt tokens
+  const estimatedPromptTokens = Math.ceil(
+    fullMessages.reduce((acc, m) => acc + (typeof m.content === 'string' ? m.content.length : 0), 0) / 4
+  );
+
   try {
     if (!enableTools || !tenantId) {
       // Fall back to regular streaming without tools
@@ -251,12 +376,24 @@ When presenting tool results, synthesize the data into a clear, readable respons
         stream: true,
       });
 
+      let totalContent = "";
       for await (const chunk of stream) {
         const content = chunk.choices[0]?.delta?.content;
         if (content) {
+          totalContent += content;
           yield content;
         }
       }
+      
+      // Log usage
+      await logAiUsage({
+        tenantId,
+        feature: AI_FEATURES.CHAT,
+        promptTokens: estimatedPromptTokens,
+        completionTokens: Math.ceil(totalContent.length / 4),
+        latencyMs: Date.now() - startTime,
+        wasStreaming: true,
+      });
       return;
     }
 
@@ -269,6 +406,10 @@ When presenting tool results, synthesize the data into a clear, readable respons
       tools: AI_TOOLS,
       tool_choice: "auto",
     });
+
+    // Track usage from initial call
+    totalPromptTokens += initialResponse.usage?.prompt_tokens || estimatedPromptTokens;
+    totalCompletionTokens += initialResponse.usage?.completion_tokens || 0;
 
     const choice = initialResponse.choices[0];
     
@@ -320,21 +461,58 @@ When presenting tool results, synthesize the data into a clear, readable respons
         stream: true,
       });
 
+      let totalContent = "";
       for await (const chunk of finalStream) {
         const content = chunk.choices[0]?.delta?.content;
         if (content) {
+          totalContent += content;
           yield content;
         }
       }
+      
+      totalCompletionTokens += Math.ceil(totalContent.length / 4);
+      
+      // Log usage for function calling flow
+      await logAiUsage({
+        tenantId,
+        feature: AI_FEATURES.FUNCTION_CALL,
+        promptTokens: totalPromptTokens,
+        completionTokens: totalCompletionTokens,
+        latencyMs: Date.now() - startTime,
+        wasStreaming: true,
+      });
     } else {
       // No tool calls - just yield the content directly
       console.log("[AI Service] No tool calls, yielding direct response");
       if (choice.message.content) {
         yield choice.message.content;
+        totalCompletionTokens = Math.ceil(choice.message.content.length / 4);
       }
+      
+      // Log usage
+      await logAiUsage({
+        tenantId,
+        feature: AI_FEATURES.CHAT,
+        promptTokens: totalPromptTokens,
+        completionTokens: totalCompletionTokens,
+        latencyMs: Date.now() - startTime,
+        wasStreaming: false,
+      });
     }
   } catch (error: any) {
     console.error("[AI Service] Error in streamChatWithTools:", error.message || error);
+    
+    // Log error
+    await logAiUsage({
+      tenantId,
+      feature: AI_FEATURES.CHAT,
+      promptTokens: estimatedPromptTokens,
+      completionTokens: 0,
+      latencyMs: Date.now() - startTime,
+      wasStreaming: false,
+      errorCode: error?.code || 'unknown',
+      errorMessage: error?.message,
+    });
     
     if (error?.message?.includes("429") || error?.message?.includes("RATELIMIT")) {
       throw new Error("The AI service is currently busy. Please try again in a moment.");
@@ -371,7 +549,7 @@ Please format each OKR with:
     },
   ];
 
-  return getChatCompletion(messages, { tenantId: context.tenantId });
+  return getChatCompletion(messages, { tenantId: context.tenantId }, AI_FEATURES.OKR_SUGGESTION);
 }
 
 // Helper function to suggest Big Rocks for an objective
@@ -402,7 +580,7 @@ Return as JSON array only, no markdown formatting or additional text.`,
     },
   ];
 
-  return getChatCompletion(messages, { tenantId: context.tenantId });
+  return getChatCompletion(messages, { tenantId: context.tenantId }, AI_FEATURES.BIG_ROCK_SUGGESTION);
 }
 
 // Interface for progress summary data
@@ -829,7 +1007,7 @@ IMPORTANT:
     const response = await getChatCompletion(messages, {
       tenantId: context.tenantId,
       maxTokens: 2048,
-    });
+    }, AI_FEATURES.MEETING_RECAP);
 
     // Parse the JSON response with robust cleaning
     const cleanedResponse = response
