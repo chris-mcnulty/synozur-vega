@@ -1116,3 +1116,120 @@ export const insertConsultantTenantAccessSchema = createInsertSchema(consultantT
 
 export type InsertConsultantTenantAccess = z.infer<typeof insertConsultantTenantAccessSchema>;
 export type ConsultantTenantAccess = typeof consultantTenantAccess.$inferSelect;
+
+// ========== AI USAGE TRACKING ==========
+// Track AI API calls for billing, monitoring, and optimization
+// Designed to support provider switching (Replit AI → Azure OpenAI → Anthropic)
+
+// AI Provider enum for tracking which service is used
+export const AI_PROVIDERS = {
+  REPLIT: 'replit_ai',           // Replit AI Integrations (OpenAI-compatible)
+  AZURE_OPENAI: 'azure_openai',  // Azure OpenAI Service (your own deployment)
+  OPENAI: 'openai',              // Direct OpenAI API
+  ANTHROPIC: 'anthropic',        // Anthropic Claude
+  OTHER: 'other',
+} as const;
+
+export type AIProvider = typeof AI_PROVIDERS[keyof typeof AI_PROVIDERS];
+
+// AI Features for tracking which feature used AI
+export const AI_FEATURES = {
+  CHAT: 'chat',                          // General AI chat
+  OKR_SUGGESTION: 'okr_suggestion',      // OKR drafting suggestions
+  BIG_ROCK_SUGGESTION: 'big_rock_suggestion',
+  MEETING_RECAP: 'meeting_recap',        // Meeting recap parsing
+  STRATEGY_DRAFT: 'strategy_draft',      // Strategy drafting
+  FUNCTION_CALL: 'function_call',        // Tool/function calling
+  EMBEDDING: 'embedding',                // Text embeddings (future)
+  OTHER: 'other',
+} as const;
+
+export type AIFeature = typeof AI_FEATURES[keyof typeof AI_FEATURES];
+
+export const aiUsageLogs = pgTable("ai_usage_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'set null' }),
+  
+  // Provider & Model identification - essential for tracking impact of model changes
+  provider: text("provider").notNull(),                  // 'replit_ai', 'azure_openai', 'anthropic'
+  model: text("model").notNull(),                        // 'gpt-4o', 'gpt-5', 'claude-3.5-sonnet', etc.
+  modelVersion: text("model_version"),                   // Optional: specific version like '2024-08-06'
+  deploymentName: text("deployment_name"),               // Azure OpenAI deployment name (if applicable)
+  
+  // Feature tracking
+  feature: text("feature").notNull(),                    // Which Vega feature triggered this call
+  
+  // Token usage
+  promptTokens: integer("prompt_tokens").notNull(),
+  completionTokens: integer("completion_tokens").notNull(),
+  totalTokens: integer("total_tokens").notNull(),
+  
+  // Cost tracking (in microdollars for precision, 1 cent = 10000 microdollars)
+  estimatedCostMicrodollars: integer("estimated_cost_microdollars"),
+  
+  // Performance metrics
+  latencyMs: integer("latency_ms"),
+  wasStreaming: boolean("was_streaming").default(false),
+  
+  // Request metadata
+  requestId: text("request_id"),                         // Provider's request ID for debugging
+  errorCode: text("error_code"),                         // If request failed
+  errorMessage: text("error_message"),
+  
+  // Timestamps
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAiUsageLogSchema = createInsertSchema(aiUsageLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertAiUsageLog = z.infer<typeof insertAiUsageLogSchema>;
+export type AiUsageLog = typeof aiUsageLogs.$inferSelect;
+
+// AI Usage Summary - for quick tenant-level reporting (materialized/cached)
+export const aiUsageSummaries = pgTable("ai_usage_summaries", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  
+  // Period
+  periodType: text("period_type").notNull(),             // 'daily', 'monthly'
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  
+  // Aggregated usage
+  totalRequests: integer("total_requests").notNull().default(0),
+  totalPromptTokens: integer("total_prompt_tokens").notNull().default(0),
+  totalCompletionTokens: integer("total_completion_tokens").notNull().default(0),
+  totalTokens: integer("total_tokens").notNull().default(0),
+  totalCostMicrodollars: integer("total_cost_microdollars").notNull().default(0),
+  
+  // Breakdown by model (JSON for flexibility as models change)
+  usageByModel: jsonb("usage_by_model").$type<Record<string, {
+    requests: number;
+    tokens: number;
+    costMicrodollars: number;
+  }>>(),
+  
+  // Breakdown by feature
+  usageByFeature: jsonb("usage_by_feature").$type<Record<string, {
+    requests: number;
+    tokens: number;
+    costMicrodollars: number;
+  }>>(),
+  
+  // Timestamps
+  calculatedAt: timestamp("calculated_at").defaultNow(),
+}, (table) => ({
+  uniqueTenantPeriod: unique().on(table.tenantId, table.periodType, table.periodStart),
+}));
+
+export const insertAiUsageSummarySchema = createInsertSchema(aiUsageSummaries).omit({
+  id: true,
+  calculatedAt: true,
+});
+
+export type InsertAiUsageSummary = z.infer<typeof insertAiUsageSummarySchema>;
+export type AiUsageSummary = typeof aiUsageSummaries.$inferSelect;

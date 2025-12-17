@@ -16,7 +16,8 @@
 | **4. Culture & Values** | Complete | ✅ Complete | |
 | **5. M365 Copilot Agent** | Not Started | Not Started | **January deadline - CLIENT REQUIREMENT** |
 | **6. AI-Powered Assistance** | Not Started | ~40% | 7 AI tools implemented. Q&A chat with function calling works. |
-| **6a. AI Usage Reporting** | Not Started | Not Started | **NEW - Schema change required** |
+| **6a. AI Usage Reporting** | Schema Complete | ✅ Schema Complete | Dec 17, 2025 - API & UI remaining |
+| **6b. Azure OpenAI Migration** | Backlogged | Backlogged | **NEW** - Future infrastructure decision |
 | **7. Enhanced Reporting** | Not Started | ~10% | Basic review_snapshots table exists. No PDF/export. |
 | **8. Export/Import** | Complete | ✅ Complete | |
 | **9. Customizable Branding** | Not Started | Not Started | Schema change required |
@@ -31,13 +32,13 @@
 
 ```
 PHASE 1: Schema Changes First (Weeks 1-2, Dec 16 - Dec 27)
+├── AI Usage Reporting Schema (1 day) ✅ COMPLETE (Dec 17)
+│   ├── ai_usage_logs table with provider/model tracking
+│   └── ai_usage_summaries table for aggregations
 ├── Enhanced Reporting & Snapshots Schema (1-2 days)
 │   ├── Expand review_snapshots table
 │   ├── Add snapshot configuration fields to tenants
 │   └── Add report templates table
-├── AI Usage Reporting Schema (1 day) ⭐ NEW
-│   ├── Add ai_usage_logs table for tracking
-│   └── Add tenant-level usage limits
 ├── Customizable Branding Schema (1 day)
 │   ├── Add branding fields to tenants table
 │   └── Add report templates with branding
@@ -589,84 +590,178 @@ Chat-based AI assistant with culture-grounded outputs and MCP-style agent archit
 
 ---
 
-### 6a. AI Usage Reporting ⭐ NEW
+### 6a. AI Usage Reporting ⭐ SCHEMA COMPLETE
 
-**Status:** Not Started  
-**Priority:** High (Schema Change Required)  
-**Effort:** 2-3 days
+**Status:** Schema Complete (Dec 17, 2025) - API & UI Remaining  
+**Priority:** High  
+**Effort:** 1-2 days remaining (API routes + UI)
 
 **Description:**
-Track and report AI usage across the platform to enable billing, monitoring, and usage optimization. Essential for understanding AI costs and tenant-level usage patterns.
+Track and report AI usage across the platform to enable billing, monitoring, and usage optimization. Essential for understanding AI costs and tenant-level usage patterns. **Designed to support provider switching (Replit AI → Azure OpenAI → Anthropic).**
 
-**Schema Changes Required:**
+**Schema Implemented (shared/schema.ts):**
 
 ```typescript
-// New table: ai_usage_logs
-aiUsageLogs: {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  tenantId: varchar("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }),
-  userId: varchar("user_id").references(() => users.id),
-  
-  // Request details
-  feature: text("feature").notNull(), // 'chat', 'okr_suggestion', 'meeting_recap', etc.
-  model: text("model").notNull(), // 'gpt-4o', 'gpt-4o-mini', etc.
-  
-  // Token usage
-  promptTokens: integer("prompt_tokens").notNull(),
-  completionTokens: integer("completion_tokens").notNull(),
-  totalTokens: integer("total_tokens").notNull(),
-  
-  // Cost tracking (in cents/microdollars)
-  estimatedCostCents: doublePrecision("estimated_cost_cents"),
-  
-  // Timing
-  latencyMs: integer("latency_ms"),
-  createdAt: timestamp("created_at").defaultNow(),
-}
+// Two tables added:
+// 1. ai_usage_logs - Individual API call tracking
+// 2. ai_usage_summaries - Aggregated daily/monthly summaries
 
-// Add to tenants table
-aiUsageLimit: integer("ai_usage_limit"), // Monthly token limit (null = unlimited)
-aiUsageResetDate: timestamp("ai_usage_reset_date"), // Monthly reset date
+// Key fields for tracking model changes:
+- provider: text       // 'replit_ai', 'azure_openai', 'anthropic', 'openai'
+- model: text          // 'gpt-4o', 'gpt-5', 'claude-3.5-sonnet', etc.
+- modelVersion: text   // Specific version like '2024-08-06'
+- deploymentName: text // Azure OpenAI deployment name (if applicable)
+- feature: text        // 'chat', 'okr_suggestion', 'meeting_recap', etc.
+- promptTokens, completionTokens, totalTokens
+- estimatedCostMicrodollars  // 1 cent = 10000 microdollars for precision
+- latencyMs, wasStreaming, requestId, errorCode, errorMessage
+
+// Enums exported:
+- AI_PROVIDERS: replit_ai, azure_openai, openai, anthropic, other
+- AI_FEATURES: chat, okr_suggestion, big_rock_suggestion, meeting_recap, strategy_draft, function_call, embedding, other
 ```
 
-**Features:**
+**Remaining Work:**
 
-1. **Usage Logging:**
-   - Log every AI API call with token counts
-   - Track by feature (chat, suggestions, recap parsing)
-   - Record latency for performance monitoring
+1. **Storage Interface:**
+   - Add `createAiUsageLog()` to storage.ts
+   - Add `getAiUsageSummary()` for tenant dashboards
+   - Add aggregation queries for admin reports
 
-2. **Tenant Usage Dashboard:**
-   - Monthly usage summary (tokens, estimated cost)
-   - Usage by feature breakdown
-   - Usage trend over time
-   - Comparison to limits (if set)
+2. **AI Service Integration:**
+   - Wrap AI calls in `server/ai.ts` to log usage after each completion
+   - Extract token counts from OpenAI response.usage
+   - Calculate estimated costs based on model pricing
 
-3. **Admin Reports:**
-   - Cross-tenant usage comparison
-   - Total platform AI costs
-   - Heavy user identification
-   - Feature popularity ranking
+3. **API Endpoints:**
+   - `GET /api/ai/usage/summary` - Tenant usage summary
+   - `GET /api/ai/usage/history` - Detailed usage history
+   - `GET /api/admin/ai-usage` - Platform-wide usage (platform admin only)
 
-4. **Usage Limits (Optional):**
-   - Set monthly token limits per tenant
-   - Warning notifications at 80% usage
-   - Soft/hard limits (warning vs. blocking)
+4. **UI Components:**
+   - AI Usage widget in Tenant Admin page
+   - Platform-wide usage dashboard in System Admin page
 
-**API Endpoints:**
-- `POST /api/ai/log-usage` - Internal: log AI usage (called by AI services)
-- `GET /api/ai/usage/summary` - Get tenant usage summary
-- `GET /api/ai/usage/history` - Get detailed usage history
-- `GET /api/admin/ai-usage` - Platform-wide usage (admin only)
+**Model Impact Tracking Use Case:**
+When switching from GPT-4 to GPT-5 or to Claude, the `model` and `modelVersion` fields allow queries like:
+- "Compare token usage before/after GPT-5 switch"
+- "Average latency by model"
+- "Cost per feature by model version"
 
 **Business Value:**
 - Cost visibility for platform operations
 - Enable future usage-based billing
+- Measure impact of model upgrades (GPT-5 vs GPT-4, Claude vs GPT)
 - Identify optimization opportunities
 - Prevent runaway AI costs
 
 **Dependencies:**
-- OpenAI token counting (tiktoken or response metadata)
+- OpenAI response.usage metadata (available ✅)
+
+---
+
+### 6b. Azure OpenAI Migration ⭐ BACKLOG
+
+**Status:** Backlogged  
+**Priority:** Medium (future infrastructure decision)  
+**Effort:** 3-5 days
+
+**Description:**
+Convert from Replit AI Integrations (OpenAI-compatible) to your own Azure OpenAI account for better cost control, enterprise compliance, and deployment flexibility.
+
+**Current State:**
+- Using Replit AI Integrations with `AI_INTEGRATIONS_OPENAI_BASE_URL` and `AI_INTEGRATIONS_OPENAI_API_KEY`
+- Model: `gpt-5` (see `server/ai.ts` line 7)
+- No usage tracking or cost visibility (now addressed by 6a schema)
+
+**Migration Steps:**
+
+1. **Azure Setup:**
+   - Create Azure OpenAI resource in your Azure subscription
+   - Deploy models (gpt-4o, gpt-4o-mini, or gpt-4-turbo)
+   - Note deployment names and endpoint URL
+
+2. **Environment Variables:**
+   ```bash
+   # Replace Replit AI vars with:
+   AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+   AZURE_OPENAI_API_KEY=your-api-key
+   AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o  # Your deployment name
+   AZURE_OPENAI_API_VERSION=2024-08-01-preview
+   ```
+
+3. **Code Changes (server/ai.ts):**
+   ```typescript
+   import { OpenAIClient, AzureKeyCredential } from "@azure/openai";
+   
+   // Option A: Azure-specific client
+   const client = new OpenAIClient(
+     process.env.AZURE_OPENAI_ENDPOINT,
+     new AzureKeyCredential(process.env.AZURE_OPENAI_API_KEY)
+   );
+   
+   // Option B: OpenAI SDK with Azure config (current approach, easier migration)
+   const openai = new OpenAI({
+     baseURL: `${process.env.AZURE_OPENAI_ENDPOINT}/openai/deployments/${process.env.AZURE_OPENAI_DEPLOYMENT_NAME}`,
+     apiKey: process.env.AZURE_OPENAI_API_KEY,
+     defaultQuery: { 'api-version': process.env.AZURE_OPENAI_API_VERSION },
+     defaultHeaders: { 'api-key': process.env.AZURE_OPENAI_API_KEY },
+   });
+   ```
+
+4. **AI Service Abstraction:**
+   - Create `AIProvider` interface in `server/services/ai-provider.ts`
+   - Implement `ReplitAIProvider`, `AzureOpenAIProvider`, `AnthropicProvider`
+   - Factory pattern to select provider based on environment config
+   - All providers must log usage to `ai_usage_logs` table
+
+5. **Update Usage Logging:**
+   - Set `provider: 'azure_openai'` in usage logs
+   - Include `deploymentName` field for Azure deployments
+
+**Benefits of Azure OpenAI:**
+- **Cost Control:** Direct billing to your Azure subscription, no Replit credit pass-through
+- **Enterprise Compliance:** Data stays in your Azure tenant, meets enterprise security requirements
+- **Model Selection:** Choose specific model versions and deployments
+- **Rate Limits:** Higher limits with Azure enterprise agreements
+- **Private Endpoints:** VNet integration for enhanced security (future)
+
+**Implementation Packages:**
+```bash
+npm install @azure/openai @azure/identity
+```
+
+**Configuration Pattern:**
+```typescript
+// server/config/ai-config.ts
+export const AI_CONFIG = {
+  provider: process.env.AI_PROVIDER || 'replit_ai', // 'replit_ai', 'azure_openai', 'anthropic'
+  
+  replit: {
+    baseUrl: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+    apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+  },
+  
+  azure: {
+    endpoint: process.env.AZURE_OPENAI_ENDPOINT,
+    apiKey: process.env.AZURE_OPENAI_API_KEY,
+    deploymentName: process.env.AZURE_OPENAI_DEPLOYMENT_NAME,
+    apiVersion: process.env.AZURE_OPENAI_API_VERSION || '2024-08-01-preview',
+  },
+  
+  defaultModel: process.env.AI_MODEL || 'gpt-4o',
+};
+```
+
+**Business Value:**
+- Direct cost visibility and control via Azure Cost Management
+- Enterprise-grade security and compliance (SOC 2, HIPAA, etc.)
+- Enables Synozur's own Azure commitment/credits
+- Foundation for multi-model strategy (GPT + Claude)
+
+**Dependencies:**
+- Azure OpenAI resource provisioned
+- AI Usage Reporting (6a) implemented first for consistent tracking
 
 ---
 
