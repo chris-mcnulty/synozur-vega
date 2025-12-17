@@ -10,12 +10,12 @@ const router = Router();
 
 router.get('/status', async (req: Request, res: Response) => {
   try {
-    const userId = (req.session as any)?.userId;
-    if (!userId) {
+    const user = req.user;
+    if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const status = await getOutlookIntegrationStatus(userId);
+    const status = await getOutlookIntegrationStatus(user.id);
     res.json(status);
   } catch (error: any) {
     console.error('[Outlook API] Status error:', error);
@@ -25,12 +25,12 @@ router.get('/status', async (req: Request, res: Response) => {
 
 router.get('/calendars', async (req: Request, res: Response) => {
   try {
-    const userId = (req.session as any)?.userId;
-    if (!userId) {
+    const user = req.user;
+    if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const calendars = await getOutlookCalendars(userId);
+    const calendars = await getOutlookCalendars(user.id);
     res.json(calendars);
   } catch (error: any) {
     console.error('[Outlook API] Calendars error:', error);
@@ -43,8 +43,8 @@ router.get('/calendars', async (req: Request, res: Response) => {
 
 router.get('/events', async (req: Request, res: Response) => {
   try {
-    const userId = (req.session as any)?.userId;
-    if (!userId) {
+    const user = req.user;
+    if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
@@ -58,7 +58,7 @@ router.get('/events', async (req: Request, res: Response) => {
       : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
     const events = await getOutlookCalendarEvents(
-      userId,
+      user.id,
       start,
       end,
       calendarId as string | undefined
@@ -76,13 +76,13 @@ router.get('/events', async (req: Request, res: Response) => {
 
 router.get('/events/:eventId', async (req: Request, res: Response) => {
   try {
-    const userId = (req.session as any)?.userId;
-    if (!userId) {
+    const user = req.user;
+    if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
     const { eventId } = req.params;
-    const event = await getOutlookEventDetails(userId, eventId);
+    const event = await getOutlookEventDetails(user.id, eventId);
 
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
