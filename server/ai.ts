@@ -9,11 +9,20 @@ const MODEL = "gpt-5";
 const CURRENT_PROVIDER = AI_PROVIDERS.REPLIT;
 
 // Cost per 1K tokens in microdollars (1 cent = 10000 microdollars)
-// GPT-5 estimated pricing based on GPT-4 pricing patterns
-const COST_PER_1K_TOKENS = {
-  'gpt-5': { prompt: 50000, completion: 150000 },  // ~$5/$15 per 1M tokens
-  'gpt-4o': { prompt: 25000, completion: 100000 }, // ~$2.50/$10 per 1M tokens
-  'gpt-4': { prompt: 30000, completion: 60000 },
+// Pricing estimates based on public pricing as of late 2025
+const COST_PER_1K_TOKENS: Record<string, { prompt: number; completion: number }> = {
+  'gpt-5': { prompt: 50000, completion: 150000 },      // ~$5/$15 per 1M tokens
+  'gpt-4o': { prompt: 25000, completion: 100000 },     // ~$2.50/$10 per 1M tokens
+  'gpt-4o-mini': { prompt: 1500, completion: 6000 },   // ~$0.15/$0.60 per 1M tokens
+  'gpt-4-turbo': { prompt: 10000, completion: 30000 }, // ~$1/$3 per 1M tokens
+  'gpt-4': { prompt: 30000, completion: 60000 },       // ~$3/$6 per 1M tokens
+  'claude-3-opus': { prompt: 15000, completion: 75000 },     // ~$15/$75 per 1M tokens
+  'claude-3.5-opus': { prompt: 15000, completion: 75000 },   // ~$15/$75 per 1M tokens (same as opus)
+  'claude-3-sonnet': { prompt: 3000, completion: 15000 },    // ~$3/$15 per 1M tokens
+  'claude-3.5-sonnet': { prompt: 3000, completion: 15000 },  // ~$3/$15 per 1M tokens
+  'claude-3-haiku': { prompt: 250, completion: 1250 },       // ~$0.25/$1.25 per 1M tokens
+  'claude-3.5-haiku': { prompt: 250, completion: 1250 },     // ~$0.25/$1.25 per 1M tokens
+  'replit-ai-unknown': { prompt: 10000, completion: 30000 },
   'default': { prompt: 10000, completion: 30000 }
 };
 
@@ -29,10 +38,16 @@ async function logAiUsage(params: {
   requestId?: string;
   errorCode?: string;
   errorMessage?: string;
+  // Allow overriding model/provider for future multi-provider support
+  model?: string;
+  provider?: string;
 }): Promise<void> {
   try {
+    const actualModel = params.model || MODEL;
+    const actualProvider = params.provider || CURRENT_PROVIDER;
+    
     const totalTokens = params.promptTokens + params.completionTokens;
-    const costs = COST_PER_1K_TOKENS[MODEL as keyof typeof COST_PER_1K_TOKENS] || COST_PER_1K_TOKENS.default;
+    const costs = COST_PER_1K_TOKENS[actualModel] || COST_PER_1K_TOKENS.default;
     const estimatedCost = Math.round(
       (params.promptTokens / 1000) * costs.prompt +
       (params.completionTokens / 1000) * costs.completion
@@ -41,8 +56,8 @@ async function logAiUsage(params: {
     const log: InsertAiUsageLog = {
       tenantId: params.tenantId || null,
       userId: params.userId || null,
-      provider: CURRENT_PROVIDER,
-      model: MODEL,
+      provider: actualProvider,
+      model: actualModel,
       feature: params.feature,
       promptTokens: params.promptTokens,
       completionTokens: params.completionTokens,

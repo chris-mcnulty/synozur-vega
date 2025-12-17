@@ -819,10 +819,26 @@ aiRouter.get("/usage/platform", async (req: Request, res: Response) => {
 
     const summary = await storage.getPlatformAiUsageSummary(periodType, periodStart);
     
+    // Transform byTenant array to Record format expected by frontend
+    const byTenantRecord: Record<string, { requests: number; tokens: number; cost: number; tenantName?: string }> = {};
+    for (const tenant of summary.byTenant) {
+      byTenantRecord[tenant.tenantId] = {
+        requests: tenant.requests,
+        tokens: tenant.tokens,
+        cost: tenant.cost,
+        tenantName: tenant.tenantName,
+      };
+    }
+    
     res.json({
       periodType,
       periodStart,
-      ...summary,
+      totalRequests: summary.totalRequests,
+      totalTokens: summary.totalTokens,
+      totalCostMicrodollars: summary.totalCostMicrodollars,
+      byTenant: byTenantRecord,
+      byModel: summary.byModel,
+      byProvider: summary.byProvider,
       estimatedCostDollars: summary.totalCostMicrodollars / 1000000,
     });
   } catch (error: any) {

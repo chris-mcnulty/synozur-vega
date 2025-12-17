@@ -216,6 +216,7 @@ export interface IStorage {
     byTenant: Array<{ tenantId: string; tenantName: string; requests: number; tokens: number; cost: number }>;
     byModel: Record<string, { requests: number; tokens: number; cost: number }>;
     byFeature: Record<string, { requests: number; tokens: number; cost: number }>;
+    byProvider: Record<string, { requests: number; tokens: number; cost: number }>;
   }>;
 }
 
@@ -1752,6 +1753,7 @@ export class DatabaseStorage implements IStorage {
     byTenant: Array<{ tenantId: string; tenantName: string; requests: number; tokens: number; cost: number }>;
     byModel: Record<string, { requests: number; tokens: number; cost: number }>;
     byFeature: Record<string, { requests: number; tokens: number; cost: number }>;
+    byProvider: Record<string, { requests: number; tokens: number; cost: number }>;
   }> {
     // Calculate period end based on type
     const periodEnd = new Date(periodStart);
@@ -1774,6 +1776,7 @@ export class DatabaseStorage implements IStorage {
     const byTenantMap = new Map<string, { requests: number; tokens: number; cost: number }>();
     const byModel: Record<string, { requests: number; tokens: number; cost: number }> = {};
     const byFeature: Record<string, { requests: number; tokens: number; cost: number }> = {};
+    const byProvider: Record<string, { requests: number; tokens: number; cost: number }> = {};
     let totalRequests = 0;
     let totalTokens = 0;
     let totalCostMicrodollars = 0;
@@ -1807,6 +1810,14 @@ export class DatabaseStorage implements IStorage {
       byFeature[log.feature].requests++;
       byFeature[log.feature].tokens += log.totalTokens;
       byFeature[log.feature].cost += log.estimatedCostMicrodollars || 0;
+
+      // By provider (aggregate from actual log data)
+      if (!byProvider[log.provider]) {
+        byProvider[log.provider] = { requests: 0, tokens: 0, cost: 0 };
+      }
+      byProvider[log.provider].requests++;
+      byProvider[log.provider].tokens += log.totalTokens;
+      byProvider[log.provider].cost += log.estimatedCostMicrodollars || 0;
     }
 
     // Get tenant names
@@ -1828,7 +1839,8 @@ export class DatabaseStorage implements IStorage {
       totalCostMicrodollars,
       byTenant,
       byModel,
-      byFeature
+      byFeature,
+      byProvider
     };
   }
 }
