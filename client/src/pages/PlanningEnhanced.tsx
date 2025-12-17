@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format } from "date-fns";
@@ -27,7 +27,7 @@ import { OKRDetailPane } from "@/components/okr/OKRDetailPane";
 import { ProgressSummaryBar } from "@/components/okr/ProgressSummaryBar";
 import { MilestoneEditor, type PhasedTargets } from "@/components/okr/MilestoneEditor";
 import { MilestoneTimeline } from "@/components/okr/MilestoneTimeline";
-import { TrendingUp, Target, Activity, AlertCircle, CheckCircle, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink } from "lucide-react";
+import { TrendingUp, Target, Activity, AlertCircle, AlertTriangle, CheckCircle, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink } from "lucide-react";
 import { ExcelFilePicker } from "@/components/ExcelFilePicker";
 import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
 import { cn } from "@/lib/utils";
@@ -3754,10 +3754,36 @@ function ProgressDashboard({ objectives, bigRocks }: any) {
     : 0;
 
   const completedObjectives = objectives.filter((obj: Objective) => obj.status === "completed").length;
-  const atRiskObjectives = objectives.filter((obj: Objective) => obj.status === "at_risk").length;
-  const onTrackObjectives = objectives.filter((obj: Objective) => obj.status === "on_track").length;
+  const atRiskObjectives = objectives.filter((obj: Objective) => obj.progress < 40).length;
+  const behindObjectives = objectives.filter((obj: Objective) => obj.progress >= 40 && obj.progress < 70).length;
+  const onTrackObjectives = objectives.filter((obj: Objective) => obj.progress >= 70).length;
 
   const completedRocks = bigRocks.filter((rock: BigRock) => rock.status === "completed").length;
+
+  // Sort objectives: org level first, then by lowest progress (to highlight at-risk items)
+  const sortedObjectives = [...objectives].sort((a: Objective, b: Objective) => {
+    // Level priority: organization > team > individual
+    const levelOrder: Record<string, number> = { organization: 0, team: 1, individual: 2 };
+    const levelDiff = (levelOrder[a.level || 'individual'] || 2) - (levelOrder[b.level || 'individual'] || 2);
+    if (levelDiff !== 0) return levelDiff;
+    // Within same level, sort by lowest progress first
+    return (a.progress || 0) - (b.progress || 0);
+  });
+
+  // Get progress bar color based on percentage
+  const getProgressColor = (progress: number) => {
+    if (progress >= 70) return 'bg-green-500';
+    if (progress >= 40) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  // Get status icon based on percentage
+  const getStatusIcon = (progress: number) => {
+    if (progress >= 100) return <CheckCircle className="h-4 w-4 text-green-500" />;
+    if (progress >= 70) return <CheckCircle className="h-4 w-4 text-green-500" />;
+    if (progress >= 40) return <AlertTriangle className="h-4 w-4 text-yellow-500" />;
+    return <AlertCircle className="h-4 w-4 text-red-500" />;
+  };
 
   return (
     <div className="space-y-6">
@@ -3780,7 +3806,18 @@ function ProgressDashboard({ objectives, bigRocks }: any) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{onTrackObjectives}</div>
-            <p className="text-xs text-muted-foreground">Objectives on track</p>
+            <p className="text-xs text-muted-foreground">70%+ progress</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Behind</CardTitle>
+            <AlertTriangle className="h-4 w-4 text-yellow-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{behindObjectives}</div>
+            <p className="text-xs text-muted-foreground">40-69% progress</p>
           </CardContent>
         </Card>
 
@@ -3791,20 +3828,7 @@ function ProgressDashboard({ objectives, bigRocks }: any) {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{atRiskObjectives}</div>
-            <p className="text-xs text-muted-foreground">Need attention</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Completed</CardTitle>
-            <Activity className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {completedObjectives}/{objectives.length}
-            </div>
-            <p className="text-xs text-muted-foreground">Objectives completed</p>
+            <p className="text-xs text-muted-foreground">Below 40% progress</p>
           </CardContent>
         </Card>
       </div>
@@ -3812,28 +3836,42 @@ function ProgressDashboard({ objectives, bigRocks }: any) {
       <Card>
         <CardHeader>
           <CardTitle>Objective Progress Overview</CardTitle>
+          <CardDescription>
+            Sorted by level (organization first), then by lowest progress to highlight issues
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {objectives.map((obj: Objective) => (
-              <div key={obj.id} className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">{obj.title}</span>
-                    <Badge variant={obj.level === "organization" ? "default" : "secondary"}>
-                      {obj.level}
-                    </Badge>
+            {sortedObjectives.map((obj: Objective) => {
+              const displayProgress = Math.min(obj.progress || 0, 100);
+              const exceedsTarget = (obj.progress || 0) > 100;
+              
+              return (
+                <div key={obj.id} className="space-y-2" data-testid={`objective-progress-${obj.id}`}>
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      {getStatusIcon(obj.progress || 0)}
+                      <span className="font-medium">{obj.title}</span>
+                      <Badge variant={obj.level === "organization" ? "default" : "secondary"}>
+                        {obj.level}
+                      </Badge>
+                      {exceedsTarget && (
+                        <Badge variant="outline" className="text-green-600 border-green-600">
+                          Exceeds Target
+                        </Badge>
+                      )}
+                    </div>
+                    <span className="text-sm font-medium">{obj.progress || 0}%</span>
                   </div>
-                  <span className="text-sm font-medium">{obj.progress}%</span>
+                  <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                    <div
+                      className={cn("h-full transition-all", getProgressColor(obj.progress || 0))}
+                      style={{ width: `${displayProgress}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary transition-all"
-                    style={{ width: `${obj.progress}%` }}
-                  />
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </CardContent>
       </Card>

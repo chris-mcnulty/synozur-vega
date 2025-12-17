@@ -88,18 +88,22 @@ These tasks are ideal for junior developers - well-scoped, low-risk, and provide
 
 **Note:** `server/viva-goals-importer.ts` retains [DEBUG] logging intentionally for import troubleshooting.
 
-#### QW-2: Objective Progress Overview UX Polish 🎨
-**Effort:** 2-4 hours | **Risk:** Low | **Files:** 1-2
+#### QW-2: Objective Progress Overview UX Polish 🎨 ✅ COMPLETE
+**Effort:** 2-4 hours | **Risk:** Low | **Files:** 1-2 | **Completed:** Dec 17, 2025
 
-Improve the objective progress display on the Company OS Dashboard:
-- Sort objectives by level (org first), then by lowest progress to highlight issues
-- Status-colored progress bars: Green (≥70%), Yellow (40-69%), Red (<40%)
-- Cap display at 100% with "Exceeds Target" badge for >100%
-- Add status icons for quick scanning (checkmark, warning, alert)
+~~Improve the objective progress display on the Company OS Dashboard:~~
+- ~~Sort objectives by level (org first), then by lowest progress to highlight issues~~
+- ~~Status-colored progress bars: Green (≥70%), Yellow (40-69%), Red (<40%)~~
+- ~~Cap display at 100% with "Exceeds Target" badge for >100%~~
+- ~~Add status icons for quick scanning (checkmark, warning, alert)~~
 
-**Location:** `client/src/pages/CompanyOSDashboard.tsx` or related progress components
-
-**Success Criteria:** Progress bars show color-coded status, sorted to highlight at-risk items.
+**Implementation:**
+- `PlanningEnhanced.tsx` ProgressDashboard component enhanced with:
+  - Sorting by level (organization > team > individual), then by lowest progress
+  - Color-coded progress bars (green ≥70%, yellow 40-69%, red <40%)
+  - "Exceeds Target" badge for objectives with >100% progress
+  - Status icons (CheckCircle, AlertTriangle, AlertCircle) for quick scanning
+  - Updated summary cards to show "On Track", "Behind", "At Risk" counts with clear percentage thresholds
 
 #### QW-3: Hide Admin Features from Regular Users 👁️ ✅ COMPLETE
 **Effort:** 2-3 hours | **Risk:** Low | **Files:** 3-5 | **Completed:** Dec 17, 2025
