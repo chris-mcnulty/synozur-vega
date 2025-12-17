@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Component, ErrorInfo, ReactNode } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +22,43 @@ import {
   Unlink
 } from "lucide-react";
 import plannerIcon from "@assets/IMG_6924_1765505101956.png";
+
+// Error boundary to catch and display any rendering errors
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class PlannerErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('[PlannerProgressMapping] Caught error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Card>
+          <CardContent className="pt-4">
+            <div className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="h-4 w-4" />
+              <span className="text-sm">Planner component error: {this.state.error?.message}</span>
+            </div>
+          </CardContent>
+        </Card>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface PlannerPlan {
   id: string;
@@ -56,7 +93,7 @@ interface PlannerProgressMappingProps {
   onProgressUpdate?: (progress: number) => void;
 }
 
-export function PlannerProgressMapping({ 
+function PlannerProgressMappingInner({ 
   entityType, 
   entityId, 
   entityTitle,
@@ -67,6 +104,9 @@ export function PlannerProgressMapping({
   const [selectedPlanId, setSelectedPlanId] = useState<string>("");
   const [selectedBucketId, setSelectedBucketId] = useState<string>("");
   const [syncEnabled, setSyncEnabled] = useState(false);
+  
+  // Debug logging
+  console.log('[PlannerProgressMapping] Rendering:', { entityType, entityId, configDialogOpen, selectedPlanId });
 
   const progressEndpoint = `/api/planner/mapping/${entityType}/${entityId}/progress`;
   const mappingEndpoint = `/api/planner/mapping/${entityType}/${entityId}`;
@@ -345,8 +385,10 @@ export function PlannerProgressMapping({
                 <Select 
                   value={selectedPlanId} 
                   onValueChange={(value) => {
+                    console.log('[PlannerProgressMapping] Plan selected:', { value, typeOf: typeof value });
                     try {
                       if (value && typeof value === 'string') {
+                        console.log('[PlannerProgressMapping] Setting plan ID:', value);
                         setSelectedPlanId(value);
                         setSelectedBucketId("");
                       }
@@ -451,5 +493,14 @@ export function PlannerProgressMapping({
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+// Exported component wrapped in error boundary
+export function PlannerProgressMapping(props: PlannerProgressMappingProps) {
+  return (
+    <PlannerErrorBoundary>
+      <PlannerProgressMappingInner {...props} />
+    </PlannerErrorBoundary>
   );
 }
