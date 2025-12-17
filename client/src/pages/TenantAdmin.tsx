@@ -28,7 +28,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield, Settings2, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, FileText, Download, BookOpen } from "lucide-react";
+import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield, Settings2, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, FileText, Download, BookOpen, Activity } from "lucide-react";
+import { AIUsageWidget } from "@/components/AIUsageWidget";
 import excelIcon from "@assets/Excel_512_1765494903271.png";
 import oneDriveIcon from "@assets/OneDrive_512_1765494903274.png";
 import outlookIcon from "@assets/Outlook_512_1765494903276.png";
@@ -1169,6 +1170,15 @@ export default function TenantAdmin() {
               />
             ))}
           </div>
+        </div>
+
+        {/* AI Usage Analytics Section */}
+        <div>
+          <h2 className="text-xl font-semibold mb-4">AI Usage Analytics</h2>
+          <p className="text-muted-foreground text-sm mb-4">
+            Monitor AI model usage, token consumption, and estimated costs for this organization.
+          </p>
+          <AIUsageWidget />
         </div>
 
         <div>

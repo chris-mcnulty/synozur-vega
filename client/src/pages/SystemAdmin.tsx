@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, BookOpen, Save, RotateCcw } from "lucide-react";
+import { Shield, BookOpen, Save, RotateCcw, Activity } from "lucide-react";
+import { PlatformAIUsageWidget } from "@/components/AIUsageWidget";
 
 type VocabularyTerm = {
   singular: string;
@@ -217,6 +218,10 @@ export default function SystemAdmin() {
             <BookOpen className="h-4 w-4" />
             Vocabulary
           </TabsTrigger>
+          <TabsTrigger value="ai-usage" className="flex items-center gap-2" data-testid="tab-ai-usage">
+            <Activity className="h-4 w-4" />
+            AI Usage
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="vocabulary" className="space-y-4">
@@ -289,6 +294,39 @@ export default function SystemAdmin() {
                   </div>
                 ))}
               </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="ai-usage" className="space-y-4">
+          <PlatformAIUsageWidget />
+          <Card>
+            <CardHeader>
+              <CardTitle>About AI Usage Tracking</CardTitle>
+              <CardDescription>
+                Understanding how AI resources are consumed across the platform
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm text-muted-foreground">
+              <p>
+                The AI Usage dashboard provides real-time visibility into how AI services are being used 
+                across all organizations on the Vega platform. This helps you:
+              </p>
+              <ul className="list-disc list-inside space-y-1">
+                <li>Monitor total token consumption and estimated costs</li>
+                <li>Track usage by AI provider (Replit AI, Azure OpenAI, Anthropic)</li>
+                <li>Compare model performance and usage patterns (GPT-4, GPT-5, Claude)</li>
+                <li>Identify high-usage tenants for capacity planning</li>
+                <li>Measure the impact of model changes on costs and performance</li>
+              </ul>
+              <p>
+                <strong>Cost Estimation:</strong> Costs are estimated based on typical pricing for each model. 
+                Actual costs may vary based on your specific provider agreements.
+              </p>
+              <p>
+                <strong>Token Counting:</strong> For streaming responses, token counts are estimated 
+                (approximately 4 characters per token). Non-streaming calls provide exact counts.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>
