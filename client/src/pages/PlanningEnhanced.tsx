@@ -365,6 +365,8 @@ export default function PlanningEnhanced() {
     description: "",
     objectiveId: "",
     keyResultId: "",
+    teamId: "",
+    ownerEmail: "",
     completionPercentage: 0,
     linkedStrategies: [] as string[],
   });
@@ -1095,6 +1097,8 @@ export default function PlanningEnhanced() {
       description: "",
       objectiveId,
       keyResultId: keyResultId || "",
+      teamId: "",
+      ownerEmail: "",
       completionPercentage: 0,
       linkedStrategies: [],
     });
@@ -1108,6 +1112,8 @@ export default function PlanningEnhanced() {
       description: bigRock.description || "",
       objectiveId: bigRock.objectiveId || "",
       keyResultId: bigRock.keyResultId || "",
+      teamId: bigRock.teamId || "",
+      ownerEmail: bigRock.ownerEmail || "",
       completionPercentage: bigRock.completionPercentage,
       linkedStrategies: bigRock.linkedStrategies || [],
     });
@@ -2297,6 +2303,37 @@ export default function PlanningEnhanced() {
                     rows={3}
                     data-testid="input-bigrock-description"
                   />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="br-team">Assign to Team</Label>
+                    <Select
+                      value={bigRockForm.teamId || "none"}
+                      onValueChange={(value) => setBigRockForm({ ...bigRockForm, teamId: value === "none" ? "" : value })}
+                    >
+                      <SelectTrigger data-testid="select-bigrock-team">
+                        <SelectValue placeholder="Select team" />
+                      </SelectTrigger>
+                      <SelectContent className="z-[60]">
+                        <SelectItem value="none">No Team</SelectItem>
+                        {teamsData.map((team) => (
+                          <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="br-owner">Owner Email</Label>
+                    <Input
+                      id="br-owner"
+                      type="email"
+                      value={bigRockForm.ownerEmail}
+                      onChange={(e) => setBigRockForm({ ...bigRockForm, ownerEmail: e.target.value })}
+                      placeholder="owner@example.com"
+                      data-testid="input-bigrock-owner"
+                    />
+                  </div>
                 </div>
 
                 <div>
