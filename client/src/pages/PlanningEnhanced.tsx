@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Slider } from "@/components/ui/slider";
+import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
@@ -384,6 +385,71 @@ export default function PlanningEnhanced() {
 
   // Separate draft state for value input (allows empty string during editing)
   const [valueInputDraft, setValueInputDraft] = useState<string>("");
+
+  // Planner sync state for check-in dialog
+  const [plannerSyncState, setPlannerSyncState] = useState<{
+    loading: boolean;
+    error: string | null;
+    totalTasks: number;
+    completedTasks: number;
+    progress: number;
+    lastSyncAt: Date | null;
+  }>({
+    loading: false,
+    error: null,
+    totalTasks: 0,
+    completedTasks: 0,
+    progress: 0,
+    lastSyncAt: null,
+  });
+
+  // Auto-sync Planner progress when opening check-in for a Planner-synced Big Rock
+  useEffect(() => {
+    if (checkInDialogOpen && checkInEntity?.type === "big_rock" && checkInEntity.current?.plannerSyncEnabled) {
+      const syncPlannerProgress = async () => {
+        setPlannerSyncState(prev => ({ ...prev, loading: true, error: null }));
+        try {
+          const response = await fetch(`/api/planner/mapping/bigrock/${checkInEntity.id}/sync`, {
+            method: 'POST',
+            credentials: 'include',
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to sync Planner progress');
+          }
+          
+          const data = await response.json();
+          setPlannerSyncState({
+            loading: false,
+            error: null,
+            totalTasks: data.totalTasks || 0,
+            completedTasks: data.completedTasks || 0,
+            progress: data.progress || 0,
+            lastSyncAt: new Date(),
+          });
+          
+          // Update the check-in form with the synced progress
+          setCheckInForm(prev => ({
+            ...prev,
+            newProgress: Math.round(data.progress || 0),
+          }));
+          
+          // Invalidate big rocks query to refresh the UI
+          queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`] });
+        } catch (error: any) {
+          console.error('[Planner Sync] Error during check-in sync:', error);
+          setPlannerSyncState(prev => ({
+            ...prev,
+            loading: false,
+            error: error.message || 'Failed to sync with Planner',
+          }));
+        }
+      };
+      
+      syncPlannerProgress();
+    }
+  }, [checkInDialogOpen, checkInEntity?.id, checkInEntity?.type, checkInEntity?.current?.plannerSyncEnabled]);
 
   // Helper function to sync value tags
   const syncValueTags = async (
@@ -2717,9 +2783,60 @@ export default function PlanningEnhanced() {
                 <div>
                   <Label htmlFor="ci-bigrock-progress">Completion ({checkInForm.newProgress}%)</Label>
                   {checkInEntity.current?.plannerSyncEnabled ? (
-                    <div className="p-3 bg-muted rounded-md text-sm text-muted-foreground">
-                      <p>Progress is synced from Microsoft Planner.</p>
-                      <p className="mt-1">To update manually, disable Planner sync in the Big Rock settings.</p>
+                    <div className="space-y-3">
+                      {plannerSyncState.loading ? (
+                        <div className="p-3 bg-muted rounded-md text-sm flex items-center gap-2">
+                          <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />
+                          <span>Syncing with Microsoft Planner...</span>
+                        </div>
+                      ) : plannerSyncState.error ? (
+                        <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-md text-sm">
+                          <p className="text-destructive font-medium">Sync failed</p>
+                          <p className="text-muted-foreground mt-1">{plannerSyncState.error}</p>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="mt-2"
+                            onClick={() => {
+                              setPlannerSyncState(prev => ({ ...prev, loading: true, error: null }));
+                              fetch(`/api/planner/mapping/bigrock/${checkInEntity.id}/sync`, {
+                                method: 'POST',
+                                credentials: 'include',
+                              })
+                                .then(r => r.json())
+                                .then(data => {
+                                  setPlannerSyncState({
+                                    loading: false,
+                                    error: null,
+                                    totalTasks: data.totalTasks || 0,
+                                    completedTasks: data.completedTasks || 0,
+                                    progress: data.progress || 0,
+                                    lastSyncAt: new Date(),
+                                  });
+                                  setCheckInForm(prev => ({ ...prev, newProgress: Math.round(data.progress || 0) }));
+                                })
+                                .catch(e => setPlannerSyncState(prev => ({ ...prev, loading: false, error: e.message })));
+                            }}
+                            data-testid="button-retry-planner-sync"
+                          >
+                            Retry Sync
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="p-3 bg-primary/5 border border-primary/20 rounded-md text-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">Progress from Planner</span>
+                            <span className="text-lg font-bold">{plannerSyncState.progress}%</span>
+                          </div>
+                          <div className="mt-2 flex items-center gap-2 text-muted-foreground">
+                            <span>{plannerSyncState.completedTasks}/{plannerSyncState.totalTasks} tasks completed</span>
+                            {plannerSyncState.lastSyncAt && (
+                              <span className="text-xs">• Just synced</span>
+                            )}
+                          </div>
+                          <Progress value={plannerSyncState.progress} className="mt-2 h-2" />
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <Slider
