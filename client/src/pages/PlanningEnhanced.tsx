@@ -2712,6 +2712,28 @@ export default function PlanningEnhanced() {
                 </div>
               )}
               
+              {/* For Big Rocks: Show Completion Percentage Slider (when not using Planner sync) */}
+              {checkInEntity?.type === "big_rock" && (
+                <div>
+                  <Label htmlFor="ci-bigrock-progress">Completion ({checkInForm.newProgress}%)</Label>
+                  {checkInEntity.current?.plannerSyncEnabled ? (
+                    <div className="p-3 bg-muted rounded-md text-sm text-muted-foreground">
+                      <p>Progress is synced from Microsoft Planner.</p>
+                      <p className="mt-1">To update manually, disable Planner sync in the Big Rock settings.</p>
+                    </div>
+                  ) : (
+                    <Slider
+                      id="ci-bigrock-progress"
+                      value={[checkInForm.newProgress]}
+                      onValueChange={(value) => setCheckInForm({ ...checkInForm, newProgress: value[0] })}
+                      max={100}
+                      step={5}
+                      data-testid="slider-bigrock-checkin-progress"
+                    />
+                  )}
+                </div>
+              )}
+              
               <div>
                 <Label htmlFor="ci-status">Status</Label>
                 <Select
