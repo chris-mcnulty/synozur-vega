@@ -23,7 +23,9 @@ import {
   objectivePlannerTasks,
   bigRockPlannerTasks,
   consultantTenantAccess, type ConsultantTenantAccess, type InsertConsultantTenantAccess,
-  systemVocabulary, type SystemVocabulary, type VocabularyTerms, defaultVocabulary
+  systemVocabulary, type SystemVocabulary, type VocabularyTerms, defaultVocabulary,
+  aiUsageLogs, type AiUsageLog, type InsertAiUsageLog,
+  aiUsageSummaries, type AiUsageSummary
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, inArray } from "drizzle-orm";
@@ -201,6 +203,20 @@ export interface IStorage {
   getSystemVocabulary(): Promise<SystemVocabulary | undefined>;
   upsertSystemVocabulary(terms: VocabularyTerms, updatedBy: string): Promise<SystemVocabulary>;
   getEffectiveVocabulary(tenantId: string | null): Promise<VocabularyTerms>;
+  
+  // AI Usage tracking methods
+  createAiUsageLog(log: InsertAiUsageLog): Promise<AiUsageLog>;
+  getAiUsageLogs(tenantId: string, startDate?: Date, endDate?: Date, limit?: number): Promise<AiUsageLog[]>;
+  getAiUsageSummary(tenantId: string, periodType: 'daily' | 'monthly', periodStart: Date): Promise<AiUsageSummary | undefined>;
+  getAiUsageSummaries(tenantId: string, periodType: 'daily' | 'monthly', limit?: number): Promise<AiUsageSummary[]>;
+  getPlatformAiUsageSummary(periodType: 'daily' | 'monthly', periodStart: Date): Promise<{
+    totalRequests: number;
+    totalTokens: number;
+    totalCostMicrodollars: number;
+    byTenant: Array<{ tenantId: string; tenantName: string; requests: number; tokens: number; cost: number }>;
+    byModel: Record<string, { requests: number; tokens: number; cost: number }>;
+    byFeature: Record<string, { requests: number; tokens: number; cost: number }>;
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1681,6 +1697,139 @@ export class DatabaseStorage implements IStorage {
     }
     
     return effectiveVocab;
+  }
+
+  // AI Usage tracking methods
+  async createAiUsageLog(log: InsertAiUsageLog): Promise<AiUsageLog> {
+    const [created] = await db.insert(aiUsageLogs).values(log).returning();
+    return created;
+  }
+
+  async getAiUsageLogs(tenantId: string, startDate?: Date, endDate?: Date, limit: number = 100): Promise<AiUsageLog[]> {
+    let query = db.select().from(aiUsageLogs).where(eq(aiUsageLogs.tenantId, tenantId));
+    
+    if (startDate && endDate) {
+      query = db.select().from(aiUsageLogs).where(
+        and(
+          eq(aiUsageLogs.tenantId, tenantId),
+          sql`${aiUsageLogs.createdAt} >= ${startDate}`,
+          sql`${aiUsageLogs.createdAt} <= ${endDate}`
+        )
+      );
+    }
+    
+    return await query.orderBy(desc(aiUsageLogs.createdAt)).limit(limit);
+  }
+
+  async getAiUsageSummary(tenantId: string, periodType: 'daily' | 'monthly', periodStart: Date): Promise<AiUsageSummary | undefined> {
+    const [summary] = await db
+      .select()
+      .from(aiUsageSummaries)
+      .where(and(
+        eq(aiUsageSummaries.tenantId, tenantId),
+        eq(aiUsageSummaries.periodType, periodType),
+        eq(aiUsageSummaries.periodStart, periodStart)
+      ));
+    return summary || undefined;
+  }
+
+  async getAiUsageSummaries(tenantId: string, periodType: 'daily' | 'monthly', limit: number = 30): Promise<AiUsageSummary[]> {
+    return await db
+      .select()
+      .from(aiUsageSummaries)
+      .where(and(
+        eq(aiUsageSummaries.tenantId, tenantId),
+        eq(aiUsageSummaries.periodType, periodType)
+      ))
+      .orderBy(desc(aiUsageSummaries.periodStart))
+      .limit(limit);
+  }
+
+  async getPlatformAiUsageSummary(periodType: 'daily' | 'monthly', periodStart: Date): Promise<{
+    totalRequests: number;
+    totalTokens: number;
+    totalCostMicrodollars: number;
+    byTenant: Array<{ tenantId: string; tenantName: string; requests: number; tokens: number; cost: number }>;
+    byModel: Record<string, { requests: number; tokens: number; cost: number }>;
+    byFeature: Record<string, { requests: number; tokens: number; cost: number }>;
+  }> {
+    // Calculate period end based on type
+    const periodEnd = new Date(periodStart);
+    if (periodType === 'daily') {
+      periodEnd.setDate(periodEnd.getDate() + 1);
+    } else {
+      periodEnd.setMonth(periodEnd.getMonth() + 1);
+    }
+
+    // Get all logs for the period
+    const logs = await db
+      .select()
+      .from(aiUsageLogs)
+      .where(and(
+        sql`${aiUsageLogs.createdAt} >= ${periodStart}`,
+        sql`${aiUsageLogs.createdAt} < ${periodEnd}`
+      ));
+
+    // Aggregate by tenant
+    const byTenantMap = new Map<string, { requests: number; tokens: number; cost: number }>();
+    const byModel: Record<string, { requests: number; tokens: number; cost: number }> = {};
+    const byFeature: Record<string, { requests: number; tokens: number; cost: number }> = {};
+    let totalRequests = 0;
+    let totalTokens = 0;
+    let totalCostMicrodollars = 0;
+
+    for (const log of logs) {
+      totalRequests++;
+      totalTokens += log.totalTokens;
+      totalCostMicrodollars += log.estimatedCostMicrodollars || 0;
+
+      // By tenant
+      if (log.tenantId) {
+        const existing = byTenantMap.get(log.tenantId) || { requests: 0, tokens: 0, cost: 0 };
+        existing.requests++;
+        existing.tokens += log.totalTokens;
+        existing.cost += log.estimatedCostMicrodollars || 0;
+        byTenantMap.set(log.tenantId, existing);
+      }
+
+      // By model
+      if (!byModel[log.model]) {
+        byModel[log.model] = { requests: 0, tokens: 0, cost: 0 };
+      }
+      byModel[log.model].requests++;
+      byModel[log.model].tokens += log.totalTokens;
+      byModel[log.model].cost += log.estimatedCostMicrodollars || 0;
+
+      // By feature
+      if (!byFeature[log.feature]) {
+        byFeature[log.feature] = { requests: 0, tokens: 0, cost: 0 };
+      }
+      byFeature[log.feature].requests++;
+      byFeature[log.feature].tokens += log.totalTokens;
+      byFeature[log.feature].cost += log.estimatedCostMicrodollars || 0;
+    }
+
+    // Get tenant names
+    const tenantIds = Array.from(byTenantMap.keys());
+    const tenantsData = tenantIds.length > 0 
+      ? await db.select().from(tenants).where(inArray(tenants.id, tenantIds))
+      : [];
+    const tenantNameMap = new Map(tenantsData.map(t => [t.id, t.name]));
+
+    const byTenant = Array.from(byTenantMap.entries()).map(([tenantId, data]) => ({
+      tenantId,
+      tenantName: tenantNameMap.get(tenantId) || 'Unknown',
+      ...data
+    }));
+
+    return {
+      totalRequests,
+      totalTokens,
+      totalCostMicrodollars,
+      byTenant,
+      byModel,
+      byFeature
+    };
   }
 }
 
