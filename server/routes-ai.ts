@@ -717,3 +717,116 @@ aiRouter.post("/parse-meeting-recap", requireAIChat, async (req: Request, res: R
     res.status(500).json({ error: error.message || "Failed to parse meeting notes" });
   }
 });
+
+// ============================================
+// AI USAGE TRACKING ROUTES
+// ============================================
+
+// Get AI usage summary for a tenant (tenant admin only)
+aiRouter.get("/usage/summary", requireTenantAccess, async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.session.currentTenantId || req.user?.tenantId;
+    if (!tenantId) {
+      return res.status(400).json({ error: "Tenant context required" });
+    }
+    
+    // Check if user has admin permission
+    if (!hasPermission(req.user?.role as Role, PERMISSIONS.MANAGE_TENANT)) {
+      return res.status(403).json({ error: "Admin access required to view AI usage" });
+    }
+
+    const periodType = (req.query.periodType as 'daily' | 'monthly') || 'daily';
+    const limit = parseInt(req.query.limit as string) || 30;
+
+    // Get usage summaries for the tenant
+    const summaries = await storage.getAiUsageSummaries(tenantId, periodType, limit);
+    
+    // Also get recent logs for detailed view
+    const recentLogs = await storage.getAiUsageLogs(tenantId, undefined, undefined, 100);
+    
+    // Calculate current period stats from logs
+    const now = new Date();
+    const periodStart = new Date(now);
+    if (periodType === 'daily') {
+      periodStart.setHours(0, 0, 0, 0);
+    } else {
+      periodStart.setDate(1);
+      periodStart.setHours(0, 0, 0, 0);
+    }
+
+    const currentPeriodLogs = recentLogs.filter(log => 
+      new Date(log.createdAt) >= periodStart
+    );
+
+    const currentPeriodStats = {
+      requests: currentPeriodLogs.length,
+      totalTokens: currentPeriodLogs.reduce((sum, log) => sum + log.totalTokens, 0),
+      estimatedCostMicrodollars: currentPeriodLogs.reduce((sum, log) => sum + (log.estimatedCostMicrodollars || 0), 0),
+      byModel: {} as Record<string, { requests: number; tokens: number; cost: number }>,
+      byFeature: {} as Record<string, { requests: number; tokens: number; cost: number }>,
+    };
+
+    for (const log of currentPeriodLogs) {
+      if (!currentPeriodStats.byModel[log.model]) {
+        currentPeriodStats.byModel[log.model] = { requests: 0, tokens: 0, cost: 0 };
+      }
+      currentPeriodStats.byModel[log.model].requests++;
+      currentPeriodStats.byModel[log.model].tokens += log.totalTokens;
+      currentPeriodStats.byModel[log.model].cost += log.estimatedCostMicrodollars || 0;
+
+      if (!currentPeriodStats.byFeature[log.feature]) {
+        currentPeriodStats.byFeature[log.feature] = { requests: 0, tokens: 0, cost: 0 };
+      }
+      currentPeriodStats.byFeature[log.feature].requests++;
+      currentPeriodStats.byFeature[log.feature].tokens += log.totalTokens;
+      currentPeriodStats.byFeature[log.feature].cost += log.estimatedCostMicrodollars || 0;
+    }
+
+    res.json({
+      currentPeriod: currentPeriodStats,
+      historicalSummaries: summaries,
+      recentLogs: recentLogs.slice(0, 20),
+    });
+  } catch (error: any) {
+    console.error("[AI Usage] Error fetching usage summary:", error.message || error);
+    res.status(500).json({ error: error.message || "Failed to fetch AI usage summary" });
+  }
+});
+
+// Get platform-wide AI usage (platform admins only)
+aiRouter.get("/usage/platform", async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    
+    // Check if user has platform admin permission
+    if (!hasPermission(req.user.role as Role, PERMISSIONS.MANAGE_SYSTEM)) {
+      return res.status(403).json({ error: "Platform admin access required" });
+    }
+
+    const periodType = (req.query.periodType as 'daily' | 'monthly') || 'daily';
+    
+    // Get current period start
+    const now = new Date();
+    const periodStart = new Date(now);
+    if (periodType === 'daily') {
+      periodStart.setHours(0, 0, 0, 0);
+    } else {
+      periodStart.setDate(1);
+      periodStart.setHours(0, 0, 0, 0);
+    }
+
+    const summary = await storage.getPlatformAiUsageSummary(periodType, periodStart);
+    
+    res.json({
+      periodType,
+      periodStart,
+      ...summary,
+      estimatedCostDollars: summary.totalCostMicrodollars / 1000000,
+    });
+  } catch (error: any) {
+    console.error("[AI Usage] Error fetching platform usage:", error.message || error);
+    res.status(500).json({ error: error.message || "Failed to fetch platform AI usage" });
+  }
+});
