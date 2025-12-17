@@ -383,7 +383,7 @@ function PlannerProgressMappingInner({
                 </div>
               ) : (
                 <Select 
-                  value={selectedPlanId} 
+                  value={selectedPlanId || undefined} 
                   onValueChange={(value) => {
                     console.log('[PlannerProgressMapping] Plan selected:', { value, typeOf: typeof value });
                     try {
@@ -401,8 +401,8 @@ function PlannerProgressMappingInner({
                     <SelectValue placeholder="Select a plan" />
                   </SelectTrigger>
                   <SelectContent>
-                    {plans
-                      .filter(plan => plan && plan.id && plan.title)
+                    {Array.isArray(plans) && plans
+                      .filter(plan => plan && typeof plan.id === 'string' && plan.id.length > 0 && typeof plan.title === 'string')
                       .map((plan) => (
                         <SelectItem key={plan.id} value={plan.id}>
                           {plan.title}
@@ -413,7 +413,7 @@ function PlannerProgressMappingInner({
               )}
             </div>
 
-            {selectedPlanId && (
+            {selectedPlanId && selectedPlanId.length > 0 && (
               <div className="space-y-2">
                 <Label>Bucket (optional)</Label>
                 {bucketsError ? (
@@ -424,13 +424,16 @@ function PlannerProgressMappingInner({
                     </AlertDescription>
                   </Alert>
                 ) : (
-                  <Select value={selectedBucketId} onValueChange={setSelectedBucketId}>
+                  <Select value={selectedBucketId || "__all__"} onValueChange={(value) => {
+                    console.log('[PlannerProgressMapping] Bucket selected:', value);
+                    setSelectedBucketId(value === "__all__" ? "" : value);
+                  }}>
                     <SelectTrigger data-testid="select-planner-bucket">
                       <SelectValue placeholder="All tasks in plan" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All tasks in plan</SelectItem>
-                      {buckets
+                      <SelectItem value="__all__">All tasks in plan</SelectItem>
+                      {Array.isArray(buckets) && buckets
                         .filter(bucket => bucket && bucket.id && bucket.name)
                         .map((bucket) => (
                           <SelectItem key={bucket.id} value={bucket.id}>
