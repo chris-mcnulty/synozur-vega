@@ -90,9 +90,9 @@ export function PlannerProgressMapping({
     enabled: plannerStatus?.connected && configDialogOpen,
   });
 
-  const { data: buckets = [] } = useQuery<PlannerBucket[]>({
+  const { data: buckets = [], error: bucketsError } = useQuery<PlannerBucket[]>({
     queryKey: ["/api/planner/plans", selectedPlanId, "buckets"],
-    enabled: !!selectedPlanId && configDialogOpen,
+    enabled: !!selectedPlanId && selectedPlanId.length > 0 && configDialogOpen,
   });
 
   // Sync plans from Microsoft Graph
@@ -342,19 +342,30 @@ export function PlannerProgressMapping({
                   </Button>
                 </div>
               ) : (
-                <Select value={selectedPlanId} onValueChange={(value) => {
-                  setSelectedPlanId(value);
-                  setSelectedBucketId("");
-                }}>
+                <Select 
+                  value={selectedPlanId} 
+                  onValueChange={(value) => {
+                    try {
+                      if (value && typeof value === 'string') {
+                        setSelectedPlanId(value);
+                        setSelectedBucketId("");
+                      }
+                    } catch (error) {
+                      console.error('[PlannerProgressMapping] Error selecting plan:', error);
+                    }
+                  }}
+                >
                   <SelectTrigger data-testid="select-planner-plan">
                     <SelectValue placeholder="Select a plan" />
                   </SelectTrigger>
                   <SelectContent>
-                    {plans.map((plan) => (
-                      <SelectItem key={plan.id} value={plan.id}>
-                        {plan.title}
-                      </SelectItem>
-                    ))}
+                    {plans
+                      .filter(plan => plan && plan.id && plan.title)
+                      .map((plan) => (
+                        <SelectItem key={plan.id} value={plan.id}>
+                          {plan.title}
+                        </SelectItem>
+                      ))}
                   </SelectContent>
                 </Select>
               )}
@@ -363,19 +374,30 @@ export function PlannerProgressMapping({
             {selectedPlanId && (
               <div className="space-y-2">
                 <Label>Bucket (optional)</Label>
-                <Select value={selectedBucketId} onValueChange={setSelectedBucketId}>
-                  <SelectTrigger data-testid="select-planner-bucket">
-                    <SelectValue placeholder="All tasks in plan" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">All tasks in plan</SelectItem>
-                    {buckets.map((bucket) => (
-                      <SelectItem key={bucket.id} value={bucket.id}>
-                        {bucket.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                {bucketsError ? (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-xs">
+                      Failed to load buckets. The plan may not have any buckets.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <Select value={selectedBucketId} onValueChange={setSelectedBucketId}>
+                    <SelectTrigger data-testid="select-planner-bucket">
+                      <SelectValue placeholder="All tasks in plan" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">All tasks in plan</SelectItem>
+                      {buckets
+                        .filter(bucket => bucket && bucket.id && bucket.name)
+                        .map((bucket) => (
+                          <SelectItem key={bucket.id} value={bucket.id}>
+                            {bucket.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                )}
                 <p className="text-xs text-muted-foreground">
                   Leave empty to include all tasks in the plan, or select a specific bucket
                 </p>
