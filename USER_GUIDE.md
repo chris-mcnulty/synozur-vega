@@ -545,7 +545,7 @@ Once weights are finalized, they can be locked to prevent accidental changes dur
 
 ### Phased Targets and Milestones
 
-> **Coming Soon:** The database schema supports phased targets (milestones) for long-term objectives and key results. This feature allows you to define progressive target values over time to track if you're on pace. UI implementation is planned for an upcoming release.
+> **Coming Soon:** The database schema supports phased targets (milestones) for long-term objectives and key results. This feature allows you to define progressive target values over time to track if you're on pace. UI implementation is scheduled for a future sprint.
 
 **Planned Capabilities:**
 - Define monthly, quarterly, or custom milestone targets
@@ -689,7 +689,7 @@ Click any meeting to see:
 
 Vega includes an AI-powered assistant to help you analyze data, answer questions, and generate insights.
 
-> **Note:** The AI Assistant is currently in development. Core query capabilities are functional, while advanced features are being refined.
+> **Note:** The AI Assistant core functionality is operational with 8 data query tools. Advanced analytics and predictive features are in development.
 
 ### Accessing the AI Assistant
 
@@ -1157,7 +1157,7 @@ Admin-level import and export functions:
 
 Vega uses role-based permissions to control access.
 
-> **Security Status:** Core RBAC implementation is 95% complete, providing comprehensive security and access control. Fine-grained permissions for specific features continue to be refined.
+> **Security Status:** Core RBAC provides comprehensive security with authentication, authorization, and tenant isolation fully operational. Additional fine-grained permissions for specific administrative functions continue to be added.
 
 **Permission Levels:**
 
@@ -1428,14 +1428,14 @@ Vega uses role-based permissions to control access.
 - **v1.0** (December 13, 2025): Initial comprehensive user guide
 - **v1.1** (December 17, 2025): Updated to reflect actual implementation status
   - Added development status notes for features in progress
-  - Clarified AI Assistant capabilities (~40% implementation)
+  - Clarified AI Assistant capabilities (8 data query tools operational, advanced analytics in development)
   - Updated M365 integration status (SSO, Planner, SharePoint, OneDrive operational; admin consent and calendar sync planned)
   - Added information about Key Result weighting (schema ready, UI enhancement planned)
-  - Documented phased targets/milestones support in schema (UI planned)
+  - Documented phased targets/milestones support in schema (UI scheduled for future sprint)
   - Added notes about Focus Rhythm decisions/risks tracking (schema ready, UI planned)
   - Included information about enhanced reporting and snapshot capabilities (in development)
   - Added governance and audit tracking features (planned)
-  - Updated RBAC security status (95% complete)
+  - Updated RBAC security status (core features fully operational, fine-grained permissions being added)
   - Added known issues related to SSO session persistence and Planner integration
   - Added information about OKR cloning (planned feature)
 
