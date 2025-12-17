@@ -2,7 +2,7 @@
 
 **Welcome to Vega - The Synozur Alliance Company Operating System**
 
-Version 1.0 | Last Updated: December 13, 2025
+Version 1.1 | Last Updated: December 17, 2025
 
 ---
 
@@ -772,7 +772,6 @@ Vega integrates with Microsoft 365 to sync data and enhance your workflow.
 2. **Planner**: Sync tasks and initiatives
 3. **SharePoint**: Access documents and files
 4. **OneDrive**: Link files to objectives
-5. **Outlook Calendar** (planned): Sync Focus Rhythm meetings
 
 ### Connecting Microsoft 365
 
@@ -873,7 +872,6 @@ Vega provides tools to import OKR data from other systems and export your Compan
 
 1. **Viva Goals Export**: Import from Microsoft Viva Goals
 2. **Vega (.cos) Files**: Import previously exported Vega data
-3. **Excel/CSV** (planned): Structured OKR data
 
 #### Import from Viva Goals
 
@@ -1297,24 +1295,6 @@ Vega uses role-based permissions to control access:
 
 ---
 
-## Appendix: Keyboard Shortcuts
-
-(Feature planned for future release)
-
-**Navigation:**
-- `Alt + D`: Go to Dashboard
-- `Alt + F`: Go to Foundations
-- `Alt + S`: Go to Strategy
-- `Alt + P`: Go to Planning
-- `Alt + R`: Go to Focus Rhythm
-
-**Actions:**
-- `Ctrl + K`: Open command palette
-- `Ctrl + /`: Open AI Assistant
-- `Esc`: Close modals/dialogs
-
----
-
 ## Appendix: Glossary
 
 **Big Rock**: A major initiative or project that contributes to achieving Key Results. Named after the "big rocks" time management metaphor - prioritizing important over urgent.
@@ -1348,6 +1328,7 @@ Vega uses role-based permissions to control access:
 ## Document Version History
 
 - **v1.0** (December 13, 2025): Initial comprehensive user guide
+- **v1.1** (December 17, 2025): Removed roadmap and future work content; focused on currently implemented features only
 
 ---
 
