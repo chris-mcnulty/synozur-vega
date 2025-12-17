@@ -32,8 +32,10 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Meeting, Foundation, Objective, KeyResult, BigRock, MeetingTemplate } from "@shared/schema";
 import { MEETING_TEMPLATES } from "@shared/schema";
 import { useTenant } from "@/contexts/TenantContext";
+import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { getCurrentQuarter, getQuarterDateRange } from "@/lib/quarters";
+import { hasPermission, PERMISSIONS, ROLES, type Role } from "@shared/rbac";
 
 interface MeetingFormData {
   title: string;
@@ -414,6 +416,7 @@ interface MeetingCardProps {
   meeting: Meeting;
   onEdit: (meeting: Meeting) => void;
   onDelete: (meeting: Meeting) => void;
+  canDelete: boolean;
   objectives: Objective[];
   bigRocks: BigRock[];
   onCopyBrief: (meeting: Meeting) => void;
@@ -424,7 +427,7 @@ interface MeetingCardProps {
   isSendingSummary?: boolean;
 }
 
-function MeetingCard({ meeting, onEdit, onDelete, objectives, bigRocks, onCopyBrief, outlookConnected, onSyncToOutlook, onSendSummary, isSyncing, isSendingSummary }: MeetingCardProps) {
+function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, bigRocks, onCopyBrief, outlookConnected, onSyncToOutlook, onSendSummary, isSyncing, isSendingSummary }: MeetingCardProps) {
   const linkedObjectives = objectives.filter(o => 
     meeting.linkedObjectiveIds?.includes(o.id)
   );
@@ -528,14 +531,16 @@ function MeetingCard({ meeting, onEdit, onDelete, objectives, bigRocks, onCopyBr
             >
               <Pencil className="w-4 h-4" />
             </Button>
-            <Button 
-              variant="ghost" 
-              size="icon"
-              onClick={() => onDelete(meeting)}
-              data-testid={`button-delete-meeting-${meeting.id}`}
-            >
-              <Trash2 className="w-4 h-4" />
-            </Button>
+            {canDelete && (
+              <Button 
+                variant="ghost" 
+                size="icon"
+                onClick={() => onDelete(meeting)}
+                data-testid={`button-delete-meeting-${meeting.id}`}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            )}
           </div>
         </div>
       </CardHeader>
@@ -697,6 +702,9 @@ function MeetingCard({ meeting, onEdit, onDelete, objectives, bigRocks, onCopyBr
 export default function FocusRhythm() {
   const { toast } = useToast();
   const { currentTenant } = useTenant();
+  const { user } = useAuth();
+  const userRole = (user?.role || ROLES.TENANT_USER) as Role;
+  const canDeleteMeeting = hasPermission(userRole, PERMISSIONS.DELETE_MEETING);
   const [selectedType, setSelectedType] = useState<string>("all");
   const [showTemplateSelector, setShowTemplateSelector] = useState(false);
   const [linkingModalOpen, setLinkingModalOpen] = useState(false);
@@ -2068,6 +2076,7 @@ export default function FocusRhythm() {
                     meeting={meeting}
                     onEdit={openEditDialog}
                     onDelete={openDeleteDialog}
+                    canDelete={canDeleteMeeting}
                     objectives={objectives}
                     bigRocks={bigRocks}
                     onCopyBrief={handleCopyBrief}

@@ -15,6 +15,7 @@ import { useLocation } from "wouter";
 import { SynozurLogo } from "./SynozurLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { ROLES, hasPermission, PERMISSIONS, type Role } from "@shared/rbac";
 
 const menuItems = [
   {
@@ -102,6 +103,13 @@ export function AppSidebar() {
     return 'U';
   };
 
+  const userRole = (user?.role || ROLES.TENANT_USER) as Role;
+  const canManageTenant = hasPermission(userRole, PERMISSIONS.MANAGE_TENANT_SETTINGS);
+  const canImportData = hasPermission(userRole, PERMISSIONS.IMPORT_DATA);
+  const canManageAI = hasPermission(userRole, PERMISSIONS.MANAGE_AI_GROUNDING);
+  const isPlatformAdmin = userRole === ROLES.VEGA_ADMIN || userRole === ROLES.GLOBAL_ADMIN;
+  const showAdminSection = canManageTenant || canImportData || canManageAI;
+
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
@@ -132,41 +140,71 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-        <SidebarGroup>
-          <SidebarGroupLabel>Administration</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {adminItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === item.url}
-                    data-testid="sidebar-admin"
-                  >
-                    <a href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-              {(user?.role === 'vega_admin' || user?.role === 'global_admin') && platformAdminItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton
-                    asChild
-                    isActive={location === item.url}
-                    data-testid="sidebar-system-admin"
-                  >
-                    <a href={item.url}>
-                      <item.icon />
-                      <span>{item.title}</span>
-                    </a>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {showAdminSection && (
+          <SidebarGroup>
+            <SidebarGroupLabel>Administration</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {canImportData && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location === "/import"}
+                      data-testid="sidebar-import"
+                    >
+                      <a href="/import">
+                        <Upload />
+                        <span>Import Data</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {canManageAI && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location === "/ai-grounding"}
+                      data-testid="sidebar-ai-grounding"
+                    >
+                      <a href="/ai-grounding">
+                        <Brain />
+                        <span>AI Grounding</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {canManageTenant && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location === "/tenant-admin"}
+                      data-testid="sidebar-tenant-admin"
+                    >
+                      <a href="/tenant-admin">
+                        <Settings />
+                        <span>Tenant Admin</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {isPlatformAdmin && platformAdminItems.map((item) => (
+                  <SidebarMenuItem key={item.title}>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location === item.url}
+                      data-testid="sidebar-system-admin"
+                    >
+                      <a href={item.url}>
+                        <item.icon />
+                        <span>{item.title}</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        )}
         <SidebarGroup>
           <SidebarGroupLabel>Account</SidebarGroupLabel>
           <SidebarGroupContent>

@@ -101,18 +101,18 @@ Improve the objective progress display on the Company OS Dashboard:
 
 **Success Criteria:** Progress bars show color-coded status, sorted to highlight at-risk items.
 
-#### QW-3: Hide Admin Features from Regular Users 👁️
-**Effort:** 2-3 hours | **Risk:** Low | **Files:** 3-5
+#### QW-3: Hide Admin Features from Regular Users 👁️ ✅ COMPLETE
+**Effort:** 2-3 hours | **Risk:** Low | **Files:** 3-5 | **Completed:** Dec 17, 2025
 
-Add role-based UI restrictions to hide admin-only features:
-- Use existing `useUser()` hook to check `user.role`
-- Hide "Tenant Admin" menu item for non-admins
-- Hide "Delete" buttons on meetings for non-admins
-- Conditionally render admin sections in settings
+~~Add role-based UI restrictions to hide admin-only features:~~
+- ~~Use existing `useUser()` hook to check `user.role`~~
+- ~~Hide "Tenant Admin" menu item for non-admins~~
+- ~~Hide "Delete" buttons on meetings for non-admins~~
+- ~~Conditionally render admin sections in settings~~
 
-**Reference:** Check `shared/rbac.ts` for role definitions and `platformAdminRoles` array
-
-**Success Criteria:** Regular users don't see admin-only UI elements; no functional regressions.
+**Implementation:**
+- `AppSidebar.tsx`: Uses `hasPermission()` from `shared/rbac.ts` to conditionally show Import Data, AI Grounding, Tenant Admin, and System Admin menu items based on user permissions
+- `FocusRhythm.tsx`: Delete meeting button only visible to users with `DELETE_MEETING` permission
 
 ---
 
