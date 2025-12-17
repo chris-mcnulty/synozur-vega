@@ -59,6 +59,27 @@ export const defaultVocabulary: VocabularyTerms = {
   focusRhythm: { singular: "Focus Rhythm", plural: "Focus Rhythms" },
 };
 
+// Branding configuration type for tenant customization
+export type TenantBranding = {
+  // Color scheme
+  primaryColor?: string;      // Main brand color (hex)
+  secondaryColor?: string;    // Secondary brand color (hex)
+  accentColor?: string;       // Accent/highlight color (hex)
+  
+  // Typography
+  fontFamily?: string;        // Primary font family
+  headingFontFamily?: string; // Font for headings
+  
+  // Report branding
+  reportHeaderText?: string;  // Custom header text for reports
+  reportFooterText?: string;  // Custom footer text for reports
+  tagline?: string;           // Company tagline
+  
+  // Email branding
+  emailFromName?: string;     // Sender name for emails
+  emailSignature?: string;    // Email signature HTML
+};
+
 export const tenants = pgTable("tenants", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull().unique(),
@@ -81,6 +102,15 @@ export const tenants = pgTable("tenants", {
   adminConsentGrantedBy: varchar("admin_consent_granted_by"),
   // Vocabulary overrides for this tenant (partial - only overridden terms)
   vocabularyOverrides: jsonb("vocabulary_overrides").$type<Partial<VocabularyTerms>>(),
+  
+  // Branding configuration (NEW - Dec 17, 2025)
+  branding: jsonb("branding").$type<TenantBranding>(),
+  // Secondary/alternate logo for dark backgrounds
+  logoUrlDark: text("logo_url_dark"),
+  // Favicon URL
+  faviconUrl: text("favicon_url"),
+  // Custom subdomain (e.g., "acme" for acme.vega.synozur.com)
+  customSubdomain: text("custom_subdomain"),
 });
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({
