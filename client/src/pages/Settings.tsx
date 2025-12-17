@@ -5,8 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { PlannerConnectionCard } from "@/components/planner/PlannerConnectionCard";
+import { OutlookConnectionCard } from "@/components/outlook/OutlookConnectionCard";
 import { useAuth } from "@/contexts/AuthContext";
-import { User, Bell, Plug, Shield, Mail, LogOut } from "lucide-react";
+import { User, Bell, Plug, Shield, LogOut } from "lucide-react";
 import { useLocation } from "wouter";
 
 export default function Settings() {
@@ -95,28 +96,7 @@ export default function Settings() {
           
           <div className="grid gap-4 md:grid-cols-2">
             <PlannerConnectionCard />
-            
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <Mail className="h-5 w-5" />
-                      Microsoft Outlook
-                    </CardTitle>
-                    <CardDescription>
-                      Sync calendar events with meetings
-                    </CardDescription>
-                  </div>
-                  <Badge variant="outline">Coming Soon</Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-muted-foreground">
-                  Calendar integration with Focus Rhythm meetings will be available soon.
-                </p>
-              </CardContent>
-            </Card>
+            <OutlookConnectionCard />
           </div>
         </TabsContent>
       </Tabs>

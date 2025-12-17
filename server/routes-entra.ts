@@ -59,7 +59,18 @@ const PLANNER_SCOPES = [
   'offline_access',
 ];
 
+const OUTLOOK_SCOPES = [
+  'openid',
+  'profile', 
+  'email',
+  'User.Read',
+  'Calendars.Read',
+  'Calendars.ReadWrite',
+  'offline_access',
+];
+
 const PLANNER_REDIRECT_URI = `${getBaseUrl()}/auth/entra/planner-callback`;
+const OUTLOOK_REDIRECT_URI = `${getBaseUrl()}/auth/entra/outlook-callback`;
 const ADMIN_CONSENT_REDIRECT_URI = `${getBaseUrl()}/auth/entra/admin-consent-callback`;
 
 // All scopes needed for Vega platform (including Copilot agent)
@@ -515,6 +526,7 @@ router.get('/planner-callback', async (req: Request, res: Response) => {
       refreshToken: refreshToken ? encryptToken(refreshToken) : null,
       expiresAt: tokenResponse.expiresOn ? new Date(tokenResponse.expiresOn) : null,
       scopes: PLANNER_SCOPES,
+      service: 'planner',
     });
 
     delete (req.session as any).pkceVerifier;
@@ -537,7 +549,7 @@ router.get('/planner/status', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const token = await storage.getGraphToken(userId);
+    const token = await storage.getGraphToken(userId, 'planner');
     const isConfigured = !!(process.env.AZURE_CLIENT_ID && process.env.AZURE_CLIENT_SECRET);
     
     res.json({
@@ -559,11 +571,163 @@ router.post('/planner/disconnect', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    await storage.deleteGraphToken(userId);
+    await storage.deleteGraphToken(userId, 'planner');
     res.json({ success: true });
   } catch (error) {
     console.error('[Entra Planner] Disconnect error:', error);
     res.status(500).json({ error: 'Failed to disconnect Planner' });
+  }
+});
+
+// ==================== Outlook Calendar OAuth Flow ====================
+
+router.get('/outlook/connect', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const client = getMsalClient();
+    if (!client) {
+      return res.status(503).json({ error: 'Azure AD SSO is not configured' });
+    }
+
+    const { verifier, challenge } = await cryptoProvider.generatePkceCodes();
+    const state = cryptoProvider.createNewGuid();
+    
+    (req.session as any).pkceVerifier = verifier;
+    (req.session as any).authState = state;
+    (req.session as any).outlookConnect = true;
+
+    const authCodeUrlParams = {
+      scopes: OUTLOOK_SCOPES,
+      redirectUri: OUTLOOK_REDIRECT_URI,
+      codeChallenge: challenge,
+      codeChallengeMethod: 'S256' as const,
+      state,
+      prompt: 'consent',
+    };
+
+    const authUrl = await client.getAuthCodeUrl(authCodeUrlParams);
+    res.redirect(authUrl);
+  } catch (error) {
+    console.error('[Entra Outlook] Connect error:', error);
+    res.status(500).json({ error: 'Failed to initiate Outlook connection' });
+  }
+});
+
+router.get('/outlook-callback', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId;
+    if (!userId) {
+      return res.redirect('/settings?error=not_authenticated');
+    }
+
+    const client = getMsalClient();
+    if (!client) {
+      return res.redirect('/settings?error=sso_not_configured');
+    }
+
+    const { code, state, error, error_description } = req.query;
+
+    if (error) {
+      console.error('[Entra Outlook] Auth error:', error, error_description);
+      return res.redirect(`/settings?error=${encodeURIComponent(error as string)}`);
+    }
+
+    if (!code || typeof code !== 'string') {
+      return res.redirect('/settings?error=missing_auth_code');
+    }
+
+    const sessionState = (req.session as any).authState;
+    if (state !== sessionState) {
+      console.error('[Entra Outlook] State mismatch');
+      return res.redirect('/settings?error=state_mismatch');
+    }
+
+    const pkceVerifier = (req.session as any).pkceVerifier;
+    if (!pkceVerifier) {
+      return res.redirect('/settings?error=missing_pkce');
+    }
+
+    const tokenRequest: AuthorizationCodeRequest = {
+      code,
+      scopes: OUTLOOK_SCOPES,
+      redirectUri: OUTLOOK_REDIRECT_URI,
+      codeVerifier: pkceVerifier,
+    };
+
+    const tokenResponse = await client.acquireTokenByCode(tokenRequest);
+
+    if (!tokenResponse) {
+      return res.redirect('/settings?error=token_failed');
+    }
+
+    const user = await storage.getUser(userId);
+    if (!user || !user.tenantId) {
+      return res.redirect('/settings?error=user_not_found');
+    }
+
+    const refreshToken = (tokenResponse as any).refreshToken || null;
+    
+    await storage.upsertGraphToken({
+      userId,
+      tenantId: user.tenantId,
+      accessToken: encryptToken(tokenResponse.accessToken),
+      refreshToken: refreshToken ? encryptToken(refreshToken) : null,
+      expiresAt: tokenResponse.expiresOn ? new Date(tokenResponse.expiresOn) : null,
+      scopes: OUTLOOK_SCOPES,
+      service: 'outlook',
+    });
+
+    delete (req.session as any).pkceVerifier;
+    delete (req.session as any).authState;
+    delete (req.session as any).outlookConnect;
+
+    console.log(`[Entra Outlook] Connected for user ${userId}`);
+    res.redirect('/settings?outlook=connected');
+
+  } catch (error) {
+    console.error('[Entra Outlook] Callback error:', error);
+    res.redirect('/settings?error=callback_failed');
+  }
+});
+
+router.get('/outlook/status', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const token = await storage.getGraphToken(userId, 'outlook');
+    const isConfigured = !!(process.env.AZURE_CLIENT_ID && process.env.AZURE_CLIENT_SECRET);
+    
+    res.json({
+      configured: isConfigured,
+      connected: !!token,
+      expiresAt: token?.expiresAt,
+      scopes: token?.scopes || [],
+    });
+  } catch (error) {
+    console.error('[Entra Outlook] Status error:', error);
+    res.status(500).json({ error: 'Failed to get Outlook status' });
+  }
+});
+
+router.post('/outlook/disconnect', async (req: Request, res: Response) => {
+  try {
+    const userId = (req.session as any)?.userId;
+    if (!userId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    await storage.deleteGraphToken(userId, 'outlook');
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[Entra Outlook] Disconnect error:', error);
+    res.status(500).json({ error: 'Failed to disconnect Outlook' });
   }
 });
 

@@ -65,7 +65,7 @@ function getMsalClient(): ConfidentialClientApplication | null {
 }
 
 async function getAccessToken(userId: string): Promise<string | null> {
-  const graphToken = await storage.getGraphToken(userId);
+  const graphToken = await storage.getGraphToken(userId, 'planner');
   if (!graphToken) {
     console.warn(`[Graph Planner] No token found for user ${userId}`);
     return null;
@@ -111,6 +111,7 @@ async function getAccessToken(userId: string): Promise<string | null> {
           refreshToken: encryptToken(newRefreshToken),
           expiresAt: response.expiresOn ? new Date(response.expiresOn) : null,
           scopes: graphToken.scopes,
+          service: 'planner',
         });
         return response.accessToken;
       }
@@ -388,7 +389,7 @@ export async function getPlannerIntegrationStatus(userId: string): Promise<{
   taskCount: number;
   lastSyncAt: Date | null;
 }> {
-  const token = await storage.getGraphToken(userId);
+  const token = await storage.getGraphToken(userId, 'planner');
   
   if (!token) {
     return { connected: false, planCount: 0, taskCount: 0, lastSyncAt: null };
