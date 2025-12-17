@@ -399,15 +399,12 @@ okrRouter.post("/big-rocks", async (req, res) => {
 
 okrRouter.patch("/big-rocks/:id", async (req, res) => {
   try {
-    console.log('[Big Rock Update] Received body:', JSON.stringify(req.body, null, 2));
-    
     // Convert empty strings to null for foreign key fields
     const updateData = { ...req.body };
     if (updateData.objectiveId === "") updateData.objectiveId = null;
     if (updateData.keyResultId === "") updateData.keyResultId = null;
     
     const bigRock = await storage.updateBigRock(req.params.id, updateData);
-    console.log('[Big Rock Update] Update successful');
     res.json(bigRock);
   } catch (error) {
     console.error('[Big Rock Update] Error:', error);
@@ -533,9 +530,7 @@ okrRouter.get("/check-ins", async (req, res) => {
 
 okrRouter.post("/check-ins", async (req, res) => {
   try {
-    console.log('[Check-In] Received body:', JSON.stringify(req.body, null, 2));
     const validatedData = insertCheckInSchema.parse(req.body);
-    console.log('[Check-In] Validation passed');
     
     // Check if entity is closed - block check-ins on closed OKRs
     const { entityType, entityId } = validatedData;
@@ -643,19 +638,15 @@ okrRouter.post("/check-ins", async (req, res) => {
     res.json(checkIn);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.log('[Check-In] Validation error:', JSON.stringify(error.errors, null, 2));
       return res.status(400).json({ error: error.errors });
     }
-    console.log('[Check-In] Server error:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 okrRouter.patch("/check-ins/:id", async (req, res) => {
   try {
-    console.log('[Check-In Update] Received body:', JSON.stringify(req.body, null, 2));
     const validatedData = updateCheckInSchema.parse(req.body);
-    console.log('[Check-In Update] Validation passed');
     
     // Get the existing check-in to know which entity it belongs to
     const existingCheckIn = await storage.getCheckInById(req.params.id);
@@ -736,10 +727,8 @@ okrRouter.patch("/check-ins/:id", async (req, res) => {
     res.json(checkIn);
   } catch (error) {
     if (error instanceof z.ZodError) {
-      console.log('[Check-In Update] Validation error:', JSON.stringify(error.errors, null, 2));
       return res.status(400).json({ error: error.errors });
     }
-    console.log('[Check-In Update] Server error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -834,8 +823,6 @@ function calculateKeyResultProgress(
 // Backfill endpoint: Recalculate all Key Result progress values from currentValue/targetValue
 okrRouter.post("/backfill-progress", async (req, res) => {
   try {
-    console.log('[Backfill] Starting progress recalculation for all Key Results...');
-    
     // Get all key results
     const allKeyResults = await storage.getAllKeyResults();
     let updated = 0;
@@ -909,8 +896,6 @@ okrRouter.post("/backfill-progress", async (req, res) => {
         }
       }
     }
-    
-    console.log(`[Backfill] Complete: ${updated} Key Results updated, ${objectivesUpdated} Objectives recalculated, ${errors} errors`);
     
     res.json({
       success: true,

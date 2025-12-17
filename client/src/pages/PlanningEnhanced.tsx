@@ -526,7 +526,6 @@ export default function PlanningEnhanced() {
   // Mutations
   const createObjectiveMutation = useMutation({
     mutationFn: async (data: any) => {
-      console.log('[Planning] Creating objective with data:', data);
       // Convert empty parentId to null, use quarter/year from form data
       const cleanedData = {
         ...data,
@@ -644,7 +643,6 @@ export default function PlanningEnhanced() {
 
   const createBigRockMutation = useMutation({
     mutationFn: async (data: any) => {
-      console.log('[Planning] Creating big rock with data:', data);
       // Convert empty objectiveId/keyResultId to null
       const cleanedData = {
         ...data,
@@ -2517,7 +2515,6 @@ export default function PlanningEnhanced() {
                     });
                   } else {
                     // Create or update Big Rock
-                    console.log('[Big Rock Submit] Form state:', bigRockForm);
                     if (selectedBigRock) {
                       updateBigRockMutation.mutate({
                         id: selectedBigRock.id,
