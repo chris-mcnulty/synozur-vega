@@ -532,6 +532,11 @@ okrRouter.post("/check-ins", async (req, res) => {
   try {
     const validatedData = insertCheckInSchema.parse(req.body);
     
+    // Ensure previousProgress has a default value if not provided
+    if (validatedData.previousProgress === undefined || validatedData.previousProgress === null) {
+      validatedData.previousProgress = 0;
+    }
+    
     // Check if entity is closed - block check-ins on closed OKRs
     const { entityType, entityId } = validatedData;
     if (entityType === "objective") {
