@@ -465,6 +465,8 @@ router.post('/mapping/keyresult/:keyResultId/sync', async (req: Request, res: Re
     const userId = req.user!.id;
     const { keyResultId } = req.params;
     
+    console.log('[Planner API] Syncing Key Result progress:', { keyResultId, userId, tenantId });
+    
     const keyResult = await storage.getKeyResultById(keyResultId);
     if (!keyResult || keyResult.tenantId !== tenantId) {
       return res.status(403).json({ error: 'Access denied' });
@@ -474,12 +476,38 @@ router.post('/mapping/keyresult/:keyResultId/sync', async (req: Request, res: Re
       return res.status(400).json({ error: 'No Planner mapping configured' });
     }
 
+    // Get the plan to get its graphPlanId for fetching fresh data
+    const plan = await storage.getPlannerPlanById(keyResult.plannerPlanId);
+    if (!plan) {
+      return res.status(400).json({ error: 'Mapped plan not found. Please re-configure Planner mapping.' });
+    }
+
+    console.log('[Planner API] Refreshing tasks from Microsoft Graph for plan:', plan.title);
+    
+    // IMPORTANT: First refresh tasks from Microsoft Graph before calculating progress
+    try {
+      await syncPlannerTasks(userId, tenantId!, plan.id, plan.graphPlanId);
+      console.log('[Planner API] Successfully refreshed tasks from Microsoft Graph');
+    } catch (syncError: any) {
+      console.error('[Planner API] Failed to refresh tasks from Graph:', syncError);
+      if (syncError.message?.includes('No valid access token') || 
+          syncError.message?.includes('accessToken is null')) {
+        return res.status(401).json({ 
+          error: 'Your Planner connection has expired. Please reconnect in Settings.',
+          reconnectRequired: true
+        });
+      }
+      console.warn('[Planner API] Proceeding with potentially stale local data');
+    }
+
     // Calculate progress from tasks in the mapped plan/bucket
     const progress = await calculatePlannerProgress(
       keyResult.plannerPlanId, 
       keyResult.plannerBucketId || null,
-      tenantId
+      tenantId!
     );
+
+    console.log('[Planner API] Calculated progress:', progress);
 
     // Update key result with calculated progress
     const updated = await storage.updateKeyResult(keyResultId, {
@@ -513,6 +541,8 @@ router.post('/mapping/bigrock/:bigRockId/sync', async (req: Request, res: Respon
     const userId = req.user!.id;
     const { bigRockId } = req.params;
     
+    console.log('[Planner API] Syncing Big Rock progress:', { bigRockId, userId, tenantId });
+    
     const bigRock = await storage.getBigRockById(bigRockId);
     if (!bigRock || bigRock.tenantId !== tenantId) {
       return res.status(403).json({ error: 'Access denied' });
@@ -522,12 +552,42 @@ router.post('/mapping/bigrock/:bigRockId/sync', async (req: Request, res: Respon
       return res.status(400).json({ error: 'No Planner mapping configured' });
     }
 
+    // Get the plan to get its graphPlanId for fetching fresh data
+    const plan = await storage.getPlannerPlanById(bigRock.plannerPlanId);
+    if (!plan) {
+      return res.status(400).json({ error: 'Mapped plan not found. Please re-configure Planner mapping.' });
+    }
+
+    console.log('[Planner API] Refreshing tasks from Microsoft Graph for plan:', plan.title);
+    
+    // IMPORTANT: First refresh tasks from Microsoft Graph before calculating progress
+    // This ensures we have the latest task data from Planner
+    try {
+      await syncPlannerTasks(userId, tenantId!, plan.id, plan.graphPlanId);
+      console.log('[Planner API] Successfully refreshed tasks from Microsoft Graph');
+    } catch (syncError: any) {
+      console.error('[Planner API] Failed to refresh tasks from Graph:', syncError);
+      // If we can't refresh from Graph, still try to calculate from local data
+      // but warn the user that data may be stale
+      if (syncError.message?.includes('No valid access token') || 
+          syncError.message?.includes('accessToken is null')) {
+        return res.status(401).json({ 
+          error: 'Your Planner connection has expired. Please reconnect in Settings.',
+          reconnectRequired: true
+        });
+      }
+      // For other errors, continue with stale local data but log the issue
+      console.warn('[Planner API] Proceeding with potentially stale local data');
+    }
+
     // Calculate progress from tasks in the mapped plan/bucket
     const progress = await calculatePlannerProgress(
       bigRock.plannerPlanId, 
       bigRock.plannerBucketId || null,
-      tenantId
+      tenantId!
     );
+
+    console.log('[Planner API] Calculated progress:', progress);
 
     // Update big rock with calculated progress
     const updated = await storage.updateBigRock(bigRockId, {
