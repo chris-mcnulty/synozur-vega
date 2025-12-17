@@ -27,6 +27,7 @@
 | **Custom Vocabulary** | Complete | ✅ Complete | VocabularyContext + system/tenant overrides |
 | **Team Mode** | Complete | ✅ Complete | /team route with filtered views |
 | **Objective Alignment** | Complete | ✅ Complete | alignedToObjectiveIds many-to-many |
+| **16. Team Management** | Not Started | Not Started | **NEW** - CRUD UI, M365 Groups import |
 
 ### Recommended Priority Sequence (Next 8 Weeks)
 
@@ -1328,6 +1329,42 @@ Features to drive employee adoption and engagement with the Company OS.
 - Mobile app for on-the-go updates
 
 **Business Value:** Increases adoption, but not critical for B2B consultant model.
+
+---
+
+### 16. Team Management ⭐ NEW
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Effort:** 3-5 days
+
+**Description:**
+Dedicated Team Management UI in Tenant Admin to create, edit, and manage teams. Currently teams are created implicitly through OKR imports or objective creation.
+
+**Features:**
+- **Team CRUD in Tenant Admin** - View all teams, create new teams, edit names/descriptions, delete teams
+- **User-to-Team Assignment** - Assign users to one or more teams (matrix membership support)
+- **M365 Groups Integration** - Import teams from Microsoft 365 Groups via Graph API
+  - List available M365 Groups for the organization
+  - Sync team membership from M365 Groups
+  - Option to auto-sync on schedule or manual trigger
+- **Team Hierarchy** - Optional parent-team relationships for divisional structure
+- **Team Dashboard** - Quick stats showing team OKRs, progress, Big Rocks
+
+**API Endpoints Needed:**
+- `POST /api/teams` - Create team
+- `PATCH /api/teams/:id` - Update team
+- `DELETE /api/teams/:id` - Delete team
+- `POST /api/teams/:id/members` - Add user to team
+- `DELETE /api/teams/:id/members/:userId` - Remove user from team
+- `GET /api/m365/groups` - List M365 Groups for import
+- `POST /api/teams/import-from-m365` - Create teams from M365 Groups
+
+**Schema Changes:**
+- Add `team_members` junction table for user-to-team many-to-many relationship
+- Add optional `parentTeamId` to teams table for hierarchy
+
+**Business Value:** Enables proper organizational structure, supports Team Mode filtering, and leverages existing M365 investment for faster onboarding.
 
 ---
 
