@@ -1,6 +1,6 @@
 # Vega Platform Backlog
 
-**Last Updated:** December 10, 2025
+**Last Updated:** December 18, 2025
 
 ---
 
@@ -20,7 +20,8 @@
 | **6b. Azure OpenAI Migration** | Backlogged | Backlogged | **NEW** - Future infrastructure decision |
 | **7. Enhanced Reporting** | Not Started | ~10% | Basic review_snapshots table exists. No PDF/export. |
 | **8. Export/Import** | Complete | ✅ Complete | |
-| **9. Customizable Branding** | Not Started | Not Started | Schema change required |
+| **9. Customizable Branding** | Schema Complete | Schema Complete | Dec 18, 2025 - UI remaining |
+| **17. AI Kickstart Wizard** | Not Started | Not Started | **NEW** - Document-to-CompanyOS AI generator |
 | **10. Governance & Audit** | Not Started | Not Started | Schema change required |
 | **10c. KR Weighting** | Not Started | ✅ Complete | WeightManager UI complete. |
 | **10a. Check-in Close Prompt** | Not Started | ✅ Complete | Dec 16, 2025 |
@@ -1365,6 +1366,72 @@ Dedicated Team Management UI in Tenant Admin to create, edit, and manage teams. 
 - Add optional `parentTeamId` to teams table for hierarchy
 
 **Business Value:** Enables proper organizational structure, supports Team Mode filtering, and leverages existing M365 investment for faster onboarding.
+
+---
+
+### 17. AI Kickstart Wizard ⭐ NEW
+
+**Status:** Not Started  
+**Priority:** High  
+**Effort:** 1-2 weeks
+
+**Description:**
+Allow new accounts to upload an organizational document (strategic plan, annual report, business plan) and use AI to generate a complete Company OS proposal including mission, vision, values, goals, strategies, objectives, and big rocks for an upcoming year.
+
+**Features:**
+- **Document Upload** - Accept PDF, Word (.docx), and plain text files describing the organization
+- **AI Analysis** - GPT-5 powered extraction and synthesis to generate structured proposals
+- **Review & Edit Wizard** - Multi-step interface to review and refine AI suggestions before committing
+- **Batch Entity Creation** - One-click approval creates all entities (foundation, strategies, objectives, big rocks)
+- **Draft Sessions** - Save work-in-progress for later completion
+- **Consultant Mode** - Pre-populate for clients to review/approve
+
+**Schema:**
+- `kickstart_sessions` table:
+  - `id` (UUID primary key)
+  - `tenantId` (FK to tenants)
+  - `userId` (FK to users - who created it)
+  - `sourceDocumentName` (text - original filename)
+  - `sourceDocumentText` (text - extracted content)
+  - `aiProposal` (JSONB - structured AI output)
+  - `userEdits` (JSONB - tracked modifications)
+  - `status` (text: 'draft' | 'pending_review' | 'approved' | 'cancelled')
+  - `targetYear` (integer - fiscal year for proposed entities)
+  - `createdAt`, `updatedAt` (timestamps)
+
+**AI Proposal Structure (JSONB):**
+```json
+{
+  "mission": "string",
+  "vision": "string",
+  "values": [{ "title": "string", "description": "string" }],
+  "goals": [{ "title": "string", "description": "string" }],
+  "strategies": [{ "title": "string", "description": "string", "priority": "high|medium|low", "linkedGoals": [] }],
+  "objectives": [{ "title": "string", "description": "string", "level": "organization|team", "linkedStrategies": [], "keyResults": [] }],
+  "bigRocks": [{ "title": "string", "description": "string", "quarter": 1-4, "linkedStrategies": [] }]
+}
+```
+
+**API Endpoints:**
+- `POST /api/kickstart/upload` - Upload and parse document, return session ID
+- `POST /api/kickstart/:sessionId/analyze` - Trigger AI analysis
+- `GET /api/kickstart/sessions` - List user's sessions
+- `GET /api/kickstart/:sessionId` - Get session details
+- `PATCH /api/kickstart/:sessionId` - Update user edits
+- `POST /api/kickstart/:sessionId/approve` - Create all entities from approved proposal
+- `DELETE /api/kickstart/:sessionId` - Cancel/delete session
+
+**UI Components:**
+1. **Step 1: Upload** - Drag-drop zone, file type validation, upload progress
+2. **Step 2: Processing** - AI analysis progress with streaming status
+3. **Step 3: Review** - Expandable/collapsible sections for each entity type with inline editing
+4. **Step 4: Confirm** - Summary view with entity counts and approval button
+
+**Dependencies:**
+- Document parsing libraries (mammoth for Word, pdf-parse for PDF - both already installed)
+- AI integration (existing GPT-5 via Replit AI Integrations)
+
+**Business Value:** Dramatically reduces time-to-value for new customers. Consultants can prepare draft proposals before client meetings. Supports the self-service onboarding model.
 
 ---
 
