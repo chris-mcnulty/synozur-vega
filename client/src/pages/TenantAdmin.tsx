@@ -29,7 +29,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield, Settings2, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, FileText, Download, BookOpen, Activity, Palette } from "lucide-react";
-import type { TenantBranding } from "@shared/schema";
+import { type TenantBranding, vocabularyAlternatives, type VocabularyTerms } from "@shared/schema";
 import { AIUsageWidget } from "@/components/AIUsageWidget";
 import excelIcon from "@assets/Excel_512_1765494903271.png";
 import oneDriveIcon from "@assets/OneDrive_512_1765494903274.png";
@@ -1971,43 +1971,65 @@ export default function TenantAdmin() {
               Vocabulary Settings - {selectedTenantForVocabulary?.name}
             </DialogTitle>
             <DialogDescription>
-              Customize terminology for this organization. Leave fields empty to use system defaults.
+              Choose alternative terminology for this organization. Select "Use Default" to keep the system default.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            {(['goal', 'strategy', 'objective', 'keyResult', 'bigRock', 'meeting', 'focusRhythm'] as const).map((termKey) => (
-              <div key={termKey} className="grid gap-2 p-3 rounded-md border">
-                <h4 className="font-medium capitalize">{termKey.replace(/([A-Z])/g, ' $1').trim()}</h4>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1">
-                    <Label htmlFor={`${termKey}-singular`} className="text-xs">Singular</Label>
-                    <Input
-                      id={`${termKey}-singular`}
-                      value={vocabularyFormData[termKey].singular}
-                      onChange={(e) => setVocabularyFormData({
-                        ...vocabularyFormData,
-                        [termKey]: { ...vocabularyFormData[termKey], singular: e.target.value }
-                      })}
-                      placeholder="Use default"
-                      data-testid={`input-vocab-${termKey}-singular`}
-                    />
+            {(['goal', 'strategy', 'objective', 'keyResult', 'bigRock', 'meeting', 'focusRhythm'] as const).map((termKey) => {
+              const alternatives = vocabularyAlternatives[termKey];
+              const currentValue = vocabularyFormData[termKey];
+              const matchedAlternative = alternatives.find(
+                alt => alt.singular === currentValue.singular && alt.plural === currentValue.plural
+              );
+              const selectedValue = matchedAlternative 
+                ? `${matchedAlternative.singular}|${matchedAlternative.plural}` 
+                : "";
+              
+              return (
+                <div key={termKey} className="grid gap-2 p-3 rounded-md border">
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-medium capitalize">{termKey.replace(/([A-Z])/g, ' $1').trim()}</h4>
+                    {currentValue.singular && (
+                      <Badge variant="secondary" className="text-xs">
+                        {currentValue.singular} / {currentValue.plural}
+                      </Badge>
+                    )}
                   </div>
-                  <div className="space-y-1">
-                    <Label htmlFor={`${termKey}-plural`} className="text-xs">Plural</Label>
-                    <Input
-                      id={`${termKey}-plural`}
-                      value={vocabularyFormData[termKey].plural}
-                      onChange={(e) => setVocabularyFormData({
-                        ...vocabularyFormData,
-                        [termKey]: { ...vocabularyFormData[termKey], plural: e.target.value }
-                      })}
-                      placeholder="Use default"
-                      data-testid={`input-vocab-${termKey}-plural`}
-                    />
-                  </div>
+                  <Select
+                    value={selectedValue}
+                    onValueChange={(value) => {
+                      if (value === "default") {
+                        setVocabularyFormData({
+                          ...vocabularyFormData,
+                          [termKey]: { singular: "", plural: "" }
+                        });
+                      } else {
+                        const [singular, plural] = value.split("|");
+                        setVocabularyFormData({
+                          ...vocabularyFormData,
+                          [termKey]: { singular, plural }
+                        });
+                      }
+                    }}
+                  >
+                    <SelectTrigger data-testid={`select-vocab-${termKey}`}>
+                      <SelectValue placeholder="Use Default" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="default">Use Default</SelectItem>
+                      {alternatives.map((alt) => (
+                        <SelectItem 
+                          key={`${alt.singular}|${alt.plural}`} 
+                          value={`${alt.singular}|${alt.plural}`}
+                        >
+                          {alt.singular} / {alt.plural}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <DialogFooter>
             <Button

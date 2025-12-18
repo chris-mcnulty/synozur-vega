@@ -59,6 +59,62 @@ export const defaultVocabulary: VocabularyTerms = {
   focusRhythm: { singular: "Focus Rhythm", plural: "Focus Rhythms" },
 };
 
+// Pre-defined vocabulary alternatives for dropdown selection
+export const vocabularyAlternatives: Record<keyof VocabularyTerms, VocabularyTerm[]> = {
+  goal: [
+    { singular: "Goal", plural: "Goals" },
+    { singular: "Annual Goal", plural: "Annual Goals" },
+    { singular: "Priority", plural: "Priorities" },
+    { singular: "Theme", plural: "Themes" },
+    { singular: "Pillar", plural: "Pillars" },
+    { singular: "North Star", plural: "North Stars" },
+  ],
+  strategy: [
+    { singular: "Strategy", plural: "Strategies" },
+    { singular: "Strategic Initiative", plural: "Strategic Initiatives" },
+    { singular: "Strategic Bet", plural: "Strategic Bets" },
+    { singular: "Focus Area", plural: "Focus Areas" },
+    { singular: "Workstream", plural: "Workstreams" },
+  ],
+  objective: [
+    { singular: "Objective", plural: "Objectives" },
+    { singular: "OKR", plural: "OKRs" },
+    { singular: "Goal", plural: "Goals" },
+    { singular: "Target", plural: "Targets" },
+    { singular: "Outcome", plural: "Outcomes" },
+  ],
+  keyResult: [
+    { singular: "Key Result", plural: "Key Results" },
+    { singular: "KR", plural: "KRs" },
+    { singular: "Metric", plural: "Metrics" },
+    { singular: "Measure", plural: "Measures" },
+    { singular: "Success Metric", plural: "Success Metrics" },
+    { singular: "KPI", plural: "KPIs" },
+  ],
+  bigRock: [
+    { singular: "Big Rock", plural: "Big Rocks" },
+    { singular: "Initiative", plural: "Initiatives" },
+    { singular: "Project", plural: "Projects" },
+    { singular: "Priority", plural: "Priorities" },
+    { singular: "Epic", plural: "Epics" },
+    { singular: "Milestone", plural: "Milestones" },
+  ],
+  meeting: [
+    { singular: "Meeting", plural: "Meetings" },
+    { singular: "Session", plural: "Sessions" },
+    { singular: "Sync", plural: "Syncs" },
+    { singular: "Huddle", plural: "Huddles" },
+    { singular: "Check-in", plural: "Check-ins" },
+  ],
+  focusRhythm: [
+    { singular: "Focus Rhythm", plural: "Focus Rhythms" },
+    { singular: "Cadence", plural: "Cadences" },
+    { singular: "Operating Rhythm", plural: "Operating Rhythms" },
+    { singular: "Meeting Rhythm", plural: "Meeting Rhythms" },
+    { singular: "Execution Rhythm", plural: "Execution Rhythms" },
+  ],
+};
+
 // Branding configuration type for tenant customization
 export type TenantBranding = {
   // Color scheme
