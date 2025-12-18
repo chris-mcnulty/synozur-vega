@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users } from "lucide-react";
 import {
   Sidebar,
@@ -89,6 +90,13 @@ export function AppSidebar() {
   const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
   const { currentTenant } = useTenant();
+  const [logoError, setLogoError] = useState(false);
+
+  // Reset logo error state when tenant or logo URL changes
+  const tenantLogo = currentTenant?.logoUrl;
+  useEffect(() => {
+    setLogoError(false);
+  }, [tenantLogo]);
 
   const handleLogout = async () => {
     await logout();
@@ -112,26 +120,23 @@ export function AppSidebar() {
   const isPlatformAdmin = userRole === ROLES.VEGA_ADMIN || userRole === ROLES.GLOBAL_ADMIN;
   const showAdminSection = canManageTenant || canImportData || canManageAI;
 
-  // Use tenant logo if available, otherwise fall back to Synozur logo
-  const tenantLogo = currentTenant?.logoUrl;
+  // Show tenant logo only if URL exists and hasn't errored
+  const showTenantLogo = tenantLogo && !logoError;
 
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
-          {tenantLogo ? (
+          {showTenantLogo ? (
             <img 
               src={tenantLogo} 
               alt={currentTenant?.name || "Organization"} 
               className="h-8 w-auto max-w-[120px] object-contain"
-              onError={(e) => {
-                // Fall back to Synozur logo if tenant logo fails to load
-                e.currentTarget.style.display = 'none';
-                e.currentTarget.nextElementSibling?.classList.remove('hidden');
-              }}
+              onError={() => setLogoError(true)}
             />
-          ) : null}
-          <SynozurLogo variant="mark" className={`h-8 w-8 ${tenantLogo ? 'hidden' : ''}`} />
+          ) : (
+            <SynozurLogo variant="mark" className="h-8 w-8" />
+          )}
           <span className="font-bold text-lg">Vega</span>
         </div>
       </SidebarHeader>

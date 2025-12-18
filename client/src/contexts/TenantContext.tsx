@@ -72,18 +72,18 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }
   }, [tenants]);
 
-  // Apply favicon when tenant changes
+  // Apply favicon when tenant changes (reset to default if no tenant favicon)
   useEffect(() => {
-    if (currentTenant.faviconUrl) {
-      const existingFavicon = document.querySelector("link[rel='icon']");
-      if (existingFavicon) {
-        existingFavicon.setAttribute("href", currentTenant.faviconUrl);
-      } else {
-        const link = document.createElement("link");
-        link.rel = "icon";
-        link.href = currentTenant.faviconUrl;
-        document.head.appendChild(link);
-      }
+    const existingFavicon = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
+    const faviconUrl = currentTenant.faviconUrl || "/favicon.png"; // Default fallback to bundled asset
+    
+    if (existingFavicon) {
+      existingFavicon.setAttribute("href", faviconUrl);
+    } else {
+      const link = document.createElement("link");
+      link.rel = "icon";
+      link.href = faviconUrl;
+      document.head.appendChild(link);
     }
   }, [currentTenant.faviconUrl]);
 
