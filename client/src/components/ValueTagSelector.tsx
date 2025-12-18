@@ -69,7 +69,7 @@ export function ValueTagSelector({
               {selectedValues.length === 0 ? "Add Values" : "Add More Values"}
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[300px] p-0" align="start">
+          <PopoverContent className="w-[300px] p-0 z-[60]" align="start">
             <Command>
               <CommandList>
                 <CommandGroup heading="Company Values">
