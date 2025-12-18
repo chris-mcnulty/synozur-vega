@@ -47,9 +47,12 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
+import { Building2 } from "lucide-react";
 
 type GroundingDocument = {
   id: string;
+  tenantId: string | null;
   title: string;
   description: string | null;
   category: string;
@@ -60,6 +63,11 @@ type GroundingDocument = {
   createdAt: string | null;
   updatedBy: string | null;
   updatedAt: string | null;
+};
+
+type Tenant = {
+  id: string;
+  name: string;
 };
 
 const CATEGORIES = [
@@ -77,6 +85,7 @@ function getCategoryInfo(category: string) {
 export default function AIGroundingAdmin() {
   const { toast } = useToast();
   const { user } = useAuth();
+  const { tenants } = useTenant();
   const [documentDialogOpen, setDocumentDialogOpen] = useState(false);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [editingDocument, setEditingDocument] = useState<GroundingDocument | null>(null);
@@ -88,11 +97,18 @@ export default function AIGroundingAdmin() {
     content: "",
     priority: 0,
     isActive: true,
+    tenantId: null as string | null,
   });
 
   const { data: documents = [], isLoading } = useQuery<GroundingDocument[]>({
     queryKey: ["/api/ai/grounding-documents"],
   });
+
+  // Helper to get tenant name by ID
+  const getTenantName = (tenantId: string | null) => {
+    if (!tenantId) return null;
+    return tenants.find(t => t.id === tenantId)?.name || "Unknown Tenant";
+  };
 
   const createMutation = useMutation({
     mutationFn: (data: typeof formData) =>
@@ -151,6 +167,7 @@ export default function AIGroundingAdmin() {
       content: "",
       priority: 0,
       isActive: true,
+      tenantId: null,
     });
     setDocumentDialogOpen(true);
   }
@@ -164,6 +181,7 @@ export default function AIGroundingAdmin() {
       content: doc.content,
       priority: doc.priority || 0,
       isActive: doc.isActive ?? true,
+      tenantId: doc.tenantId || null,
     });
     setDocumentDialogOpen(true);
   }
@@ -312,6 +330,7 @@ export default function AIGroundingAdmin() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Title</TableHead>
+                  <TableHead>Scope</TableHead>
                   <TableHead>Category</TableHead>
                   <TableHead>Priority</TableHead>
                   <TableHead>Status</TableHead>
@@ -331,6 +350,19 @@ export default function AIGroundingAdmin() {
                           <div className="text-sm text-muted-foreground line-clamp-1">
                             {doc.description}
                           </div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {doc.tenantId ? (
+                          <Badge variant="outline" className="flex items-center gap-1 w-fit">
+                            <Building2 className="h-3 w-3" />
+                            {getTenantName(doc.tenantId)}
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+                            <Brain className="h-3 w-3" />
+                            Global
+                          </Badge>
                         )}
                       </TableCell>
                       <TableCell>
@@ -464,6 +496,37 @@ export default function AIGroundingAdmin() {
                   placeholder="Brief description of this document's purpose"
                   data-testid="input-description"
                 />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="tenant">Scope</Label>
+                <Select
+                  value={formData.tenantId || "global"}
+                  onValueChange={(value) => setFormData({ ...formData, tenantId: value === "global" ? null : value })}
+                >
+                  <SelectTrigger id="tenant" data-testid="select-tenant">
+                    <SelectValue placeholder="Select scope" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="global">
+                      <span className="flex items-center gap-2">
+                        <Brain className="h-4 w-4 text-muted-foreground" />
+                        Global (all tenants)
+                      </span>
+                    </SelectItem>
+                    {tenants.map((tenant) => (
+                      <SelectItem key={tenant.id} value={tenant.id}>
+                        <span className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 text-muted-foreground" />
+                          {tenant.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Global documents apply to all tenants. Tenant-specific documents only apply when that tenant is active.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
