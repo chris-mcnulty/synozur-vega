@@ -463,24 +463,36 @@ export default function PlanningEnhanced() {
       const toRemove = previousTags.filter(tag => !currentTags.includes(tag));
 
       for (const valueTitle of toAdd) {
-        await fetch(`/api/${entityType}/${entityId}/values`, {
+        const res = await fetch(`/api/${entityType}/${entityId}/values`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ valueTitle }),
         });
+        if (!res.ok) {
+          console.error('Failed to add value tag:', await res.text());
+        }
       }
 
       for (const valueTitle of toRemove) {
-        await fetch(`/api/${entityType}/${entityId}/values`, {
+        const res = await fetch(`/api/${entityType}/${entityId}/values`, {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
           body: JSON.stringify({ valueTitle }),
         });
+        if (!res.ok) {
+          console.error('Failed to remove value tag:', await res.text());
+        }
       }
       
       // Invalidate value tags query for this specific entity
       queryClient.invalidateQueries({ 
         queryKey: [`/api/${entityType}`, entityId, 'values'] 
+      });
+      // Also invalidate the values analytics
+      queryClient.invalidateQueries({ 
+        queryKey: ['/api/values/analytics/distribution'] 
       });
     } catch (error) {
       console.error('Failed to sync value tags:', error);
