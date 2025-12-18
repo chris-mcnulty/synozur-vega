@@ -28,7 +28,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield, Settings2, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, FileText, Download, BookOpen, Activity } from "lucide-react";
+import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, User, Globe, X, Clock, Shield, Settings2, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, FileText, Download, BookOpen, Activity, Palette } from "lucide-react";
+import type { TenantBranding } from "@shared/schema";
 import { AIUsageWidget } from "@/components/AIUsageWidget";
 import excelIcon from "@assets/Excel_512_1765494903271.png";
 import oneDriveIcon from "@assets/OneDrive_512_1765494903274.png";
@@ -292,6 +293,21 @@ export default function TenantAdmin() {
   const [accessExpiresAt, setAccessExpiresAt] = useState<string>("");
   const [accessNotes, setAccessNotes] = useState<string>("");
 
+  // Branding dialog state
+  const [brandingDialogOpen, setBrandingDialogOpen] = useState(false);
+  const [selectedTenantForBranding, setSelectedTenantForBranding] = useState<Tenant | null>(null);
+  const [brandingFormData, setBrandingFormData] = useState<{
+    logoUrl: string;
+    logoUrlDark: string;
+    faviconUrl: string;
+    branding: TenantBranding;
+  }>({
+    logoUrl: "",
+    logoUrlDark: "",
+    faviconUrl: "",
+    branding: {},
+  });
+
   const [entraSearchQuery, setEntraSearchQuery] = useState("");
   const [entraSearchResults, setEntraSearchResults] = useState<any[]>([]);
   const [isSearchingEntra, setIsSearchingEntra] = useState(false);
@@ -368,12 +384,12 @@ export default function TenantAdmin() {
   });
 
   const createUserMutation = useMutation({
-    mutationFn: (data: { email: string; password: string; name?: string; role: string; tenantId?: string | null }) =>
+    mutationFn: (data: { email: string; password: string; name?: string; role: string; tenantId?: string | null; sendWelcomeEmail?: boolean }) =>
       apiRequest("POST", "/api/users", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setUserDialogOpen(false);
-      setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE" });
+      setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false });
       toast({ title: "User created successfully" });
     },
     onError: () => {
@@ -391,7 +407,7 @@ export default function TenantAdmin() {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setUserDialogOpen(false);
       setEditingUser(null);
-      setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE" });
+      setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false });
       toast({ title: "User updated successfully" });
     },
     onError: () => {
@@ -876,6 +892,46 @@ export default function TenantAdmin() {
     return { label: "SSO Available", variant: "outline" as const };
   };
 
+  // Branding handlers
+  const handleOpenBrandingDialog = (tenant: Tenant) => {
+    setSelectedTenantForBranding(tenant);
+    const t = tenant as any;
+    setBrandingFormData({
+      logoUrl: t.logoUrl || "",
+      logoUrlDark: t.logoUrlDark || "",
+      faviconUrl: t.faviconUrl || "",
+      branding: t.branding || {},
+    });
+    setBrandingDialogOpen(true);
+  };
+
+  const handleSaveBrandingSettings = async () => {
+    if (!selectedTenantForBranding) return;
+    
+    try {
+      await apiRequest("PATCH", `/api/tenants/${selectedTenantForBranding.id}`, {
+        logoUrl: brandingFormData.logoUrl || null,
+        logoUrlDark: brandingFormData.logoUrlDark || null,
+        faviconUrl: brandingFormData.faviconUrl || null,
+        branding: brandingFormData.branding,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/tenants"] });
+      toast({ title: "Branding settings saved" });
+      setBrandingDialogOpen(false);
+    } catch (error: any) {
+      toast({ title: "Failed to save branding", description: error.message, variant: "destructive" });
+    }
+  };
+
+  const getBrandingStatus = (tenant: Tenant) => {
+    const t = tenant as any;
+    const hasLogo = !!t.logoUrl;
+    const hasColors = t.branding && (t.branding.primaryColor || t.branding.secondaryColor);
+    if (hasLogo && hasColors) return { label: "Customized", variant: "default" as const };
+    if (hasLogo || hasColors) return { label: "Partial", variant: "outline" as const };
+    return { label: "Default", variant: "secondary" as const };
+  };
+
   const handleOpenConsultantAccessDialog = (tenant: Tenant) => {
     setSelectedTenantForAccess(tenant);
     setSelectedConsultantId("");
@@ -1051,6 +1107,16 @@ export default function TenantAdmin() {
                     >
                       <BookOpen className="h-3 w-3 mr-1" />
                       Vocabulary: <Badge variant={getVocabularyOverrideCount(tenant) > 0 ? "default" : "secondary"} className="ml-1 text-xs">{getVocabularyOverrideCount(tenant)} customized</Badge>
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => handleOpenBrandingDialog(tenant)}
+                      data-testid={`button-branding-${tenant.id}`}
+                    >
+                      <Palette className="h-3 w-3 mr-1" />
+                      Branding: <Badge variant={getBrandingStatus(tenant).variant} className="ml-1 text-xs">{getBrandingStatus(tenant).label}</Badge>
                     </Button>
                   </CardContent>
                 </Card>
@@ -1956,6 +2022,267 @@ export default function TenantAdmin() {
               data-testid="button-save-vocabulary"
             >
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Branding Dialog */}
+      <Dialog open={brandingDialogOpen} onOpenChange={setBrandingDialogOpen}>
+        <DialogContent className="max-w-lg" data-testid="dialog-branding">
+          <DialogHeader>
+            <DialogTitle>
+              Branding Settings - {selectedTenantForBranding?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Customize logos, colors, and branding for this organization. These settings appear in the sidebar, login page, and reports.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-6 py-4 max-h-[60vh] overflow-y-auto">
+            {/* Logo URLs Section */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm">Logo URLs</h4>
+              <p className="text-xs text-muted-foreground">
+                Enter URLs to your organization's logo images. For best results, use PNG or SVG format with transparent backgrounds.
+              </p>
+              
+              <div className="space-y-2">
+                <Label htmlFor="logo-url">Primary Logo (Light Background)</Label>
+                <Input
+                  id="logo-url"
+                  type="url"
+                  placeholder="https://example.com/logo.png"
+                  value={brandingFormData.logoUrl}
+                  onChange={(e) => setBrandingFormData({ ...brandingFormData, logoUrl: e.target.value })}
+                  data-testid="input-logo-url"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="logo-url-dark">Dark Mode Logo (Dark Background)</Label>
+                <Input
+                  id="logo-url-dark"
+                  type="url"
+                  placeholder="https://example.com/logo-white.png"
+                  value={brandingFormData.logoUrlDark}
+                  onChange={(e) => setBrandingFormData({ ...brandingFormData, logoUrlDark: e.target.value })}
+                  data-testid="input-logo-url-dark"
+                />
+                <p className="text-xs text-muted-foreground">Optional: Use a white or light-colored version for dark backgrounds</p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="favicon-url">Favicon URL</Label>
+                <Input
+                  id="favicon-url"
+                  type="url"
+                  placeholder="https://example.com/favicon.ico"
+                  value={brandingFormData.faviconUrl}
+                  onChange={(e) => setBrandingFormData({ ...brandingFormData, faviconUrl: e.target.value })}
+                  data-testid="input-favicon-url"
+                />
+                <p className="text-xs text-muted-foreground">Browser tab icon (16x16 or 32x32 pixels)</p>
+              </div>
+
+              {/* Logo Preview */}
+              {brandingFormData.logoUrl && (
+                <div className="space-y-2">
+                  <Label>Preview</Label>
+                  <div className="flex gap-4 p-4 rounded-md border">
+                    <div className="flex-1 p-3 bg-background rounded">
+                      <img 
+                        src={brandingFormData.logoUrl} 
+                        alt="Logo preview (light)" 
+                        className="max-h-12 max-w-full object-contain"
+                        onError={(e) => (e.currentTarget.style.display = 'none')}
+                      />
+                    </div>
+                    {brandingFormData.logoUrlDark && (
+                      <div className="flex-1 p-3 bg-slate-900 rounded">
+                        <img 
+                          src={brandingFormData.logoUrlDark} 
+                          alt="Logo preview (dark)" 
+                          className="max-h-12 max-w-full object-contain"
+                          onError={(e) => (e.currentTarget.style.display = 'none')}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Brand Colors Section */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm">Brand Colors</h4>
+              <p className="text-xs text-muted-foreground">
+                These colors are used in reports and email templates.
+              </p>
+              
+              <div className="grid grid-cols-3 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="primary-color" className="text-xs">Primary</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="primary-color"
+                      type="color"
+                      className="w-10 h-9 p-1 cursor-pointer"
+                      value={brandingFormData.branding.primaryColor || "#3B82F6"}
+                      onChange={(e) => setBrandingFormData({
+                        ...brandingFormData,
+                        branding: { ...brandingFormData.branding, primaryColor: e.target.value }
+                      })}
+                      data-testid="input-primary-color"
+                    />
+                    <Input
+                      type="text"
+                      placeholder="#3B82F6"
+                      value={brandingFormData.branding.primaryColor || ""}
+                      onChange={(e) => setBrandingFormData({
+                        ...brandingFormData,
+                        branding: { ...brandingFormData.branding, primaryColor: e.target.value }
+                      })}
+                      className="flex-1 font-mono text-xs"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="secondary-color" className="text-xs">Secondary</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="secondary-color"
+                      type="color"
+                      className="w-10 h-9 p-1 cursor-pointer"
+                      value={brandingFormData.branding.secondaryColor || "#6B7280"}
+                      onChange={(e) => setBrandingFormData({
+                        ...brandingFormData,
+                        branding: { ...brandingFormData.branding, secondaryColor: e.target.value }
+                      })}
+                      data-testid="input-secondary-color"
+                    />
+                    <Input
+                      type="text"
+                      placeholder="#6B7280"
+                      value={brandingFormData.branding.secondaryColor || ""}
+                      onChange={(e) => setBrandingFormData({
+                        ...brandingFormData,
+                        branding: { ...brandingFormData.branding, secondaryColor: e.target.value }
+                      })}
+                      className="flex-1 font-mono text-xs"
+                    />
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="accent-color" className="text-xs">Accent</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="accent-color"
+                      type="color"
+                      className="w-10 h-9 p-1 cursor-pointer"
+                      value={brandingFormData.branding.accentColor || "#10B981"}
+                      onChange={(e) => setBrandingFormData({
+                        ...brandingFormData,
+                        branding: { ...brandingFormData.branding, accentColor: e.target.value }
+                      })}
+                      data-testid="input-accent-color"
+                    />
+                    <Input
+                      type="text"
+                      placeholder="#10B981"
+                      value={brandingFormData.branding.accentColor || ""}
+                      onChange={(e) => setBrandingFormData({
+                        ...brandingFormData,
+                        branding: { ...brandingFormData.branding, accentColor: e.target.value }
+                      })}
+                      className="flex-1 font-mono text-xs"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Report Branding Section */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm">Report Branding</h4>
+              
+              <div className="space-y-2">
+                <Label htmlFor="tagline">Tagline</Label>
+                <Input
+                  id="tagline"
+                  placeholder="Your company tagline"
+                  value={brandingFormData.branding.tagline || ""}
+                  onChange={(e) => setBrandingFormData({
+                    ...brandingFormData,
+                    branding: { ...brandingFormData.branding, tagline: e.target.value }
+                  })}
+                  data-testid="input-tagline"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="report-header">Report Header Text</Label>
+                <Input
+                  id="report-header"
+                  placeholder="Text to appear in report headers"
+                  value={brandingFormData.branding.reportHeaderText || ""}
+                  onChange={(e) => setBrandingFormData({
+                    ...brandingFormData,
+                    branding: { ...brandingFormData.branding, reportHeaderText: e.target.value }
+                  })}
+                  data-testid="input-report-header"
+                />
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="report-footer">Report Footer Text</Label>
+                <Input
+                  id="report-footer"
+                  placeholder="Text to appear in report footers"
+                  value={brandingFormData.branding.reportFooterText || ""}
+                  onChange={(e) => setBrandingFormData({
+                    ...brandingFormData,
+                    branding: { ...brandingFormData.branding, reportFooterText: e.target.value }
+                  })}
+                  data-testid="input-report-footer"
+                />
+              </div>
+            </div>
+
+            {/* Email Branding Section */}
+            <div className="space-y-4">
+              <h4 className="font-medium text-sm">Email Branding</h4>
+              
+              <div className="space-y-2">
+                <Label htmlFor="email-from-name">Email Sender Name</Label>
+                <Input
+                  id="email-from-name"
+                  placeholder="Your Company Name"
+                  value={brandingFormData.branding.emailFromName || ""}
+                  onChange={(e) => setBrandingFormData({
+                    ...brandingFormData,
+                    branding: { ...brandingFormData.branding, emailFromName: e.target.value }
+                  })}
+                  data-testid="input-email-from-name"
+                />
+                <p className="text-xs text-muted-foreground">Name shown in the "From" field of system emails</p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBrandingDialogOpen(false)}
+              data-testid="button-cancel-branding"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveBrandingSettings}
+              data-testid="button-save-branding"
+            >
+              Save Branding
             </Button>
           </DialogFooter>
         </DialogContent>

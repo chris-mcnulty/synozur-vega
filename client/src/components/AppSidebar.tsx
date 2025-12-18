@@ -14,6 +14,7 @@ import {
 import { useLocation } from "wouter";
 import { SynozurLogo } from "./SynozurLogo";
 import { useAuth } from "@/contexts/AuthContext";
+import { useTenant } from "@/contexts/TenantContext";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ROLES, hasPermission, PERMISSIONS, type Role } from "@shared/rbac";
 
@@ -87,6 +88,7 @@ const userItems = [
 export function AppSidebar() {
   const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
+  const { currentTenant } = useTenant();
 
   const handleLogout = async () => {
     await logout();
@@ -110,11 +112,26 @@ export function AppSidebar() {
   const isPlatformAdmin = userRole === ROLES.VEGA_ADMIN || userRole === ROLES.GLOBAL_ADMIN;
   const showAdminSection = canManageTenant || canImportData || canManageAI;
 
+  // Use tenant logo if available, otherwise fall back to Synozur logo
+  const tenantLogo = currentTenant?.logoUrl;
+
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2">
-          <SynozurLogo variant="mark" className="h-8 w-8" />
+          {tenantLogo ? (
+            <img 
+              src={tenantLogo} 
+              alt={currentTenant?.name || "Organization"} 
+              className="h-8 w-auto max-w-[120px] object-contain"
+              onError={(e) => {
+                // Fall back to Synozur logo if tenant logo fails to load
+                e.currentTarget.style.display = 'none';
+                e.currentTarget.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+          ) : null}
+          <SynozurLogo variant="mark" className={`h-8 w-8 ${tenantLogo ? 'hidden' : ''}`} />
           <span className="font-bold text-lg">Vega</span>
         </div>
       </SidebarHeader>

@@ -8,11 +8,27 @@ export type DefaultTimePeriod = {
   quarter?: number;
 };
 
+export type TenantBranding = {
+  primaryColor?: string;
+  secondaryColor?: string;
+  accentColor?: string;
+  fontFamily?: string;
+  headingFontFamily?: string;
+  reportHeaderText?: string;
+  reportFooterText?: string;
+  tagline?: string;
+  emailFromName?: string;
+  emailSignature?: string;
+};
+
 export type Tenant = {
   id: string;
   name: string;
   color: string | null;
   logoUrl?: string | null;
+  logoUrlDark?: string | null;
+  faviconUrl?: string | null;
+  branding?: TenantBranding | null;
   allowedDomains?: string[] | null;
   defaultTimePeriod?: DefaultTimePeriod | null;
 };
@@ -55,6 +71,21 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       setCurrentTenant(tenants[0]);
     }
   }, [tenants]);
+
+  // Apply favicon when tenant changes
+  useEffect(() => {
+    if (currentTenant.faviconUrl) {
+      const existingFavicon = document.querySelector("link[rel='icon']");
+      if (existingFavicon) {
+        existingFavicon.setAttribute("href", currentTenant.faviconUrl);
+      } else {
+        const link = document.createElement("link");
+        link.rel = "icon";
+        link.href = currentTenant.faviconUrl;
+        document.head.appendChild(link);
+      }
+    }
+  }, [currentTenant.faviconUrl]);
 
   const handleSetCurrentTenant = (tenant: Tenant) => {
     const previousTenantId = currentTenant?.id;
