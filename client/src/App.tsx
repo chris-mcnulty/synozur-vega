@@ -31,6 +31,7 @@ import TenantAdmin from "@/pages/TenantAdmin";
 import SystemAdmin from "@/pages/SystemAdmin";
 import AIGroundingAdmin from "@/pages/AIGroundingAdmin";
 import Import from "@/pages/Import";
+import Reporting from "@/pages/Reporting";
 import Settings from "@/pages/Settings";
 import UserGuide from "@/pages/UserGuide";
 import VerifyEmail from "@/pages/VerifyEmail";
@@ -246,6 +247,13 @@ function Router() {
         <ProtectedRoute>
           <ModuleLayout>
             <Import />
+          </ModuleLayout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/reporting">
+        <ProtectedRoute>
+          <ModuleLayout>
+            <Reporting />
           </ModuleLayout>
         </ProtectedRoute>
       </Route>

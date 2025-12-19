@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users } from "lucide-react";
+import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -57,6 +57,11 @@ const adminItems = [
     title: "Import Data",
     url: "/import",
     icon: Upload,
+  },
+  {
+    title: "Reporting",
+    url: "/reporting",
+    icon: BarChart2,
   },
   {
     title: "AI Grounding",
