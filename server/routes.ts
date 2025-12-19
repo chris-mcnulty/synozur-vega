@@ -1399,6 +1399,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { outlookRouter } = await import("./routes-outlook");
   app.use("/api/outlook", ...authWithTenant, outlookRouter);
 
+  // Import and use Reporting routes (snapshots, templates, reports)
+  const reportingRouter = await import("./routes-reporting");
+  app.use("/api/reporting", ...authWithTenant, reportingRouter.default);
+
   const httpServer = createServer(app);
 
   return httpServer;

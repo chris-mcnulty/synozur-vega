@@ -936,6 +936,131 @@ export const insertReviewSnapshotSchema = createInsertSchema(reviewSnapshots).om
 export type InsertReviewSnapshot = z.infer<typeof insertReviewSnapshotSchema>;
 export type ReviewSnapshot = typeof reviewSnapshots.$inferSelect;
 
+// Report template types
+export const REPORT_TEMPLATE_TYPES = ['weekly_status', 'qbr', 'annual_review', 'custom'] as const;
+export const REPORT_SECTION_TYPES = ['objectives_summary', 'key_results_table', 'big_rocks_status', 'progress_chart', 'achievements', 'challenges', 'next_priorities', 'custom_text'] as const;
+
+// Report templates for generating branded reports
+export const reportTemplates = pgTable("report_templates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }), // null = global template
+  
+  // Template metadata
+  name: text("name").notNull(),
+  description: text("description"),
+  templateType: text("template_type").notNull(), // 'weekly_status', 'qbr', 'annual_review', 'custom'
+  isDefault: boolean("is_default").default(false),
+  
+  // Template configuration
+  sections: jsonb("sections").$type<{
+    id: string;
+    type: string; // 'objectives_summary', 'key_results_table', 'big_rocks_status', 'progress_chart', 'achievements', 'challenges', 'next_priorities', 'custom_text'
+    position: number;
+    title?: string;
+    config?: Record<string, any>;
+  }[]>(),
+  
+  // Filters for data inclusion
+  filters: jsonb("filters").$type<{
+    objectiveLevels?: string[]; // 'organization', 'team', 'individual'
+    includeCompleted?: boolean;
+    minProgress?: number;
+    maxProgress?: number;
+    teamIds?: string[];
+  }>(),
+  
+  // Branding overrides (uses tenant branding by default)
+  brandingOverrides: jsonb("branding_overrides").$type<{
+    logoUrl?: string;
+    primaryColor?: string;
+    headerText?: string;
+    footerText?: string;
+  }>(),
+  
+  // Metadata
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedBy: varchar("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertReportTemplateSchema = createInsertSchema(reportTemplates).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertReportTemplate = z.infer<typeof insertReportTemplateSchema>;
+export type ReportTemplate = typeof reportTemplates.$inferSelect;
+
+// Generated report instances
+export const reportInstances = pgTable("report_instances", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  templateId: varchar("template_id").references(() => reportTemplates.id),
+  snapshotId: varchar("snapshot_id").references(() => reviewSnapshots.id),
+  
+  // Report metadata
+  title: text("title").notNull(),
+  description: text("description"),
+  reportType: text("report_type").notNull(), // 'weekly_status', 'qbr', 'annual_review', 'custom'
+  
+  // Time period
+  periodType: text("period_type").notNull(), // 'week', 'month', 'quarter', 'year'
+  periodStart: timestamp("period_start").notNull(),
+  periodEnd: timestamp("period_end").notNull(),
+  quarter: integer("quarter"),
+  year: integer("year").notNull(),
+  
+  // Generation status
+  status: text("status").notNull().default('pending'), // 'pending', 'generating', 'completed', 'failed'
+  generatedAt: timestamp("generated_at"),
+  generationError: text("generation_error"),
+  
+  // Output files
+  pdfUrl: text("pdf_url"),
+  pdfSize: integer("pdf_size"),
+  
+  // Report data snapshot (cached for fast viewing)
+  reportData: jsonb("report_data").$type<{
+    summary: {
+      totalObjectives: number;
+      completedObjectives: number;
+      averageProgress: number;
+      totalKeyResults: number;
+      completedKeyResults: number;
+      totalBigRocks: number;
+      completedBigRocks: number;
+    };
+    objectives?: any[];
+    keyResults?: any[];
+    bigRocks?: any[];
+    achievements?: string[];
+    challenges?: string[];
+  }>(),
+  
+  // Delivery tracking
+  emailedTo: jsonb("emailed_to").$type<string[]>(),
+  emailedAt: timestamp("emailed_at"),
+  downloadCount: integer("download_count").default(0),
+  lastDownloadedAt: timestamp("last_downloaded_at"),
+  
+  // Metadata
+  createdBy: varchar("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertReportInstanceSchema = createInsertSchema(reportInstances).omit({
+  id: true,
+  createdAt: true,
+  generatedAt: true,
+  downloadCount: true,
+  lastDownloadedAt: true,
+});
+
+export type InsertReportInstance = z.infer<typeof insertReportInstanceSchema>;
+export type ReportInstance = typeof reportInstances.$inferSelect;
+
 // Import tracking to prevent duplicate Viva Goals imports
 export const importHistory = pgTable("import_history", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),

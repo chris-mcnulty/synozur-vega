@@ -25,7 +25,10 @@ import {
   consultantTenantAccess, type ConsultantTenantAccess, type InsertConsultantTenantAccess,
   systemVocabulary, type SystemVocabulary, type VocabularyTerms, defaultVocabulary,
   aiUsageLogs, type AiUsageLog, type InsertAiUsageLog,
-  aiUsageSummaries, type AiUsageSummary
+  aiUsageSummaries, type AiUsageSummary,
+  reviewSnapshots, type ReviewSnapshot, type InsertReviewSnapshot,
+  reportTemplates, type ReportTemplate, type InsertReportTemplate,
+  reportInstances, type ReportInstance, type InsertReportInstance
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, inArray } from "drizzle-orm";
@@ -218,6 +221,27 @@ export interface IStorage {
     byFeature: Record<string, { requests: number; tokens: number; cost: number }>;
     byProvider: Record<string, { requests: number; tokens: number; cost: number }>;
   }>;
+  
+  // Review Snapshots methods
+  getReviewSnapshotsByTenantId(tenantId: string, year?: number, quarter?: number): Promise<ReviewSnapshot[]>;
+  getReviewSnapshotById(id: string): Promise<ReviewSnapshot | undefined>;
+  createReviewSnapshot(snapshot: InsertReviewSnapshot): Promise<ReviewSnapshot>;
+  updateReviewSnapshot(id: string, snapshot: Partial<InsertReviewSnapshot>): Promise<ReviewSnapshot>;
+  deleteReviewSnapshot(id: string): Promise<void>;
+  
+  // Report Templates methods
+  getReportTemplates(tenantId?: string): Promise<ReportTemplate[]>;
+  getReportTemplateById(id: string): Promise<ReportTemplate | undefined>;
+  createReportTemplate(template: InsertReportTemplate): Promise<ReportTemplate>;
+  updateReportTemplate(id: string, template: Partial<InsertReportTemplate>): Promise<ReportTemplate>;
+  deleteReportTemplate(id: string): Promise<void>;
+  
+  // Report Instances methods
+  getReportInstances(tenantId: string, year?: number, reportType?: string): Promise<ReportInstance[]>;
+  getReportInstanceById(id: string): Promise<ReportInstance | undefined>;
+  createReportInstance(instance: InsertReportInstance): Promise<ReportInstance>;
+  updateReportInstance(id: string, instance: Partial<ReportInstance>): Promise<ReportInstance>;
+  deleteReportInstance(id: string): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1842,6 +1866,102 @@ export class DatabaseStorage implements IStorage {
       byFeature,
       byProvider
     };
+  }
+
+  // Review Snapshots methods
+  async getReviewSnapshotsByTenantId(tenantId: string, year?: number, quarter?: number): Promise<ReviewSnapshot[]> {
+    const conditions = [eq(reviewSnapshots.tenantId, tenantId)];
+    if (year) conditions.push(eq(reviewSnapshots.year, year));
+    if (quarter) conditions.push(eq(reviewSnapshots.quarter, quarter));
+    return db.select().from(reviewSnapshots)
+      .where(and(...conditions))
+      .orderBy(desc(reviewSnapshots.snapshotDate));
+  }
+
+  async getReviewSnapshotById(id: string): Promise<ReviewSnapshot | undefined> {
+    const [snapshot] = await db.select().from(reviewSnapshots).where(eq(reviewSnapshots.id, id));
+    return snapshot;
+  }
+
+  async createReviewSnapshot(snapshot: InsertReviewSnapshot): Promise<ReviewSnapshot> {
+    const [created] = await db.insert(reviewSnapshots).values(snapshot).returning();
+    return created;
+  }
+
+  async updateReviewSnapshot(id: string, snapshot: Partial<InsertReviewSnapshot>): Promise<ReviewSnapshot> {
+    const [updated] = await db.update(reviewSnapshots)
+      .set({ ...snapshot, updatedAt: new Date() })
+      .where(eq(reviewSnapshots.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteReviewSnapshot(id: string): Promise<void> {
+    await db.delete(reviewSnapshots).where(eq(reviewSnapshots.id, id));
+  }
+
+  // Report Templates methods
+  async getReportTemplates(tenantId?: string): Promise<ReportTemplate[]> {
+    if (tenantId) {
+      return db.select().from(reportTemplates)
+        .where(or(eq(reportTemplates.tenantId, tenantId), isNull(reportTemplates.tenantId)))
+        .orderBy(desc(reportTemplates.createdAt));
+    }
+    return db.select().from(reportTemplates).orderBy(desc(reportTemplates.createdAt));
+  }
+
+  async getReportTemplateById(id: string): Promise<ReportTemplate | undefined> {
+    const [template] = await db.select().from(reportTemplates).where(eq(reportTemplates.id, id));
+    return template;
+  }
+
+  async createReportTemplate(template: InsertReportTemplate): Promise<ReportTemplate> {
+    const [created] = await db.insert(reportTemplates).values(template).returning();
+    return created;
+  }
+
+  async updateReportTemplate(id: string, template: Partial<InsertReportTemplate>): Promise<ReportTemplate> {
+    const [updated] = await db.update(reportTemplates)
+      .set({ ...template, updatedAt: new Date() })
+      .where(eq(reportTemplates.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteReportTemplate(id: string): Promise<void> {
+    await db.delete(reportTemplates).where(eq(reportTemplates.id, id));
+  }
+
+  // Report Instances methods
+  async getReportInstances(tenantId: string, year?: number, reportType?: string): Promise<ReportInstance[]> {
+    const conditions = [eq(reportInstances.tenantId, tenantId)];
+    if (year) conditions.push(eq(reportInstances.year, year));
+    if (reportType) conditions.push(eq(reportInstances.reportType, reportType));
+    return db.select().from(reportInstances)
+      .where(and(...conditions))
+      .orderBy(desc(reportInstances.createdAt));
+  }
+
+  async getReportInstanceById(id: string): Promise<ReportInstance | undefined> {
+    const [instance] = await db.select().from(reportInstances).where(eq(reportInstances.id, id));
+    return instance;
+  }
+
+  async createReportInstance(instance: InsertReportInstance): Promise<ReportInstance> {
+    const [created] = await db.insert(reportInstances).values(instance).returning();
+    return created;
+  }
+
+  async updateReportInstance(id: string, instance: Partial<ReportInstance>): Promise<ReportInstance> {
+    const [updated] = await db.update(reportInstances)
+      .set(instance)
+      .where(eq(reportInstances.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteReportInstance(id: string): Promise<void> {
+    await db.delete(reportInstances).where(eq(reportInstances.id, id));
   }
 }
 
