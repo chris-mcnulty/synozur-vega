@@ -18,9 +18,9 @@
 | **6. AI-Powered Assistance** | Not Started | ~40% | 7 AI tools implemented. Q&A chat with function calling works. |
 | **6a. AI Usage Reporting** | Schema Complete | ✅ Schema Complete | Dec 17, 2025 - API & UI remaining |
 | **6b. Azure OpenAI Migration** | Backlogged | Backlogged | **NEW** - Future infrastructure decision |
-| **7. Enhanced Reporting** | Not Started | ~10% | Basic review_snapshots table exists. No PDF/export. |
+| **7. Enhanced Reporting** | ~80% | ✅ ~80% | Dec 20, 2025 - PDF + PPTX export complete. Snapshot comparison remaining. |
 | **8. Export/Import** | Complete | ✅ Complete | |
-| **9. Customizable Branding** | Schema Complete | Schema Complete | Dec 18, 2025 - UI remaining |
+| **9. Customizable Branding** | Complete | ✅ Complete | Dec 20, 2025 - Full UI with dark mode logo support |
 | **17. AI Kickstart Wizard** | Not Started | Not Started | **NEW** - Document-to-CompanyOS AI generator |
 | **10. Governance & Audit** | Not Started | Not Started | Schema change required |
 | **10c. KR Weighting** | Not Started | ✅ Complete | WeightManager UI complete. |
@@ -880,30 +880,36 @@ Export and import complete Company OS data for portability, backups, and migrati
 
 ---
 
-### 9. Customizable Branding ⭐ NEW
+### 9. Customizable Branding ✅ COMPLETE
 
-**Status:** Not Started  
+**Status:** Complete  
 **Priority:** Medium  
-**Effort:** 3-4 weeks
+**Effort:** 3-4 weeks  
+**Completed:** December 2025
 
 **Description:**
 White-label deployments for enterprise customers and consultants.
 
-**Features:**
-- Custom logo upload per tenant
-- Color scheme customization (primary, secondary, accent)
-- Custom domain support (customer.vega.synozur.com)
-- Branded email templates
-- Custom terminology (rename "Big Rocks" to "Initiatives", etc.)
+**Completed Features:**
+- ✅ Logo URLs (primary, dark mode, favicon) with live preview
+- ✅ Color scheme customization (primary, secondary, accent) with color picker
+- ✅ Report branding (tagline, header text, footer text)
+- ✅ Email branding (sender name)
+- ✅ Dark mode logo support in sidebar
+- ✅ Branding dialog in Tenant Admin
+- ✅ Custom terminology via Vocabulary system (separate feature)
 
 **Business Value:**
-- Enables consultant resale model
-- Enterprise sales advantage
-- Higher perceived value
+- ✅ Enables consultant resale model
+- ✅ Enterprise sales advantage
+- ✅ Higher perceived value
+- ✅ Professional branded PDF/PPTX exports
 
-**Dependencies:**
-- File upload for logos (already supported via tenant.logoUrl)
-- CSS variable system (already in place)
+**Technical Notes:**
+- Branding stored in `tenants.branding` JSONB field (TenantBranding type)
+- Dark mode logo uses `logoUrlDark` field
+- PDF/PPTX services use branding colors and text
+- Sidebar auto-selects light/dark logo based on theme
 
 ---
 

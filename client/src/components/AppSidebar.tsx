@@ -16,6 +16,7 @@ import { useLocation } from "wouter";
 import { SynozurLogo } from "./SynozurLogo";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
+import { useTheme } from "@/components/ThemeProvider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ROLES, hasPermission, PERMISSIONS, type Role } from "@shared/rbac";
 
@@ -95,10 +96,15 @@ export function AppSidebar() {
   const [location, setLocation] = useLocation();
   const { user, logout } = useAuth();
   const { currentTenant } = useTenant();
+  const { theme } = useTheme();
   const [logoError, setLogoError] = useState(false);
 
+  // Select appropriate logo based on theme
+  const tenantLogo = theme === 'dark' && currentTenant?.logoUrlDark 
+    ? currentTenant.logoUrlDark 
+    : currentTenant?.logoUrl;
+    
   // Reset logo error state when tenant or logo URL changes
-  const tenantLogo = currentTenant?.logoUrl;
   useEffect(() => {
     setLogoError(false);
   }, [tenantLogo]);
