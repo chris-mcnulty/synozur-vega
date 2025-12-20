@@ -616,6 +616,17 @@ export default function Reporting() {
                           variant="ghost"
                           size="icon"
                           onClick={() => {
+                            window.open(`/api/reporting/reports/${report.id}/pdf`, '_blank');
+                          }}
+                          data-testid={`button-download-pdf-${report.id}`}
+                          title="Download PDF"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
                             if (confirm('Are you sure you want to delete this report?')) {
                               deleteReportMutation.mutate(report.id);
                             }
@@ -938,6 +949,18 @@ export default function Reporting() {
                   </div>
                 </div>
               )}
+              
+              <DialogFooter>
+                <Button
+                  onClick={() => {
+                    window.open(`/api/reporting/reports/${selectedReport.id}/pdf`, '_blank');
+                  }}
+                  data-testid="button-download-report-pdf"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF
+                </Button>
+              </DialogFooter>
             </div>
           )}
         </DialogContent>
