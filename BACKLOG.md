@@ -16,7 +16,7 @@
 | **4. Culture & Values** | Complete | ✅ Complete | |
 | **5. M365 Copilot Agent** | Not Started | Not Started | **January deadline - CLIENT REQUIREMENT** |
 | **6. AI-Powered Assistance** | Not Started | ~40% | 7 AI tools implemented. Q&A chat with function calling works. |
-| **6a. AI Usage Reporting** | Schema Complete | ✅ Schema Complete | Dec 17, 2025 - API & UI remaining |
+| **6a. AI Usage Reporting** | Complete | ✅ Complete | Dec 20, 2025 - Full implementation with Tenant + Platform admin UI |
 | **6b. Azure OpenAI Migration** | Backlogged | Backlogged | **NEW** - Future infrastructure decision |
 | **7. Enhanced Reporting** | ~80% | ✅ ~80% | Dec 20, 2025 - PDF + PPTX export complete. Snapshot comparison remaining. |
 | **8. Export/Import** | Complete | ✅ Complete | |
@@ -592,73 +592,52 @@ Chat-based AI assistant with culture-grounded outputs and MCP-style agent archit
 
 ---
 
-### 6a. AI Usage Reporting ⭐ SCHEMA COMPLETE
+### 6a. AI Usage Reporting ✅ COMPLETE
 
-**Status:** Schema Complete (Dec 17, 2025) - API & UI Remaining  
+**Status:** Complete (Dec 20, 2025)  
 **Priority:** High  
-**Effort:** 1-2 days remaining (API routes + UI)
+**Effort:** Complete
 
 **Description:**
 Track and report AI usage across the platform to enable billing, monitoring, and usage optimization. Essential for understanding AI costs and tenant-level usage patterns. **Designed to support provider switching (Replit AI → Azure OpenAI → Anthropic).**
 
-**Schema Implemented (shared/schema.ts):**
+**Completed Implementation:**
 
-```typescript
-// Two tables added:
-// 1. ai_usage_logs - Individual API call tracking
-// 2. ai_usage_summaries - Aggregated daily/monthly summaries
+1. **Schema (shared/schema.ts):**
+   - `ai_usage_logs` - Individual API call tracking with provider, model, tokens, costs
+   - `ai_usage_summaries` - Aggregated daily/monthly summaries
 
-// Key fields for tracking model changes:
-- provider: text       // 'replit_ai', 'azure_openai', 'anthropic', 'openai'
-- model: text          // 'gpt-4o', 'gpt-5', 'claude-3.5-sonnet', etc.
-- modelVersion: text   // Specific version like '2024-08-06'
-- deploymentName: text // Azure OpenAI deployment name (if applicable)
-- feature: text        // 'chat', 'okr_suggestion', 'meeting_recap', etc.
-- promptTokens, completionTokens, totalTokens
-- estimatedCostMicrodollars  // 1 cent = 10000 microdollars for precision
-- latencyMs, wasStreaming, requestId, errorCode, errorMessage
+2. **Storage Interface (server/storage.ts):**
+   - ✅ `createAiUsageLog()` - Log individual AI calls
+   - ✅ `getAiUsageLogs()` - Query usage logs with date filtering
+   - ✅ `getAiUsageSummary()` - Single period summary
+   - ✅ `getAiUsageSummaries()` - Historical summaries
+   - ✅ `getPlatformAiUsageSummary()` - Platform-wide aggregation
 
-// Enums exported:
-- AI_PROVIDERS: replit_ai, azure_openai, openai, anthropic, other
-- AI_FEATURES: chat, okr_suggestion, big_rock_suggestion, meeting_recap, strategy_draft, function_call, embedding, other
-```
+3. **AI Service Integration (server/ai.ts):**
+   - ✅ `logAiUsage()` helper function called after each AI completion
+   - ✅ Cost calculation based on model pricing
+   - ✅ Supports all AI features: chat, OKR suggestions, Big Rocks, meeting recap, etc.
 
-**Remaining Work:**
+4. **API Endpoints (server/routes-ai.ts):**
+   - ✅ `GET /api/ai/usage/summary` - Tenant usage with current period stats, history, recent logs
+   - ✅ `GET /api/ai/usage/platform` - Platform-wide usage (platform admin only)
 
-1. **Storage Interface:**
-   - Add `createAiUsageLog()` to storage.ts
-   - Add `getAiUsageSummary()` for tenant dashboards
-   - Add aggregation queries for admin reports
+5. **UI Components:**
+   - ✅ `AIUsageWidget` - Tenant Admin dashboard (shows requests, tokens, cost, by model/feature)
+   - ✅ `PlatformAIUsageWidget` - System Admin dashboard (shows platform-wide usage by tenant)
 
-2. **AI Service Integration:**
-   - Wrap AI calls in `server/ai.ts` to log usage after each completion
-   - Extract token counts from OpenAI response.usage
-   - Calculate estimated costs based on model pricing
-
-3. **API Endpoints:**
-   - `GET /api/ai/usage/summary` - Tenant usage summary
-   - `GET /api/ai/usage/history` - Detailed usage history
-   - `GET /api/admin/ai-usage` - Platform-wide usage (platform admin only)
-
-4. **UI Components:**
-   - AI Usage widget in Tenant Admin page
-   - Platform-wide usage dashboard in System Admin page
-
-**Model Impact Tracking Use Case:**
-When switching from GPT-4 to GPT-5 or to Claude, the `model` and `modelVersion` fields allow queries like:
+**Model Impact Tracking Enabled:**
 - "Compare token usage before/after GPT-5 switch"
 - "Average latency by model"
 - "Cost per feature by model version"
 
 **Business Value:**
-- Cost visibility for platform operations
-- Enable future usage-based billing
-- Measure impact of model upgrades (GPT-5 vs GPT-4, Claude vs GPT)
-- Identify optimization opportunities
-- Prevent runaway AI costs
-
-**Dependencies:**
-- OpenAI response.usage metadata (available ✅)
+- ✅ Cost visibility for platform operations
+- ✅ Enable future usage-based billing
+- ✅ Measure impact of model upgrades
+- ✅ Identify optimization opportunities
+- ✅ Prevent runaway AI costs
 
 ---
 
