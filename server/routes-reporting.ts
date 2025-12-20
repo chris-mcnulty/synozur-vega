@@ -3,6 +3,7 @@ import { storage } from "./storage";
 import { insertReviewSnapshotSchema, insertReportTemplateSchema, insertReportInstanceSchema } from "@shared/schema";
 import { z } from "zod";
 import { generateReportPDF } from "./pdf-service";
+import { generateReportPPTX } from "./pptx-service";
 
 const router = Router();
 
@@ -410,6 +411,52 @@ router.get("/reports/:id/pdf", requireAuth, async (req: Request, res: Response) 
   } catch (error) {
     console.error("Error generating PDF:", error);
     res.status(500).json({ error: "Failed to generate PDF" });
+  }
+});
+
+// Export report as PPTX
+router.get("/reports/:id/pptx", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user?.tenantId) {
+      return res.status(403).json({ error: "No tenant access" });
+    }
+
+    const report = await storage.getReportInstanceById(req.params.id);
+    if (!report) {
+      return res.status(404).json({ error: "Report not found" });
+    }
+
+    if (report.tenantId !== user.tenantId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const tenant = await storage.getTenantById(user.tenantId);
+    if (!tenant) {
+      return res.status(404).json({ error: "Tenant not found" });
+    }
+
+    // Get snapshot if linked
+    let snapshot;
+    if (report.snapshotId) {
+      snapshot = await storage.getReviewSnapshotById(report.snapshotId);
+    }
+
+    const pptxBuffer = await generateReportPPTX({
+      report,
+      snapshot: snapshot || undefined,
+      tenant,
+    });
+
+    const filename = `${report.title.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pptx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Length', pptxBuffer.length);
+    res.send(pptxBuffer);
+  } catch (error) {
+    console.error("Error generating PPTX:", error);
+    res.status(500).json({ error: "Failed to generate PPTX" });
   }
 });
 

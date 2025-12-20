@@ -39,7 +39,8 @@ import {
   Download,
   Eye,
   RefreshCw,
-  Clock
+  Clock,
+  Presentation
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -627,6 +628,17 @@ export default function Reporting() {
                           variant="ghost"
                           size="icon"
                           onClick={() => {
+                            window.open(`/api/reporting/reports/${report.id}/pptx`, '_blank');
+                          }}
+                          data-testid={`button-download-pptx-${report.id}`}
+                          title="Download PowerPoint"
+                        >
+                          <Presentation className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
                             if (confirm('Are you sure you want to delete this report?')) {
                               deleteReportMutation.mutate(report.id);
                             }
@@ -950,7 +962,7 @@ export default function Reporting() {
                 </div>
               )}
               
-              <DialogFooter>
+              <DialogFooter className="gap-2">
                 <Button
                   onClick={() => {
                     window.open(`/api/reporting/reports/${selectedReport.id}/pdf`, '_blank');
@@ -959,6 +971,16 @@ export default function Reporting() {
                 >
                   <Download className="h-4 w-4 mr-2" />
                   Download PDF
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    window.open(`/api/reporting/reports/${selectedReport.id}/pptx`, '_blank');
+                  }}
+                  data-testid="button-download-report-pptx"
+                >
+                  <Presentation className="h-4 w-4 mr-2" />
+                  Download PPTX
                 </Button>
               </DialogFooter>
             </div>
