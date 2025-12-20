@@ -28,7 +28,8 @@ import {
   aiUsageSummaries, type AiUsageSummary,
   reviewSnapshots, type ReviewSnapshot, type InsertReviewSnapshot,
   reportTemplates, type ReportTemplate, type InsertReportTemplate,
-  reportInstances, type ReportInstance, type InsertReportInstance
+  reportInstances, type ReportInstance, type InsertReportInstance,
+  launchpadSessions, type LaunchpadSession, type InsertLaunchpadSession, type LaunchpadProposal
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, inArray } from "drizzle-orm";
@@ -2140,6 +2141,37 @@ export class DatabaseStorage implements IStorage {
 
   async deleteReportInstance(id: string): Promise<void> {
     await db.delete(reportInstances).where(eq(reportInstances.id, id));
+  }
+
+  // Launchpad Session methods
+  async getLaunchpadSessions(tenantId: string, userId?: string): Promise<LaunchpadSession[]> {
+    const conditions = [eq(launchpadSessions.tenantId, tenantId)];
+    if (userId) conditions.push(eq(launchpadSessions.userId, userId));
+    return db.select().from(launchpadSessions)
+      .where(and(...conditions))
+      .orderBy(desc(launchpadSessions.createdAt));
+  }
+
+  async getLaunchpadSessionById(id: string): Promise<LaunchpadSession | undefined> {
+    const [session] = await db.select().from(launchpadSessions).where(eq(launchpadSessions.id, id));
+    return session;
+  }
+
+  async createLaunchpadSession(session: InsertLaunchpadSession): Promise<LaunchpadSession> {
+    const [created] = await db.insert(launchpadSessions).values(session).returning();
+    return created;
+  }
+
+  async updateLaunchpadSession(id: string, session: Partial<InsertLaunchpadSession>): Promise<LaunchpadSession> {
+    const [updated] = await db.update(launchpadSessions)
+      .set({ ...session, updatedAt: new Date() })
+      .where(eq(launchpadSessions.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteLaunchpadSession(id: string): Promise<void> {
+    await db.delete(launchpadSessions).where(eq(launchpadSessions.id, id));
   }
 }
 

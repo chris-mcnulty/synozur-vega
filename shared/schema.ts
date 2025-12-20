@@ -1444,3 +1444,61 @@ export const insertAiUsageSummarySchema = createInsertSchema(aiUsageSummaries).o
 
 export type InsertAiUsageSummary = z.infer<typeof insertAiUsageSummarySchema>;
 export type AiUsageSummary = typeof aiUsageSummaries.$inferSelect;
+
+// Launchpad Sessions - AI-powered document-to-Company OS generator
+export type LaunchpadProposal = {
+  mission?: string;
+  vision?: string;
+  values?: Array<{ title: string; description: string }>;
+  goals?: Array<{ title: string; description: string }>;
+  strategies?: Array<{ title: string; description: string; linkedGoals?: string[] }>;
+  objectives?: Array<{
+    title: string;
+    description: string;
+    level: string;
+    keyResults?: Array<{
+      title: string;
+      metricType: string;
+      targetValue: number;
+      unit?: string;
+    }>;
+    bigRocks?: Array<{
+      title: string;
+      description: string;
+      priority: string;
+    }>;
+  }>;
+};
+
+export const launchpadSessions = pgTable("launchpad_sessions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  
+  sourceDocumentName: text("source_document_name"),
+  sourceDocumentText: text("source_document_text"),
+  
+  aiProposal: jsonb("ai_proposal").$type<LaunchpadProposal>(),
+  userEdits: jsonb("user_edits").$type<LaunchpadProposal>(),
+  
+  status: text("status").notNull().default("draft"),
+  targetYear: integer("target_year").notNull(),
+  targetQuarter: integer("target_quarter"),
+  
+  analysisProgress: integer("analysis_progress").default(0),
+  analysisError: text("analysis_error"),
+  
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  approvedAt: timestamp("approved_at"),
+});
+
+export const insertLaunchpadSessionSchema = createInsertSchema(launchpadSessions).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  approvedAt: true,
+});
+
+export type InsertLaunchpadSession = z.infer<typeof insertLaunchpadSessionSchema>;
+export type LaunchpadSession = typeof launchpadSessions.$inferSelect;

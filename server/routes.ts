@@ -1607,6 +1607,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const reportingRouter = await import("./routes-reporting");
   app.use("/api/reporting", ...authWithTenant, reportingRouter.default);
 
+  // Import and use Launchpad routes (AI document-to-Company OS generator)
+  const launchpadRouter = await import("./routes-launchpad");
+  app.use("/api/launchpad", ...authWithTenant, launchpadRouter.default);
+
   const httpServer = createServer(app);
 
   return httpServer;

@@ -112,6 +112,15 @@ Preferred communication style: Simple, everyday language.
 - OAuth flow similar to Planner integration for per-user consent
 - Periodic sync to pull latest measure values from Power BI
 
+### Launchpad (AI Document-to-Company OS) - COMPLETE
+- [x] Upload organizational documents (PDF, Word, TXT)
+- [x] GPT-5 powered analysis to extract mission/vision/values/goals/strategies/OKRs
+- [x] Multi-step wizard UI (Upload → Analyze → Review → Complete)
+- [x] Inline editing of AI proposals before approval
+- [x] One-click batch entity creation (Foundation, Strategies, Objectives, Key Results, Big Rocks)
+- [x] Session persistence for draft proposals
+- [x] Launchpad added to sidebar navigation under Admin section
+
 ### OKR Cloning (Viva Goals-style) - COMPLETE
 - [x] Clone objectives with 3 scope options: objective only, with Key Results, or full hierarchy
 - [x] Target quarter/year selection for quarterly rollover use cases

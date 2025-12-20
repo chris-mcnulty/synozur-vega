@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2 } from "lucide-react";
+import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2, Rocket } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -54,6 +54,11 @@ const menuItems = [
 ];
 
 const adminItems = [
+  {
+    title: "Launchpad",
+    url: "/launchpad",
+    icon: Rocket,
+  },
   {
     title: "Import Data",
     url: "/import",
