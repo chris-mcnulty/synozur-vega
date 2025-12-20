@@ -33,6 +33,7 @@ import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapp
 import { cn } from "@/lib/utils";
 import type { Foundation, CompanyValue } from "@shared/schema";
 import { ProgressSummaryDialog } from "@/components/ProgressSummaryDialog";
+import { CloneObjectiveDialog } from "@/components/okr/CloneObjectiveDialog";
 
 interface Objective {
   id: string;
@@ -306,6 +307,8 @@ export default function PlanningEnhanced() {
   const [saveToMeetingDialogOpen, setSaveToMeetingDialogOpen] = useState(false);
   const [alignmentDialogOpen, setAlignmentDialogOpen] = useState(false);
   const [alignmentTargetObjective, setAlignmentTargetObjective] = useState<string | null>(null);
+  const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
+  const [cloneObjective, setCloneObjective] = useState<Objective | null>(null);
   const [savedSummary, setSavedSummary] = useState<{ content: string; dateRange: string } | null>(null);
   const [managedWeights, setManagedWeights] = useState<KeyResult[]>([]);
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
@@ -1728,6 +1731,10 @@ export default function PlanningEnhanced() {
                     reopenKeyResultMutation.mutate(keyResultId);
                   }}
                   onManageWeights={handleManageWeights}
+                  onCloneObjective={(obj) => {
+                    setCloneObjective(obj as any);
+                    setCloneDialogOpen(true);
+                  }}
                 />
               )}
             </div>
@@ -3223,6 +3230,16 @@ export default function PlanningEnhanced() {
             setSavedSummary({ content: summary, dateRange });
             setSaveToMeetingDialogOpen(true);
           }}
+        />
+
+        {/* Clone Objective Dialog */}
+        <CloneObjectiveDialog
+          open={cloneDialogOpen}
+          onOpenChange={setCloneDialogOpen}
+          objective={cloneObjective as any}
+          tenantId={currentTenant?.id || ""}
+          currentQuarter={quarter || getCurrentQuarter()}
+          currentYear={year}
         />
 
         {/* Save to Meeting Dialog */}

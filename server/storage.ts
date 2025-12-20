@@ -92,6 +92,13 @@ export interface IStorage {
   createObjective(objective: InsertObjective): Promise<Objective>;
   updateObjective(id: string, objective: Partial<InsertObjective>): Promise<Objective>;
   deleteObjective(id: string): Promise<void>;
+  cloneObjective(objectiveId: string, options: {
+    targetQuarter: number;
+    targetYear: number;
+    keepOriginalOwner: boolean;
+    newOwnerId?: string;
+    cloneScope: 'objective_only' | 'immediate_children' | 'all_children';
+  }): Promise<Objective>;
   
   getKeyResultsByObjectiveId(objectiveId: string): Promise<KeyResult[]>;
   getKeyResultsByTenantId(tenantId: string, quarter?: number, year?: number, teamId?: string): Promise<KeyResult[]>;
@@ -679,6 +686,152 @@ export class DatabaseStorage implements IStorage {
     await db.delete(bigRocks).where(eq(bigRocks.objectiveId, id));
     // Delete the objective
     await db.delete(objectives).where(eq(objectives.id, id));
+  }
+
+  async cloneObjective(objectiveId: string, options: {
+    targetQuarter: number;
+    targetYear: number;
+    keepOriginalOwner: boolean;
+    newOwnerId?: string;
+    cloneScope: 'objective_only' | 'immediate_children' | 'all_children';
+  }): Promise<Objective> {
+    const sourceObjective = await this.getObjectiveById(objectiveId);
+    if (!sourceObjective) {
+      throw new Error('Source objective not found');
+    }
+
+    // Build dates for the target quarter
+    const startDate = new Date(options.targetYear, (options.targetQuarter - 1) * 3, 1);
+    const endDate = new Date(options.targetYear, options.targetQuarter * 3, 0);
+
+    // Clone the main objective with reset progress
+    const clonedObjectiveData: InsertObjective = {
+      tenantId: sourceObjective.tenantId,
+      title: sourceObjective.title,
+      description: sourceObjective.description,
+      parentId: null, // Top-level clone (not a child)
+      level: sourceObjective.level,
+      ownerId: options.keepOriginalOwner ? sourceObjective.ownerId : (options.newOwnerId || null),
+      ownerEmail: options.keepOriginalOwner ? sourceObjective.ownerEmail : null,
+      teamId: sourceObjective.teamId,
+      coOwnerIds: sourceObjective.coOwnerIds,
+      checkInOwnerId: options.keepOriginalOwner ? sourceObjective.checkInOwnerId : (options.newOwnerId || null),
+      progress: 0,
+      progressMode: sourceObjective.progressMode,
+      status: 'not_started',
+      statusOverride: 'false',
+      quarter: options.targetQuarter,
+      year: options.targetYear,
+      startDate: startDate,
+      endDate: endDate,
+      linkedStrategies: sourceObjective.linkedStrategies,
+      linkedGoals: sourceObjective.linkedGoals,
+      linkedValues: sourceObjective.linkedValues,
+      alignedToObjectiveIds: null, // Don't clone alignments
+    };
+
+    const clonedObjective = await this.createObjective(clonedObjectiveData);
+
+    // Clone key results if scope includes immediate_children or all_children
+    if (options.cloneScope === 'immediate_children' || options.cloneScope === 'all_children') {
+      const sourceKeyResults = await this.getKeyResultsByObjectiveId(objectiveId);
+      for (const kr of sourceKeyResults) {
+        const clonedKRData: InsertKeyResult = {
+          objectiveId: clonedObjective.id,
+          tenantId: kr.tenantId,
+          title: kr.title,
+          description: kr.description,
+          metricType: kr.metricType,
+          currentValue: kr.initialValue || 0,
+          targetValue: kr.targetValue,
+          initialValue: kr.initialValue || 0,
+          unit: kr.unit,
+          progress: 0,
+          weight: kr.weight,
+          isWeightLocked: kr.isWeightLocked,
+          status: 'not_started',
+          ownerId: options.keepOriginalOwner ? kr.ownerId : (options.newOwnerId || null),
+        };
+        await this.createKeyResult(clonedKRData);
+      }
+    }
+
+    // Clone child objectives if scope is all_children
+    if (options.cloneScope === 'all_children') {
+      await this.cloneChildObjectivesRecursively(objectiveId, clonedObjective.id, options);
+    }
+
+    return clonedObjective;
+  }
+
+  private async cloneChildObjectivesRecursively(
+    sourceParentId: string, 
+    targetParentId: string, 
+    options: {
+      targetQuarter: number;
+      targetYear: number;
+      keepOriginalOwner: boolean;
+      newOwnerId?: string;
+    }
+  ): Promise<void> {
+    const childObjectives = await this.getChildObjectives(sourceParentId);
+    
+    for (const child of childObjectives) {
+      const startDate = new Date(options.targetYear, (options.targetQuarter - 1) * 3, 1);
+      const endDate = new Date(options.targetYear, options.targetQuarter * 3, 0);
+
+      const clonedChildData: InsertObjective = {
+        tenantId: child.tenantId,
+        title: child.title,
+        description: child.description,
+        parentId: targetParentId,
+        level: child.level,
+        ownerId: options.keepOriginalOwner ? child.ownerId : (options.newOwnerId || null),
+        ownerEmail: options.keepOriginalOwner ? child.ownerEmail : null,
+        teamId: child.teamId,
+        coOwnerIds: child.coOwnerIds,
+        checkInOwnerId: options.keepOriginalOwner ? child.checkInOwnerId : (options.newOwnerId || null),
+        progress: 0,
+        progressMode: child.progressMode,
+        status: 'not_started',
+        statusOverride: 'false',
+        quarter: options.targetQuarter,
+        year: options.targetYear,
+        startDate: startDate,
+        endDate: endDate,
+        linkedStrategies: child.linkedStrategies,
+        linkedGoals: child.linkedGoals,
+        linkedValues: child.linkedValues,
+        alignedToObjectiveIds: null,
+      };
+
+      const clonedChild = await this.createObjective(clonedChildData);
+
+      // Clone key results for this child
+      const childKeyResults = await this.getKeyResultsByObjectiveId(child.id);
+      for (const kr of childKeyResults) {
+        const clonedKRData: InsertKeyResult = {
+          objectiveId: clonedChild.id,
+          tenantId: kr.tenantId,
+          title: kr.title,
+          description: kr.description,
+          metricType: kr.metricType,
+          currentValue: kr.initialValue || 0,
+          targetValue: kr.targetValue,
+          initialValue: kr.initialValue || 0,
+          unit: kr.unit,
+          progress: 0,
+          weight: kr.weight,
+          isWeightLocked: kr.isWeightLocked,
+          status: 'not_started',
+          ownerId: options.keepOriginalOwner ? kr.ownerId : (options.newOwnerId || null),
+        };
+        await this.createKeyResult(clonedKRData);
+      }
+
+      // Recursively clone grandchildren
+      await this.cloneChildObjectivesRecursively(child.id, clonedChild.id, options);
+    }
   }
 
   async getKeyResultsByObjectiveId(objectiveId: string): Promise<KeyResult[]> {

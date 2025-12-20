@@ -208,6 +208,36 @@ okrRouter.delete("/objectives/:id", async (req, res) => {
   }
 });
 
+// Clone objective (with optional hierarchy)
+okrRouter.post("/objectives/:id/clone", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { targetQuarter, targetYear, keepOriginalOwner, newOwnerId, cloneScope } = req.body;
+    
+    // Validate required fields
+    if (targetQuarter === undefined || targetYear === undefined) {
+      return res.status(400).json({ error: "targetQuarter and targetYear are required" });
+    }
+    
+    if (!cloneScope || !['objective_only', 'immediate_children', 'all_children'].includes(cloneScope)) {
+      return res.status(400).json({ error: "cloneScope must be one of: objective_only, immediate_children, all_children" });
+    }
+    
+    const clonedObjective = await storage.cloneObjective(id, {
+      targetQuarter: Number(targetQuarter),
+      targetYear: Number(targetYear),
+      keepOriginalOwner: keepOriginalOwner !== false,
+      newOwnerId: newOwnerId || undefined,
+      cloneScope,
+    });
+    
+    res.json(clonedObjective);
+  } catch (error) {
+    console.error("Error cloning objective:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Key Results
 okrRouter.get("/objectives/:objectiveId/key-results", async (req, res) => {
   try {

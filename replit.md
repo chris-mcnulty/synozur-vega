@@ -112,6 +112,16 @@ Preferred communication style: Simple, everyday language.
 - OAuth flow similar to Planner integration for per-user consent
 - Periodic sync to pull latest measure values from Power BI
 
+### OKR Cloning (Viva Goals-style) - COMPLETE
+- [x] Clone objectives with 3 scope options: objective only, with Key Results, or full hierarchy
+- [x] Target quarter/year selection for quarterly rollover use cases
+- [x] Progress reset to 0%, status reset to not_started on cloned items
+- [x] Owner assignment options (keep original or assign new owner)
+- [x] Recursive hierarchy cloning maintains parent-child relationships in new tree
+- [x] API endpoint POST /api/okr/objectives/:id/clone with validation
+- [x] CloneObjectiveDialog UI component with quarter selector and scope radio buttons
+- [x] Clone action added to objective row menu in HierarchicalOKRTable
+
 ### Team Mode - Simplified Interface (Priority: Medium) - COMPLETE
 - [x] **Separate menu option** (not a toggle) - distinct context with URL-addressable route (`/team`)
 - [x] Streamlined dashboard view for teams focused on weekly execution
