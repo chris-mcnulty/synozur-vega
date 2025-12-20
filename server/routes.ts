@@ -13,6 +13,7 @@ import {
   insertKpiSchema,
   insertMeetingSchema,
   insertUserSchema,
+  insertTeamSchema,
   type VocabularyTerms,
   defaultVocabulary
 } from "@shared/schema";
@@ -1129,6 +1130,209 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error deleting KPI:", error);
       res.status(500).json({ error: "Failed to delete KPI" });
+    }
+  });
+
+  // Teams routes (admin only for CUD, any user can read)
+  app.get("/api/teams/:tenantId", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const { tenantId } = req.params;
+      
+      // Enforce tenant isolation
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      
+      if (!canAccessAny && tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const teams = await storage.getTeamsByTenantId(tenantId);
+      res.json(teams);
+    } catch (error) {
+      console.error("Error fetching teams:", error);
+      res.status(500).json({ error: "Failed to fetch teams" });
+    }
+  });
+
+  app.get("/api/team/:id", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const team = await storage.getTeamById(id);
+      if (!team) {
+        return res.status(404).json({ error: "Team not found" });
+      }
+      
+      // Enforce tenant isolation
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      
+      if (!canAccessAny && team.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      res.json(team);
+    } catch (error) {
+      console.error("Error fetching team:", error);
+      res.status(500).json({ error: "Failed to fetch team" });
+    }
+  });
+
+  app.post("/api/teams", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const validatedData = insertTeamSchema.parse(req.body);
+      
+      // Enforce tenant isolation
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      
+      if (!canAccessAny && validatedData.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Check for duplicate team name
+      const existing = await storage.getTeamByName(validatedData.tenantId, validatedData.name);
+      if (existing) {
+        return res.status(400).json({ error: "A team with this name already exists" });
+      }
+      
+      const team = await storage.createTeam({
+        ...validatedData,
+        createdBy: req.user?.id,
+      });
+      res.json(team);
+    } catch (error) {
+      console.error("Error creating team:", error);
+      res.status(400).json({ error: "Failed to create team" });
+    }
+  });
+
+  app.patch("/api/teams/:id", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const validatedData = insertTeamSchema.partial().parse(req.body);
+      
+      // Get team to verify tenant access
+      const existingTeam = await storage.getTeamById(id);
+      if (!existingTeam) {
+        return res.status(404).json({ error: "Team not found" });
+      }
+      
+      // Enforce tenant isolation
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      
+      if (!canAccessAny && existingTeam.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Check for duplicate name if name is being updated
+      if (validatedData.name && validatedData.name !== existingTeam.name) {
+        const existing = await storage.getTeamByName(existingTeam.tenantId, validatedData.name);
+        if (existing) {
+          return res.status(400).json({ error: "A team with this name already exists" });
+        }
+      }
+      
+      const team = await storage.updateTeam(id, {
+        ...validatedData,
+        updatedBy: req.user?.id,
+      });
+      res.json(team);
+    } catch (error) {
+      console.error("Error updating team:", error);
+      res.status(400).json({ error: "Failed to update team" });
+    }
+  });
+
+  app.delete("/api/teams/:id", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      
+      // Get team to verify tenant access
+      const team = await storage.getTeamById(id);
+      if (!team) {
+        return res.status(404).json({ error: "Team not found" });
+      }
+      
+      // Enforce tenant isolation
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      
+      if (!canAccessAny && team.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      await storage.deleteTeam(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting team:", error);
+      res.status(500).json({ error: "Failed to delete team" });
+    }
+  });
+
+  // Team member management
+  app.post("/api/teams/:id/members", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { userId } = req.body;
+      
+      if (!userId) {
+        return res.status(400).json({ error: "userId is required" });
+      }
+      
+      const team = await storage.getTeamById(id);
+      if (!team) {
+        return res.status(404).json({ error: "Team not found" });
+      }
+      
+      // Enforce tenant isolation
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      
+      if (!canAccessAny && team.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Add user to memberIds array
+      const currentMembers = team.memberIds || [];
+      if (!currentMembers.includes(userId)) {
+        currentMembers.push(userId);
+        const updated = await storage.updateTeam(id, { memberIds: currentMembers });
+        res.json(updated);
+      } else {
+        res.json(team); // Already a member
+      }
+    } catch (error) {
+      console.error("Error adding team member:", error);
+      res.status(500).json({ error: "Failed to add team member" });
+    }
+  });
+
+  app.delete("/api/teams/:id/members/:userId", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { id, userId } = req.params;
+      
+      const team = await storage.getTeamById(id);
+      if (!team) {
+        return res.status(404).json({ error: "Team not found" });
+      }
+      
+      // Enforce tenant isolation
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      
+      if (!canAccessAny && team.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      // Remove user from memberIds array
+      const currentMembers = team.memberIds || [];
+      const updatedMembers = currentMembers.filter(m => m !== userId);
+      const updated = await storage.updateTeam(id, { memberIds: updatedMembers });
+      res.json(updated);
+    } catch (error) {
+      console.error("Error removing team member:", error);
+      res.status(500).json({ error: "Failed to remove team member" });
     }
   });
 

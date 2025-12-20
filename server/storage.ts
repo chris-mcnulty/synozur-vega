@@ -82,8 +82,11 @@ export interface IStorage {
   // Enhanced OKR Methods
   getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number, level?: string, teamId?: string): Promise<Objective[]>;
   getTeamsByTenantId(tenantId: string): Promise<Team[]>;
+  getTeamById(id: string): Promise<Team | undefined>;
   getTeamByName(tenantId: string, name: string): Promise<Team | undefined>;
   createTeam(team: InsertTeam): Promise<Team>;
+  updateTeam(id: string, team: Partial<InsertTeam>): Promise<Team>;
+  deleteTeam(id: string): Promise<void>;
   getObjectiveById(id: string): Promise<Objective | undefined>;
   getChildObjectives(parentId: string): Promise<Objective[]>;
   createObjective(objective: InsertObjective): Promise<Objective>;
@@ -609,6 +612,28 @@ export class DatabaseStorage implements IStorage {
   async createTeam(team: InsertTeam): Promise<Team> {
     const [created] = await db.insert(teams).values(team as any).returning();
     return created;
+  }
+
+  async getTeamById(id: string): Promise<Team | undefined> {
+    const [team] = await db.select().from(teams).where(eq(teams.id, id));
+    return team || undefined;
+  }
+
+  async updateTeam(id: string, updateData: Partial<InsertTeam>): Promise<Team> {
+    const [team] = await db
+      .update(teams)
+      .set({
+        ...updateData,
+        memberIds: updateData.memberIds ? [...updateData.memberIds] : undefined,
+        updatedAt: new Date(),
+      } as any)
+      .where(eq(teams.id, id))
+      .returning();
+    return team;
+  }
+
+  async deleteTeam(id: string): Promise<void> {
+    await db.delete(teams).where(eq(teams.id, id));
   }
 
   async getObjectiveById(id: string): Promise<Objective | undefined> {
