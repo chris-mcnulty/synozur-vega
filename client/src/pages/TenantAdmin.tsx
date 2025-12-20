@@ -138,6 +138,370 @@ const standardColors = [
   { name: "Indigo", value: "#6366F1" },
 ];
 
+type Team = {
+  id: string;
+  tenantId: string;
+  name: string;
+  description: string | null;
+  parentTeamId: string | null;
+  level: number | null;
+  leaderId: string | null;
+  leaderEmail: string | null;
+  memberIds: string[] | null;
+  createdAt: Date | null;
+};
+
+function TeamManagementSection({ 
+  tenants,
+  users
+}: { 
+  tenants: Tenant[];
+  users: User[];
+}) {
+  const { toast } = useToast();
+  const [selectedTenantId, setSelectedTenantId] = useState<string>(tenants[0]?.id || "");
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingTeam, setEditingTeam] = useState<Team | null>(null);
+  const [newTeamName, setNewTeamName] = useState("");
+  const [newTeamDescription, setNewTeamDescription] = useState("");
+  const [selectedLeaderId, setSelectedLeaderId] = useState<string>("");
+  
+  const { data: teams = [], isLoading } = useQuery<Team[]>({
+    queryKey: ["/api/teams", selectedTenantId],
+    queryFn: async () => {
+      const res = await fetch(`/api/teams/${selectedTenantId}`, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch teams");
+      return res.json();
+    },
+    enabled: !!selectedTenantId,
+  });
+
+  const createTeamMutation = useMutation({
+    mutationFn: async (data: { name: string; description: string; leaderId?: string }) => {
+      return await apiRequest("POST", "/api/teams", {
+        tenantId: selectedTenantId,
+        name: data.name,
+        description: data.description || null,
+        leaderId: data.leaderId || null,
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teams", selectedTenantId] });
+      setIsCreateDialogOpen(false);
+      setNewTeamName("");
+      setNewTeamDescription("");
+      setSelectedLeaderId("");
+      toast({ title: "Team created successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to create team", 
+        description: error.message || "Unknown error",
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const updateTeamMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: Partial<Team> }) => {
+      return await apiRequest("PATCH", `/api/teams/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teams", selectedTenantId] });
+      setIsEditDialogOpen(false);
+      setEditingTeam(null);
+      toast({ title: "Team updated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to update team", 
+        description: error.message || "Unknown error",
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const deleteTeamMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/teams/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/teams", selectedTenantId] });
+      toast({ title: "Team deleted successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to delete team", 
+        description: error.message || "Unknown error",
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const handleOpenEditDialog = (team: Team) => {
+    setEditingTeam(team);
+    setNewTeamName(team.name);
+    setNewTeamDescription(team.description || "");
+    setSelectedLeaderId(team.leaderId || "");
+    setIsEditDialogOpen(true);
+  };
+
+  const tenantUsers = users.filter(u => u.tenantId === selectedTenantId);
+
+  const getLeaderName = (leaderId: string | null) => {
+    if (!leaderId) return null;
+    const user = users.find(u => u.id === leaderId);
+    return user?.name || user?.email || leaderId;
+  };
+
+  return (
+    <div data-testid="team-management-section">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-xl font-semibold">Team Management</h2>
+          <p className="text-muted-foreground text-sm">
+            Create and manage teams for organizing objectives and key results by department or division.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {tenants.length > 1 && (
+            <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
+              <SelectTrigger className="w-48" data-testid="select-team-tenant">
+                <SelectValue placeholder="Select organization" />
+              </SelectTrigger>
+              <SelectContent>
+                {tenants.map(tenant => (
+                  <SelectItem key={tenant.id} value={tenant.id}>
+                    {tenant.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-team">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Team
+          </Button>
+        </div>
+      </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          {isLoading ? (
+            <p className="text-muted-foreground">Loading teams...</p>
+          ) : teams.length === 0 ? (
+            <div className="text-center py-8">
+              <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+              <p className="text-muted-foreground">No teams created yet</p>
+              <p className="text-sm text-muted-foreground">Create teams to organize your objectives by department or division</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Team Name</TableHead>
+                  <TableHead>Description</TableHead>
+                  <TableHead>Leader</TableHead>
+                  <TableHead>Members</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {teams.map((team) => (
+                  <TableRow key={team.id} data-testid={`team-row-${team.id}`}>
+                    <TableCell className="font-medium">{team.name}</TableCell>
+                    <TableCell className="text-muted-foreground max-w-xs truncate">
+                      {team.description || "-"}
+                    </TableCell>
+                    <TableCell>
+                      {team.leaderId ? (
+                        <Badge variant="secondary">{getLeaderName(team.leaderId)}</Badge>
+                      ) : (
+                        <span className="text-muted-foreground text-sm">No leader</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">
+                        {team.memberIds?.length || 0} members
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleOpenEditDialog(team)}
+                          title="Edit team"
+                          data-testid={`button-edit-team-${team.id}`}
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            if (confirm(`Are you sure you want to delete team "${team.name}"?`)) {
+                              deleteTeamMutation.mutate(team.id);
+                            }
+                          }}
+                          title="Delete team"
+                          data-testid={`button-delete-team-${team.id}`}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Create Team Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Team</DialogTitle>
+            <DialogDescription>
+              Add a new team to organize objectives and key results.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="team-name">Team Name</Label>
+              <Input
+                id="team-name"
+                value={newTeamName}
+                onChange={(e) => setNewTeamName(e.target.value)}
+                placeholder="e.g., Engineering, Marketing, Sales"
+                data-testid="input-team-name"
+              />
+            </div>
+            <div>
+              <Label htmlFor="team-description">Description (optional)</Label>
+              <Input
+                id="team-description"
+                value={newTeamDescription}
+                onChange={(e) => setNewTeamDescription(e.target.value)}
+                placeholder="Brief description of the team's focus"
+                data-testid="input-team-description"
+              />
+            </div>
+            <div>
+              <Label htmlFor="team-leader">Team Leader (optional)</Label>
+              <Select value={selectedLeaderId} onValueChange={setSelectedLeaderId}>
+                <SelectTrigger data-testid="select-team-leader">
+                  <SelectValue placeholder="Select a leader" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No leader</SelectItem>
+                  {tenantUsers.map(user => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name || user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => createTeamMutation.mutate({ 
+                name: newTeamName, 
+                description: newTeamDescription,
+                leaderId: selectedLeaderId || undefined
+              })}
+              disabled={!newTeamName.trim() || createTeamMutation.isPending}
+              data-testid="button-confirm-create-team"
+            >
+              {createTeamMutation.isPending ? "Creating..." : "Create Team"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Team Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Team</DialogTitle>
+            <DialogDescription>
+              Update team details.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-team-name">Team Name</Label>
+              <Input
+                id="edit-team-name"
+                value={newTeamName}
+                onChange={(e) => setNewTeamName(e.target.value)}
+                placeholder="Team name"
+                data-testid="input-edit-team-name"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-team-description">Description (optional)</Label>
+              <Input
+                id="edit-team-description"
+                value={newTeamDescription}
+                onChange={(e) => setNewTeamDescription(e.target.value)}
+                placeholder="Brief description"
+                data-testid="input-edit-team-description"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-team-leader">Team Leader</Label>
+              <Select value={selectedLeaderId} onValueChange={setSelectedLeaderId}>
+                <SelectTrigger data-testid="select-edit-team-leader">
+                  <SelectValue placeholder="Select a leader" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">No leader</SelectItem>
+                  {tenantUsers.map(user => (
+                    <SelectItem key={user.id} value={user.id}>
+                      {user.name || user.email}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                if (editingTeam) {
+                  updateTeamMutation.mutate({
+                    id: editingTeam.id,
+                    data: {
+                      name: newTeamName,
+                      description: newTeamDescription || null,
+                      leaderId: selectedLeaderId || null,
+                    }
+                  });
+                }
+              }}
+              disabled={!newTeamName.trim() || updateTeamMutation.isPending}
+              data-testid="button-confirm-edit-team"
+            >
+              {updateTeamMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 function ConsultantAccessCard({ 
   tenant, 
   onOpenGrantDialog, 
@@ -1246,6 +1610,9 @@ export default function TenantAdmin() {
           </p>
           <AIUsageWidget />
         </div>
+
+        {/* Team Management Section */}
+        <TeamManagementSection tenants={tenants} users={users} />
 
         <div>
           <h2 className="text-xl font-semibold mb-4">Microsoft 365 Integration</h2>

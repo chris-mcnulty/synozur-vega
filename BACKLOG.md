@@ -28,7 +28,7 @@
 | **Custom Vocabulary** | Complete | ✅ Complete | VocabularyContext + system/tenant overrides |
 | **Team Mode** | Complete | ✅ Complete | /team route with filtered views |
 | **Objective Alignment** | Complete | ✅ Complete | alignedToObjectiveIds many-to-many |
-| **16. Team Management** | Not Started | Not Started | **NEW** - CRUD UI, M365 Groups import |
+| **16. Team Management** | Complete | ✅ Complete | Dec 20, 2025 - CRUD UI in Tenant Admin, API routes, member management |
 
 ### Recommended Priority Sequence (Next 8 Weeks)
 
@@ -1318,39 +1318,48 @@ Features to drive employee adoption and engagement with the Company OS.
 
 ---
 
-### 16. Team Management ⭐ NEW
+### 16. Team Management ✅ COMPLETE
 
-**Status:** Not Started  
+**Status:** Complete (Dec 20, 2025)  
 **Priority:** Medium  
-**Effort:** 3-5 days
+**Effort:** Complete
 
 **Description:**
-Dedicated Team Management UI in Tenant Admin to create, edit, and manage teams. Currently teams are created implicitly through OKR imports or objective creation.
+Dedicated Team Management UI in Tenant Admin to create, edit, and manage teams.
 
-**Features:**
-- **Team CRUD in Tenant Admin** - View all teams, create new teams, edit names/descriptions, delete teams
-- **User-to-Team Assignment** - Assign users to one or more teams (matrix membership support)
-- **M365 Groups Integration** - Import teams from Microsoft 365 Groups via Graph API
-  - List available M365 Groups for the organization
-  - Sync team membership from M365 Groups
-  - Option to auto-sync on schedule or manual trigger
-- **Team Hierarchy** - Optional parent-team relationships for divisional structure
-- **Team Dashboard** - Quick stats showing team OKRs, progress, Big Rocks
+**Completed Implementation:**
 
-**API Endpoints Needed:**
-- `POST /api/teams` - Create team
-- `PATCH /api/teams/:id` - Update team
-- `DELETE /api/teams/:id` - Delete team
-- `POST /api/teams/:id/members` - Add user to team
-- `DELETE /api/teams/:id/members/:userId` - Remove user from team
-- `GET /api/m365/groups` - List M365 Groups for import
-- `POST /api/teams/import-from-m365` - Create teams from M365 Groups
+1. **Storage Methods (server/storage.ts):**
+   - ✅ `getTeamsByTenantId()` - List teams for a tenant
+   - ✅ `getTeamById()` - Get single team by ID
+   - ✅ `getTeamByName()` - Lookup team by name (for duplicate check)
+   - ✅ `createTeam()` - Create new team
+   - ✅ `updateTeam()` - Update team details
+   - ✅ `deleteTeam()` - Delete team
 
-**Schema Changes:**
-- Add `team_members` junction table for user-to-team many-to-many relationship
-- Add optional `parentTeamId` to teams table for hierarchy
+2. **API Endpoints (server/routes.ts):**
+   - ✅ `GET /api/teams/:tenantId` - List all teams
+   - ✅ `GET /api/team/:id` - Get single team
+   - ✅ `POST /api/teams` - Create team (admin only)
+   - ✅ `PATCH /api/teams/:id` - Update team (admin only)
+   - ✅ `DELETE /api/teams/:id` - Delete team (admin only)
+   - ✅ `POST /api/teams/:id/members` - Add user to team
+   - ✅ `DELETE /api/teams/:id/members/:userId` - Remove user from team
 
-**Business Value:** Enables proper organizational structure, supports Team Mode filtering, and leverages existing M365 investment for faster onboarding.
+3. **UI (client/src/pages/TenantAdmin.tsx):**
+   - ✅ TeamManagementSection component with full CRUD
+   - ✅ Team table showing name, description, leader, member count
+   - ✅ Create team dialog with name, description, leader selection
+   - ✅ Edit team dialog
+   - ✅ Delete confirmation
+   - ✅ Multi-tenant selector for platform admins
+
+**Future Enhancements (Backlogged):**
+- M365 Groups Integration - Import teams from Microsoft 365 Groups
+- Team Hierarchy UI - Visual parent-team relationships
+- Team Dashboard - Stats showing team OKRs, progress, Big Rocks
+
+**Business Value:** Enables proper organizational structure and supports Team Mode filtering.
 
 ---
 
