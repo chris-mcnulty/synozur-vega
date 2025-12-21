@@ -142,7 +142,7 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
       <div className="flex flex-col flex-1 overflow-hidden">
         <header className="flex items-center justify-between p-4 border-b gap-4">
           <div className="flex items-center gap-4">
-            <SidebarTrigger data-testid="button-sidebar-toggle" />
+            <SidebarTrigger data-testid="button-sidebar-toggle" className="hidden md:flex" />
             <div className="flex items-center gap-3">
               <SynozurLogo variant="mark" className="h-8 w-8" />
               <span className="font-bold text-lg hidden md:block">Vega</span>
@@ -160,6 +160,7 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
               <span className="hidden md:inline">AI Chat</span>
             </button>
             <ThemeToggle />
+            <SidebarTrigger data-testid="button-sidebar-toggle-mobile" className="md:hidden" />
           </div>
         </header>
         <div className="flex flex-1 overflow-hidden">
