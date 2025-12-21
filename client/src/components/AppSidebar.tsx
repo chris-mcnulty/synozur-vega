@@ -187,6 +187,20 @@ export function AppSidebar() {
                   <SidebarMenuItem>
                     <SidebarMenuButton
                       asChild
+                      isActive={location === "/launchpad"}
+                      data-testid="sidebar-launchpad"
+                    >
+                      <a href="/launchpad">
+                        <Rocket />
+                        <span>Launchpad</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
+                {canImportData && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
                       isActive={location === "/import"}
                       data-testid="sidebar-import"
                     >
