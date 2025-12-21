@@ -3,7 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { ArrowRight, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
 import starTrailsBg from "@assets/AdobeStock_362805421_1763398687511.jpeg";
-import microsoftPartnerBadge from "@assets/MicrosoftCAPPPreferredTrans_1766339770091.png";
+import microsoftPartnerBadge from "@assets/MSFT-CAPP-PREFERRED-White_1766339770092.png";
 
 export function LandingHero() {
   return (
@@ -44,13 +44,13 @@ export function LandingHero() {
             seamless M365 integration, and the flexibility modern organizations demand.
           </p>
           
-          <p className="text-lg text-white/80 mb-8 max-w-3xl">
+          <p className="text-lg text-white/90 mb-8 max-w-3xl drop-shadow-md">
             Built on the{" "}
             <a 
               href="https://www.synozur.com/solutions/company-os" 
               target="_blank" 
               rel="noopener noreferrer"
-              className="text-primary hover:text-primary/80 underline underline-offset-2 font-medium"
+              className="text-white font-semibold underline underline-offset-4 decoration-2 hover:text-white/80"
             >
               Company OS™
             </a>{" "}
@@ -94,16 +94,12 @@ export function LandingHero() {
             </Button>
           </div>
           
-          <div className="flex items-center gap-4 bg-white/95 backdrop-blur-sm rounded-lg px-4 py-3 w-fit shadow-lg">
+          <div className="flex items-center gap-4">
             <img 
               src={microsoftPartnerBadge} 
               alt="Microsoft Preferred Content AI Partner" 
-              className="h-10 md:h-12 object-contain"
+              className="h-14 md:h-16 object-contain drop-shadow-lg"
             />
-            <div className="text-gray-700 text-sm">
-              <span className="block font-semibold text-gray-900">Microsoft Preferred Partner</span>
-              Content AI Solutions
-            </div>
           </div>
         </div>
       </div>
