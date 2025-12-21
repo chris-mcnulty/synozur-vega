@@ -730,8 +730,8 @@ aiRouter.get("/usage/summary", requireTenantAccess, async (req: Request, res: Re
       return res.status(400).json({ error: "Tenant context required" });
     }
     
-    // Check if user has admin permission
-    if (!hasPermission(req.user?.role as Role, PERMISSIONS.MANAGE_TENANT)) {
+    // Check if user has admin permission (tenant admin or higher)
+    if (!hasPermission(req.user?.role as Role, PERMISSIONS.MANAGE_TENANT_SETTINGS)) {
       return res.status(403).json({ error: "Admin access required to view AI usage" });
     }
 
@@ -801,7 +801,7 @@ aiRouter.get("/usage/platform", async (req: Request, res: Response) => {
     }
     
     // Check if user has platform admin permission
-    if (!hasPermission(req.user.role as Role, PERMISSIONS.MANAGE_SYSTEM)) {
+    if (!hasPermission(req.user.role as Role, PERMISSIONS.MANAGE_PLATFORM)) {
       return res.status(403).json({ error: "Platform admin access required" });
     }
 
