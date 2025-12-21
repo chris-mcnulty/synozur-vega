@@ -211,6 +211,20 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 )}
+                {canManageTenant && (
+                  <SidebarMenuItem>
+                    <SidebarMenuButton
+                      asChild
+                      isActive={location === "/reporting"}
+                      data-testid="sidebar-reporting"
+                    >
+                      <a href="/reporting">
+                        <BarChart2 />
+                        <span>Reporting</span>
+                      </a>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                )}
                 {canManageAI && (
                   <SidebarMenuItem>
                     <SidebarMenuButton
