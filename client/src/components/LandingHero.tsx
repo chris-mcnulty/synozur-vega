@@ -26,18 +26,35 @@ export function LandingHero() {
           </div>
           
           <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6">
-            <span className="bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent">
+            <span className="text-white drop-shadow-lg">
               The OKR Platform
             </span>
             <br />
-            <span className="bg-gradient-to-r from-primary via-purple-400 to-secondary bg-clip-text text-transparent">
-              Microsoft Should Have Built
+            <span className="text-white drop-shadow-lg">
+              Microsoft{" "}
+              <span className="text-primary-foreground bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent drop-shadow-xl">
+                Should Have
+              </span>
+              {" "}Built
             </span>
           </h1>
           
-          <p className="text-xl md:text-2xl text-white/90 mb-8 leading-relaxed max-w-3xl">
+          <p className="text-xl md:text-2xl text-white/90 mb-4 leading-relaxed max-w-3xl drop-shadow-md">
             Vega picks up where Viva Goals left off—with AI-powered strategic planning, 
             seamless M365 integration, and the flexibility modern organizations demand.
+          </p>
+          
+          <p className="text-lg text-white/80 mb-8 max-w-3xl">
+            Built on the{" "}
+            <a 
+              href="https://www.synozur.com/solutions/company-os" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="text-primary hover:text-primary/80 underline underline-offset-2 font-medium"
+            >
+              Company OS™
+            </a>{" "}
+            framework by Synozur.
           </p>
           
           <div className="flex flex-wrap gap-3 mb-10">
@@ -77,14 +94,14 @@ export function LandingHero() {
             </Button>
           </div>
           
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4 bg-white/95 backdrop-blur-sm rounded-lg px-4 py-3 w-fit shadow-lg">
             <img 
               src={microsoftPartnerBadge} 
               alt="Microsoft Preferred Content AI Partner" 
-              className="h-12 md:h-16 object-contain"
+              className="h-10 md:h-12 object-contain"
             />
-            <div className="text-white/70 text-sm">
-              <span className="block font-medium text-white/90">Microsoft Preferred Partner</span>
+            <div className="text-gray-700 text-sm">
+              <span className="block font-semibold text-gray-900">Microsoft Preferred Partner</span>
               Content AI Solutions
             </div>
           </div>
