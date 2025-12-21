@@ -7,10 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Eye, EyeOff, Building2, Shield, AlertCircle } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Shield, Loader2 } from "lucide-react";
 import microsoftLogo from "@assets/Microsoft_Icon_6_1765741102026.jpeg";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import starTrailsBg from "@assets/AdobeStock_362805421_1763398687511.jpeg";
+import { SynozurLogo } from "@/components/SynozurLogo";
 
 interface SsoPolicy {
   tenantFound: boolean;
@@ -30,29 +31,24 @@ export default function Login() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
 
-  // Demo login state
-  const [demoPassword, setDemoPassword] = useState("");
-  const [isSubmittingDemo, setIsSubmittingDemo] = useState(false);
-  const [showDemoPassword, setShowDemoPassword] = useState(false);
-
-  // Email/password login state
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [isSubmittingLogin, setIsSubmittingLogin] = useState(false);
   const [showLoginPassword, setShowLoginPassword] = useState(false);
 
-  // Signup state
   const [signupName, setSignupName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
   const [isSubmittingSignup, setIsSubmittingSignup] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   
-  // SSO policy state
+  const [demoPassword, setDemoPassword] = useState("");
+  const [showDemoForm, setShowDemoForm] = useState(false);
+  const [isSubmittingDemo, setIsSubmittingDemo] = useState(false);
+  
   const [ssoPolicy, setSsoPolicy] = useState<SsoPolicy | null>(null);
   const [checkingPolicy, setCheckingPolicy] = useState(false);
   
-  // SSO error messages mapping
   const ssoErrorMessages: Record<string, string> = {
     'sso_not_configured': 'Microsoft SSO is not configured for this application. Please contact your administrator.',
     'token_acquisition_failed': 'Failed to complete authentication. Please try again.',
@@ -68,7 +64,6 @@ export default function Login() {
     'interaction_required': 'Additional interaction is required. Please try signing in again.',
   };
   
-  // Check for SSO errors in URL on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const error = params.get('error');
@@ -83,12 +78,10 @@ export default function Login() {
         description: friendlyMessage,
         duration: 8000,
       });
-      // Clean up URL
-      window.history.replaceState({}, '', '/auth');
+      window.history.replaceState({}, '', '/login');
     }
   }, [toast]);
   
-  // Debounced SSO policy check
   const checkSsoPolicy = useCallback(async (email: string) => {
     if (!email || !email.includes('@')) {
       setSsoPolicy(null);
@@ -114,7 +107,6 @@ export default function Login() {
     }
   }, []);
   
-  // Check SSO policy when email changes (with debounce)
   useEffect(() => {
     const timer = setTimeout(() => {
       if (loginEmail.includes('@')) {
@@ -124,6 +116,11 @@ export default function Login() {
     
     return () => clearTimeout(timer);
   }, [loginEmail, checkSsoPolicy]);
+
+  const handleMicrosoftLogin = () => {
+    sessionStorage.setItem('vega_sso_pending', Date.now().toString());
+    window.location.href = `/auth/entra/login${ssoPolicy?.tenantId ? `?tenant=${ssoPolicy.tenantId}` : ''}`;
+  };
 
   const handleDemoLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -135,7 +132,6 @@ export default function Login() {
         title: "Welcome!",
         description: "Successfully logged in as demo user",
       });
-      // Add a small delay to ensure auth state is updated
       setTimeout(() => {
         setLocation("/dashboard");
       }, 100);
@@ -153,24 +149,15 @@ export default function Login() {
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Check if SSO is required for this user's organization
     if (ssoPolicy?.ssoRequired) {
       toast({
         title: "SSO Required",
         description: `${ssoPolicy.tenantName || 'Your organization'} requires Microsoft SSO login. Redirecting...`,
       });
-      // Redirect to SSO login with tenant hint
       setTimeout(() => {
-        sessionStorage.setItem('vega_sso_pending', Date.now().toString());
-        window.location.href = `/auth/entra/login${ssoPolicy.tenantId ? `?tenant=${ssoPolicy.tenantId}` : ''}`;
+        handleMicrosoftLogin();
       }, 1500);
       return;
-    }
-    
-    // If SSO is enabled but local auth is allowed, warn but proceed
-    if (ssoPolicy?.ssoEnabled && ssoPolicy?.enforceSso && ssoPolicy?.allowLocalAuth) {
-      // User can use either, but SSO is preferred
-      console.log('SSO is enabled but local auth is allowed');
     }
     
     setIsSubmittingLogin(true);
@@ -181,7 +168,6 @@ export default function Login() {
         title: "Welcome Back!",
         description: "Successfully logged in",
       });
-      // Add a small delay to ensure auth state is updated
       setTimeout(() => {
         setLocation("/dashboard");
       }, 100);
@@ -208,10 +194,9 @@ export default function Login() {
       });
       toast({
         title: "Account Created!",
-        description: "Please check your email to verify your account. You'll receive a verification link shortly.",
+        description: "Please check your email to verify your account.",
         duration: 8000,
       });
-      // Clear form
       setSignupName("");
       setSignupEmail("");
       setSignupPassword("");
@@ -228,7 +213,6 @@ export default function Login() {
 
   return (
     <div className="relative min-h-screen flex items-center justify-center p-4">
-      {/* Star trails background with purple overlay */}
       <div 
         className="fixed inset-0 z-0"
         style={{
@@ -241,7 +225,6 @@ export default function Login() {
       <div className="fixed inset-0 z-0 bg-gradient-to-br from-primary/40 via-purple-900/30 to-background/80" />
       
       <div className="relative z-10 w-full max-w-md space-y-6">
-        {/* Back to Home Link */}
         <Link href="/">
           <Button variant="ghost" className="text-white hover:bg-white/10">
             <ArrowLeft className="mr-2 h-4 w-4" />
@@ -249,77 +232,45 @@ export default function Login() {
           </Button>
         </Link>
         
-        <div className="text-center space-y-2">
-          <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-xl">Vega</h1>
+        <div className="text-center space-y-3">
+          <div className="flex items-center justify-center gap-3">
+            <SynozurLogo variant="mark" className="h-10 w-10" />
+            <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-xl">Vega</h1>
+          </div>
           <p className="text-gray-200">Your AI-Augmented Company OS</p>
         </div>
 
-        <Tabs defaultValue="login" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="login" data-testid="tab-email-login">Login</TabsTrigger>
-            <TabsTrigger value="signup" data-testid="tab-signup">Sign Up</TabsTrigger>
-            <TabsTrigger value="demo" data-testid="tab-demo-login">Demo</TabsTrigger>
-          </TabsList>
+        <Card className="backdrop-blur-md bg-background/95 border-white/20">
+          <CardContent className="pt-6">
+            <Button
+              type="button"
+              size="lg"
+              className="w-full mb-4"
+              onClick={handleMicrosoftLogin}
+              data-testid="button-sso-login"
+            >
+              <img src={microsoftLogo} alt="Microsoft" className="mr-2 h-5 w-5" />
+              Continue with Microsoft
+            </Button>
+            
+            <div className="relative my-4">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or use email
+                </span>
+              </div>
+            </div>
 
-          <TabsContent value="demo">
-            <Card className="backdrop-blur-md bg-background/95 border-white/20">
-              <CardHeader>
-                <CardTitle>Demo Access</CardTitle>
-                <CardDescription>
-                  Quick access with demo password
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <form onSubmit={handleDemoLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="demo-password">Demo Password</Label>
-                    <div className="relative">
-                      <Input
-                        id="demo-password"
-                        type={showDemoPassword ? "text" : "password"}
-                        value={demoPassword}
-                        onChange={(e) => setDemoPassword(e.target.value)}
-                        placeholder="Enter demo password"
-                        data-testid="input-demo-password"
-                        className="pr-10"
-                        required
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setShowDemoPassword(!showDemoPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                        data-testid="button-toggle-demo-password"
-                        aria-label={showDemoPassword ? "Hide password" : "Show password"}
-                      >
-                        {showDemoPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </button>
-                    </div>
-                  </div>
-                  <Button
-                    type="submit"
-                    className="w-full"
-                    disabled={isSubmittingDemo}
-                    data-testid="button-demo-login"
-                  >
-                    {isSubmittingDemo ? "Logging in..." : "Login as Demo User"}
-                  </Button>
-                  <p className="text-sm text-muted-foreground text-center">
-                    Logs you in as a standard user for Acme Corporation
-                  </p>
-                </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
+            <Tabs defaultValue="login" className="w-full">
+              <TabsList className="grid w-full grid-cols-2 mb-4">
+                <TabsTrigger value="login" data-testid="tab-email-login">Login</TabsTrigger>
+                <TabsTrigger value="signup" data-testid="tab-signup">Sign Up</TabsTrigger>
+              </TabsList>
 
-          <TabsContent value="login">
-            <Card className="backdrop-blur-md bg-background/95 border-white/20">
-              <CardHeader>
-                <CardTitle>Email Login</CardTitle>
-                <CardDescription>
-                  Sign in with your organization email
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+              <TabsContent value="login" className="mt-0">
                 <form onSubmit={handleEmailLogin} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="login-email">Email</Label>
@@ -334,115 +285,72 @@ export default function Login() {
                     />
                   </div>
                   
-                  {/* SSO Policy Alert */}
+                  {checkingPolicy && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Checking organization...
+                    </div>
+                  )}
+                  
                   {ssoPolicy?.ssoRequired && (
                     <Alert className="border-primary/50 bg-primary/10">
                       <Shield className="h-4 w-4" />
                       <AlertDescription>
-                        <span className="font-medium">{ssoPolicy.tenantName || 'Your organization'}</span> requires Microsoft SSO login.
-                        Click "Sign in with Microsoft" below.
+                        <span className="font-medium">{ssoPolicy.tenantName || 'Your organization'}</span> requires Microsoft SSO.
                       </AlertDescription>
                     </Alert>
                   )}
                   
-                  {ssoPolicy?.ssoEnabled && !ssoPolicy?.ssoRequired && (
-                    <Alert className="border-blue-500/50 bg-blue-500/10">
-                      <Shield className="h-4 w-4 text-blue-500" />
-                      <AlertDescription className="text-blue-700 dark:text-blue-300">
-                        <span className="font-medium">{ssoPolicy.tenantName}</span> supports Microsoft SSO.
-                        You can use either SSO or your password.
-                      </AlertDescription>
-                    </Alert>
-                  )}
-                  
-                  {/* Password field - only show if not SSO required */}
                   {!ssoPolicy?.ssoRequired && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="login-password">Password</Label>
-                        <Link href="/forgot-password">
+                    <>
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="login-password">Password</Label>
+                          <Link href="/forgot-password">
+                            <button
+                              type="button"
+                              className="text-xs text-primary hover:underline"
+                              data-testid="link-forgot-password"
+                            >
+                              Forgot password?
+                            </button>
+                          </Link>
+                        </div>
+                        <div className="relative">
+                          <Input
+                            id="login-password"
+                            type={showLoginPassword ? "text" : "password"}
+                            value={loginPassword}
+                            onChange={(e) => setLoginPassword(e.target.value)}
+                            placeholder="Enter your password"
+                            data-testid="input-login-password"
+                            className="pr-10"
+                            required
+                          />
                           <button
                             type="button"
-                            className="text-xs text-primary hover:underline"
-                            data-testid="link-forgot-password"
+                            onClick={() => setShowLoginPassword(!showLoginPassword)}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                            data-testid="button-toggle-login-password"
                           >
-                            Forgot password?
+                            {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </button>
-                        </Link>
+                        </div>
                       </div>
-                      <div className="relative">
-                        <Input
-                          id="login-password"
-                          type={showLoginPassword ? "text" : "password"}
-                          value={loginPassword}
-                          onChange={(e) => setLoginPassword(e.target.value)}
-                          placeholder="Enter your password"
-                          data-testid="input-login-password"
-                          className="pr-10"
-                          required={!ssoPolicy?.ssoRequired}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowLoginPassword(!showLoginPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                          data-testid="button-toggle-login-password"
-                          aria-label={showLoginPassword ? "Hide password" : "Show password"}
-                        >
-                          {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                        </button>
-                      </div>
-                    </div>
+                      <Button
+                        type="submit"
+                        className="w-full"
+                        disabled={isSubmittingLogin}
+                        data-testid="button-email-login"
+                      >
+                        {isSubmittingLogin ? "Logging in..." : "Login"}
+                      </Button>
+                    </>
                   )}
-                  
-                  {!ssoPolicy?.ssoRequired && (
-                    <Button
-                      type="submit"
-                      className="w-full"
-                      disabled={isSubmittingLogin}
-                      data-testid="button-email-login"
-                    >
-                      {isSubmittingLogin ? "Logging in..." : "Login"}
-                    </Button>
-                  )}
-                  
-                  <div className="relative my-4">
-                    <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-background px-2 text-muted-foreground">
-                        {ssoPolicy?.ssoRequired ? "Continue with" : "Or continue with"}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  <Button
-                    type="button"
-                    variant={ssoPolicy?.ssoRequired ? "default" : "outline"}
-                    className="w-full"
-                    onClick={() => {
-                      sessionStorage.setItem('vega_sso_pending', Date.now().toString());
-                      window.location.href = `/auth/entra/login${ssoPolicy?.tenantId ? `?tenant=${ssoPolicy.tenantId}` : ''}`;
-                    }}
-                    data-testid="button-sso-login"
-                  >
-                    <img src={microsoftLogo} alt="Microsoft" className="mr-2 h-4 w-4" />
-                    Sign in with Microsoft
-                  </Button>
                 </form>
-              </CardContent>
-            </Card>
-          </TabsContent>
+              </TabsContent>
 
-          <TabsContent value="signup">
-            <Card className="backdrop-blur-md bg-background/95 border-white/20">
-              <CardHeader>
-                <CardTitle>Create Account</CardTitle>
-                <CardDescription>
-                  Sign up with your organization email
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
+              <TabsContent value="signup" className="mt-0">
                 <form onSubmit={handleSignup} className="space-y-4">
                   <div className="space-y-2">
                     <Label htmlFor="signup-name">Name</Label>
@@ -456,7 +364,7 @@ export default function Login() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="signup-email">Email</Label>
+                    <Label htmlFor="signup-email">Work Email</Label>
                     <Input
                       id="signup-email"
                       type="email"
@@ -485,7 +393,6 @@ export default function Login() {
                         onClick={() => setShowSignupPassword(!showSignupPassword)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                         data-testid="button-toggle-signup-password"
-                        aria-label={showSignupPassword ? "Hide password" : "Show password"}
                       >
                         {showSignupPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -497,16 +404,69 @@ export default function Login() {
                     disabled={isSubmittingSignup}
                     data-testid="button-signup"
                   >
-                    {isSubmittingSignup ? "Creating account..." : "Sign Up"}
+                    {isSubmittingSignup ? "Creating account..." : "Create Account"}
                   </Button>
-                  <p className="text-sm text-muted-foreground text-center">
+                  <p className="text-xs text-muted-foreground text-center">
                     Your email domain must match an allowed organization
                   </p>
                 </form>
+              </TabsContent>
+            </Tabs>
+          </CardContent>
+        </Card>
+        
+        <div className="text-center">
+          {!showDemoForm ? (
+            <button
+              onClick={() => setShowDemoForm(true)}
+              className="text-sm text-white/70 hover:text-white underline"
+              data-testid="link-demo-access"
+            >
+              Have a demo password?
+            </button>
+          ) : (
+            <Card className="backdrop-blur-md bg-background/95 border-white/20">
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base">Demo Access</CardTitle>
+                <CardDescription className="text-xs">
+                  Enter the demo password provided by Synozur
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <form onSubmit={handleDemoLogin} className="space-y-3">
+                  <Input
+                    type="password"
+                    value={demoPassword}
+                    onChange={(e) => setDemoPassword(e.target.value)}
+                    placeholder="Demo password"
+                    data-testid="input-demo-password"
+                    required
+                  />
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowDemoForm(false)}
+                      className="flex-1"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={isSubmittingDemo}
+                      className="flex-1"
+                      data-testid="button-demo-login"
+                    >
+                      {isSubmittingDemo ? "..." : "Enter Demo"}
+                    </Button>
+                  </div>
+                </form>
               </CardContent>
             </Card>
-          </TabsContent>
-        </Tabs>
+          )}
+        </div>
       </div>
     </div>
   );
