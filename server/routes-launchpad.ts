@@ -41,7 +41,7 @@ async function extractTextFromDocument(buffer: Buffer, mimetype: string): Promis
 
 router.post("/upload", upload.single('document'), async (req: Request, res: Response) => {
   try {
-    if (!(req as any).isAuthenticated() || !req.user) {
+    if (!req.user) {
       return res.status(401).json({ error: "Authentication required" });
     }
     
@@ -83,7 +83,7 @@ router.post("/upload", upload.single('document'), async (req: Request, res: Resp
 
 router.post("/:sessionId/analyze", async (req: Request, res: Response) => {
   try {
-    if (!(req as any).isAuthenticated() || !req.user) {
+    if (!req.user) {
       return res.status(401).json({ error: "Authentication required" });
     }
 
@@ -181,7 +181,7 @@ Return only valid JSON matching the structure described.`;
 
 router.get("/sessions", async (req: Request, res: Response) => {
   try {
-    if (!(req as any).isAuthenticated() || !req.user) {
+    if (!req.user) {
       return res.status(401).json({ error: "Authentication required" });
     }
 
@@ -199,7 +199,7 @@ router.get("/sessions", async (req: Request, res: Response) => {
 
 router.get("/:sessionId", async (req: Request, res: Response) => {
   try {
-    if (!(req as any).isAuthenticated() || !req.user) {
+    if (!req.user) {
       return res.status(401).json({ error: "Authentication required" });
     }
 
@@ -221,7 +221,7 @@ router.get("/:sessionId", async (req: Request, res: Response) => {
 
 router.patch("/:sessionId", async (req: Request, res: Response) => {
   try {
-    if (!(req as any).isAuthenticated() || !req.user) {
+    if (!req.user) {
       return res.status(401).json({ error: "Authentication required" });
     }
 
@@ -245,7 +245,7 @@ router.patch("/:sessionId", async (req: Request, res: Response) => {
 
 router.post("/:sessionId/approve", async (req: Request, res: Response) => {
   try {
-    if (!(req as any).isAuthenticated() || !req.user) {
+    if (!req.user) {
       return res.status(401).json({ error: "Authentication required" });
     }
 
@@ -390,7 +390,7 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
 
 router.delete("/:sessionId", async (req: Request, res: Response) => {
   try {
-    if (!(req as any).isAuthenticated() || !req.user) {
+    if (!req.user) {
       return res.status(401).json({ error: "Authentication required" });
     }
 

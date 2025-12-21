@@ -22,7 +22,7 @@ export default function Launchpad() {
   const [step, setStep] = useState<Step>('upload');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [targetYear, setTargetYear] = useState(new Date().getFullYear());
-  const [targetQuarter, setTargetQuarter] = useState<number>(Math.ceil((new Date().getMonth() + 1) / 3));
+  const [targetQuarter, setTargetQuarter] = useState<string>("all");
   const [currentSession, setCurrentSession] = useState<LaunchpadSession | null>(null);
   const [editedProposal, setEditedProposal] = useState<LaunchpadProposal | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -39,7 +39,9 @@ export default function Launchpad() {
       const formData = new FormData();
       formData.append('document', file);
       formData.append('targetYear', targetYear.toString());
-      formData.append('targetQuarter', targetQuarter.toString());
+      if (targetQuarter !== "all") {
+        formData.append('targetQuarter', targetQuarter);
+      }
       
       const response = await fetch('/api/launchpad/upload', {
         method: 'POST',
@@ -258,17 +260,20 @@ export default function Launchpad() {
                   </Select>
                 </div>
                 <div>
-                  <Label htmlFor="target-quarter">Target Quarter</Label>
-                  <Select value={targetQuarter.toString()} onValueChange={(v) => setTargetQuarter(parseInt(v))}>
+                  <Label htmlFor="target-quarter">OKR Quarter (optional)</Label>
+                  <Select value={targetQuarter} onValueChange={setTargetQuarter}>
                     <SelectTrigger id="target-quarter" data-testid="select-target-quarter">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      {[1, 2, 3, 4].map(q => (
-                        <SelectItem key={q} value={q.toString()}>Q{q}</SelectItem>
-                      ))}
+                      <SelectItem value="all">Annual (all quarters)</SelectItem>
+                      <SelectItem value="1">Q1</SelectItem>
+                      <SelectItem value="2">Q2</SelectItem>
+                      <SelectItem value="3">Q3</SelectItem>
+                      <SelectItem value="4">Q4</SelectItem>
                     </SelectContent>
                   </Select>
+                  <p className="text-xs text-muted-foreground mt-1">Leave as "Annual" for full-year strategic plans</p>
                 </div>
               </div>
 
@@ -313,7 +318,7 @@ export default function Launchpad() {
                         <div>
                           <p className="font-medium text-sm">{session.sourceDocumentName || 'Untitled'}</p>
                           <p className="text-xs text-muted-foreground">
-                            {session.targetYear} Q{session.targetQuarter}
+                            {session.targetYear}{session.targetQuarter ? ` Q${session.targetQuarter}` : ''}
                           </p>
                         </div>
                       </div>
