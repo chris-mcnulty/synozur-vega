@@ -106,7 +106,10 @@ router.post("/:sessionId/analyze", async (req: Request, res: Response) => {
       analysisProgress: 10,
     });
 
-    const openai = new OpenAI();
+    const openai = new OpenAI({
+      baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
+      apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
+    });
 
     const systemPrompt = `You are an expert organizational strategist. Analyze the provided document and extract/propose a comprehensive Company Operating System structure.
 
