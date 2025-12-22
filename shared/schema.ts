@@ -238,6 +238,9 @@ export const tenants = pgTable("tenants", {
   // Self-service signup metadata
   selfServiceSignup: boolean("self_service_signup").default(false),
   signupCompletedAt: timestamp("signup_completed_at"),
+  // Invite-only mode: when true, new users cannot auto-join via domain matching
+  // Used for tenants created by users with public email domains (Gmail, Yahoo, etc.)
+  inviteOnly: boolean("invite_only").default(false),
 });
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({
