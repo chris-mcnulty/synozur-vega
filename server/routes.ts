@@ -55,6 +55,36 @@ const adminOnly = [requireAuth, loadCurrentUser, requireTenantAccess, rbac.tenan
 // Platform admin only
 const platformAdminOnly = [requireAuth, loadCurrentUser, rbac.platformAdmin];
 
+// Middleware that requires tenant access for regular admins, but allows platform admins without tenant
+async function requireTenantAccessOrPlatformAdmin(req: Request, res: Response, next: NextFunction) {
+  if (!req.user) {
+    return res.status(401).json({ error: 'Authentication required' });
+  }
+  
+  const userRole = req.user.role as string;
+  const isPlatformAdmin = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+  
+  if (isPlatformAdmin) {
+    // Platform admins can proceed without tenant context
+    // Set effectiveTenantId from header if provided, otherwise leave undefined
+    const tenantId = req.headers['x-tenant-id'] as string | undefined;
+    if (tenantId) {
+      const tenant = await storage.getTenantById(tenantId);
+      if (tenant) {
+        req.effectiveTenantId = tenantId;
+      }
+      // Don't error if tenant doesn't exist - platform admin might be viewing all
+    }
+    return next();
+  }
+  
+  // Regular admins need tenant context - use standard middleware
+  return requireTenantAccess(req, res, next);
+}
+
+// Admin middleware that works for platform admins without tenant context
+const adminWithOptionalTenant = [requireAuth, loadCurrentUser, requireTenantAccessOrPlatformAdmin, rbac.tenantAdmin];
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // User Guide route - serve the markdown file
   app.get("/api/user-guide", async (req, res) => {
@@ -454,7 +484,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Tenant CRUD endpoints (platform admin only for create/delete, tenant admin for read/update own)
-  app.get("/api/tenants", ...authWithTenant, async (req: Request, res: Response) => {
+  app.get("/api/tenants", ...adminWithOptionalTenant, async (req: Request, res: Response) => {
     try {
       // Platform admins can see all tenants, others only see their own
       const userRole = req.user?.role;
@@ -652,7 +682,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // User CRUD endpoints (tenant admin can manage users in their tenant)
-  app.get("/api/users", ...adminOnly, async (req: Request, res: Response) => {
+  app.get("/api/users", ...adminWithOptionalTenant, async (req: Request, res: Response) => {
     try {
       const { tenantId } = req.query;
       const userRole = req.user?.role as string;
@@ -1634,7 +1664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get consultants (filtered to just consultant role users)
-  app.get("/api/consultants", ...adminOnly, async (req: Request, res: Response) => {
+  app.get("/api/consultants", ...adminWithOptionalTenant, async (req: Request, res: Response) => {
     try {
       // Get all users and filter to just consultants
       const allUsers = await storage.getAllUsers();
