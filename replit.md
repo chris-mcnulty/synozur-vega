@@ -34,6 +34,7 @@ Preferred communication style: Simple, everyday language.
     - Multi-tenancy with data isolation per tenant, managed via `TenantContext` and `TenantSwitcher`.
     - Full RBAC enforcement with 6 defined roles: `tenant_user`, `tenant_admin`, `admin`, `global_admin`, `vega_consultant`, `vega_admin`.
     - **Vocabulary Module**: Customizable terminology for core objects, with system-level defaults and tenant-level overrides.
+    - **Public Domain Handling (Invite-Only Mode)**: Users signing up with public email domains (Gmail, Yahoo, Outlook, etc.) create personal invite-only tenants without claiming the public domain. This prevents domain squatting and ensures users from public domains can only join existing organizations via explicit invitation. Configurable in Tenant Admin via "Invite Only Mode" toggle.
 
 ### Development & Tools
 - **Development Server**: Vite for client, esbuild for server, with HMR.
