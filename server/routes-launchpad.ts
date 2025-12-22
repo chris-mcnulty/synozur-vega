@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import multer from "multer";
 import OpenAI from "openai";
 import { type LaunchpadProposal } from "@shared/schema";
-import { hasPermission, PERMISSIONS, Role } from "@shared/rbac";
+import { hasPermission, PERMISSIONS, Role, canAccessAnyTenant } from "@shared/rbac";
 
 const router = Router();
 
@@ -124,9 +124,15 @@ router.post("/:sessionId/analyze", async (req: Request, res: Response) => {
 
     const user = req.user as any;
     const effectiveTenantId = req.effectiveTenantId || user.tenantId;
-    console.log(`[Launchpad Analyze] session.tenantId=${session.tenantId}, effectiveTenantId=${effectiveTenantId}, req.effectiveTenantId=${req.effectiveTenantId}, user.tenantId=${user.tenantId}`);
-    if (session.tenantId !== effectiveTenantId) {
-      console.log(`[Launchpad Analyze] Tenant mismatch - denying access`);
+    const userRole = user.role as Role;
+    
+    // Allow access if: session is in current tenant context, OR user created it, OR user has cross-tenant access
+    const isOwnSession = session.userId === user.id;
+    const hasCrossTenantAccess = canAccessAnyTenant(userRole);
+    const isSameTenant = session.tenantId === effectiveTenantId;
+    
+    if (!isSameTenant && !isOwnSession && !hasCrossTenantAccess) {
+      console.log(`[Launchpad Analyze] Access denied - tenant mismatch and no override`);
       return res.status(403).json({ error: "Access denied" });
     }
 
