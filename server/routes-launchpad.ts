@@ -124,7 +124,9 @@ router.post("/:sessionId/analyze", async (req: Request, res: Response) => {
 
     const user = req.user as any;
     const effectiveTenantId = req.effectiveTenantId || user.tenantId;
+    console.log(`[Launchpad Analyze] session.tenantId=${session.tenantId}, effectiveTenantId=${effectiveTenantId}, req.effectiveTenantId=${req.effectiveTenantId}, user.tenantId=${user.tenantId}`);
     if (session.tenantId !== effectiveTenantId) {
+      console.log(`[Launchpad Analyze] Tenant mismatch - denying access`);
       return res.status(403).json({ error: "Access denied" });
     }
 
