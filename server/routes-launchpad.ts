@@ -14,10 +14,12 @@ const router = Router();
  */
 function checkLaunchpadPermission(user: any): { error: string; message: string } | null {
   if (!user) {
+    console.log("[Launchpad] Permission denied: no user");
     return { error: "Authentication required", message: "Please log in to use Launchpad" };
   }
   
   const userRole = user.role as Role;
+  console.log(`[Launchpad] Permission check: user=${user.email}, role=${userRole}, hasPermission=${hasPermission(userRole, PERMISSIONS.USE_LAUNCHPAD)}`);
   if (!hasPermission(userRole, PERMISSIONS.USE_LAUNCHPAD)) {
     return { 
       error: "Access denied", 
