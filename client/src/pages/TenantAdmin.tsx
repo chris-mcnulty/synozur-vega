@@ -1545,7 +1545,12 @@ export default function TenantAdmin() {
                       data-testid={`button-manage-domains-${tenant.id}`}
                     >
                       <Globe className="h-3 w-3 mr-1" />
-                      Manage Domains ({(tenant.allowedDomains || []).length})
+                      Membership: 
+                      {(tenant as any).inviteOnly ? (
+                        <Badge variant="outline" className="ml-1 text-xs">Invite Only</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="ml-1 text-xs">{(tenant.allowedDomains || []).length} domains</Badge>
+                      )}
                     </Button>
                     <Button
                       variant="secondary"
@@ -2219,10 +2224,31 @@ export default function TenantAdmin() {
               Manage Allowed Domains - {selectedTenantForDomains?.name}
             </DialogTitle>
             <DialogDescription>
-              Add or remove email domains that are allowed to access this organization.
+              Configure how new users can join this organization.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+              <div className="space-y-0.5">
+                <Label className="text-base">Invite Only Mode</Label>
+                <p className="text-sm text-muted-foreground">
+                  When enabled, new users must be explicitly invited and cannot auto-join via domain matching.
+                </p>
+              </div>
+              <Switch
+                checked={(selectedTenantForDomains as any)?.inviteOnly || false}
+                onCheckedChange={(checked) => {
+                  if (selectedTenantForDomains) {
+                    updateTenantMutation.mutate({
+                      id: selectedTenantForDomains.id,
+                      data: { inviteOnly: checked } as any,
+                    });
+                  }
+                }}
+                data-testid="switch-invite-only"
+              />
+            </div>
+            
             <div className="space-y-2">
               <Label>Add New Domain</Label>
               <div className="flex gap-2">

@@ -3,6 +3,7 @@ import { ConfidentialClientApplication, Configuration, AuthorizationCodeRequest,
 import { storage } from './storage';
 import { ROLES } from '../shared/rbac';
 import { encryptToken, decryptToken } from './utils/encryption';
+import { isPublicEmailDomain } from '../shared/publicDomains';
 
 const router = Router();
 
@@ -227,7 +228,7 @@ router.get('/callback', async (req: Request, res: Response) => {
     
     if (!user) {
       const emailDomain = email.split('@')[1];
-      const matchingTenant = await findTenantByAzureTenantOrDomain(azureTenantId, emailDomain);
+      const matchingTenant = await findTenantByAzureTenantOrDomain(azureTenantId, emailDomain, email);
       
       if (!matchingTenant) {
         console.log(`[Entra SSO] No matching tenant for user ${email}`);
@@ -323,13 +324,24 @@ router.post('/logout', (req: Request, res: Response) => {
   });
 });
 
-async function findTenantByAzureTenantOrDomain(azureTenantId: string, emailDomain: string) {
+async function findTenantByAzureTenantOrDomain(azureTenantId: string, emailDomain: string, userEmail: string) {
   const allTenants = await storage.getAllTenants();
   
+  // Azure tenant ID match takes priority (SSO is explicitly configured for this org)
   const azureMatch = allTenants.find(t => t.azureTenantId === azureTenantId);
   if (azureMatch) return azureMatch;
   
+  // For public email domains (Gmail, Yahoo, etc.), skip domain matching
+  // Users with public domains must be explicitly invited or create their own tenant
+  if (isPublicEmailDomain(userEmail)) {
+    console.log(`[Entra SSO] Skipping domain match for public email: ${userEmail}`);
+    return null;
+  }
+  
+  // Domain match only works for non-invite-only tenants
   const domainMatch = allTenants.find(t => {
+    // Skip invite-only tenants for domain-based auto-join
+    if (t.inviteOnly) return false;
     const domains = t.allowedDomains || [];
     return domains.includes(emailDomain.toLowerCase());
   });

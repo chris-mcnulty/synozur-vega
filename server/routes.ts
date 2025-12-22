@@ -37,6 +37,7 @@ import {
   isResourceOwner
 } from "./middleware/rbac";
 import { ROLES, PERMISSIONS, USER_TYPES, getAvailableRolesForUserType } from "../shared/rbac";
+import { isPublicEmailDomain } from "../shared/publicDomains";
 
 // Authentication middleware (basic - just checks session)
 function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -222,10 +223,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ error: "User already exists" });
       }
 
+      // Check if using a public email domain (Gmail, Yahoo, Outlook, etc.)
+      const isPublicDomain = isPublicEmailDomain(email);
+      
       // Find tenant by domain or create new one with trial plan
-      let tenant = await storage.getTenantByDomain(domain);
+      // For public domains, SKIP domain-based tenant lookup to prevent auto-join
+      let tenant = isPublicDomain ? null : await storage.getTenantByDomain(domain);
       let isNewTenant = false;
       let servicePlan: any = null;
+
+      // If using a public domain and trying to join an existing invite-only tenant, reject
+      if (!tenant && !isPublicDomain) {
+        // Check if there's a tenant that has this domain but is invite-only
+        const existingTenant = await storage.getTenantByDomain(domain);
+        if (existingTenant?.inviteOnly) {
+          return res.status(403).json({ 
+            error: "This organization requires an invitation to join. Please contact your administrator for an invite." 
+          });
+        }
+      }
 
       if (!tenant) {
         // Get default service plan (Trial)
@@ -239,20 +255,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ? new Date(now.getTime() + servicePlan.durationDays * 24 * 60 * 60 * 1000)
           : null;
 
-        // Create new tenant with trial plan
-        const companyName = domain.split('.')[0].charAt(0).toUpperCase() + domain.split('.')[0].slice(1);
-        tenant = await storage.createTenant({
-          name: `${companyName} (${domain})`,
-          allowedDomains: [domain],
-          selfServiceSignup: true,
-          signupCompletedAt: now,
-          servicePlanId: servicePlan?.id,
-          planStartedAt: now,
-          planExpiresAt: expiresAt,
-          planStatus: 'active',
-        });
+        // For public domains: create invite-only tenant without domain claim
+        // For business domains: create standard tenant with domain claim
+        if (isPublicDomain) {
+          // Extract name from email (before @)
+          const userName = name || email.split('@')[0];
+          tenant = await storage.createTenant({
+            name: `${userName}'s Organization`,
+            allowedDomains: [], // Don't claim the public domain
+            selfServiceSignup: true,
+            signupCompletedAt: now,
+            servicePlanId: servicePlan?.id,
+            planStartedAt: now,
+            planExpiresAt: expiresAt,
+            planStatus: 'active',
+            inviteOnly: true, // New members must be explicitly invited
+          });
+          console.log(`[Signup] Created invite-only tenant for public domain user ${email}:`, tenant.id);
+        } else {
+          // Standard business domain signup
+          const companyName = domain.split('.')[0].charAt(0).toUpperCase() + domain.split('.')[0].slice(1);
+          tenant = await storage.createTenant({
+            name: `${companyName} (${domain})`,
+            allowedDomains: [domain],
+            selfServiceSignup: true,
+            signupCompletedAt: now,
+            servicePlanId: servicePlan?.id,
+            planStartedAt: now,
+            planExpiresAt: expiresAt,
+            planStatus: 'active',
+            inviteOnly: false,
+          });
+          console.log(`[Signup] Created new tenant for domain ${domain}:`, tenant.id);
+        }
         isNewTenant = true;
-        console.log(`[Signup] Created new tenant for domain ${domain}:`, tenant.id);
       }
 
       // Generate verification token (returns plaintext and hash)
