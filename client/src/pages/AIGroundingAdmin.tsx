@@ -59,6 +59,7 @@ type GroundingDocument = {
   content: string;
   priority: number | null;
   isActive: boolean | null;
+  isTenantBackground: boolean | null;
   createdBy: string | null;
   createdAt: string | null;
   updatedBy: string | null;
@@ -97,6 +98,7 @@ export default function AIGroundingAdmin() {
     content: "",
     priority: 0,
     isActive: true,
+    isTenantBackground: false,
     tenantId: null as string | null,
   });
 
@@ -167,6 +169,7 @@ export default function AIGroundingAdmin() {
       content: "",
       priority: 0,
       isActive: true,
+      isTenantBackground: false,
       tenantId: null,
     });
     setDocumentDialogOpen(true);
@@ -181,6 +184,7 @@ export default function AIGroundingAdmin() {
       content: doc.content,
       priority: doc.priority || 0,
       isActive: doc.isActive ?? true,
+      isTenantBackground: doc.isTenantBackground ?? false,
       tenantId: doc.tenantId || null,
     });
     setDocumentDialogOpen(true);
@@ -353,17 +357,24 @@ export default function AIGroundingAdmin() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {doc.tenantId ? (
-                          <Badge variant="outline" className="flex items-center gap-1 w-fit">
-                            <Building2 className="h-3 w-3" />
-                            {getTenantName(doc.tenantId)}
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="flex items-center gap-1 w-fit">
-                            <Brain className="h-3 w-3" />
-                            Global
-                          </Badge>
-                        )}
+                        <div className="flex flex-col gap-1">
+                          {doc.tenantId ? (
+                            <Badge variant="outline" className="flex items-center gap-1 w-fit">
+                              <Building2 className="h-3 w-3" />
+                              {getTenantName(doc.tenantId)}
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="flex items-center gap-1 w-fit">
+                              <Brain className="h-3 w-3" />
+                              Global
+                            </Badge>
+                          )}
+                          {doc.isTenantBackground && (
+                            <Badge variant="default" className="w-fit text-xs">
+                              Background Context
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         <Badge variant="secondary" className="flex items-center gap-1 w-fit">
@@ -528,6 +539,23 @@ export default function AIGroundingAdmin() {
                   Global documents apply to all tenants. Tenant-specific documents only apply when that tenant is active.
                 </p>
               </div>
+
+              {formData.tenantId && (
+                <div className="flex items-center justify-between rounded-lg border p-4">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="tenant-background">Tenant Background Context</Label>
+                    <p className="text-xs text-muted-foreground">
+                      When enabled, this document is automatically included in all AI conversations for this tenant
+                    </p>
+                  </div>
+                  <Switch
+                    id="tenant-background"
+                    checked={formData.isTenantBackground}
+                    onCheckedChange={(checked) => setFormData({ ...formData, isTenantBackground: checked })}
+                    data-testid="switch-tenant-background"
+                  />
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">

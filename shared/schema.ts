@@ -1196,6 +1196,10 @@ export const groundingDocuments = pgTable("grounding_documents", {
   // Status
   isActive: boolean("is_active").default(true),
   
+  // Tenant background context - when true, this document is automatically included
+  // in AI context for all conversations within this tenant
+  isTenantBackground: boolean("is_tenant_background").default(false),
+  
   // Metadata
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),

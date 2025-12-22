@@ -48,7 +48,7 @@ Preferred communication style: Simple, everyday language.
     - **Planner Integration**: Full Microsoft Planner integration with per-user OAuth consent, supporting bidirectional sync of plans, buckets, and tasks, linkable to OKRs and Big Rocks. OAuth tokens are encrypted at rest.
     - **Outlook Calendar Integration**: Per-user OAuth consent flow for accessing Outlook Calendar events.
     - **Excel Data Binding**: Support for linking Key Results to OneDrive/SharePoint Excel files with cell reference binding.
-- **AI Services**: GPT-5 integration via Replit AI Integrations (OpenAI-compatible API) for streaming chat, OKR, and Big Rock suggestions. AI context is enhanced via a Grounding Documents system. AI usage is tracked for provider/model switching and cost analysis.
+- **AI Services**: GPT-5 integration via Replit AI Integrations (OpenAI-compatible API) for streaming chat, OKR, and Big Rock suggestions. AI context is enhanced via a Grounding Documents system with support for tenant-specific "Background Context" documents that are automatically included in all AI conversations for that tenant. AI usage is tracked for provider/model switching and cost analysis.
 - **UI Component Library**: shadcn/ui (built on Radix UI primitives).
 - **Database**: Neon PostgreSQL.
 - **Transactional Email**: SendGrid (via Replit connector).
