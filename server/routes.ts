@@ -251,7 +251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send welcome email with license info for new tenants
       if (isNewTenant && servicePlan) {
         try {
-          await sendWelcomeEmail(email, user.name || '', tenant.name, servicePlan);
+          await sendSelfServiceWelcomeEmail(email, user.name || '', tenant.name, servicePlan);
         } catch (welcomeError) {
           console.error("Failed to send welcome email:", welcomeError);
         }
@@ -1689,6 +1689,134 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Import and use Launchpad routes (AI document-to-Company OS generator)
   const launchpadRouter = await import("./routes-launchpad");
   app.use("/api/launchpad", ...authWithTenant, launchpadRouter.default);
+
+  // ============================================
+  // PLATFORM ADMIN ROUTES - Service Plans & Blocked Domains
+  // ============================================
+
+  // Get all service plans
+  app.get("/api/admin/service-plans", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const plans = await storage.getAllServicePlans();
+      res.json(plans);
+    } catch (error) {
+      console.error("Error fetching service plans:", error);
+      res.status(500).json({ error: "Failed to fetch service plans" });
+    }
+  });
+
+  // Create a new service plan
+  app.post("/api/admin/service-plans", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const plan = await storage.createServicePlan(req.body);
+      res.status(201).json(plan);
+    } catch (error) {
+      console.error("Error creating service plan:", error);
+      res.status(500).json({ error: "Failed to create service plan" });
+    }
+  });
+
+  // Update a service plan
+  app.patch("/api/admin/service-plans/:id", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const plan = await storage.updateServicePlan(id, req.body);
+      if (!plan) {
+        return res.status(404).json({ error: "Service plan not found" });
+      }
+      res.json(plan);
+    } catch (error) {
+      console.error("Error updating service plan:", error);
+      res.status(500).json({ error: "Failed to update service plan" });
+    }
+  });
+
+  // Get all blocked domains
+  app.get("/api/admin/blocked-domains", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const domains = await storage.getAllBlockedDomains();
+      res.json(domains);
+    } catch (error) {
+      console.error("Error fetching blocked domains:", error);
+      res.status(500).json({ error: "Failed to fetch blocked domains" });
+    }
+  });
+
+  // Block a domain
+  app.post("/api/admin/blocked-domains", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const { domain, reason } = req.body;
+      if (!domain) {
+        return res.status(400).json({ error: "Domain is required" });
+      }
+      const blocked = await storage.blockDomain({ domain, reason, blockedBy: req.user!.id });
+      res.status(201).json(blocked);
+    } catch (error: any) {
+      if (error.message?.includes("already blocked")) {
+        return res.status(409).json({ error: "Domain is already blocked" });
+      }
+      console.error("Error blocking domain:", error);
+      res.status(500).json({ error: "Failed to block domain" });
+    }
+  });
+
+  // Unblock a domain
+  app.delete("/api/admin/blocked-domains/:domain", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const { domain } = req.params;
+      await storage.unblockDomain(domain);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error unblocking domain:", error);
+      res.status(500).json({ error: "Failed to unblock domain" });
+    }
+  });
+
+  // Update tenant's service plan (platform admin only)
+  app.patch("/api/admin/tenants/:id/plan", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { servicePlanId, planExpiresAt, planStartedAt } = req.body;
+      
+      const tenant = await storage.getTenantById(id);
+      if (!tenant) {
+        return res.status(404).json({ error: "Tenant not found" });
+      }
+
+      const updatedTenant = await storage.updateTenant(id, {
+        servicePlanId,
+        planExpiresAt: planExpiresAt ? new Date(planExpiresAt) : undefined,
+        planStartedAt: planStartedAt ? new Date(planStartedAt) : new Date(),
+      });
+      
+      res.json(updatedTenant);
+    } catch (error) {
+      console.error("Error updating tenant plan:", error);
+      res.status(500).json({ error: "Failed to update tenant plan" });
+    }
+  });
+
+  // Get all tenants with their plan info (platform admin only)
+  app.get("/api/admin/tenants", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const tenants = await storage.getAllTenants();
+      const plans = await storage.getAllServicePlans();
+      
+      // Enrich tenants with plan details
+      const enrichedTenants = tenants.map(tenant => {
+        const plan = plans.find(p => p.id === tenant.servicePlanId);
+        return {
+          ...tenant,
+          servicePlan: plan || null,
+        };
+      });
+      
+      res.json(enrichedTenants);
+    } catch (error) {
+      console.error("Error fetching tenants:", error);
+      res.status(500).json({ error: "Failed to fetch tenants" });
+    }
+  });
 
   const httpServer = createServer(app);
 
