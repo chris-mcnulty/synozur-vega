@@ -356,6 +356,177 @@ export async function sendWelcomeEmail(to: string, userName?: string, organizati
   await client.send(msg);
 }
 
+// Send welcome email with license information for self-service signups
+export async function sendSelfServiceWelcomeEmail(
+  to: string, 
+  userName: string, 
+  organizationName: string, 
+  servicePlan: { displayName: string; durationDays: number | null; maxReadWriteUsers: number | null }
+) {
+  const { client, fromEmail } = await getUncachableSendGridClient();
+  
+  const loginUrl = `${APP_URL}/login`;
+  const expiresText = servicePlan.durationDays 
+    ? `Your ${servicePlan.displayName} plan is valid for ${servicePlan.durationDays} days.`
+    : 'Your plan has no expiration date.';
+  const usersText = servicePlan.maxReadWriteUsers 
+    ? `You can have up to ${servicePlan.maxReadWriteUsers} read/write user${servicePlan.maxReadWriteUsers > 1 ? 's' : ''}.`
+    : 'You have unlimited users available.';
+
+  const msg = {
+    to,
+    from: fromEmail,
+    subject: `Welcome to Vega - Your ${servicePlan.displayName} Plan is Active`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a; color: #ffffff;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #0a0a0a;">
+            <tr>
+              <td style="padding: 40px 20px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 12px; border: 1px solid #2a2a2a;">
+                  <tr>
+                    <td style="padding: 40px 40px 20px; text-align: center;">
+                      <h1 style="margin: 0; font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #810FFB 0%, #E60CB3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Vega</h1>
+                      <p style="margin: 10px 0 0; font-size: 14px; color: #999999;">AI-Augmented Company OS</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 40px;">
+                      <h2 style="margin: 0 0 20px; font-size: 24px; font-weight: 600; color: #ffffff;">Welcome to Vega, ${userName}!</h2>
+                      
+                      <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #cccccc;">
+                        Your organization <strong>${organizationName}</strong> has been created and your <strong>${servicePlan.displayName}</strong> plan is now active.
+                      </p>
+                      
+                      <div style="background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                        <h3 style="margin: 0 0 15px; font-size: 18px; color: #ffffff;">Your Plan Details</h3>
+                        <p style="margin: 0 0 10px; font-size: 14px; color: #cccccc;">• ${expiresText}</p>
+                        <p style="margin: 0; font-size: 14px; color: #cccccc;">• ${usersText}</p>
+                      </div>
+                      
+                      <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 30px 0;">
+                        <tr>
+                          <td style="border-radius: 8px; background: linear-gradient(135deg, #810FFB 0%, #E60CB3 100%);">
+                            <a href="${loginUrl}" target="_blank" style="display: inline-block; padding: 16px 40px; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none; border-radius: 8px;">
+                              Get Started
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+                      
+                      <div style="background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                        <p style="margin: 0; font-size: 14px; color: #cccccc;">
+                          <strong>Need to extend your plan or add more users?</strong><br>
+                          Contact us at <a href="mailto:vega@synozur.com" style="color: #810FFB;">vega@synozur.com</a>
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a;">
+                      <p style="margin: 0; font-size: 12px; color: #666666; text-align: center;">© ${new Date().getFullYear()} Synozur Alliance LLC. All rights reserved.</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `,
+    text: `Welcome to Vega, ${userName}!\n\nYour organization ${organizationName} has been created and your ${servicePlan.displayName} plan is now active.\n\nPlan Details:\n• ${expiresText}\n• ${usersText}\n\nGet started: ${loginUrl}\n\nNeed to extend your plan or add more users? Contact us at vega@synozur.com`
+  };
+  
+  await client.send(msg);
+}
+
+// Send plan expiration reminder email
+export async function sendPlanExpirationReminderEmail(
+  to: string,
+  userName: string,
+  organizationName: string,
+  planName: string,
+  daysRemaining: number,
+  expirationDate: Date
+) {
+  const { client, fromEmail } = await getUncachableSendGridClient();
+  
+  const urgencyText = daysRemaining === 0 
+    ? 'Your plan expires TODAY!'
+    : daysRemaining === 1 
+    ? 'Your plan expires TOMORROW!'
+    : `Your plan expires in ${daysRemaining} days.`;
+
+  const msg = {
+    to,
+    from: fromEmail,
+    subject: `[Action Required] Your Vega ${planName} Plan ${daysRemaining === 0 ? 'Expires Today' : `Expires in ${daysRemaining} Day${daysRemaining > 1 ? 's' : ''}`}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a; color: #ffffff;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #0a0a0a;">
+            <tr>
+              <td style="padding: 40px 20px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 12px; border: 1px solid #2a2a2a;">
+                  <tr>
+                    <td style="padding: 40px 40px 20px; text-align: center;">
+                      <h1 style="margin: 0; font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #810FFB 0%, #E60CB3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Vega</h1>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 40px;">
+                      <div style="background: ${daysRemaining <= 3 ? '#4a1111' : '#1a1a1a'}; border: 1px solid ${daysRemaining <= 3 ? '#8b2222' : '#2a2a2a'}; border-radius: 8px; padding: 20px; margin: 0 0 20px; text-align: center;">
+                        <h2 style="margin: 0; font-size: 20px; color: ${daysRemaining <= 3 ? '#ff6b6b' : '#ffffff'};">${urgencyText}</h2>
+                      </div>
+                      
+                      <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #cccccc;">
+                        Hi ${userName},
+                      </p>
+                      
+                      <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #cccccc;">
+                        Your <strong>${planName}</strong> plan for <strong>${organizationName}</strong> will expire on <strong>${expirationDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</strong>.
+                      </p>
+                      
+                      <p style="margin: 0 0 20px; font-size: 16px; line-height: 1.6; color: #cccccc;">
+                        To continue using Vega without interruption, please contact us to extend your plan or upgrade to a higher tier.
+                      </p>
+                      
+                      <div style="background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
+                        <p style="margin: 0 0 10px; font-size: 16px; color: #ffffff;"><strong>Contact us to extend or upgrade:</strong></p>
+                        <a href="mailto:vega@synozur.com" style="display: inline-block; padding: 12px 30px; font-size: 16px; font-weight: 600; color: #ffffff; background: linear-gradient(135deg, #810FFB 0%, #E60CB3 100%); text-decoration: none; border-radius: 8px;">
+                          vega@synozur.com
+                        </a>
+                      </div>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a;">
+                      <p style="margin: 0; font-size: 12px; color: #666666; text-align: center;">© ${new Date().getFullYear()} Synozur Alliance LLC. All rights reserved.</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `,
+    text: `${urgencyText}\n\nHi ${userName},\n\nYour ${planName} plan for ${organizationName} will expire on ${expirationDate.toLocaleDateString()}.\n\nTo continue using Vega without interruption, please contact us to extend your plan or upgrade.\n\nContact: vega@synozur.com`
+  };
+  
+  await client.send(msg);
+}
+
 // Hash a token for secure storage (similar to password hashing)
 export function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');

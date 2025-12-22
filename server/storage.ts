@@ -29,7 +29,9 @@ import {
   reviewSnapshots, type ReviewSnapshot, type InsertReviewSnapshot,
   reportTemplates, type ReportTemplate, type InsertReportTemplate,
   reportInstances, type ReportInstance, type InsertReportInstance,
-  launchpadSessions, type LaunchpadSession, type InsertLaunchpadSession, type LaunchpadProposal
+  launchpadSessions, type LaunchpadSession, type InsertLaunchpadSession, type LaunchpadProposal,
+  servicePlans, type ServicePlan, type InsertServicePlan,
+  blockedDomains, type BlockedDomain, type InsertBlockedDomain
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, inArray } from "drizzle-orm";
@@ -253,6 +255,26 @@ export interface IStorage {
   createReportInstance(instance: InsertReportInstance): Promise<ReportInstance>;
   updateReportInstance(id: string, instance: Partial<ReportInstance>): Promise<ReportInstance>;
   deleteReportInstance(id: string): Promise<void>;
+  
+  // Service Plans methods
+  getAllServicePlans(): Promise<ServicePlan[]>;
+  getServicePlanById(id: string): Promise<ServicePlan | undefined>;
+  getServicePlanByName(name: string): Promise<ServicePlan | undefined>;
+  getDefaultServicePlan(): Promise<ServicePlan | undefined>;
+  createServicePlan(plan: InsertServicePlan): Promise<ServicePlan>;
+  updateServicePlan(id: string, plan: Partial<InsertServicePlan>): Promise<ServicePlan>;
+  
+  // Blocked Domains methods
+  getAllBlockedDomains(): Promise<BlockedDomain[]>;
+  getBlockedDomain(domain: string): Promise<BlockedDomain | undefined>;
+  isDomainBlocked(domain: string): Promise<boolean>;
+  blockDomain(data: InsertBlockedDomain): Promise<BlockedDomain>;
+  unblockDomain(domain: string): Promise<void>;
+  
+  // Tenant Plan Management
+  updateTenantPlan(tenantId: string, planId: string, expiresAt?: Date): Promise<Tenant>;
+  cancelTenantPlan(tenantId: string, reason: string, cancelledBy: string): Promise<Tenant>;
+  getTenantsWithExpiringPlans(daysUntilExpiry: number): Promise<Tenant[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2172,6 +2194,131 @@ export class DatabaseStorage implements IStorage {
 
   async deleteLaunchpadSession(id: string): Promise<void> {
     await db.delete(launchpadSessions).where(eq(launchpadSessions.id, id));
+  }
+
+  // ============================================
+  // SERVICE PLANS METHODS
+  // ============================================
+
+  async getAllServicePlans(): Promise<ServicePlan[]> {
+    return db.select().from(servicePlans).orderBy(servicePlans.name);
+  }
+
+  async getServicePlanById(id: string): Promise<ServicePlan | undefined> {
+    const [plan] = await db.select().from(servicePlans).where(eq(servicePlans.id, id));
+    return plan;
+  }
+
+  async getServicePlanByName(name: string): Promise<ServicePlan | undefined> {
+    const [plan] = await db.select().from(servicePlans).where(eq(servicePlans.name, name));
+    return plan;
+  }
+
+  async getDefaultServicePlan(): Promise<ServicePlan | undefined> {
+    const [plan] = await db.select().from(servicePlans).where(eq(servicePlans.isDefault, true));
+    return plan;
+  }
+
+  async createServicePlan(plan: InsertServicePlan): Promise<ServicePlan> {
+    const [created] = await db.insert(servicePlans).values(plan).returning();
+    return created;
+  }
+
+  async updateServicePlan(id: string, plan: Partial<InsertServicePlan>): Promise<ServicePlan> {
+    const [updated] = await db.update(servicePlans)
+      .set(plan)
+      .where(eq(servicePlans.id, id))
+      .returning();
+    return updated;
+  }
+
+  // ============================================
+  // BLOCKED DOMAINS METHODS
+  // ============================================
+
+  async getAllBlockedDomains(): Promise<BlockedDomain[]> {
+    return db.select().from(blockedDomains).orderBy(blockedDomains.domain);
+  }
+
+  async getBlockedDomain(domain: string): Promise<BlockedDomain | undefined> {
+    const [blocked] = await db.select().from(blockedDomains).where(eq(blockedDomains.domain, domain.toLowerCase()));
+    return blocked;
+  }
+
+  async isDomainBlocked(domain: string): Promise<boolean> {
+    const blocked = await this.getBlockedDomain(domain.toLowerCase());
+    return !!blocked;
+  }
+
+  async blockDomain(data: InsertBlockedDomain): Promise<BlockedDomain> {
+    const [created] = await db.insert(blockedDomains).values({
+      ...data,
+      domain: data.domain.toLowerCase(),
+    }).returning();
+    return created;
+  }
+
+  async unblockDomain(domain: string): Promise<void> {
+    await db.delete(blockedDomains).where(eq(blockedDomains.domain, domain.toLowerCase()));
+  }
+
+  // ============================================
+  // TENANT PLAN MANAGEMENT METHODS
+  // ============================================
+
+  async updateTenantPlan(tenantId: string, planId: string, expiresAt?: Date): Promise<Tenant> {
+    const plan = await this.getServicePlanById(planId);
+    const now = new Date();
+    
+    let planExpiresAt = expiresAt;
+    if (!planExpiresAt && plan?.durationDays) {
+      planExpiresAt = new Date(now.getTime() + plan.durationDays * 24 * 60 * 60 * 1000);
+    }
+
+    const [updated] = await db.update(tenants)
+      .set({
+        servicePlanId: planId,
+        planStartedAt: now,
+        planExpiresAt: planExpiresAt,
+        planStatus: 'active',
+        planCancelledAt: null,
+        planCancelledBy: null,
+        planCancelReason: null,
+      })
+      .where(eq(tenants.id, tenantId))
+      .returning();
+    return updated;
+  }
+
+  async cancelTenantPlan(tenantId: string, reason: string, cancelledBy: string): Promise<Tenant> {
+    const [updated] = await db.update(tenants)
+      .set({
+        planStatus: 'cancelled',
+        planCancelledAt: new Date(),
+        planCancelledBy: cancelledBy,
+        planCancelReason: reason,
+      })
+      .where(eq(tenants.id, tenantId))
+      .returning();
+    return updated;
+  }
+
+  async getTenantsWithExpiringPlans(daysUntilExpiry: number): Promise<Tenant[]> {
+    const now = new Date();
+    const targetDate = new Date(now.getTime() + daysUntilExpiry * 24 * 60 * 60 * 1000);
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    return db.select().from(tenants)
+      .where(
+        and(
+          eq(tenants.planStatus, 'active'),
+          sql`${tenants.planExpiresAt} >= ${startOfDay}`,
+          sql`${tenants.planExpiresAt} <= ${endOfDay}`
+        )
+      );
   }
 }
 

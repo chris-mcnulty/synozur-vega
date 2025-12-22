@@ -21,6 +21,8 @@ import {
   sendVerificationEmail, 
   sendPasswordResetEmail, 
   sendWelcomeEmail,
+  sendSelfServiceWelcomeEmail,
+  sendPlanExpirationReminderEmail,
   generateVerificationToken, 
   generateResetToken,
   hashToken 
@@ -146,23 +148,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/signup", async (req, res) => {
     try {
-      const { email, password, name } = req.body;
+      const { email, password, name, recaptchaToken } = req.body;
 
       if (!email || !password) {
         return res.status(400).json({ error: "Email and password required" });
       }
 
+      // Verify reCAPTCHA if token provided and secret is configured
+      const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY;
+      if (recaptchaSecret && recaptchaToken) {
+        try {
+          const recaptchaResponse = await fetch('https://www.google.com/recaptcha/api/siteverify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `secret=${recaptchaSecret}&response=${recaptchaToken}`,
+          });
+          const recaptchaResult = await recaptchaResponse.json() as { success: boolean; score?: number };
+          if (!recaptchaResult.success || (recaptchaResult.score && recaptchaResult.score < 0.5)) {
+            return res.status(400).json({ error: "reCAPTCHA verification failed. Please try again." });
+          }
+        } catch (recaptchaError) {
+          console.error("reCAPTCHA verification error:", recaptchaError);
+        }
+      }
+
       // Extract domain from email
-      const domain = email.split('@')[1];
+      const domain = email.split('@')[1]?.toLowerCase();
       if (!domain) {
         return res.status(400).json({ error: "Invalid email format" });
       }
 
-      // Find tenant by domain
-      const tenant = await storage.getTenantByDomain(domain);
-      if (!tenant) {
+      // Check if domain is blocked
+      const isBlocked = await storage.isDomainBlocked(domain);
+      if (isBlocked) {
         return res.status(403).json({ 
-          error: `No organization found for domain ${domain}. Contact your administrator.` 
+          error: "Signups from this domain are not allowed. Please contact vega@synozur.com for assistance." 
         });
       }
 
@@ -172,19 +192,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(409).json({ error: "User already exists" });
       }
 
+      // Find tenant by domain or create new one with trial plan
+      let tenant = await storage.getTenantByDomain(domain);
+      let isNewTenant = false;
+      let servicePlan: any = null;
+
+      if (!tenant) {
+        // Get default service plan (Trial)
+        servicePlan = await storage.getDefaultServicePlan();
+        if (!servicePlan) {
+          servicePlan = await storage.getServicePlanByName('trial');
+        }
+        
+        const now = new Date();
+        const expiresAt = servicePlan?.durationDays 
+          ? new Date(now.getTime() + servicePlan.durationDays * 24 * 60 * 60 * 1000)
+          : null;
+
+        // Create new tenant with trial plan
+        const companyName = domain.split('.')[0].charAt(0).toUpperCase() + domain.split('.')[0].slice(1);
+        tenant = await storage.createTenant({
+          name: `${companyName} (${domain})`,
+          allowedDomains: [domain],
+          selfServiceSignup: true,
+          signupCompletedAt: now,
+          servicePlanId: servicePlan?.id,
+          planStartedAt: now,
+          planExpiresAt: expiresAt,
+          planStatus: 'active',
+        });
+        isNewTenant = true;
+        console.log(`[Signup] Created new tenant for domain ${domain}:`, tenant.id);
+      }
+
       // Generate verification token (returns plaintext and hash)
       const { plaintext: verificationTokenPlaintext, hash: verificationTokenHash } = generateVerificationToken();
 
-      // Create user with "tenant_user" role by default (unverified)
-      // Store ONLY the hash in the database for security
+      // Create user - first user of new tenant is tenant_admin
+      const userRole = isNewTenant ? "tenant_admin" : "tenant_user";
       const user = await storage.createUser({
         email,
         password,
         name: name || email.split('@')[0],
-        role: "tenant_user",
+        role: userRole,
         tenantId: tenant.id,
         emailVerified: false,
         verificationToken: verificationTokenHash,
+        licenseType: 'read_write',
       });
 
       // Send verification email with plaintext token
@@ -192,12 +246,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await sendVerificationEmail(email, verificationTokenPlaintext, user.name || undefined);
       } catch (emailError) {
         console.error("Failed to send verification email:", emailError);
-        // Continue anyway - user is created, they can request resend
+      }
+
+      // Send welcome email with license info for new tenants
+      if (isNewTenant && servicePlan) {
+        try {
+          await sendWelcomeEmail(email, user.name || '', tenant.name, servicePlan);
+        } catch (welcomeError) {
+          console.error("Failed to send welcome email:", welcomeError);
+        }
+      }
+
+      // Push to HubSpot as new deal
+      try {
+        const { createHubSpotDeal, isHubSpotConnected } = await import('./hubspot');
+        if (await isHubSpotConnected()) {
+          await createHubSpotDeal({
+            tenantName: tenant.name,
+            email,
+            domain,
+            planName: servicePlan?.displayName || 'Trial',
+            signupDate: new Date(),
+          });
+        }
+      } catch (hubspotError) {
+        console.error("Failed to create HubSpot deal:", hubspotError);
       }
 
       res.json({ 
         message: "Account created! Please check your email to verify your account.",
-        email: user.email 
+        email: user.email,
+        isNewOrganization: isNewTenant,
       });
     } catch (error) {
       console.error("Signup error:", error);
