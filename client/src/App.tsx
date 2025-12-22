@@ -137,7 +137,7 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
   const [chatOpen, setChatOpen] = useState(false);
 
   return (
-    <div className="flex h-screen w-full">
+    <div className="flex h-screen w-full bg-background">
       <AppSidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <header className="flex items-center justify-between p-4 border-b gap-4">

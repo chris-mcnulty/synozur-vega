@@ -14,12 +14,10 @@ const router = Router();
  */
 function checkLaunchpadPermission(user: any): { error: string; message: string } | null {
   if (!user) {
-    console.log("[Launchpad] Permission denied: no user");
     return { error: "Authentication required", message: "Please log in to use Launchpad" };
   }
   
   const userRole = user.role as Role;
-  console.log(`[Launchpad] Permission check: user=${user.email}, role=${userRole}, hasPermission=${hasPermission(userRole, PERMISSIONS.USE_LAUNCHPAD)}`);
   if (!hasPermission(userRole, PERMISSIONS.USE_LAUNCHPAD)) {
     return { 
       error: "Access denied", 
@@ -28,6 +26,19 @@ function checkLaunchpadPermission(user: any): { error: string; message: string }
   }
   
   return null;
+}
+
+/**
+ * Check if user can access a specific Launchpad session.
+ * Allows access if: user owns session, session is in current tenant context, or user has cross-tenant access.
+ */
+function canAccessSession(session: any, user: any, effectiveTenantId: string): boolean {
+  const userRole = user.role as Role;
+  const isOwnSession = session.userId === user.id;
+  const hasCrossTenantAccess = canAccessAnyTenant(userRole);
+  const isSameTenant = session.tenantId === effectiveTenantId;
+  
+  return isSameTenant || isOwnSession || hasCrossTenantAccess;
 }
 
 const upload = multer({
@@ -124,15 +135,8 @@ router.post("/:sessionId/analyze", async (req: Request, res: Response) => {
 
     const user = req.user as any;
     const effectiveTenantId = req.effectiveTenantId || user.tenantId;
-    const userRole = user.role as Role;
     
-    // Allow access if: session is in current tenant context, OR user created it, OR user has cross-tenant access
-    const isOwnSession = session.userId === user.id;
-    const hasCrossTenantAccess = canAccessAnyTenant(userRole);
-    const isSameTenant = session.tenantId === effectiveTenantId;
-    
-    if (!isSameTenant && !isOwnSession && !hasCrossTenantAccess) {
-      console.log(`[Launchpad Analyze] Access denied - tenant mismatch and no override`);
+    if (!canAccessSession(session, user, effectiveTenantId)) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -257,7 +261,7 @@ router.get("/:sessionId", async (req: Request, res: Response) => {
 
     const user = req.user as any;
     const effectiveTenantId = req.effectiveTenantId || user.tenantId;
-    if (session.tenantId !== effectiveTenantId) {
+    if (!canAccessSession(session, user, effectiveTenantId)) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -282,7 +286,7 @@ router.patch("/:sessionId", async (req: Request, res: Response) => {
 
     const user = req.user as any;
     const effectiveTenantId = req.effectiveTenantId || user.tenantId;
-    if (session.tenantId !== effectiveTenantId) {
+    if (!canAccessSession(session, user, effectiveTenantId)) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -309,7 +313,7 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
 
     const user = req.user as any;
     const effectiveTenantId = req.effectiveTenantId || user.tenantId;
-    if (session.tenantId !== effectiveTenantId) {
+    if (!canAccessSession(session, user, effectiveTenantId)) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -457,7 +461,7 @@ router.delete("/:sessionId", async (req: Request, res: Response) => {
 
     const user = req.user as any;
     const effectiveTenantId = req.effectiveTenantId || user.tenantId;
-    if (session.tenantId !== effectiveTenantId) {
+    if (!canAccessSession(session, user, effectiveTenantId)) {
       return res.status(403).json({ error: "Access denied" });
     }
 
