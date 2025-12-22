@@ -49,6 +49,15 @@ export type BlockedDomain = typeof blockedDomains.$inferSelect;
 // USERS
 // ============================================
 
+// User types for RBAC distinction between consultant and client users
+export const USER_TYPES = {
+  CLIENT: 'client',       // Regular client organization user
+  CONSULTANT: 'consultant', // External consultant (Vega/partner consultant)
+  INTERNAL: 'internal',   // Vega internal staff
+} as const;
+
+export type UserType = typeof USER_TYPES[keyof typeof USER_TYPES];
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
@@ -65,6 +74,8 @@ export const users = pgTable("users", {
   azureTenantId: text("azure_tenant_id"),
   // License type for service plan enforcement
   licenseType: text("license_type").default("read_write"), // 'read_write' or 'read_only'
+  // User type distinguishes between client org users, consultants, and internal staff
+  userType: text("user_type").default("client"), // 'client', 'consultant', or 'internal'
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({

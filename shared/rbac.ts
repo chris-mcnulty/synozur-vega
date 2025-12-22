@@ -2,7 +2,23 @@
  * Role-Based Access Control (RBAC) Configuration
  * 
  * This file defines the permission matrix and role hierarchy for Vega.
+ * 
+ * User Types:
+ * - CLIENT: Regular users belonging to client organizations
+ * - CONSULTANT: External consultants who work with multiple client organizations  
+ * - INTERNAL: Vega internal staff (platform admins, support)
+ * 
+ * The user type affects which permissions are available and how they're applied.
  */
+
+// User type constants (matches schema.ts)
+export const USER_TYPES = {
+  CLIENT: 'client',
+  CONSULTANT: 'consultant', 
+  INTERNAL: 'internal',
+} as const;
+
+export type UserType = typeof USER_TYPES[keyof typeof USER_TYPES];
 
 // Role constants
 export const ROLES = {
@@ -15,6 +31,16 @@ export const ROLES = {
 } as const;
 
 export type Role = typeof ROLES[keyof typeof ROLES];
+
+// Role to user type mapping
+export const ROLE_USER_TYPE_MAP: Record<Role, UserType> = {
+  [ROLES.TENANT_USER]: USER_TYPES.CLIENT,
+  [ROLES.TENANT_ADMIN]: USER_TYPES.CLIENT,
+  [ROLES.ADMIN]: USER_TYPES.CLIENT,
+  [ROLES.GLOBAL_ADMIN]: USER_TYPES.INTERNAL,
+  [ROLES.VEGA_CONSULTANT]: USER_TYPES.CONSULTANT,
+  [ROLES.VEGA_ADMIN]: USER_TYPES.INTERNAL,
+};
 
 // Permission types
 export const PERMISSIONS = {
@@ -34,6 +60,7 @@ export const PERMISSIONS = {
   
   // Foundation operations (mission, vision, values, goals, strategies)
   UPDATE_FOUNDATIONS: 'update_foundations',
+  VIEW_FOUNDATIONS: 'view_foundations',
   
   // User management
   MANAGE_TENANT_USERS: 'manage_tenant_users',
@@ -48,6 +75,7 @@ export const PERMISSIONS = {
   // AI features
   USE_AI_CHAT: 'use_ai_chat',
   MANAGE_AI_GROUNDING: 'manage_ai_grounding',
+  USE_LAUNCHPAD: 'use_launchpad', // AI document-to-Company OS generator
   
   // Import/Export
   IMPORT_DATA: 'import_data',
@@ -55,10 +83,19 @@ export const PERMISSIONS = {
   
   // Cross-tenant access
   ACCESS_ANY_TENANT: 'access_any_tenant',
+  ACCESS_GRANTED_TENANTS: 'access_granted_tenants', // For consultants with explicit grants
+  
+  // Consultant-specific permissions
+  VIEW_CLIENT_STRATEGIES: 'view_client_strategies',
+  ADVISE_CLIENT_OKRS: 'advise_client_okrs',      // Can suggest/advise on OKRs but not directly edit
+  RUN_CLIENT_WORKSHOPS: 'run_client_workshops',   // Can run workshops/meetings for clients
+  VIEW_CLIENT_ANALYTICS: 'view_client_analytics', // View reports and analytics across clients
+  MANAGE_CONSULTANT_ACCESS: 'manage_consultant_access', // Can grant/revoke consultant access to tenants
   
   // Platform administration
   MANAGE_ALL_TENANTS: 'manage_all_tenants',
   MANAGE_PLATFORM: 'manage_platform',
+  MANAGE_SERVICE_PLANS: 'manage_service_plans',
 } as const;
 
 export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
@@ -70,9 +107,10 @@ export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
  * Roles higher in the hierarchy inherit permissions from lower roles.
  */
 export const PERMISSION_MATRIX: Record<Role, Permission[]> = {
-  // Standard user within a tenant
+  // Standard client user within a tenant - can work on their own items
   [ROLES.TENANT_USER]: [
     PERMISSIONS.READ_TENANT_DATA,
+    PERMISSIONS.VIEW_FOUNDATIONS,
     PERMISSIONS.CREATE_OKR,
     PERMISSIONS.UPDATE_OWN_OKR,
     PERMISSIONS.CREATE_MEETING,
@@ -82,9 +120,10 @@ export const PERMISSION_MATRIX: Record<Role, Permission[]> = {
     PERMISSIONS.EXPORT_DATA,
   ],
   
-  // Tenant administrator
+  // Tenant administrator (client org admin) - full control over their tenant
   [ROLES.TENANT_ADMIN]: [
     PERMISSIONS.READ_TENANT_DATA,
+    PERMISSIONS.VIEW_FOUNDATIONS,
     PERMISSIONS.CREATE_OKR,
     PERMISSIONS.UPDATE_OWN_OKR,
     PERMISSIONS.UPDATE_ANY_OKR,
@@ -99,13 +138,16 @@ export const PERMISSION_MATRIX: Record<Role, Permission[]> = {
     PERMISSIONS.USE_M365_FEATURES,
     PERMISSIONS.USE_AI_CHAT,
     PERMISSIONS.MANAGE_AI_GROUNDING,
+    PERMISSIONS.USE_LAUNCHPAD,
     PERMISSIONS.IMPORT_DATA,
     PERMISSIONS.EXPORT_DATA,
+    PERMISSIONS.MANAGE_CONSULTANT_ACCESS,
   ],
   
   // Admin (alias for tenant_admin)
   [ROLES.ADMIN]: [
     PERMISSIONS.READ_TENANT_DATA,
+    PERMISSIONS.VIEW_FOUNDATIONS,
     PERMISSIONS.CREATE_OKR,
     PERMISSIONS.UPDATE_OWN_OKR,
     PERMISSIONS.UPDATE_ANY_OKR,
@@ -120,13 +162,16 @@ export const PERMISSION_MATRIX: Record<Role, Permission[]> = {
     PERMISSIONS.USE_M365_FEATURES,
     PERMISSIONS.USE_AI_CHAT,
     PERMISSIONS.MANAGE_AI_GROUNDING,
+    PERMISSIONS.USE_LAUNCHPAD,
     PERMISSIONS.IMPORT_DATA,
     PERMISSIONS.EXPORT_DATA,
+    PERMISSIONS.MANAGE_CONSULTANT_ACCESS,
   ],
   
-  // Global admin - can support any tenant
+  // Global admin - internal staff with cross-tenant support access
   [ROLES.GLOBAL_ADMIN]: [
     PERMISSIONS.READ_TENANT_DATA,
+    PERMISSIONS.VIEW_FOUNDATIONS,
     PERMISSIONS.CREATE_OKR,
     PERMISSIONS.UPDATE_OWN_OKR,
     PERMISSIONS.UPDATE_ANY_OKR,
@@ -141,33 +186,44 @@ export const PERMISSION_MATRIX: Record<Role, Permission[]> = {
     PERMISSIONS.USE_M365_FEATURES,
     PERMISSIONS.USE_AI_CHAT,
     PERMISSIONS.MANAGE_AI_GROUNDING,
+    PERMISSIONS.USE_LAUNCHPAD,
     PERMISSIONS.IMPORT_DATA,
     PERMISSIONS.EXPORT_DATA,
     PERMISSIONS.ACCESS_ANY_TENANT,
+    PERMISSIONS.VIEW_CLIENT_STRATEGIES,
+    PERMISSIONS.VIEW_CLIENT_ANALYTICS,
+    PERMISSIONS.MANAGE_CONSULTANT_ACCESS,
   ],
   
-  // Vega consultant - can access client tenants they've been explicitly granted access to
+  // Vega consultant - external advisor with access only to granted client tenants
+  // Consultants can advise and suggest but typically shouldn't directly edit client data
   [ROLES.VEGA_CONSULTANT]: [
     PERMISSIONS.READ_TENANT_DATA,
+    PERMISSIONS.VIEW_FOUNDATIONS,
     PERMISSIONS.CREATE_OKR,
     PERMISSIONS.UPDATE_OWN_OKR,
-    PERMISSIONS.UPDATE_ANY_OKR,
-    PERMISSIONS.DELETE_OKR,
+    PERMISSIONS.ADVISE_CLIENT_OKRS,
     PERMISSIONS.CREATE_MEETING,
     PERMISSIONS.UPDATE_MEETING,
-    PERMISSIONS.DELETE_MEETING,
+    PERMISSIONS.RUN_CLIENT_WORKSHOPS,
     PERMISSIONS.UPDATE_FOUNDATIONS,
     PERMISSIONS.USE_M365_FEATURES,
     PERMISSIONS.USE_AI_CHAT,
     PERMISSIONS.MANAGE_AI_GROUNDING,
+    PERMISSIONS.USE_LAUNCHPAD,
     PERMISSIONS.IMPORT_DATA,
     PERMISSIONS.EXPORT_DATA,
+    PERMISSIONS.ACCESS_GRANTED_TENANTS,
+    PERMISSIONS.VIEW_CLIENT_STRATEGIES,
+    PERMISSIONS.VIEW_CLIENT_ANALYTICS,
     // Note: Consultants do NOT have ACCESS_ANY_TENANT - they need explicit grants
+    // Note: Consultants do NOT have UPDATE_ANY_OKR - they advise, not directly edit client OKRs
   ],
   
-  // Vega admin - platform superuser
+  // Vega admin - platform superuser with full control
   [ROLES.VEGA_ADMIN]: [
     PERMISSIONS.READ_TENANT_DATA,
+    PERMISSIONS.VIEW_FOUNDATIONS,
     PERMISSIONS.CREATE_OKR,
     PERMISSIONS.UPDATE_OWN_OKR,
     PERMISSIONS.UPDATE_ANY_OKR,
@@ -182,11 +238,16 @@ export const PERMISSION_MATRIX: Record<Role, Permission[]> = {
     PERMISSIONS.USE_M365_FEATURES,
     PERMISSIONS.USE_AI_CHAT,
     PERMISSIONS.MANAGE_AI_GROUNDING,
+    PERMISSIONS.USE_LAUNCHPAD,
     PERMISSIONS.IMPORT_DATA,
     PERMISSIONS.EXPORT_DATA,
     PERMISSIONS.ACCESS_ANY_TENANT,
+    PERMISSIONS.VIEW_CLIENT_STRATEGIES,
+    PERMISSIONS.VIEW_CLIENT_ANALYTICS,
+    PERMISSIONS.MANAGE_CONSULTANT_ACCESS,
     PERMISSIONS.MANAGE_ALL_TENANTS,
     PERMISSIONS.MANAGE_PLATFORM,
+    PERMISSIONS.MANAGE_SERVICE_PLANS,
   ],
 };
 
@@ -251,3 +312,98 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   [ROLES.VEGA_CONSULTANT]: 'External consultant with multi-tenant access for advisory work',
   [ROLES.VEGA_ADMIN]: 'Platform administrator with full system access',
 };
+
+/**
+ * User type display names
+ */
+export const USER_TYPE_DISPLAY_NAMES: Record<UserType, string> = {
+  [USER_TYPES.CLIENT]: 'Client',
+  [USER_TYPES.CONSULTANT]: 'Consultant',
+  [USER_TYPES.INTERNAL]: 'Internal Staff',
+};
+
+/**
+ * User type descriptions
+ */
+export const USER_TYPE_DESCRIPTIONS: Record<UserType, string> = {
+  [USER_TYPES.CLIENT]: 'Regular user belonging to a client organization',
+  [USER_TYPES.CONSULTANT]: 'External advisor who works with multiple client organizations',
+  [USER_TYPES.INTERNAL]: 'Vega internal staff (platform admins, support)',
+};
+
+/**
+ * Get the expected user type for a role
+ */
+export function getUserTypeForRole(role: Role): UserType {
+  return ROLE_USER_TYPE_MAP[role] || USER_TYPES.CLIENT;
+}
+
+/**
+ * Check if a user type is a consultant
+ */
+export function isConsultantUserType(userType: UserType | string | undefined): boolean {
+  return userType === USER_TYPES.CONSULTANT;
+}
+
+/**
+ * Check if a user type is internal staff
+ */
+export function isInternalUserType(userType: UserType | string | undefined): boolean {
+  return userType === USER_TYPES.INTERNAL;
+}
+
+/**
+ * Check if a user type is a client
+ */
+export function isClientUserType(userType: UserType | string | undefined): boolean {
+  return userType === USER_TYPES.CLIENT || !userType;
+}
+
+/**
+ * Get available roles based on user type
+ */
+export function getAvailableRolesForUserType(userType: UserType): Role[] {
+  return Object.entries(ROLE_USER_TYPE_MAP)
+    .filter(([_, type]) => type === userType)
+    .map(([role]) => role as Role);
+}
+
+/**
+ * Check if a role is a consultant role
+ */
+export function isConsultantRole(role: Role): boolean {
+  return role === ROLES.VEGA_CONSULTANT;
+}
+
+/**
+ * Check if a role is a platform admin role
+ */
+export function isPlatformAdminRole(role: Role): boolean {
+  return role === ROLES.VEGA_ADMIN || role === ROLES.GLOBAL_ADMIN;
+}
+
+/**
+ * Check if a role is a tenant admin role
+ */
+export function isTenantAdminRole(role: Role): boolean {
+  return role === ROLES.TENANT_ADMIN || role === ROLES.ADMIN;
+}
+
+/**
+ * Check if user can access a specific tenant based on role and grants
+ * This is a helper to determine access logic - actual grant checking should be done server-side
+ */
+export function canAccessTenantByRole(role: Role, isHomeTenant: boolean, hasExplicitGrant: boolean): boolean {
+  // Platform admins can access any tenant
+  if (hasPermission(role, PERMISSIONS.ACCESS_ANY_TENANT)) {
+    return true;
+  }
+  
+  // Consultants can access granted tenants
+  if (hasPermission(role, PERMISSIONS.ACCESS_GRANTED_TENANTS)) {
+    return isHomeTenant || hasExplicitGrant;
+  }
+  
+  // Regular users can only access their home tenant
+  return isHomeTenant;
+}

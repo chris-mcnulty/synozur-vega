@@ -612,6 +612,7 @@ export default function TenantAdmin() {
     role: "user",
     tenantId: "NONE",
     sendWelcomeEmail: false,
+    userType: "client" as "client" | "consultant" | "internal",
   });
 
   const [ssoDialogOpen, setSsoDialogOpen] = useState(false);
@@ -798,7 +799,7 @@ export default function TenantAdmin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setUserDialogOpen(false);
-      setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false });
+      setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false, userType: "client" });
       toast({ title: "User created successfully" });
     },
     onError: () => {
@@ -816,7 +817,7 @@ export default function TenantAdmin() {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setUserDialogOpen(false);
       setEditingUser(null);
-      setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false });
+      setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false, userType: "client" });
       toast({ title: "User updated successfully" });
     },
     onError: () => {
@@ -1091,7 +1092,7 @@ export default function TenantAdmin() {
 
   const handleOpenCreateUserDialog = () => {
     setEditingUser(null);
-    setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false });
+    setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false, userType: "client" });
     setUserDialogOpen(true);
   };
 
@@ -1223,6 +1224,7 @@ export default function TenantAdmin() {
       role: user.role,
       tenantId: user.tenantId || "NONE",
       sendWelcomeEmail: false,
+      userType: ((user as any).userType || "client") as "client" | "consultant" | "internal",
     });
     setUserDialogOpen(true);
   };
@@ -1233,6 +1235,7 @@ export default function TenantAdmin() {
       name: userFormData.name || undefined,
       role: userFormData.role,
       tenantId: userFormData.tenantId === "NONE" ? null : userFormData.tenantId,
+      userType: userFormData.userType,
       ...(userFormData.password && { password: userFormData.password }),
     };
 
@@ -2457,6 +2460,42 @@ export default function TenantAdmin() {
             </div>
 
             <div className="space-y-2">
+              <Label htmlFor="user-type">User Type</Label>
+              <Select
+                value={userFormData.userType}
+                onValueChange={(value: "client" | "consultant" | "internal") => {
+                  const newFormData = { ...userFormData, userType: value };
+                  if (value === "client") {
+                    if (!["tenant_user", "tenant_admin", "admin"].includes(newFormData.role)) {
+                      newFormData.role = "tenant_user";
+                    }
+                  } else if (value === "consultant") {
+                    newFormData.role = "vega_consultant";
+                  } else if (value === "internal") {
+                    if (!["global_admin", "vega_admin"].includes(newFormData.role)) {
+                      newFormData.role = "vega_admin";
+                    }
+                  }
+                  setUserFormData(newFormData);
+                }}
+              >
+                <SelectTrigger data-testid="select-user-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="z-[60]">
+                  <SelectItem value="client">Client - Organization User</SelectItem>
+                  <SelectItem value="consultant">Consultant - External Advisor</SelectItem>
+                  <SelectItem value="internal">Internal - Vega Staff</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {userFormData.userType === "client" && "Regular user belonging to a client organization"}
+                {userFormData.userType === "consultant" && "External consultant who works with multiple client organizations"}
+                {userFormData.userType === "internal" && "Vega internal staff (platform admins, support)"}
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="user-role">Role</Label>
               <Select
                 value={userFormData.role}
@@ -2468,12 +2507,22 @@ export default function TenantAdmin() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="z-[60]">
-                  <SelectItem value="tenant_user">Tenant User</SelectItem>
-                  <SelectItem value="tenant_admin">Tenant Admin</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="global_admin">Global Admin</SelectItem>
-                  <SelectItem value="vega_consultant">Vega Consultant</SelectItem>
-                  <SelectItem value="vega_admin">Vega Admin</SelectItem>
+                  {userFormData.userType === "client" && (
+                    <>
+                      <SelectItem value="tenant_user">Tenant User</SelectItem>
+                      <SelectItem value="tenant_admin">Tenant Admin</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </>
+                  )}
+                  {userFormData.userType === "consultant" && (
+                    <SelectItem value="vega_consultant">Vega Consultant</SelectItem>
+                  )}
+                  {userFormData.userType === "internal" && (
+                    <>
+                      <SelectItem value="global_admin">Global Admin</SelectItem>
+                      <SelectItem value="vega_admin">Platform Admin</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>

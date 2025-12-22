@@ -36,7 +36,7 @@ import {
   canModifyAnyOKR,
   isResourceOwner
 } from "./middleware/rbac";
-import { ROLES, PERMISSIONS } from "../shared/rbac";
+import { ROLES, PERMISSIONS, USER_TYPES, getAvailableRolesForUserType } from "../shared/rbac";
 
 // Authentication middleware (basic - just checks session)
 function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -737,9 +737,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         validatedData.tenantId = null;
       }
       
+      // Validate userType↔role consistency using shared RBAC helper
+      const userType = (validatedData as any).userType || USER_TYPES.CLIENT;
+      const role = validatedData.role;
+      const allowedRoles = getAvailableRolesForUserType(userType);
+      
+      if (!allowedRoles.includes(role)) {
+        return res.status(400).json({ 
+          error: "Invalid role for user type",
+          message: `Users with type '${userType}' can only have roles: ${allowedRoles.join(', ')}`
+        });
+      }
+      
       // Tenant admins can only create users in their own tenant
-      const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      const callerRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(callerRole as any);
       
       if (!canAccessAny && validatedData.tenantId && validatedData.tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Cannot create users in other tenants" });
@@ -788,8 +800,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ error: "User not found" });
       }
       
-      const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      const callerRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(callerRole as any);
       
       if (!canAccessAny && targetUser.tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
@@ -801,6 +813,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Normalize tenantId: convert "NONE" or empty string to null
       if (validatedData.tenantId === "NONE" || validatedData.tenantId === "") {
         validatedData.tenantId = null;
+      }
+      
+      // Validate userType↔role consistency using shared RBAC helper (if either field is being updated)
+      const newUserType = (validatedData as any).userType ?? (targetUser as any).userType ?? USER_TYPES.CLIENT;
+      const newRole = validatedData.role ?? targetUser.role;
+      const allowedRoles = getAvailableRolesForUserType(newUserType);
+      
+      if (!allowedRoles.includes(newRole)) {
+        return res.status(400).json({ 
+          error: "Invalid role for user type",
+          message: `Users with type '${newUserType}' can only have roles: ${allowedRoles.join(', ')}`
+        });
       }
       
       // Prevent non-platform admins from moving users to other tenants

@@ -17,6 +17,15 @@ import {
 } from '../../shared/rbac';
 import type { User } from '../../shared/schema';
 
+// User type constants (matches schema.ts and rbac.ts)
+const USER_TYPES = {
+  CLIENT: 'client',
+  CONSULTANT: 'consultant',
+  INTERNAL: 'internal',
+} as const;
+
+type UserType = typeof USER_TYPES[keyof typeof USER_TYPES];
+
 // Extend Express Request to include user and tenant context
 declare global {
   namespace Express {
@@ -24,6 +33,7 @@ declare global {
       user?: User;
       effectiveTenantId?: string;
       isMultiTenantAccess?: boolean;
+      isConsultantAccess?: boolean; // True if accessing as consultant (not internal/client)
     }
   }
 }
@@ -134,10 +144,37 @@ export function resolveTenantContext(req: Request): { tenantId: string | null; s
 }
 
 /**
- * Check if a user is a consultant (vega_consultant role)
+ * Check if a user is a consultant (vega_consultant role or consultant userType)
  */
-function isConsultant(role: Role): boolean {
-  return role === ROLES.VEGA_CONSULTANT;
+function isConsultant(role: Role, userType?: string | null): boolean {
+  return role === ROLES.VEGA_CONSULTANT || userType === USER_TYPES.CONSULTANT;
+}
+
+/**
+ * Check if a user is internal staff (vega_admin, global_admin, or internal userType)
+ */
+function isInternalStaff(role: Role, userType?: string | null): boolean {
+  return role === ROLES.VEGA_ADMIN || role === ROLES.GLOBAL_ADMIN || userType === USER_TYPES.INTERNAL;
+}
+
+/**
+ * Check if a user is a client (client userType or tenant_user/tenant_admin roles)
+ */
+function isClientUser(role: Role, userType?: string | null): boolean {
+  const clientRoles = [ROLES.TENANT_USER, ROLES.TENANT_ADMIN, ROLES.ADMIN];
+  return clientRoles.includes(role) || userType === USER_TYPES.CLIENT || !userType;
+}
+
+/**
+ * Get the effective user type from a user object
+ */
+function getEffectiveUserType(user: User): UserType {
+  const userType = (user as any).userType as string | undefined;
+  if (userType === USER_TYPES.CONSULTANT) return USER_TYPES.CONSULTANT;
+  if (userType === USER_TYPES.INTERNAL) return USER_TYPES.INTERNAL;
+  if (user.role === ROLES.VEGA_CONSULTANT) return USER_TYPES.CONSULTANT;
+  if (user.role === ROLES.VEGA_ADMIN || user.role === ROLES.GLOBAL_ADMIN) return USER_TYPES.INTERNAL;
+  return USER_TYPES.CLIENT;
 }
 
 /**
@@ -151,10 +188,15 @@ export async function requireTenantAccess(req: Request, res: Response, next: Nex
   }
 
   const userRole = req.user.role as Role;
+  const userType = (req.user as any).userType as string | undefined;
+  const effectiveUserType = getEffectiveUserType(req.user);
   const { tenantId, source } = resolveTenantContext(req);
 
+  // Track if this is consultant access for permission checks downstream
+  req.isConsultantAccess = effectiveUserType === USER_TYPES.CONSULTANT;
+
   // Consultants have special handling - they need explicit grants for non-home tenants
-  if (isConsultant(userRole)) {
+  if (isConsultant(userRole, userType)) {
     if (tenantId) {
       // Verify the tenant exists
       const tenant = await storage.getTenantById(tenantId);
@@ -208,7 +250,7 @@ export async function requireTenantAccess(req: Request, res: Response, next: Nex
       req.isMultiTenantAccess = false;
     }
   } else {
-    // Regular users can only access their assigned tenant
+    // Regular client users can only access their assigned tenant
     if (!req.user.tenantId) {
       return res.status(403).json({ 
         error: 'No tenant assigned',
@@ -252,6 +294,41 @@ export function requirePlatformAdmin(req: Request, res: Response, next: NextFunc
 }
 
 /**
+ * Middleware to require consultant or higher (for consultant-specific features)
+ */
+export function requireConsultantOrHigher(req: Request, res: Response, next: NextFunction) {
+  return requireRole(
+    ROLES.VEGA_CONSULTANT,
+    ROLES.GLOBAL_ADMIN, 
+    ROLES.VEGA_ADMIN
+  )(req, res, next);
+}
+
+/**
+ * Middleware factory that denies access to consultants for specific operations
+ * Use this for client-only features that consultants should not access
+ */
+export function denyConsultantAccess(message: string = 'This action is not available for consultants') {
+  return (req: Request, res: Response, next: NextFunction) => {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    const userRole = req.user.role as Role;
+    const userType = (req.user as any).userType as string | undefined;
+
+    if (isConsultant(userRole, userType)) {
+      return res.status(403).json({ 
+        error: 'Access denied',
+        message 
+      });
+    }
+
+    next();
+  };
+}
+
+/**
  * Combined middleware for common patterns
  */
 export const rbac = {
@@ -265,6 +342,7 @@ export const rbac = {
   anyUser: requireRole(ROLES.TENANT_USER, ROLES.TENANT_ADMIN, ROLES.ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT, ROLES.VEGA_ADMIN),
   tenantAdmin: requireTenantAdmin,
   platformAdmin: requirePlatformAdmin,
+  consultantOrHigher: requireConsultantOrHigher,
   
   // Permission checks
   canManageUsers: requirePermission(PERMISSIONS.MANAGE_TENANT_USERS),
@@ -273,6 +351,12 @@ export const rbac = {
   canUpdateFoundations: requirePermission(PERMISSIONS.UPDATE_FOUNDATIONS),
   canImportData: requirePermission(PERMISSIONS.IMPORT_DATA),
   canManageAIGrounding: requirePermission(PERMISSIONS.MANAGE_AI_GROUNDING),
+  canUseLaunchpad: requirePermission(PERMISSIONS.USE_LAUNCHPAD),
+  canViewClientStrategies: requirePermission(PERMISSIONS.VIEW_CLIENT_STRATEGIES),
+  canViewClientAnalytics: requirePermission(PERMISSIONS.VIEW_CLIENT_ANALYTICS),
+  
+  // User type checks
+  denyConsultants: denyConsultantAccess,
 };
 
 /**

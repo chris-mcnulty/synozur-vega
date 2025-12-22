@@ -4,8 +4,29 @@ import { storage } from "./storage";
 import multer from "multer";
 import OpenAI from "openai";
 import { type LaunchpadProposal } from "@shared/schema";
+import { hasPermission, PERMISSIONS, Role } from "@shared/rbac";
 
 const router = Router();
+
+/**
+ * Helper function to check if user has permission to use Launchpad
+ * Returns null if permitted, or an error object if denied
+ */
+function checkLaunchpadPermission(user: any): { error: string; message: string } | null {
+  if (!user) {
+    return { error: "Authentication required", message: "Please log in to use Launchpad" };
+  }
+  
+  const userRole = user.role as Role;
+  if (!hasPermission(userRole, PERMISSIONS.USE_LAUNCHPAD)) {
+    return { 
+      error: "Access denied", 
+      message: "You don't have permission to use Launchpad. This feature is available to consultants and administrators."
+    };
+  }
+  
+  return null;
+}
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -41,12 +62,14 @@ async function extractTextFromDocument(buffer: Buffer, mimetype: string): Promis
 
 router.post("/upload", upload.single('document'), async (req: Request, res: Response) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ error: "Authentication required" });
+    // Check permission to use Launchpad
+    const permError = checkLaunchpadPermission(req.user);
+    if (permError) {
+      return res.status(403).json(permError);
     }
     
     const user = req.user as any;
-    if (!user.tenantId) {
+    if (!user.tenantId && !req.effectiveTenantId) {
       return res.status(400).json({ error: "Tenant context required" });
     }
 
@@ -63,8 +86,11 @@ router.post("/upload", upload.single('document'), async (req: Request, res: Resp
       return res.status(400).json({ error: "Document appears to be too short or empty" });
     }
 
+    // Use effective tenant ID (allows consultants to use Launchpad for clients)
+    const effectiveTenantId = req.effectiveTenantId || user.tenantId;
+    
     const session = await storage.createLaunchpadSession({
-      tenantId: user.tenantId,
+      tenantId: effectiveTenantId,
       userId: user.id,
       sourceDocumentName: req.file.originalname,
       sourceDocumentText: documentText.substring(0, 100000),
@@ -83,8 +109,10 @@ router.post("/upload", upload.single('document'), async (req: Request, res: Resp
 
 router.post("/:sessionId/analyze", async (req: Request, res: Response) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ error: "Authentication required" });
+    // Check permission to use Launchpad
+    const permError = checkLaunchpadPermission(req.user);
+    if (permError) {
+      return res.status(403).json(permError);
     }
 
     const session = await storage.getLaunchpadSessionById(req.params.sessionId);
@@ -93,7 +121,8 @@ router.post("/:sessionId/analyze", async (req: Request, res: Response) => {
     }
 
     const user = req.user as any;
-    if (session.tenantId !== user.tenantId) {
+    const effectiveTenantId = req.effectiveTenantId || user.tenantId;
+    if (session.tenantId !== effectiveTenantId) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -184,16 +213,19 @@ Return only valid JSON matching the structure described.`;
 
 router.get("/sessions", async (req: Request, res: Response) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ error: "Authentication required" });
+    // Check permission to use Launchpad
+    const permError = checkLaunchpadPermission(req.user);
+    if (permError) {
+      return res.status(403).json(permError);
     }
 
     const user = req.user as any;
-    if (!user.tenantId) {
+    const effectiveTenantId = req.effectiveTenantId || user.tenantId;
+    if (!effectiveTenantId) {
       return res.status(400).json({ error: "Tenant context required" });
     }
 
-    const sessions = await storage.getLaunchpadSessions(user.tenantId, user.id);
+    const sessions = await storage.getLaunchpadSessions(effectiveTenantId, user.id);
     res.json(sessions);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -202,8 +234,10 @@ router.get("/sessions", async (req: Request, res: Response) => {
 
 router.get("/:sessionId", async (req: Request, res: Response) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ error: "Authentication required" });
+    // Check permission to use Launchpad
+    const permError = checkLaunchpadPermission(req.user);
+    if (permError) {
+      return res.status(403).json(permError);
     }
 
     const session = await storage.getLaunchpadSessionById(req.params.sessionId);
@@ -212,7 +246,8 @@ router.get("/:sessionId", async (req: Request, res: Response) => {
     }
 
     const user = req.user as any;
-    if (session.tenantId !== user.tenantId) {
+    const effectiveTenantId = req.effectiveTenantId || user.tenantId;
+    if (session.tenantId !== effectiveTenantId) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -224,8 +259,10 @@ router.get("/:sessionId", async (req: Request, res: Response) => {
 
 router.patch("/:sessionId", async (req: Request, res: Response) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ error: "Authentication required" });
+    // Check permission to use Launchpad
+    const permError = checkLaunchpadPermission(req.user);
+    if (permError) {
+      return res.status(403).json(permError);
     }
 
     const session = await storage.getLaunchpadSessionById(req.params.sessionId);
@@ -234,7 +271,8 @@ router.patch("/:sessionId", async (req: Request, res: Response) => {
     }
 
     const user = req.user as any;
-    if (session.tenantId !== user.tenantId) {
+    const effectiveTenantId = req.effectiveTenantId || user.tenantId;
+    if (session.tenantId !== effectiveTenantId) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -248,8 +286,10 @@ router.patch("/:sessionId", async (req: Request, res: Response) => {
 
 router.post("/:sessionId/approve", async (req: Request, res: Response) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ error: "Authentication required" });
+    // Check permission to use Launchpad
+    const permError = checkLaunchpadPermission(req.user);
+    if (permError) {
+      return res.status(403).json(permError);
     }
 
     const session = await storage.getLaunchpadSessionById(req.params.sessionId);
@@ -258,7 +298,8 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
     }
 
     const user = req.user as any;
-    if (session.tenantId !== user.tenantId) {
+    const effectiveTenantId = req.effectiveTenantId || user.tenantId;
+    if (session.tenantId !== effectiveTenantId) {
       return res.status(403).json({ error: "Access denied" });
     }
 
@@ -393,8 +434,10 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
 
 router.delete("/:sessionId", async (req: Request, res: Response) => {
   try {
-    if (!req.user) {
-      return res.status(401).json({ error: "Authentication required" });
+    // Check permission to use Launchpad
+    const permError = checkLaunchpadPermission(req.user);
+    if (permError) {
+      return res.status(403).json(permError);
     }
 
     const session = await storage.getLaunchpadSessionById(req.params.sessionId);
@@ -403,7 +446,8 @@ router.delete("/:sessionId", async (req: Request, res: Response) => {
     }
 
     const user = req.user as any;
-    if (session.tenantId !== user.tenantId) {
+    const effectiveTenantId = req.effectiveTenantId || user.tenantId;
+    if (session.tenantId !== effectiveTenantId) {
       return res.status(403).json({ error: "Access denied" });
     }
 
