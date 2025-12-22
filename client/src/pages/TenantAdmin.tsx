@@ -3274,7 +3274,7 @@ export default function TenantAdmin() {
                 <Input
                   id="plan-duration"
                   type="number"
-                  placeholder="90 (blank = unlimited)"
+                  placeholder="60 for trial (blank = unlimited)"
                   value={servicePlanFormData.durationDays}
                   onChange={(e) => setServicePlanFormData({ ...servicePlanFormData, durationDays: e.target.value })}
                   data-testid="input-plan-duration"

@@ -37,8 +37,8 @@ const comparisons = [
   },
   {
     feature: "Document Import",
-    vivaGoals: "Manual entry only",
-    vega: "AI Launchpad: Upload → Auto-generate",
+    vivaGoals: "OKR creation from documents",
+    vega: "AI Launchpad: Full Company OS from documents",
     vegaWins: true,
   },
   {
