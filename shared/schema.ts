@@ -3,6 +3,52 @@ import { pgTable, text, varchar, integer, timestamp, jsonb, unique, boolean, dou
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// ============================================
+// SERVICE PLANS - Licensing/Subscription Management
+// ============================================
+
+export const servicePlans = pgTable("service_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(),
+  displayName: text("display_name").notNull(),
+  description: text("description"),
+  maxReadWriteUsers: integer("max_read_write_users"), // null = unlimited
+  maxReadOnlyUsers: integer("max_read_only_users"), // null = unlimited
+  durationDays: integer("duration_days"), // null = never expires
+  isDefault: boolean("is_default").default(false), // used for self-service signup
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertServicePlanSchema = createInsertSchema(servicePlans).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertServicePlan = z.infer<typeof insertServicePlanSchema>;
+export type ServicePlan = typeof servicePlans.$inferSelect;
+
+// Blocked domains - prevents signup from specific domains
+export const blockedDomains = pgTable("blocked_domains", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  domain: text("domain").notNull().unique(),
+  reason: text("reason"),
+  blockedBy: varchar("blocked_by"),
+  blockedAt: timestamp("blocked_at").defaultNow(),
+});
+
+export const insertBlockedDomainSchema = createInsertSchema(blockedDomains).omit({
+  id: true,
+  blockedAt: true,
+});
+
+export type InsertBlockedDomain = z.infer<typeof insertBlockedDomainSchema>;
+export type BlockedDomain = typeof blockedDomains.$inferSelect;
+
+// ============================================
+// USERS
+// ============================================
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   email: text("email").notNull().unique(),
@@ -17,6 +63,8 @@ export const users = pgTable("users", {
   authProvider: text("auth_provider").default("local"),
   azureObjectId: text("azure_object_id"),
   azureTenantId: text("azure_tenant_id"),
+  // License type for service plan enforcement
+  licenseType: text("license_type").default("read_write"), // 'read_write' or 'read_only'
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -167,6 +215,18 @@ export const tenants = pgTable("tenants", {
   faviconUrl: text("favicon_url"),
   // Custom subdomain (e.g., "acme" for acme.vega.synozur.com)
   customSubdomain: text("custom_subdomain"),
+  
+  // Service Plan / Licensing (NEW - Dec 22, 2025)
+  servicePlanId: varchar("service_plan_id").references(() => servicePlans.id),
+  planStartedAt: timestamp("plan_started_at"),
+  planExpiresAt: timestamp("plan_expires_at"),
+  planStatus: text("plan_status").default("active"), // 'active', 'expired', 'cancelled'
+  planCancelledAt: timestamp("plan_cancelled_at"),
+  planCancelledBy: varchar("plan_cancelled_by"),
+  planCancelReason: text("plan_cancel_reason"),
+  // Self-service signup metadata
+  selfServiceSignup: boolean("self_service_signup").default(false),
+  signupCompletedAt: timestamp("signup_completed_at"),
 });
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({
