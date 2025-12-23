@@ -701,7 +701,7 @@ function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, bigRock
 
 export default function FocusRhythm() {
   const { toast } = useToast();
-  const { currentTenant } = useTenant();
+  const { currentTenant, isLoading: tenantLoading } = useTenant();
   const { user } = useAuth();
   const userRole = (user?.role || ROLES.TENANT_USER) as Role;
   const canDeleteMeeting = hasPermission(userRole, PERMISSIONS.DELETE_MEETING);
@@ -719,12 +719,19 @@ export default function FocusRhythm() {
   } | null>(null);
   const [isAnalyzingNotes, setIsAnalyzingNotes] = useState(false);
   
-  const { data: foundation } = useQuery<Foundation>({
-    queryKey: [`/api/foundations/${currentTenant.id}`],
-  });
-  
   const [quarter, setQuarter] = useState(1);
   const [year, setYear] = useState(new Date().getFullYear());
+  
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
+  const [formData, setFormData] = useState<MeetingFormData>(initialFormData);
+  
+  const { data: foundation } = useQuery<Foundation>({
+    queryKey: [`/api/foundations/${currentTenant?.id}`],
+    enabled: !!currentTenant?.id,
+  });
   
   useEffect(() => {
     if (foundation) {
@@ -734,34 +741,40 @@ export default function FocusRhythm() {
       setYear(currentPeriod.year);
     }
   }, [foundation?.fiscalYearStartMonth]);
-  
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [editDialogOpen, setEditDialogOpen] = useState(false);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
-  const [formData, setFormData] = useState<MeetingFormData>(initialFormData);
 
   const { data: meetings = [], isLoading } = useQuery<Meeting[]>({
-    queryKey: [`/api/meetings/${currentTenant.id}`],
+    queryKey: [`/api/meetings/${currentTenant?.id}`],
+    enabled: !!currentTenant?.id,
   });
   
   const { data: objectives = [] } = useQuery<Objective[]>({
-    queryKey: ['/api/okr/objectives', currentTenant.id],
+    queryKey: ['/api/okr/objectives', currentTenant?.id],
     queryFn: async () => {
-      const res = await fetch(`/api/okr/objectives?tenantId=${currentTenant.id}`);
+      const res = await fetch(`/api/okr/objectives?tenantId=${currentTenant!.id}`);
       if (!res.ok) return [];
       return res.json();
     },
+    enabled: !!currentTenant?.id,
   });
   
   const { data: bigRocks = [] } = useQuery<BigRock[]>({
-    queryKey: ['/api/okr/big-rocks', currentTenant.id],
+    queryKey: ['/api/okr/big-rocks', currentTenant?.id],
     queryFn: async () => {
-      const res = await fetch(`/api/okr/big-rocks?tenantId=${currentTenant.id}`);
+      const res = await fetch(`/api/okr/big-rocks?tenantId=${currentTenant!.id}`);
       if (!res.ok) return [];
       return res.json();
     },
+    enabled: !!currentTenant?.id,
   });
+
+  // Wait for tenant to load
+  if (tenantLoading || !currentTenant) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
   
   const { data: outlookStatus } = useQuery<{ connected: boolean; user: { displayName: string; email: string } | null }>({
     queryKey: ['/api/m365/status'],

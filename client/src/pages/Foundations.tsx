@@ -61,7 +61,8 @@ const goalSuggestions = [
 
 export default function Foundations() {
   const { toast } = useToast();
-  const { currentTenant } = useTenant();
+  const { currentTenant, isLoading: tenantLoading } = useTenant();
+  
   const [customMission, setCustomMission] = useState("");
   const [customVision, setCustomVision] = useState("");
   const [customGoal, setCustomGoal] = useState("");
@@ -92,10 +93,11 @@ export default function Foundations() {
   const [brandVoice, setBrandVoice] = useState<string>("");
   const [fiscalYearStartMonth, setFiscalYearStartMonth] = useState<number>(1);
 
-  // Fetch foundation data
+  // Fetch foundation data - only when tenant is available
   const { data: foundation, isLoading } = useQuery<Foundation>({
-    queryKey: [`/api/foundations/${currentTenant.id}`],
+    queryKey: [`/api/foundations/${currentTenant?.id}`],
     retry: false,
+    enabled: !!currentTenant,
   });
 
   // Initialize state from database or reset when tenant changes
@@ -142,13 +144,13 @@ export default function Foundations() {
     setCustomMission("");
     setCustomVision("");
     setCustomGoal("");
-  }, [foundation, currentTenant.id]);
+  }, [foundation, currentTenant?.id]);
 
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: async () => {
       return apiRequest("POST", "/api/foundations", {
-        tenantId: currentTenant.id,
+        tenantId: currentTenant!.id,
         mission,
         vision,
         values,
@@ -163,7 +165,7 @@ export default function Foundations() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/foundations/${currentTenant.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/foundations/${currentTenant?.id}`] });
       toast({
         title: "Changes Saved",
         description: "Your foundation elements have been updated successfully",
@@ -177,6 +179,15 @@ export default function Foundations() {
       });
     },
   });
+  
+  // Wait for tenant to load before rendering main content
+  if (tenantLoading || !currentTenant) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   const handleAddCustomMission = () => {
     if (customMission.trim()) {

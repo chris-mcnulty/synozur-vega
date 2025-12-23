@@ -21,6 +21,10 @@ export function TenantSwitcher() {
   const [open, setOpen] = useState(false);
   const { currentTenant, setCurrentTenant, tenants } = useTenant();
 
+  if (!currentTenant) {
+    return null;
+  }
+
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>

@@ -116,3 +116,19 @@ export function useTenant() {
   }
   return context;
 }
+
+/**
+ * Hook for components that require a tenant to be loaded.
+ * Returns the tenant (non-null) and a loading flag.
+ * Use the loading flag to show a loading state while tenant is loading.
+ * After loading is false, tenant is guaranteed to be non-null.
+ */
+export function useRequiredTenant(): { tenant: Tenant; isLoading: false } | { tenant: null; isLoading: true } {
+  const { currentTenant, isLoading } = useTenant();
+  
+  if (isLoading || !currentTenant) {
+    return { tenant: null, isLoading: true };
+  }
+  
+  return { tenant: currentTenant, isLoading: false };
+}

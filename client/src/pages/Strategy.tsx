@@ -57,7 +57,7 @@ interface StrategyFormData {
 
 export default function Strategy() {
   const { toast } = useToast();
-  const { currentTenant } = useTenant();
+  const { currentTenant, isLoading: tenantLoading } = useTenant();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -92,13 +92,24 @@ export default function Strategy() {
   });
 
   const { data: strategies = [], isLoading } = useQuery<Strategy[]>({
-    queryKey: [`/api/strategies/${currentTenant.id}`],
+    queryKey: [`/api/strategies/${currentTenant?.id}`],
+    enabled: !!currentTenant?.id,
   });
 
   // Fetch foundation to get actual annual goals
   const { data: foundation } = useQuery<Foundation>({
-    queryKey: [`/api/foundations/${currentTenant.id}`],
+    queryKey: [`/api/foundations/${currentTenant?.id}`],
+    enabled: !!currentTenant?.id,
   });
+
+  // Wait for tenant to load
+  if (tenantLoading || !currentTenant) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   // Use actual annual goals from Foundations, with fallback
   const availableGoals = foundation?.annualGoals || [];

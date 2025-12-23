@@ -69,36 +69,31 @@ const STORAGE_KEYS = {
 };
 
 export default function Dashboard() {
-  const { currentTenant } = useTenant();
+  const { currentTenant, isLoading: tenantLoading } = useTenant();
   const { t } = useVocabulary();
   
   // Compute default quarter based on tenant settings or current quarter
   const { quarter: currentQuarterNum, year: currentYearNum } = getCurrentQuarter();
   
-  const getDefaultQuarterId = () => {
-    const tenantTimePeriod = currentTenant?.defaultTimePeriod;
-    if (tenantTimePeriod?.mode === 'specific' && tenantTimePeriod.year && tenantTimePeriod.quarter) {
-      return `q${tenantTimePeriod.quarter}-${tenantTimePeriod.year}`;
-    }
-    return `q${currentQuarterNum}-${currentYearNum}`;
-  };
-  
-  const defaultQuarterId = getDefaultQuarterId();
-  
-  // Load saved preferences from localStorage
+  // Load saved preferences from localStorage - use stable initial values
   const savedQuarter = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.QUARTER) : null;
   const savedTeamFilter = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.TEAM_FILTER) : null;
+  const defaultQuarterId = `q${currentQuarterNum}-${currentYearNum}`;
   
-  const [selectedFiscalYear, setSelectedFiscalYear] = useState(() => {
-    const tenantTimePeriod = currentTenant?.defaultTimePeriod;
-    if (tenantTimePeriod?.mode === 'specific' && tenantTimePeriod.year) {
-      return `fy${tenantTimePeriod.year}`;
-    }
-    return `fy${currentYearNum}`;
-  });
+  const [selectedFiscalYear, setSelectedFiscalYear] = useState(`fy${currentYearNum}`);
   const [selectedQuarter, setSelectedQuarter] = useState(savedQuarter || defaultQuarterId);
   const [identityOpen, setIdentityOpen] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<string>(savedTeamFilter || 'all');
+  
+  // Sync fiscal year with tenant preferences when tenant loads
+  useEffect(() => {
+    if (currentTenant?.defaultTimePeriod?.mode === 'specific' && currentTenant.defaultTimePeriod.year) {
+      setSelectedFiscalYear(`fy${currentTenant.defaultTimePeriod.year}`);
+      if (currentTenant.defaultTimePeriod.quarter) {
+        setSelectedQuarter(`q${currentTenant.defaultTimePeriod.quarter}-${currentTenant.defaultTimePeriod.year}`);
+      }
+    }
+  }, [currentTenant?.defaultTimePeriod]);
   
   // Persist preferences to localStorage
   useEffect(() => {
@@ -111,20 +106,21 @@ export default function Dashboard() {
 
   const currentQuarter = quarters.find((q) => q.id === selectedQuarter);
 
-  // Fetch real data from APIs
+  // Fetch real data from APIs - use optional chaining for tenant id
   const { data: foundations, isLoading: loadingFoundations, error: foundationsError } = useQuery<Foundation>({
-    queryKey: [`/api/foundations/${currentTenant.id}`],
-    enabled: !!currentTenant.id,
+    queryKey: [`/api/foundations/${currentTenant?.id}`],
+    enabled: !!currentTenant?.id,
   });
 
   const { data: strategies, isLoading: loadingStrategies, error: strategiesError } = useQuery<Strategy[]>({
-    queryKey: [`/api/strategies/${currentTenant.id}`],
-    enabled: !!currentTenant.id,
+    queryKey: [`/api/strategies/${currentTenant?.id}`],
+    enabled: !!currentTenant?.id,
   });
 
   const { data: objectives, isLoading: loadingObjectives, error: objectivesError } = useQuery<Objective[]>({
-    queryKey: ["/api/okr/objectives", currentTenant.id, currentQuarter?.quarter, currentQuarter?.year],
+    queryKey: ["/api/okr/objectives", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year],
     queryFn: async () => {
+      if (!currentTenant) return [];
       const params = new URLSearchParams({
         tenantId: currentTenant.id,
         ...(currentQuarter?.quarter && { quarter: String(currentQuarter.quarter) }),
@@ -134,12 +130,13 @@ export default function Dashboard() {
       if (!res.ok) throw new Error('Failed to fetch objectives');
       return res.json();
     },
-    enabled: !!currentTenant.id && !!currentQuarter,
+    enabled: !!currentTenant?.id && !!currentQuarter,
   });
 
   const { data: bigRocks, isLoading: loadingBigRocks, error: bigRocksError } = useQuery<BigRock[]>({
-    queryKey: ["/api/okr/big-rocks", currentTenant.id, currentQuarter?.quarter, currentQuarter?.year],
+    queryKey: ["/api/okr/big-rocks", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year],
     queryFn: async () => {
+      if (!currentTenant) return [];
       const params = new URLSearchParams({
         tenantId: currentTenant.id,
         ...(currentQuarter?.quarter && { quarter: String(currentQuarter.quarter) }),
@@ -149,20 +146,29 @@ export default function Dashboard() {
       if (!res.ok) throw new Error('Failed to fetch big rocks');
       return res.json();
     },
-    enabled: !!currentTenant.id && !!currentQuarter,
+    enabled: !!currentTenant?.id && !!currentQuarter,
   });
 
   const { data: meetings, isLoading: loadingMeetings, error: meetingsError } = useQuery<Meeting[]>({
-    queryKey: [`/api/meetings/${currentTenant.id}`],
-    enabled: !!currentTenant.id,
+    queryKey: [`/api/meetings/${currentTenant?.id}`],
+    enabled: !!currentTenant?.id,
   });
 
   const { data: teams, isLoading: loadingTeams } = useQuery<Team[]>({
-    queryKey: [`/api/teams/${currentTenant.id}`],
-    enabled: !!currentTenant.id,
+    queryKey: [`/api/teams/${currentTenant?.id}`],
+    enabled: !!currentTenant?.id,
   });
 
   const isLoading = loadingFoundations || loadingStrategies || loadingObjectives || loadingBigRocks || loadingMeetings || loadingTeams;
+
+  // Wait for tenant to load before rendering
+  if (tenantLoading || !currentTenant) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

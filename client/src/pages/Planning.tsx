@@ -47,21 +47,23 @@ const availablePeople = [
 
 export default function Planning() {
   const { toast } = useToast();
-  const { currentTenant } = useTenant();
+  const { currentTenant, isLoading: tenantLoading } = useTenant();
   const [selectedTab, setSelectedTab] = useState("okrs");
+  
+  const [quarter, setQuarter] = useState(1);
+  const [year, setYear] = useState(new Date().getFullYear());
   
   // Fetch foundation to get fiscal year start month and annual goals
   const { data: foundation } = useQuery<Foundation>({
-    queryKey: [`/api/foundations/${currentTenant.id}`],
+    queryKey: [`/api/foundations/${currentTenant?.id}`],
+    enabled: !!currentTenant?.id,
   });
   
   // Fetch strategies for linking
   const { data: strategies = [] } = useQuery<Strategy[]>({
-    queryKey: [`/api/strategies/${currentTenant.id}`],
+    queryKey: [`/api/strategies/${currentTenant?.id}`],
+    enabled: !!currentTenant?.id,
   });
-  
-  const [quarter, setQuarter] = useState(1);
-  const [year, setYear] = useState(new Date().getFullYear());
   
   // Set initial quarter/year based on tenant's fiscal year when foundation loads
   useEffect(() => {
@@ -74,31 +76,43 @@ export default function Planning() {
   }, [foundation?.fiscalYearStartMonth]);
 
   const { data: okrs = [], isLoading: loadingOkrs } = useQuery<Okr[]>({
-    queryKey: [`/api/okrs/${currentTenant.id}`, { quarter, year }],
+    queryKey: [`/api/okrs/${currentTenant?.id}`, { quarter, year }],
     queryFn: async () => {
-      const res = await fetch(`/api/okrs/${currentTenant.id}?quarter=${quarter}&year=${year}`);
+      const res = await fetch(`/api/okrs/${currentTenant!.id}?quarter=${quarter}&year=${year}`);
       if (!res.ok) throw new Error("Failed to fetch OKRs");
       return res.json();
     },
+    enabled: !!currentTenant?.id,
   });
 
   const { data: kpis = [], isLoading: loadingKpis } = useQuery<Kpi[]>({
-    queryKey: [`/api/kpis/${currentTenant.id}`, { quarter, year }],
+    queryKey: [`/api/kpis/${currentTenant?.id}`, { quarter, year }],
     queryFn: async () => {
-      const res = await fetch(`/api/kpis/${currentTenant.id}?quarter=${quarter}&year=${year}`);
+      const res = await fetch(`/api/kpis/${currentTenant!.id}?quarter=${quarter}&year=${year}`);
       if (!res.ok) throw new Error("Failed to fetch KPIs");
       return res.json();
     },
+    enabled: !!currentTenant?.id,
   });
 
   const { data: rocks = [], isLoading: loadingRocks } = useQuery<BigRock[]>({
-    queryKey: [`/api/rocks/${currentTenant.id}`, { quarter, year }],
+    queryKey: [`/api/rocks/${currentTenant?.id}`, { quarter, year }],
     queryFn: async () => {
-      const res = await fetch(`/api/rocks/${currentTenant.id}?quarter=${quarter}&year=${year}`);
+      const res = await fetch(`/api/rocks/${currentTenant!.id}?quarter=${quarter}&year=${year}`);
       if (!res.ok) throw new Error("Failed to fetch rocks");
       return res.json();
     },
+    enabled: !!currentTenant?.id,
   });
+
+  // Wait for tenant to load
+  if (tenantLoading || !currentTenant) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   const isLoading = loadingOkrs || loadingKpis || loadingRocks;
 
@@ -193,6 +207,7 @@ export default function Planning() {
 function OkrsSection({ okrs, quarter, year }: { okrs: Okr[]; quarter: number; year: number }) {
   const { toast } = useToast();
   const { currentTenant } = useTenant();
+  const tenantId = currentTenant!.id;
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -210,7 +225,7 @@ function OkrsSection({ okrs, quarter, year }: { okrs: Okr[]; quarter: number; ye
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
       return apiRequest("POST", "/api/okrs", {
-        tenantId: currentTenant.id,
+        tenantId,
         quarter,
         year,
         ...data,
@@ -218,7 +233,7 @@ function OkrsSection({ okrs, quarter, year }: { okrs: Okr[]; quarter: number; ye
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/okrs/${currentTenant.id}`, { quarter, year }] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okrs/${tenantId}`, { quarter, year }] });
       setCreateDialogOpen(false);
       resetForm();
       toast({ title: "OKR Created", description: "Successfully created new OKR" });
@@ -233,7 +248,7 @@ function OkrsSection({ okrs, quarter, year }: { okrs: Okr[]; quarter: number; ye
       return apiRequest("PATCH", `/api/okrs/${id}`, { ...data, updatedBy: "Current User" });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/okrs/${currentTenant.id}`, { quarter, year }] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okrs/${tenantId}`, { quarter, year }] });
       setEditDialogOpen(false);
       setSelectedOkr(null);
       toast({ title: "OKR Updated", description: "Successfully updated OKR" });
@@ -248,7 +263,7 @@ function OkrsSection({ okrs, quarter, year }: { okrs: Okr[]; quarter: number; ye
       return apiRequest("DELETE", `/api/okrs/${id}`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/okrs/${currentTenant.id}`, { quarter, year }] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okrs/${tenantId}`, { quarter, year }] });
       setDeleteDialogOpen(false);
       setSelectedOkr(null);
       toast({ title: "OKR Deleted", description: "Successfully deleted OKR" });
@@ -751,6 +766,7 @@ function OkrsSection({ okrs, quarter, year }: { okrs: Okr[]; quarter: number; ye
 function KpisSection({ kpis, quarter, year }: { kpis: Kpi[]; quarter: number; year: number }) {
   const { toast } = useToast();
   const { currentTenant } = useTenant();
+  const tenantId = currentTenant!.id;
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -766,7 +782,7 @@ function KpisSection({ kpis, quarter, year }: { kpis: Kpi[]; quarter: number; ye
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
       return apiRequest("POST", "/api/kpis", {
-        tenantId: currentTenant.id,
+        tenantId,
         quarter,
         year,
         ...data,
@@ -774,7 +790,7 @@ function KpisSection({ kpis, quarter, year }: { kpis: Kpi[]; quarter: number; ye
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/kpis/${currentTenant.id}`, { quarter, year }] });
+      queryClient.invalidateQueries({ queryKey: [`/api/kpis/${tenantId}`, { quarter, year }] });
       setCreateDialogOpen(false);
       resetForm();
       toast({ title: "KPI Created", description: "Successfully created new KPI" });
@@ -786,7 +802,7 @@ function KpisSection({ kpis, quarter, year }: { kpis: Kpi[]; quarter: number; ye
       return apiRequest("PATCH", `/api/kpis/${id}`, { ...data, updatedBy: "Current User" });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/kpis/${currentTenant.id}`, { quarter, year }] });
+      queryClient.invalidateQueries({ queryKey: [`/api/kpis/${tenantId}`, { quarter, year }] });
       setEditDialogOpen(false);
       setSelectedKpi(null);
       toast({ title: "KPI Updated", description: "Successfully updated KPI" });
@@ -798,7 +814,7 @@ function KpisSection({ kpis, quarter, year }: { kpis: Kpi[]; quarter: number; ye
       return apiRequest("DELETE", `/api/kpis/${id}`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/kpis/${currentTenant.id}`, { quarter, year }] });
+      queryClient.invalidateQueries({ queryKey: [`/api/kpis/${tenantId}`, { quarter, year }] });
       setDeleteDialogOpen(false);
       setSelectedKpi(null);
       toast({ title: "KPI Deleted", description: "Successfully deleted KPI" });
@@ -1131,6 +1147,7 @@ function RocksSection({
 }) {
   const { toast } = useToast();
   const { currentTenant } = useTenant();
+  const tenantId = currentTenant!.id;
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -1155,7 +1172,7 @@ function RocksSection({
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
       return apiRequest("POST", "/api/rocks", {
-        tenantId: currentTenant.id,
+        tenantId,
         quarter,
         year,
         ...data,
@@ -1163,7 +1180,7 @@ function RocksSection({
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/rocks/${currentTenant.id}`, { quarter, year }] });
+      queryClient.invalidateQueries({ queryKey: [`/api/rocks/${tenantId}`, { quarter, year }] });
       setCreateDialogOpen(false);
       resetForm();
       toast({ title: "Rock Created", description: "Successfully created new rock" });
@@ -1175,7 +1192,7 @@ function RocksSection({
       return apiRequest("PATCH", `/api/rocks/${id}`, { ...data, updatedBy: "Current User" });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/rocks/${currentTenant.id}`, { quarter, year }] });
+      queryClient.invalidateQueries({ queryKey: [`/api/rocks/${tenantId}`, { quarter, year }] });
       setEditDialogOpen(false);
       setSelectedRock(null);
       toast({ title: "Rock Updated", description: "Successfully updated rock" });
@@ -1187,7 +1204,7 @@ function RocksSection({
       return apiRequest("DELETE", `/api/rocks/${id}`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/rocks/${currentTenant.id}`, { quarter, year }] });
+      queryClient.invalidateQueries({ queryKey: [`/api/rocks/${tenantId}`, { quarter, year }] });
       setDeleteDialogOpen(false);
       setSelectedRock(null);
       toast({ title: "Rock Deleted", description: "Successfully deleted rock" });
