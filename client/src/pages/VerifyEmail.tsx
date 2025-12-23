@@ -3,7 +3,6 @@ import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 
 export default function VerifyEmail() {
   const [, setLocation] = useLocation();
@@ -22,18 +21,26 @@ export default function VerifyEmail() {
       }
 
       try {
-        const response = await apiRequest('POST', '/api/auth/verify-email', { token });
+        const response = await fetch('/api/auth/verify-email', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ token }),
+          credentials: 'include',
+        });
+
+        const data = await response.json();
 
         if (response.ok) {
-          const data = await response.json();
           setStatus('success');
           setMessage(data.message || 'Email verified successfully!');
         } else {
-          const data = await response.json();
           setStatus('error');
           setMessage(data.error || 'Email verification failed.');
         }
       } catch (error) {
+        console.error('Verification error:', error);
         setStatus('error');
         setMessage('An error occurred during verification. Please try again.');
       }
