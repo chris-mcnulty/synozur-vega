@@ -43,10 +43,18 @@ export default function Launchpad() {
         formData.append('targetQuarter', targetQuarter);
       }
       
+      // Include the current tenant ID header to ensure entities are created in the correct tenant
+      const tenantId = localStorage.getItem("currentTenantId");
+      const headers: Record<string, string> = {};
+      if (tenantId) {
+        headers["x-tenant-id"] = tenantId;
+      }
+      
       const response = await fetch('/api/launchpad/upload', {
         method: 'POST',
         body: formData,
         credentials: 'include',
+        headers,
       });
       
       if (!response.ok) {
