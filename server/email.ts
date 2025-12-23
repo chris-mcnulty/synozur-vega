@@ -419,6 +419,30 @@ export async function sendSelfServiceWelcomeEmail(
                         </tr>
                       </table>
                       
+                      <div style="margin: 30px 0; padding: 20px; background-color: rgba(129, 15, 251, 0.1); border-radius: 8px;">
+                        <h3 style="margin: 0 0 10px; font-size: 16px; font-weight: 600; color: #ffffff;">
+                          Getting Started
+                        </h3>
+                        <p style="margin: 0 0 15px; font-size: 14px; line-height: 1.6; color: #cccccc;">
+                          Check out our User Guide to learn how to make the most of Vega:
+                        </p>
+                        <a href="${APP_URL}/help" style="display: inline-block; padding: 10px 20px; font-size: 14px; font-weight: 500; color: #810FFB; text-decoration: none; border: 1px solid #810FFB; border-radius: 6px;">
+                          View User Guide
+                        </a>
+                      </div>
+                      
+                      <div style="margin: 30px 0; padding: 20px; background-color: rgba(230, 12, 179, 0.1); border-radius: 8px;">
+                        <h3 style="margin: 0 0 10px; font-size: 16px; font-weight: 600; color: #ffffff;">
+                          Learn About Company OS
+                        </h3>
+                        <p style="margin: 0 0 15px; font-size: 14px; line-height: 1.6; color: #cccccc;">
+                          Want to understand how a Company Operating System can transform your organization?
+                        </p>
+                        <a href="https://www.synozur.com/solutions/company-os" style="display: inline-block; padding: 10px 20px; font-size: 14px; font-weight: 500; color: #E60CB3; text-decoration: none; border: 1px solid #E60CB3; border-radius: 6px;">
+                          Learn More
+                        </a>
+                      </div>
+                      
                       <div style="background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 20px; margin: 20px 0;">
                         <p style="margin: 0; font-size: 14px; color: #cccccc;">
                           <strong>Need to extend your plan or add more users?</strong><br>
@@ -439,7 +463,7 @@ export async function sendSelfServiceWelcomeEmail(
         </body>
       </html>
     `,
-    text: `Welcome to Vega, ${userName}!\n\nYour organization ${organizationName} has been created and your ${servicePlan.displayName} plan is now active.\n\nPlan Details:\n• ${expiresText}\n• ${usersText}\n\nGet started: ${loginUrl}\n\nNeed to extend your plan or add more users? Contact us at vega@synozur.com`
+    text: `Welcome to Vega, ${userName}!\n\nYour organization ${organizationName} has been created and your ${servicePlan.displayName} plan is now active.\n\nPlan Details:\n• ${expiresText}\n• ${usersText}\n\nGet started: ${loginUrl}\n\nGetting Started:\nCheck out our User Guide to learn how to make the most of Vega: ${APP_URL}/help\n\nLearn About Company OS:\nWant to understand how a Company Operating System can transform your organization? Visit: https://www.synozur.com/solutions/company-os\n\nNeed to extend your plan or add more users? Contact us at vega@synozur.com`
   };
   
   await client.send(msg);

@@ -1,0 +1,85 @@
+{
+  "colorScheme": "light",
+  "fonts": [
+    {
+      "family": "Montserrat",
+      "count": 172
+    },
+    {
+      "family": "sans-serif",
+      "count": 172
+    },
+    {
+      "family": "Didot",
+      "count": 2
+    }
+  ],
+  "colors": {
+    "primary": "#002A3A",
+    "accent": "#00437B",
+    "background": "#FFFFFF",
+    "textPrimary": "#00437B",
+    "link": "#00437B"
+  },
+  "typography": {
+    "fontFamilies": {
+      "primary": "Montserrat",
+      "heading": "Didot"
+    },
+    "fontStacks": {
+      "body": [
+        "Montserrat",
+        "sans-serif"
+      ],
+      "heading": [
+        "Didot"
+      ],
+      "paragraph": [
+        "Montserrat",
+        "sans-serif"
+      ]
+    },
+    "fontSizes": {
+      "h1": "72px",
+      "h2": "40px",
+      "body": "26px"
+    }
+  },
+  "spacing": {
+    "baseUnit": 4,
+    "borderRadius": "0px"
+  },
+  "components": {
+    "input": {
+      "background": "#FFFAF0",
+      "textColor": "#46494B",
+      "borderColor": null,
+      "borderRadius": "0px",
+      "borderRadiusCorners": {
+        "topLeft": "0px",
+        "topRight": "0px",
+        "bottomRight": "0px",
+        "bottomLeft": "0px"
+      },
+      "shadow": "none"
+    }
+  },
+  "images": {
+    "logo": "File saved at: attached_assets/logo.svg",
+    "favicon": "File saved at: attached_assets/favicon.png",
+    "ogImage": null
+  },
+  "__framework_hints": [
+    "HubSpot"
+  ],
+  "__llm_logo_reasoning": {
+    "selectedIndex": 2,
+    "reasoning": "Heuristic fallback: Moderate indicators: variant bonus (+8), header logo linking to homepage, header location, top-left position, highest logo on page, alt matches logo/brand, src contains logo, class contains logo, alt contains brand name \"Full\", src contains brand name \"Full\", too small (likely icon, penalty), small square icon (likely UI icon, heavy penalty), not visible (penalty). Score: 106. May benefit from LLM validation.",
+    "confidence": 0.5
+  },
+  "confidence": {
+    "buttons": 0,
+    "colors": 0,
+    "overall": 0
+  }
+}
