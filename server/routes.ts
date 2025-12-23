@@ -389,10 +389,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Hash the incoming token to compare with stored hash
       const tokenHash = hashToken(token);
+      console.log(`[Verify Email] Looking for token hash: ${tokenHash.substring(0, 16)}...`);
+      
       const user = await storage.getUserByVerificationToken(tokenHash);
       if (!user) {
+        console.log(`[Verify Email] No user found with token hash: ${tokenHash.substring(0, 16)}...`);
         return res.status(400).json({ error: "Invalid or expired verification token" });
       }
+      
+      console.log(`[Verify Email] Found user: ${user.email}`);
 
       // Update user to verified and clear token
       await storage.updateUser(user.id, {
