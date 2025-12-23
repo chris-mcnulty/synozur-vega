@@ -2,7 +2,7 @@
 
 **Welcome to Vega - The Synozur Alliance Company Operating System**
 
-Version 1.1 | Last Updated: December 17, 2025
+Version 1.2 | Last Updated: December 23, 2025
 
 ---
 
@@ -18,9 +18,10 @@ Version 1.1 | Last Updated: December 17, 2025
 8. [AI Assistant](#ai-assistant)
 9. [Microsoft 365 Integration](#microsoft-365-integration)
 10. [Import & Export](#import--export)
-11. [Settings & Administration](#settings--administration)
-12. [Best Practices](#best-practices)
-13. [Troubleshooting](#troubleshooting)
+11. [Launchpad (AI Kickstart Wizard)](#launchpad-ai-kickstart-wizard)
+12. [Settings & Administration](#settings--administration)
+13. [Best Practices](#best-practices)
+14. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -109,6 +110,7 @@ The left sidebar provides access to all major modules:
 - **Strategy**: Strategic initiatives and plans
 - **Planning**: OKR management (Objectives, Key Results, Big Rocks)
 - **Focus Rhythm**: Meeting management and cadence
+- **Launchpad**: AI-powered setup wizard for generating Company OS from documents (typically for new organizations)
 - **Import**: Import OKR data from other systems
 - **Settings**: Personal and M365 connection settings
 - **Admin** (if authorized): Tenant administration
@@ -473,6 +475,21 @@ Regular check-ins update progress and add context.
 **Smart Prompts:**
 - If you check in on a Key Result that has exceeded its target (100%+), Vega will prompt you to close it instead of continuing check-ins
 
+**Close Completed Key Results:**
+
+When a Key Result reaches or exceeds 100% progress, you can close it to mark it as complete:
+
+1. Check in on the Key Result that has reached its target
+2. Vega will detect the completion and prompt: **"This Key Result has met its target. Would you like to close it?"**
+3. Click **"Close Key Result"** to mark it as complete
+4. Alternatively, click **"Continue Check-In"** if you want to track further progress beyond the target
+
+**Benefits:**
+- Clean up completed items from active views
+- Clearly distinguish between in-progress and completed work
+- Focus attention on Key Results that still need effort
+- Maintain accurate historical records
+
 ![Expanded objective detail view with Key Results list](/guide-images/07-objective-detail-key-results.png)
 *Screenshot showing an expanded objective view with multiple Key Results, their progress bars, current vs target values, check-in buttons, and overall objective progress rollup*
 
@@ -540,6 +557,52 @@ By default, all Key Results contribute equally to objective progress. You can cu
 
 ![Key Result check-in dialog with value input and status options](/guide-images/08-key-result-checkin.png)
 *Screenshot of the Key Result check-in dialog showing current value input, status selection (On Track/At Risk/Behind), and notes field for progress commentary*
+
+### Cloning Objectives
+
+The OKR cloning feature allows you to duplicate objectives to streamline planning and rollover unfinished work to new time periods.
+
+**Use Cases:**
+- **Cross-functional collaboration**: Copy OKRs between teams when multiple teams need aligned objectives
+- **Quarterly rollover**: Clone unfinished objectives from one quarter to the next, resetting progress for the new period while preserving historical data
+- **Template reuse**: Create standard objective structures that can be reused
+
+**To Clone an Objective:**
+
+1. Find the objective you want to clone
+2. Click the **"Clone"** option in the action menu (three dots)
+3. Configure clone settings:
+   - **Time Period**: Select target quarter and year (defaults to current period)
+   - **Owner**: Keep original owner or assign a new owner
+   - **Scope**:
+     - **Objective only**: Clone just the objective (no children)
+     - **Immediate children**: Clone objective and Key Results
+     - **All children**: Clone entire hierarchy including nested objectives
+4. Click **"Clone"**
+
+**What Gets Cloned:**
+- Objective details (title, description, level)
+- Relationships (linked strategies, values, annual goals)
+- Key Results (with reset progress at 0%)
+- Big Rocks (with reset completion at 0%)
+- Nested objectives (if "All children" scope selected)
+
+**What Gets Reset:**
+- Progress percentage returns to 0%
+- Current values reset to start values
+- Status changes to "Not Started"
+- Check-in history is not copied (preserved in original)
+
+**Bulk Cloning:**
+
+You can clone multiple objectives at once:
+
+1. Select checkboxes next to objectives you want to clone
+2. Click **"Clone Selected"** in the bulk action bar
+3. Configure clone settings (applied to all selected)
+4. Wait for completion (progress indicator shows status)
+
+**Note**: Only open objectives can be bulk cloned. Closed objectives must be cloned individually.
 
 ---
 
@@ -956,6 +1019,189 @@ Export your entire Company OS for backup, migration, or analysis.
 
 ---
 
+## Launchpad (AI Kickstart Wizard)
+
+The Launchpad feature helps new organizations quickly set up their complete Company OS by using AI to analyze strategic documents and generate structured proposals.
+
+### What is Launchpad?
+
+Launchpad is an AI-powered setup wizard that:
+- Analyzes your existing strategic documents (business plans, annual reports, strategic plans)
+- Extracts key information about your organization
+- Generates a complete Company OS proposal including mission, vision, values, annual goals, strategies, objectives, and big rocks
+- Provides an interactive review interface to refine AI suggestions before committing
+
+**Ideal for:**
+- New organizations onboarding to Vega
+- Consultants setting up client accounts
+- Organizations migrating from other planning systems
+- Quick setup of initial strategic framework
+
+### Accessing Launchpad
+
+Click **"Launchpad"** in the left sidebar (typically only visible during initial setup or for admins).
+
+### Using the Launchpad
+
+#### Step 1: Upload Document
+
+1. Click **"Start New Kickstart"**
+2. Upload a strategic document:
+   - **Supported formats**: PDF, Word (.docx), Plain text (.txt)
+   - **Recommended documents**:
+     - Strategic plans
+     - Business plans
+     - Annual reports
+     - Vision/mission statements
+     - Organizational goals documents
+3. Select **target fiscal year** for the generated Company OS
+4. Click **"Upload and Analyze"**
+
+**AI Analysis:**
+- The AI will read and analyze your document
+- Extract organizational identity elements
+- Identify strategic priorities and goals
+- Generate structured OKRs and initiatives
+- This process typically takes 30-60 seconds
+
+#### Step 2: Review Foundation
+
+The wizard presents AI-generated proposals for your organizational foundation:
+
+**Review and edit:**
+- **Mission**: Why your organization exists
+- **Vision**: Your aspirational future state
+- **Values**: Core principles (with descriptions)
+- **Tagline**: Memorable brand phrase
+- **Culture Statement**: How you work together
+- **Annual Goals**: High-level yearly targets
+
+**For each element:**
+- Click **"Edit"** to modify AI suggestions
+- Accept the proposal as-is
+- Add additional items if needed
+
+#### Step 3: Review Strategies
+
+Review AI-generated strategic initiatives:
+
+**For each strategy:**
+- Title and description
+- Priority level (High/Medium/Low)
+- Time period (quarters)
+- Linked annual goals
+- Value tags
+
+**Actions:**
+- Edit any strategy details
+- Remove strategies that don't fit
+- Add new strategies
+- Adjust priorities and timelines
+
+#### Step 4: Review Objectives
+
+Review proposed objectives that execute your strategies:
+
+**For each objective:**
+- Title and description
+- Level (Organization/Team/Division/Individual)
+- Owner assignment
+- Time period
+- Linked strategies and values
+- Key Results with targets
+
+**Actions:**
+- Edit objectives and their Key Results
+- Adjust target values and metrics
+- Change owners or time periods
+- Add or remove objectives
+
+#### Step 5: Review Big Rocks
+
+Review major initiatives proposed to achieve your objectives:
+
+**For each Big Rock:**
+- Title and description
+- Linked objectives
+- Owner assignment
+- Due date
+- Priority
+
+**Actions:**
+- Edit details
+- Adjust timelines
+- Link to appropriate objectives
+- Remove or add initiatives
+
+#### Step 6: Review & Approve
+
+Final review of your complete Company OS:
+
+**Summary shows:**
+- Total items by category (Foundation, Strategies, Objectives, Key Results, Big Rocks)
+- Time period coverage
+- Owner distribution
+
+**Options:**
+1. **Save as Draft**: Save for later completion
+2. **Approve & Create All**: Commit all entities to your tenant
+3. **Go Back**: Return to previous steps to make changes
+
+**After Approval:**
+- All approved entities are created in your tenant
+- You're redirected to the Dashboard
+- Your complete Company OS is ready to use
+- Historical kickstart session is saved for reference
+
+### Consultant Mode
+
+Consultants can use Launchpad to prepare Company OS structures for clients:
+
+1. Create kickstart session in client's tenant
+2. Upload client documents or use templates
+3. Refine AI proposals based on client discussions
+4. Save as draft for client review
+5. Client reviews and approves when ready
+
+### Best Practices
+
+**Document Preparation:**
+- Use recent documents (within last 1-2 years)
+- Longer documents provide more context (5+ pages ideal)
+- Include both strategic direction and tactical details
+- Multiple related documents can be combined into one file
+
+**Review Process:**
+- Don't rush through the wizard - carefully review each section
+- The AI is very good but not perfect - always verify critical details
+- Add organizational context the AI might have missed
+- Adjust timelines to match your actual planning calendar
+
+**After Setup:**
+- Use the generated structure as a starting point
+- Continue refining in the main app
+- Add team members and assign ownership
+- Begin regular check-ins on Key Results
+- Link Microsoft 365 integrations
+
+### Limitations
+
+**AI Analysis:**
+- Works best with structured strategic documents
+- May miss nuances in unstructured or narrative-heavy documents
+- Requires clear organizational language (avoids heavy jargon)
+- Target values for Key Results are estimates - verify they're appropriate
+
+**Document Size:**
+- Very large documents (100+ pages) may take longer to process
+- Extremely short documents may not provide enough context
+
+**Language:**
+- Currently optimized for English documents
+- Other languages may work but with reduced accuracy
+
+---
+
 ## Settings & Administration
 
 ### Personal Settings
@@ -1023,20 +1269,59 @@ View and manage users in your organization:
 
 #### 2. Manage Teams
 
-Create and organize teams:
+Create and organize teams with full CRUD (Create, Read, Update, Delete) capabilities:
 
-1. Navigate to **"Teams"** tab in Admin
-2. Click **"Add Team"**
-3. Enter:
+**Viewing Teams:**
+
+1. Navigate to **"Teams"** tab in Tenant Admin
+2. View list of all teams showing:
    - Team name
    - Description
-   - Team members
-4. Click **"Save"**
+   - Team leader
+   - Number of members
+   - Actions (Edit, Delete)
+
+**Creating a Team:**
+
+1. Click **"Add Team"**
+2. Fill in the form:
+   - **Team Name** (required): Unique name for the team
+   - **Description** (optional): Purpose and scope of the team
+   - **Team Leader** (optional): Select from user dropdown
+3. Click **"Create Team"**
+
+**Editing a Team:**
+
+1. Click **"Edit"** button on any team row
+2. Update:
+   - Team name
+   - Description
+   - Team leader
+3. Click **"Save Changes"**
+
+**Managing Team Members:**
+
+1. Click on a team to view details
+2. Click **"Manage Members"**
+3. Add members:
+   - Select users from dropdown
+   - Click **"Add to Team"**
+4. Remove members:
+   - Click **"Remove"** next to any member
+   - Confirm removal
+
+**Deleting a Team:**
+
+1. Click **"Delete"** button on team row
+2. Confirm deletion
+3. **Warning**: Deleting a team does not delete associated objectives, but those objectives will no longer be filtered by team
 
 **Team Benefits:**
 - Organize objectives by team
 - Filter dashboards by team
 - Track team-specific metrics
+- Support organizational structure
+- Enable Team Mode filtering
 
 #### 3. Tenant Settings
 
@@ -1087,7 +1372,133 @@ Manage documents that provide context to the AI Assistant:
 - Values descriptions and examples
 - Industry-specific context
 
-#### 5. Import/Export Management
+#### 5. Customizable Branding
+
+Customize the look and feel of your Vega instance to match your organization's brand identity:
+
+**Accessing Branding Settings:**
+
+1. Navigate to Tenant Admin
+2. Click **"Branding"** or **"Customize Branding"**
+3. The branding dialog opens with live preview
+
+**Branding Options:**
+
+**Logo Settings:**
+- **Primary Logo URL**: Main logo for light mode
+- **Dark Mode Logo URL**: Alternative logo for dark theme (optional)
+- **Favicon URL**: Browser tab icon
+- **Live Preview**: See how logos appear in the sidebar
+
+**Color Scheme:**
+- **Primary Color**: Main brand color (used for buttons, links, accents)
+- **Secondary Color**: Supporting brand color
+- **Accent Color**: Highlight color for important elements
+- **Color Picker**: Visual color selector with hex code input
+
+**Report Branding:**
+- **Report Tagline**: Appears on exported reports
+- **Report Header Text**: Custom header for PDF/PPTX exports
+- **Report Footer Text**: Custom footer for reports (e.g., confidentiality notice)
+
+**Email Branding:**
+- **Email Sender Name**: Display name for system emails
+
+**Applying Changes:**
+1. Configure all desired branding elements
+2. Use **"Preview"** to see changes
+3. Click **"Save Branding"**
+4. Changes apply immediately across the tenant
+
+**Benefits:**
+- Professional branded experience for your organization
+- Consistent visual identity in all exports and communications
+- White-label capability for consultant resale
+- Automatic dark mode logo switching
+
+#### 6. Enhanced Reporting & Exports
+
+Generate professional reports and presentations with your Company OS data:
+
+**Report Types:**
+
+**1. PDF Exports:**
+- Comprehensive strategic reports
+- OKR status reports by time period
+- Team performance summaries
+- Custom branded documents
+
+**To Generate a PDF Report:**
+1. Navigate to **Reporting** page (if available) or use export options in Planning
+2. Select report type and time period
+3. Choose included sections (Foundation, Strategies, Objectives, etc.)
+4. Click **"Export to PDF"**
+5. Download generates with your custom branding
+
+**2. PowerPoint (PPTX) Exports:**
+- Executive summary presentations
+- Board-ready strategic updates
+- Quarterly business review decks
+- Stakeholder communications
+
+**To Generate a PPTX Report:**
+1. Navigate to Reporting page
+2. Select presentation template
+3. Choose time period and data to include
+4. Click **"Export to PowerPoint"**
+5. Download editable .pptx file
+
+**Report Features:**
+- **Custom Branding**: Uses your logo, colors, tagline, and custom text
+- **Time Period Filtering**: Generate reports for specific quarters or years
+- **Progress Visualization**: Charts and progress bars for objectives
+- **Status Indicators**: Color-coded status for at-risk items
+- **Hierarchical Views**: Shows objective → key result → big rock relationships
+
+**Best Practices:**
+- Set up branding before generating first reports
+- Generate quarterly reports for board meetings
+- Use PDF for archival purposes
+- Use PPTX for presentations that need customization
+- Include report footer with date and confidentiality level
+
+#### 7. AI Usage Reporting
+
+Monitor and analyze AI usage across your tenant (Tenant Admin only):
+
+**Accessing AI Usage:**
+1. Navigate to Tenant Admin
+2. View **"AI Usage"** widget or section
+
+**Metrics Displayed:**
+- **Total AI Requests**: Number of AI calls made
+- **Tokens Used**: Total input and output tokens
+- **Estimated Cost**: Approximate cost based on model pricing
+- **Breakdown by Model**: Usage statistics per AI model (e.g., GPT-4, GPT-5)
+- **Breakdown by Feature**: Usage by AI feature (chat, OKR suggestions, meeting summaries, etc.)
+- **Time Period**: Current month, historical trends
+
+**Usage Details:**
+- Recent AI calls with timestamps
+- User who made the request
+- Feature that triggered the call
+- Token count and model used
+
+**Business Value:**
+- **Cost Monitoring**: Track AI expenses
+- **Usage Optimization**: Identify high-usage features
+- **Budgeting**: Plan for AI costs
+- **Compliance**: Understand AI usage patterns
+
+**Platform Admin View:**
+
+Platform administrators see organization-wide AI usage:
+- Total usage across all tenants
+- Breakdown by tenant
+- Platform-level cost tracking
+- Usage trends over time
+
+#### 8. Import/Export Management
 
 Admin-level import and export functions:
 
@@ -1299,7 +1710,11 @@ Vega uses role-based permissions to control access:
 
 **Big Rock**: A major initiative or project that contributes to achieving Key Results. Named after the "big rocks" time management metaphor - prioritizing important over urgent.
 
+**Branding**: Custom visual identity settings including logos, colors, and report text that white-label the Vega platform for your organization.
+
 **Check-In**: A progress update on a Key Result, including updated metrics and status notes.
+
+**Cloning**: Creating a duplicate of an objective with its Key Results and Big Rocks, typically for a new time period or team, with progress reset to zero.
 
 **Company OS**: Company Operating System - the integrated platform for strategic alignment and execution (Vega).
 
@@ -1308,6 +1723,8 @@ Vega uses role-based permissions to control access:
 **Foundation**: The core identity elements of an organization: mission, vision, values, and annual goals.
 
 **Key Result (KR)**: A quantitative metric that measures progress toward an objective. Typically 3-5 per objective.
+
+**Launchpad**: AI-powered setup wizard that analyzes strategic documents and generates a complete Company OS proposal including foundation, strategies, objectives, and initiatives.
 
 **Objective**: A qualitative, aspirational goal. The "O" in OKR.
 
@@ -1329,6 +1746,14 @@ Vega uses role-based permissions to control access:
 
 - **v1.0** (December 13, 2025): Initial comprehensive user guide
 - **v1.1** (December 17, 2025): Removed roadmap and future work content; focused on currently implemented features only
+- **v1.2** (December 23, 2025): Added documentation for features completed December 16-20, 2025:
+  - Check-in Close Prompt for completed Key Results
+  - OKR Cloning (single and bulk)
+  - Launchpad (AI Kickstart Wizard) for document-based Company OS generation
+  - Enhanced Team Management with full CRUD UI
+  - Customizable Branding (logos, colors, report branding)
+  - Enhanced Reporting with PDF and PPTX export
+  - AI Usage Reporting for tenant and platform admins
 
 ---
 
