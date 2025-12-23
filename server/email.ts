@@ -2,8 +2,25 @@ import sgMail from '@sendgrid/mail';
 import crypto from 'crypto';
 
 let connectionSettings: any;
+let cachedCredentials: { apiKey: string; email: string } | null = null;
 
-async function getCredentials() {
+async function getCredentials(): Promise<{ apiKey: string; email: string }> {
+  // Return cached credentials if available
+  if (cachedCredentials) {
+    return cachedCredentials;
+  }
+
+  // First, check for standard environment variables (works in production)
+  const envApiKey = process.env.SENDGRID_API_KEY;
+  const envFromEmail = process.env.SENDGRID_FROM_EMAIL;
+  
+  if (envApiKey && envFromEmail) {
+    console.log('[Email] Using SendGrid credentials from environment variables');
+    cachedCredentials = { apiKey: envApiKey, email: envFromEmail };
+    return cachedCredentials;
+  }
+
+  // Fall back to Replit connector (works in development)
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY 
     ? 'repl ' + process.env.REPL_IDENTITY 
@@ -11,24 +28,32 @@ async function getCredentials() {
     ? 'depl ' + process.env.WEB_REPL_RENEWAL 
     : null;
 
-  if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
+  if (!hostname || !xReplitToken) {
+    throw new Error('SendGrid not configured. Please set SENDGRID_API_KEY and SENDGRID_FROM_EMAIL environment variables, or connect SendGrid via Replit connector.');
   }
 
-  connectionSettings = await fetch(
-    'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=sendgrid',
-    {
-      headers: {
-        'Accept': 'application/json',
-        'X_REPLIT_TOKEN': xReplitToken
+  try {
+    connectionSettings = await fetch(
+      'https://' + hostname + '/api/v2/connection?include_secrets=true&connector_names=sendgrid',
+      {
+        headers: {
+          'Accept': 'application/json',
+          'X_REPLIT_TOKEN': xReplitToken
+        }
       }
-    }
-  ).then(res => res.json()).then(data => data.items?.[0]);
+    ).then(res => res.json()).then(data => data.items?.[0]);
 
-  if (!connectionSettings || (!connectionSettings.settings.api_key || !connectionSettings.settings.from_email)) {
-    throw new Error('SendGrid not connected');
+    if (!connectionSettings || (!connectionSettings.settings.api_key || !connectionSettings.settings.from_email)) {
+      throw new Error('SendGrid not connected via Replit connector');
+    }
+    
+    console.log('[Email] Using SendGrid credentials from Replit connector');
+    cachedCredentials = { apiKey: connectionSettings.settings.api_key, email: connectionSettings.settings.from_email };
+    return cachedCredentials;
+  } catch (error) {
+    console.error('[Email] Failed to get SendGrid credentials:', error);
+    throw new Error('SendGrid not configured. Please set SENDGRID_API_KEY and SENDGRID_FROM_EMAIL environment variables for production.');
   }
-  return {apiKey: connectionSettings.settings.api_key, email: connectionSettings.settings.from_email};
 }
 
 export async function getUncachableSendGridClient() {
