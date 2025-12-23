@@ -1361,7 +1361,7 @@ Track and monitor AI usage across your organization to understand costs and usag
 - View aggregated summaries or detailed logs
 
 **Cost Management:**
-- Set usage alerts (if configured)
+- Set usage alerts (if configured) *(feature coming soon)*
 - Track spending trends over time
 - Identify heavy users or functions
 - Support for chargeback to departments or teams
