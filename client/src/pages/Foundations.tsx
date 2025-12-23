@@ -9,7 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Eye, Edit, X, Plus, Save, Trash2, Loader2, Sparkles } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Eye, Edit, X, Plus, Save, Trash2, Loader2, Sparkles, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
@@ -89,6 +90,7 @@ export default function Foundations() {
   const [messagingStatement, setMessagingStatement] = useState<string>("");
   const [cultureStatement, setCultureStatement] = useState<string>("");
   const [brandVoice, setBrandVoice] = useState<string>("");
+  const [fiscalYearStartMonth, setFiscalYearStartMonth] = useState<number>(1);
 
   // Fetch foundation data
   const { data: foundation, isLoading } = useQuery<Foundation>({
@@ -122,6 +124,7 @@ export default function Foundations() {
       setMessagingStatement(foundation.messagingStatement || "");
       setCultureStatement(foundation.cultureStatement || "");
       setBrandVoice(foundation.brandVoice || "");
+      setFiscalYearStartMonth(foundation.fiscalYearStartMonth || 1);
     } else {
       // Reset to empty state when no foundation exists for this tenant
       setMission("");
@@ -133,6 +136,7 @@ export default function Foundations() {
       setMessagingStatement("");
       setCultureStatement("");
       setBrandVoice("");
+      setFiscalYearStartMonth(1);
     }
     // Clear custom input fields when tenant changes
     setCustomMission("");
@@ -154,7 +158,7 @@ export default function Foundations() {
         messagingStatement,
         cultureStatement,
         brandVoice,
-        fiscalYearStartMonth: 1,
+        fiscalYearStartMonth,
         updatedBy: "Current User",
       });
     },
@@ -407,6 +411,40 @@ export default function Foundations() {
                   rows={5}
                   data-testid="textarea-brand-voice"
                 />
+              </div>
+              
+              <Separator className="my-6" />
+              
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <Label htmlFor="fiscal-year-start">Fiscal Year Start Month</Label>
+                </div>
+                <p className="text-sm text-muted-foreground mb-2">
+                  Set the month when your organization's fiscal year begins. This affects how quarters are calculated throughout the platform.
+                </p>
+                <Select
+                  value={String(fiscalYearStartMonth)}
+                  onValueChange={(v) => setFiscalYearStartMonth(parseInt(v))}
+                >
+                  <SelectTrigger className="w-48" data-testid="select-fiscal-year-start">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">January</SelectItem>
+                    <SelectItem value="2">February</SelectItem>
+                    <SelectItem value="3">March</SelectItem>
+                    <SelectItem value="4">April</SelectItem>
+                    <SelectItem value="5">May</SelectItem>
+                    <SelectItem value="6">June</SelectItem>
+                    <SelectItem value="7">July</SelectItem>
+                    <SelectItem value="8">August</SelectItem>
+                    <SelectItem value="9">September</SelectItem>
+                    <SelectItem value="10">October</SelectItem>
+                    <SelectItem value="11">November</SelectItem>
+                    <SelectItem value="12">December</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </CardContent>
           </Card>
