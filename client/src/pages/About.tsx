@@ -11,7 +11,8 @@ import {
   Users,
   Target,
   Layers,
-  Rocket
+  Rocket,
+  HelpCircle
 } from "lucide-react";
 
 const VERSION_MAJOR = 1;
@@ -133,14 +134,14 @@ export default function About() {
               <div className="flex items-center gap-2">
                 <Mail className="h-4 w-4 text-muted-foreground" />
                 <div>
-                  <p className="text-sm font-medium">IT Support</p>
-                  <p className="text-sm text-muted-foreground">ITHelp@synozur.com</p>
+                  <p className="text-sm font-medium">Vega Support</p>
+                  <p className="text-sm text-muted-foreground">Vega@synozur.com</p>
                 </div>
               </div>
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => window.open('mailto:ITHelp@synozur.com', '_blank')}
+                onClick={() => window.open('mailto:Vega@synozur.com', '_blank')}
                 data-testid="button-email-support"
               >
                 <ExternalLink className="h-3 w-3 mr-1" />
@@ -153,9 +154,20 @@ export default function About() {
             <div className="space-y-2">
               <p className="text-sm font-medium">Documentation</p>
               <p className="text-sm text-muted-foreground">
-                Visit the Help page in the sidebar for comprehensive guidance on all 
+                Visit the User Guide for comprehensive guidance on all 
                 platform features and workflows.
               </p>
+              <Button
+                size="sm"
+                variant="outline"
+                asChild
+                data-testid="button-user-guide"
+              >
+                <a href="/help">
+                  <HelpCircle className="h-3 w-3 mr-1" />
+                  User Guide
+                </a>
+              </Button>
             </div>
           </CardContent>
         </Card>
