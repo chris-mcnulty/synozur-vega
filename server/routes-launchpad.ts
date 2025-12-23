@@ -384,7 +384,8 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
     }
 
     if (proposal.objectives && proposal.objectives.length > 0) {
-      const quarter = session.targetQuarter || Math.ceil((new Date().getMonth() + 1) / 3);
+      // Use targetQuarter if set, otherwise leave null for annual objectives
+      const quarter = session.targetQuarter || null;
       
       for (const obj of proposal.objectives) {
         const objective = await storage.createObjective({
@@ -416,6 +417,8 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
         }
 
         if (obj.bigRocks && obj.bigRocks.length > 0) {
+          // Big rocks require a quarter due to database constraint, so default to current quarter
+          const bigRockQuarter = session.targetQuarter || Math.ceil((new Date().getMonth() + 1) / 3);
           for (const br of obj.bigRocks) {
             await storage.createBigRock({
               objectiveId: objective.id,
@@ -424,7 +427,7 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
               description: br.description,
               priority: br.priority as any || "high",
               status: "not_started",
-              quarter,
+              quarter: bigRockQuarter,
               year: session.targetYear,
             });
             createdEntities.bigRocks++;
