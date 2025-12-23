@@ -424,6 +424,8 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
               description: br.description,
               priority: br.priority as any || "high",
               status: "not_started",
+              quarter,
+              year: session.targetYear,
             });
             createdEntities.bigRocks++;
           }
