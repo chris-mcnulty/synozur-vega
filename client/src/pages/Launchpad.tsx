@@ -10,6 +10,7 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Upload, Rocket, FileText, Sparkles, Check, ChevronRight, Target, Flag, Lightbulb, CheckCircle2, Loader2, AlertCircle, X, Edit2 } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
@@ -26,6 +27,8 @@ export default function Launchpad() {
   const [currentSession, setCurrentSession] = useState<LaunchpadSession | null>(null);
   const [editedProposal, setEditedProposal] = useState<LaunchpadProposal | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [showBigRockQuarterDialog, setShowBigRockQuarterDialog] = useState(false);
+  const [bigRockQuarter, setBigRockQuarter] = useState<string>("1");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { currentTenant } = useTenant();
@@ -99,14 +102,15 @@ export default function Launchpad() {
   });
 
   const approveMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (overrideBigRockQuarter?: number) => {
       if (!currentSession) throw new Error('No session');
       
       if (editedProposal) {
         await apiRequest('PATCH', `/api/launchpad/${currentSession.id}`, { userEdits: editedProposal });
       }
       
-      const response = await apiRequest('POST', `/api/launchpad/${currentSession.id}/approve`);
+      const body = overrideBigRockQuarter ? { bigRockQuarter: overrideBigRockQuarter } : undefined;
+      const response = await apiRequest('POST', `/api/launchpad/${currentSession.id}/approve`, body);
       return response.json();
     },
     onSuccess: (result) => {
@@ -576,7 +580,18 @@ export default function Launchpad() {
               Start Over
             </Button>
             <Button 
-              onClick={() => approveMutation.mutate()} 
+              onClick={() => {
+                // Check if this is an annual session with big rocks
+                const hasBigRocks = editedProposal?.objectives?.some(obj => obj.bigRocks && obj.bigRocks.length > 0);
+                const isAnnual = currentSession?.targetQuarter === null;
+                
+                if (isAnnual && hasBigRocks) {
+                  // Ask which quarter to use for big rocks
+                  setShowBigRockQuarterDialog(true);
+                } else {
+                  approveMutation.mutate(undefined);
+                }
+              }} 
               disabled={approveMutation.isPending}
               className="flex-1"
               size="lg"
@@ -595,6 +610,45 @@ export default function Launchpad() {
               )}
             </Button>
           </div>
+
+          <Dialog open={showBigRockQuarterDialog} onOpenChange={setShowBigRockQuarterDialog}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Which quarter for Big Rocks?</DialogTitle>
+                <DialogDescription>
+                  You're creating annual objectives. Big rocks need to be assigned to a specific quarter.
+                  Which quarter should the big rocks be placed in?
+                </DialogDescription>
+              </DialogHeader>
+              <div className="py-4">
+                <Select value={bigRockQuarter} onValueChange={setBigRockQuarter}>
+                  <SelectTrigger data-testid="select-big-rock-quarter">
+                    <SelectValue placeholder="Select quarter" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">Q1</SelectItem>
+                    <SelectItem value="2">Q2</SelectItem>
+                    <SelectItem value="3">Q3</SelectItem>
+                    <SelectItem value="4">Q4</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setShowBigRockQuarterDialog(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={() => {
+                    setShowBigRockQuarterDialog(false);
+                    approveMutation.mutate(parseInt(bigRockQuarter));
+                  }}
+                  data-testid="button-confirm-big-rock-quarter"
+                >
+                  Continue
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </div>
       )}
 

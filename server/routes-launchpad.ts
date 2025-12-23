@@ -322,6 +322,9 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "No proposal to approve" });
     }
 
+    // Get bigRockQuarter from request body if provided (for annual objectives)
+    const { bigRockQuarter } = req.body || {};
+
     const createdEntities = {
       foundation: false,
       values: 0,
@@ -417,8 +420,9 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
         }
 
         if (obj.bigRocks && obj.bigRocks.length > 0) {
-          // Big rocks require a quarter due to database constraint, so default to current quarter
-          const bigRockQuarter = session.targetQuarter || Math.ceil((new Date().getMonth() + 1) / 3);
+          // Big rocks require a quarter due to database constraint
+          // Use: 1) explicit bigRockQuarter from request, 2) session.targetQuarter, 3) current quarter
+          const effectiveBigRockQuarter = bigRockQuarter || session.targetQuarter || Math.ceil((new Date().getMonth() + 1) / 3);
           for (const br of obj.bigRocks) {
             await storage.createBigRock({
               objectiveId: objective.id,
@@ -427,7 +431,7 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
               description: br.description,
               priority: br.priority as any || "high",
               status: "not_started",
-              quarter: bigRockQuarter,
+              quarter: effectiveBigRockQuarter,
               year: session.targetYear,
             });
             createdEntities.bigRocks++;
