@@ -22,17 +22,14 @@ export default function VerifyEmail() {
       }
 
       try {
-        const response = await apiRequest('/api/auth/verify-email', {
-          method: 'POST',
-          body: JSON.stringify({ token }),
-        });
-
-        const data = await response.json();
+        const response = await apiRequest('POST', '/api/auth/verify-email', { token });
 
         if (response.ok) {
+          const data = await response.json();
           setStatus('success');
           setMessage(data.message || 'Email verified successfully!');
         } else {
+          const data = await response.json();
           setStatus('error');
           setMessage(data.error || 'Email verification failed.');
         }
