@@ -1223,7 +1223,12 @@ Create and organize teams with full CRUD (Create, Read, Update, Delete) capabili
 1. Select a team from the list
 2. Click **"Delete"** or the delete icon
 3. Confirm deletion
-4. **Note**: Deleting a team does NOT delete associated OKRs - they remain but lose team assignment
+4. **Note:**
+   - Deleting a team does **not** delete associated OKRs. Objectives and key results remain in Vega but no longer have that team assigned.
+   - Team-owned objectives become "unassigned" from a team: they continue to be visible to their objective owners and contributors and in any global views/filters that do not require a team.
+   - **Best practice before deletion:** Review all active OKRs for the team and, where appropriate, reassign them to another team so you do not leave important OKRs without a team context.
+   - **After deletion:** Use OKR filters (for example, filter by **No Team** or equivalent) to identify and clean up any remaining orphaned OKRs.
+   - Vega may not automatically notify users when a team is deleted. Communicate team deletions and any OKR reassignments through your normal channels (e.g., email, meetings, announcements).
 
 **Manage Team Members:**
 - Add members: Select from list of users in your tenant
