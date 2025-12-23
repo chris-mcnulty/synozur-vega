@@ -34,23 +34,16 @@ export type Tenant = {
 };
 
 type TenantContextType = {
-  currentTenant: Tenant;
+  currentTenant: Tenant | null;
   setCurrentTenant: (tenant: Tenant) => void;
   tenants: Tenant[];
   isLoading: boolean;
 };
 
-const DEFAULT_TENANT: Tenant = {
-  id: "f328cd4e-0fe1-4893-a637-941684749c55",
-  name: "The Synozur Alliance LLC",
-  color: "#A855F7",
-  allowedDomains: null,
-};
-
 const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export function TenantProvider({ children }: { children: ReactNode }) {
-  const [currentTenant, setCurrentTenant] = useState<Tenant>(DEFAULT_TENANT);
+  const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
 
   const { data: tenants = [], isLoading } = useQuery<Tenant[]>({
     queryKey: ["/api/tenants"],
@@ -65,17 +58,21 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       if (savedTenant) {
         setCurrentTenant(savedTenant);
       } else {
+        // Saved tenant not in user's accessible tenants - use first available
         setCurrentTenant(tenants[0]);
+        localStorage.setItem("currentTenantId", tenants[0].id);
       }
     } else {
+      // No saved tenant - use user's first tenant
       setCurrentTenant(tenants[0]);
+      localStorage.setItem("currentTenantId", tenants[0].id);
     }
   }, [tenants]);
 
   // Apply favicon when tenant changes (reset to default if no tenant favicon)
   useEffect(() => {
     const existingFavicon = document.querySelector("link[rel='icon']") as HTMLLinkElement | null;
-    const faviconUrl = currentTenant.faviconUrl || "/favicon.png"; // Default fallback to bundled asset
+    const faviconUrl = currentTenant?.faviconUrl || "/favicon.png"; // Default fallback to bundled asset
     
     if (existingFavicon) {
       existingFavicon.setAttribute("href", faviconUrl);
@@ -85,7 +82,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       link.href = faviconUrl;
       document.head.appendChild(link);
     }
-  }, [currentTenant.faviconUrl]);
+  }, [currentTenant?.faviconUrl]);
 
   const handleSetCurrentTenant = (tenant: Tenant) => {
     const previousTenantId = currentTenant?.id;

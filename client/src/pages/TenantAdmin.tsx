@@ -69,6 +69,7 @@ type User = {
   name: string | null;
   role: string;
   tenantId: string | null;
+  emailVerified: boolean;
 };
 
 type ConsultantAccessGrant = {
@@ -892,6 +893,21 @@ export default function TenantAdmin() {
     },
   });
 
+  const manualVerifyMutation = useMutation({
+    mutationFn: (userId: string) =>
+      apiRequest("POST", `/api/users/${userId}/manual-verify`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      toast({ title: "User verified successfully" });
+    },
+    onError: () => {
+      toast({ 
+        title: "Failed to verify user", 
+        variant: "destructive" 
+      });
+    },
+  });
+
   const bulkImportMutation = useMutation({
     mutationFn: (data: { users: any[]; sendWelcomeEmails: boolean; defaultTenantId: string | null }) =>
       apiRequest("POST", "/api/users/bulk-import", data),
@@ -1640,6 +1656,7 @@ export default function TenantAdmin() {
                     <TableRow>
                       <TableHead>Email</TableHead>
                       <TableHead>Name</TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Organization</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
@@ -1651,11 +1668,40 @@ export default function TenantAdmin() {
                         <TableCell className="font-mono text-sm">{user.email}</TableCell>
                         <TableCell>{user.name || "-"}</TableCell>
                         <TableCell>
+                          {user.emailVerified ? (
+                            <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                              <CheckCircle2 className="h-3 w-3 mr-1" />
+                              Verified
+                            </Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-amber-600">
+                              <AlertCircle className="h-3 w-3 mr-1" />
+                              Unverified
+                            </Badge>
+                          )}
+                        </TableCell>
+                        <TableCell>
                           <Badge variant="outline">{user.role}</Badge>
                         </TableCell>
                         <TableCell>{getTenantName(user.tenantId)}</TableCell>
                         <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
+                            {!user.emailVerified && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  if (confirm(`Manually verify ${user.email}?`)) {
+                                    manualVerifyMutation.mutate(user.id);
+                                  }
+                                }}
+                                disabled={manualVerifyMutation.isPending}
+                                title="Manually verify user"
+                                data-testid={`button-verify-${user.id}`}
+                              >
+                                <CheckCircle2 className="h-3 w-3" />
+                              </Button>
+                            )}
                             <Button
                               variant="ghost"
                               size="icon"

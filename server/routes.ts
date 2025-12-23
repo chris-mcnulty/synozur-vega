@@ -947,6 +947,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Manually verify a user's email (admin only)
+  app.post("/api/users/:id/manual-verify", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      
+      const targetUser = await storage.getUser(id);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+      
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      
+      if (!canAccessAny && targetUser.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      if (targetUser.emailVerified) {
+        return res.status(400).json({ error: "User is already verified" });
+      }
+      
+      // Update user to set emailVerified to true
+      await storage.updateUser(id, { emailVerified: true });
+      console.log(`[Manual Verify] User ${targetUser.email} manually verified by ${req.user?.email}`);
+      
+      res.json({ success: true, message: `User ${targetUser.email} verified successfully` });
+    } catch (error) {
+      console.error("Error manually verifying user:", error);
+      res.status(500).json({ error: "Failed to verify user" });
+    }
+  });
+
   // Bulk import users from CSV
   app.post("/api/users/bulk-import", ...adminOnly, async (req: Request, res: Response) => {
     try {
