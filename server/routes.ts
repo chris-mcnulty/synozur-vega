@@ -293,6 +293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Generate verification token (returns plaintext and hash)
       const { plaintext: verificationTokenPlaintext, hash: verificationTokenHash } = generateVerificationToken();
+      console.log(`[Signup] Generated verification token for ${email}, hash prefix: ${verificationTokenHash.substring(0, 16)}...`);
 
       // Create user - first user of new tenant is tenant_admin
       const userRole = isNewTenant ? "tenant_admin" : "tenant_user";
@@ -306,10 +307,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         verificationToken: verificationTokenHash,
         licenseType: 'read_write',
       });
+      console.log(`[Signup] Created user ${user.id} with stored token hash prefix: ${user.verificationToken?.substring(0, 16)}...`);
 
       // Send verification email with plaintext token
       try {
         await sendVerificationEmail(email, verificationTokenPlaintext, user.name || undefined);
+        console.log(`[Signup] Sent verification email to ${email}`);
       } catch (emailError) {
         console.error("Failed to send verification email:", emailError);
       }
@@ -409,6 +412,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Email verification error:", error);
       res.status(500).json({ error: "Email verification failed" });
+    }
+  });
+
+  // Debug endpoint to check token status (temporary - remove after debugging)
+  app.post("/api/auth/debug-token", async (req, res) => {
+    try {
+      const { email, token } = req.body;
+      
+      if (email) {
+        const user = await storage.getUserByEmail(email);
+        if (user) {
+          return res.json({
+            found: true,
+            emailVerified: user.emailVerified,
+            hasToken: !!user.verificationToken,
+            tokenPrefix: user.verificationToken?.substring(0, 16) || null,
+          });
+        }
+        return res.json({ found: false });
+      }
+      
+      if (token) {
+        const tokenHash = hashToken(token);
+        const user = await storage.getUserByVerificationToken(tokenHash);
+        return res.json({
+          tokenHashPrefix: tokenHash.substring(0, 16),
+          userFound: !!user,
+          userEmail: user?.email || null,
+        });
+      }
+      
+      return res.status(400).json({ error: "Provide email or token" });
+    } catch (error) {
+      console.error("Debug token error:", error);
+      res.status(500).json({ error: "Debug failed" });
     }
   });
 
