@@ -1350,7 +1350,7 @@ Track and monitor AI usage across your organization to understand costs and usag
 - **Timestamp**: When each AI call was made
 - **User**: Who made the request
 - **Model**: Which AI model was used (GPT-4, GPT-3.5, etc.)
-- **Provider**: AI provider (OpenAI, Replit AI, etc.)
+- **Provider**: AI provider (e.g., OpenAI, Azure OpenAI, Anthropic Claude, or other configured providers)
 - **Function**: What AI tool was used (query OKRs, analyze gaps, etc.)
 - **Tokens**: Input and output token counts
 - **Cost**: Estimated cost for that call
