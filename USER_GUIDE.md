@@ -473,10 +473,7 @@ Regular check-ins update progress and add context.
 - See progress trends over time
 
 **Smart Check-In Prompts (Added Dec 16, 2025):**
-- If you check in on a Key Result that has exceeded its target (100%+), Vega will prompt you to close it instead of continuing check-ins
-- When closing a Key Result that has reached its target, you can mark it as "Closed" to indicate completion
-- This helps maintain clean data and focuses attention on active Key Results
-
+- If you check in on a Key Result that has exceeded its target (100%+), Vega will prompt you to close it by marking it as **Closed** to indicate completion, helping maintain clean data and focusing attention on active Key Results
 ![Expanded objective detail view with Key Results list](/guide-images/07-objective-detail-key-results.png)
 *Screenshot showing an expanded objective view with multiple Key Results, their progress bars, current vs target values, check-in buttons, and overall objective progress rollup*
 
