@@ -40,11 +40,17 @@ export async function getUncachableSendGridClient() {
   };
 }
 
-// Use AZURE_BASE_URL for production, fall back to REPLIT_DEV_DOMAIN or localhost
+// Use REPLIT_DEV_DOMAIN for development, AZURE_BASE_URL for production
 const getAppUrl = () => {
+  // In development, prefer REPLIT_DEV_DOMAIN so verification links work in dev
+  if (process.env.NODE_ENV === 'development' && process.env.REPLIT_DEV_DOMAIN) {
+    return `https://${process.env.REPLIT_DEV_DOMAIN}`;
+  }
+  // In production, use AZURE_BASE_URL
   if (process.env.AZURE_BASE_URL) {
     return process.env.AZURE_BASE_URL;
   }
+  // Fallback
   if (process.env.REPLIT_DEV_DOMAIN) {
     return `https://${process.env.REPLIT_DEV_DOMAIN}`;
   }
