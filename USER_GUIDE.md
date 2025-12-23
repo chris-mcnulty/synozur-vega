@@ -559,7 +559,7 @@ Clone objectives to simplify recurring OKR creation and cross-team alignment—e
 3. Click the **"Clone"** option from the action menu
 4. Configure clone options:
    - **Time Period**: Select target quarter/year (defaults to current period)
-   - **Owner**: Keep original owner OR assign new owner (applies to entire hierarchy)
+   - **Owner (applies to entire cloned hierarchy)**: Keep original owner for all cloned items OR assign a single new owner for all cloned items
    - **Scope**:
      - Clone only the objective (no children)
      - Clone objective and immediate children (Key Results only)
