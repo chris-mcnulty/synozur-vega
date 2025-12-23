@@ -49,13 +49,15 @@ type Quarter = {
 };
 
 const fiscalYears = [
+  { id: "fy2026", label: "FY 2026 (Jan - Dec)", startMonth: 1 },
   { id: "fy2025", label: "FY 2025 (Jan - Dec)", startMonth: 1 },
   { id: "fy2024", label: "FY 2024 (Jan - Dec)", startMonth: 1 },
 ];
 
-// Generate quarters for current and previous year
+// Generate quarters for current, next, and previous year
 const currentYear = new Date().getFullYear();
 const quarters: Quarter[] = [
+  ...generateQuarters(currentYear + 1),
   ...generateQuarters(currentYear),
   ...generateQuarters(currentYear - 1),
 ];
