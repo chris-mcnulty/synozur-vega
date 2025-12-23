@@ -1011,7 +1011,7 @@ Click **"Launchpad"** in the left sidebar.
 1. Click **"Start New Session"** or **"Upload Document"**
 2. Select a file to upload:
    - **PDF**: Strategic plans, annual reports
-   - **Word (.docx)**: Business plans, planning documents
+   - **Word (.docx only)**: Business plans, planning documents
    - **Plain Text (.txt)**: Any text-based strategic content
 3. Enter optional context:
    - Target year for the Company OS
