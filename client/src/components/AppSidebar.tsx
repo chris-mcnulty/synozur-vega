@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2, Rocket } from "lucide-react";
+import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2, Rocket, Info } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -294,7 +294,7 @@ export function AppSidebar() {
         </SidebarGroup>
       </SidebarContent>
       <SidebarFooter className="p-4 border-t">
-        <div className="mb-3">
+        <div className="mb-3 flex flex-col gap-2">
           <a 
             href="/help" 
             className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -302,6 +302,14 @@ export function AppSidebar() {
           >
             <HelpCircle className="h-4 w-4" />
             <span>User Guide</span>
+          </a>
+          <a 
+            href="/about" 
+            className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            data-testid="link-about"
+          >
+            <Info className="h-4 w-4" />
+            <span>About</span>
           </a>
         </div>
         <div className="flex items-center gap-3">

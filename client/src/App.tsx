@@ -38,6 +38,7 @@ import VerifyEmail from "@/pages/VerifyEmail";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
 import Launchpad from "@/pages/Launchpad";
+import About from "@/pages/About";
 import NotFound from "@/pages/not-found";
 
 // Protected route wrapper
@@ -283,6 +284,13 @@ function Router() {
         <ProtectedRoute>
           <ModuleLayout>
             <UserGuide />
+          </ModuleLayout>
+        </ProtectedRoute>
+      </Route>
+      <Route path="/about">
+        <ProtectedRoute>
+          <ModuleLayout>
+            <About />
           </ModuleLayout>
         </ProtectedRoute>
       </Route>
