@@ -544,7 +544,7 @@ By default, all Key Results contribute equally to objective progress. You can cu
 
 ### OKR Cloning (Added Dec 20, 2025)
 
-Clone objectives to streamline the OKR process - either duplicating OKRs across teams or rolling over unfinished objectives to new time periods.
+Clone objectives to simplify recurring OKR creation and cross-team alignment—either duplicating OKRs across teams or rolling over unfinished objectives to new time periods.
 
 **Use Cases:**
 
