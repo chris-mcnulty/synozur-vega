@@ -111,7 +111,7 @@ The left sidebar provides access to all major modules:
 - **Planning**: OKR management (Objectives, Key Results, Big Rocks)
 - **Focus Rhythm**: Meeting management and cadence
 - **Import**: Import OKR data from other systems
-- **Launchpad**: AI-powered kickstart wizard for new organizations
+- **Launchpad**: AI Kickstart Wizard for new organizations
 - **Settings**: Personal and M365 connection settings
 - **Admin** (if authorized): Tenant administration
 
