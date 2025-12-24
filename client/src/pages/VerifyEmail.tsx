@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,8 +8,15 @@ export default function VerifyEmail() {
   const [, setLocation] = useLocation();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
+  const verificationAttempted = useRef(false);
 
   useEffect(() => {
+    // Prevent duplicate verification requests
+    if (verificationAttempted.current) {
+      return;
+    }
+    verificationAttempted.current = true;
+
     const verifyEmail = async () => {
       const params = new URLSearchParams(window.location.search);
       const token = params.get('token');

@@ -1,0 +1,80 @@
+2025-12-23 18:14:35.24
+350dec4b
+User
+[Signup] Created new tenant for domain narrativestrategies.com: 2d5e3085-68c7-455d-8dcb-b30bbf8f6245
+2025-12-23 18:14:35.24
+350dec4b
+User
+[Signup] Generated verification token for cmcnulty@narrativestrategies.com, hash prefix: f23f74c5327352de...
+2025-12-23 18:14:35.39
+350dec4b
+User
+[Signup] Created user 2f210c27-a5fd-489d-92c2-7e5ee878ca62 with stored token hash prefix: f23f74c5327352de...
+2025-12-23 18:14:35.49
+350dec4b
+User
+[Email] Using SendGrid credentials from Replit connector
+2025-12-23 18:14:35.84
+350dec4b
+User
+[Signup] Sent verification email to cmcnulty@narrativestrategies.com
+2025-12-23 18:14:35.98
+350dec4b
+User
+2:14:35 AM [express] POST /api/auth/signup 200 in 1002ms :: {"message":"Account created! Please chec…
+2025-12-23 18:14:40.41
+350dec4b
+User
+2:14:40 AM [express] GET /api/ai/usage/summary/daily 304 in 47ms
+2025-12-23 18:14:56.98
+350dec4b
+User
+[Verify Email] Looking for token hash: f23f74c5327352de...
+2025-12-23 18:14:56.99
+350dec4b
+User
+2:14:56 AM [express] GET /api/auth/me 401 in 0ms :: {"error":"Not authenticated"}
+2025-12-23 18:14:56.99
+350dec4b
+User
+2:14:56 AM [express] GET /api/vocabulary 401 in 1ms :: {"error":"Authentication required"}
+2025-12-23 18:14:56.99
+350dec4b
+User
+2:14:56 AM [express] GET /api/tenants 401 in 0ms :: {"error":"Authentication required"}
+2025-12-23 18:14:57.11
+350dec4b
+User
+[Verify Email] Found user: cmcnulty@narrativestrategies.com
+2025-12-23 18:14:57.14
+350dec4b
+User
+2:14:57 AM [express] POST /api/auth/verify-email 200 in 155ms :: {"message":"Email verified successf…
+2025-12-23 18:14:58.91
+350dec4b
+User
+2:14:58 AM [express] GET /api/tenants 401 in 0ms :: {"error":"Authentication required"}
+2025-12-23 18:14:58.91
+350dec4b
+User
+[Verify Email] Looking for token hash: f23f74c5327352de...
+2025-12-23 18:14:58.91
+350dec4b
+User
+2:14:58 AM [express] GET /api/auth/me 401 in 1ms :: {"error":"Not authenticated"}
+2025-12-23 18:14:58.91
+350dec4b
+User
+2:14:58 AM [express] GET /api/vocabulary 401 in 1ms :: {"error":"Authentication required"}
+2025-12-23 18:14:58.93
+350dec4b
+User
+[Verify Email] No user found with token hash: f23f74c5327352de...
+2025-12-23 18:14:58.93
+350dec4b
+User
+2:14:58 AM [express] POST /api/auth/verify-email 400 in 23ms :: {"error":"Invalid or expired verific…
+2025-12-23 18:15:00.00
+350dec4b
+User
+2:15:00 AM [express] GET /api/vocabulary 401 in 1ms :: {"error":"Authentication required"}
