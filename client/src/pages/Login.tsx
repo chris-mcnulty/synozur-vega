@@ -189,14 +189,15 @@ export default function Login() {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (recaptchaSiteKey && !recaptchaToken) {
-      toast({
-        variant: "destructive",
-        title: "Verification Required",
-        description: "Please complete the reCAPTCHA verification",
-      });
-      return;
-    }
+    // reCAPTCHA validation temporarily disabled
+    // if (recaptchaSiteKey && !recaptchaToken) {
+    //   toast({
+    //     variant: "destructive",
+    //     title: "Verification Required",
+    //     description: "Please complete the reCAPTCHA verification",
+    //   });
+    //   return;
+    // }
     
     setIsSubmittingSignup(true);
 
@@ -417,6 +418,7 @@ export default function Login() {
                       </button>
                     </div>
                   </div>
+                  {/* reCAPTCHA temporarily disabled - debugging site key issue
                   {recaptchaSiteKey && (
                     <div className="flex justify-center">
                       <ReCAPTCHA
@@ -428,10 +430,11 @@ export default function Login() {
                       />
                     </div>
                   )}
+                  */}
                   <Button
                     type="submit"
                     className="w-full"
-                    disabled={isSubmittingSignup || (recaptchaSiteKey && !recaptchaToken)}
+                    disabled={isSubmittingSignup}
                     data-testid="button-signup"
                   >
                     {isSubmittingSignup ? "Creating account..." : "Create Account"}
