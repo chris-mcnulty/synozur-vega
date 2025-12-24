@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation, Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import microsoftLogo from "@assets/Microsoft_Icon_6_1765741102026.jpeg";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import starTrailsBg from "@assets/AdobeStock_362805421_1763398687511.jpeg";
 import { SynozurLogo } from "@/components/SynozurLogo";
+import ReCAPTCHA from "react-google-recaptcha";
 
 interface SsoPolicy {
   tenantFound: boolean;
@@ -41,6 +42,9 @@ export default function Login() {
   const [signupPassword, setSignupPassword] = useState("");
   const [isSubmittingSignup, setIsSubmittingSignup] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
+  const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
   
   const [demoPassword, setDemoPassword] = useState("");
   const [showDemoForm, setShowDemoForm] = useState(false);
@@ -184,6 +188,16 @@ export default function Login() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (recaptchaSiteKey && !recaptchaToken) {
+      toast({
+        variant: "destructive",
+        title: "Verification Required",
+        description: "Please complete the reCAPTCHA verification",
+      });
+      return;
+    }
+    
     setIsSubmittingSignup(true);
 
     try {
@@ -191,6 +205,7 @@ export default function Login() {
         name: signupName,
         email: signupEmail,
         password: signupPassword,
+        recaptchaToken: recaptchaToken || undefined,
       });
       toast({
         title: "Account Created!",
@@ -200,12 +215,16 @@ export default function Login() {
       setSignupName("");
       setSignupEmail("");
       setSignupPassword("");
+      setRecaptchaToken(null);
+      recaptchaRef.current?.reset();
     } catch (error: any) {
       toast({
         variant: "destructive",
         title: "Signup Failed",
         description: error.message || "Failed to create account",
       });
+      recaptchaRef.current?.reset();
+      setRecaptchaToken(null);
     } finally {
       setIsSubmittingSignup(false);
     }
@@ -398,10 +417,21 @@ export default function Login() {
                       </button>
                     </div>
                   </div>
+                  {recaptchaSiteKey && (
+                    <div className="flex justify-center">
+                      <ReCAPTCHA
+                        ref={recaptchaRef}
+                        sitekey={recaptchaSiteKey}
+                        onChange={(token) => setRecaptchaToken(token)}
+                        onExpired={() => setRecaptchaToken(null)}
+                        data-testid="recaptcha-signup"
+                      />
+                    </div>
+                  )}
                   <Button
                     type="submit"
                     className="w-full"
-                    disabled={isSubmittingSignup}
+                    disabled={isSubmittingSignup || (recaptchaSiteKey && !recaptchaToken)}
                     data-testid="button-signup"
                   >
                     {isSubmittingSignup ? "Creating account..." : "Create Account"}

@@ -8,7 +8,7 @@ interface AuthContextType {
   isLoading: boolean;
   isAuthenticated: boolean;
   login: (credentials: { email: string; password: string; isDemo?: boolean }) => Promise<void>;
-  signup: (data: { email: string; password: string; name?: string }) => Promise<void>;
+  signup: (data: { email: string; password: string; name?: string; recaptchaToken?: string }) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const signupMutation = useMutation({
-    mutationFn: async (data: { email: string; password: string; name?: string }) => {
+    mutationFn: async (data: { email: string; password: string; name?: string; recaptchaToken?: string }) => {
       const res = await apiRequest("POST", "/api/auth/signup", data);
       return await res.json();
     },
@@ -88,7 +88,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await loginMutation.mutateAsync(credentials);
   };
 
-  const signup = async (data: { email: string; password: string; name?: string }) => {
+  const signup = async (data: { email: string; password: string; name?: string; recaptchaToken?: string }) => {
     await signupMutation.mutateAsync(data);
   };
 
