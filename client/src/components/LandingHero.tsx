@@ -18,7 +18,7 @@ export function LandingHero() {
       <div className="relative z-10 max-w-7xl 2xl:max-w-[1600px] mx-auto px-6 text-white">
         <div className="max-w-4xl">
           <div className="mb-8">
-            <img src={vegaLogo} alt="Vega Company OS" className="h-40 object-contain drop-shadow-xl" />
+            <img src={vegaLogo} alt="Vega Company OS" className="h-56 object-contain drop-shadow-xl" />
           </div>
           <div className="flex flex-wrap items-center gap-4 mb-8">
             <Badge variant="secondary" className="bg-white/20 text-white border-white/30 px-4 py-1.5 text-sm">
