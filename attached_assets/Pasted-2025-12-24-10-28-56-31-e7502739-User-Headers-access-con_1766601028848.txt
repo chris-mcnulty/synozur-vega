@@ -1,0 +1,16 @@
+2025-12-24 10:28:56.31
+e7502739
+User
+Headers: {"access-control-allow-credentials":"false","cf-cache-status":"DYNAMIC","cf-ray":"9b32294a28120013-ORD","connection":"keep-alive","content-length":"520","content-type":"application/json;charset=utf-8","date":"Wed, 24 Dec 2025 18:28:56 GMT","nel":"{\"success_fraction\":0.01,\"report_to\":\"cf-nel\",\"max_age\":604800}","report-to":"{\"endpoints\":[{\"url\":\"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=mKxdLWIBngQ%2F8SRnn1uRnxqLYATSjv3NcEKg0XFc3fNSsgtKL8CtJDu2ILDkFY9BNiEebMHG879tAUCKhiJO%2FsTdY5ugIp40A%2BrlniGJ6TH1sc13ngXw91iro3oskz3UiT7xTPk9D21NOLuJ\"}],\"group\":\"cf-nel\",\"max_age\":604800}","server":"cloudflare","set-cookie":"__cf_bm=Nx9giD0nq7p3du9RClrpKSF.noILzni3Jw67XTSc7DA-1766600936-1.0.1.1-cFbYWl1GWwPi6Yi0US1PlQSyeIkHyOX1NoGNq64nRoEQryk4.O0f4lTknwtYu_pRQam1yjvUH.ZlDX0rg2Fz3VTQgu9zJfaewT_sjyBl7wk; path=/; expires=Wed, 24-Dec-25 18:58:56 GMT; domain=.hubapi.com; HttpOnly; Secure; SameSite=None","strict-transport-security":"max-age=31536000; includeSubDomains; preload","vary":"origin, Accept-Encoding","x-hubspot-correlation-id":"91e92f77-2744-47ac-ad45-7f902a9bdce9","x-hubspot-ratelimit-interval-milliseconds":"10000","x-hubspot-ratelimit-max":"110","x-hubspot-ratelimit-remaining":"109","x-hubspot-ratelimit-secondly":"11","x-hubspot-ratelimit-secondly-remaining":"10"}
+2025-12-24 10:28:56.31
+e7502739
+User
+Body: {"status":"error","message":"Property values were not valid: [{\"isValid\":false,\"message\":\"Property \\\"leadsource\\\" does not exist\",\"error\":\"PROPERTY_DOESNT_EXIST\",\"name\":\"leadsource\",\"localizedErrorMessage\":\"Property \\\"leadsource\\\" does not exist\",\"portalId\":49076134}]","correlationId":"91e92f77-2744-47ac-ad45-7f902a9bdce9","errors":[{"message":"Property \"leadsource\" does not exist","code":"PROPERTY_DOESNT_EXIST","context":{"propertyName":["leadsource"]}}],"category":"VALIDATION_ERROR"}
+2025-12-24 10:28:56.31
+e7502739
+User
+Message: An error occurred.
+2025-12-24 10:28:56.31
+e7502739
+User
+[HubSpot] Error creating deal: HTTP-Code: 400

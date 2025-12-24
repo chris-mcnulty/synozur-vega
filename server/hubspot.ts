@@ -57,7 +57,6 @@ export async function createHubSpotDeal(data: {
         company: data.tenantName,
         website: data.domain,
         hs_lead_status: 'NEW',
-        leadsource: 'Vega',
       }
     });
 
