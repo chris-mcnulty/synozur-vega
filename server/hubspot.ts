@@ -57,8 +57,6 @@ export async function createHubSpotDeal(data: {
         company: data.tenantName,
         website: data.domain,
         hs_lead_status: 'NEW',
-        hs_analytics_source_data_1: 'Vega',
-        hs_analytics_source_data_2: 'Self-Service Signup',
         lifecyclestage: 'lead',
       }
     });
