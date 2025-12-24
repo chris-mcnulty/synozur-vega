@@ -438,41 +438,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Debug endpoint to check token status (temporary - remove after debugging)
-  app.post("/api/auth/debug-token", async (req, res) => {
-    try {
-      const { email, token } = req.body;
-      
-      if (email) {
-        const user = await storage.getUserByEmail(email);
-        if (user) {
-          return res.json({
-            found: true,
-            emailVerified: user.emailVerified,
-            hasToken: !!user.verificationToken,
-            tokenPrefix: user.verificationToken?.substring(0, 16) || null,
-          });
-        }
-        return res.json({ found: false });
-      }
-      
-      if (token) {
-        const tokenHash = hashToken(token);
-        const user = await storage.getUserByVerificationToken(tokenHash);
-        return res.json({
-          tokenHashPrefix: tokenHash.substring(0, 16),
-          userFound: !!user,
-          userEmail: user?.email || null,
-        });
-      }
-      
-      return res.status(400).json({ error: "Provide email or token" });
-    } catch (error) {
-      console.error("Debug token error:", error);
-      res.status(500).json({ error: "Debug failed" });
-    }
-  });
-
   // Resend verification email
   app.post("/api/auth/resend-verification", async (req, res) => {
     try {
