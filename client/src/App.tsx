@@ -91,21 +91,23 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
   // Handle redirect - but only after we've waited and auth is still not working
   React.useEffect(() => {
-    // Don't redirect if still loading, already authenticated, or haven't waited yet
+    // Don't redirect if still loading or already authenticated
     if (isLoading || isAuthenticated) return;
     
-    // Don't redirect if we were previously authenticated or just came from SSO
-    if (wasAuthenticated || justCameFromSSO) {
-      console.log('[ProtectedRoute] Waiting for auth state to restore...');
+    // For SSO users, wait a bit longer for auth to restore
+    if (justCameFromSSO && retryCount < 3) {
+      console.log('[ProtectedRoute] Waiting for SSO auth state to restore...');
       return;
     }
     
     // Only redirect after we've given auth time to stabilize
     if (hasWaitedForAuth && retryCount >= 2) {
       console.log('[ProtectedRoute] Redirecting to login - not authenticated after waiting');
+      // Clear the wasAuthenticated flag since auth has clearly expired
+      sessionStorage.removeItem('vega_was_authenticated');
       setLocation("/login");
     }
-  }, [isLoading, isAuthenticated, wasAuthenticated, justCameFromSSO, hasWaitedForAuth, retryCount, setLocation]);
+  }, [isLoading, isAuthenticated, justCameFromSSO, hasWaitedForAuth, retryCount, setLocation]);
 
   if (isLoading) {
     console.log('[ProtectedRoute] Still loading auth state...');

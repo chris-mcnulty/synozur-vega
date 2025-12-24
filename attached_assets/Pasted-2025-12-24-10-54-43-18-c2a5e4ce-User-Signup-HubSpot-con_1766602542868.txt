@@ -1,0 +1,32 @@
+2025-12-24 10:54:43.18
+c2a5e4ce
+User
+[Signup] HubSpot connected: true
+2025-12-24 10:54:43.18
+c2a5e4ce
+User
+[Signup] Creating HubSpot deal for: cmcnulty@narrativestrategies.com
+2025-12-24 10:54:44.28
+c2a5e4ce
+User
+Headers: {"access-control-allow-credentials":"false","cf-cache-status":"DYNAMIC","cf-ray":"9b324f150fc110d7-ORD","connection":"keep-alive","content-length":"1034","content-type":"application/json;charset=utf-8","date":"Wed, 24 Dec 2025 18:54:44 GMT","nel":"{\"success_fraction\":0.01,\"report_to\":\"cf-nel\",\"max_age\":604800}","report-to":"{\"endpoints\":[{\"url\":\"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=2C5ikTgRoo0wovzZB9qV%2BuBP7OGSwjHrle6d04L5%2FGMUBEc8sPKPd8wHqZoyLjmYp995z76Mpf6aE%2BKwqjVXhFdsLD6rDLjhpkt95KJ%2F8OdPtYiZ%2B4H96beRDV8TSO7%2FSRQt%2BFfTr9ikwFal\"}],\"group\":\"cf-nel\",\"max_age\":604800}","server":"cloudflare","set-cookie":"__cf_bm=Z22GIhgoQckLxbK1jrSrI0ti6uVBKNaaB0QJWhKXY6c-1766602484-1.0.1.1-ZACnNSeoRCgboYYA_GCrlUGPsJnhIpd3GnoVuQ86qPj7Uacdqw472RjCa3s5W7VVl_9DShIGqP2wimhPSJE7sSlr8HDMWX1nh2NRpna9K4E; path=/; expires=Wed, 24-Dec-25 19:24:44 GMT; domain=.hubapi.com; HttpOnly; Secure; SameSite=None","strict-transport-security":"max-age=31536000; includeSubDomains; preload","vary":"origin, Accept-Encoding","x-hubspot-correlation-id":"f12424fa-61e6-45c1-8765-27fa96f80ab3","x-hubspot-ratelimit-interval-milliseconds":"10000","x-hubspot-ratelimit-max":"110","x-hubspot-ratelimit-remaining":"108","x-hubspot-ratelimit-secondly":"11","x-hubspot-ratelimit-secondly-remaining":"10"}
+2025-12-24 10:54:44.28
+c2a5e4ce
+User
+Body: {"status":"error","message":"Property values were not valid: [{\"isValid\":false,\"message\":\"appointmentscheduled is not a valid pipeline stage ID. Valid options are: pipelineId=default : [1001064997, 1001064998, 1001064999, 1001065000, 1001065001, 1001065002, 1001065003, 1001065004, 1014223122]\",\"error\":\"INVALID_OPTION\",\"name\":\"dealstage\",\"localizedErrorMessage\":\"appointmentscheduled is not a valid pipeline stage ID. Valid options are: pipelineId=default : [1001064997, 1001064998, 1001064999, 1001065000, 1001065001, 1001065002, 1001065003, 1001065004, 1014223122]\",\"propertyValue\":\"appointmentscheduled\",\"portalId\":49076134}]","correlationId":"f12424fa-61e6-45c1-8765-27fa96f80ab3","errors":[{"message":"appointmentscheduled is not a valid pipeline stage ID. Valid options are: pipelineId=default : [1001064997, 1001064998, 1001064999, 1001065000, 1001065001, 1001065002, 1001065003, 1001065004, 1014223122]","code":"INVALID_OPTION","context":{"propertyName":["dealstage"]}}],"category":"VALIDATION_ERROR"}
+2025-12-24 10:54:44.28
+c2a5e4ce
+User
+[HubSpot] Error creating deal: HTTP-Code: 400
+2025-12-24 10:54:44.28
+c2a5e4ce
+User
+[Signup] HubSpot deal result: null
+2025-12-24 10:54:44.28
+c2a5e4ce
+User
+Message: An error occurred.
+2025-12-24 10:54:44.31
+c2a5e4ce
+User
+6:54:44 PM [express] POST /api/auth/signup 200 in 2403ms :: {"message":"Account created! Please chec…

@@ -64,7 +64,7 @@ export async function createHubSpotDeal(data: {
       properties: {
         dealname: `${data.tenantName} - Self-Service Signup`,
         pipeline: 'default',
-        dealstage: 'appointmentscheduled',
+        dealstage: '1001064997',
         amount: '0',
         closedate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
         description: `Self-service signup from ${data.domain}. Plan: ${data.planName}`,
@@ -72,12 +72,17 @@ export async function createHubSpotDeal(data: {
     });
 
     if (contactResult.id && dealResult.id) {
-      await client.crm.deals.associationsApi.create(
-        dealResult.id,
-        'contacts',
-        contactResult.id,
-        [{ associationCategory: 'HUBSPOT_DEFINED', associationTypeId: 3 }]
-      );
+      try {
+        await client.crm.associations.v4.basicApi.create(
+          'deals',
+          dealResult.id,
+          'contacts',
+          contactResult.id,
+          [{ associationCategory: 'HUBSPOT_DEFINED' as any, associationTypeId: 3 }]
+        );
+      } catch (assocError: any) {
+        console.log('[HubSpot] Warning: Could not associate deal with contact:', assocError.message);
+      }
     }
 
     console.log('[HubSpot] Created deal for', data.email, '- Deal ID:', dealResult.id);
