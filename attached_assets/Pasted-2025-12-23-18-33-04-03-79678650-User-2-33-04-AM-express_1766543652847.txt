@@ -1,0 +1,92 @@
+2025-12-23 18:33:04.03
+79678650
+User
+2:33:04 AM [express] GET /api/tenants 401 in 2ms :: {"error":"Authentication required"}
+2025-12-23 18:33:04.04
+79678650
+User
+2:33:04 AM [express] GET /api/auth/me 401 in 1ms :: {"error":"Not authenticated"}
+2025-12-23 18:33:04.04
+79678650
+User
+2:33:04 AM [express] GET /api/vocabulary 401 in 0ms :: {"error":"Authentication required"}
+2025-12-23 18:33:05.40
+79678650
+User
+2:33:05 AM [express] GET /api/vocabulary 401 in 0ms :: {"error":"Authentication required"}
+2025-12-23 18:33:18.91
+79678650
+User
+[Signup] Generated verification token for cmcnulty@narrativestrategies.com, hash prefix: 235f3eab97e28f8c...
+2025-12-23 18:33:18.91
+79678650
+User
+[Signup] Created new tenant for domain narrativestrategies.com: bb7c5302-a1ff-4f2c-a005-ea5d34aed644
+2025-12-23 18:33:19.04
+79678650
+User
+[Signup] Created user 85d1a0b9-29b3-4e03-a359-052f740ba81c with stored token hash prefix: 235f3eab97e28f8c...
+2025-12-23 18:33:19.12
+79678650
+User
+[Email] Using SendGrid credentials from Replit connector
+2025-12-23 18:33:19.46
+79678650
+User
+[Signup] Sent verification email to cmcnulty@narrativestrategies.com
+2025-12-23 18:33:19.54
+79678650
+User
+2:33:19 AM [express] POST /api/auth/signup 200 in 914ms :: {"message":"Account created! Please check…
+2025-12-23 18:33:35.55
+79678650
+User
+[Verify Email] Looking for token hash: 235f3eab97e28f8c...
+2025-12-23 18:33:35.56
+79678650
+User
+2:33:35 AM [express] GET /api/tenants 401 in 1ms :: {"error":"Authentication required"}
+2025-12-23 18:33:35.56
+79678650
+User
+2:33:35 AM [express] GET /api/vocabulary 401 in 0ms :: {"error":"Authentication required"}
+2025-12-23 18:33:35.56
+79678650
+User
+2:33:35 AM [express] GET /api/auth/me 401 in 0ms :: {"error":"Not authenticated"}
+2025-12-23 18:33:35.65
+79678650
+User
+[Verify Email] Found user: cmcnulty@narrativestrategies.com
+2025-12-23 18:33:35.68
+79678650
+User
+2:33:35 AM [express] POST /api/auth/verify-email 200 in 130ms :: {"message":"Email verified successf…
+2025-12-23 18:33:37.51
+79678650
+User
+[Verify Email] Looking for token hash: 235f3eab97e28f8c...
+2025-12-23 18:33:37.51
+79678650
+User
+2:33:37 AM [express] GET /api/tenants 401 in 1ms :: {"error":"Authentication required"}
+2025-12-23 18:33:37.51
+79678650
+User
+2:33:37 AM [express] GET /api/auth/me 401 in 0ms :: {"error":"Not authenticated"}
+2025-12-23 18:33:37.51
+79678650
+User
+2:33:37 AM [express] GET /api/vocabulary 401 in 1ms :: {"error":"Authentication required"}
+2025-12-23 18:33:37.53
+79678650
+User
+[Verify Email] No user found with token hash: 235f3eab97e28f8c...
+2025-12-23 18:33:37.53
+79678650
+User
+2:33:37 AM [express] POST /api/auth/verify-email 400 in 23ms :: {"error":"Invalid or expired verific…
+2025-12-23 18:33:38.60
+79678650
+User
+2:33:38 AM [express] GET /api/vocabulary 401 in 1ms :: {"error":"Authentication required"}

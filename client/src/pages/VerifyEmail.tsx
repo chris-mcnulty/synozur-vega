@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,15 +8,8 @@ export default function VerifyEmail() {
   const [, setLocation] = useLocation();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('');
-  const verificationAttempted = useRef(false);
 
   useEffect(() => {
-    // Prevent duplicate verification requests
-    if (verificationAttempted.current) {
-      return;
-    }
-    verificationAttempted.current = true;
-
     const verifyEmail = async () => {
       const params = new URLSearchParams(window.location.search);
       const token = params.get('token');
@@ -24,6 +17,14 @@ export default function VerifyEmail() {
       if (!token) {
         setStatus('error');
         setMessage('Invalid verification link. No token provided.');
+        return;
+      }
+
+      // Check if this token was already verified (prevents duplicate requests on page reload)
+      const verifiedKey = `verified_${token.substring(0, 16)}`;
+      if (sessionStorage.getItem(verifiedKey) === 'true') {
+        setStatus('success');
+        setMessage('Email verified successfully! You can now log in.');
         return;
       }
 
@@ -40,6 +41,8 @@ export default function VerifyEmail() {
         const data = await response.json();
 
         if (response.ok) {
+          // Mark this token as verified to prevent duplicate requests
+          sessionStorage.setItem(verifiedKey, 'true');
           setStatus('success');
           setMessage(data.message || 'Email verified successfully!');
         } else {
