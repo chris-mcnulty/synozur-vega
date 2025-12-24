@@ -568,7 +568,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Tenant CRUD endpoints (platform admin only for create/delete, tenant admin for read/update own)
-  app.get("/api/tenants", ...adminWithOptionalTenant, async (req: Request, res: Response) => {
+  // All authenticated users can see their own tenant(s)
+  app.get("/api/tenants", ...authWithTenant, async (req: Request, res: Response) => {
     try {
       // Platform admins can see all tenants, others only see their own
       const userRole = req.user?.role;

@@ -258,7 +258,7 @@ export default function Login() {
         
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center">
-            <img src={vegaLogo} alt="Vega Company OS" className="h-16 object-contain drop-shadow-xl" />
+            <img src={vegaLogo} alt="Vega Company OS" className="h-24 object-contain drop-shadow-xl" />
           </div>
           <p className="text-gray-200">Your AI-Augmented Company OS</p>
         </div>
