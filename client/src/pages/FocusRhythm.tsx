@@ -750,7 +750,8 @@ export default function FocusRhythm() {
   const { data: objectives = [] } = useQuery<Objective[]>({
     queryKey: ['/api/okr/objectives', currentTenant?.id],
     queryFn: async () => {
-      const res = await fetch(`/api/okr/objectives?tenantId=${currentTenant!.id}`);
+      if (!currentTenant?.id) return [];
+      const res = await fetch(`/api/okr/objectives?tenantId=${currentTenant.id}`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -760,21 +761,13 @@ export default function FocusRhythm() {
   const { data: bigRocks = [] } = useQuery<BigRock[]>({
     queryKey: ['/api/okr/big-rocks', currentTenant?.id],
     queryFn: async () => {
-      const res = await fetch(`/api/okr/big-rocks?tenantId=${currentTenant!.id}`);
+      if (!currentTenant?.id) return [];
+      const res = await fetch(`/api/okr/big-rocks?tenantId=${currentTenant.id}`);
       if (!res.ok) return [];
       return res.json();
     },
     enabled: !!currentTenant?.id,
   });
-
-  // Wait for tenant to load
-  if (tenantLoading || !currentTenant) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
   
   const { data: outlookStatus } = useQuery<{ connected: boolean; user: { displayName: string; email: string } | null }>({
     queryKey: ['/api/m365/status'],
@@ -811,7 +804,7 @@ export default function FocusRhythm() {
       return res.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant?.id}`] });
       toast({ title: "Synced to Outlook", description: "Meeting has been synced to your Outlook calendar." });
     },
     onError: (error: any) => {
@@ -825,7 +818,7 @@ export default function FocusRhythm() {
       return res.json();
     },
     onSuccess: (data: any) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant?.id}`] });
       toast({ title: "Summary Sent", description: `Email sent to ${data.recipientCount} recipients.` });
     },
     onError: (error: any) => {
@@ -837,7 +830,7 @@ export default function FocusRhythm() {
     mutationFn: async (data: MeetingFormData) => {
       const seriesId = data.isRecurring ? crypto.randomUUID() : undefined;
       return apiRequest("POST", "/api/meetings", {
-        tenantId: currentTenant.id,
+        tenantId: currentTenant?.id,
         ...data,
         date: data.date ? new Date(data.date).toISOString() : null,
         nextMeetingDate: data.nextMeetingDate ? new Date(data.nextMeetingDate).toISOString() : null,
@@ -847,7 +840,7 @@ export default function FocusRhythm() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant?.id}`] });
       setCreateDialogOpen(false);
       setShowTemplateSelector(false);
       resetForm();
@@ -876,7 +869,7 @@ export default function FocusRhythm() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant?.id}`] });
       setEditDialogOpen(false);
       setSelectedMeeting(null);
       toast({
@@ -898,7 +891,7 @@ export default function FocusRhythm() {
       return apiRequest("DELETE", `/api/meetings/${id}`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant?.id}`] });
       setDeleteDialogOpen(false);
       setSelectedMeeting(null);
       toast({
@@ -914,6 +907,15 @@ export default function FocusRhythm() {
       });
     },
   });
+
+  // Wait for tenant to load - placed AFTER all hooks
+  if (tenantLoading || !currentTenant) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   const resetForm = () => {
     setFormData(initialFormData);
