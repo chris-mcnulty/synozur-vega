@@ -381,10 +381,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Track recently verified tokens to handle duplicate requests (in-memory, short-lived)
+  const recentlyVerifiedTokens = new Map<string, { email: string; timestamp: number }>();
+  
+  // Clean up old entries every 5 minutes
+  setInterval(() => {
+    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
+    for (const [token, data] of recentlyVerifiedTokens) {
+      if (data.timestamp < fiveMinutesAgo) {
+        recentlyVerifiedTokens.delete(token);
+      }
+    }
+  }, 60 * 1000);
+
   // Email verification
   app.post("/api/auth/verify-email", async (req, res) => {
     try {
-      const { token, email } = req.body;
+      const { token } = req.body;
 
       if (!token) {
         return res.status(400).json({ error: "Verification token required" });
@@ -394,17 +407,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tokenHash = hashToken(token);
       console.log(`[Verify Email] Looking for token hash: ${tokenHash.substring(0, 16)}...`);
       
+      // Check if this token was just verified (handles duplicate requests)
+      const recentVerification = recentlyVerifiedTokens.get(tokenHash);
+      if (recentVerification) {
+        console.log(`[Verify Email] Token already verified recently for ${recentVerification.email}`);
+        return res.json({ message: "Email verified successfully! You can now log in." });
+      }
+      
       const user = await storage.getUserByVerificationToken(tokenHash);
       if (!user) {
-        // Token not found - could be already verified (token cleared) or invalid
-        // If email is provided, check if that user is already verified
-        if (email) {
-          const existingUser = await storage.getUserByEmail(email);
-          if (existingUser?.emailVerified) {
-            console.log(`[Verify Email] User ${email} already verified (duplicate request)`);
-            return res.json({ message: "Email verified successfully! You can now log in." });
-          }
-        }
         console.log(`[Verify Email] No user found with token hash: ${tokenHash.substring(0, 16)}...`);
         return res.status(400).json({ error: "Invalid or expired verification token" });
       }
@@ -416,6 +427,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         emailVerified: true,
         verificationToken: null,
       });
+      
+      // Remember this token was just verified (for 5 minutes)
+      recentlyVerifiedTokens.set(tokenHash, { email: user.email, timestamp: Date.now() });
 
       res.json({ message: "Email verified successfully! You can now log in." });
     } catch (error) {
