@@ -11,7 +11,7 @@ import { ArrowLeft, Eye, EyeOff, Shield, Loader2 } from "lucide-react";
 import microsoftLogo from "@assets/Microsoft_Icon_6_1765741102026.jpeg";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import starTrailsBg from "@assets/AdobeStock_362805421_1763398687511.jpeg";
-import { SynozurLogo } from "@/components/SynozurLogo";
+import vegaLogo from "@assets/VegaTight_1766605018223.png";
 import ReCAPTCHA from "react-google-recaptcha";
 
 interface SsoPolicy {
@@ -257,9 +257,8 @@ export default function Login() {
         </Link>
         
         <div className="text-center space-y-3">
-          <div className="flex items-center justify-center gap-3">
-            <SynozurLogo variant="mark" className="h-10 w-10" />
-            <h1 className="text-4xl font-bold tracking-tight text-white drop-shadow-xl">Vega</h1>
+          <div className="flex items-center justify-center">
+            <img src={vegaLogo} alt="Vega Company OS" className="h-16 object-contain drop-shadow-xl" />
           </div>
           <p className="text-gray-200">Your AI-Augmented Company OS</p>
         </div>

@@ -11,6 +11,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useEffect } from "react";
 import { ArrowRight } from "lucide-react";
 import microsoftPartnerBadge from "@assets/OIP_(1)_1766339770092.jpg";
+import vegaLogo from "@assets/VegaTight_1766605018223.png";
 
 export default function Landing() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -35,8 +36,7 @@ export default function Landing() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b">
         <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <SynozurLogo variant="mark" className="h-8 w-8" />
-            <span className="font-semibold text-xl">Vega</span>
+            <img src={vegaLogo} alt="Vega" className="h-10 object-contain" />
             <Badge variant="secondary" className="text-xs">Beta</Badge>
           </div>
           <div className="flex items-center gap-4">
@@ -91,10 +91,8 @@ export default function Landing() {
           <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
               <div>
-                <div className="flex items-center gap-3 mb-4">
-                  <SynozurLogo variant="mark" className="h-8 w-8" />
-                  <span className="font-semibold text-lg">Vega</span>
-                  <Badge variant="outline" className="text-xs">Beta</Badge>
+                <div className="mb-4">
+                  <img src={vegaLogo} alt="Vega Company OS" className="h-12 object-contain" />
                 </div>
                 <p className="text-sm text-muted-foreground mb-4">
                   Powered by The Synozur Alliance LLC

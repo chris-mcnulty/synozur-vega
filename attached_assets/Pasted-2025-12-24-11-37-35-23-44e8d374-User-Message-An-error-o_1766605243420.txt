@@ -1,0 +1,16 @@
+2025-12-24 11:37:35.23
+44e8d374
+User
+Message: An error occurred.
+2025-12-24 11:37:35.23
+44e8d374
+User
+Headers: {"access-control-allow-credentials":"false","cf-cache-status":"DYNAMIC","cf-ray":"9b328dd93ce6e82e-ORD","connection":"keep-alive","content-length":"1241","content-type":"application/json;charset=utf-8","date":"Wed, 24 Dec 2025 19:37:35 GMT","nel":"{\"success_fraction\":0.01,\"report_to\":\"cf-nel\",\"max_age\":604800}","report-to":"{\"endpoints\":[{\"url\":\"https:\\/\\/a.nel.cloudflare.com\\/report\\/v4?s=4LtMkg9UfQ%2BgdFTuIffoJ8KoX4PJK%2ByNwDcRHzJl7rteX0U3%2FDba%2FmOyElOnVieqOjbjsmaWRCO%2FllMlthM95pXEbHA4qF0fi%2FU1%2Bcj8mqW0F8j6r2oC0tSycFcsXvKQcVMll8sFn1ZxAuy8\"}],\"group\":\"cf-nel\",\"max_age\":604800}","server":"cloudflare","set-cookie":"__cf_bm=jC4D33FKoM.Uepq5Z9LPBxut3IeQ6xD9oyotjYD7w80-1766605055-1.0.1.1-k4oivPO0DftfunfMfqUdPQ.onymKrDTuaU5HgoVOZzVPM_Se3ctsQ7W4KqxA4H9c1pcoo3VFc.5nqCWBamKLaApsrYzKwE_kboovsSGQtPo; path=/; expires=Wed, 24-Dec-25 20:07:35 GMT; domain=.hubapi.com; HttpOnly; Secure; SameSite=None","strict-transport-security":"max-age=31536000; includeSubDomains; preload","vary":"origin, Accept-Encoding","x-hubspot-correlation-id":"6a8c2468-ad38-4cce-8a47-6d22a3ad5d12","x-hubspot-ratelimit-interval-milliseconds":"10000","x-hubspot-ratelimit-max":"110","x-hubspot-ratelimit-remaining":"109","x-hubspot-ratelimit-secondly":"11","x-hubspot-ratelimit-secondly-remaining":"10"}
+2025-12-24 11:37:35.23
+44e8d374
+User
+Body: {"status":"error","message":"Property values were not valid: [{\"isValid\":false,\"message\":\"\\\"hs_analytics_source_data_2\\\" is a read only property; its value cannot be set.\",\"error\":\"READ_ONLY_VALUE\",\"name\":\"hs_analytics_source_data_2\",\"localizedErrorMessage\":\"\\\"hs_analytics_source_data_2\\\" is a read only property; its value cannot be set.\",\"propertyValue\":\"Self-Service Signup\",\"portalId\":49076134},{\"isValid\":false,\"message\":\"\\\"hs_analytics_source_data_1\\\" is a read only property; its value cannot be set.\",\"error\":\"READ_ONLY_VALUE\",\"name\":\"hs_analytics_source_data_1\",\"localizedErrorMessage\":\"\\\"hs_analytics_source_data_1\\\" is a read only property; its value cannot be set.\",\"propertyValue\":\"Vega\",\"portalId\":49076134}]","correlationId":"6a8c2468-ad38-4cce-8a47-6d22a3ad5d12","errors":[{"message":"\"hs_analytics_source_data_2\" is a read only property; its value cannot be set.","code":"READ_ONLY_VALUE","context":{"propertyName":["hs_analytics_source_data_2"]}},{"message":"\"hs_analytics_source_data_1\" is a read only property; its value cannot be set.","code":"READ_ONLY_VALUE","context":{"propertyName":["hs_analytics_source_data_1"]}}],"category":"VALIDATION_ERROR"}
+2025-12-24 11:37:35.23
+44e8d374
+User
+[HubSpot] Error creating deal: HTTP-Code: 400

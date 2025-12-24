@@ -14,6 +14,7 @@ import {
   Rocket,
   HelpCircle
 } from "lucide-react";
+import vegaLogo from "@assets/VegaTight_1766605018223.png";
 
 const VERSION_MAJOR = 1;
 const VERSION_RELEASE_DATE = "2024-12-23";
@@ -34,15 +35,8 @@ export default function About() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <div className="text-center space-y-4">
-        <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-          <Building className="h-8 w-8 text-primary" />
-        </div>
-        <div>
-          <p className="text-lg text-muted-foreground font-medium">Synozur</p>
-          <h1 className="text-3xl font-bold tracking-tight">Vega</h1>
-          <p className="text-xl text-muted-foreground">
-            Company OS Platform
-          </p>
+        <div className="flex justify-center">
+          <img src={vegaLogo} alt="Vega Company OS" className="h-20 object-contain" />
         </div>
         <div className="flex items-center justify-center gap-2 flex-wrap">
           <Badge

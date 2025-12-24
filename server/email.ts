@@ -84,6 +84,9 @@ const getAppUrl = () => {
 
 const APP_URL = getAppUrl();
 
+// Vega logo for email templates - using a production-hosted version
+const VEGA_LOGO_URL = 'https://vega.synozur.com/assets/VegaTight_1766605018223.png';
+
 export async function sendVerificationEmail(to: string, verificationToken: string, userName?: string) {
   const { client, fromEmail } = await getUncachableSendGridClient();
   
@@ -155,11 +158,12 @@ export async function sendVerificationEmail(to: string, verificationToken: strin
                   
                   <!-- Footer -->
                   <tr>
-                    <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a;">
-                      <p style="margin: 0; font-size: 12px; color: #666666; text-align: center;">
+                    <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a; text-align: center;">
+                      <img src="${VEGA_LOGO_URL}" alt="Vega Company OS" style="height: 40px; margin-bottom: 15px;" />
+                      <p style="margin: 0; font-size: 12px; color: #666666;">
                         If you didn't create a Vega account, you can safely ignore this email.
                       </p>
-                      <p style="margin: 10px 0 0; font-size: 12px; color: #666666; text-align: center;">
+                      <p style="margin: 10px 0 0; font-size: 12px; color: #666666;">
                         © ${new Date().getFullYear()} Synozur Alliance LLC. All rights reserved.
                       </p>
                     </td>
@@ -254,11 +258,12 @@ export async function sendPasswordResetEmail(to: string, resetToken: string, use
                   
                   <!-- Footer -->
                   <tr>
-                    <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a;">
-                      <p style="margin: 0; font-size: 12px; color: #666666; text-align: center;">
+                    <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a; text-align: center;">
+                      <img src="${VEGA_LOGO_URL}" alt="Vega Company OS" style="height: 40px; margin-bottom: 15px;" />
+                      <p style="margin: 0; font-size: 12px; color: #666666;">
                         This is an automated message. Please do not reply to this email.
                       </p>
-                      <p style="margin: 10px 0 0; font-size: 12px; color: #666666; text-align: center;">
+                      <p style="margin: 10px 0 0; font-size: 12px; color: #666666;">
                         © ${new Date().getFullYear()} Synozur Alliance LLC. All rights reserved.
                       </p>
                     </td>
@@ -365,11 +370,12 @@ export async function sendWelcomeEmail(to: string, userName?: string, organizati
                   
                   <!-- Footer -->
                   <tr>
-                    <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a;">
-                      <p style="margin: 0; font-size: 12px; color: #666666; text-align: center;">
+                    <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a; text-align: center;">
+                      <img src="${VEGA_LOGO_URL}" alt="Vega Company OS" style="height: 40px; margin-bottom: 15px;" />
+                      <p style="margin: 0; font-size: 12px; color: #666666;">
                         This is an automated welcome message.
                       </p>
-                      <p style="margin: 10px 0 0; font-size: 12px; color: #666666; text-align: center;">
+                      <p style="margin: 10px 0 0; font-size: 12px; color: #666666;">
                         © ${new Date().getFullYear()} Synozur Alliance LLC. All rights reserved.
                       </p>
                     </td>
@@ -483,8 +489,9 @@ export async function sendSelfServiceWelcomeEmail(
                     </td>
                   </tr>
                   <tr>
-                    <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a;">
-                      <p style="margin: 0; font-size: 12px; color: #666666; text-align: center;">© ${new Date().getFullYear()} Synozur Alliance LLC. All rights reserved.</p>
+                    <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a; text-align: center;">
+                      <img src="${VEGA_LOGO_URL}" alt="Vega Company OS" style="height: 40px; margin-bottom: 15px;" />
+                      <p style="margin: 0; font-size: 12px; color: #666666;">© ${new Date().getFullYear()} Synozur Alliance LLC. All rights reserved.</p>
                     </td>
                   </tr>
                 </table>
@@ -565,8 +572,9 @@ export async function sendPlanExpirationReminderEmail(
                     </td>
                   </tr>
                   <tr>
-                    <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a;">
-                      <p style="margin: 0; font-size: 12px; color: #666666; text-align: center;">© ${new Date().getFullYear()} Synozur Alliance LLC. All rights reserved.</p>
+                    <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a; text-align: center;">
+                      <img src="${VEGA_LOGO_URL}" alt="Vega Company OS" style="height: 40px; margin-bottom: 15px;" />
+                      <p style="margin: 0; font-size: 12px; color: #666666;">© ${new Date().getFullYear()} Synozur Alliance LLC. All rights reserved.</p>
                     </td>
                   </tr>
                 </table>
