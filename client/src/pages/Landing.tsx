@@ -12,6 +12,7 @@ import { useEffect } from "react";
 import { ArrowRight } from "lucide-react";
 import microsoftPartnerBadge from "@assets/OIP_(1)_1766339770092.jpg";
 import vegaLogo from "@assets/VegaTight_1766605018223.png";
+import synozurMark from "@assets/SynozurMark_color1400_1766606244412.png";
 
 export default function Landing() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -36,7 +37,7 @@ export default function Landing() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b">
         <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <img src={vegaLogo} alt="Vega" className="h-8 object-contain" />
+            <img src={synozurMark} alt="Vega" className="h-8 object-contain" />
             <span className="text-lg font-semibold">Vega</span>
             <Badge variant="secondary" className="text-xs">Beta</Badge>
           </div>
