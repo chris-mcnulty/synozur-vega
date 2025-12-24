@@ -46,6 +46,10 @@ export default function Login() {
   const recaptchaRef = useRef<ReCAPTCHA>(null);
   const recaptchaSiteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY;
   
+  // Debug logging for reCAPTCHA
+  console.log('[reCAPTCHA Debug] Site key configured:', recaptchaSiteKey ? `${recaptchaSiteKey.substring(0, 10)}...` : 'NOT SET');
+  console.log('[reCAPTCHA Debug] Full site key:', recaptchaSiteKey);
+  
   const [demoPassword, setDemoPassword] = useState("");
   const [showDemoForm, setShowDemoForm] = useState(false);
   const [isSubmittingDemo, setIsSubmittingDemo] = useState(false);

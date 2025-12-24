@@ -187,20 +187,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Verify reCAPTCHA if token provided and secret is configured
       const recaptchaSecret = process.env.RECAPTCHA_SECRET_KEY;
+      console.log('[reCAPTCHA Debug] Server - Secret configured:', recaptchaSecret ? `${recaptchaSecret.substring(0, 10)}...` : 'NOT SET');
+      console.log('[reCAPTCHA Debug] Server - Token received:', recaptchaToken ? `${recaptchaToken.substring(0, 20)}...` : 'NOT PROVIDED');
+      
       if (recaptchaSecret && recaptchaToken) {
         try {
+          console.log('[reCAPTCHA Debug] Server - Verifying with Google...');
           const recaptchaResponse = await fetch('https://www.google.com/recaptcha/api/siteverify', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `secret=${recaptchaSecret}&response=${recaptchaToken}`,
           });
-          const recaptchaResult = await recaptchaResponse.json() as { success: boolean; score?: number };
+          const recaptchaResult = await recaptchaResponse.json() as { success: boolean; score?: number; 'error-codes'?: string[] };
+          console.log('[reCAPTCHA Debug] Server - Verification result:', JSON.stringify(recaptchaResult));
+          
           if (!recaptchaResult.success || (recaptchaResult.score && recaptchaResult.score < 0.5)) {
+            console.log('[reCAPTCHA Debug] Server - Verification FAILED:', recaptchaResult['error-codes']);
             return res.status(400).json({ error: "reCAPTCHA verification failed. Please try again." });
           }
+          console.log('[reCAPTCHA Debug] Server - Verification PASSED');
         } catch (recaptchaError) {
-          console.error("reCAPTCHA verification error:", recaptchaError);
+          console.error("[reCAPTCHA Debug] Server - Verification error:", recaptchaError);
         }
+      } else {
+        console.log('[reCAPTCHA Debug] Server - Skipping verification (secret or token missing)');
       }
 
       // Extract domain from email
