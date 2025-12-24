@@ -107,12 +107,13 @@ export default function Dashboard() {
   const currentQuarter = quarters.find((q) => q.id === selectedQuarter);
 
   // Fetch real data from APIs - use optional chaining for tenant id
-  const { data: foundations, isLoading: loadingFoundations, error: foundationsError } = useQuery<Foundation>({
+  const { data: foundations, isLoading: loadingFoundations } = useQuery<Foundation>({
     queryKey: [`/api/foundations/${currentTenant?.id}`],
     enabled: !!currentTenant?.id,
+    retry: false,
   });
 
-  const { data: strategies, isLoading: loadingStrategies, error: strategiesError } = useQuery<Strategy[]>({
+  const { data: strategies = [], isLoading: loadingStrategies } = useQuery<Strategy[]>({
     queryKey: [`/api/strategies/${currentTenant?.id}`],
     enabled: !!currentTenant?.id,
   });
@@ -149,12 +150,12 @@ export default function Dashboard() {
     enabled: !!currentTenant?.id && !!currentQuarter,
   });
 
-  const { data: meetings, isLoading: loadingMeetings, error: meetingsError } = useQuery<Meeting[]>({
+  const { data: meetings = [], isLoading: loadingMeetings } = useQuery<Meeting[]>({
     queryKey: [`/api/meetings/${currentTenant?.id}`],
     enabled: !!currentTenant?.id,
   });
 
-  const { data: teams, isLoading: loadingTeams } = useQuery<Team[]>({
+  const { data: teams = [], isLoading: loadingTeams } = useQuery<Team[]>({
     queryKey: [`/api/teams/${currentTenant?.id}`],
     enabled: !!currentTenant?.id,
   });
@@ -331,15 +332,7 @@ export default function Dashboard() {
         </div>
         <Card>
           <CardContent className="pt-6">
-            {foundationsError ? (
-              <div className="flex items-center gap-3 p-4 text-sm text-muted-foreground">
-                <AlertCircle className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="font-medium">Foundation data not available</p>
-                  <p className="text-xs">Set up your foundation in the Foundations module</p>
-                </div>
-              </div>
-            ) : (
+            {(
               <>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
@@ -440,12 +433,7 @@ export default function Dashboard() {
           </div>
           <Card>
             <CardContent className="pt-6 space-y-4">
-              {strategiesError ? (
-                <div className="flex items-center gap-3 p-4 text-sm text-muted-foreground">
-                  <AlertCircle className="h-5 w-5 text-muted-foreground" />
-                  <p>Unable to load strategies</p>
-                </div>
-              ) : strategies && strategies.length > 0 ? (
+              {strategies.length > 0 ? (
                 strategies.map((strategy) => (
                   <div key={strategy.id} className="space-y-2">
                     <div className="flex items-start justify-between gap-4">
@@ -798,18 +786,7 @@ export default function Dashboard() {
           </Link>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {meetingsError ? (
-            <div className="col-span-full">
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                    <AlertCircle className="h-5 w-5 text-muted-foreground" />
-                    <p>Unable to load meetings</p>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
-          ) : meetings && meetings.length > 0 ? (
+          {meetings.length > 0 ? (
             meetings.slice(0, 3).map((meeting) => (
               <Card key={meeting.id} className="hover-elevate">
                 <CardContent className="p-4">

@@ -100,6 +100,7 @@ export default function Strategy() {
   const { data: foundation } = useQuery<Foundation>({
     queryKey: [`/api/foundations/${currentTenant?.id}`],
     enabled: !!currentTenant?.id,
+    retry: false,
   });
 
   // Wait for tenant to load
