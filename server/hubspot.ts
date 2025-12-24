@@ -91,9 +91,12 @@ export async function createHubSpotDeal(data: {
 
 export async function isHubSpotConnected(): Promise<boolean> {
   try {
+    console.log('[HubSpot] Checking connection status...');
     await getAccessToken();
+    console.log('[HubSpot] Connection check: CONNECTED');
     return true;
-  } catch {
+  } catch (error: any) {
+    console.log('[HubSpot] Connection check: NOT CONNECTED -', error.message || error);
     return false;
   }
 }

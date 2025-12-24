@@ -338,18 +338,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Push to HubSpot as new deal
       try {
+        console.log('[Signup] Attempting HubSpot integration...');
         const { createHubSpotDeal, isHubSpotConnected } = await import('./hubspot');
-        if (await isHubSpotConnected()) {
-          await createHubSpotDeal({
+        const hubspotConnected = await isHubSpotConnected();
+        console.log('[Signup] HubSpot connected:', hubspotConnected);
+        if (hubspotConnected) {
+          console.log('[Signup] Creating HubSpot deal for:', email);
+          const result = await createHubSpotDeal({
             tenantName: tenant.name,
             email,
             domain,
             planName: servicePlan?.displayName || 'Trial',
             signupDate: new Date(),
           });
+          console.log('[Signup] HubSpot deal result:', result);
+        } else {
+          console.log('[Signup] Skipping HubSpot - not connected');
         }
       } catch (hubspotError) {
-        console.error("Failed to create HubSpot deal:", hubspotError);
+        console.error("[Signup] Failed to create HubSpot deal:", hubspotError);
       }
 
       res.json({ 
@@ -1132,7 +1139,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const foundation = await storage.getFoundationByTenantId(tenantId);
       
       if (!foundation) {
-        return res.status(404).json({ error: "Foundation not found" });
+        // Return empty foundation for new tenants instead of 404
+        return res.json({
+          id: null,
+          tenantId,
+          mission: "",
+          vision: "",
+          values: [],
+          annualGoals: [],
+          tagline: "",
+          companySummary: "",
+          messagingStatement: "",
+          cultureStatement: "",
+          brandVoice: "",
+          fiscalYearStartMonth: 1,
+        });
       }
       
       res.json(foundation);
