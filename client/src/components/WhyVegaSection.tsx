@@ -25,7 +25,7 @@ const comparisons = [
   },
   {
     feature: "Custom Vocabulary",
-    vivaGoals: "Not supported",
+    vivaGoals: "Limited support",
     vega: "Fully customizable terminology",
     vegaWins: true,
   },
