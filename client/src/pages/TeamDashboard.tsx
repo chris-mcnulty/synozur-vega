@@ -107,7 +107,7 @@ function getProgressColor(progress: number) {
 }
 
 export default function TeamDashboard() {
-  const { currentTenant } = useTenant();
+  const { currentTenant, isLoading: tenantLoading } = useTenant();
   const { user } = useAuth();
   const { t } = useVocabulary();
   const { toast } = useToast();
@@ -184,13 +184,14 @@ export default function TeamDashboard() {
   const currentQuarter = quarters.find((q) => q.id === selectedQuarter);
 
   const { data: teams, isLoading: loadingTeams } = useQuery<Team[]>({
-    queryKey: ["/api/okr/teams", currentTenant.id],
+    queryKey: ["/api/okr/teams", currentTenant?.id],
     queryFn: async () => {
+      if (!currentTenant?.id) return [];
       const res = await fetch(`/api/okr/teams?tenantId=${currentTenant.id}`);
       if (!res.ok) throw new Error('Failed to fetch teams');
       return res.json();
     },
-    enabled: !!currentTenant.id,
+    enabled: !!currentTenant?.id,
   });
 
   const userTeams = useMemo(() => {
@@ -226,8 +227,9 @@ export default function TeamDashboard() {
   }, [teams, selectedTeamId]);
 
   const { data: objectives, isLoading: loadingObjectives } = useQuery<Objective[]>({
-    queryKey: ["/api/okr/objectives", currentTenant.id, currentQuarter?.quarter, currentQuarter?.year, selectedTeamId],
+    queryKey: ["/api/okr/objectives", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year, selectedTeamId],
     queryFn: async () => {
+      if (!currentTenant?.id) return [];
       const params = new URLSearchParams({
         tenantId: currentTenant.id,
         ...(currentQuarter?.quarter && { quarter: String(currentQuarter.quarter) }),
@@ -238,12 +240,13 @@ export default function TeamDashboard() {
       if (!res.ok) throw new Error('Failed to fetch objectives');
       return res.json();
     },
-    enabled: !!currentTenant.id && !!currentQuarter && !!selectedTeamId,
+    enabled: !!currentTenant?.id && !!currentQuarter && !!selectedTeamId,
   });
 
   const { data: keyResults = [], isLoading: loadingKeyResults } = useQuery<KeyResult[]>({
-    queryKey: ["/api/okr/key-results", currentTenant.id, currentQuarter?.quarter, currentQuarter?.year, selectedTeamId],
+    queryKey: ["/api/okr/key-results", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year, selectedTeamId],
     queryFn: async () => {
+      if (!currentTenant?.id) return [];
       const params = new URLSearchParams({
         tenantId: currentTenant.id,
         ...(currentQuarter?.quarter && { quarter: String(currentQuarter.quarter) }),
@@ -254,12 +257,13 @@ export default function TeamDashboard() {
       if (!res.ok) throw new Error('Failed to fetch key results');
       return res.json();
     },
-    enabled: !!currentTenant.id && !!currentQuarter && !!selectedTeamId,
+    enabled: !!currentTenant?.id && !!currentQuarter && !!selectedTeamId,
   });
 
   const { data: allBigRocks, isLoading: loadingBigRocks } = useQuery<BigRock[]>({
-    queryKey: ["/api/okr/big-rocks", currentTenant.id, currentQuarter?.quarter, currentQuarter?.year],
+    queryKey: ["/api/okr/big-rocks", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year],
     queryFn: async () => {
+      if (!currentTenant?.id) return [];
       const params = new URLSearchParams({
         tenantId: currentTenant.id,
         ...(currentQuarter?.quarter && { quarter: String(currentQuarter.quarter) }),
@@ -269,7 +273,7 @@ export default function TeamDashboard() {
       if (!res.ok) throw new Error('Failed to fetch big rocks');
       return res.json();
     },
-    enabled: !!currentTenant.id && !!currentQuarter,
+    enabled: !!currentTenant?.id && !!currentQuarter,
   });
 
   const bigRocks = useMemo(() => {
@@ -278,14 +282,14 @@ export default function TeamDashboard() {
   }, [allBigRocks, selectedTeamId]);
 
   const { data: strategies, isLoading: loadingStrategies } = useQuery<Strategy[]>({
-    queryKey: [`/api/strategies/${currentTenant.id}`],
-    enabled: !!currentTenant.id,
+    queryKey: [`/api/strategies/${currentTenant?.id}`],
+    enabled: !!currentTenant?.id,
   });
 
   // Fetch foundation for annual goals
   const { data: foundation } = useQuery<Foundation>({
-    queryKey: [`/api/foundations/${currentTenant.id}`],
-    enabled: !!currentTenant.id,
+    queryKey: [`/api/foundations/${currentTenant?.id}`],
+    enabled: !!currentTenant?.id,
   });
 
   // Fetch check-in history for selected KR
@@ -307,14 +311,14 @@ export default function TeamDashboard() {
         ...data,
         userId: user?.id,
         userEmail: user?.email,
-        tenantId: currentTenant.id,
+        tenantId: currentTenant?.id,
         asOfDate: new Date().toISOString(),
       };
       return apiRequest("POST", "/api/okr/check-ins", checkInData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/okr/key-results", currentTenant.id, currentQuarter?.quarter, currentQuarter?.year, selectedTeamId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives", currentTenant.id, currentQuarter?.quarter, currentQuarter?.year, selectedTeamId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/okr/key-results", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year, selectedTeamId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year, selectedTeamId] });
       queryClient.invalidateQueries({ queryKey: ["/api/okr/check-ins"] });
       setCheckInDialogOpen(false);
       setSelectedKR(null);
@@ -396,9 +400,9 @@ export default function TeamDashboard() {
     });
   };
 
-  const isLoading = loadingTeams || loadingObjectives || loadingKeyResults || loadingBigRocks || loadingStrategies;
+  const isLoading = tenantLoading || loadingTeams || loadingObjectives || loadingKeyResults || loadingBigRocks || loadingStrategies;
 
-  if (isLoading) {
+  if (isLoading || !currentTenant) {
     return (
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
