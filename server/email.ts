@@ -84,8 +84,6 @@ const getAppUrl = () => {
 
 const APP_URL = getAppUrl();
 
-// Vega logo for email templates - using a production-hosted version
-const VEGA_LOGO_URL = 'https://vega.synozur.com/assets/VegaTight_1766605018223.png';
 
 export async function sendVerificationEmail(to: string, verificationToken: string, userName?: string) {
   const { client, fromEmail } = await getUncachableSendGridClient();
@@ -159,7 +157,9 @@ export async function sendVerificationEmail(to: string, verificationToken: strin
                   <!-- Footer -->
                   <tr>
                     <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a; text-align: center;">
-                      <img src="${VEGA_LOGO_URL}" alt="Vega Company OS" style="height: 40px; margin-bottom: 15px;" />
+                      <p style="margin: 0 0 15px; font-size: 14px; font-weight: 600; background: linear-gradient(135deg, #810FFB 0%, #E60CB3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                        Vega Company OS
+                      </p>
                       <p style="margin: 0; font-size: 12px; color: #666666;">
                         If you didn't create a Vega account, you can safely ignore this email.
                       </p>
@@ -259,7 +259,9 @@ export async function sendPasswordResetEmail(to: string, resetToken: string, use
                   <!-- Footer -->
                   <tr>
                     <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a; text-align: center;">
-                      <img src="${VEGA_LOGO_URL}" alt="Vega Company OS" style="height: 40px; margin-bottom: 15px;" />
+                      <p style="margin: 0 0 15px; font-size: 14px; font-weight: 600; background: linear-gradient(135deg, #810FFB 0%, #E60CB3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                        Vega Company OS
+                      </p>
                       <p style="margin: 0; font-size: 12px; color: #666666;">
                         This is an automated message. Please do not reply to this email.
                       </p>
@@ -371,7 +373,9 @@ export async function sendWelcomeEmail(to: string, userName?: string, organizati
                   <!-- Footer -->
                   <tr>
                     <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a; text-align: center;">
-                      <img src="${VEGA_LOGO_URL}" alt="Vega Company OS" style="height: 40px; margin-bottom: 15px;" />
+                      <p style="margin: 0 0 15px; font-size: 14px; font-weight: 600; background: linear-gradient(135deg, #810FFB 0%, #E60CB3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                        Vega Company OS
+                      </p>
                       <p style="margin: 0; font-size: 12px; color: #666666;">
                         This is an automated welcome message.
                       </p>
@@ -490,7 +494,9 @@ export async function sendSelfServiceWelcomeEmail(
                   </tr>
                   <tr>
                     <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a; text-align: center;">
-                      <img src="${VEGA_LOGO_URL}" alt="Vega Company OS" style="height: 40px; margin-bottom: 15px;" />
+                      <p style="margin: 0 0 15px; font-size: 14px; font-weight: 600; background: linear-gradient(135deg, #810FFB 0%, #E60CB3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                        Vega Company OS
+                      </p>
                       <p style="margin: 0; font-size: 12px; color: #666666;">© ${new Date().getFullYear()} Synozur Alliance LLC. All rights reserved.</p>
                     </td>
                   </tr>
@@ -573,7 +579,9 @@ export async function sendPlanExpirationReminderEmail(
                   </tr>
                   <tr>
                     <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a; text-align: center;">
-                      <img src="${VEGA_LOGO_URL}" alt="Vega Company OS" style="height: 40px; margin-bottom: 15px;" />
+                      <p style="margin: 0 0 15px; font-size: 14px; font-weight: 600; background: linear-gradient(135deg, #810FFB 0%, #E60CB3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+                        Vega Company OS
+                      </p>
                       <p style="margin: 0; font-size: 12px; color: #666666;">© ${new Date().getFullYear()} Synozur Alliance LLC. All rights reserved.</p>
                     </td>
                   </tr>
