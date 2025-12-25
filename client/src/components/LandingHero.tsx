@@ -78,14 +78,14 @@ export function LandingHero() {
             </div>
           </div>
           
-          <div className="flex flex-wrap gap-4 mb-12">
+          <div className="flex flex-wrap gap-4 mb-4">
             <Link href="/login">
               <Button
                 size="lg"
                 className="text-base px-8 shadow-xl"
                 data-testid="button-start-now"
               >
-                Follow Vega
+                Start Free Trial
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
@@ -99,6 +99,9 @@ export function LandingHero() {
               See What We Believe
             </Button>
           </div>
+          <p className="text-sm text-white/70 mb-8">
+            60-day trial. No credit card required. No risk.
+          </p>
           
           <div className="flex items-center gap-4">
             <img 

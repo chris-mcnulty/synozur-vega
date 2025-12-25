@@ -95,10 +95,13 @@ export default function Landing() {
             </p>
             <Link href="/login">
               <Button size="lg" variant="secondary" className="text-base px-8" data-testid="button-cta-bottom">
-                Follow Vega
+                Start Free Trial
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
+            <p className="text-sm mt-4 opacity-70">
+              60-day trial. No credit card required. No risk.
+            </p>
           </div>
         </section>
 
