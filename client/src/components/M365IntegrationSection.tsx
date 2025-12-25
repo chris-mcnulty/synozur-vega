@@ -87,7 +87,7 @@ export function M365IntegrationSection() {
         <div className="mt-12 text-center">
           <p className="text-muted-foreground">
             Admin consent flow available for enterprise-wide deployment. 
-            All data stays within your Microsoft tenant.
+            OAuth tokens encrypted at rest. SOC 2 compliant infrastructure.
           </p>
         </div>
       </div>
