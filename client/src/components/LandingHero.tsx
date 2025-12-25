@@ -102,7 +102,7 @@ export function LandingHero() {
             <img 
               src={microsoftPartnerBadge} 
               alt="Microsoft Preferred Content AI Partner" 
-              className="h-14 md:h-16 object-contain drop-shadow-lg"
+              className="h-36 md:h-40 object-contain drop-shadow-lg"
             />
           </div>
         </div>
