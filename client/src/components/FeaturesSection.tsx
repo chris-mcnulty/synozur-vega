@@ -61,11 +61,12 @@ export function FeaturesSection() {
     <section id="features" className="py-20 bg-background">
       <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-6">
         <div className="text-center mb-16">
-          <Badge variant="secondary" className="mb-4">Complete Platform</Badge>
-          <h2 className="text-4xl font-semibold mb-4">From Vision to Execution</h2>
+          <Badge variant="secondary" className="mb-4">How Vega Delivers</Badge>
+          <h2 className="text-4xl font-semibold mb-4">From Vision to Velocity</h2>
           <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
             Six integrated modules that connect your organizational foundations 
-            to daily execution—all enhanced with AI and M365 integration.
+            to daily execution—all enhanced with AI that augments decision-making 
+            without sidelining human judgment.
           </p>
         </div>
         

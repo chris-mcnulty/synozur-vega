@@ -111,7 +111,7 @@ export function WhyVegaSection() {
         <div className="text-center mt-10">
           <Link href="/login">
             <Button size="lg" className="px-8" data-testid="button-migrate-now">
-              Start Your Migration
+              Follow Vega
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </Link>

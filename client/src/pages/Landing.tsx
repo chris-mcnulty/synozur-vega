@@ -1,4 +1,5 @@
 import { LandingHero } from "@/components/LandingHero";
+import { WhatWeBelieveSection } from "@/components/WhatWeBelieveSection";
 import { WhyVegaSection } from "@/components/WhyVegaSection";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { M365IntegrationSection } from "@/components/M365IntegrationSection";
@@ -45,10 +46,10 @@ export default function Landing() {
             <Button 
               variant="ghost" 
               size="sm"
-              onClick={() => document.getElementById('why-vega')?.scrollIntoView({ behavior: 'smooth' })}
+              onClick={() => document.getElementById('what-we-believe')?.scrollIntoView({ behavior: 'smooth' })}
               className="hidden md:inline-flex"
             >
-              Why Vega
+              What We Believe
             </Button>
             <Button 
               variant="ghost" 
@@ -57,6 +58,14 @@ export default function Landing() {
               className="hidden md:inline-flex"
             >
               Features
+            </Button>
+            <Button 
+              variant="ghost" 
+              size="sm"
+              onClick={() => document.getElementById('why-vega')?.scrollIntoView({ behavior: 'smooth' })}
+              className="hidden md:inline-flex"
+            >
+              Compare
             </Button>
             <Link href="/login">
               <Button data-testid="button-nav-login">
@@ -70,19 +79,23 @@ export default function Landing() {
 
       <div className="pt-16">
         <LandingHero />
-        <WhyVegaSection />
+        <WhatWeBelieveSection />
         <FeaturesSection />
+        <WhyVegaSection />
         <M365IntegrationSection />
 
         <section className="py-20 bg-primary text-primary-foreground">
           <div className="max-w-4xl 2xl:max-w-5xl mx-auto px-6 text-center">
-            <h2 className="text-4xl font-semibold mb-4">Ready to Leave Viva Goals Behind?</h2>
+            <p className="text-lg mb-4 opacity-80 italic">
+              In 18,000 years, Vega will be the North Star. Today, it's yours.
+            </p>
+            <h2 className="text-4xl font-semibold mb-4">Align. Accelerate. Achieve.</h2>
             <p className="text-xl mb-8 opacity-90">
-              Start your migration today. Import your existing OKRs or let AI build your Company OS from scratch.
+              Follow Vega. Align your leadership, empower your teams, and make strategy the way you work—every day.
             </p>
             <Link href="/login">
               <Button size="lg" variant="secondary" className="text-base px-8" data-testid="button-cta-bottom">
-                Start Free Trial
+                Follow Vega
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>

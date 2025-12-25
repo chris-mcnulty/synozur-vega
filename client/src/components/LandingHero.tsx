@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, CheckCircle2 } from "lucide-react";
+import { ArrowRight, CheckCircle2, Star } from "lucide-react";
 import { Link } from "wouter";
 import starTrailsBg from "@assets/AdobeStock_362805421_1763398687511.jpeg";
 import microsoftPartnerBadge from "@assets/MSFT-CAPP-PREFERRED-White_1766339770092.png";
@@ -20,32 +20,34 @@ export function LandingHero() {
           <div className="mb-8">
             <img src={vegaLogo} alt="Vega Company OS" className="h-56 object-contain drop-shadow-xl" />
           </div>
-          <div className="flex flex-wrap items-center gap-4 mb-8">
+          
+          <div className="flex flex-wrap items-center gap-4 mb-6">
             <Badge variant="secondary" className="bg-white/20 text-white border-white/30 px-4 py-1.5 text-sm">
-              Viva Goals Alternative
+              <Star className="h-3 w-3 mr-1.5 fill-current" />
+              Your North Star
             </Badge>
             <Badge variant="secondary" className="bg-primary/80 text-white px-4 py-1.5 text-sm">
-              AI-Powered
+              AI-Powered Company OS
             </Badge>
           </div>
           
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold leading-tight mb-6">
+          <p className="text-lg md:text-xl text-white/90 mb-6 italic drop-shadow-md">
+            In 18,000 years, Vega will be the North Star. Today, it's yours.
+          </p>
+          
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
             <span className="text-white drop-shadow-lg">
-              The OKR Platform
+              Turn Strategy Into Action,
             </span>
             <br />
-            <span className="text-white drop-shadow-lg">
-              Microsoft{" "}
-              <span className="text-primary-foreground bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent drop-shadow-xl">
-                Should Have
-              </span>
-              {" "}Built
+            <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent drop-shadow-xl">
+              Every Day.
             </span>
           </h1>
           
           <p className="text-xl md:text-2xl text-white/90 mb-4 leading-relaxed max-w-3xl drop-shadow-md">
-            Vega picks up where Viva Goals left off—with AI-powered strategic planning, 
-            seamless M365 integration, and the flexibility modern organizations demand.
+            Strategy isn't about big plans—it's about the choices and risks that position you to win.
+            Vega operationalizes your vision, connecting why to what to how to when.
           </p>
           
           <p className="text-lg text-white/90 mb-8 max-w-3xl drop-shadow-md">
@@ -58,13 +60,13 @@ export function LandingHero() {
             >
               Company OS™
             </a>{" "}
-            framework by Synozur.
+            framework by Synozur—the AI-augmented operating system for organizations that want to move together, confidently.
           </p>
           
           <div className="flex flex-wrap gap-3 mb-10">
             <div className="flex items-center gap-2 text-white/80 text-sm">
               <CheckCircle2 className="h-4 w-4 text-green-400" />
-              <span>Migrate from Viva Goals in minutes</span>
+              <span>Viva Goals migration in minutes</span>
             </div>
             <div className="flex items-center gap-2 text-white/80 text-sm">
               <CheckCircle2 className="h-4 w-4 text-green-400" />
@@ -72,7 +74,7 @@ export function LandingHero() {
             </div>
             <div className="flex items-center gap-2 text-white/80 text-sm">
               <CheckCircle2 className="h-4 w-4 text-green-400" />
-              <span>AI document-to-OKR generator</span>
+              <span>AI document-to-Company OS</span>
             </div>
           </div>
           
@@ -83,7 +85,7 @@ export function LandingHero() {
                 className="text-base px-8 shadow-xl"
                 data-testid="button-start-now"
               >
-                Start Free Trial
+                Follow Vega
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
@@ -92,9 +94,9 @@ export function LandingHero() {
               variant="outline"
               className="text-base px-8 bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 shadow-xl"
               data-testid="button-learn-more"
-              onClick={() => document.getElementById('why-vega')?.scrollIntoView({ behavior: 'smooth' })}
+              onClick={() => document.getElementById('what-we-believe')?.scrollIntoView({ behavior: 'smooth' })}
             >
-              See How We Compare
+              See What We Believe
             </Button>
           </div>
           
