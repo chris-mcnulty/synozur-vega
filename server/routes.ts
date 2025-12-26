@@ -569,7 +569,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Tenant CRUD endpoints (platform admin only for create/delete, tenant admin for read/update own)
   // All authenticated users can see their own tenant(s)
-  app.get("/api/tenants", ...authWithTenant, async (req: Request, res: Response) => {
+  // Note: This endpoint uses only auth without tenant validation since it's used to discover tenants
+  app.get("/api/tenants", requireAuth, loadCurrentUser, async (req: Request, res: Response) => {
     try {
       // Platform admins can see all tenants, others only see their own
       const userRole = req.user?.role;
@@ -577,8 +578,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const allTenants = await storage.getAllTenants();
         res.json(allTenants);
       } else {
-        // Regular users only see their own tenant
-        const tenant = req.effectiveTenantId ? await storage.getTenantById(req.effectiveTenantId) : null;
+        // Regular users only see their own tenant (from their user record, not header)
+        const userTenantId = req.user?.tenantId;
+        const tenant = userTenantId ? await storage.getTenantById(userTenantId) : null;
         res.json(tenant ? [tenant] : []);
       }
     } catch (error) {
@@ -671,9 +673,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Vocabulary endpoints
   // Get effective vocabulary for current tenant (any authenticated user)
-  app.get("/api/vocabulary", ...authWithTenant, async (req: Request, res: Response) => {
+  // Note: Uses auth-only since vocabulary is needed before tenant context is established
+  app.get("/api/vocabulary", requireAuth, loadCurrentUser, async (req: Request, res: Response) => {
     try {
-      const vocabulary = await storage.getEffectiveVocabulary(req.effectiveTenantId || null);
+      // First try header tenant, then user's assigned tenant
+      const tenantId = (req.headers['x-tenant-id'] as string) || req.user?.tenantId || null;
+      const vocabulary = await storage.getEffectiveVocabulary(tenantId);
       res.json(vocabulary);
     } catch (error) {
       console.error("Error fetching vocabulary:", error);

@@ -541,6 +541,9 @@ export default function PlanningEnhanced() {
   // Mutations
   const createObjectiveMutation = useMutation({
     mutationFn: async (data: any) => {
+      if (!currentTenant?.id) {
+        throw new Error("No organization selected. Please select an organization first.");
+      }
       // Convert empty parentId to null, use quarter/year from form data
       const cleanedData = {
         ...data,
@@ -574,6 +577,9 @@ export default function PlanningEnhanced() {
 
   const createKeyResultMutation = useMutation({
     mutationFn: async (data: any) => {
+      if (!currentTenant?.id) {
+        throw new Error("No organization selected. Please select an organization first.");
+      }
       return apiRequest("POST", "/api/okr/key-results", {
         ...data,
         tenantId: currentTenant.id,
