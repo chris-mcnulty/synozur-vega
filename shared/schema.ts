@@ -45,6 +45,26 @@ export const insertBlockedDomainSchema = createInsertSchema(blockedDomains).omit
 export type InsertBlockedDomain = z.infer<typeof insertBlockedDomainSchema>;
 export type BlockedDomain = typeof blockedDomains.$inferSelect;
 
+// Page visits - tracks traffic to public pages (homepage, signup, etc.)
+export const pageVisits = pgTable("page_visits", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  page: text("page").notNull(), // 'homepage', 'signup', 'login', etc.
+  visitorId: text("visitor_id"), // anonymous session/cookie ID
+  userAgent: text("user_agent"),
+  referrer: text("referrer"),
+  ipAddress: text("ip_address"),
+  country: text("country"),
+  visitedAt: timestamp("visited_at").defaultNow(),
+});
+
+export const insertPageVisitSchema = createInsertSchema(pageVisits).omit({
+  id: true,
+  visitedAt: true,
+});
+
+export type InsertPageVisit = z.infer<typeof insertPageVisitSchema>;
+export type PageVisit = typeof pageVisits.$inferSelect;
+
 // ============================================
 // USERS
 // ============================================
