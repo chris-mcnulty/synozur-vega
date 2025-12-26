@@ -163,10 +163,28 @@ export default function Dashboard() {
   const isLoading = loadingFoundations || loadingStrategies || loadingObjectives || loadingBigRocks || loadingMeetings || loadingTeams;
 
   // Wait for tenant to load before rendering
-  if (tenantLoading || !currentTenant) {
+  if (tenantLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Show message if user has no tenant access
+  if (!currentTenant) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center max-w-md mx-auto p-8">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">No Organization Access</h2>
+          <p className="text-muted-foreground mb-6">
+            Your account is not yet associated with an organization. Please contact your administrator to be added to an organization, or wait for your account setup to complete.
+          </p>
+          <Link href="/my-settings">
+            <Button variant="outline">Go to My Settings</Button>
+          </Link>
+        </div>
       </div>
     );
   }
