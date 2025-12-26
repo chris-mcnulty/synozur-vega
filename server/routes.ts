@@ -2045,8 +2045,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/traffic", ...platformAdminOnly, async (req: Request, res: Response) => {
     try {
       const { startDate, endDate } = req.query;
-      const start = startDate ? new Date(startDate as string) : undefined;
-      const end = endDate ? new Date(endDate as string) : undefined;
+      // Parse dates as Pacific Time to avoid timezone misdating
+      // Append T00:00:00 for start of day in Pacific
+      const start = startDate ? new Date(`${startDate}T00:00:00-08:00`) : undefined;
+      // End date should be end of day in Pacific (23:59:59)
+      const end = endDate ? new Date(`${endDate}T23:59:59-08:00`) : undefined;
 
       const stats = await storage.getPageVisitStats(start, end);
       res.json(stats);

@@ -2368,7 +2368,8 @@ export class DatabaseStorage implements IStorage {
       pageMap.set(visit.page, (pageMap.get(visit.page) || 0) + 1);
       
       if (visit.visitedAt) {
-        const dateStr = visit.visitedAt.toISOString().split('T')[0];
+        // Format date in Pacific Time to avoid timezone misdating
+        const dateStr = visit.visitedAt.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
         dayMap.set(dateStr, (dayMap.get(dateStr) || 0) + 1);
       }
       
