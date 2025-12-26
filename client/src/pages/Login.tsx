@@ -73,6 +73,18 @@ export default function Login() {
   };
   
   useEffect(() => {
+    const visitorId = localStorage.getItem('vega_visitor_id') || crypto.randomUUID();
+    if (!localStorage.getItem('vega_visitor_id')) {
+      localStorage.setItem('vega_visitor_id', visitorId);
+    }
+    fetch('/api/track/visit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: '/login', visitorId }),
+    }).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const error = params.get('error');
     const errorDescription = params.get('error_description');

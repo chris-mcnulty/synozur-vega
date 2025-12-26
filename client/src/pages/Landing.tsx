@@ -25,6 +25,18 @@ export default function Landing() {
     }
   }, [isAuthenticated, isLoading, setLocation]);
 
+  useEffect(() => {
+    const visitorId = localStorage.getItem('vega_visitor_id') || crypto.randomUUID();
+    if (!localStorage.getItem('vega_visitor_id')) {
+      localStorage.setItem('vega_visitor_id', visitorId);
+    }
+    fetch('/api/track/visit', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ page: '/', visitorId }),
+    }).catch(() => {});
+  }, []);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-screen bg-background">

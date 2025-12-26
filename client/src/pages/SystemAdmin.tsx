@@ -8,8 +8,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, BookOpen, Save, RotateCcw, Activity } from "lucide-react";
+import { Shield, BookOpen, Save, RotateCcw, Activity, BarChart3, Globe, Monitor, Smartphone, Tablet, Bot } from "lucide-react";
 import { PlatformAIUsageWidget } from "@/components/AIUsageWidget";
+import { Input } from "@/components/ui/input";
+import { Progress } from "@/components/ui/progress";
+import { format, subDays } from "date-fns";
 
 type VocabularyTerm = {
   singular: string;
@@ -44,6 +47,24 @@ const TERM_DESCRIPTIONS: Record<keyof VocabularyTerms, string> = {
   bigRock: "Major initiatives or projects that drive results",
   meeting: "Scheduled sessions for team collaboration",
   focusRhythm: "Regular cadence of strategic planning sessions",
+};
+
+type TrafficStats = {
+  totalVisits: number;
+  visitsByPage: { page: string; count: number }[];
+  visitsByDay: { date: string; count: number }[];
+  visitsByCountry: { country: string; count: number }[];
+  visitsByDevice: { device: string; count: number }[];
+  visitsByBrowser: { browser: string; count: number }[];
+};
+
+const getDeviceIcon = (device: string) => {
+  switch (device.toLowerCase()) {
+    case 'mobile': return <Smartphone className="h-4 w-4" />;
+    case 'tablet': return <Tablet className="h-4 w-4" />;
+    case 'bot': return <Bot className="h-4 w-4" />;
+    default: return <Monitor className="h-4 w-4" />;
+  }
 };
 
 const VOCABULARY_OPTIONS: Record<keyof VocabularyTerms, VocabularyTerm[]> = {
@@ -109,12 +130,32 @@ export default function SystemAdmin() {
   const { toast } = useToast();
   const [vocabulary, setVocabulary] = useState<VocabularyTerms>(DEFAULT_VOCABULARY);
   const [hasChanges, setHasChanges] = useState(false);
+  const [trafficDateRange, setTrafficDateRange] = useState({
+    startDate: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
+    endDate: format(new Date(), 'yyyy-MM-dd'),
+  });
 
   const userRole = user?.role;
   const hasAccess = userRole === 'vega_admin' || userRole === 'global_admin';
 
   const { data: systemVocabulary, isLoading } = useQuery<VocabularyTerms>({
     queryKey: ["/api/vocabulary/system"],
+    enabled: hasAccess,
+  });
+
+  const { data: trafficStats, isLoading: trafficLoading } = useQuery<TrafficStats>({
+    queryKey: ["/api/admin/traffic", trafficDateRange.startDate, trafficDateRange.endDate],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        startDate: trafficDateRange.startDate,
+        endDate: trafficDateRange.endDate,
+      });
+      const response = await fetch(`/api/admin/traffic?${params.toString()}`, {
+        credentials: 'include',
+      });
+      if (!response.ok) throw new Error('Failed to fetch traffic stats');
+      return response.json();
+    },
     enabled: hasAccess,
   });
 
@@ -222,6 +263,10 @@ export default function SystemAdmin() {
             <Activity className="h-4 w-4" />
             AI Usage
           </TabsTrigger>
+          <TabsTrigger value="traffic" className="flex items-center gap-2" data-testid="tab-traffic">
+            <BarChart3 className="h-4 w-4" />
+            Traffic
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="vocabulary" className="space-y-4">
@@ -327,6 +372,193 @@ export default function SystemAdmin() {
                 <strong>Token Counting:</strong> For streaming responses, token counts are estimated 
                 (approximately 4 characters per token). Non-streaming calls provide exact counts.
               </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="traffic" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <CardTitle>Website Traffic Analytics</CardTitle>
+                  <CardDescription>
+                    Monitor website visits, page popularity, and visitor demographics
+                  </CardDescription>
+                </div>
+                <div className="flex flex-wrap gap-2 items-center">
+                  <Label className="text-sm">Date Range:</Label>
+                  <Input
+                    type="date"
+                    value={trafficDateRange.startDate}
+                    onChange={(e) => setTrafficDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                    className="w-36"
+                    data-testid="input-traffic-start-date"
+                  />
+                  <span className="text-muted-foreground">to</span>
+                  <Input
+                    type="date"
+                    value={trafficDateRange.endDate}
+                    onChange={(e) => setTrafficDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                    className="w-36"
+                    data-testid="input-traffic-end-date"
+                  />
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {trafficLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : trafficStats ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-2xl font-bold">{trafficStats.totalVisits.toLocaleString()}</div>
+                        <p className="text-xs text-muted-foreground">Total Page Views</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-2xl font-bold">{trafficStats.visitsByPage.length}</div>
+                        <p className="text-xs text-muted-foreground">Unique Pages Visited</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-2xl font-bold">{trafficStats.visitsByCountry.length}</div>
+                        <p className="text-xs text-muted-foreground">Countries</p>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="text-2xl font-bold">{trafficStats.visitsByDay.length}</div>
+                        <p className="text-xs text-muted-foreground">Days with Activity</p>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Top Pages</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {trafficStats.visitsByPage.length === 0 ? (
+                          <p className="text-muted-foreground text-sm">No page visits recorded yet</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {trafficStats.visitsByPage.slice(0, 10).map((item) => {
+                              const maxCount = trafficStats.visitsByPage[0]?.count || 1;
+                              const percentage = (item.count / maxCount) * 100;
+                              return (
+                                <div key={item.page} className="space-y-1">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="truncate max-w-[200px]" title={item.page}>{item.page}</span>
+                                    <span className="font-medium">{item.count.toLocaleString()}</span>
+                                  </div>
+                                  <Progress value={percentage} className="h-2" />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Device Breakdown</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {trafficStats.visitsByDevice.length === 0 ? (
+                          <p className="text-muted-foreground text-sm">No device data available</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {trafficStats.visitsByDevice.map((item) => {
+                              const maxCount = trafficStats.visitsByDevice[0]?.count || 1;
+                              const percentage = (item.count / maxCount) * 100;
+                              return (
+                                <div key={item.device} className="space-y-1">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span className="flex items-center gap-2">
+                                      {getDeviceIcon(item.device)}
+                                      {item.device}
+                                    </span>
+                                    <span className="font-medium">{item.count.toLocaleString()}</span>
+                                  </div>
+                                  <Progress value={percentage} className="h-2" />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">Browser Usage</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {trafficStats.visitsByBrowser.length === 0 ? (
+                          <p className="text-muted-foreground text-sm">No browser data available</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {trafficStats.visitsByBrowser.map((item) => {
+                              const maxCount = trafficStats.visitsByBrowser[0]?.count || 1;
+                              const percentage = (item.count / maxCount) * 100;
+                              return (
+                                <div key={item.browser} className="space-y-1">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span>{item.browser}</span>
+                                    <span className="font-medium">{item.count.toLocaleString()}</span>
+                                  </div>
+                                  <Progress value={percentage} className="h-2" />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base flex items-center gap-2">
+                          <Globe className="h-4 w-4" />
+                          Top Countries
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {trafficStats.visitsByCountry.length === 0 ? (
+                          <p className="text-muted-foreground text-sm">No country data available</p>
+                        ) : (
+                          <div className="space-y-3">
+                            {trafficStats.visitsByCountry.slice(0, 10).map((item) => {
+                              const maxCount = trafficStats.visitsByCountry[0]?.count || 1;
+                              const percentage = (item.count / maxCount) * 100;
+                              return (
+                                <div key={item.country} className="space-y-1">
+                                  <div className="flex items-center justify-between text-sm">
+                                    <span>{item.country}</span>
+                                    <span className="font-medium">{item.count.toLocaleString()}</span>
+                                  </div>
+                                  <Progress value={percentage} className="h-2" />
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-center py-12">No traffic data available</p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
