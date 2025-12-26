@@ -2008,6 +2008,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // PAGE VISIT TRACKING
+  // ============================================
+
+  // Record a page visit (public - no auth required)
+  app.post("/api/track/visit", async (req: Request, res: Response) => {
+    try {
+      const { page, visitorId } = req.body;
+      if (!page) {
+        return res.status(400).json({ error: "Page is required" });
+      }
+
+      const userAgent = req.get('user-agent') || '';
+      const referrer = req.get('referer') || '';
+      const forwardedFor = req.get('x-forwarded-for');
+      const ipAddress = forwardedFor ? forwardedFor.split(',')[0].trim() : req.ip || '';
+
+      const visit = await storage.recordPageVisit({
+        page,
+        visitorId: visitorId || null,
+        userAgent,
+        referrer,
+        ipAddress,
+        country: null,
+      });
+
+      res.status(201).json({ success: true, id: visit.id });
+    } catch (error) {
+      console.error("Error recording page visit:", error);
+      res.status(500).json({ error: "Failed to record visit" });
+    }
+  });
+
+  // Get traffic analytics (platform admin only)
+  app.get("/api/admin/traffic", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const { startDate, endDate } = req.query;
+      const start = startDate ? new Date(startDate as string) : undefined;
+      const end = endDate ? new Date(endDate as string) : undefined;
+
+      const stats = await storage.getPageVisitStats(start, end);
+      res.json(stats);
+    } catch (error) {
+      console.error("Error fetching traffic stats:", error);
+      res.status(500).json({ error: "Failed to fetch traffic stats" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

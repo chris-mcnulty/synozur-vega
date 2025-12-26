@@ -31,10 +31,11 @@ import {
   reportInstances, type ReportInstance, type InsertReportInstance,
   launchpadSessions, type LaunchpadSession, type InsertLaunchpadSession, type LaunchpadProposal,
   servicePlans, type ServicePlan, type InsertServicePlan,
-  blockedDomains, type BlockedDomain, type InsertBlockedDomain
+  blockedDomains, type BlockedDomain, type InsertBlockedDomain,
+  pageVisits, type PageVisit, type InsertPageVisit
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, sql, isNull, inArray } from "drizzle-orm";
+import { eq, and, or, desc, sql, isNull, inArray, gte, lte, count } from "drizzle-orm";
 import { hashPassword } from "./auth";
 
 export interface IStorage {
@@ -275,6 +276,17 @@ export interface IStorage {
   updateTenantPlan(tenantId: string, planId: string, expiresAt?: Date): Promise<Tenant>;
   cancelTenantPlan(tenantId: string, reason: string, cancelledBy: string): Promise<Tenant>;
   getTenantsWithExpiringPlans(daysUntilExpiry: number): Promise<Tenant[]>;
+  
+  // Page Visit Analytics
+  recordPageVisit(visit: InsertPageVisit): Promise<PageVisit>;
+  getPageVisitStats(startDate?: Date, endDate?: Date): Promise<{
+    totalVisits: number;
+    visitsByPage: { page: string; count: number }[];
+    visitsByDay: { date: string; count: number }[];
+    visitsByCountry: { country: string; count: number }[];
+    visitsByDevice: { device: string; count: number }[];
+    visitsByBrowser: { browser: string; count: number }[];
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2319,6 +2331,88 @@ export class DatabaseStorage implements IStorage {
           sql`${tenants.planExpiresAt} <= ${endOfDay}`
         )
       );
+  }
+
+  async recordPageVisit(visit: InsertPageVisit): Promise<PageVisit> {
+    const [recorded] = await db.insert(pageVisits).values(visit).returning();
+    return recorded;
+  }
+
+  async getPageVisitStats(startDate?: Date, endDate?: Date): Promise<{
+    totalVisits: number;
+    visitsByPage: { page: string; count: number }[];
+    visitsByDay: { date: string; count: number }[];
+    visitsByCountry: { country: string; count: number }[];
+    visitsByDevice: { device: string; count: number }[];
+    visitsByBrowser: { browser: string; count: number }[];
+  }> {
+    const conditions: any[] = [];
+    if (startDate) {
+      conditions.push(gte(pageVisits.visitedAt, startDate));
+    }
+    if (endDate) {
+      conditions.push(lte(pageVisits.visitedAt, endDate));
+    }
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+    const allVisits = await db.select().from(pageVisits).where(whereClause);
+    const totalVisits = allVisits.length;
+
+    const pageMap = new Map<string, number>();
+    const dayMap = new Map<string, number>();
+    const countryMap = new Map<string, number>();
+    const deviceMap = new Map<string, number>();
+    const browserMap = new Map<string, number>();
+
+    for (const visit of allVisits) {
+      pageMap.set(visit.page, (pageMap.get(visit.page) || 0) + 1);
+      
+      if (visit.visitedAt) {
+        const dateStr = visit.visitedAt.toISOString().split('T')[0];
+        dayMap.set(dateStr, (dayMap.get(dateStr) || 0) + 1);
+      }
+      
+      const country = visit.country || 'Unknown';
+      countryMap.set(country, (countryMap.get(country) || 0) + 1);
+
+      const device = this.parseDeviceType(visit.userAgent || '');
+      deviceMap.set(device, (deviceMap.get(device) || 0) + 1);
+
+      const browser = this.parseBrowserName(visit.userAgent || '');
+      browserMap.set(browser, (browserMap.get(browser) || 0) + 1);
+    }
+
+    return {
+      totalVisits,
+      visitsByPage: Array.from(pageMap.entries()).map(([page, count]) => ({ page, count })).sort((a, b) => b.count - a.count),
+      visitsByDay: Array.from(dayMap.entries()).map(([date, count]) => ({ date, count })).sort((a, b) => a.date.localeCompare(b.date)),
+      visitsByCountry: Array.from(countryMap.entries()).map(([country, count]) => ({ country, count })).sort((a, b) => b.count - a.count),
+      visitsByDevice: Array.from(deviceMap.entries()).map(([device, count]) => ({ device, count })).sort((a, b) => b.count - a.count),
+      visitsByBrowser: Array.from(browserMap.entries()).map(([browser, count]) => ({ browser, count })).sort((a, b) => b.count - a.count),
+    };
+  }
+
+  private parseDeviceType(userAgent: string): string {
+    const ua = userAgent.toLowerCase();
+    if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone')) {
+      return 'Mobile';
+    } else if (ua.includes('tablet') || ua.includes('ipad')) {
+      return 'Tablet';
+    } else if (ua.includes('bot') || ua.includes('crawler') || ua.includes('spider')) {
+      return 'Bot';
+    }
+    return 'Desktop';
+  }
+
+  private parseBrowserName(userAgent: string): string {
+    const ua = userAgent.toLowerCase();
+    if (ua.includes('edg')) return 'Edge';
+    if (ua.includes('chrome')) return 'Chrome';
+    if (ua.includes('firefox')) return 'Firefox';
+    if (ua.includes('safari')) return 'Safari';
+    if (ua.includes('opera') || ua.includes('opr')) return 'Opera';
+    if (ua.includes('msie') || ua.includes('trident')) return 'IE';
+    return 'Other';
   }
 }
 
