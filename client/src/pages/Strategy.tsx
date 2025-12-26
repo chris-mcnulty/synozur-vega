@@ -103,33 +103,6 @@ export default function Strategy() {
     retry: false,
   });
 
-  // Wait for tenant to load
-  if (tenantLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-      </div>
-    );
-  }
-
-  // Show message if user has no tenant access
-  if (!currentTenant) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="text-center max-w-md mx-auto p-8">
-          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h2 className="text-xl font-semibold mb-2">No Organization Access</h2>
-          <p className="text-muted-foreground">
-            Your account is not yet associated with an organization. Please contact your administrator.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  // Use actual annual goals from Foundations, with fallback
-  const availableGoals = foundation?.annualGoals || [];
-
   // Helper function to sync value tags
   const syncValueTags = async (
     entityId: string,
@@ -179,10 +152,24 @@ export default function Strategy() {
     }
   };
 
+  const resetForm = () => {
+    setFormData({
+      title: "",
+      description: "",
+      priority: "medium",
+      status: "not-started",
+      owner: "",
+      timeline: "",
+      linkedGoals: [],
+    });
+    setStrategyValueTags([]);
+    setPreviousStrategyValueTags([]);
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: StrategyFormData) => {
       return apiRequest("POST", "/api/strategies", {
-        tenantId: currentTenant.id,
+        tenantId: currentTenant?.id,
         ...data,
         updatedBy: "Current User",
       });
@@ -194,7 +181,7 @@ export default function Strategy() {
       } catch (error) {
         console.error('Failed to sync value tags:', error);
       }
-      queryClient.invalidateQueries({ queryKey: [`/api/strategies/${currentTenant.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/strategies/${currentTenant?.id}`] });
       setCreateDialogOpen(false);
       resetForm();
       toast({
@@ -225,7 +212,7 @@ export default function Strategy() {
       } catch (error) {
         console.error('Failed to sync value tags:', error);
       }
-      queryClient.invalidateQueries({ queryKey: [`/api/strategies/${currentTenant.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/strategies/${currentTenant?.id}`] });
       setEditDialogOpen(false);
       setSelectedStrategy(null);
       resetForm();
@@ -248,7 +235,7 @@ export default function Strategy() {
       return apiRequest("DELETE", `/api/strategies/${id}`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/strategies/${currentTenant.id}`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/strategies/${currentTenant?.id}`] });
       setDeleteDialogOpen(false);
       setSelectedStrategy(null);
       toast({
@@ -265,19 +252,32 @@ export default function Strategy() {
     },
   });
 
-  const resetForm = () => {
-    setFormData({
-      title: "",
-      description: "",
-      priority: "medium",
-      status: "not-started",
-      owner: "",
-      timeline: "",
-      linkedGoals: [],
-    });
-    setStrategyValueTags([]);
-    setPreviousStrategyValueTags([]);
-  };
+  // Wait for tenant to load - AFTER all hooks
+  if (tenantLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Show message if user has no tenant access
+  if (!currentTenant) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center max-w-md mx-auto p-8">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">No Organization Access</h2>
+          <p className="text-muted-foreground">
+            Your account is not yet associated with an organization. Please contact your administrator.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  // Use actual annual goals from Foundations, with fallback
+  const availableGoals = foundation?.annualGoals || [];
 
   const openEditDialog = async (strategy: Strategy) => {
     setSelectedStrategy(strategy);
