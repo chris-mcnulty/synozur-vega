@@ -727,6 +727,7 @@ export default function FocusRhythm() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [formData, setFormData] = useState<MeetingFormData>(initialFormData);
+  const [newItem, setNewItem] = useState("");
   
   const { data: foundation } = useQuery<Foundation>({
     queryKey: [`/api/foundations/${currentTenant?.id}`],
@@ -1220,8 +1221,6 @@ export default function FocusRhythm() {
       linkedBigRockIds: bigRockIds,
     });
   };
-
-  const [newItem, setNewItem] = useState("");
   
   const addListItem = (field: 'attendees' | 'agenda' | 'decisions' | 'actionItems' | 'risks') => {
     if (newItem.trim()) {
