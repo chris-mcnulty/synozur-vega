@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, BookOpen, Save, RotateCcw, Activity, BarChart3, Globe, Monitor, Smartphone, Tablet, Bot } from "lucide-react";
+import { Shield, BookOpen, Save, RotateCcw, Activity, BarChart3, Globe, Monitor, Smartphone, Tablet, Bot, Download } from "lucide-react";
 import { PlatformAIUsageWidget } from "@/components/AIUsageWidget";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -207,6 +207,60 @@ export default function SystemAdmin() {
     setHasChanges(false);
   };
 
+  const exportTrafficToCsv = () => {
+    if (!trafficStats) return;
+    
+    let csv = "Traffic Analytics Report\n";
+    csv += `Date Range: ${trafficDateRange.startDate} to ${trafficDateRange.endDate}\n\n`;
+    
+    csv += "Summary\n";
+    csv += `Total Page Views,${trafficStats.totalVisits}\n`;
+    csv += `Unique Pages,${trafficStats.visitsByPage.length}\n`;
+    csv += `Countries,${trafficStats.visitsByCountry.length}\n\n`;
+    
+    csv += "Visits by Page\n";
+    csv += "Page,Count\n";
+    trafficStats.visitsByPage.forEach(item => {
+      csv += `"${item.page}",${item.count}\n`;
+    });
+    
+    csv += "\nVisits by Day\n";
+    csv += "Date,Count\n";
+    trafficStats.visitsByDay.forEach(item => {
+      csv += `${item.date},${item.count}\n`;
+    });
+    
+    csv += "\nVisits by Device\n";
+    csv += "Device,Count\n";
+    trafficStats.visitsByDevice.forEach(item => {
+      csv += `${item.device},${item.count}\n`;
+    });
+    
+    csv += "\nVisits by Browser\n";
+    csv += "Browser,Count\n";
+    trafficStats.visitsByBrowser.forEach(item => {
+      csv += `${item.browser},${item.count}\n`;
+    });
+    
+    csv += "\nVisits by Country\n";
+    csv += "Country,Count\n";
+    trafficStats.visitsByCountry.forEach(item => {
+      csv += `"${item.country}",${item.count}\n`;
+    });
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `traffic-report-${trafficDateRange.startDate}-to-${trafficDateRange.endDate}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast({ title: "Report exported successfully" });
+  };
+
   if (!hasAccess) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -403,6 +457,16 @@ export default function SystemAdmin() {
                     className="w-36"
                     data-testid="input-traffic-end-date"
                   />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={exportTrafficToCsv}
+                    disabled={!trafficStats || trafficLoading}
+                    data-testid="button-export-traffic"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Export CSV
+                  </Button>
                 </div>
               </div>
             </CardHeader>
