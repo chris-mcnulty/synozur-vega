@@ -7,7 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Sparkles, Trash2, Pencil, Target, Link2, Loader2, Check } from "lucide-react";
+import { Plus, Sparkles, Trash2, Pencil, Target, Link2, Loader2, Check, AlertCircle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -104,10 +104,25 @@ export default function Strategy() {
   });
 
   // Wait for tenant to load
-  if (tenantLoading || !currentTenant) {
+  if (tenantLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Show message if user has no tenant access
+  if (!currentTenant) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center max-w-md mx-auto p-8">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">No Organization Access</h2>
+          <p className="text-muted-foreground">
+            Your account is not yet associated with an organization. Please contact your administrator.
+          </p>
+        </div>
       </div>
     );
   }

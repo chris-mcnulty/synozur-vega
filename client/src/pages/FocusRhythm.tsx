@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Users, Pencil, Trash2, Plus, Target, CheckCircle2, FileText, AlertTriangle, Link2, Clock, Zap, ChevronRight, X, Sparkles, Search, Copy, ClipboardCheck, ExternalLink, Mail, RefreshCw, Cloud, CloudOff } from "lucide-react";
+import { Calendar, Users, Pencil, Trash2, Plus, Target, CheckCircle2, FileText, AlertTriangle, AlertCircle, Link2, Clock, Zap, ChevronRight, X, Sparkles, Search, Copy, ClipboardCheck, ExternalLink, Mail, RefreshCw, Cloud, CloudOff } from "lucide-react";
 import { Link } from "wouter";
 import {
   Dialog,
@@ -909,10 +909,25 @@ export default function FocusRhythm() {
   });
 
   // Wait for tenant to load - placed AFTER all hooks
-  if (tenantLoading || !currentTenant) {
+  if (tenantLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Show message if user has no tenant access
+  if (!currentTenant) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center max-w-md mx-auto p-8">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">No Organization Access</h2>
+          <p className="text-muted-foreground">
+            Your account is not yet associated with an organization. Please contact your administrator.
+          </p>
+        </div>
       </div>
     );
   }

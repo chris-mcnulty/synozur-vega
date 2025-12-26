@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Eye, Edit, X, Plus, Save, Trash2, Loader2, Sparkles, Calendar } from "lucide-react";
+import { Eye, Edit, X, Plus, Save, Trash2, Loader2, Sparkles, Calendar, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
@@ -181,10 +181,25 @@ export default function Foundations() {
   });
   
   // Wait for tenant to load before rendering main content
-  if (tenantLoading || !currentTenant) {
+  if (tenantLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  // Show message if user has no tenant access
+  if (!currentTenant) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center max-w-md mx-auto p-8">
+          <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h2 className="text-xl font-semibold mb-2">No Organization Access</h2>
+          <p className="text-muted-foreground">
+            Your account is not yet associated with an organization. Please contact your administrator.
+          </p>
+        </div>
       </div>
     );
   }
