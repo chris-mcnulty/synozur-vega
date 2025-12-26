@@ -165,8 +165,8 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
             <ThemeToggle />
           </div>
         </header>
-        <div className="flex flex-1 overflow-hidden">
-          <main className="flex-1 overflow-auto p-8">
+        <div className="flex flex-1 overflow-hidden bg-background">
+          <main className="flex-1 overflow-auto p-8 bg-background">
             {children}
           </main>
           {chatOpen && <AIChatPanel onClose={() => setChatOpen(false)} />}
