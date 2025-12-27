@@ -2577,7 +2577,7 @@ export class DatabaseStorage implements IStorage {
 
       // Count values and goals from foundation
       const values = foundation?.values as any[] | null;
-      const goals = foundation?.goals as any[] | null;
+      const goals = foundation?.annualGoals as any[] | null;
 
       return {
         id: tenant.id,
