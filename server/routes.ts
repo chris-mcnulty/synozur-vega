@@ -2059,6 +2059,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get tenant activity report (platform admin only)
+  app.get("/api/admin/tenant-activity", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const windowDays = req.query.windowDays ? parseInt(req.query.windowDays as string, 10) : 30;
+      const report = await storage.getTenantActivityReport(windowDays);
+      res.json(report);
+    } catch (error) {
+      console.error("Error fetching tenant activity report:", error);
+      res.status(500).json({ error: "Failed to fetch tenant activity report" });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;

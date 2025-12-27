@@ -287,6 +287,37 @@ export interface IStorage {
     visitsByDevice: { device: string; count: number }[];
     visitsByBrowser: { browser: string; count: number }[];
   }>;
+  
+  // Tenant Activity Report for Platform Admins
+  getTenantActivityReport(windowDays?: number): Promise<{
+    tenants: {
+      id: string;
+      name: string;
+      planName: string | null;
+      planStatus: string | null;
+      planExpiresAt: Date | null;
+      selfServiceSignup: boolean | null;
+      totalUsers: number;
+      activeUsersLast30Days: number;
+      elements: {
+        hasMission: boolean;
+        hasVision: boolean;
+        valuesCount: number;
+        goalsCount: number;
+        strategiesCount: number;
+        objectivesCount: number;
+        keyResultsCount: number;
+        meetingsCount: number;
+      };
+      lastActivityDate: string | null;
+    }[];
+    summary: {
+      totalTenants: number;
+      totalUsers: number;
+      activeUsersLast30Days: number;
+      inactiveTrialTenants: number;
+    };
+  }>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -2414,6 +2445,189 @@ export class DatabaseStorage implements IStorage {
     if (ua.includes('opera') || ua.includes('opr')) return 'Opera';
     if (ua.includes('msie') || ua.includes('trident')) return 'IE';
     return 'Other';
+  }
+
+  async getTenantActivityReport(windowDays: number = 30): Promise<{
+    tenants: {
+      id: string;
+      name: string;
+      planName: string | null;
+      planStatus: string | null;
+      planExpiresAt: Date | null;
+      selfServiceSignup: boolean | null;
+      totalUsers: number;
+      activeUsersLast30Days: number;
+      elements: {
+        hasMission: boolean;
+        hasVision: boolean;
+        valuesCount: number;
+        goalsCount: number;
+        strategiesCount: number;
+        objectivesCount: number;
+        keyResultsCount: number;
+        meetingsCount: number;
+      };
+      lastActivityDate: string | null;
+    }[];
+    summary: {
+      totalTenants: number;
+      totalUsers: number;
+      activeUsersLast30Days: number;
+      inactiveTrialTenants: number;
+    };
+  }> {
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - windowDays);
+
+    // Fetch all tenants with their service plans
+    const allTenants = await db.select({
+      id: tenants.id,
+      name: tenants.name,
+      planStatus: tenants.planStatus,
+      planExpiresAt: tenants.planExpiresAt,
+      selfServiceSignup: tenants.selfServiceSignup,
+      servicePlanId: tenants.servicePlanId,
+    }).from(tenants);
+
+    // Fetch all service plans for lookup
+    const allPlans = await db.select().from(servicePlans);
+    const planMap = new Map(allPlans.map(p => [p.id, p]));
+
+    // Fetch all users grouped by tenant
+    const allUsers = await db.select().from(users);
+    const usersByTenant = new Map<string, User[]>();
+    for (const user of allUsers) {
+      if (user.tenantId) {
+        const existing = usersByTenant.get(user.tenantId) || [];
+        existing.push(user);
+        usersByTenant.set(user.tenantId, existing);
+      }
+    }
+
+    // Fetch all foundations
+    const allFoundations = await db.select().from(foundations);
+    const foundationByTenant = new Map(allFoundations.map(f => [f.tenantId, f]));
+
+    // Fetch element counts by tenant
+    const allStrategies = await db.select({ tenantId: strategies.tenantId }).from(strategies);
+    const allObjectives = await db.select({ tenantId: objectives.tenantId }).from(objectives);
+    const allKeyResults = await db.select({ tenantId: keyResults.tenantId }).from(keyResults);
+    const allMeetings = await db.select({ tenantId: meetings.tenantId }).from(meetings);
+
+    const countByTenant = (items: { tenantId: string }[]) => {
+      const map = new Map<string, number>();
+      for (const item of items) {
+        map.set(item.tenantId, (map.get(item.tenantId) || 0) + 1);
+      }
+      return map;
+    };
+
+    const strategyCounts = countByTenant(allStrategies);
+    const objectiveCounts = countByTenant(allObjectives);
+    const keyResultCounts = countByTenant(allKeyResults);
+    const meetingCounts = countByTenant(allMeetings);
+
+    // Fetch recent activity dates from various tables to identify active users
+    // We'll use updatedAt from objectives, keyResults, meetings, checkIns as activity signals
+    const recentObjectives = await db.select({
+      tenantId: objectives.tenantId,
+      updatedAt: objectives.updatedAt,
+    }).from(objectives).where(gte(objectives.updatedAt, cutoffDate));
+
+    const recentKeyResults = await db.select({
+      tenantId: keyResults.tenantId,
+      updatedAt: keyResults.updatedAt,
+    }).from(keyResults).where(gte(keyResults.updatedAt, cutoffDate));
+
+    const recentMeetings = await db.select({
+      tenantId: meetings.tenantId,
+      updatedAt: meetings.updatedAt,
+    }).from(meetings).where(gte(meetings.updatedAt, cutoffDate));
+
+    const recentCheckIns = await db.select({
+      tenantId: checkIns.tenantId,
+      createdAt: checkIns.createdAt,
+    }).from(checkIns).where(gte(checkIns.createdAt, cutoffDate));
+
+    // Count active tenants (those with any recent activity)
+    const activeTenants = new Set<string>();
+    const lastActivityByTenant = new Map<string, Date>();
+
+    const updateLastActivity = (tenantId: string, date: Date | null) => {
+      if (!date) return;
+      activeTenants.add(tenantId);
+      const existing = lastActivityByTenant.get(tenantId);
+      if (!existing || date > existing) {
+        lastActivityByTenant.set(tenantId, date);
+      }
+    };
+
+    for (const obj of recentObjectives) { updateLastActivity(obj.tenantId, obj.updatedAt); }
+    for (const kr of recentKeyResults) { updateLastActivity(kr.tenantId, kr.updatedAt); }
+    for (const mtg of recentMeetings) { updateLastActivity(mtg.tenantId, mtg.updatedAt); }
+    for (const ci of recentCheckIns) { updateLastActivity(ci.tenantId, ci.createdAt); }
+
+    // Build result
+    const tenantResults = allTenants.map(tenant => {
+      const plan = tenant.servicePlanId ? planMap.get(tenant.servicePlanId) : null;
+      const foundation = foundationByTenant.get(tenant.id);
+      const tenantUsers = usersByTenant.get(tenant.id) || [];
+      const isActive = activeTenants.has(tenant.id);
+      const lastActivity = lastActivityByTenant.get(tenant.id);
+
+      // Count values and goals from foundation
+      const values = foundation?.values as any[] | null;
+      const goals = foundation?.goals as any[] | null;
+
+      return {
+        id: tenant.id,
+        name: tenant.name,
+        planName: plan?.displayName || null,
+        planStatus: tenant.planStatus,
+        planExpiresAt: tenant.planExpiresAt,
+        selfServiceSignup: tenant.selfServiceSignup,
+        totalUsers: tenantUsers.length,
+        activeUsersLast30Days: isActive ? tenantUsers.length : 0, // Simplified: if tenant active, count all users
+        elements: {
+          hasMission: !!foundation?.mission,
+          hasVision: !!foundation?.vision,
+          valuesCount: Array.isArray(values) ? values.length : 0,
+          goalsCount: Array.isArray(goals) ? goals.length : 0,
+          strategiesCount: strategyCounts.get(tenant.id) || 0,
+          objectivesCount: objectiveCounts.get(tenant.id) || 0,
+          keyResultsCount: keyResultCounts.get(tenant.id) || 0,
+          meetingsCount: meetingCounts.get(tenant.id) || 0,
+        },
+        lastActivityDate: lastActivity 
+          ? lastActivity.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
+          : null,
+      };
+    });
+
+    // Sort by last activity (most recent first), then by name
+    tenantResults.sort((a, b) => {
+      if (a.lastActivityDate && b.lastActivityDate) {
+        return b.lastActivityDate.localeCompare(a.lastActivityDate);
+      }
+      if (a.lastActivityDate) return -1;
+      if (b.lastActivityDate) return 1;
+      return a.name.localeCompare(b.name);
+    });
+
+    // Count inactive trial tenants (self-service signups with no activity)
+    const inactiveTrialTenants = tenantResults.filter(t => 
+      t.selfServiceSignup && !activeTenants.has(t.id)
+    ).length;
+
+    return {
+      tenants: tenantResults,
+      summary: {
+        totalTenants: allTenants.length,
+        totalUsers: allUsers.filter(u => u.tenantId).length,
+        activeUsersLast30Days: tenantResults.reduce((sum, t) => sum + t.activeUsersLast30Days, 0),
+        inactiveTrialTenants,
+      },
+    };
   }
 }
 

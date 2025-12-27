@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, BookOpen, Save, RotateCcw, Activity, BarChart3, Globe, Monitor, Smartphone, Tablet, Bot, Download } from "lucide-react";
+import { Shield, BookOpen, Save, RotateCcw, Activity, BarChart3, Globe, Monitor, Smartphone, Tablet, Bot, Download, Users, Building2, Check, X } from "lucide-react";
 import { PlatformAIUsageWidget } from "@/components/AIUsageWidget";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -56,6 +56,36 @@ type TrafficStats = {
   visitsByCountry: { country: string; count: number }[];
   visitsByDevice: { device: string; count: number }[];
   visitsByBrowser: { browser: string; count: number }[];
+};
+
+type TenantActivityReport = {
+  tenants: {
+    id: string;
+    name: string;
+    planName: string | null;
+    planStatus: string | null;
+    planExpiresAt: string | null;
+    selfServiceSignup: boolean | null;
+    totalUsers: number;
+    activeUsersLast30Days: number;
+    elements: {
+      hasMission: boolean;
+      hasVision: boolean;
+      valuesCount: number;
+      goalsCount: number;
+      strategiesCount: number;
+      objectivesCount: number;
+      keyResultsCount: number;
+      meetingsCount: number;
+    };
+    lastActivityDate: string | null;
+  }[];
+  summary: {
+    totalTenants: number;
+    totalUsers: number;
+    activeUsersLast30Days: number;
+    inactiveTrialTenants: number;
+  };
 };
 
 const getDeviceIcon = (device: string) => {
@@ -156,6 +186,11 @@ export default function SystemAdmin() {
       if (!response.ok) throw new Error('Failed to fetch traffic stats');
       return response.json();
     },
+    enabled: hasAccess,
+  });
+
+  const { data: tenantActivity, isLoading: tenantActivityLoading } = useQuery<TenantActivityReport>({
+    queryKey: ["/api/admin/tenant-activity"],
     enabled: hasAccess,
   });
 
@@ -261,6 +296,37 @@ export default function SystemAdmin() {
     toast({ title: "Report exported successfully" });
   };
 
+  const exportTenantActivityToCsv = () => {
+    if (!tenantActivity) return;
+    
+    let csv = "Tenant Activity Report\n";
+    csv += `Generated: ${new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })}\n\n`;
+    
+    csv += "Summary\n";
+    csv += `Total Tenants,${tenantActivity.summary.totalTenants}\n`;
+    csv += `Total Users,${tenantActivity.summary.totalUsers}\n`;
+    csv += `Active Users (Last 30 Days),${tenantActivity.summary.activeUsersLast30Days}\n`;
+    csv += `Inactive Trial Tenants,${tenantActivity.summary.inactiveTrialTenants}\n\n`;
+    
+    csv += "Tenant Details\n";
+    csv += "Tenant Name,Plan,Status,Expires,Self-Service,Total Users,Active Users,Mission,Vision,Values,Goals,Strategies,Objectives,Key Results,Meetings,Last Activity\n";
+    tenantActivity.tenants.forEach(t => {
+      csv += `"${t.name}","${t.planName || 'N/A'}","${t.planStatus || 'N/A'}","${t.planExpiresAt || 'N/A'}",${t.selfServiceSignup ? 'Yes' : 'No'},${t.totalUsers},${t.activeUsersLast30Days},${t.elements.hasMission ? 'Yes' : 'No'},${t.elements.hasVision ? 'Yes' : 'No'},${t.elements.valuesCount},${t.elements.goalsCount},${t.elements.strategiesCount},${t.elements.objectivesCount},${t.elements.keyResultsCount},${t.elements.meetingsCount},"${t.lastActivityDate || 'Never'}"\n`;
+    });
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `tenant-activity-report-${new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    toast({ title: "Tenant activity report exported successfully" });
+  };
+
   if (!hasAccess) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -320,6 +386,10 @@ export default function SystemAdmin() {
           <TabsTrigger value="traffic" className="flex items-center gap-2" data-testid="tab-traffic">
             <BarChart3 className="h-4 w-4" />
             Traffic
+          </TabsTrigger>
+          <TabsTrigger value="tenant-activity" className="flex items-center gap-2" data-testid="tab-tenant-activity">
+            <Building2 className="h-4 w-4" />
+            Tenant Activity
           </TabsTrigger>
         </TabsList>
 
@@ -622,6 +692,154 @@ export default function SystemAdmin() {
                 </div>
               ) : (
                 <p className="text-muted-foreground text-center py-12">No traffic data available</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="tenant-activity" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <CardTitle>Tenant Activity Report</CardTitle>
+                  <CardDescription>
+                    Monitor tenant usage, user activity, and Company OS element adoption across all organizations
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportTenantActivityToCsv}
+                  disabled={!tenantActivity || tenantActivityLoading}
+                  data-testid="button-export-tenant-activity"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Export CSV
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {tenantActivityLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : tenantActivity ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <div className="text-2xl font-bold">{tenantActivity.summary.totalTenants}</div>
+                            <p className="text-xs text-muted-foreground">Total Tenants</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <div className="text-2xl font-bold">{tenantActivity.summary.totalUsers}</div>
+                            <p className="text-xs text-muted-foreground">Total Users</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-2">
+                          <Activity className="h-5 w-5 text-green-500" />
+                          <div>
+                            <div className="text-2xl font-bold">{tenantActivity.summary.activeUsersLast30Days}</div>
+                            <p className="text-xs text-muted-foreground">Active (30 Days)</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-6">
+                        <div className="flex items-center gap-2">
+                          <X className="h-5 w-5 text-orange-500" />
+                          <div>
+                            <div className="text-2xl font-bold">{tenantActivity.summary.inactiveTrialTenants}</div>
+                            <p className="text-xs text-muted-foreground">Inactive Trials</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm" data-testid="table-tenant-activity">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-3 px-2 font-medium">Tenant</th>
+                          <th className="text-left py-3 px-2 font-medium">Plan</th>
+                          <th className="text-center py-3 px-2 font-medium">Users</th>
+                          <th className="text-center py-3 px-2 font-medium">Active</th>
+                          <th className="text-center py-3 px-2 font-medium">Mission</th>
+                          <th className="text-center py-3 px-2 font-medium">Vision</th>
+                          <th className="text-center py-3 px-2 font-medium">Values</th>
+                          <th className="text-center py-3 px-2 font-medium">Goals</th>
+                          <th className="text-center py-3 px-2 font-medium">Strategies</th>
+                          <th className="text-center py-3 px-2 font-medium">OKRs</th>
+                          <th className="text-center py-3 px-2 font-medium">KRs</th>
+                          <th className="text-center py-3 px-2 font-medium">Meetings</th>
+                          <th className="text-left py-3 px-2 font-medium">Last Activity</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tenantActivity.tenants.map((tenant) => (
+                          <tr key={tenant.id} className="border-b hover:bg-muted/50" data-testid={`row-tenant-${tenant.id}`}>
+                            <td className="py-3 px-2">
+                              <div>
+                                <div className="font-medium">{tenant.name}</div>
+                                {tenant.selfServiceSignup && (
+                                  <span className="text-xs text-muted-foreground">Self-service</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-2">
+                              <div>
+                                <div className="text-xs">{tenant.planName || 'No Plan'}</div>
+                                <span className={`text-xs ${tenant.planStatus === 'active' ? 'text-green-600' : 'text-orange-600'}`}>
+                                  {tenant.planStatus || 'N/A'}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-2 text-center">{tenant.totalUsers}</td>
+                            <td className="py-3 px-2 text-center">
+                              <span className={tenant.activeUsersLast30Days > 0 ? 'text-green-600 font-medium' : 'text-muted-foreground'}>
+                                {tenant.activeUsersLast30Days}
+                              </span>
+                            </td>
+                            <td className="py-3 px-2 text-center">
+                              {tenant.elements.hasMission ? <Check className="h-4 w-4 text-green-500 mx-auto" /> : <X className="h-4 w-4 text-muted-foreground mx-auto" />}
+                            </td>
+                            <td className="py-3 px-2 text-center">
+                              {tenant.elements.hasVision ? <Check className="h-4 w-4 text-green-500 mx-auto" /> : <X className="h-4 w-4 text-muted-foreground mx-auto" />}
+                            </td>
+                            <td className="py-3 px-2 text-center">{tenant.elements.valuesCount}</td>
+                            <td className="py-3 px-2 text-center">{tenant.elements.goalsCount}</td>
+                            <td className="py-3 px-2 text-center">{tenant.elements.strategiesCount}</td>
+                            <td className="py-3 px-2 text-center">{tenant.elements.objectivesCount}</td>
+                            <td className="py-3 px-2 text-center">{tenant.elements.keyResultsCount}</td>
+                            <td className="py-3 px-2 text-center">{tenant.elements.meetingsCount}</td>
+                            <td className="py-3 px-2 text-sm text-muted-foreground">
+                              {tenant.lastActivityDate || 'Never'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-center py-12">No tenant activity data available</p>
               )}
             </CardContent>
           </Card>
