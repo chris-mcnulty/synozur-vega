@@ -1455,9 +1455,10 @@ export class DatabaseStorage implements IStorage {
     const resultMap = new Map<string, PlannerTask[]>();
     for (const link of links) {
       const objectiveId = link.objective_planner_tasks.objectiveId;
-      const existing = resultMap.get(objectiveId) || [];
-      existing.push(link.planner_tasks);
-      resultMap.set(objectiveId, existing);
+      if (!resultMap.has(objectiveId)) {
+        resultMap.set(objectiveId, []);
+      }
+      resultMap.get(objectiveId)!.push(link.planner_tasks);
     }
     
     return resultMap;
@@ -1481,9 +1482,10 @@ export class DatabaseStorage implements IStorage {
     const resultMap = new Map<string, PlannerTask[]>();
     for (const link of links) {
       const bigRockId = link.big_rock_planner_tasks.bigRockId;
-      const existing = resultMap.get(bigRockId) || [];
-      existing.push(link.planner_tasks);
-      resultMap.set(bigRockId, existing);
+      if (!resultMap.has(bigRockId)) {
+        resultMap.set(bigRockId, []);
+      }
+      resultMap.get(bigRockId)!.push(link.planner_tasks);
     }
     
     return resultMap;
