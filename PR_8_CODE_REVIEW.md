@@ -185,7 +185,6 @@ return links.map(link => link.planner_tasks);
 ### Potential Issues
 1. ⚠️ **Orphaned links**: The refactored `getPlannerTasksLinkedToObjective` and `getPlannerTasksLinkedToBigRock` methods no longer filter out missing tasks. If the database has orphaned links (links pointing to non-existent tasks), the `innerJoin` will silently exclude them, which is probably desired behavior but different from the original code.
 
-### Interface/Type Considerations
 2. ⚠️ **Missing interface updates**: The new batch methods are not declared in the `IStorage` interface. While they're internal methods, it's best practice to add them if other parts of the codebase might use them.
 
 ## Recommendations
