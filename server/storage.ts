@@ -1407,7 +1407,8 @@ export class DatabaseStorage implements IStorage {
   /**
    * Get the latest check-in for multiple entities in a single query
    * Fetches all check-ins for the entities and filters to latest per entity in memory
-   * This is O(1) queries instead of O(N) queries, though O(M) where M is total check-ins
+   * Uses 1 query instead of N separate queries, and then processes O(M) check-ins in memory,
+   * where M is the total number of check-ins for all given entities
    * Returns a Map of entityId -> CheckIn
    */
   async getLatestCheckInsForEntities(entityType: string, entityIds: string[]): Promise<Map<string, CheckIn>> {
