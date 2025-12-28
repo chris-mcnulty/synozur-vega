@@ -1216,16 +1216,22 @@ export class DatabaseStorage implements IStorage {
     // Child objectives will be built from the allObjectives array for proper sorting
     const objectiveDataMap = new Map<string, { keyResults: KeyResult[]; linkedBigRocks: BigRock[]; latestCheckIn: CheckIn | undefined }>();
     
-    await Promise.all(
-      allObjectives.map(async (objective) => {
-        const [keyResults, linkedBigRocks, latestCheckIn] = await Promise.all([
-          this.getKeyResultsByObjectiveId(objective.id),
-          this.getBigRocksLinkedToObjective(objective.id),
-          this.getLatestCheckIn('objective', objective.id),
-        ]);
-        objectiveDataMap.set(objective.id, { keyResults, linkedBigRocks, latestCheckIn });
-      })
-    );
+    // PERFORMANCE: Use batch queries to avoid N+1 problem
+    // This fetches all data in 3 queries instead of N*3 queries
+    const objectiveIds = allObjectives.map(obj => obj.id);
+    const [keyResultsMap, linkedBigRocksMap, latestCheckInMap] = await Promise.all([
+      this.getKeyResultsByObjectiveIds(objectiveIds),
+      this.getBigRocksLinkedToObjectives(objectiveIds),
+      this.getLatestCheckInsForEntities('objective', objectiveIds),
+    ]);
+    
+    for (const objective of allObjectives) {
+      objectiveDataMap.set(objective.id, {
+        keyResults: keyResultsMap.get(objective.id) || [],
+        linkedBigRocks: linkedBigRocksMap.get(objective.id) || [],
+        latestCheckIn: latestCheckInMap.get(objective.id),
+      });
+    }
     
     // Build a map of parent -> sorted children from allObjectives
     const childrenByParentId = new Map<string, Objective[]>();
@@ -1382,6 +1388,153 @@ export class DatabaseStorage implements IStorage {
       .limit(1);
     return checkIn || undefined;
   }
+
+  // ============================================
+  // BATCH QUERY METHODS - Performance optimizations
+  // These methods fetch data for multiple entities in a single query
+  // to avoid N+1 query problems
+  // ============================================
+
+  /**
+   * Get all key results for multiple objectives in a single query
+   * Returns a Map of objectiveId -> KeyResult[]
+   */
+  async getKeyResultsByObjectiveIds(objectiveIds: string[]): Promise<Map<string, KeyResult[]>> {
+    if (objectiveIds.length === 0) {
+      return new Map();
+    }
+    
+    const allKeyResults = await db
+      .select()
+      .from(keyResults)
+      .where(inArray(keyResults.objectiveId, objectiveIds));
+    
+    // Group by objectiveId
+    const resultMap = new Map<string, KeyResult[]>();
+    for (const kr of allKeyResults) {
+      const existing = resultMap.get(kr.objectiveId) || [];
+      existing.push(kr);
+      resultMap.set(kr.objectiveId, existing);
+    }
+    
+    return resultMap;
+  }
+
+  /**
+   * Get all linked big rocks for multiple objectives in a single query
+   * Returns a Map of objectiveId -> BigRock[]
+   */
+  async getBigRocksLinkedToObjectives(objectiveIds: string[]): Promise<Map<string, BigRock[]>> {
+    if (objectiveIds.length === 0) {
+      return new Map();
+    }
+    
+    const links = await db
+      .select()
+      .from(objectiveBigRocks)
+      .innerJoin(bigRocks, eq(objectiveBigRocks.bigRockId, bigRocks.id))
+      .where(inArray(objectiveBigRocks.objectiveId, objectiveIds));
+    
+    // Group by objectiveId
+    const resultMap = new Map<string, BigRock[]>();
+    for (const link of links) {
+      const objectiveId = link.objective_big_rocks.objectiveId;
+      const existing = resultMap.get(objectiveId) || [];
+      existing.push(link.big_rocks);
+      resultMap.set(objectiveId, existing);
+    }
+    
+    return resultMap;
+  }
+
+  /**
+   * Get the latest check-in for multiple entities in a single query
+   * Fetches all check-ins for the entities and filters to latest per entity in memory
+   * Uses 1 query instead of N separate queries, and then processes O(M) check-ins in memory,
+   * where M is the total number of check-ins for all given entities
+   * Returns a Map of entityId -> CheckIn
+   */
+  async getLatestCheckInsForEntities(entityType: string, entityIds: string[]): Promise<Map<string, CheckIn>> {
+    if (entityIds.length === 0) {
+      return new Map();
+    }
+    
+    // Fetch all check-ins for the given entities in one query
+    const allCheckIns = await db
+      .select()
+      .from(checkIns)
+      .where(and(
+        eq(checkIns.entityType, entityType),
+        inArray(checkIns.entityId, entityIds)
+      ))
+      .orderBy(desc(checkIns.asOfDate));
+    
+    // Keep only the latest check-in per entity (they're already sorted by date desc)
+    const resultMap = new Map<string, CheckIn>();
+    for (const checkIn of allCheckIns) {
+      if (!resultMap.has(checkIn.entityId)) {
+        resultMap.set(checkIn.entityId, checkIn);
+      }
+    }
+    
+    return resultMap;
+  }
+
+  /**
+   * Get all planner tasks linked to multiple objectives in a single query
+   * Returns a Map of objectiveId -> PlannerTask[]
+   */
+  async getPlannerTasksLinkedToObjectives(objectiveIds: string[]): Promise<Map<string, PlannerTask[]>> {
+    if (objectiveIds.length === 0) {
+      return new Map();
+    }
+    
+    const links = await db
+      .select()
+      .from(objectivePlannerTasks)
+      .innerJoin(plannerTasks, eq(objectivePlannerTasks.plannerTaskId, plannerTasks.id))
+      .where(inArray(objectivePlannerTasks.objectiveId, objectiveIds));
+    
+    const resultMap = new Map<string, PlannerTask[]>();
+    for (const link of links) {
+      const objectiveId = link.objective_planner_tasks.objectiveId;
+      const existing = resultMap.get(objectiveId) || [];
+      existing.push(link.planner_tasks);
+      resultMap.set(objectiveId, existing);
+    }
+    
+    return resultMap;
+  }
+
+  /**
+   * Get all planner tasks linked to multiple big rocks in a single query
+   * Returns a Map of bigRockId -> PlannerTask[]
+   */
+  async getPlannerTasksLinkedToBigRocks(bigRockIds: string[]): Promise<Map<string, PlannerTask[]>> {
+    if (bigRockIds.length === 0) {
+      return new Map();
+    }
+    
+    const links = await db
+      .select()
+      .from(bigRockPlannerTasks)
+      .innerJoin(plannerTasks, eq(bigRockPlannerTasks.plannerTaskId, plannerTasks.id))
+      .where(inArray(bigRockPlannerTasks.bigRockId, bigRockIds));
+    
+    const resultMap = new Map<string, PlannerTask[]>();
+    for (const link of links) {
+      const bigRockId = link.big_rock_planner_tasks.bigRockId;
+      const existing = resultMap.get(bigRockId) || [];
+      existing.push(link.planner_tasks);
+      resultMap.set(bigRockId, existing);
+    }
+    
+    return resultMap;
+  }
+
+  // ============================================
+  // END BATCH QUERY METHODS
+  // ============================================
 
   // Value tagging implementations
   async addValueToObjective(objectiveId: string, valueTitle: string, tenantId: string): Promise<void> {
@@ -1808,17 +1961,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPlannerTasksLinkedToObjective(objectiveId: string): Promise<PlannerTask[]> {
+    // PERFORMANCE: Use JOIN to fetch all tasks in a single query instead of N+1
     const links = await db
       .select()
       .from(objectivePlannerTasks)
+      .innerJoin(plannerTasks, eq(objectivePlannerTasks.plannerTaskId, plannerTasks.id))
       .where(eq(objectivePlannerTasks.objectiveId, objectiveId));
     
-    const tasks: PlannerTask[] = [];
-    for (const link of links) {
-      const task = await this.getPlannerTaskById(link.plannerTaskId);
-      if (task) tasks.push(task);
-    }
-    return tasks;
+    return links.map(link => link.planner_tasks);
   }
 
   async linkPlannerTaskToBigRock(plannerTaskId: string, bigRockId: string, tenantId: string, userId?: string): Promise<void> {
@@ -1843,17 +1993,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getPlannerTasksLinkedToBigRock(bigRockId: string): Promise<PlannerTask[]> {
+    // PERFORMANCE: Use JOIN to fetch all tasks in a single query instead of N+1
     const links = await db
       .select()
       .from(bigRockPlannerTasks)
+      .innerJoin(plannerTasks, eq(bigRockPlannerTasks.plannerTaskId, plannerTasks.id))
       .where(eq(bigRockPlannerTasks.bigRockId, bigRockId));
     
-    const tasks: PlannerTask[] = [];
-    for (const link of links) {
-      const task = await this.getPlannerTaskById(link.plannerTaskId);
-      if (task) tasks.push(task);
-    }
-    return tasks;
+    return links.map(link => link.planner_tasks);
   }
 
   // Consultant tenant access grant methods
