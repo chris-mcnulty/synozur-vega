@@ -204,10 +204,12 @@ export interface IStorage {
   linkPlannerTaskToObjective(plannerTaskId: string, objectiveId: string, tenantId: string, userId?: string): Promise<void>;
   unlinkPlannerTaskFromObjective(plannerTaskId: string, objectiveId: string): Promise<void>;
   getPlannerTasksLinkedToObjective(objectiveId: string): Promise<PlannerTask[]>;
+  getPlannerTasksLinkedToObjectives(objectiveIds: string[]): Promise<Map<string, PlannerTask[]>>;
   
   linkPlannerTaskToBigRock(plannerTaskId: string, bigRockId: string, tenantId: string, userId?: string): Promise<void>;
   unlinkPlannerTaskFromBigRock(plannerTaskId: string, bigRockId: string): Promise<void>;
   getPlannerTasksLinkedToBigRock(bigRockId: string): Promise<PlannerTask[]>;
+  getPlannerTasksLinkedToBigRocks(bigRockIds: string[]): Promise<Map<string, PlannerTask[]>>;
   
   // Consultant tenant access grants
   getConsultantTenantAccess(userId: string): Promise<ConsultantTenantAccess[]>;
@@ -1811,14 +1813,10 @@ export class DatabaseStorage implements IStorage {
     const links = await db
       .select()
       .from(objectivePlannerTasks)
+      .innerJoin(plannerTasks, eq(objectivePlannerTasks.plannerTaskId, plannerTasks.id))
       .where(eq(objectivePlannerTasks.objectiveId, objectiveId));
     
-    const tasks: PlannerTask[] = [];
-    for (const link of links) {
-      const task = await this.getPlannerTaskById(link.plannerTaskId);
-      if (task) tasks.push(task);
-    }
-    return tasks;
+    return links.map(link => link.planner_tasks);
   }
 
   async linkPlannerTaskToBigRock(plannerTaskId: string, bigRockId: string, tenantId: string, userId?: string): Promise<void> {
@@ -1846,14 +1844,58 @@ export class DatabaseStorage implements IStorage {
     const links = await db
       .select()
       .from(bigRockPlannerTasks)
+      .innerJoin(plannerTasks, eq(bigRockPlannerTasks.plannerTaskId, plannerTasks.id))
       .where(eq(bigRockPlannerTasks.bigRockId, bigRockId));
     
-    const tasks: PlannerTask[] = [];
-    for (const link of links) {
-      const task = await this.getPlannerTaskById(link.plannerTaskId);
-      if (task) tasks.push(task);
+    return links.map(link => link.planner_tasks);
+  }
+
+  async getPlannerTasksLinkedToObjectives(objectiveIds: string[]): Promise<Map<string, PlannerTask[]>> {
+    if (objectiveIds.length === 0) {
+      return new Map();
     }
-    return tasks;
+
+    const links = await db
+      .select()
+      .from(objectivePlannerTasks)
+      .innerJoin(plannerTasks, eq(objectivePlannerTasks.plannerTaskId, plannerTasks.id))
+      .where(inArray(objectivePlannerTasks.objectiveId, objectiveIds));
+    
+    // Group tasks by objective ID
+    const tasksByObjective = new Map<string, PlannerTask[]>();
+    for (const link of links) {
+      const objectiveId = link.objective_planner_tasks.objectiveId;
+      if (!tasksByObjective.has(objectiveId)) {
+        tasksByObjective.set(objectiveId, []);
+      }
+      tasksByObjective.get(objectiveId)!.push(link.planner_tasks);
+    }
+    
+    return tasksByObjective;
+  }
+
+  async getPlannerTasksLinkedToBigRocks(bigRockIds: string[]): Promise<Map<string, PlannerTask[]>> {
+    if (bigRockIds.length === 0) {
+      return new Map();
+    }
+
+    const links = await db
+      .select()
+      .from(bigRockPlannerTasks)
+      .innerJoin(plannerTasks, eq(bigRockPlannerTasks.plannerTaskId, plannerTasks.id))
+      .where(inArray(bigRockPlannerTasks.bigRockId, bigRockIds));
+    
+    // Group tasks by big rock ID
+    const tasksByBigRock = new Map<string, PlannerTask[]>();
+    for (const link of links) {
+      const bigRockId = link.big_rock_planner_tasks.bigRockId;
+      if (!tasksByBigRock.has(bigRockId)) {
+        tasksByBigRock.set(bigRockId, []);
+      }
+      tasksByBigRock.get(bigRockId)!.push(link.planner_tasks);
+    }
+    
+    return tasksByBigRock;
   }
 
   // Consultant tenant access grant methods
