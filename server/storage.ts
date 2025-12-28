@@ -1369,9 +1369,10 @@ export class DatabaseStorage implements IStorage {
     // Group by objectiveId
     const resultMap = new Map<string, KeyResult[]>();
     for (const kr of allKeyResults) {
-      const existing = resultMap.get(kr.objectiveId) || [];
-      existing.push(kr);
-      resultMap.set(kr.objectiveId, existing);
+      if (!resultMap.has(kr.objectiveId)) {
+        resultMap.set(kr.objectiveId, []);
+      }
+      resultMap.get(kr.objectiveId)!.push(kr);
     }
     
     return resultMap;
