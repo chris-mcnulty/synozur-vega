@@ -1,0 +1,252 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/copilot/plugin/v2.2/schema.json",
+  "schema_version": "v2.2",
+  "name_for_human": "Vega Company OS",
+  "name_for_model": "vega_company_os",
+  "description_for_human": "Manage OKRs, strategic planning, and team alignment with the Vega Company Operating System.",
+  "description_for_model": "Use this plugin to interact with the Vega Company OS platform. You can retrieve and manage OKRs (Objectives and Key Results), Big Rocks (quarterly priorities), Focus Rhythm meetings, strategies, and company foundations. Always use the appropriate tenantId parameter when making requests.",
+  "logo_url": "https://vega.synozur.com/vega-logo.png",
+  "contact_email": "support@synozur.com",
+  "legal_info_url": "https://synozur.com/legal",
+  "privacy_policy_url": "https://synozur.com/privacy",
+
+  "functions": [
+    {
+      "name": "listObjectives",
+      "description": "Get a list of all OKR objectives for the current quarter. Use this to show users their goals and track organizational alignment.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "description": "The tenant/organization ID"
+          },
+          "quarter": {
+            "type": "integer",
+            "description": "Quarter number (1-4), or 0 for annual objectives"
+          },
+          "year": {
+            "type": "integer",
+            "description": "The year for the objectives"
+          },
+          "level": {
+            "type": "string",
+            "enum": ["organization", "team", "individual"],
+            "description": "Filter by objective level"
+          }
+        },
+        "required": ["tenantId"]
+      }
+    },
+    {
+      "name": "getObjective",
+      "description": "Get details for a specific objective including its key results and progress.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The objective ID"
+          }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "listKeyResults",
+      "description": "Get all key results for tracking measurable outcomes.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "description": "The tenant/organization ID"
+          },
+          "objectiveId": {
+            "type": "string",
+            "description": "Filter by parent objective ID"
+          }
+        },
+        "required": ["tenantId"]
+      }
+    },
+    {
+      "name": "listBigRocks",
+      "description": "Get the list of Big Rocks (quarterly priorities and initiatives).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "description": "The tenant/organization ID"
+          },
+          "quarter": {
+            "type": "integer",
+            "description": "Quarter number (1-4)"
+          },
+          "year": {
+            "type": "integer",
+            "description": "The year"
+          }
+        },
+        "required": ["tenantId"]
+      }
+    },
+    {
+      "name": "listMeetings",
+      "description": "Get Focus Rhythm meetings for the organization.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "description": "The tenant/organization ID"
+          }
+        },
+        "required": ["tenantId"]
+      }
+    },
+    {
+      "name": "getMeeting",
+      "description": "Get details for a specific meeting including agenda and attendees.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The meeting ID"
+          }
+        },
+        "required": ["id"]
+      }
+    },
+    {
+      "name": "listStrategies",
+      "description": "Get strategic initiatives for the organization.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "description": "The tenant/organization ID"
+          }
+        },
+        "required": ["tenantId"]
+      }
+    },
+    {
+      "name": "getFoundations",
+      "description": "Get company foundations including mission, vision, values, and annual goals.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "description": "The tenant/organization ID"
+          }
+        },
+        "required": ["tenantId"]
+      }
+    },
+    {
+      "name": "listTeams",
+      "description": "Get the list of teams in the organization.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "description": "The tenant/organization ID"
+          }
+        },
+        "required": ["tenantId"]
+      }
+    },
+    {
+      "name": "getReportingSummary",
+      "description": "Get a summary report with progress metrics and key statistics.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "tenantId": {
+            "type": "string",
+            "description": "The tenant/organization ID"
+          },
+          "quarter": {
+            "type": "integer",
+            "description": "Quarter number (1-4)"
+          },
+          "year": {
+            "type": "integer",
+            "description": "The year"
+          }
+        },
+        "required": ["tenantId"]
+      }
+    },
+    {
+      "name": "suggestOkrs",
+      "description": "Get AI-powered suggestions for new OKRs based on context.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "context": {
+            "type": "string",
+            "description": "Context about what kind of OKRs to suggest (e.g., team focus, strategic priority)"
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "The tenant/organization ID"
+          }
+        },
+        "required": ["context", "tenantId"]
+      }
+    },
+    {
+      "name": "suggestBigRocks",
+      "description": "Get AI-powered suggestions for Big Rocks (quarterly priorities).",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "context": {
+            "type": "string",
+            "description": "Context about what kind of priorities to suggest"
+          },
+          "tenantId": {
+            "type": "string",
+            "description": "The tenant/organization ID"
+          }
+        },
+        "required": ["context", "tenantId"]
+      }
+    }
+  ],
+
+  "runtimes": [
+    {
+      "type": "OpenApi",
+      "auth": {
+        "type": "OAuthPluginVault",
+        "reference_id": "{VEGA_OAUTH_CONNECTION_ID}"
+      },
+      "spec": {
+        "url": "https://vega.synozur.com/openapi.json"
+      },
+      "run_for_functions": [
+        "listObjectives",
+        "getObjective",
+        "listKeyResults",
+        "listBigRocks",
+        "listMeetings",
+        "getMeeting",
+        "listStrategies",
+        "getFoundations",
+        "listTeams",
+        "getReportingSummary",
+        "suggestOkrs",
+        "suggestBigRocks"
+      ]
+    }
+  ]
+}
+

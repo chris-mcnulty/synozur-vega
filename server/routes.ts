@@ -125,6 +125,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // M365 Copilot Agent manifests
+  app.get("/copilot-agent/manifest.json", async (req, res) => {
+    try {
+      const manifestPath = join(process.cwd(), "public/copilot-agent/manifest.json");
+      const content = await readFile(manifestPath, "utf-8");
+      res.type("application/json").send(content);
+    } catch (error) {
+      console.error("Error reading Copilot manifest:", error);
+      res.status(500).json({ error: "Failed to load Copilot manifest" });
+    }
+  });
+
+  app.get("/copilot-agent/declarative-agent.json", async (req, res) => {
+    try {
+      const agentPath = join(process.cwd(), "public/copilot-agent/declarative-agent.json");
+      const content = await readFile(agentPath, "utf-8");
+      res.type("application/json").send(content);
+    } catch (error) {
+      console.error("Error reading declarative agent:", error);
+      res.status(500).json({ error: "Failed to load declarative agent" });
+    }
+  });
+
+  app.get("/copilot-agent/vega-api-plugin.json", async (req, res) => {
+    try {
+      const pluginPath = join(process.cwd(), "public/copilot-agent/vega-api-plugin.json");
+      const content = await readFile(pluginPath, "utf-8");
+      res.type("application/json").send(content);
+    } catch (error) {
+      console.error("Error reading API plugin:", error);
+      res.status(500).json({ error: "Failed to load API plugin" });
+    }
+  });
+
   // Authentication routes
   app.post("/api/auth/login", async (req, res) => {
     try {

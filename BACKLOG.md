@@ -14,7 +14,7 @@
 | **2. M365 Multi-Tenant** | ~60% | ✅ ~90% | SSO, Planner, SharePoint/OneDrive, Admin Consent, Outlook Calendar all complete. |
 | **3. Focus Rhythm** | ~70% | ✅ ~85% | Decisions/Risks UI complete. OKR linking complete. Meeting templates complete. |
 | **4. Culture & Values** | Complete | ✅ Complete | |
-| **5. M365 Copilot Agent** | Not Started | Not Started | **January deadline - CLIENT REQUIREMENT** |
+| **5. M365 Copilot Agent** | ~60% | ~60% | **January deadline - CLIENT REQUIREMENT**. OpenAPI spec ✅, Declarative manifest ✅, API plugin ✅, OAuth setup pending |
 | **6. AI-Powered Assistance** | Not Started | ~40% | 7 AI tools implemented. Q&A chat with function calling works. |
 | **6a. AI Usage Reporting** | Complete | ✅ Complete | Dec 20, 2025 - Full implementation with Tenant + Platform admin UI |
 | **6b. Azure OpenAI Migration** | Backlogged | Backlogged | **NEW** - Future infrastructure decision |
@@ -49,8 +49,11 @@ PHASE 1: Schema Changes First (Weeks 1-2, Dec 16 - Dec 27)
     └── Add access control fields
 
 PHASE 2: M365 Copilot Agent (Weeks 2-5, Dec 23 - Jan 17)
-├── OpenAPI spec for Vega endpoints
-├── Declarative agent manifest + instructions
+├── OpenAPI spec for Vega endpoints ✅ COMPLETE (Dec 29)
+├── Declarative agent manifest + instructions ✅ COMPLETE (Dec 29)
+├── API plugin manifest with OAuth config ✅ COMPLETE (Dec 29)
+├── Response formatting helpers ✅ COMPLETE (Dec 29)
+├── OAuth setup in Copilot Studio (pending client Azure AD setup)
 ├── Testing in M365 dev tenant
 └── Client deployment + refinement
 

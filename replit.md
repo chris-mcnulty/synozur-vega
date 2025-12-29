@@ -53,3 +53,4 @@ Preferred communication style: Simple, everyday language.
 - **Database**: Neon PostgreSQL.
 - **Transactional Email**: SendGrid (via Replit connector).
 - **OpenAPI Specification**: Full OpenAPI 3.0 spec for M365 Copilot Agent integration available at `/openapi.yaml` (YAML) and `/openapi.json` (JSON). Documents all major endpoints: authentication, OKRs, strategies, foundations, meetings, teams, AI, and reporting.
+- **M365 Copilot Agent**: Declarative agent manifest (v1.6), API plugin manifest, and Teams app manifest available in `/public/copilot-agent/`. Includes response formatting utilities in `server/copilot-response-formatter.ts`. See `public/copilot-agent/README.md` for deployment instructions.
