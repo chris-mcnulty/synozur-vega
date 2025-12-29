@@ -32,7 +32,8 @@ import {
   launchpadSessions, type LaunchpadSession, type InsertLaunchpadSession, type LaunchpadProposal,
   servicePlans, type ServicePlan, type InsertServicePlan,
   blockedDomains, type BlockedDomain, type InsertBlockedDomain,
-  pageVisits, type PageVisit, type InsertPageVisit
+  pageVisits, type PageVisit, type InsertPageVisit,
+  systemBanners, type SystemBanner, type InsertSystemBanner, BANNER_STATUS
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, inArray, gte, lte, count } from "drizzle-orm";
@@ -276,6 +277,14 @@ export interface IStorage {
   updateTenantPlan(tenantId: string, planId: string, expiresAt?: Date): Promise<Tenant>;
   cancelTenantPlan(tenantId: string, reason: string, cancelledBy: string): Promise<Tenant>;
   getTenantsWithExpiringPlans(daysUntilExpiry: number): Promise<Tenant[]>;
+  
+  // System Banners methods
+  getActiveBanner(): Promise<SystemBanner | undefined>;
+  getAllBanners(): Promise<SystemBanner[]>;
+  getBannerById(id: string): Promise<SystemBanner | undefined>;
+  createBanner(banner: InsertSystemBanner): Promise<SystemBanner>;
+  updateBanner(id: string, banner: Partial<InsertSystemBanner>): Promise<SystemBanner>;
+  deleteBanner(id: string): Promise<void>;
   
   // Page Visit Analytics
   recordPageVisit(visit: InsertPageVisit): Promise<PageVisit>;
@@ -2509,6 +2518,53 @@ export class DatabaseStorage implements IStorage {
           sql`${tenants.planExpiresAt} <= ${endOfDay}`
         )
       );
+  }
+
+  async getActiveBanner(): Promise<SystemBanner | undefined> {
+    const now = new Date();
+    const allBanners = await db.select().from(systemBanners).orderBy(desc(systemBanners.updatedAt));
+    
+    for (const banner of allBanners) {
+      if (banner.status === BANNER_STATUS.ON) {
+        return banner;
+      }
+      if (banner.status === BANNER_STATUS.SCHEDULED) {
+        const start = banner.scheduledStart ? new Date(banner.scheduledStart) : null;
+        const end = banner.scheduledEnd ? new Date(banner.scheduledEnd) : null;
+        const afterStart = !start || now >= start;
+        const beforeEnd = !end || now <= end;
+        if (afterStart && beforeEnd) {
+          return banner;
+        }
+      }
+    }
+    return undefined;
+  }
+
+  async getAllBanners(): Promise<SystemBanner[]> {
+    return db.select().from(systemBanners).orderBy(desc(systemBanners.updatedAt));
+  }
+
+  async getBannerById(id: string): Promise<SystemBanner | undefined> {
+    const [banner] = await db.select().from(systemBanners).where(eq(systemBanners.id, id));
+    return banner || undefined;
+  }
+
+  async createBanner(banner: InsertSystemBanner): Promise<SystemBanner> {
+    const [created] = await db.insert(systemBanners).values(banner).returning();
+    return created;
+  }
+
+  async updateBanner(id: string, banner: Partial<InsertSystemBanner>): Promise<SystemBanner> {
+    const [updated] = await db.update(systemBanners)
+      .set({ ...banner, updatedAt: new Date() })
+      .where(eq(systemBanners.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteBanner(id: string): Promise<void> {
+    await db.delete(systemBanners).where(eq(systemBanners.id, id));
   }
 
   async recordPageVisit(visit: InsertPageVisit): Promise<PageVisit> {

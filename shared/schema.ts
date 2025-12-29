@@ -65,6 +65,40 @@ export const insertPageVisitSchema = createInsertSchema(pageVisits).omit({
 export type InsertPageVisit = z.infer<typeof insertPageVisitSchema>;
 export type PageVisit = typeof pageVisits.$inferSelect;
 
+// System banners - global announcements managed by Vega Admins
+export const BANNER_STATUS = {
+  OFF: 'off',
+  ON: 'on',
+  SCHEDULED: 'scheduled',
+} as const;
+
+export type BannerStatus = typeof BANNER_STATUS[keyof typeof BANNER_STATUS];
+
+export const systemBanners = pgTable("system_banners", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  content: text("content").notNull(), // Rich text/HTML content
+  linkUrl: text("link_url"), // Optional link URL
+  linkText: text("link_text"), // Optional link text
+  status: text("status").notNull().default("off"), // 'off', 'on', 'scheduled'
+  scheduledStart: timestamp("scheduled_start"), // When to start showing (for scheduled)
+  scheduledEnd: timestamp("scheduled_end"), // When to stop showing (for scheduled)
+  backgroundColor: text("background_color").default("#0EA5E9"), // Banner background color
+  textColor: text("text_color").default("#FFFFFF"), // Banner text color
+  createdBy: varchar("created_by"),
+  updatedBy: varchar("updated_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSystemBannerSchema = createInsertSchema(systemBanners).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertSystemBanner = z.infer<typeof insertSystemBannerSchema>;
+export type SystemBanner = typeof systemBanners.$inferSelect;
+
 // ============================================
 // USERS
 // ============================================
