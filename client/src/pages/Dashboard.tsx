@@ -38,6 +38,7 @@ import { getCurrentQuarter, generateQuarters } from "@/lib/fiscal-utils";
 import type { Foundation, Strategy, Objective, BigRock, Meeting, Team } from "@shared/schema";
 import { ValueBadges } from "@/components/ValueBadges";
 import { ExpandableText } from "@/components/ExpandableText";
+import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 
 type Quarter = {
   id: string;
@@ -202,6 +203,7 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
+      <AnnouncementBanner />
       {/* Header with Quarter Selector */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>

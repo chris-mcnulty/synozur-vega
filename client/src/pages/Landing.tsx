@@ -3,6 +3,7 @@ import { WhatWeBelieveSection } from "@/components/WhatWeBelieveSection";
 import { WhyVegaSection } from "@/components/WhyVegaSection";
 import { FeaturesSection } from "@/components/FeaturesSection";
 import { M365IntegrationSection } from "@/components/M365IntegrationSection";
+import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -47,7 +48,9 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen">
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-sm border-b">
+      <div className="fixed top-0 left-0 right-0 z-50">
+        <AnnouncementBanner />
+        <nav className="bg-background/80 backdrop-blur-sm border-b">
         <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <img src={synozurMark} alt="Vega" className="h-8 object-contain" />
@@ -87,7 +90,8 @@ export default function Landing() {
             <ThemeToggle />
           </div>
         </div>
-      </nav>
+        </nav>
+      </div>
 
       <div className="pt-16">
         <LandingHero />
