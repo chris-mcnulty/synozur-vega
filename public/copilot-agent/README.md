@@ -13,10 +13,53 @@ This folder contains the manifests required to deploy Vega as a Microsoft 365 Co
 Before deploying the Copilot Agent:
 
 ### 1. Azure AD App Registration
-- Register an app in Azure AD for OAuth authentication
-- Configure redirect URIs for Copilot authentication flow
-- Grant appropriate Microsoft Graph permissions
-- Note the Application (client) ID and create a client secret
+
+Register an app in Azure Portal (Entra ID) with the following configuration:
+
+**Step 1: Create the App Registration**
+1. Go to Azure Portal > Microsoft Entra ID > App registrations > New registration
+2. Name: "Vega Copilot Agent" (or similar)
+3. Supported account types: "Accounts in any organizational directory (Any Microsoft Entra ID tenant - Multitenant)"
+4. Click Register
+
+**Step 2: Configure Redirect URIs**
+
+Add these redirect URIs under Authentication > Web:
+```
+https://teams.microsoft.com/api/platform/v1.0/oAuthRedirect
+https://teams.microsoft.com/api/platform/v1.0/oAuthConsentRedirect
+```
+
+**Step 3: Grant API Permissions**
+
+Under API permissions > Add a permission > Microsoft Graph > Delegated permissions:
+
+| Permission | Purpose |
+|------------|---------|
+| `User.Read` | Read signed-in user's profile |
+| `openid` | Sign users in |
+| `profile` | View users' basic profile |
+| `email` | View users' email address |
+
+These are the minimum permissions. The Vega API handles authorization internally based on the authenticated user.
+
+**Step 4: Create Client Secret**
+1. Go to Certificates & secrets > New client secret
+2. Add a description and expiration period
+3. Copy the secret value immediately (shown only once)
+
+**Step 5: Note These Values**
+- Application (client) ID
+- Directory (tenant) ID (use "common" for multi-tenant)
+- Client secret value
+
+**Step 6: Allowlist Microsoft Enterprise Token Store**
+
+If your API validates client application IDs, you must allow:
+```
+ab3be6b7-f5df-413d-ac2d-abf1e3fd9c0b
+```
+This is Microsoft's Enterprise Token Store client ID that Copilot uses to request tokens on behalf of users.
 
 ### 2. Update Configuration
 
@@ -31,12 +74,27 @@ Update the following placeholders in the manifests:
 - Replace `{VEGA_OAUTH_CONNECTION_ID}` with your Plugin Vault OAuth connection ID
 - Verify `spec.url` points to your production OpenAPI endpoint
 
-### 3. OAuth Setup in Copilot Studio
+### 3. OAuth Client Registration in Teams Developer Portal
 
-1. Go to Microsoft Copilot Studio
-2. Create an OAuth connection for Vega
-3. Configure with your Azure AD app credentials
-4. Note the connection ID for the plugin manifest
+1. Go to Teams Developer Portal (https://dev.teams.microsoft.com)
+2. Navigate to Tools > OAuth client registration
+3. Click "Register client" (or "New OAuth client registration")
+4. Fill in the required fields:
+
+| Field | Value |
+|-------|-------|
+| Registration name | Vega Copilot Agent |
+| Base URL | `https://vega.synozur.com` |
+| Client ID | (from Azure AD app registration) |
+| Client secret | (from Azure AD app registration) |
+| Authorization endpoint | `https://login.microsoftonline.com/common/oauth2/v2.0/authorize` |
+| Token endpoint | `https://login.microsoftonline.com/common/oauth2/v2.0/token` |
+| Refresh endpoint | `https://login.microsoftonline.com/common/oauth2/v2.0/token` |
+| Scopes | `User.Read openid profile email` |
+
+5. Enable PKCE if your OAuth provider supports it (recommended)
+6. Click Register and copy the **OAuth client registration ID**
+7. Use this ID in `vega-api-plugin.json` as the `reference_id`
 
 ## Deployment Steps
 
