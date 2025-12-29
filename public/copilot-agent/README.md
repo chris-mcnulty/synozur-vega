@@ -159,7 +159,83 @@ Users can start conversations with:
 - Check operationIds match function names
 - Review server logs for errors
 
+## Publishing to Microsoft Marketplace
+
+To make the Vega Copilot Agent available in the Microsoft Commercial Marketplace (Agent Store):
+
+### Prerequisites
+
+1. **Partner Center Account**: Enroll in the Microsoft AI Cloud Partner Program
+2. **Microsoft 365 and Copilot Program**: Required for publishing agents
+   - Sign in to [Partner Center](https://partner.microsoft.com/dashboard)
+   - Go to Settings > Account settings > Programs
+   - On the "Microsoft 365 and Copilot" tile, click "Get Started"
+   - Accept the Microsoft Publisher Agreement
+
+### App Package Contents
+
+Create a ZIP file containing:
+```
+vega-copilot-agent.zip
+├── manifest.json           (Teams app manifest)
+├── declarative-agent.json  (Agent behavior definition)
+├── vega-api-plugin.json    (API plugin configuration)
+├── color-icon.png          (192x192 full color icon)
+└── outline-icon.png        (32x32 white outline icon)
+```
+
+### Submission Process
+
+1. **Create Offer in Partner Center**
+   - Sign in to Partner Center > Marketplace offers
+   - Click "+ New offer" > "Apps and agents for Microsoft 365 and Copilot"
+   - Select your enrolled publisher account
+
+2. **Upload Package**
+   - On the Packages page, upload your ZIP file
+   - Wait for "Manifest checks passed" validation
+   - Fix any validation errors before proceeding
+
+3. **Complete Listing Details**
+   - Properties: Select 1-3 categories (e.g., "Productivity", "Business Management")
+   - Marketplace Listings: Add descriptions, screenshots, support contact
+   - Legal: Choose Standard Contract or custom EULA
+
+4. **Submit for Review**
+   - Microsoft reviews the submission (typically several days)
+   - Address any feedback from the review team
+   - Once approved, the agent appears in the Agent Store
+
+### Distribution Options
+
+| Option | Audience | How |
+|--------|----------|-----|
+| **Organization Only** | Internal users | Upload to Teams Admin Center |
+| **Commercial Marketplace** | All M365 Copilot users | Partner Center submission |
+
+### Post-Publication
+
+- IT admins manage agent availability via Teams/M365 Admin Center
+- Admins can approve, block, or assign to specific users/groups
+- End-user availability: 45 minutes to several hours after admin approval
+
+### Monetization (Optional)
+
+You can monetize through a linked SaaS offer:
+- Per-user pricing
+- Flat rate
+- Usage-based
+- Custom dimensions
+
+See: [Monetize a Microsoft 365 agent](https://learn.microsoft.com/en-us/partner-center/marketplace-offers/ai-agent-overview)
+
 ## License Requirements
 
 - Microsoft 365 Copilot license required for full functionality
 - WebSearch capability available to all users
+
+## Useful Links
+
+- [Publishing Guide](https://learn.microsoft.com/en-us/microsoft-365-copilot/extensibility/publish)
+- [Partner Center Submission Guide](https://learn.microsoft.com/en-us/partner-center/marketplace-offers/add-in-submission-guide)
+- [Agent Store Announcement](https://devblogs.microsoft.com/microsoft365dev/introducing-the-agent-store-build-publish-and-discover-agents-in-microsoft-365-copilot/)
