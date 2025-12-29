@@ -13,68 +13,70 @@ export function LandingHero() {
         className="absolute inset-0 bg-cover bg-center bg-fixed"
         style={{ backgroundImage: `url(${starTrailsBg})` }}
       />
-      <div className="absolute inset-0 bg-gradient-to-br from-primary/50 via-purple-900/40 to-background/90" />
+      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-background" />
       
       <div className="relative z-10 max-w-7xl 2xl:max-w-[1600px] mx-auto px-6 text-white">
         <div className="max-w-4xl">
           <div className="mb-8">
-            <img src={vegaLogo} alt="Vega Company OS" className="h-56 object-contain drop-shadow-xl" />
+            <img src={vegaLogo} alt="Vega Company OS" className="h-56 object-contain drop-shadow-2xl" />
           </div>
           
           <div className="flex flex-wrap items-center gap-4 mb-6">
-            <Badge variant="secondary" className="bg-white/20 text-white border-white/30 px-4 py-1.5 text-sm">
+            <Badge variant="secondary" className="bg-white/25 text-white border-white/40 px-4 py-1.5 text-sm font-medium backdrop-blur-sm">
               <Star className="h-3 w-3 mr-1.5 fill-current" />
               Your North Star
             </Badge>
-            <Badge variant="secondary" className="bg-primary/80 text-white px-4 py-1.5 text-sm">
+            <Badge variant="secondary" className="bg-primary text-white px-4 py-1.5 text-sm font-medium">
               AI-Powered Company OS
             </Badge>
           </div>
           
-          <p className="text-lg md:text-xl text-white/90 mb-6 italic drop-shadow-md">
+          <p className="text-lg md:text-xl text-white mb-6 italic" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
             In 18,000 years, Vega will be the North Star. Today, it's yours.
           </p>
           
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6">
-            <span className="text-white drop-shadow-lg">
+          <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold leading-tight mb-6" style={{ textShadow: '0 4px 16px rgba(0,0,0,0.9)' }}>
+            <span className="text-white">
               Turn Strategy Into Action,
             </span>
             <br />
-            <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent drop-shadow-xl">
+            <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
               Every Day.
             </span>
           </h1>
           
-          <p className="text-xl md:text-2xl text-white/90 mb-4 leading-relaxed max-w-3xl drop-shadow-md">
-            Strategy isn't about big plans—it's about the choices and risks that position you to win.
-            Vega operationalizes your vision, connecting why to what to how to when.
-          </p>
+          <div className="bg-black/40 backdrop-blur-sm rounded-xl p-6 mb-6 max-w-3xl">
+            <p className="text-xl md:text-2xl text-white mb-4 leading-relaxed">
+              Strategy isn't about big plans—it's about the choices and risks that position you to win.
+              Vega operationalizes your vision, connecting why to what to how to when.
+            </p>
+            
+            <p className="text-lg text-white/90">
+              Built on the{" "}
+              <a 
+                href="https://www.synozur.com/solutions/company-os" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-white font-semibold underline underline-offset-4 decoration-2 hover:text-white/80"
+              >
+                Company OS™
+              </a>{" "}
+              framework by Synozur—the AI-augmented operating system for organizations that want to move together, confidently.
+            </p>
+          </div>
           
-          <p className="text-lg text-white/90 mb-8 max-w-3xl drop-shadow-md">
-            Built on the{" "}
-            <a 
-              href="https://www.synozur.com/solutions/company-os" 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-white font-semibold underline underline-offset-4 decoration-2 hover:text-white/80"
-            >
-              Company OS™
-            </a>{" "}
-            framework by Synozur—the AI-augmented operating system for organizations that want to move together, confidently.
-          </p>
-          
-          <div className="flex flex-wrap gap-3 mb-10">
-            <div className="flex items-center gap-2 text-white/80 text-sm">
+          <div className="flex flex-wrap gap-4 mb-10">
+            <div className="flex items-center gap-2 bg-black/30 backdrop-blur-sm rounded-full px-4 py-2">
               <CheckCircle2 className="h-4 w-4 text-green-400" />
-              <span>Viva Goals migration in minutes</span>
+              <span className="text-white text-sm font-medium">Viva Goals migration in minutes</span>
             </div>
-            <div className="flex items-center gap-2 text-white/80 text-sm">
+            <div className="flex items-center gap-2 bg-black/30 backdrop-blur-sm rounded-full px-4 py-2">
               <CheckCircle2 className="h-4 w-4 text-green-400" />
-              <span>Native M365 Copilot Agent</span>
+              <span className="text-white text-sm font-medium">Native M365 Copilot Agent</span>
             </div>
-            <div className="flex items-center gap-2 text-white/80 text-sm">
+            <div className="flex items-center gap-2 bg-black/30 backdrop-blur-sm rounded-full px-4 py-2">
               <CheckCircle2 className="h-4 w-4 text-green-400" />
-              <span>AI document-to-Company OS</span>
+              <span className="text-white text-sm font-medium">AI document-to-Company OS</span>
             </div>
           </div>
           
