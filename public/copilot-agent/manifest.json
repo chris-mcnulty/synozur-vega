@@ -35,8 +35,6 @@
     "messageTeamMembers"
   ],
   "validDomains": [
-    "vega.synozur.com",
-    "*.replit.app",
-    "*.replit.dev"
+    "vega.synozur.com"
   ]
 }
