@@ -8,7 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, BookOpen, Save, RotateCcw, Activity, BarChart3, Globe, Monitor, Smartphone, Tablet, Bot, Download, Users, Building2, Check, X } from "lucide-react";
+import { Shield, BookOpen, Save, RotateCcw, Activity, BarChart3, Globe, Monitor, Smartphone, Tablet, Bot, Download, Users, Building2, Check, X, Megaphone, ExternalLink, Info } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import type { SystemBanner } from "@shared/schema";
 import { PlatformAIUsageWidget } from "@/components/AIUsageWidget";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -390,6 +393,10 @@ export default function SystemAdmin() {
           <TabsTrigger value="tenant-activity" className="flex items-center gap-2" data-testid="tab-tenant-activity">
             <Building2 className="h-4 w-4" />
             Tenant Activity
+          </TabsTrigger>
+          <TabsTrigger value="announcements" className="flex items-center gap-2" data-testid="tab-announcements">
+            <Megaphone className="h-4 w-4" />
+            Announcements
           </TabsTrigger>
         </TabsList>
 
@@ -844,7 +851,180 @@ export default function SystemAdmin() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="announcements" className="space-y-4">
+          <AnnouncementManager />
+        </TabsContent>
       </Tabs>
     </div>
+  );
+}
+
+function AnnouncementManager() {
+  const { toast } = useToast();
+  const [enableBanner, setEnableBanner] = useState(false);
+  const [bannerContent, setBannerContent] = useState("");
+  const [linkUrl, setLinkUrl] = useState("");
+  const [linkText, setLinkText] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+
+  const { data: banners, isLoading: bannersLoading } = useQuery<SystemBanner[]>({
+    queryKey: ["/api/admin/banners"],
+  });
+
+  const activeBanner = banners?.[0];
+
+  useEffect(() => {
+    if (activeBanner) {
+      setEnableBanner(activeBanner.status === 'on');
+      setBannerContent(activeBanner.content || "");
+      setLinkUrl(activeBanner.linkUrl || "");
+      setLinkText(activeBanner.linkText || "");
+    }
+  }, [activeBanner]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      const payload = {
+        content: bannerContent,
+        linkUrl: linkUrl || null,
+        linkText: linkText || null,
+        status: enableBanner ? 'on' : 'off',
+      };
+
+      if (activeBanner) {
+        await apiRequest("PATCH", `/api/admin/banners/${activeBanner.id}`, payload);
+      } else {
+        await apiRequest("POST", "/api/admin/banners", payload);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/banners"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/banners/active"] });
+      
+      toast({
+        title: "Announcement saved",
+        description: "The announcement has been updated successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save announcement. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (bannersLoading) {
+    return (
+      <div className="flex items-center justify-center h-32">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Megaphone className="h-5 w-5" />
+          System Announcement
+        </CardTitle>
+        <CardDescription>
+          Display an announcement banner across the landing page and dashboard for all users
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label htmlFor="enable-banner" className="text-base font-medium">Enable Announcement</Label>
+            <p className="text-sm text-muted-foreground">Show the announcement on the main page</p>
+          </div>
+          <Switch
+            id="enable-banner"
+            checked={enableBanner}
+            onCheckedChange={setEnableBanner}
+            data-testid="switch-enable-banner"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="banner-content">Announcement Text</Label>
+          <Textarea
+            id="banner-content"
+            placeholder="Happy Holidays! Have a wonderful holiday season, and see you in 2026."
+            value={bannerContent}
+            onChange={(e) => setBannerContent(e.target.value)}
+            className="min-h-[100px]"
+            data-testid="input-banner-content"
+          />
+          <p className="text-sm text-muted-foreground">
+            This message will be displayed prominently on the main page
+          </p>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="link-url">Link URL (optional)</Label>
+            <Input
+              id="link-url"
+              placeholder="https://example.com/announcement"
+              value={linkUrl}
+              onChange={(e) => setLinkUrl(e.target.value)}
+              data-testid="input-link-url"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="link-text">Link Text (optional)</Label>
+            <Input
+              id="link-text"
+              placeholder="Learn more"
+              value={linkText}
+              onChange={(e) => setLinkText(e.target.value)}
+              data-testid="input-link-text"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Preview</Label>
+          <div className="rounded-lg border p-4 bg-muted/50">
+            <div className="flex items-start gap-2 text-primary">
+              <Info className="h-5 w-5 mt-0.5 flex-shrink-0" />
+              <p>
+                <span className="font-semibold">Announcement:</span>{" "}
+                {bannerContent || "Your announcement text will appear here..."}
+                {linkUrl && linkText && (
+                  <a href={linkUrl} target="_blank" rel="noopener noreferrer" className="ml-1 underline inline-flex items-center gap-1">
+                    {linkText}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-start gap-2 text-sm text-muted-foreground bg-muted/30 rounded-lg p-3">
+          <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
+          <p>
+            The system announcement appears at the top of the landing page and dashboard for all users. 
+            Use it for important updates, maintenance notices, or special events.
+          </p>
+        </div>
+
+        <Button 
+          onClick={handleSave} 
+          disabled={isSaving || !bannerContent.trim()}
+          className="w-full sm:w-auto"
+          data-testid="button-save-announcement"
+        >
+          <Save className="h-4 w-4 mr-2" />
+          {isSaving ? "Saving..." : "Save Announcement"}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }
