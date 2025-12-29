@@ -696,7 +696,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Meeting'
 
-  /api/meeting/{id}:
+  /api/meetings/{id}:
     get:
       tags: [Meetings]
       summary: Get a specific meeting
@@ -715,8 +715,9 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Meeting'
+        '404':
+          description: Meeting not found
 
-  /api/meetings/{id}:
     patch:
       tags: [Meetings]
       summary: Update a meeting
