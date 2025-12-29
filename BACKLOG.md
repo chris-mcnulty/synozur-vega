@@ -1,6 +1,6 @@
 # Vega Platform Backlog
 
-**Last Updated:** December 18, 2025
+**Last Updated:** December 29, 2025
 
 ---
 
@@ -120,6 +120,200 @@ These tasks are ideal for junior developers - well-scoped, low-risk, and provide
 **Implementation:**
 - `AppSidebar.tsx`: Uses `hasPermission()` from `shared/rbac.ts` to conditionally show Import Data, AI Grounding, Tenant Admin, and System Admin menu items based on user permissions
 - `FocusRhythm.tsx`: Delete meeting button only visible to users with `DELETE_MEETING` permission
+
+---
+
+## 🚀 M365 COPILOT AGENT PREREQUISITES
+
+**Target:** January 2025 (CLIENT REQUIREMENT)
+
+Before M365 Copilot Agent development can begin, the following must be completed:
+
+### P0: OpenAPI Specification (BLOCKING)
+**Effort:** 2-3 days | **Priority:** Critical
+
+Generate comprehensive OpenAPI 3.0 spec for all Vega API endpoints:
+- **Auth endpoints** (`/api/auth/*`) - Login, SSO, session management
+- **OKR endpoints** (`/api/okr/*`) - Objectives, Key Results, Big Rocks, Check-ins
+- **Strategy endpoints** (`/api/strategies/*`) - CRUD, linking to values/goals
+- **Meeting endpoints** (`/api/meetings/*`) - Focus Rhythm management
+- **Foundation endpoints** (`/api/foundations/*`) - Mission, vision, values, goals
+- **Team endpoints** (`/api/teams/*`) - Team management
+
+**Output:** `openapi.yaml` file + endpoint for serving it (`GET /openapi.yaml`)
+
+### P1: Copilot-Friendly Response Formatting
+**Effort:** 1-2 days | **Priority:** High
+
+Ensure API responses are LLM-friendly:
+- Consistent JSON structure across all endpoints
+- Human-readable field names (not just IDs)
+- Include related entity names (not just foreign key IDs)
+- Add `displayName` fields for users, teams, tenants
+
+### P2: Declarative Agent Manifest
+**Effort:** 2-3 days | **Priority:** High
+
+Create the M365 Copilot declarative agent:
+- `manifest.json` with plugin capabilities
+- Natural language instructions for the agent
+- Action definitions mapping to OpenAPI operations
+- Conversation starters and prompts
+
+### P3: Authentication for Copilot
+**Effort:** 1-2 days | **Priority:** High
+
+Enable Copilot to authenticate on behalf of users:
+- OAuth 2.0 client credentials or on-behalf-of flow
+- API key/token support for agent requests
+- Rate limiting configuration for agent traffic
+
+---
+
+## 🎯 FUTURE FEATURES (Backlogged)
+
+### Feature Set A: Strategic Visualization & Analytics
+
+#### A1. Strategy Cascade Visualization (Strategy Map)
+**Effort:** 2-3 weeks | **Priority:** Medium
+
+An interactive visual map showing how annual goals flow down to strategies, objectives, key results, and big rocks. Solves the problem of executives not being able to quickly see alignment gaps.
+
+**Key Capabilities:**
+- Sankey diagram or tree visualization with color-coded status
+- Visual detection of "orphan" items lacking proper linkages
+- Drill-down filtering by team, quarter, or company values
+- Exportable for presentations (PNG, PDF, SVG)
+
+**Dependencies:** D3.js or similar visualization library
+
+---
+
+#### A2. OKR Health Scoring & Predictive Analytics
+**Effort:** 3-4 weeks | **Priority:** Medium
+
+AI-powered system that proactively monitors OKR health using multiple factors to predict outcomes before problems become critical.
+
+**Key Capabilities:**
+- Multi-factor health score (0-100) for every objective
+  - Progress trajectory (slope of recent check-ins)
+  - Check-in frequency (regular updates vs stale)
+  - Historical performance (past quarter success rate)
+  - Dependency health (linked items status)
+  - Time remaining vs % complete
+- Predictive classification: `On Track` → `At Risk` → `Unlikely to Achieve`
+- Smart alerts when items trend toward failure
+- AI-generated recovery recommendations
+
+**Schema:**
+- `health_scores` table: `entityType`, `entityId`, `score`, `factors` (JSONB), `prediction`, `calculatedAt`
+
+**Dependencies:** Requires historical check-in data for ML training
+
+---
+
+#### A3. Cross-Team Dependencies & Collaboration Hub
+**Effort:** 2-3 weeks | **Priority:** Medium-High
+
+Formal system for declaring, tracking, and communicating dependencies between teams. Breaks down silos and prevents "surprise" blockers at quarter-end.
+
+**Key Capabilities:**
+- Dependency declarations with types:
+  - `blocking` - Cannot proceed until this is done
+  - `contributing` - Contributes to our success
+  - `informational` - Need awareness, not action
+- Network graph visualization of cross-team relationships
+- Request/accept workflow with discussion threads
+- Auto-integration with Focus Rhythm meeting agendas
+- Dependency status tracking (requested → accepted → in_progress → resolved)
+
+**Schema:**
+```sql
+dependencies (
+  id UUID PRIMARY KEY,
+  tenantId UUID REFERENCES tenants(id),
+  sourceObjectiveId UUID REFERENCES objectives(id),
+  targetObjectiveId UUID REFERENCES objectives(id),
+  dependencyType TEXT, -- 'blocking', 'contributing', 'informational'
+  status TEXT, -- 'requested', 'accepted', 'declined', 'resolved'
+  requestedByUserId UUID,
+  acceptedByUserId UUID,
+  notes TEXT,
+  createdAt TIMESTAMP,
+  resolvedAt TIMESTAMP
+)
+```
+
+---
+
+### Feature Set B: UX Enhancements
+
+#### B1. Global Command Palette & Keyboard Shortcuts
+**Effort:** 1 week | **Priority:** Medium
+
+Power-user feature (activated via ⌘K / Ctrl+K) for fuzzy searching across all entities and performing common actions without touching the mouse.
+
+**Key Shortcuts:**
+- `⌘K` / `Ctrl+K` - Open command palette
+- `⌘N` - New objective
+- `⌘Enter` - Quick check-in
+- `G then D` - Go to Dashboard
+- `G then P` - Go to Planning
+- `G then S` - Go to Strategy
+- `G then F` - Go to Focus Rhythm
+
+**Implementation:**
+- Use `cmdk` package (already installed)
+- Global keyboard listener
+- Fuzzy search across objectives, strategies, meetings, users
+- Recent items history
+
+---
+
+#### B2. Personalized Dashboard Widgets & Pinned Items
+**Effort:** 2 weeks | **Priority:** Medium
+
+Make the Dashboard customizable with drag-and-drop widgets, allowing users to focus on what matters most to their role.
+
+**Key Capabilities:**
+- Widget library:
+  - My OKRs (personal objectives)
+  - Team Health (team progress overview)
+  - At-Risk Items (objectives/KRs trending poorly)
+  - AI Insights (proactive suggestions)
+  - Upcoming Meetings (Focus Rhythm calendar)
+  - Recent Activity (activity feed)
+- Drag-and-drop layout customization
+- Pin favorite objectives for quick access
+- Role-based default layouts (executive, manager, IC)
+
+**Schema:**
+```sql
+user_dashboard_layouts (
+  id UUID PRIMARY KEY,
+  userId UUID REFERENCES users(id),
+  layout JSONB, -- Widget positions and sizes
+  pinnedItems JSONB, -- Array of {entityType, entityId}
+  createdAt TIMESTAMP,
+  updatedAt TIMESTAMP
+)
+```
+
+---
+
+#### B3. Progress Timeline & Activity Feed
+**Effort:** 1-2 weeks | **Priority:** Medium
+
+Visual representation of progress over time plus a real-time activity feed showing organizational updates.
+
+**Key Capabilities:**
+- Interactive line charts showing KR progress history
+- Check-in markers with notes on hover
+- Global activity feed with filters (team, user, entity type)
+- Sparkline mini-charts on objective cards
+- "This quarter vs last quarter" comparison
+
+**Dependencies:** Recharts (already installed), existing check-in history data
 
 ---
 

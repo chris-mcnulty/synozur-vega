@@ -1,0 +1,66 @@
+
+🚀 Three New Features
+
+1. Strategy Cascade Visualization (Strategy Map)
+
+An interactive visual map showing how annual goals flow down to strategies, objectives, key results, and big rocks. This solves the problem of executives not being able to quickly see alignment gaps or understand how individual work connects to company strategy.
+
+Key capabilities:
+
+Sankey diagram or tree visualization with color-coded status
+Visual detection of "orphan" items lacking proper linkages
+Drill-down filtering by team, quarter, or company values
+Exportable for presentations
+2. OKR Health Scoring & Predictive Analytics
+
+An AI-powered system that proactively monitors OKR health using multiple factors (progress trajectory, check-in frequency, historical performance, dependency health, time remaining) to predict outcomes before problems become critical.
+
+Key capabilities:
+
+Multi-factor health score (0-100) for every objective
+Predictive classification: Likely to Achieve → Unlikely to Achieve
+Smart alerts when items trend toward failure
+AI-generated recovery recommendations
+3. Cross-Team Dependencies & Collaboration Hub
+
+A formal system for declaring, tracking, and communicating dependencies between teams. This breaks down organizational silos and prevents "surprise" blockers at quarter-end.
+
+Key capabilities:
+
+Dependency declarations (blocking, contributing, informational)
+Network graph visualization of cross-team relationships
+Request/accept workflow with discussion threads
+Auto-integration with Focus Rhythm meeting agendas
+✨ Three UX Enhancements
+
+1. Global Command Palette & Keyboard Shortcuts
+
+A power-user feature (activated via ⌘K / Ctrl+K) for fuzzy searching across all entities and performing common actions without touching the mouse.
+
+Key shortcuts:
+
+⌘K - Open command palette
+⌘N - New objective
+⌘Enter - Quick check-in
+G then D/P/S/F - Navigate to Dashboard/Planning/Strategy/Focus
+2. Personalized Dashboard Widgets & Pinned Items
+
+Make the Dashboard customizable with drag-and-drop widgets, allowing users to focus on what matters most to their role (executive, manager, or individual contributor).
+
+Key capabilities:
+
+Widget library (My OKRs, Team Health, At-Risk Items, AI Insights, etc.)
+Drag-and-drop layout customization
+Pin favorite objectives for quick access
+Role-based default layouts
+3. Progress Timeline & Activity Feed
+
+Visual representation of progress over time plus a real-time activity feed showing organizational updates.
+
+Key capabilities:
+
+Interactive line charts showing KR progress history
+Check-in markers with notes on hover
+Global activity feed with filters (team, user, entity type)
+Sparkline mini-charts on objective cards
+"This quarter vs last quarter" comparison
