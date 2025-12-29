@@ -2022,6 +2022,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // SYSTEM BANNERS (Vega Admin only)
+  // ============================================
+
+  // Get active banner (public - for display on homepage/dashboard)
+  app.get("/api/banners/active", async (req: Request, res: Response) => {
+    try {
+      const banner = await storage.getActiveBanner();
+      res.json(banner || null);
+    } catch (error) {
+      console.error("Error fetching active banner:", error);
+      res.status(500).json({ error: "Failed to fetch active banner" });
+    }
+  });
+
+  // Get all banners (platform admin only)
+  app.get("/api/admin/banners", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const banners = await storage.getAllBanners();
+      res.json(banners);
+    } catch (error) {
+      console.error("Error fetching banners:", error);
+      res.status(500).json({ error: "Failed to fetch banners" });
+    }
+  });
+
+  // Create a banner (platform admin only)
+  app.post("/api/admin/banners", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const { content, linkUrl, linkText, status, scheduledStart, scheduledEnd, backgroundColor, textColor } = req.body;
+      if (!content) {
+        return res.status(400).json({ error: "Content is required" });
+      }
+      const banner = await storage.createBanner({
+        content,
+        linkUrl,
+        linkText,
+        status: status || 'off',
+        scheduledStart: scheduledStart ? new Date(scheduledStart) : null,
+        scheduledEnd: scheduledEnd ? new Date(scheduledEnd) : null,
+        backgroundColor,
+        textColor,
+        createdBy: req.user!.id,
+        updatedBy: req.user!.id,
+      });
+      res.status(201).json(banner);
+    } catch (error) {
+      console.error("Error creating banner:", error);
+      res.status(500).json({ error: "Failed to create banner" });
+    }
+  });
+
+  // Update a banner (platform admin only)
+  app.patch("/api/admin/banners/:id", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const { content, linkUrl, linkText, status, scheduledStart, scheduledEnd, backgroundColor, textColor } = req.body;
+      
+      const existing = await storage.getBannerById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Banner not found" });
+      }
+      
+      const banner = await storage.updateBanner(id, {
+        content,
+        linkUrl,
+        linkText,
+        status,
+        scheduledStart: scheduledStart ? new Date(scheduledStart) : null,
+        scheduledEnd: scheduledEnd ? new Date(scheduledEnd) : null,
+        backgroundColor,
+        textColor,
+        updatedBy: req.user!.id,
+      });
+      res.json(banner);
+    } catch (error) {
+      console.error("Error updating banner:", error);
+      res.status(500).json({ error: "Failed to update banner" });
+    }
+  });
+
+  // Delete a banner (platform admin only)
+  app.delete("/api/admin/banners/:id", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const existing = await storage.getBannerById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Banner not found" });
+      }
+      await storage.deleteBanner(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting banner:", error);
+      res.status(500).json({ error: "Failed to delete banner" });
+    }
+  });
+
   // Update tenant's service plan (platform admin only)
   app.patch("/api/admin/tenants/:id/plan", ...platformAdminOnly, async (req: Request, res: Response) => {
     try {
