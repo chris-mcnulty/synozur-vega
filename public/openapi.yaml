@@ -1,0 +1,1907 @@
+openapi: 3.0.3
+info:
+  title: Vega Company OS API
+  description: |
+    Vega is an AI-augmented Company Operating System that helps organizations align strategy with execution.
+    This API provides access to OKRs (Objectives and Key Results), strategic planning, focus rhythm meetings,
+    and AI-powered assistance.
+    
+    ## Authentication
+    Most endpoints require authentication via session cookies. Use the `/api/auth/login` endpoint to authenticate.
+    
+    ## Tenant Context
+    Vega is multi-tenant. Most operations require a tenant context, provided either via session or query parameter.
+  version: 1.0.0
+  contact:
+    name: Vega Support
+    email: support@synozur.com
+
+servers:
+  - url: /
+    description: Current server
+
+tags:
+  - name: Authentication
+    description: User authentication and session management
+  - name: Objectives
+    description: Manage OKR objectives (company, team, and individual goals)
+  - name: Key Results
+    description: Manage measurable key results for objectives
+  - name: Big Rocks
+    description: Manage quarterly priorities and initiatives
+  - name: Check-ins
+    description: Record progress updates and check-ins
+  - name: Strategies
+    description: Manage strategic initiatives
+  - name: Foundations
+    description: Company mission, vision, values, and annual goals
+  - name: Meetings
+    description: Focus Rhythm meeting management
+  - name: Teams
+    description: Team management
+  - name: AI
+    description: AI-powered suggestions and chat
+  - name: Reporting
+    description: Reports and snapshots
+
+paths:
+  /api/auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login with email and password
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Invalid credentials
+
+  /api/auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get current authenticated user
+      operationId: getCurrentUser
+      responses:
+        '200':
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  user:
+                    $ref: '#/components/schemas/User'
+        '401':
+          description: Not authenticated
+
+  /api/auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Logout current user
+      operationId: logout
+      responses:
+        '200':
+          description: Logout successful
+
+  /api/okr/objectives:
+    get:
+      tags: [Objectives]
+      summary: List all objectives for the current tenant
+      operationId: listObjectives
+      parameters:
+        - name: tenantId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: quarter
+          in: query
+          schema:
+            type: integer
+            minimum: 0
+            maximum: 4
+          description: "Quarter (1-4 for quarterly, 0 for annual)"
+        - name: year
+          in: query
+          schema:
+            type: integer
+        - name: level
+          in: query
+          schema:
+            type: string
+            enum: [organization, team, individual]
+        - name: teamId
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of objectives
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Objective'
+
+    post:
+      tags: [Objectives]
+      summary: Create a new objective
+      operationId: createObjective
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateObjective'
+      responses:
+        '201':
+          description: Objective created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Objective'
+
+  /api/okr/objectives/{id}:
+    get:
+      tags: [Objectives]
+      summary: Get a specific objective by ID
+      operationId: getObjective
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Objective details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Objective'
+        '404':
+          description: Objective not found
+
+    patch:
+      tags: [Objectives]
+      summary: Update an objective
+      operationId: updateObjective
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateObjective'
+      responses:
+        '200':
+          description: Objective updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Objective'
+
+    delete:
+      tags: [Objectives]
+      summary: Delete an objective
+      operationId: deleteObjective
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Objective deleted
+
+  /api/okr/objectives/{id}/calculate-progress:
+    get:
+      tags: [Objectives]
+      summary: Calculate and return progress for an objective
+      operationId: calculateObjectiveProgress
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Progress calculation
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  objectiveId:
+                    type: string
+                  progress:
+                    type: number
+                    description: Progress percentage (can exceed 100)
+                  keyResults:
+                    type: array
+                    items:
+                      type: object
+
+  /api/okr/key-results:
+    get:
+      tags: [Key Results]
+      summary: List all key results
+      operationId: listKeyResults
+      parameters:
+        - name: tenantId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of key results
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KeyResult'
+
+    post:
+      tags: [Key Results]
+      summary: Create a new key result
+      operationId: createKeyResult
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateKeyResult'
+      responses:
+        '201':
+          description: Key result created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyResult'
+
+  /api/okr/key-results/{id}:
+    get:
+      tags: [Key Results]
+      summary: Get a specific key result
+      operationId: getKeyResult
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Key result details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyResult'
+
+    patch:
+      tags: [Key Results]
+      summary: Update a key result
+      operationId: updateKeyResult
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateKeyResult'
+      responses:
+        '200':
+          description: Key result updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KeyResult'
+
+    delete:
+      tags: [Key Results]
+      summary: Delete a key result
+      operationId: deleteKeyResult
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Key result deleted
+
+  /api/okr/big-rocks:
+    get:
+      tags: [Big Rocks]
+      summary: List all big rocks (quarterly priorities)
+      operationId: listBigRocks
+      parameters:
+        - name: tenantId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: quarter
+          in: query
+          schema:
+            type: integer
+        - name: year
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of big rocks
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BigRock'
+
+    post:
+      tags: [Big Rocks]
+      summary: Create a new big rock
+      operationId: createBigRock
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBigRock'
+      responses:
+        '201':
+          description: Big rock created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BigRock'
+
+  /api/okr/big-rocks/{id}:
+    get:
+      tags: [Big Rocks]
+      summary: Get a specific big rock
+      operationId: getBigRock
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Big rock details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BigRock'
+
+    patch:
+      tags: [Big Rocks]
+      summary: Update a big rock
+      operationId: updateBigRock
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBigRock'
+      responses:
+        '200':
+          description: Big rock updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BigRock'
+
+    delete:
+      tags: [Big Rocks]
+      summary: Delete a big rock
+      operationId: deleteBigRock
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Big rock deleted
+
+  /api/okr/check-ins:
+    get:
+      tags: [Check-ins]
+      summary: List check-ins for an entity
+      operationId: listCheckIns
+      parameters:
+        - name: entityType
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [objective, keyResult, bigRock]
+        - name: entityId
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of check-ins
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CheckIn'
+
+    post:
+      tags: [Check-ins]
+      summary: Create a new check-in
+      operationId: createCheckIn
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCheckIn'
+      responses:
+        '201':
+          description: Check-in created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckIn'
+
+  /api/okr/check-ins/{id}:
+    patch:
+      tags: [Check-ins]
+      summary: Update a check-in
+      operationId: updateCheckIn
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCheckIn'
+      responses:
+        '200':
+          description: Check-in updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckIn'
+
+  /api/strategies/{tenantId}:
+    get:
+      tags: [Strategies]
+      summary: List all strategies for a tenant
+      operationId: listStrategies
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of strategies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Strategy'
+
+  /api/strategies:
+    post:
+      tags: [Strategies]
+      summary: Create a new strategy
+      operationId: createStrategy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStrategy'
+      responses:
+        '201':
+          description: Strategy created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Strategy'
+
+  /api/strategies/{id}:
+    patch:
+      tags: [Strategies]
+      summary: Update a strategy
+      operationId: updateStrategy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateStrategy'
+      responses:
+        '200':
+          description: Strategy updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Strategy'
+
+    delete:
+      tags: [Strategies]
+      summary: Delete a strategy
+      operationId: deleteStrategy
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Strategy deleted
+
+  /api/foundations/{tenantId}:
+    get:
+      tags: [Foundations]
+      summary: Get company foundations (mission, vision, values, goals)
+      operationId: getFoundations
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Company foundations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Foundation'
+
+  /api/foundations:
+    post:
+      tags: [Foundations]
+      summary: Create or update foundations
+      operationId: upsertFoundations
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateFoundation'
+      responses:
+        '200':
+          description: Foundations saved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Foundation'
+
+  /api/meetings/{tenantId}:
+    get:
+      tags: [Meetings]
+      summary: List all Focus Rhythm meetings for a tenant
+      operationId: listMeetings
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of meetings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Meeting'
+
+  /api/meetings:
+    post:
+      tags: [Meetings]
+      summary: Create a new meeting
+      operationId: createMeeting
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMeeting'
+      responses:
+        '201':
+          description: Meeting created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+
+  /api/meeting/{id}:
+    get:
+      tags: [Meetings]
+      summary: Get a specific meeting
+      operationId: getMeeting
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Meeting details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+
+  /api/meetings/{id}:
+    patch:
+      tags: [Meetings]
+      summary: Update a meeting
+      operationId: updateMeeting
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMeeting'
+      responses:
+        '200':
+          description: Meeting updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meeting'
+
+    delete:
+      tags: [Meetings]
+      summary: Delete a meeting
+      operationId: deleteMeeting
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Meeting deleted
+
+  /api/teams/{tenantId}:
+    get:
+      tags: [Teams]
+      summary: List all teams for a tenant
+      operationId: listTeams
+      parameters:
+        - name: tenantId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: List of teams
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Team'
+
+  /api/teams:
+    post:
+      tags: [Teams]
+      summary: Create a new team
+      operationId: createTeam
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTeam'
+      responses:
+        '201':
+          description: Team created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+
+  /api/teams/{id}:
+    patch:
+      tags: [Teams]
+      summary: Update a team
+      operationId: updateTeam
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTeam'
+      responses:
+        '200':
+          description: Team updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Team'
+
+    delete:
+      tags: [Teams]
+      summary: Delete a team
+      operationId: deleteTeam
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Team deleted
+
+  /api/ai/chat:
+    post:
+      tags: [AI]
+      summary: Send a message to the AI assistant
+      operationId: aiChat
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [messages]
+              properties:
+                messages:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                        enum: [user, assistant, system]
+                      content:
+                        type: string
+                tenantId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: AI response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  response:
+                    type: string
+
+  /api/ai/suggest/okrs:
+    post:
+      tags: [AI]
+      summary: Get AI suggestions for OKRs
+      operationId: suggestOkrs
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [context]
+              properties:
+                context:
+                  type: string
+                  description: Context about the objective or strategy
+                tenantId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: OKR suggestions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestions:
+                    type: array
+                    items:
+                      type: object
+
+  /api/ai/suggest/big-rocks:
+    post:
+      tags: [AI]
+      summary: Get AI suggestions for big rocks
+      operationId: suggestBigRocks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [context]
+              properties:
+                context:
+                  type: string
+                tenantId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Big rock suggestions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  suggestions:
+                    type: array
+                    items:
+                      type: object
+
+  /api/reporting/summary:
+    get:
+      tags: [Reporting]
+      summary: Get a summary report for the tenant
+      operationId: getReportingSummary
+      parameters:
+        - name: tenantId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: quarter
+          in: query
+          schema:
+            type: integer
+        - name: year
+          in: query
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Summary report data
+          content:
+            application/json:
+              schema:
+                type: object
+
+  /api/reporting/snapshots:
+    get:
+      tags: [Reporting]
+      summary: List all review snapshots
+      operationId: listSnapshots
+      responses:
+        '200':
+          description: List of snapshots
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Snapshot'
+
+    post:
+      tags: [Reporting]
+      summary: Create a new snapshot
+      operationId: createSnapshot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSnapshot'
+      responses:
+        '201':
+          description: Snapshot created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Snapshot'
+
+  /api/reporting/reports/generate:
+    post:
+      tags: [Reporting]
+      summary: Generate a report
+      operationId: generateReport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum: [okr_progress, quarterly_review, executive_summary]
+                quarter:
+                  type: integer
+                year:
+                  type: integer
+                tenantId:
+                  type: string
+                  format: uuid
+      responses:
+        '201':
+          description: Report generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Report'
+
+  /api/vocabulary:
+    get:
+      tags: [Configuration]
+      summary: Get vocabulary terms for the current tenant
+      operationId: getVocabulary
+      responses:
+        '200':
+          description: Vocabulary configuration
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Vocabulary'
+
+components:
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        displayName:
+          type: string
+        role:
+          type: string
+          enum: [tenant_user, tenant_admin, admin, global_admin, vega_consultant, vega_admin]
+        tenantId:
+          type: string
+          format: uuid
+        tenantName:
+          type: string
+
+    Objective:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        level:
+          type: string
+          enum: [organization, team, individual]
+        quarter:
+          type: integer
+          nullable: true
+        year:
+          type: integer
+        progress:
+          type: number
+          description: Progress percentage (can exceed 100%)
+        status:
+          type: string
+          enum: [not_started, in_progress, at_risk, on_track, completed]
+        ownerId:
+          type: string
+          format: uuid
+        ownerName:
+          type: string
+        teamId:
+          type: string
+          format: uuid
+          nullable: true
+        teamName:
+          type: string
+          nullable: true
+        tenantId:
+          type: string
+          format: uuid
+        parentId:
+          type: string
+          format: uuid
+          nullable: true
+        alignedToObjectiveIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        linkedStrategyIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        linkedGoals:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateObjective:
+      type: object
+      required: [title, tenantId, year]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        level:
+          type: string
+          enum: [organization, team, individual]
+        quarter:
+          type: integer
+        year:
+          type: integer
+        ownerId:
+          type: string
+          format: uuid
+        teamId:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        parentId:
+          type: string
+          format: uuid
+        linkedStrategyIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    UpdateObjective:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        level:
+          type: string
+        quarter:
+          type: integer
+        year:
+          type: integer
+        status:
+          type: string
+        ownerId:
+          type: string
+          format: uuid
+        teamId:
+          type: string
+          format: uuid
+        parentId:
+          type: string
+          format: uuid
+
+    KeyResult:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        objectiveId:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        metricType:
+          type: string
+          enum: [percentage, number, currency, boolean]
+        startValue:
+          type: number
+        targetValue:
+          type: number
+        currentValue:
+          type: number
+        progress:
+          type: number
+        weight:
+          type: number
+        ownerId:
+          type: string
+          format: uuid
+        ownerName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateKeyResult:
+      type: object
+      required: [title, objectiveId, tenantId]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        objectiveId:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        metricType:
+          type: string
+        startValue:
+          type: number
+        targetValue:
+          type: number
+        currentValue:
+          type: number
+        weight:
+          type: number
+        ownerId:
+          type: string
+          format: uuid
+
+    UpdateKeyResult:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        metricType:
+          type: string
+        startValue:
+          type: number
+        targetValue:
+          type: number
+        currentValue:
+          type: number
+        weight:
+          type: number
+        ownerId:
+          type: string
+          format: uuid
+
+    BigRock:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        quarter:
+          type: integer
+        year:
+          type: integer
+        status:
+          type: string
+          enum: [not_started, in_progress, completed, blocked]
+        progress:
+          type: number
+        ownerId:
+          type: string
+          format: uuid
+        ownerName:
+          type: string
+        teamId:
+          type: string
+          format: uuid
+          nullable: true
+        teamName:
+          type: string
+          nullable: true
+        tenantId:
+          type: string
+          format: uuid
+        linkedStrategyIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateBigRock:
+      type: object
+      required: [title, tenantId, quarter, year]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        quarter:
+          type: integer
+        year:
+          type: integer
+        ownerId:
+          type: string
+          format: uuid
+        teamId:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        linkedStrategyIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+
+    UpdateBigRock:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        quarter:
+          type: integer
+        year:
+          type: integer
+        status:
+          type: string
+        progress:
+          type: number
+        ownerId:
+          type: string
+          format: uuid
+        teamId:
+          type: string
+          format: uuid
+
+    CheckIn:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        entityType:
+          type: string
+          enum: [objective, keyResult, bigRock]
+        entityId:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        userName:
+          type: string
+        asOfDate:
+          type: string
+          format: date
+        value:
+          type: number
+          nullable: true
+        status:
+          type: string
+        notes:
+          type: string
+        achievements:
+          type: array
+          items:
+            type: string
+        challenges:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateCheckIn:
+      type: object
+      required: [entityType, entityId, tenantId]
+      properties:
+        entityType:
+          type: string
+          enum: [objective, keyResult, bigRock]
+        entityId:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        asOfDate:
+          type: string
+          format: date
+        value:
+          type: number
+        status:
+          type: string
+        notes:
+          type: string
+        achievements:
+          type: array
+          items:
+            type: string
+        challenges:
+          type: array
+          items:
+            type: string
+
+    UpdateCheckIn:
+      type: object
+      properties:
+        asOfDate:
+          type: string
+          format: date
+        value:
+          type: number
+        status:
+          type: string
+        notes:
+          type: string
+        achievements:
+          type: array
+          items:
+            type: string
+        challenges:
+          type: array
+          items:
+            type: string
+
+    Strategy:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [high, medium, low]
+        status:
+          type: string
+        tenantId:
+          type: string
+          format: uuid
+        linkedGoals:
+          type: array
+          items:
+            type: string
+        linkedValueTitles:
+          type: array
+          items:
+            type: string
+        ownerId:
+          type: string
+          format: uuid
+        ownerName:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateStrategy:
+      type: object
+      required: [title, tenantId]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+          enum: [high, medium, low]
+        tenantId:
+          type: string
+          format: uuid
+        linkedGoals:
+          type: array
+          items:
+            type: string
+        ownerId:
+          type: string
+          format: uuid
+
+    UpdateStrategy:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        priority:
+          type: string
+        status:
+          type: string
+        linkedGoals:
+          type: array
+          items:
+            type: string
+        ownerId:
+          type: string
+          format: uuid
+
+    Foundation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        tenantId:
+          type: string
+          format: uuid
+        mission:
+          type: string
+        vision:
+          type: string
+        values:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+              description:
+                type: string
+        annualGoals:
+          type: array
+          items:
+            type: string
+        tagline:
+          type: string
+        companySummary:
+          type: string
+        fiscalYearStartMonth:
+          type: integer
+          minimum: 1
+          maximum: 12
+
+    CreateFoundation:
+      type: object
+      required: [tenantId]
+      properties:
+        tenantId:
+          type: string
+          format: uuid
+        mission:
+          type: string
+        vision:
+          type: string
+        values:
+          type: array
+          items:
+            type: object
+            properties:
+              title:
+                type: string
+              description:
+                type: string
+        annualGoals:
+          type: array
+          items:
+            type: string
+        tagline:
+          type: string
+        companySummary:
+          type: string
+        fiscalYearStartMonth:
+          type: integer
+
+    Meeting:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        cadence:
+          type: string
+          enum: [weekly, biweekly, monthly, quarterly]
+        scheduledDate:
+          type: string
+          format: date-time
+        duration:
+          type: integer
+          description: Duration in minutes
+        tenantId:
+          type: string
+          format: uuid
+        teamId:
+          type: string
+          format: uuid
+          nullable: true
+        teamName:
+          type: string
+          nullable: true
+        attendeeIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        agenda:
+          type: string
+        notes:
+          type: string
+        decisions:
+          type: array
+          items:
+            type: object
+        risks:
+          type: array
+          items:
+            type: object
+        linkedObjectiveIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        status:
+          type: string
+          enum: [scheduled, in_progress, completed, cancelled]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateMeeting:
+      type: object
+      required: [title, tenantId, scheduledDate]
+      properties:
+        title:
+          type: string
+        cadence:
+          type: string
+        scheduledDate:
+          type: string
+          format: date-time
+        duration:
+          type: integer
+        tenantId:
+          type: string
+          format: uuid
+        teamId:
+          type: string
+          format: uuid
+        attendeeIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        agenda:
+          type: string
+
+    UpdateMeeting:
+      type: object
+      properties:
+        title:
+          type: string
+        cadence:
+          type: string
+        scheduledDate:
+          type: string
+          format: date-time
+        duration:
+          type: integer
+        teamId:
+          type: string
+          format: uuid
+        attendeeIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        agenda:
+          type: string
+        notes:
+          type: string
+        decisions:
+          type: array
+          items:
+            type: object
+        risks:
+          type: array
+          items:
+            type: object
+        status:
+          type: string
+
+    Team:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        tenantId:
+          type: string
+          format: uuid
+        leaderId:
+          type: string
+          format: uuid
+          nullable: true
+        leaderName:
+          type: string
+          nullable: true
+        memberIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateTeam:
+      type: object
+      required: [name, tenantId]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        tenantId:
+          type: string
+          format: uuid
+        leaderId:
+          type: string
+          format: uuid
+
+    UpdateTeam:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        leaderId:
+          type: string
+          format: uuid
+
+    Snapshot:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        tenantId:
+          type: string
+          format: uuid
+        quarter:
+          type: integer
+        year:
+          type: integer
+        data:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+        createdById:
+          type: string
+          format: uuid
+
+    CreateSnapshot:
+      type: object
+      required: [name, tenantId]
+      properties:
+        name:
+          type: string
+        tenantId:
+          type: string
+          format: uuid
+        quarter:
+          type: integer
+        year:
+          type: integer
+
+    Report:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        type:
+          type: string
+        tenantId:
+          type: string
+          format: uuid
+        data:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+
+    Vocabulary:
+      type: object
+      properties:
+        goal:
+          type: object
+          properties:
+            singular:
+              type: string
+            plural:
+              type: string
+        strategy:
+          type: object
+          properties:
+            singular:
+              type: string
+            plural:
+              type: string
+        objective:
+          type: object
+          properties:
+            singular:
+              type: string
+            plural:
+              type: string
+        keyResult:
+          type: object
+          properties:
+            singular:
+              type: string
+            plural:
+              type: string
+        bigRock:
+          type: object
+          properties:
+            singular:
+              type: string
+            plural:
+              type: string
+        meeting:
+          type: object
+          properties:
+            singular:
+              type: string
+            plural:
+              type: string
+        focusRhythm:
+          type: object
+          properties:
+            singular:
+              type: string
+            plural:
+              type: string
+
+  securitySchemes:
+    sessionAuth:
+      type: apiKey
+      in: cookie
+      name: connect.sid
+      description: Session cookie authentication
+
+security:
+  - sessionAuth: []

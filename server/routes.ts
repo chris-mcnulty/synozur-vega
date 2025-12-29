@@ -99,6 +99,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // OpenAPI specification for M365 Copilot Agent integration
+  app.get("/openapi.yaml", async (req, res) => {
+    try {
+      const specPath = join(process.cwd(), "public/openapi.yaml");
+      const content = await readFile(specPath, "utf-8");
+      res.type("text/yaml").send(content);
+    } catch (error) {
+      console.error("Error reading OpenAPI spec:", error);
+      res.status(500).json({ error: "Failed to load OpenAPI specification" });
+    }
+  });
+
+  // OpenAPI specification in JSON format
+  app.get("/openapi.json", async (req, res) => {
+    try {
+      const specPath = join(process.cwd(), "public/openapi.yaml");
+      const yamlContent = await readFile(specPath, "utf-8");
+      const yaml = await import("js-yaml");
+      const jsonSpec = yaml.load(yamlContent);
+      res.json(jsonSpec);
+    } catch (error) {
+      console.error("Error reading OpenAPI spec:", error);
+      res.status(500).json({ error: "Failed to load OpenAPI specification" });
+    }
+  });
+
   // Authentication routes
   app.post("/api/auth/login", async (req, res) => {
     try {
