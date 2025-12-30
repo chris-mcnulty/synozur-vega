@@ -212,6 +212,89 @@ export default function About() {
             </div>
           </CardContent>
         </Card>
+
+        <Card className="md:col-span-2">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <ExternalLink className="h-5 w-5" />
+              <span>Synozur Links</span>
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div>
+                <h4 className="font-semibold mb-3 text-sm">Company</h4>
+                <ul className="space-y-2">
+                  <li>
+                    <a 
+                      href="https://www.synozur.com" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2"
+                      data-testid="link-about-synozur"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      About Synozur
+                    </a>
+                  </li>
+                  <li>
+                    <a 
+                      href="https://www.synozur.com/contact" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2"
+                      data-testid="link-contact"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Contact
+                    </a>
+                  </li>
+                  <li>
+                    <a 
+                      href="https://www.synozur.com/blog" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2"
+                      data-testid="link-blog"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Blog
+                    </a>
+                  </li>
+                </ul>
+              </div>
+              <div>
+                <h4 className="font-semibold mb-3 text-sm">Legal</h4>
+                <ul className="space-y-2">
+                  <li>
+                    <a 
+                      href="https://www.synozur.com/privacy" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2"
+                      data-testid="link-privacy"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Privacy Policy
+                    </a>
+                  </li>
+                  <li>
+                    <a 
+                      href="https://www.synozur.com/terms" 
+                      target="_blank" 
+                      rel="noopener noreferrer" 
+                      className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2"
+                      data-testid="link-terms"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Terms of Service
+                    </a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
