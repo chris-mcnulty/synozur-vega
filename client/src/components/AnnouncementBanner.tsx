@@ -33,7 +33,7 @@ export function AnnouncementBanner() {
     setIsDismissed(true);
   };
 
-  const bgColor = banner.backgroundColor || "#3b82f6";
+  const bgColor = banner.backgroundColor || "#810FFB";
   const textColor = banner.textColor || "#ffffff";
 
   return (
