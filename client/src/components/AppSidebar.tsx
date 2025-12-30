@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2, Rocket, Info, ChevronDown } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2, Rocket, Info, ChevronDown, type LucideIcon } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -26,18 +26,21 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { ROLES, hasPermission, PERMISSIONS, type Role } from "@shared/rbac";
 import { cn } from "@/lib/utils";
 
+// Default expanded sections
+const DEFAULT_EXPANDED_SECTIONS = ['execute', 'plan-align'];
+
 // Navigation organized into logical sections
 interface NavigationItem {
   title: string;
   url: string;
-  icon: any;
+  icon: LucideIcon;
   testId?: string;
 }
 
 interface NavigationSection {
   id: string;
   label: string;
-  icon: any;
+  icon: LucideIcon;
   description: string;
   defaultExpanded: boolean;
   items: NavigationItem[];
@@ -89,16 +92,16 @@ export function AppSidebar() {
   
   // Load expanded sections from localStorage or use defaults
   const [expandedSections, setExpandedSections] = useState<string[]>(() => {
-    if (typeof window === 'undefined') return ['execute', 'plan-align'];
+    if (typeof window === 'undefined') return DEFAULT_EXPANDED_SECTIONS;
     const saved = localStorage.getItem('vega-expanded-nav-sections');
     if (saved) {
       try {
         return JSON.parse(saved);
       } catch {
-        return ['execute', 'plan-align'];
+        return DEFAULT_EXPANDED_SECTIONS;
       }
     }
-    return ['execute', 'plan-align'];
+    return DEFAULT_EXPANDED_SECTIONS;
   });
 
   // Select appropriate logo based on theme
@@ -126,7 +129,7 @@ export function AppSidebar() {
     return 'U';
   };
   
-  const toggleSection = (sectionId: string) => {
+  const toggleSection = useCallback((sectionId: string) => {
     setExpandedSections(prev => {
       const newSections = prev.includes(sectionId) 
         ? prev.filter(s => s !== sectionId)
@@ -134,7 +137,7 @@ export function AppSidebar() {
       localStorage.setItem('vega-expanded-nav-sections', JSON.stringify(newSections));
       return newSections;
     });
-  };
+  }, []);
 
   const userRole = (user?.role || ROLES.TENANT_USER) as Role;
   const canManageTenant = hasPermission(userRole, PERMISSIONS.MANAGE_TENANT_SETTINGS);
