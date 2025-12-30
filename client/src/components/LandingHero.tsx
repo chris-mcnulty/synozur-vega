@@ -11,8 +11,14 @@ export function LandingHero() {
   return (
     <>
       <section className="relative w-full flex items-center justify-center overflow-hidden py-20 pb-32">
+        <style>{`
+          .hero-bg { background-size: 200% auto; }
+          @media (min-width: 768px) {
+            .hero-bg { background-size: cover; }
+          }
+        `}</style>
         <div
-          className="absolute inset-0 bg-contain md:bg-cover bg-center bg-repeat md:bg-no-repeat"
+          className="hero-bg absolute inset-0 bg-center bg-no-repeat"
           style={{ backgroundImage: `url(${starTrailsBg})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-background" />
