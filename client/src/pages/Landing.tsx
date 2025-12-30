@@ -157,7 +157,7 @@ export default function Landing() {
                 <h4 className="font-semibold mb-3">Legal</h4>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <li><a href="https://www.synozur.com/privacy" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Privacy Policy</a></li>
-                  <li><a href="https://www.synozur.com" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Terms of Service</a></li>
+                  <li><a href="https://www.synozur.com/terms" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Terms of Service</a></li>
                   <li><a href="https://www.synozur.com" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Security</a></li>
                 </ul>
               </div>

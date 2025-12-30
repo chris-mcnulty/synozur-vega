@@ -5,6 +5,7 @@ import { Link } from "wouter";
 import starTrailsBg from "@assets/AdobeStock_362805421_1763398687511.jpeg";
 import microsoftPartnerBadge from "@assets/MSFT-CAPP-PREFERRED-White_1766339770092.png";
 import vegaLogo from "@assets/VegaTight_1766605018223.png";
+import vegaScreenshot from "@assets/VegaSS_1767053840858.jpg";
 
 export function LandingHero() {
   return (
@@ -111,6 +112,19 @@ export function LandingHero() {
               alt="Microsoft Preferred Content AI Partner" 
               className="h-36 md:h-40 object-contain drop-shadow-lg"
             />
+          </div>
+        </div>
+      </div>
+      
+      <div className="absolute bottom-0 left-0 right-0 translate-y-1/2 z-20 px-6">
+        <div className="max-w-6xl mx-auto">
+          <div className="relative rounded-xl overflow-hidden shadow-2xl border border-white/20">
+            <img 
+              src={vegaScreenshot} 
+              alt="Vega Enhanced Planning - OKR Hierarchy and Progress Tracking" 
+              className="w-full h-auto"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
           </div>
         </div>
       </div>
