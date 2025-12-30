@@ -12,7 +12,7 @@ export function LandingHero() {
     <>
       <section className="relative w-full flex items-center justify-center overflow-hidden py-20 pb-32">
         <div
-          className="absolute inset-0 bg-cover bg-center bg-fixed"
+          className="absolute inset-0 bg-contain md:bg-cover bg-center bg-repeat md:bg-no-repeat"
           style={{ backgroundImage: `url(${starTrailsBg})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-background" />
@@ -42,7 +42,7 @@ export function LandingHero() {
                 Turn Strategy Into Action,
               </span>
               <br />
-              <span className="bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              <span className="text-purple-400 md:bg-gradient-to-r md:from-purple-400 md:to-pink-400 md:bg-clip-text md:text-transparent">
                 Every Day.
               </span>
             </h1>
