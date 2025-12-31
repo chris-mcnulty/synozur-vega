@@ -55,3 +55,28 @@ Preferred communication style: Simple, everyday language.
 - **Transactional Email**: SendGrid (via Replit connector).
 - **OpenAPI Specification**: Full OpenAPI 3.0 spec for M365 Copilot Agent integration available at `/openapi.yaml` (YAML) and `/openapi.json` (JSON). Documents all major endpoints: authentication, OKRs, strategies, foundations, meetings, teams, AI, and reporting.
 - **M365 Copilot Agent**: Declarative agent manifest (v1.6), API plugin manifest, and Teams app manifest available in `/public/copilot-agent/`. Includes response formatting utilities in `server/copilot-response-formatter.ts`. See `public/copilot-agent/README.md` for deployment instructions.
+
+## Backlog & Feature Tracking
+
+**BACKLOG.md** is the single source of truth for all feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference BACKLOG.md for:
+- Priority sequence and status of features
+- UX enhancement proposals and implementation status
+- Known issues and bugs
+- Technical architecture decisions (ADRs)
+- Completed features and their implementation notes
+
+When adding new features or proposals, update BACKLOG.md rather than creating separate documentation files.
+
+## Development Notes
+
+### Key Implementation Patterns
+- **Pacific Time Requirement**: All date/time operations use America/Los_Angeles timezone to prevent misdating
+- **React Hooks Rule**: All hooks must be called unconditionally BEFORE any early returns or conditional rendering
+- **Database Field Mapping**: Annual goals stored in `foundations.annualGoals` (not `goals`)
+- **Brand Color**: #810FFB (used for announcement banner default background)
+- **Mobile Design**: Gradient text only on desktop (md:), solid purple-400 on mobile
+
+### Period Close-Out Logic
+- Check `isPeriodEnded()` BEFORE `isTargetExceeded()`
+- Period-ended uses amber styling, target-exceeded uses green
+- Closing notes are mandatory when choosing not to continue in next period
