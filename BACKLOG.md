@@ -320,6 +320,44 @@ Visual representation of progress over time plus a real-time activity feed showi
 
 ---
 
+#### B4. Multi-Select Time Period Filter
+**Effort:** 1-2 weeks | **Priority:** Medium
+
+**Description:**
+Standardized multi-select time period picker across all views and filters, allowing users to select multiple quarters/years simultaneously for comprehensive cross-period analysis.
+
+**Reference:** Viva Goals time period selector (IMG_7050)
+
+**Key Capabilities:**
+- Hierarchical time period picker with collapsible years:
+  - Planning year (Jan'25 - Dec'25) expandable to show quarters
+  - Annual 2025 (Jan 1 - Dec 31)
+  - Q4 2025 (Oct 1 - Dec 31) - Current quarter marked
+  - Q3 2025 (Jul 1 - Sep 30)
+  - Q2 2025 (Apr 1 - Jun 30)
+  - Q1 2025 (Jan 1 - Mar 31)
+- Multi-select checkboxes (select multiple quarters across years)
+- "Select All" for a planning year
+- Consistent component used across:
+  - Planning page OKR filters
+  - Dashboard period selector
+  - Reporting date range picker
+  - Focus Rhythm meeting filters
+  - Export dialogs
+- Respect fiscal year configuration per tenant
+
+**Related Items:**
+- Strategy Cascade Visualization (A1) - time period filtering
+- Mind Map feature - time period filtering
+- Values analytics - quarter/year filtering
+
+**Business Value:**
+- Unified UX reduces cognitive load
+- Cross-period comparison for trend analysis
+- Consistent filtering behavior across the platform
+
+---
+
 ## KNOWN ISSUES & BUGS 🐛
 
 ### Production SSO Session Persistence Bug ✅ FIXED
