@@ -363,7 +363,7 @@ export default function SystemAdmin() {
   ];
 
   return (
-    <div className="container mx-auto py-6 space-y-6 max-w-4xl px-4 overflow-x-hidden">
+    <div className="min-h-full py-6 space-y-6 px-4 max-w-4xl mx-auto">
       <div>
         <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
           <Shield className="h-5 w-5 md:h-6 md:w-6" />
@@ -375,31 +375,27 @@ export default function SystemAdmin() {
       </div>
 
       <Tabs defaultValue="vocabulary" className="space-y-4">
-        <div className="overflow-x-auto -mx-4 px-4">
-          <TabsList className="inline-flex w-max">
-            <TabsTrigger value="vocabulary" className="flex items-center gap-2" data-testid="tab-vocabulary">
-              <BookOpen className="h-4 w-4" />
-              <span className="hidden sm:inline">Vocabulary</span>
-              <span className="sm:hidden">Vocab</span>
+        <div className="w-full overflow-x-auto">
+          <TabsList className="w-max min-w-full sm:w-auto">
+            <TabsTrigger value="vocabulary" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-vocabulary">
+              <BookOpen className="h-4 w-4 shrink-0" />
+              <span className="text-xs sm:text-sm">Vocab</span>
             </TabsTrigger>
-            <TabsTrigger value="ai-usage" className="flex items-center gap-2" data-testid="tab-ai-usage">
-              <Activity className="h-4 w-4" />
-              <span className="hidden sm:inline">AI Usage</span>
-              <span className="sm:hidden">AI</span>
+            <TabsTrigger value="ai-usage" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-ai-usage">
+              <Activity className="h-4 w-4 shrink-0" />
+              <span className="text-xs sm:text-sm">AI</span>
             </TabsTrigger>
-            <TabsTrigger value="traffic" className="flex items-center gap-2" data-testid="tab-traffic">
-              <BarChart3 className="h-4 w-4" />
-              Traffic
+            <TabsTrigger value="traffic" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-traffic">
+              <BarChart3 className="h-4 w-4 shrink-0" />
+              <span className="text-xs sm:text-sm">Traffic</span>
             </TabsTrigger>
-            <TabsTrigger value="tenant-activity" className="flex items-center gap-2" data-testid="tab-tenant-activity">
-              <Building2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Tenant Activity</span>
-              <span className="sm:hidden">Tenants</span>
+            <TabsTrigger value="tenant-activity" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-tenant-activity">
+              <Building2 className="h-4 w-4 shrink-0" />
+              <span className="text-xs sm:text-sm">Tenants</span>
             </TabsTrigger>
-            <TabsTrigger value="announcements" className="flex items-center gap-2" data-testid="tab-announcements">
-              <Megaphone className="h-4 w-4" />
-              <span className="hidden sm:inline">Announcements</span>
-              <span className="sm:hidden">Announce</span>
+            <TabsTrigger value="announcements" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-announcements">
+              <Megaphone className="h-4 w-4 shrink-0" />
+              <span className="text-xs sm:text-sm">Announce</span>
             </TabsTrigger>
           </TabsList>
         </div>
