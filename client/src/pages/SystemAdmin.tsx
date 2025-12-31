@@ -363,7 +363,7 @@ export default function SystemAdmin() {
   ];
 
   return (
-    <div className="container mx-auto py-6 space-y-6 max-w-4xl px-4">
+    <div className="container mx-auto py-6 space-y-6 max-w-4xl px-4 overflow-x-hidden">
       <div>
         <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
           <Shield className="h-5 w-5 md:h-6 md:w-6" />
