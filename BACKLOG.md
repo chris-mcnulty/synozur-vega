@@ -164,6 +164,42 @@ PHASE 3: Advanced Features (February-March 2025)
 
 ---
 
+### Objective Alignment Visual Indicator (Viva Goals-style)
+
+**Status:** Schema Ready, UI Enhancement Needed  
+**Priority:** Low-Medium  
+**Effort:** 2-3 days
+
+**Reference:** Viva Goals "Aligned to" display (see attached_assets/IMG_7052_1767222592902.png)
+
+**Description:**
+Show a visual indicator when an objective is "aligned to" (ladders up to) a parent objective on a different team or at the organization level. This helps users understand cross-team strategic alignment at a glance.
+
+**What's Already Built:**
+- ✅ `alignedToObjectiveIds` field in objectives schema (many-to-many)
+- ✅ "Aligned to" section in OKRDetailPane showing aligned objectives
+- ✅ Alignment dialog in PlanningEnhanced for setting alignments
+- ✅ API support for updating alignments
+
+**Remaining Work:**
+1. **Hierarchy Table Indicator**: Add visual badge/icon on objective rows that are aligned to other objectives
+2. **Alignment Arrow**: Show ↑ arrow icon with parent objective name on hover
+3. **Quick Alignment**: One-click "Align to..." action from objective row menu
+4. **Alignment Count Badge**: Show count of aligned children on parent objectives
+
+**UI Reference (Viva Goals):**
+- "Aligned to" section with ↑ arrow and parent objective title
+- Shows the strategic relationship clearly
+
+**Business Value:**
+- Visual clarity on cross-team strategic alignment
+- Matches Viva Goals behavior for migrating users
+- Helps identify orphaned objectives (not aligned to anything)
+
+**Dependencies:** None (schema already supports this)
+
+---
+
 ### Governance & Audit Enhancements
 
 **Status:** Not Started  
