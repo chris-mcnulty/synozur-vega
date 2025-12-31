@@ -22,7 +22,9 @@ import {
   ArrowUp,
   ArrowDown,
   Minus,
-  Pencil
+  Pencil,
+  Scale,
+  Lock
 } from "lucide-react";
 import { format } from "date-fns";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
@@ -52,6 +54,8 @@ interface OKRDetailPaneProps {
     startDate?: Date | string;
     endDate?: Date | string;
     phasedTargets?: PhasedTargets | null;
+    weight?: number;
+    isWeightLocked?: boolean;
   } | null;
   alignedStrategies?: Strategy[];
   alignedObjectives?: Objective[];
@@ -449,6 +453,29 @@ export function OKRDetailPane({
                           <span className="text-sm">
                             {entity.quarter === 0 ? "Annual" : `Q${entity.quarter}`} {entity.year}
                           </span>
+                        </div>
+                      </div>
+                    )}
+                    {entityType === "key_result" && entity.weight !== undefined && (
+                      <div className="flex items-center gap-3">
+                        <Scale className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="text-xs text-muted-foreground">Contribution Weight</p>
+                          <div className="flex items-center gap-2">
+                            <Badge 
+                              variant="secondary" 
+                              className="text-sm"
+                              data-testid="badge-kr-weight"
+                            >
+                              {entity.weight}%
+                            </Badge>
+                            {entity.isWeightLocked && (
+                              <Lock className="h-3 w-3 text-muted-foreground" />
+                            )}
+                            <span className="text-xs text-muted-foreground">
+                              of parent objective progress
+                            </span>
+                          </div>
                         </div>
                       </div>
                     )}
