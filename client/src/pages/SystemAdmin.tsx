@@ -363,50 +363,54 @@ export default function SystemAdmin() {
   ];
 
   return (
-    <div className="container mx-auto py-6 space-y-6 max-w-4xl">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Shield className="h-6 w-6" />
-            System Administration
-          </h1>
-          <p className="text-muted-foreground mt-1">
-            Manage system-wide settings for all organizations
-          </p>
-        </div>
+    <div className="container mx-auto py-6 space-y-6 max-w-4xl px-4">
+      <div>
+        <h1 className="text-xl md:text-2xl font-bold flex items-center gap-2">
+          <Shield className="h-5 w-5 md:h-6 md:w-6" />
+          System Administration
+        </h1>
+        <p className="text-sm md:text-base text-muted-foreground mt-1">
+          Manage system-wide settings for all organizations
+        </p>
       </div>
 
       <Tabs defaultValue="vocabulary" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="vocabulary" className="flex items-center gap-2" data-testid="tab-vocabulary">
-            <BookOpen className="h-4 w-4" />
-            Vocabulary
-          </TabsTrigger>
-          <TabsTrigger value="ai-usage" className="flex items-center gap-2" data-testid="tab-ai-usage">
-            <Activity className="h-4 w-4" />
-            AI Usage
-          </TabsTrigger>
-          <TabsTrigger value="traffic" className="flex items-center gap-2" data-testid="tab-traffic">
-            <BarChart3 className="h-4 w-4" />
-            Traffic
-          </TabsTrigger>
-          <TabsTrigger value="tenant-activity" className="flex items-center gap-2" data-testid="tab-tenant-activity">
-            <Building2 className="h-4 w-4" />
-            Tenant Activity
-          </TabsTrigger>
-          <TabsTrigger value="announcements" className="flex items-center gap-2" data-testid="tab-announcements">
-            <Megaphone className="h-4 w-4" />
-            Announcements
-          </TabsTrigger>
-        </TabsList>
+        <div className="overflow-x-auto -mx-4 px-4">
+          <TabsList className="inline-flex w-max">
+            <TabsTrigger value="vocabulary" className="flex items-center gap-2" data-testid="tab-vocabulary">
+              <BookOpen className="h-4 w-4" />
+              <span className="hidden sm:inline">Vocabulary</span>
+              <span className="sm:hidden">Vocab</span>
+            </TabsTrigger>
+            <TabsTrigger value="ai-usage" className="flex items-center gap-2" data-testid="tab-ai-usage">
+              <Activity className="h-4 w-4" />
+              <span className="hidden sm:inline">AI Usage</span>
+              <span className="sm:hidden">AI</span>
+            </TabsTrigger>
+            <TabsTrigger value="traffic" className="flex items-center gap-2" data-testid="tab-traffic">
+              <BarChart3 className="h-4 w-4" />
+              Traffic
+            </TabsTrigger>
+            <TabsTrigger value="tenant-activity" className="flex items-center gap-2" data-testid="tab-tenant-activity">
+              <Building2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Tenant Activity</span>
+              <span className="sm:hidden">Tenants</span>
+            </TabsTrigger>
+            <TabsTrigger value="announcements" className="flex items-center gap-2" data-testid="tab-announcements">
+              <Megaphone className="h-4 w-4" />
+              <span className="hidden sm:inline">Announcements</span>
+              <span className="sm:hidden">Announce</span>
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         <TabsContent value="vocabulary" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                  <CardTitle>Master Vocabulary Settings</CardTitle>
-                  <CardDescription>
+                  <CardTitle className="text-lg">Master Vocabulary Settings</CardTitle>
+                  <CardDescription className="text-sm">
                     Define the default terminology used across all organizations. 
                     Individual organizations can override these settings.
                   </CardDescription>
@@ -414,6 +418,7 @@ export default function SystemAdmin() {
                 <div className="flex gap-2">
                   <Button 
                     variant="outline" 
+                    size="sm"
                     onClick={handleReset}
                     disabled={!hasChanges}
                     data-testid="button-reset-vocabulary"
@@ -422,6 +427,7 @@ export default function SystemAdmin() {
                     Reset
                   </Button>
                   <Button 
+                    size="sm"
                     onClick={handleSave}
                     disabled={!hasChanges || updateMutation.isPending}
                     data-testid="button-save-vocabulary"
