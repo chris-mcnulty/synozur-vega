@@ -27,7 +27,7 @@ import { OKRDetailPane } from "@/components/okr/OKRDetailPane";
 import { ProgressSummaryBar } from "@/components/okr/ProgressSummaryBar";
 import { MilestoneEditor, type PhasedTargets } from "@/components/okr/MilestoneEditor";
 import { MilestoneTimeline } from "@/components/okr/MilestoneTimeline";
-import { TrendingUp, Target, Activity, AlertCircle, AlertTriangle, CheckCircle, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink } from "lucide-react";
+import { TrendingUp, Target, Activity, AlertCircle, AlertTriangle, CheckCircle, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink, Calendar } from "lucide-react";
 import { ExcelFilePicker } from "@/components/ExcelFilePicker";
 import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
 import { cn } from "@/lib/utils";
@@ -301,7 +301,17 @@ export default function PlanningEnhanced() {
   const [bigRockCheckInHistoryDialogOpen, setBigRockCheckInHistoryDialogOpen] = useState(false);
   const [editingCheckIn, setEditingCheckIn] = useState<CheckIn | null>(null);
   const [closePromptDialogOpen, setClosePromptDialogOpen] = useState(false);
-  const [closePromptEntity, setClosePromptEntity] = useState<{ type: string; id: string; title: string; progress: number } | null>(null);
+  const [closePromptEntity, setClosePromptEntity] = useState<{ 
+    type: string; 
+    id: string; 
+    title: string; 
+    progress: number;
+    reason: 'target_exceeded' | 'period_ended';
+    quarter?: number;
+    year?: number;
+  } | null>(null);
+  const [continueInNextPeriod, setContinueInNextPeriod] = useState<boolean | null>(null);
+  const [closingNote, setClosingNote] = useState("");
   const [weightManagementDialogOpen, setWeightManagementDialogOpen] = useState(false);
   const [progressSummaryDialogOpen, setProgressSummaryDialogOpen] = useState(false);
   const [saveToMeetingDialogOpen, setSaveToMeetingDialogOpen] = useState(false);
@@ -1288,11 +1298,50 @@ export default function PlanningEnhanced() {
     }
   };
 
+  // Helper to check if an item's period has ended (in Pacific Time)
+  const isPeriodEnded = (itemQuarter?: number | null, itemYear?: number | null): boolean => {
+    if (!itemQuarter || !itemYear) return false;
+    
+    const now = new Date();
+    // Get current date in Pacific Time
+    const pacificNow = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+    const currentYear = pacificNow.getFullYear();
+    const currentMonth = pacificNow.getMonth() + 1; // 1-indexed
+    
+    // Determine current quarter (calendar year)
+    const currentQuarter = Math.ceil(currentMonth / 3);
+    
+    // If item's year is before current year, period has ended
+    if (itemYear < currentYear) return true;
+    
+    // If same year, check if quarter has passed
+    if (itemYear === currentYear && itemQuarter < currentQuarter) return true;
+    
+    return false;
+  };
+
   const handleCheckIn = async (entityType: string, entityId: string) => {
     // Find the entity data for context
     let current = null;
     if (entityType === "objective") {
       current = objectives.find(o => o.id === entityId);
+      
+      // First check if period has ended
+      if (current && current.status !== "completed" && isPeriodEnded(current.quarter, current.year)) {
+        setClosePromptEntity({
+          type: entityType,
+          id: entityId,
+          title: current.title,
+          progress: current.progress,
+          reason: 'period_ended',
+          quarter: current.quarter || undefined,
+          year: current.year || undefined,
+        });
+        setContinueInNextPeriod(null);
+        setClosingNote("");
+        setClosePromptDialogOpen(true);
+        return;
+      }
       
       // Check if objective has exceeded target (100%+) and show close prompt
       if (current && current.progress >= 100 && current.status !== "completed") {
@@ -1301,7 +1350,10 @@ export default function PlanningEnhanced() {
           id: entityId,
           title: current.title,
           progress: current.progress,
+          reason: 'target_exceeded',
         });
+        setContinueInNextPeriod(null);
+        setClosingNote("");
         setClosePromptDialogOpen(true);
         return;
       }
@@ -1324,6 +1376,23 @@ export default function PlanningEnhanced() {
         if (res.ok) {
           current = await res.json();
           
+          // First check if period has ended
+          if (current && current.status !== "completed" && isPeriodEnded(current.quarter, current.year)) {
+            setClosePromptEntity({
+              type: entityType,
+              id: entityId,
+              title: current.title,
+              progress: current.progress,
+              reason: 'period_ended',
+              quarter: current.quarter || undefined,
+              year: current.year || undefined,
+            });
+            setContinueInNextPeriod(null);
+            setClosingNote("");
+            setClosePromptDialogOpen(true);
+            return;
+          }
+          
           // Check if KR has exceeded target (100%+) and show close prompt
           if (current && current.progress >= 100 && current.status !== "completed") {
             setClosePromptEntity({
@@ -1331,7 +1400,10 @@ export default function PlanningEnhanced() {
               id: entityId,
               title: current.title,
               progress: current.progress,
+              reason: 'target_exceeded',
             });
+            setContinueInNextPeriod(null);
+            setClosingNote("");
             setClosePromptDialogOpen(true);
             return;
           }
@@ -1660,6 +1732,22 @@ export default function PlanningEnhanced() {
                     setKeyResultDialogOpen(true);
                   }}
                   onCheckInObjective={(obj) => {
+                    // First check if period has ended
+                    if (obj.status !== "completed" && isPeriodEnded(obj.quarter, obj.year)) {
+                      setClosePromptEntity({
+                        type: "objective",
+                        id: obj.id,
+                        title: obj.title,
+                        progress: obj.progress,
+                        reason: 'period_ended',
+                        quarter: obj.quarter || undefined,
+                        year: obj.year || undefined,
+                      });
+                      setContinueInNextPeriod(null);
+                      setClosingNote("");
+                      setClosePromptDialogOpen(true);
+                      return;
+                    }
                     // Check if objective has exceeded target (100%+) and show close prompt
                     if (obj.progress >= 100 && obj.status !== "completed") {
                       setClosePromptEntity({
@@ -1667,7 +1755,10 @@ export default function PlanningEnhanced() {
                         id: obj.id,
                         title: obj.title,
                         progress: obj.progress,
+                        reason: 'target_exceeded',
                       });
+                      setContinueInNextPeriod(null);
+                      setClosingNote("");
                       setClosePromptDialogOpen(true);
                       return;
                     }
@@ -1685,6 +1776,22 @@ export default function PlanningEnhanced() {
                     setCheckInDialogOpen(true);
                   }}
                   onCheckInKeyResult={(kr) => {
+                    // First check if period has ended (use parent objective or KR's own period)
+                    if (kr.status !== "completed" && isPeriodEnded(kr.quarter, kr.year)) {
+                      setClosePromptEntity({
+                        type: "key_result",
+                        id: kr.id,
+                        title: kr.title,
+                        progress: kr.progress,
+                        reason: 'period_ended',
+                        quarter: kr.quarter || undefined,
+                        year: kr.year || undefined,
+                      });
+                      setContinueInNextPeriod(null);
+                      setClosingNote("");
+                      setClosePromptDialogOpen(true);
+                      return;
+                    }
                     // Check if KR has exceeded target (100%+) and show close prompt
                     if (kr.progress >= 100 && kr.status !== "completed") {
                       setClosePromptEntity({
@@ -1692,7 +1799,10 @@ export default function PlanningEnhanced() {
                         id: kr.id,
                         title: kr.title,
                         progress: kr.progress,
+                        reason: 'target_exceeded',
                       });
+                      setContinueInNextPeriod(null);
+                      setClosingNote("");
                       setClosePromptDialogOpen(true);
                       return;
                     }
@@ -2617,51 +2727,206 @@ export default function PlanningEnhanced() {
         </Dialog>
 
         {/* Close/Complete Prompt Dialog */}
-        <Dialog open={closePromptDialogOpen} onOpenChange={setClosePromptDialogOpen}>
+        <Dialog open={closePromptDialogOpen} onOpenChange={(open) => {
+          setClosePromptDialogOpen(open);
+          if (!open) {
+            setContinueInNextPeriod(null);
+            setClosingNote("");
+          }
+        }}>
           <DialogContent className="max-w-md">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-green-500" />
-                Target Exceeded
+                {closePromptEntity?.reason === 'period_ended' ? (
+                  <>
+                    <Calendar className="h-5 w-5 text-amber-500" />
+                    Time Period Ended
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-5 w-5 text-green-500" />
+                    Target Exceeded
+                  </>
+                )}
               </DialogTitle>
               <DialogDescription>
-                This {closePromptEntity?.type === "key_result" ? "Key Result" : "Objective"} has already exceeded its target.
+                {closePromptEntity?.reason === 'period_ended' 
+                  ? `This ${closePromptEntity?.type === "key_result" ? "Key Result" : "Objective"} is from a previous time period.`
+                  : `This ${closePromptEntity?.type === "key_result" ? "Key Result" : "Objective"} has already exceeded its target.`
+                }
               </DialogDescription>
             </DialogHeader>
-            <div className="py-4">
-              <div className="p-4 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg">
+            <div className="py-4 space-y-4">
+              <div className={`p-4 rounded-lg border ${
+                closePromptEntity?.reason === 'period_ended' 
+                  ? 'bg-amber-50 dark:bg-amber-950 border-amber-200 dark:border-amber-800'
+                  : 'bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800'
+              }`}>
                 <p className="font-medium text-sm mb-1">{closePromptEntity?.title}</p>
-                <p className="text-2xl font-bold text-green-600">
-                  {closePromptEntity?.progress}% complete
-                </p>
+                <div className="flex items-center justify-between">
+                  <p className={`text-2xl font-bold ${
+                    closePromptEntity?.reason === 'period_ended' ? 'text-amber-600' : 'text-green-600'
+                  }`}>
+                    {closePromptEntity?.progress}% complete
+                  </p>
+                  {closePromptEntity?.reason === 'period_ended' && closePromptEntity?.quarter && closePromptEntity?.year && (
+                    <Badge variant="outline" className="text-amber-600 border-amber-300">
+                      Q{closePromptEntity.quarter} {closePromptEntity.year}
+                    </Badge>
+                  )}
+                </div>
               </div>
-              <p className="text-sm text-muted-foreground mt-4">
-                It looks like you're done working on this. Would you like to close it instead of checking in?
-              </p>
+              
+              {closePromptEntity?.reason === 'period_ended' ? (
+                <>
+                  <p className="text-sm text-muted-foreground">
+                    It looks like you're done working on this. Do you want to close it instead?
+                  </p>
+                  
+                  <div className="space-y-3">
+                    <Label className="text-sm font-medium">Continue working on this in another time period?</Label>
+                    <div className="flex gap-3">
+                      <Button
+                        type="button"
+                        variant={continueInNextPeriod === true ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setContinueInNextPeriod(true)}
+                        className={continueInNextPeriod === true ? "ring-2 ring-primary" : ""}
+                        data-testid="button-continue-yes"
+                      >
+                        Yes
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={continueInNextPeriod === false ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => setContinueInNextPeriod(false)}
+                        className={continueInNextPeriod === false ? "ring-2 ring-primary" : ""}
+                        data-testid="button-continue-no"
+                      >
+                        No
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {continueInNextPeriod === false && (
+                    <div className="space-y-2">
+                      <Label htmlFor="closing-note" className="text-sm font-medium flex items-center gap-1">
+                        Closing Note <span className="text-destructive">*</span>
+                      </Label>
+                      <Textarea
+                        id="closing-note"
+                        placeholder="Provide a brief summary of the progress made toward this objective..."
+                        value={closingNote}
+                        onChange={(e) => setClosingNote(e.target.value)}
+                        rows={4}
+                        data-testid="textarea-closing-note"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Include highlights, lowlights, and any key learnings.
+                      </p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  It looks like you're done working on this. Would you like to close it instead of checking in?
+                </p>
+              )}
             </div>
             <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                variant="outline"
-                onClick={handleProceedWithCheckIn}
-                data-testid="button-continue-checkin"
-              >
-                Continue Check-in
-              </Button>
-              <Button
-                onClick={() => {
-                  if (closePromptEntity) {
-                    closeEntityMutation.mutate({
-                      entityType: closePromptEntity.type,
-                      entityId: closePromptEntity.id,
-                    });
-                  }
-                }}
-                disabled={closeEntityMutation.isPending}
-                className="bg-green-600 hover:bg-green-700"
-                data-testid="button-close-entity"
-              >
-                {closeEntityMutation.isPending ? "Closing..." : "Close It"}
-              </Button>
+              {closePromptEntity?.reason === 'period_ended' ? (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setClosePromptDialogOpen(false);
+                      setClosePromptEntity(null);
+                      setContinueInNextPeriod(null);
+                      setClosingNote("");
+                    }}
+                    data-testid="button-dismiss"
+                  >
+                    Dismiss
+                  </Button>
+                  {continueInNextPeriod === true && (
+                    <Button
+                      onClick={() => {
+                        // Open clone dialog for extending to next period
+                        if (closePromptEntity?.type === "objective") {
+                          const obj = objectives.find(o => o.id === closePromptEntity.id);
+                          if (obj) {
+                            setCloneObjective(obj as any);
+                            setClosePromptDialogOpen(false);
+                            setClosePromptEntity(null);
+                            setContinueInNextPeriod(null);
+                            setClosingNote("");
+                            setCloneDialogOpen(true);
+                          }
+                        } else {
+                          // For KRs, proceed with check-in and suggest manual extension
+                          toast({ 
+                            title: "Extend Key Result", 
+                            description: "Clone the parent objective to continue this Key Result in a new period.",
+                          });
+                          handleProceedWithCheckIn();
+                        }
+                      }}
+                      data-testid="button-extend-period"
+                    >
+                      Clone to New Period
+                    </Button>
+                  )}
+                  {continueInNextPeriod === false && (
+                    <Button
+                      onClick={() => {
+                        if (closePromptEntity && closingNote.trim()) {
+                          closeEntityMutation.mutate({
+                            entityType: closePromptEntity.type,
+                            entityId: closePromptEntity.id,
+                          });
+                        } else if (!closingNote.trim()) {
+                          toast({ 
+                            title: "Closing note required", 
+                            description: "Please provide a closing note before closing.",
+                            variant: "destructive"
+                          });
+                        }
+                      }}
+                      disabled={closeEntityMutation.isPending || !closingNote.trim()}
+                      className="bg-amber-600 hover:bg-amber-700"
+                      data-testid="button-close-entity"
+                    >
+                      {closeEntityMutation.isPending ? "Closing..." : "Close"}
+                    </Button>
+                  )}
+                </>
+              ) : (
+                <>
+                  <Button
+                    variant="outline"
+                    onClick={handleProceedWithCheckIn}
+                    data-testid="button-continue-checkin"
+                  >
+                    Continue Check-in
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      if (closePromptEntity) {
+                        closeEntityMutation.mutate({
+                          entityType: closePromptEntity.type,
+                          entityId: closePromptEntity.id,
+                        });
+                      }
+                    }}
+                    disabled={closeEntityMutation.isPending}
+                    className="bg-green-600 hover:bg-green-700"
+                    data-testid="button-close-entity"
+                  >
+                    {closeEntityMutation.isPending ? "Closing..." : "Close It"}
+                  </Button>
+                </>
+              )}
             </DialogFooter>
           </DialogContent>
         </Dialog>
