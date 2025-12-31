@@ -224,6 +224,41 @@ Interactive visual graph showing how values, goals, strategies, objectives, KRs,
 
 ---
 
+### Dynamic Backlog & Changelog Viewer
+
+**Status:** Not Started  
+**Priority:** Low-Medium  
+**Effort:** 1-2 days
+
+**Description:**
+Expose BACKLOG.md and a changelog file dynamically within the application UI so users and administrators can view upcoming features, known issues, and recent changes without leaving the app.
+
+**Features:**
+1. **Backlog Viewer**: Read and render BACKLOG.md as formatted HTML in an admin-accessible page
+2. **Changelog Page**: Maintain a CHANGELOG.md and display it for users (version history, release notes)
+3. **Access Control**: 
+   - Full backlog visible to admins/consultants
+   - Condensed "What's New" / release notes visible to all users
+4. **Markdown Rendering**: Use existing `react-markdown` package with `remark-gfm` for GitHub-flavored markdown
+5. **Navigation**: Add "What's New" or "Release Notes" link in sidebar Personal section
+
+**Technical Approach:**
+- API endpoint: `GET /api/docs/:filename` to serve markdown content
+- Frontend: New page using `react-markdown` (already installed)
+- Role-based filtering for admin-only sections
+
+**Business Value:**
+- Transparency on roadmap and upcoming features
+- Self-service for users to check release notes
+- Reduces support questions about new features
+- Professional product experience
+
+**Dependencies:** 
+- `react-markdown` (already installed)
+- `remark-gfm` (already installed)
+
+---
+
 ## LOWER PRIORITY / FUTURE FEATURES
 
 ### Advanced AI Features
