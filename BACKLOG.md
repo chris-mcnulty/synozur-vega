@@ -149,12 +149,18 @@ PHASE 3: Advanced Features (February-March 2025)
 
 ## MEDIUM PRIORITY FEATURES
 
-### Key Result Weighting ✅ 90% COMPLETE
+### Key Result Weighting ✅ COMPLETE
 
-**Status:** Schema Complete, UI Polishing Needed  
-**Effort:** 1-2 days
+**Status:** Complete (December 31, 2025)  
+**Effort:** Complete
 
-Schema has `weight` and `isWeightLocked` fields. WeightManager UI complete.
+**Implementation:**
+- Schema has `weight` (default 25) and `isWeightLocked` fields on key_results table
+- WeightManager component with auto-balance, normalize, and lock features
+- Weight badges displayed in HierarchicalOKRTable with lock indicator
+- Weight display in OKRDetailPane for Key Results showing contribution percentage
+- Weighted progress calculation in objective rollup
+- Weight editing via dialog accessed from objective hover menu
 
 ---
 
