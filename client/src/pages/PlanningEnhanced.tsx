@@ -973,18 +973,24 @@ export default function PlanningEnhanced() {
 
   // Close/Complete entity mutation (for close prompt)
   const closeEntityMutation = useMutation({
-    mutationFn: async ({ entityType, entityId }: { entityType: string; entityId: string }) => {
+    mutationFn: async ({ entityType, entityId, closingNote }: { entityType: string; entityId: string; closingNote?: string }) => {
       const endpoint = entityType === "key_result" 
         ? `/api/okr/key-results/${entityId}`
         : `/api/okr/objectives/${entityId}`;
-      return apiRequest("PATCH", endpoint, { status: "completed" });
+      const payload: { status: string; closingNote?: string } = { status: "completed" };
+      if (closingNote) {
+        payload.closingNote = closingNote;
+      }
+      return apiRequest("PATCH", endpoint, payload);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant?.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
       setClosePromptDialogOpen(false);
       setClosePromptEntity(null);
+      setContinueInNextPeriod(null);
+      setClosingNote("");
       toast({ title: "Success", description: "Item marked as completed" });
     },
     onError: () => {
@@ -2884,6 +2890,7 @@ export default function PlanningEnhanced() {
                           closeEntityMutation.mutate({
                             entityType: closePromptEntity.type,
                             entityId: closePromptEntity.id,
+                            closingNote: closingNote.trim(),
                           });
                         } else if (!closingNote.trim()) {
                           toast({ 

@@ -22,6 +22,7 @@ Preferred communication style: Simple, everyday language.
     - **Tenant Admin**: Manages organization, M365 integration status, tenant/user CRUD, and allowed email domains.
     - **Launchpad**: AI-powered document analysis for extracting and creating foundational company elements.
     - **OKR Cloning**: Allows cloning of objectives with various scope options and target quarter/year selection.
+    - **OKR Period Close-Out**: When checking in on objectives/KRs from a past period, prompts user to either continue working in a new period (opens clone dialog) or close with a mandatory closing note. Uses Pacific Time for period detection. Period-ended uses amber styling, target-exceeded uses green.
     - **Team Mode**: A simplified interface for teams, focusing on weekly execution, KRs, and Big Rocks relevant to the team.
 
 ### Backend

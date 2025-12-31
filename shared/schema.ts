@@ -651,6 +651,7 @@ export const objectives = pgTable("objectives", {
   progressMode: text("progress_mode").default('rollup'), // 'rollup' or 'manual'
   status: text("status").default('not_started'),
   statusOverride: varchar("status_override").default('false'),
+  closingNote: text("closing_note"), // Note captured when closing out an objective
   
   // Time period
   quarter: integer("quarter"),
@@ -717,6 +718,7 @@ export const keyResults = pgTable("key_results", {
   
   // Status
   status: text("status").default('not_started'),
+  closingNote: text("closing_note"), // Note captured when closing out a key result
   
   // Ownership
   ownerId: varchar("owner_id").references(() => users.id),
