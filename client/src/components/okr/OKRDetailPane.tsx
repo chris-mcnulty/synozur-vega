@@ -31,6 +31,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceL
 import type { CheckIn, Objective, KeyResult, Strategy, BigRock } from "@shared/schema";
 import { MilestoneTimeline, type PhasedTargets } from "./MilestoneTimeline";
 import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
+import { usePermissions } from "@/hooks/use-permissions";
 
 interface OKRDetailPaneProps {
   open: boolean;
@@ -43,6 +44,8 @@ interface OKRDetailPaneProps {
     progress: number;
     status: string;
     ownerEmail?: string;
+    ownerId?: string;
+    createdBy?: string;
     quarter?: number;
     year?: number;
     targetValue?: number;
@@ -148,6 +151,11 @@ export function OKRDetailPane({
   onEdit,
 }: OKRDetailPaneProps) {
   const [activeTab, setActiveTab] = useState("overview");
+  const permissions = usePermissions();
+  
+  // Check if user can modify this entity
+  const canModify = permissions.canModifyOKR(entity?.ownerId, entity?.createdBy) || 
+                    permissions.canModifyByEmail(entity?.ownerEmail);
 
   const { data: checkInHistory = [] } = useQuery<CheckIn[]>({
     queryKey: ["/api/okr/check-ins", entity?.id, entityType],
@@ -206,7 +214,7 @@ export function OKRDetailPane({
               </SheetTitle>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
-              {onEdit && (
+              {onEdit && canModify && (
                 <Button 
                   size="sm" 
                   variant="outline"

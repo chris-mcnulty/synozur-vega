@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { usePermissions } from "@/hooks/use-permissions";
 import { 
   ChevronRight, 
   ChevronDown, 
@@ -43,6 +44,8 @@ interface KeyResult {
   progress: number;
   status: string;
   ownerEmail?: string;
+  ownerId?: string;
+  createdBy?: string;
   targetValue?: number;
   currentValue?: number;
   startValue?: number;
@@ -76,6 +79,8 @@ interface HierarchyObjective {
   status: string;
   statusOverride?: string;
   ownerEmail?: string;
+  ownerId?: string;
+  createdBy?: string;
   quarter: number;
   year: number;
   keyResults: KeyResult[];
@@ -318,6 +323,13 @@ function ObjectiveRow({
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
+  const permissions = usePermissions();
+  
+  // Check if user can modify this specific objective
+  // Try by ID first, then fall back to email for backwards compatibility
+  const canModify = permissions.canModifyOKR(objective.ownerId, objective.createdBy) || 
+                    permissions.canModifyByEmail(objective.ownerEmail);
+  const canDelete = permissions.canDeleteOKR;
   
   const keyResults = objective.keyResults || [];
   const childObjectives = objective.childObjectives || [];
@@ -480,14 +492,16 @@ function ObjectiveRow({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem 
-                  onClick={() => onEditObjective?.(objective)} 
-                  data-testid={`menu-edit-${objective.id}`}
-                  disabled={objective.status === 'closed'}
-                >
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit
-                </DropdownMenuItem>
+                {canModify && (
+                  <DropdownMenuItem 
+                    onClick={() => onEditObjective?.(objective)} 
+                    data-testid={`menu-edit-${objective.id}`}
+                    disabled={objective.status === 'closed'}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem 
                   onClick={() => onAddChildObjective?.(objective.id)} 
                   data-testid={`menu-add-child-${objective.id}`}
@@ -553,14 +567,16 @@ function ObjectiveRow({
                     Close
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem 
-                  onClick={() => onDeleteObjective?.(objective.id)} 
-                  className="text-destructive focus:text-destructive"
-                  data-testid={`menu-delete-${objective.id}`}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  Delete
-                </DropdownMenuItem>
+                {canDelete && (
+                  <DropdownMenuItem 
+                    onClick={() => onDeleteObjective?.(objective.id)} 
+                    className="text-destructive focus:text-destructive"
+                    data-testid={`menu-delete-${objective.id}`}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -662,6 +678,13 @@ function KeyResultRow({
   onReopenKeyResult?: (keyResultId: string) => void;
 }) {
   const [isHovered, setIsHovered] = useState(false);
+  const permissions = usePermissions();
+  
+  // Check if user can modify this specific key result
+  // Try by ID first, then fall back to owner email if key result has one
+  const canModify = permissions.canModifyOKR(keyResult.ownerId, keyResult.createdBy) ||
+                    permissions.canModifyByEmail((keyResult as any).ownerEmail);
+  const canDelete = permissions.canDeleteOKR;
 
   return (
     <TableRow 
@@ -828,14 +851,16 @@ function KeyResultRow({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem 
-                onClick={() => onEditKeyResult?.(keyResult)} 
-                data-testid={`menu-edit-kr-${keyResult.id}`}
-                disabled={keyResult.status === 'closed' || parentObjective.status === 'closed'}
-              >
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit
-              </DropdownMenuItem>
+              {canModify && (
+                <DropdownMenuItem 
+                  onClick={() => onEditKeyResult?.(keyResult)} 
+                  data-testid={`menu-edit-kr-${keyResult.id}`}
+                  disabled={keyResult.status === 'closed' || parentObjective.status === 'closed'}
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem 
                 onClick={() => onCheckInKeyResult?.(keyResult)} 
                 data-testid={`menu-checkin-kr-${keyResult.id}`}
@@ -863,14 +888,16 @@ function KeyResultRow({
                   Close
                 </DropdownMenuItem>
               )}
-              <DropdownMenuItem 
-                onClick={() => onDeleteKeyResult?.(keyResult.id)} 
-                className="text-destructive focus:text-destructive"
-                data-testid={`menu-delete-kr-${keyResult.id}`}
-              >
-                <Trash2 className="h-4 w-4 mr-2" />
-                Delete
-              </DropdownMenuItem>
+              {canDelete && (
+                <DropdownMenuItem 
+                  onClick={() => onDeleteKeyResult?.(keyResult.id)} 
+                  className="text-destructive focus:text-destructive"
+                  data-testid={`menu-delete-kr-${keyResult.id}`}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

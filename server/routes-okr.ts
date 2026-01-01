@@ -1,4 +1,4 @@
-import { Router } from "express";
+import { Router, Request, Response } from "express";
 import { storage } from "./storage";
 import { 
   insertObjectiveSchema, 
@@ -9,6 +9,44 @@ import {
   Objective
 } from "@shared/schema";
 import { z } from "zod";
+import { hasPermission, PERMISSIONS, Role } from "@shared/rbac";
+
+/**
+ * Check if the current user can modify a specific OKR
+ * Returns true if user has UPDATE_ANY_OKR permission, or if they own/created the item
+ */
+function canUserModifyOKR(req: Request, ownerId?: string | null, createdBy?: string | null, ownerEmail?: string | null): boolean {
+  if (!req.user) return false;
+  
+  // If user has UPDATE_ANY_OKR permission, they can modify any OKR
+  if (hasPermission(req.user.role as Role, PERMISSIONS.UPDATE_ANY_OKR)) {
+    return true;
+  }
+  
+  // Check if user has UPDATE_OWN_OKR permission first
+  if (!hasPermission(req.user.role as Role, PERMISSIONS.UPDATE_OWN_OKR)) {
+    return false;
+  }
+  
+  // Check if they own it or created it (by ID)
+  const userId = req.user.id;
+  if (ownerId && ownerId === userId) return true;
+  if (createdBy && createdBy === userId) return true;
+  
+  // Fall back to check by email for objectives that use ownerEmail
+  if (ownerEmail && req.user.email && ownerEmail === req.user.email) return true;
+  
+  return false;
+}
+
+/**
+ * Check if the current user can delete a specific OKR
+ * Returns true if user has DELETE_OKR permission
+ */
+function canUserDeleteOKR(req: Request): boolean {
+  if (!req.user) return false;
+  return hasPermission(req.user.role as Role, PERMISSIONS.DELETE_OKR);
+}
 
 export const okrRouter = Router();
 
@@ -155,6 +193,14 @@ okrRouter.patch("/objectives/:id", async (req, res) => {
       return res.status(404).json({ error: "Objective not found" });
     }
     
+    // RBAC: Check if user can modify this objective
+    if (!canUserModifyOKR(req, existingObjective.ownerId, existingObjective.createdBy, existingObjective.ownerEmail)) {
+      return res.status(403).json({ 
+        error: "Access denied",
+        message: "You can only edit objectives you own or created. Contact an admin for help."
+      });
+    }
+    
     if (existingObjective.status === 'closed') {
       const isStatusChange = updateData.status && updateData.status !== 'closed';
       
@@ -201,6 +247,14 @@ okrRouter.patch("/objectives/:id", async (req, res) => {
 
 okrRouter.delete("/objectives/:id", async (req, res) => {
   try {
+    // RBAC: Check if user has DELETE_OKR permission
+    if (!canUserDeleteOKR(req)) {
+      return res.status(403).json({ 
+        error: "Access denied",
+        message: "You do not have permission to delete objectives."
+      });
+    }
+    
     await storage.deleteObjective(req.params.id);
     res.json({ success: true });
   } catch (error) {
@@ -300,6 +354,18 @@ okrRouter.patch("/key-results/:id", async (req, res) => {
     
     // Check if key result is closed - only allow status changes (reopen)
     const existingKeyResult = await storage.getKeyResultById(req.params.id);
+    if (!existingKeyResult) {
+      return res.status(404).json({ error: "Key Result not found" });
+    }
+    
+    // RBAC: Check if user can modify this key result
+    if (!canUserModifyOKR(req, existingKeyResult.ownerId, existingKeyResult.createdBy, (existingKeyResult as any).ownerEmail)) {
+      return res.status(403).json({ 
+        error: "Access denied",
+        message: "You can only edit key results you own or created. Contact an admin for help."
+      });
+    }
+    
     if (existingKeyResult?.status === 'closed') {
       const isStatusChange = updateData.status && updateData.status !== 'closed';
       
@@ -333,6 +399,14 @@ okrRouter.patch("/key-results/:id", async (req, res) => {
 
 okrRouter.delete("/key-results/:id", async (req, res) => {
   try {
+    // RBAC: Check if user has DELETE_OKR permission
+    if (!canUserDeleteOKR(req)) {
+      return res.status(403).json({ 
+        error: "Access denied",
+        message: "You do not have permission to delete key results."
+      });
+    }
+    
     await storage.deleteKeyResult(req.params.id);
     res.json({ success: true });
   } catch (error) {
@@ -434,6 +508,20 @@ okrRouter.patch("/big-rocks/:id", async (req, res) => {
     if (updateData.objectiveId === "") updateData.objectiveId = null;
     if (updateData.keyResultId === "") updateData.keyResultId = null;
     
+    // Fetch existing big rock to check ownership
+    const existingBigRock = await storage.getBigRockById(req.params.id);
+    if (!existingBigRock) {
+      return res.status(404).json({ error: "Big Rock not found" });
+    }
+    
+    // RBAC: Check if user can modify this big rock
+    if (!canUserModifyOKR(req, existingBigRock.ownerId, existingBigRock.createdBy, existingBigRock.ownerEmail)) {
+      return res.status(403).json({ 
+        error: "Access denied",
+        message: "You can only edit big rocks you own or created. Contact an admin for help."
+      });
+    }
+    
     const bigRock = await storage.updateBigRock(req.params.id, updateData);
     res.json(bigRock);
   } catch (error) {
@@ -444,6 +532,14 @@ okrRouter.patch("/big-rocks/:id", async (req, res) => {
 
 okrRouter.delete("/big-rocks/:id", async (req, res) => {
   try {
+    // RBAC: Check if user has DELETE_OKR permission
+    if (!canUserDeleteOKR(req)) {
+      return res.status(403).json({ 
+        error: "Access denied",
+        message: "You do not have permission to delete big rocks."
+      });
+    }
+    
     await storage.deleteBigRock(req.params.id);
     res.json({ success: true });
   } catch (error) {

@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
+import { usePermissions } from "@/hooks/use-permissions";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -44,6 +45,8 @@ interface Objective {
   progress: number;
   status: string;
   ownerEmail?: string;
+  ownerId?: string;
+  createdBy?: string;
   coOwnerIds?: string[];
   quarter: number;
   year: number;
@@ -65,6 +68,8 @@ interface KeyResult {
   isWeightLocked?: boolean;
   status: string;
   isPromotedToKpi?: boolean;
+  ownerId?: string;
+  createdBy?: string;
   // Excel source binding
   excelSourceType?: string | null;
   excelFileId?: string | null;
@@ -91,6 +96,8 @@ interface BigRock {
   year: number;
   linkedStrategies?: string[];
   ownerEmail?: string;
+  ownerId?: string;
+  createdBy?: string;
   accountableId?: string;
   accountableEmail?: string;
   lastCheckInAt?: Date | string;
@@ -132,6 +139,7 @@ export default function PlanningEnhanced() {
   const { toast } = useToast();
   const { currentTenant } = useTenant();
   const { user } = useAuth();
+  const permissions = usePermissions();
   
   // Load saved filters from localStorage
   const savedFilters = getSavedPlanningFilters();
@@ -3818,7 +3826,8 @@ export default function PlanningEnhanced() {
             setDetailPaneOpen(false);
             setCheckInDialogOpen(true);
           }}
-          onEdit={() => {
+          onEdit={(permissions.canModifyOKR(detailPaneEntity?.ownerId, detailPaneEntity?.createdBy) || 
+                   permissions.canModifyByEmail(detailPaneEntity?.ownerEmail)) ? () => {
             if (detailPaneEntityType === "objective" && detailPaneEntity) {
               setSelectedObjective(detailPaneEntity as any);
               setObjectiveForm({
@@ -3861,7 +3870,7 @@ export default function PlanningEnhanced() {
               setDetailPaneOpen(false);
               setKeyResultDialogOpen(true);
             }
-          }}
+          } : undefined}
         />
       </div>
     </div>

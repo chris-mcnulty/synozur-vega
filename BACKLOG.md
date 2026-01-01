@@ -27,7 +27,7 @@
 
 | Item | Status | Notes |
 |------|--------|-------|
-| **RBAC** | ✅ 95% | Core security complete. Fine-grained permissions remaining. |
+| **RBAC** | ✅ 100% | Complete. Fine-grained permissions implemented. |
 | **M365 Multi-Tenant** | ✅ ~90% | SSO, Planner, SharePoint/OneDrive, Admin Consent, Outlook Calendar complete. |
 | **Focus Rhythm** | ✅ ~85% | Decisions/Risks UI, OKR linking, meeting templates complete. |
 | **Culture & Values** | ✅ Complete | |
@@ -69,22 +69,24 @@ PHASE 3: Advanced Features (February-March 2025)
 
 ## HIGH PRIORITY FEATURES
 
-### 1. RBAC Enforcement ✅ CORE SECURITY FIXED
+### 1. RBAC Enforcement ✅ COMPLETE
 
-**Status:** Auth + Tenant Isolation Complete, Fine-Grained Permissions Remaining  
+**Status:** Complete (January 1, 2026)  
 **Priority:** High  
-**Effort:** 1 week remaining
 
 **What's Built:**
 - 6 roles defined: `tenant_user`, `tenant_admin`, `admin`, `global_admin`, `vega_consultant`, `vega_admin`
 - 20+ permissions defined
 - RBAC middleware with role/permission/tenant checking
 - All routes protected with authentication
-
-**Remaining Work:**
-1. Apply permission-based checks (UPDATE_ANY_OKR vs UPDATE_OWN_OKR)
-2. Add ownership validation
-3. UI restrictions based on role
+- **Fine-grained permissions (UPDATE_OWN_OKR vs UPDATE_ANY_OKR)**:
+  - Server-side: `canUserModifyOKR()` and `canUserDeleteOKR()` helper functions in routes-okr.ts
+  - Ownership checks on objective, key result, and big rock update/delete routes
+  - Meeting ownership checks (facilitator or attendee can edit/delete)
+- **Frontend permission-aware UI**:
+  - `usePermissions()` hook in `client/src/hooks/use-permissions.ts`
+  - Edit/Delete buttons conditionally hidden in OKRDetailPane and HierarchicalOKRTable
+  - Permission checks based on current user, item owner, and item creator
 
 ---
 

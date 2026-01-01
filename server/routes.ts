@@ -36,7 +36,7 @@ import {
   canModifyAnyOKR,
   isResourceOwner
 } from "./middleware/rbac";
-import { ROLES, PERMISSIONS, USER_TYPES, getAvailableRolesForUserType } from "../shared/rbac";
+import { ROLES, PERMISSIONS, USER_TYPES, getAvailableRolesForUserType, hasPermission, Role } from "../shared/rbac";
 import { isPublicEmailDomain } from "../shared/publicDomains";
 
 // Authentication middleware (basic - just checks session)
@@ -1728,6 +1728,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/meetings/:id", ...authWithTenant, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
+      
+      // Fetch existing meeting to check ownership
+      const existingMeeting = await storage.getMeetingById(id);
+      if (!existingMeeting) {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+      
+      // RBAC: Check if user can modify this meeting
+      // Users with UPDATE_ANY_OKR can edit any meeting, others must be facilitator or attendee
+      const userRole = req.user?.role as Role;
+      const hasUpdateAnyPermission = hasPermission(userRole, PERMISSIONS.UPDATE_ANY_OKR);
+      const isFacilitator = existingMeeting.facilitator && 
+        (existingMeeting.facilitator === req.user?.email || 
+         existingMeeting.facilitator === req.user?.name);
+      const isAttendee = existingMeeting.attendees?.includes(req.user?.email || '');
+      
+      if (!hasUpdateAnyPermission && !isFacilitator && !isAttendee) {
+        return res.status(403).json({ 
+          error: "Access denied",
+          message: "You can only edit meetings you facilitate or attend."
+        });
+      }
+      
       const validatedData = insertMeetingSchema.partial().parse(req.body);
       const dataToUpdate = {
         ...validatedData,
@@ -1735,9 +1758,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         nextMeetingDate: validatedData.nextMeetingDate ? new Date(validatedData.nextMeetingDate) : undefined,
       };
       const meeting = await storage.updateMeeting(id, dataToUpdate);
-      if (!meeting) {
-        return res.status(404).json({ error: "Meeting not found" });
-      }
       res.json(meeting);
     } catch (error) {
       console.error("Error updating meeting:", error);
