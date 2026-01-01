@@ -35,6 +35,7 @@ import { cn } from "@/lib/utils";
 import type { Foundation, CompanyValue } from "@shared/schema";
 import { ProgressSummaryDialog } from "@/components/ProgressSummaryDialog";
 import { CloneObjectiveDialog } from "@/components/okr/CloneObjectiveDialog";
+import { OKRQualityScore } from "@/components/okr/OKRQualityScore";
 
 interface Objective {
   id: string;
@@ -1919,6 +1920,19 @@ export default function PlanningEnhanced() {
                   data-testid="input-objective-description"
                 />
               </div>
+
+              {objectiveForm.title && objectiveForm.title.length >= 3 && (
+                <OKRQualityScore
+                  objectiveTitle={objectiveForm.title}
+                  objectiveDescription={objectiveForm.description}
+                  alignedObjectives={objectives
+                    .filter(obj => (objectiveForm.alignedToObjectiveIds || []).includes(obj.id))
+                    .map(obj => obj.title)}
+                  onApplySuggestion={(suggestion) => {
+                    setObjectiveForm({ ...objectiveForm, title: suggestion });
+                  }}
+                />
+              )}
               <div>
                 <Label>Company Values</Label>
                 <ValueTagSelector
