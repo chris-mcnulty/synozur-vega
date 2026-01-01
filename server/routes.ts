@@ -449,6 +449,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get current user data (for permissions/RBAC checks on frontend)
+  app.get("/api/user", async (req, res) => {
+    try {
+      if (!req.session.userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+
+      const user = await storage.getUser(req.session.userId);
+      if (!user) {
+        req.session.userId = undefined;
+        return res.status(401).json({ error: "User not found" });
+      }
+
+      // Return user without password hash
+      const { password, ...safeUser } = user;
+      res.json(safeUser);
+    } catch (error) {
+      console.error("Get current user error:", error);
+      res.status(500).json({ error: "Failed to get current user" });
+    }
+  });
+
   app.post("/api/auth/logout", (req, res) => {
     req.session.destroy((err) => {
       if (err) {

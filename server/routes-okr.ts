@@ -170,7 +170,19 @@ okrRouter.get("/objectives/:id/children", async (req, res) => {
 okrRouter.post("/objectives", async (req, res) => {
   try {
     const validatedData = insertObjectiveSchema.parse(req.body);
-    const objective = await storage.createObjective(validatedData);
+    
+    // Auto-set createdBy from session if not provided
+    const session = req.session as any;
+    const userId = session?.passport?.user?.id || session?.userId;
+    const userEmail = session?.passport?.user?.email || session?.userEmail;
+    
+    const objectiveData = {
+      ...validatedData,
+      createdBy: validatedData.createdBy || userId || null,
+      ownerEmail: validatedData.ownerEmail || userEmail || null,
+    };
+    
+    const objective = await storage.createObjective(objectiveData);
     res.json(objective);
   } catch (error) {
     if (error instanceof z.ZodError) {
