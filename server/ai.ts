@@ -1148,6 +1148,7 @@ JSON format:
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       // Direct lightweight call without the full grounding context
+      // Note: Replit AI Integrations for gpt-5 only supports default temperature (1)
       const response = await openai.chat.completions.create({
         model: MODEL,
         messages: [
@@ -1155,7 +1156,6 @@ JSON format:
           { role: "user", content: userMessage }
         ],
         max_completion_tokens: 1000,
-        temperature: 0.3,
       });
 
       const content = response.choices[0]?.message?.content || "";
