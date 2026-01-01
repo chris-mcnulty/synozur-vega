@@ -20,7 +20,7 @@ import {
   MoreHorizontal,
   Pencil,
   Plus,
-  Leaf,
+  CheckCircle2,
   Trash2,
   FolderPlus,
   ArrowDownFromLine,
@@ -466,7 +466,7 @@ function ObjectiveRow({
                   title="Check-in"
                   data-testid={`button-checkin-objective-${objective.id}`}
                 >
-                  <Leaf className="h-4 w-4 text-teal-500" />
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
                 </Button>
                 <Button
                   size="icon"
@@ -531,7 +531,7 @@ function ObjectiveRow({
                   data-testid={`menu-checkin-${objective.id}`}
                   disabled={objective.status === 'closed'}
                 >
-                  <Leaf className="h-4 w-4 mr-2 text-teal-500" />
+                  <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" />
                   Check-in
                 </DropdownMenuItem>
                 <DropdownMenuItem 
@@ -836,7 +836,7 @@ function KeyResultRow({
               title="Check-in"
               data-testid={`button-checkin-kr-${keyResult.id}`}
             >
-              <Leaf className="h-4 w-4 text-teal-500" />
+              <CheckCircle2 className="h-4 w-4 text-green-500" />
             </Button>
           )}
           <DropdownMenu>
@@ -866,7 +866,7 @@ function KeyResultRow({
                 data-testid={`menu-checkin-kr-${keyResult.id}`}
                 disabled={keyResult.status === 'closed' || parentObjective.status === 'closed'}
               >
-                <Leaf className="h-4 w-4 mr-2 text-teal-500" />
+                <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" />
                 Check-in
               </DropdownMenuItem>
               <DropdownMenuSeparator />
