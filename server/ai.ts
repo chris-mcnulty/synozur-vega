@@ -1131,109 +1131,94 @@ export interface OKRQualityScoreInput {
 export async function scoreOKRQuality(input: OKRQualityScoreInput): Promise<OKRQualityScoreResult> {
   const { objectiveTitle, objectiveDescription, keyResults, tenantId, alignedObjectives } = input;
   const startTime = Date.now();
+  const maxRetries = 2;
 
-  const prompt = `You are an OKR quality expert. Analyze the following OKR and provide a quality score with specific, actionable feedback.
+  const prompt = `Analyze this OKR and return ONLY a JSON object with your assessment. No other text.
 
-## OKR to Analyze
-**Objective:** ${objectiveTitle}
-${objectiveDescription ? `**Description:** ${objectiveDescription}` : ''}
-${keyResults && keyResults.length > 0 ? `
-**Key Results:**
-${keyResults.map((kr, i) => `${i + 1}. ${kr.title}${kr.target ? ` (Target: ${kr.target}${kr.unit ? ' ' + kr.unit : ''})` : ''}`).join('\n')}` : '(No Key Results defined yet)'}
-${alignedObjectives && alignedObjectives.length > 0 ? `**Aligned to:** ${alignedObjectives.join(', ')}` : ''}
+OBJECTIVE: "${objectiveTitle}"
+${objectiveDescription ? `DESCRIPTION: "${objectiveDescription}"` : ''}
+${keyResults && keyResults.length > 0 ? `KEY RESULTS:\n${keyResults.map((kr, i) => `${i + 1}. ${kr.title}${kr.target ? ` (Target: ${kr.target}${kr.unit ? ' ' + kr.unit : ''})` : ''}`).join('\n')}` : '(No Key Results yet)'}
+${alignedObjectives && alignedObjectives.length > 0 ? `ALIGNED TO: ${alignedObjectives.join(', ')}` : ''}
 
-## Scoring Dimensions (100 points total)
-1. **Clarity (25 points):** Is the objective specific, unambiguous, and easy to understand?
-2. **Measurability (25 points):** Can progress be quantified? Are Key Results truly measurable?
-3. **Achievability (20 points):** Is this realistic given typical organizational capacity?
-4. **Alignment (15 points):** Does it connect to higher-level objectives or strategy?
-5. **Time-Bound (15 points):** Is the timeline clear and appropriate?
+Score each dimension: Clarity (0-25), Measurability (0-25), Achievability (0-20), Alignment (0-15), Time-Bound (0-15).
 
-## Response Format
-Respond with a JSON object (no markdown code blocks, just raw JSON):
-{
-  "score": <total score 0-100>,
-  "dimensions": {
-    "clarity": { "score": <0-25>, "maxScore": 25, "feedback": "<specific feedback>" },
-    "measurability": { "score": <0-25>, "maxScore": 25, "feedback": "<specific feedback>" },
-    "achievability": { "score": <0-20>, "maxScore": 20, "feedback": "<specific feedback>" },
-    "alignment": { "score": <0-15>, "maxScore": 15, "feedback": "<specific feedback>" },
-    "timeBound": { "score": <0-15>, "maxScore": 15, "feedback": "<specific feedback>" }
-  },
-  "issues": [
-    { "type": "<dimension>", "message": "<specific issue>", "impact": <points deducted> }
-  ],
-  "strengths": [
-    { "type": "<dimension>", "message": "<what's good>", "bonus": <points earned> }
-  ],
-  "suggestion": "<improved version of the objective, or null if already good>"
-}
+Return this exact JSON structure:
+{"score":75,"dimensions":{"clarity":{"score":20,"maxScore":25,"feedback":"Clear objective"},"measurability":{"score":18,"maxScore":25,"feedback":"Could add metrics"},"achievability":{"score":15,"maxScore":20,"feedback":"Seems achievable"},"alignment":{"score":12,"maxScore":15,"feedback":"Aligns well"},"timeBound":{"score":10,"maxScore":15,"feedback":"Add deadline"}},"issues":[{"type":"measurability","message":"Add specific metrics","impact":7}],"strengths":[{"type":"clarity","message":"Well defined","bonus":5}],"suggestion":"Improved objective text or null"}
 
-Be constructive and specific. Focus on actionable improvements.`;
+YOUR JSON RESPONSE:`;
 
-  try {
-    const response = await getChatCompletion(
-      [{ role: "user", content: prompt }],
-      { tenantId, maxTokens: 1500, temperature: 0.3 },
-      AI_FEATURES.OKR_QUALITY_SCORING
-    );
-
-    console.log("[AI Service] OKR Quality Score raw response:", response.substring(0, 500));
-
-    // Parse the JSON response - extract the complete JSON object
-    let cleanedResponse = response
-      .replace(/```json\s*/gi, "")
-      .replace(/```\s*/g, "")
-      .trim();
-    
-    // Find the first { and the matching last }
-    const firstBrace = cleanedResponse.indexOf("{");
-    const lastBrace = cleanedResponse.lastIndexOf("}");
-    
-    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-      cleanedResponse = cleanedResponse.substring(firstBrace, lastBrace + 1);
-    }
-
-    console.log("[AI Service] OKR Quality Score cleaned response:", cleanedResponse.substring(0, 300));
-
-    let parsed: any;
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      parsed = JSON.parse(cleanedResponse);
-    } catch (parseError) {
-      console.error("[AI Service] OKR Quality Score JSON parse error:", parseError);
-      console.error("[AI Service] Failed to parse:", cleanedResponse);
-      // Return a default response if parsing fails
-      return {
-        score: 50,
-        dimensions: {
-          clarity: { score: 12, maxScore: 25, feedback: "AI analysis failed - please try again" },
-          measurability: { score: 12, maxScore: 25, feedback: "AI analysis failed - please try again" },
-          achievability: { score: 10, maxScore: 20, feedback: "AI analysis failed - please try again" },
-          alignment: { score: 8, maxScore: 15, feedback: "AI analysis failed - please try again" },
-          timeBound: { score: 8, maxScore: 15, feedback: "AI analysis failed - please try again" },
-        },
-        issues: [{ type: "clarity", message: "Could not analyze OKR - please try again", impact: 0 }],
-        strengths: [],
-        suggestion: null,
-      };
-    }
+      const response = await getChatCompletion(
+        [{ role: "user", content: prompt }],
+        { tenantId, maxTokens: 1500, temperature: 0.2 },
+        AI_FEATURES.OKR_QUALITY_SCORING
+      );
 
-    // Validate and return the result
-    return {
-      score: typeof parsed.score === 'number' ? Math.min(100, Math.max(0, parsed.score)) : 50,
-      dimensions: {
-        clarity: parsed.dimensions?.clarity || { score: 0, maxScore: 25, feedback: "Not analyzed" },
-        measurability: parsed.dimensions?.measurability || { score: 0, maxScore: 25, feedback: "Not analyzed" },
-        achievability: parsed.dimensions?.achievability || { score: 0, maxScore: 20, feedback: "Not analyzed" },
-        alignment: parsed.dimensions?.alignment || { score: 0, maxScore: 15, feedback: "Not analyzed" },
-        timeBound: parsed.dimensions?.timeBound || { score: 0, maxScore: 15, feedback: "Not analyzed" },
-      },
-      issues: Array.isArray(parsed.issues) ? parsed.issues : [],
-      strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
-      suggestion: typeof parsed.suggestion === 'string' ? parsed.suggestion : null,
-    };
-  } catch (error: any) {
-    console.error("[AI Service] Error scoring OKR quality:", error.message);
-    throw new Error(`Failed to score OKR quality: ${error.message}`);
+      console.log(`[AI Service] OKR Quality Score attempt ${attempt} raw response:`, response.substring(0, 300));
+
+      // Check for non-JSON responses (apologies, refusals, etc.)
+      if (response.toLowerCase().includes("apologize") || 
+          response.toLowerCase().includes("sorry") || 
+          response.toLowerCase().includes("unable to")) {
+        console.log("[AI Service] Received refusal response, retrying...");
+        if (attempt < maxRetries) continue;
+      }
+
+      // Parse the JSON response
+      let cleanedResponse = response
+        .replace(/```json\s*/gi, "")
+        .replace(/```\s*/g, "")
+        .trim();
+      
+      const firstBrace = cleanedResponse.indexOf("{");
+      const lastBrace = cleanedResponse.lastIndexOf("}");
+      
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        cleanedResponse = cleanedResponse.substring(firstBrace, lastBrace + 1);
+      }
+
+      console.log("[AI Service] OKR Quality Score cleaned response:", cleanedResponse.substring(0, 200));
+
+      const parsed = JSON.parse(cleanedResponse);
+      
+      // Validate and return the result
+      return {
+        score: typeof parsed.score === 'number' ? Math.min(100, Math.max(0, parsed.score)) : 50,
+        dimensions: {
+          clarity: parsed.dimensions?.clarity || { score: 0, maxScore: 25, feedback: "Not analyzed" },
+          measurability: parsed.dimensions?.measurability || { score: 0, maxScore: 25, feedback: "Not analyzed" },
+          achievability: parsed.dimensions?.achievability || { score: 0, maxScore: 20, feedback: "Not analyzed" },
+          alignment: parsed.dimensions?.alignment || { score: 0, maxScore: 15, feedback: "Not analyzed" },
+          timeBound: parsed.dimensions?.timeBound || { score: 0, maxScore: 15, feedback: "Not analyzed" },
+        },
+        issues: Array.isArray(parsed.issues) ? parsed.issues : [],
+        strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
+        suggestion: typeof parsed.suggestion === 'string' ? parsed.suggestion : null,
+      };
+    } catch (parseError) {
+      console.error(`[AI Service] OKR Quality Score attempt ${attempt} failed:`, parseError);
+      if (attempt < maxRetries) {
+        console.log("[AI Service] Retrying OKR quality scoring...");
+        continue;
+      }
+    }
   }
+
+  // Return default after all retries failed
+  console.error("[AI Service] All OKR Quality Score attempts failed");
+  return {
+    score: 50,
+    dimensions: {
+      clarity: { score: 12, maxScore: 25, feedback: "AI analysis unavailable - try again later" },
+      measurability: { score: 12, maxScore: 25, feedback: "AI analysis unavailable - try again later" },
+      achievability: { score: 10, maxScore: 20, feedback: "AI analysis unavailable - try again later" },
+      alignment: { score: 8, maxScore: 15, feedback: "AI analysis unavailable - try again later" },
+      timeBound: { score: 8, maxScore: 15, feedback: "AI analysis unavailable - try again later" },
+    },
+    issues: [{ type: "system", message: "AI analysis temporarily unavailable - please try again", impact: 0 }],
+    strengths: [],
+    suggestion: null,
+  };
 }
+
