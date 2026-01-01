@@ -3812,6 +3812,39 @@ export default function PlanningEnhanced() {
           linkedBigRocks={detailPaneEntity?.linkedBigRocks || []}
           onCheckIn={() => {
             if (detailPaneEntityType === "objective" && detailPaneEntity) {
+              // Check if period has ended first (takes priority)
+              if (isPeriodEnded(detailPaneEntity.quarter, detailPaneEntity.year) && detailPaneEntity.status !== "completed") {
+                setClosePromptEntity({
+                  type: "objective",
+                  id: detailPaneEntity.id,
+                  title: detailPaneEntity.title,
+                  progress: detailPaneEntity.progress,
+                  reason: 'period_ended',
+                  quarter: detailPaneEntity.quarter,
+                  year: detailPaneEntity.year,
+                });
+                setContinueInNextPeriod(null);
+                setClosingNote("");
+                setDetailPaneOpen(false);
+                setClosePromptDialogOpen(true);
+                return;
+              }
+              // Check if target exceeded (100%+)
+              if (detailPaneEntity.progress >= 100 && detailPaneEntity.status !== "completed") {
+                setClosePromptEntity({
+                  type: "objective",
+                  id: detailPaneEntity.id,
+                  title: detailPaneEntity.title,
+                  progress: detailPaneEntity.progress,
+                  reason: 'target_exceeded',
+                });
+                setContinueInNextPeriod(null);
+                setClosingNote("");
+                setDetailPaneOpen(false);
+                setClosePromptDialogOpen(true);
+                return;
+              }
+              // Normal check-in flow
               setCheckInEntity({ type: 'objective', id: detailPaneEntity.id, current: detailPaneEntity });
               setCheckInForm({
                 newValue: 0,
@@ -3824,6 +3857,39 @@ export default function PlanningEnhanced() {
                 asOfDate: new Date().toISOString().split('T')[0],
               });
             } else if (detailPaneEntityType === "key_result" && detailPaneEntity) {
+              // Check if period has ended first (takes priority)
+              if (isPeriodEnded((detailPaneEntity as any).quarter, (detailPaneEntity as any).year) && detailPaneEntity.status !== "completed") {
+                setClosePromptEntity({
+                  type: "key_result",
+                  id: detailPaneEntity.id,
+                  title: detailPaneEntity.title,
+                  progress: detailPaneEntity.progress,
+                  reason: 'period_ended',
+                  quarter: (detailPaneEntity as any).quarter,
+                  year: (detailPaneEntity as any).year,
+                });
+                setContinueInNextPeriod(null);
+                setClosingNote("");
+                setDetailPaneOpen(false);
+                setClosePromptDialogOpen(true);
+                return;
+              }
+              // Check if target exceeded (100%+)
+              if (detailPaneEntity.progress >= 100 && detailPaneEntity.status !== "completed") {
+                setClosePromptEntity({
+                  type: "key_result",
+                  id: detailPaneEntity.id,
+                  title: detailPaneEntity.title,
+                  progress: detailPaneEntity.progress,
+                  reason: 'target_exceeded',
+                });
+                setContinueInNextPeriod(null);
+                setClosingNote("");
+                setDetailPaneOpen(false);
+                setClosePromptDialogOpen(true);
+                return;
+              }
+              // Normal check-in flow
               setCheckInEntity({ type: 'key_result', id: detailPaneEntity.id, current: detailPaneEntity });
               setValueInputDraft(String(detailPaneEntity.currentValue || 0));
               setCheckInForm({

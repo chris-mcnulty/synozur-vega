@@ -1,6 +1,6 @@
 # Vega Platform Master Backlog
 
-**Last Updated:** January 1, 2026
+**Last Updated:** January 1, 2026 (Company OS Document Export added)
 
 > **Note:** This is the single source of truth for all Vega feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference this document for backlog-related questions.
 
@@ -258,6 +258,47 @@ Expose BACKLOG.md and a changelog file dynamically within the application UI so 
 **Dependencies:** 
 - `react-markdown` (already installed)
 - `remark-gfm` (already installed)
+
+---
+
+### Company OS Document Export
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Effort:** 1-2 weeks
+
+**Description:**
+Generate a comprehensive single-document view of an organization's Company OS, exportable as Markdown (with future support for PDF/PPTX). This provides a complete snapshot of the company's strategic framework in a shareable, printable format.
+
+**Features:**
+1. **Full Export**: Generate complete document including:
+   - Foundation (Mission, Vision, Values, Annual Goals)
+   - Strategies with linked values
+   - Objectives hierarchy with Key Results and progress
+   - Big Rocks with status
+   - Team structure (optional)
+2. **Filtering Options**:
+   - By organizational level (Organization, Division, Team, Individual)
+   - By team (specific teams only)
+   - By time period (quarter/year)
+   - By status (active, completed, all)
+3. **Output Formats**:
+   - Phase 1: Markdown (.md)
+   - Future: PDF, PPTX
+4. **Access Control**: Respect RBAC (tenant users see only their tenant)
+
+**Technical Approach:**
+- API endpoint: `GET /api/export/company-os` with filter query params
+- Server-side markdown generation
+- Frontend: Export button in sidebar or Planning page with filter dialog
+
+**Business Value:**
+- Board presentations and leadership reviews
+- Strategic planning documentation
+- Consultant deliverables
+- Archival and compliance
+
+**Dependencies:** None
 
 ---
 
