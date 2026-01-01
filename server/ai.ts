@@ -1178,30 +1178,41 @@ Be constructive and specific. Focus on actionable improvements.`;
       AI_FEATURES.OKR_QUALITY_SCORING
     );
 
-    // Parse the JSON response
-    const cleanedResponse = response
-      .replace(/```json\s*/g, "")
+    console.log("[AI Service] OKR Quality Score raw response:", response.substring(0, 500));
+
+    // Parse the JSON response - extract the complete JSON object
+    let cleanedResponse = response
+      .replace(/```json\s*/gi, "")
       .replace(/```\s*/g, "")
-      .replace(/^[^{]*/, "")
-      .replace(/[^}]*$/, "")
       .trim();
+    
+    // Find the first { and the matching last }
+    const firstBrace = cleanedResponse.indexOf("{");
+    const lastBrace = cleanedResponse.lastIndexOf("}");
+    
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      cleanedResponse = cleanedResponse.substring(firstBrace, lastBrace + 1);
+    }
+
+    console.log("[AI Service] OKR Quality Score cleaned response:", cleanedResponse.substring(0, 300));
 
     let parsed: any;
     try {
       parsed = JSON.parse(cleanedResponse);
     } catch (parseError) {
       console.error("[AI Service] OKR Quality Score JSON parse error:", parseError);
+      console.error("[AI Service] Failed to parse:", cleanedResponse);
       // Return a default response if parsing fails
       return {
         score: 50,
         dimensions: {
-          clarity: { score: 12, maxScore: 25, feedback: "Unable to analyze - please try again" },
-          measurability: { score: 12, maxScore: 25, feedback: "Unable to analyze - please try again" },
-          achievability: { score: 10, maxScore: 20, feedback: "Unable to analyze - please try again" },
-          alignment: { score: 8, maxScore: 15, feedback: "Unable to analyze - please try again" },
-          timeBound: { score: 8, maxScore: 15, feedback: "Unable to analyze - please try again" },
+          clarity: { score: 12, maxScore: 25, feedback: "AI analysis failed - please try again" },
+          measurability: { score: 12, maxScore: 25, feedback: "AI analysis failed - please try again" },
+          achievability: { score: 10, maxScore: 20, feedback: "AI analysis failed - please try again" },
+          alignment: { score: 8, maxScore: 15, feedback: "AI analysis failed - please try again" },
+          timeBound: { score: 8, maxScore: 15, feedback: "AI analysis failed - please try again" },
         },
-        issues: [],
+        issues: [{ type: "clarity", message: "Could not analyze OKR - please try again", impact: 0 }],
         strengths: [],
         suggestion: null,
       };
