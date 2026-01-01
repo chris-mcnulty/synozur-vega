@@ -808,7 +808,7 @@ function KeyResultRow({
             <span className="text-xs text-muted-foreground">
               {formatProgressText(keyResult.progress, keyResult.metricType, keyResult.unit, keyResult.currentValue)}
             </span>
-            {keyResult.targetValue !== undefined && keyResult.unit && (
+            {keyResult.targetValue !== undefined && keyResult.unit && keyResult.unit.toLowerCase() !== 'number' && (
               <span className="text-[10px] text-muted-foreground">
                 {keyResult.currentValue !== undefined ? `${keyResult.currentValue} / ` : ''}
                 {keyResult.targetValue} {keyResult.unit}

@@ -1893,311 +1893,281 @@ export default function PlanningEnhanced() {
           </TabsContent>
         </Tabs>
 
-        {/* Create/Edit Objective Dialog */}
+        {/* Create/Edit Objective Dialog - Tabbed */}
         <Dialog open={objectiveDialogOpen} onOpenChange={setObjectiveDialogOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+          <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
             <DialogHeader>
               <DialogTitle>{selectedObjective ? "Edit" : "Create"} Objective</DialogTitle>
               <DialogDescription>
                 {selectedObjective ? "Update the objective details" : `Define a new objective`}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 overflow-y-auto flex-1 pr-2">
-              <div>
-                <Label htmlFor="obj-title">Title *</Label>
-                <Input
-                  id="obj-title"
-                  value={objectiveForm.title}
-                  onChange={(e) => setObjectiveForm({ ...objectiveForm, title: e.target.value })}
-                  placeholder="e.g., Increase customer satisfaction"
-                  data-testid="input-objective-title"
-                />
-              </div>
-              <div>
-                <Label htmlFor="obj-desc">Description</Label>
-                <Textarea
-                  id="obj-desc"
-                  value={objectiveForm.description}
-                  onChange={(e) => setObjectiveForm({ ...objectiveForm, description: e.target.value })}
-                  placeholder="Describe the objective in detail..."
-                  rows={3}
-                  data-testid="input-objective-description"
-                />
-              </div>
-
-              {objectiveForm.title && objectiveForm.title.length >= 3 && (
-                <OKRQualityScore
-                  objectiveTitle={objectiveForm.title}
-                  objectiveDescription={objectiveForm.description}
-                  alignedObjectives={objectives
-                    .filter(obj => (objectiveForm.alignedToObjectiveIds || []).includes(obj.id))
-                    .map(obj => obj.title)}
-                  onApplySuggestion={(suggestion) => {
-                    setObjectiveForm({ ...objectiveForm, title: suggestion });
-                  }}
-                />
-              )}
-              <div>
-                <Label>Company Values</Label>
-                <ValueTagSelector
-                  availableValues={foundation?.values || []}
-                  selectedValues={objectiveValueTags}
-                  onValuesChange={setObjectiveValueTags}
-                />
-              </div>
-
-              <div>
-                <Label>Linked Strategies</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {strategies.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No strategies defined yet</p>
-                  ) : (
-                    strategies.map((strategy) => (
-                      <Badge
-                        key={strategy.id}
-                        variant={(objectiveForm.linkedStrategies || []).includes(strategy.id) ? "default" : "outline"}
-                        className="cursor-pointer"
-                        onClick={() => toggleObjectiveStrategy(strategy.id)}
-                        data-testid={`badge-strategy-${strategy.id}`}
-                      >
-                        {strategy.title}
-                      </Badge>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <Label>Linked Annual Goals</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {(!foundation?.annualGoals || foundation.annualGoals.length === 0) ? (
-                    <p className="text-sm text-muted-foreground">No annual goals defined yet</p>
-                  ) : (
-                    foundation.annualGoals.map((goal) => (
-                      <Badge
-                        key={goal}
-                        variant={(objectiveForm.linkedGoals || []).includes(goal) ? "default" : "outline"}
-                        className="cursor-pointer"
-                        onClick={() => toggleObjectiveGoal(goal)}
-                        data-testid={`badge-goal-${goal?.toLowerCase().replace(/\s+/g, '-')}`}
-                      >
-                        {goal}
-                      </Badge>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <Label>Link to Existing Big Rocks</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {bigRocks.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No big rocks available to link</p>
-                  ) : (
-                    bigRocks.map((rock: BigRock) => (
-                      <Badge
-                        key={rock.id}
-                        variant={(objectiveForm.linkedBigRocks || []).includes(rock.id) ? "default" : "outline"}
-                        className="cursor-pointer toggle-elevate"
-                        onClick={() => {
-                          const current = objectiveForm.linkedBigRocks || [];
-                          if (current.includes(rock.id)) {
-                            setObjectiveForm({ ...objectiveForm, linkedBigRocks: current.filter(id => id !== rock.id) });
-                          } else {
-                            setObjectiveForm({ ...objectiveForm, linkedBigRocks: [...current, rock.id] });
-                          }
-                        }}
-                        data-testid={`badge-bigrock-${rock.id}`}
-                      >
-                        {rock.title}
-                      </Badge>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <Label>Link to Parent Objective</Label>
-                <p className="text-xs text-muted-foreground mb-2">Select a parent objective for direct hierarchy</p>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {objectives.filter(obj => obj.id !== selectedObjective?.id).length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No other objectives available</p>
-                  ) : (
-                    objectives.filter(obj => obj.id !== selectedObjective?.id).map((obj: Objective) => (
-                      <Badge
-                        key={obj.id}
-                        variant={objectiveForm.parentId === obj.id ? "default" : "outline"}
-                        className="cursor-pointer"
-                        onClick={() => {
-                          setObjectiveForm({ 
-                            ...objectiveForm, 
-                            parentId: objectiveForm.parentId === obj.id ? "" : obj.id 
-                          });
-                        }}
-                        data-testid={`badge-parent-objective-${obj.id}`}
-                      >
-                        {obj.title}
-                      </Badge>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <Label className="flex items-center gap-2">
-                  <Link2 className="h-4 w-4" />
-                  Aligns To / Supports (Ladder Up)
-                </Label>
-                <p className="text-xs text-muted-foreground mb-2">
-                  Link this objective to existing objectives it supports. Creates a virtual parent-child relationship without changing the hierarchy.
-                </p>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {objectives.filter(obj => 
-                    obj.id !== selectedObjective?.id && 
-                    obj.id !== objectiveForm.parentId
-                  ).length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No objectives available to align to</p>
-                  ) : (
-                    objectives.filter(obj => 
-                      obj.id !== selectedObjective?.id && 
-                      obj.id !== objectiveForm.parentId
-                    ).map((obj: Objective) => (
-                      <Badge
-                        key={obj.id}
-                        variant={(objectiveForm.alignedToObjectiveIds || []).includes(obj.id) ? "default" : "outline"}
-                        className="cursor-pointer toggle-elevate"
-                        onClick={() => {
-                          const current = objectiveForm.alignedToObjectiveIds || [];
-                          if (current.includes(obj.id)) {
-                            setObjectiveForm({ ...objectiveForm, alignedToObjectiveIds: current.filter(id => id !== obj.id) });
-                          } else {
-                            setObjectiveForm({ ...objectiveForm, alignedToObjectiveIds: [...current, obj.id] });
-                          }
-                        }}
-                        data-testid={`badge-align-objective-${obj.id}`}
-                      >
-                        <Link2 className="h-3 w-3 mr-1" />
-                        {obj.title}
-                        {obj.level && <span className="ml-1 text-xs opacity-70">({obj.level})</span>}
-                      </Badge>
-                    ))
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="obj-level">Level</Label>
-                  <Select
-                    value={objectiveForm.level}
-                    onValueChange={(value) => setObjectiveForm({ ...objectiveForm, level: value })}
-                  >
-                    <SelectTrigger data-testid="select-objective-level">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="z-[60]">
-                      <SelectItem value="organization">Organization</SelectItem>
-                      <SelectItem value="team">Team</SelectItem>
-                      <SelectItem value="individual">Individual</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="obj-team">Assign to Team</Label>
-                  <Select
-                    value={objectiveForm.teamId || "none"}
-                    onValueChange={(value) => setObjectiveForm({ ...objectiveForm, teamId: value === "none" ? "" : value })}
-                  >
-                    <SelectTrigger data-testid="select-objective-team">
-                      <SelectValue placeholder="Select team..." />
-                    </SelectTrigger>
-                    <SelectContent className="z-[60]">
-                      <SelectItem value="none">No team (Organization-wide)</SelectItem>
-                      {teamsData.map((team) => (
-                        <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="obj-owner">Owner Email</Label>
-                  <Input
-                    id="obj-owner"
-                    type="email"
-                    value={objectiveForm.ownerEmail}
-                    onChange={(e) => setObjectiveForm({ ...objectiveForm, ownerEmail: e.target.value })}
-                    placeholder="owner@example.com"
-                    data-testid="input-objective-owner"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="obj-quarter">Time Period</Label>
-                  <Select
-                    value={String(objectiveForm.quarter)}
-                    onValueChange={(value) => setObjectiveForm({ ...objectiveForm, quarter: parseInt(value) })}
-                  >
-                    <SelectTrigger data-testid="select-objective-quarter">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="z-[60]">
-                      <SelectItem value="0">Annual</SelectItem>
-                      <SelectItem value="1">Q1</SelectItem>
-                      <SelectItem value="2">Q2</SelectItem>
-                      <SelectItem value="3">Q3</SelectItem>
-                      <SelectItem value="4">Q4</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="obj-year">Year</Label>
-                  <Select
-                    value={String(objectiveForm.year)}
-                    onValueChange={(value) => setObjectiveForm({ ...objectiveForm, year: parseInt(value) })}
-                  >
-                    <SelectTrigger data-testid="select-objective-year">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="z-[60]">
-                      <SelectItem value="2024">2024</SelectItem>
-                      <SelectItem value="2025">2025</SelectItem>
-                      <SelectItem value="2026">2026</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              {/* Milestones Section */}
-              <div>
-                <div className="flex items-center justify-between">
-                  <Label>Milestones</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setObjectiveMilestoneEditorOpen(true)}
-                    data-testid="button-set-objective-milestones"
-                  >
-                    {objectiveForm.phasedTargets?.targets?.length ? `Edit ${objectiveForm.phasedTargets.targets.length} Milestones` : "Set Milestones"}
-                  </Button>
-                </div>
-                {objectiveForm.phasedTargets?.targets && objectiveForm.phasedTargets.targets.length > 0 && (
-                  <div className="mt-2">
-                    <MilestoneTimeline
-                      phasedTargets={objectiveForm.phasedTargets}
-                      currentValue={0}
-                      targetValue={100}
-                      initialValue={0}
-                      metricType="increase"
-                      compact
+            <Tabs defaultValue="details" className="flex-1 flex flex-col overflow-hidden">
+              <TabsList className="grid w-full grid-cols-2 flex-shrink-0">
+                <TabsTrigger value="details" data-testid="tab-objective-details">Details</TabsTrigger>
+                <TabsTrigger value="alignment" data-testid="tab-objective-alignment">Alignment</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="details" className="flex-1 overflow-y-auto mt-4 pr-2">
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="obj-title">Title *</Label>
+                    <Input
+                      id="obj-title"
+                      value={objectiveForm.title}
+                      onChange={(e) => setObjectiveForm({ ...objectiveForm, title: e.target.value })}
+                      placeholder="e.g., Increase customer satisfaction"
+                      data-testid="input-objective-title"
                     />
                   </div>
-                )}
-              </div>
-            </div>
+                  <div>
+                    <Label htmlFor="obj-desc">Description</Label>
+                    <Textarea
+                      id="obj-desc"
+                      value={objectiveForm.description}
+                      onChange={(e) => setObjectiveForm({ ...objectiveForm, description: e.target.value })}
+                      placeholder="Describe the objective in detail..."
+                      rows={2}
+                      data-testid="input-objective-description"
+                    />
+                  </div>
+
+                  {objectiveForm.title && objectiveForm.title.length >= 3 && (
+                    <OKRQualityScore
+                      objectiveTitle={objectiveForm.title}
+                      objectiveDescription={objectiveForm.description}
+                      alignedObjectives={objectives
+                        .filter(obj => (objectiveForm.alignedToObjectiveIds || []).includes(obj.id))
+                        .map(obj => obj.title)}
+                      onApplySuggestion={(suggestion) => {
+                        setObjectiveForm({ ...objectiveForm, title: suggestion });
+                      }}
+                    />
+                  )}
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="obj-owner">Owner Email</Label>
+                      <Input
+                        id="obj-owner"
+                        type="email"
+                        value={objectiveForm.ownerEmail}
+                        onChange={(e) => setObjectiveForm({ ...objectiveForm, ownerEmail: e.target.value })}
+                        placeholder="owner@example.com"
+                        data-testid="input-objective-owner"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="obj-team">Assign to Team</Label>
+                      <Select
+                        value={objectiveForm.teamId || "none"}
+                        onValueChange={(value) => setObjectiveForm({ ...objectiveForm, teamId: value === "none" ? "" : value })}
+                      >
+                        <SelectTrigger data-testid="select-objective-team">
+                          <SelectValue placeholder="Select team..." />
+                        </SelectTrigger>
+                        <SelectContent className="z-[60]">
+                          <SelectItem value="none">No team (Organization-wide)</SelectItem>
+                          {teamsData.map((team) => (
+                            <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="obj-level">Level</Label>
+                      <Select
+                        value={objectiveForm.level}
+                        onValueChange={(value) => setObjectiveForm({ ...objectiveForm, level: value })}
+                      >
+                        <SelectTrigger data-testid="select-objective-level">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="z-[60]">
+                          <SelectItem value="organization">Organization</SelectItem>
+                          <SelectItem value="team">Team</SelectItem>
+                          <SelectItem value="individual">Individual</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="obj-quarter">Time Period</Label>
+                      <Select
+                        value={String(objectiveForm.quarter)}
+                        onValueChange={(value) => setObjectiveForm({ ...objectiveForm, quarter: parseInt(value) })}
+                      >
+                        <SelectTrigger data-testid="select-objective-quarter">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="z-[60]">
+                          <SelectItem value="0">Annual</SelectItem>
+                          <SelectItem value="1">Q1</SelectItem>
+                          <SelectItem value="2">Q2</SelectItem>
+                          <SelectItem value="3">Q3</SelectItem>
+                          <SelectItem value="4">Q4</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="obj-year">Year</Label>
+                      <Select
+                        value={String(objectiveForm.year)}
+                        onValueChange={(value) => setObjectiveForm({ ...objectiveForm, year: parseInt(value) })}
+                      >
+                        <SelectTrigger data-testid="select-objective-year">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="z-[60]">
+                          <SelectItem value="2024">2024</SelectItem>
+                          <SelectItem value="2025">2025</SelectItem>
+                          <SelectItem value="2026">2026</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <Label>Milestones</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setObjectiveMilestoneEditorOpen(true)}
+                        data-testid="button-set-objective-milestones"
+                      >
+                        {objectiveForm.phasedTargets?.targets?.length ? `Edit ${objectiveForm.phasedTargets.targets.length} Milestones` : "Set Milestones"}
+                      </Button>
+                    </div>
+                    {objectiveForm.phasedTargets?.targets && objectiveForm.phasedTargets.targets.length > 0 && (
+                      <div className="mt-2">
+                        <MilestoneTimeline
+                          phasedTargets={objectiveForm.phasedTargets}
+                          currentValue={0}
+                          targetValue={100}
+                          initialValue={0}
+                          metricType="increase"
+                          compact
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="alignment" className="flex-1 overflow-y-auto mt-4 pr-2">
+                <div className="space-y-4">
+                  <div>
+                    <Label>Parent Objective</Label>
+                    <p className="text-xs text-muted-foreground mb-2">Select a parent objective for direct hierarchy</p>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {objectives.filter(obj => obj.id !== selectedObjective?.id).length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No other objectives available</p>
+                      ) : (
+                        objectives.filter(obj => obj.id !== selectedObjective?.id).map((obj: Objective) => (
+                          <Badge
+                            key={obj.id}
+                            variant={objectiveForm.parentId === obj.id ? "default" : "outline"}
+                            className="cursor-pointer"
+                            onClick={() => {
+                              setObjectiveForm({ 
+                                ...objectiveForm, 
+                                parentId: objectiveForm.parentId === obj.id ? "" : obj.id 
+                              });
+                            }}
+                            data-testid={`badge-parent-objective-${obj.id}`}
+                          >
+                            {obj.title}
+                          </Badge>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Linked Strategies</Label>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {strategies.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No strategies defined yet</p>
+                      ) : (
+                        strategies.map((strategy) => (
+                          <Badge
+                            key={strategy.id}
+                            variant={(objectiveForm.linkedStrategies || []).includes(strategy.id) ? "default" : "outline"}
+                            className="cursor-pointer"
+                            onClick={() => toggleObjectiveStrategy(strategy.id)}
+                            data-testid={`badge-strategy-${strategy.id}`}
+                          >
+                            {strategy.title}
+                          </Badge>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Linked Annual Goals</Label>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {(!foundation?.annualGoals || foundation.annualGoals.length === 0) ? (
+                        <p className="text-sm text-muted-foreground">No annual goals defined yet</p>
+                      ) : (
+                        foundation.annualGoals.map((goal) => (
+                          <Badge
+                            key={goal}
+                            variant={(objectiveForm.linkedGoals || []).includes(goal) ? "default" : "outline"}
+                            className="cursor-pointer"
+                            onClick={() => toggleObjectiveGoal(goal)}
+                            data-testid={`badge-goal-${goal?.toLowerCase().replace(/\s+/g, '-')}`}
+                          >
+                            {goal}
+                          </Badge>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Linked Big Rocks</Label>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {bigRocks.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No big rocks available to link</p>
+                      ) : (
+                        bigRocks.map((rock: BigRock) => (
+                          <Badge
+                            key={rock.id}
+                            variant={(objectiveForm.linkedBigRocks || []).includes(rock.id) ? "default" : "outline"}
+                            className="cursor-pointer toggle-elevate"
+                            onClick={() => {
+                              const current = objectiveForm.linkedBigRocks || [];
+                              if (current.includes(rock.id)) {
+                                setObjectiveForm({ ...objectiveForm, linkedBigRocks: current.filter(id => id !== rock.id) });
+                              } else {
+                                setObjectiveForm({ ...objectiveForm, linkedBigRocks: [...current, rock.id] });
+                              }
+                            }}
+                            data-testid={`badge-bigrock-${rock.id}`}
+                          >
+                            {rock.title}
+                          </Badge>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label>Company Values</Label>
+                    <ValueTagSelector
+                      availableValues={foundation?.values || []}
+                      selectedValues={objectiveValueTags}
+                      onValuesChange={setObjectiveValueTags}
+                    />
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
             <DialogFooter className="flex-shrink-0 border-t pt-4 mt-4">
               <Button variant="outline" onClick={() => setObjectiveDialogOpen(false)}>
                 Cancel
