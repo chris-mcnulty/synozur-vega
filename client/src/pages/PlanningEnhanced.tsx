@@ -1315,7 +1315,8 @@ export default function PlanningEnhanced() {
 
   // Helper to check if an item's period has ended (in Pacific Time)
   const isPeriodEnded = (itemQuarter?: number | null, itemYear?: number | null): boolean => {
-    if (!itemQuarter || !itemYear) return false;
+    // Must have a year to check
+    if (!itemYear) return false;
     
     const now = new Date();
     // Get current date in Pacific Time
@@ -1326,8 +1327,11 @@ export default function PlanningEnhanced() {
     // Determine current quarter (calendar year)
     const currentQuarter = Math.ceil(currentMonth / 3);
     
-    // If item's year is before current year, period has ended
+    // If item's year is before current year, period has ended (works for Annual periods too)
     if (itemYear < currentYear) return true;
+    
+    // If no quarter specified (Annual period), only check year
+    if (!itemQuarter) return false;
     
     // If same year, check if quarter has passed
     if (itemYear === currentYear && itemQuarter < currentQuarter) return true;
@@ -2807,32 +2811,35 @@ export default function PlanningEnhanced() {
               
               {closePromptEntity?.reason === 'period_ended' ? (
                 <>
-                  <p className="text-sm text-muted-foreground">
-                    It looks like you're done working on this. Do you want to close it instead?
+                  <p className="text-sm text-muted-foreground mb-4">
+                    This item is from a past time period. What would you like to do?
                   </p>
                   
                   <div className="space-y-3">
-                    <Label className="text-sm font-medium">Continue working on this in another time period?</Label>
-                    <div className="flex gap-3">
+                    <div className="flex flex-col gap-2">
                       <Button
                         type="button"
                         variant={continueInNextPeriod === true ? "default" : "outline"}
-                        size="sm"
                         onClick={() => setContinueInNextPeriod(true)}
-                        className={continueInNextPeriod === true ? "ring-2 ring-primary" : ""}
+                        className={`justify-start text-left h-auto py-3 px-4 ${continueInNextPeriod === true ? "ring-2 ring-primary" : ""}`}
                         data-testid="button-continue-yes"
                       >
-                        Yes
+                        <div>
+                          <div className="font-medium">Continue in a new period</div>
+                          <div className="text-xs text-muted-foreground font-normal">Clone this to a future quarter to keep working on it</div>
+                        </div>
                       </Button>
                       <Button
                         type="button"
                         variant={continueInNextPeriod === false ? "default" : "outline"}
-                        size="sm"
                         onClick={() => setContinueInNextPeriod(false)}
-                        className={continueInNextPeriod === false ? "ring-2 ring-primary" : ""}
+                        className={`justify-start text-left h-auto py-3 px-4 ${continueInNextPeriod === false ? "ring-2 ring-primary" : ""}`}
                         data-testid="button-continue-no"
                       >
-                        No
+                        <div>
+                          <div className="font-medium">Close it</div>
+                          <div className="text-xs text-muted-foreground font-normal">Mark as complete with a closing note</div>
+                        </div>
                       </Button>
                     </div>
                   </div>
