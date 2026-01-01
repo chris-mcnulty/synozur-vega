@@ -270,31 +270,34 @@ export default function ExecutiveDashboard() {
       .slice(0, 3);
 
     // Progress trend data from check-ins (aggregate by week)
-    const trendData: { week: string; progress: number; checkIns: number }[] = [];
-    const weekMap = new Map<string, { totalProgress: number; count: number }>();
+    const weekMap = new Map<string, { totalProgress: number; count: number; timestamp: number }>();
     
     allCheckIns.forEach(ci => {
       if (ci.createdAt) {
         const date = new Date(ci.createdAt);
         const weekStart = new Date(date);
         weekStart.setDate(date.getDate() - date.getDay());
-        const weekKey = `${weekStart.getMonth() + 1}/${weekStart.getDate()}`;
+        weekStart.setHours(0, 0, 0, 0);
+        // Include year to avoid cross-year collisions
+        const weekKey = `${weekStart.getFullYear()}-${weekStart.getMonth() + 1}/${weekStart.getDate()}`;
         
-        const existing = weekMap.get(weekKey) || { totalProgress: 0, count: 0 };
+        const existing = weekMap.get(weekKey) || { totalProgress: 0, count: 0, timestamp: weekStart.getTime() };
         existing.totalProgress += ci.newProgress || 0;
         existing.count += 1;
         weekMap.set(weekKey, existing);
       }
     });
 
-    // Convert to array and sort by date
+    // Convert to array, sort by timestamp (ascending), and take last 8 weeks
     const sortedWeeks = Array.from(weekMap.entries())
-      .map(([week, data]) => ({
-        week,
+      .map(([key, data]) => ({
+        week: key.split('-')[1], // Display format without year (e.g., "1/5")
         progress: Math.round(data.totalProgress / data.count),
         checkIns: data.count,
+        timestamp: data.timestamp,
       }))
-      .slice(-8); // Last 8 weeks
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .slice(-8); // Most recent 8 weeks
 
     return {
       totalObjectives: objectives.length,
