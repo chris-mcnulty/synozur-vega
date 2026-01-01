@@ -34,6 +34,7 @@ Preferred communication style: Simple, everyday language.
     - **Microsoft Entra ID SSO**: Multi-tenant MSAL-based Azure AD authentication with PKCE flow, just-in-time user provisioning, and tenant mapping. Includes SSO policy enforcement and user-friendly error handling.
     - Multi-tenancy with data isolation per tenant, managed via `TenantContext` and `TenantSwitcher`.
     - Full RBAC enforcement with 6 defined roles: `tenant_user`, `tenant_admin`, `admin`, `global_admin`, `vega_consultant`, `vega_admin`.
+    - **Fine-Grained OKR Permissions**: UPDATE_OWN_OKR vs UPDATE_ANY_OKR ownership checks. Server-side `canUserModifyOKR()` verifies ownerId, createdBy, or ownerEmail. Frontend `usePermissions()` hook with `canModifyOKR()` and `canModifyByEmail()` methods control Edit/Delete button visibility.
     - **Vocabulary Module**: Customizable terminology for core objects, with system-level defaults and tenant-level overrides.
     - **Public Domain Handling (Invite-Only Mode)**: Users signing up with public email domains (Gmail, Yahoo, Outlook, etc.) create personal invite-only tenants without claiming the public domain. This prevents domain squatting and ensures users from public domains can only join existing organizations via explicit invitation. Configurable in Tenant Admin via "Invite Only Mode" toggle.
 
