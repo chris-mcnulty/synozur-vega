@@ -1147,15 +1147,17 @@ JSON format:
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      // Direct lightweight call without the full grounding context
-      // Note: Replit AI Integrations for gpt-5 only supports default temperature (1)
+      // Use gpt-4o-mini for OKR scoring - more reliable for structured JSON output
+      // gpt-5 has issues returning empty responses for this specific task
+      const scoringModel = "gpt-4o-mini";
       const response = await openai.chat.completions.create({
-        model: MODEL,
+        model: scoringModel,
         messages: [
           { role: "system", content: systemMessage },
           { role: "user", content: userMessage }
         ],
-        max_completion_tokens: 1000,
+        max_tokens: 1000,
+        temperature: 0.3,
       });
 
       const content = response.choices[0]?.message?.content || "";
