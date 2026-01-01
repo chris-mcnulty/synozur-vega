@@ -766,7 +766,7 @@ aiRouter.post("/score-okr", requireAIChat, async (req: Request, res: Response) =
 // Get AI usage summary for a tenant (tenant admin only)
 aiRouter.get("/usage/summary", requireTenantAccess, async (req: Request, res: Response) => {
   try {
-    const tenantId = req.session.currentTenantId || req.user?.tenantId;
+    const tenantId = (req.session as any).currentTenantId || req.user?.tenantId;
     if (!tenantId) {
       return res.status(400).json({ error: "Tenant context required" });
     }
