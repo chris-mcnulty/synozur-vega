@@ -27,6 +27,8 @@ import {
   ArrowDown,
   Minus,
   Clock,
+  Trophy,
+  Sparkles,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -256,6 +258,44 @@ export default function ExecutiveDashboard() {
       ? Math.round((bigRocksCompleted / bigRocksTotal) * 100)
       : 0;
 
+    // Winning highlights - objectives exceeding 100% or high performers (>80% progress)
+    const winningObjectives = objectives
+      .filter(obj => (obj.progress || 0) >= 80 || obj.status === 'completed')
+      .sort((a, b) => (b.progress || 0) - (a.progress || 0))
+      .slice(0, 5);
+
+    // Recently completed big rocks
+    const recentlyCompletedBigRocks = bigRocks
+      .filter(br => br.status === 'completed')
+      .slice(0, 3);
+
+    // Progress trend data from check-ins (aggregate by week)
+    const trendData: { week: string; progress: number; checkIns: number }[] = [];
+    const weekMap = new Map<string, { totalProgress: number; count: number }>();
+    
+    allCheckIns.forEach(ci => {
+      if (ci.createdAt) {
+        const date = new Date(ci.createdAt);
+        const weekStart = new Date(date);
+        weekStart.setDate(date.getDate() - date.getDay());
+        const weekKey = `${weekStart.getMonth() + 1}/${weekStart.getDate()}`;
+        
+        const existing = weekMap.get(weekKey) || { totalProgress: 0, count: 0 };
+        existing.totalProgress += ci.newProgress || 0;
+        existing.count += 1;
+        weekMap.set(weekKey, existing);
+      }
+    });
+
+    // Convert to array and sort by date
+    const sortedWeeks = Array.from(weekMap.entries())
+      .map(([week, data]) => ({
+        week,
+        progress: Math.round(data.totalProgress / data.count),
+        checkIns: data.count,
+      }))
+      .slice(-8); // Last 8 weeks
+
     return {
       totalObjectives: objectives.length,
       totalKRs: allKRs.length,
@@ -272,6 +312,9 @@ export default function ExecutiveDashboard() {
       bigRocksCompleted,
       bigRocksTotal,
       bigRocksProgress,
+      winningObjectives,
+      recentlyCompletedBigRocks,
+      trendData: sortedWeeks,
     };
   }, [objectives, keyResultsMap, teams, allCheckIns, bigRocks]);
 
@@ -495,53 +538,149 @@ export default function ExecutiveDashboard() {
             </Card>
           </div>
 
-          {metrics.atRiskObjectives.length > 0 && (
-            <Card className="border-red-200 dark:border-red-900">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {metrics.atRiskObjectives.length > 0 && (
+              <Card className="border-red-200 dark:border-red-900">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                    <AlertTriangle className="h-5 w-5" />
+                    Needs Attention
+                  </CardTitle>
+                  <CardDescription>Objectives that require immediate focus</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {metrics.atRiskObjectives.slice(0, 5).map((obj) => {
+                      const team = teams.find(t => t.id === obj.teamId);
+                      return (
+                        <div 
+                          key={obj.id} 
+                          className="flex items-center justify-between p-3 rounded-lg bg-red-50 dark:bg-red-950/30"
+                          data-testid={`item-at-risk-${obj.id}`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium truncate">{obj.title}</p>
+                            <div className="flex items-center gap-2 mt-1">
+                              {team && <Badge variant="outline" className="text-xs">{team.name}</Badge>}
+                              {getStatusBadge(obj.status || 'at_risk')}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              <p className={cn("text-lg font-bold", getProgressColor(obj.progress || 0))}>
+                                {obj.progress || 0}%
+                              </p>
+                            </div>
+                            <Link href="/planning">
+                              <Button size="sm" variant="outline" data-testid={`button-view-obj-${obj.id}`}>
+                                View
+                              </Button>
+                            </Link>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {metrics.atRiskObjectives.length > 5 && (
+                      <p className="text-sm text-muted-foreground text-center pt-2">
+                        + {metrics.atRiskObjectives.length - 5} more at-risk objectives
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {metrics.winningObjectives.length > 0 && (
+              <Card className="border-green-200 dark:border-green-900">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                    <Trophy className="h-5 w-5" />
+                    Winning Highlights
+                  </CardTitle>
+                  <CardDescription>Top performing objectives and achievements</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {metrics.winningObjectives.map((obj) => {
+                      const team = teams.find(t => t.id === obj.teamId);
+                      const isExceeding = (obj.progress || 0) > 100;
+                      return (
+                        <div 
+                          key={obj.id} 
+                          className="flex items-center justify-between p-3 rounded-lg bg-green-50 dark:bg-green-950/30"
+                          data-testid={`item-winning-${obj.id}`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium truncate">{obj.title}</p>
+                              {isExceeding && <Sparkles className="h-4 w-4 text-amber-500 flex-shrink-0" />}
+                            </div>
+                            <div className="flex items-center gap-2 mt-1">
+                              {team && <Badge variant="outline" className="text-xs">{team.name}</Badge>}
+                              {obj.status === 'completed' && (
+                                <Badge className="bg-green-500 text-xs">Completed</Badge>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-right">
+                              <p className="text-lg font-bold text-green-600 dark:text-green-400">
+                                {obj.progress || 0}%
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {metrics.recentlyCompletedBigRocks.length > 0 && (
+                      <div className="pt-2 border-t">
+                        <p className="text-xs text-muted-foreground mb-2">Recently Completed Big Rocks</p>
+                        {metrics.recentlyCompletedBigRocks.map((br) => (
+                          <div key={br.id} className="flex items-center gap-2 text-sm">
+                            <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            <span className="truncate">{br.title}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {metrics.trendData.length > 0 && (
+            <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                  <AlertTriangle className="h-5 w-5" />
-                  Needs Attention
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  Progress Trend
                 </CardTitle>
-                <CardDescription>Objectives that require immediate focus</CardDescription>
+                <CardDescription>Weekly average progress from check-ins</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="space-y-3">
-                  {metrics.atRiskObjectives.slice(0, 5).map((obj) => {
-                    const team = teams.find(t => t.id === obj.teamId);
-                    return (
-                      <div 
-                        key={obj.id} 
-                        className="flex items-center justify-between p-3 rounded-lg bg-red-50 dark:bg-red-950/30"
-                        data-testid={`item-at-risk-${obj.id}`}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{obj.title}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            {team && <Badge variant="outline" className="text-xs">{team.name}</Badge>}
-                            {getStatusBadge(obj.status || 'at_risk')}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right">
-                            <p className={cn("text-lg font-bold", getProgressColor(obj.progress || 0))}>
-                              {obj.progress || 0}%
-                            </p>
-                          </div>
-                          <Link href="/planning">
-                            <Button size="sm" variant="outline" data-testid={`button-view-obj-${obj.id}`}>
-                              View
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
-                    );
-                  })}
-                  {metrics.atRiskObjectives.length > 5 && (
-                    <p className="text-sm text-muted-foreground text-center pt-2">
-                      + {metrics.atRiskObjectives.length - 5} more at-risk objectives
-                    </p>
-                  )}
-                </div>
+                <ResponsiveContainer width="100%" height={250}>
+                  <LineChart data={metrics.trendData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="week" />
+                    <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                    <Tooltip 
+                      formatter={(value: number, name: string) => [
+                        name === 'progress' ? `${value}%` : value,
+                        name === 'progress' ? 'Avg Progress' : 'Check-ins'
+                      ]}
+                      contentStyle={{ backgroundColor: 'var(--background)', border: '1px solid var(--border)' }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="progress" 
+                      stroke="#8b5cf6" 
+                      strokeWidth={2}
+                      dot={{ fill: '#8b5cf6', strokeWidth: 2 }}
+                      name="progress"
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
               </CardContent>
             </Card>
           )}
