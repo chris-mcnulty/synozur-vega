@@ -1101,3 +1101,128 @@ IMPORTANT:
     throw new Error(`Failed to parse meeting notes: ${error.message}`);
   }
 }
+
+// ============================================
+// OKR QUALITY SCORING
+// ============================================
+
+export interface OKRQualityScoreResult {
+  score: number; // 0-100
+  dimensions: {
+    clarity: { score: number; maxScore: number; feedback: string };
+    measurability: { score: number; maxScore: number; feedback: string };
+    achievability: { score: number; maxScore: number; feedback: string };
+    alignment: { score: number; maxScore: number; feedback: string };
+    timeBound: { score: number; maxScore: number; feedback: string };
+  };
+  issues: Array<{ type: string; message: string; impact: number }>;
+  strengths: Array<{ type: string; message: string; bonus: number }>;
+  suggestion: string | null;
+}
+
+export interface OKRQualityScoreInput {
+  objectiveTitle: string;
+  objectiveDescription?: string;
+  keyResults?: Array<{ title: string; target?: number; current?: number; unit?: string }>;
+  tenantId?: string;
+  alignedObjectives?: string[];
+}
+
+export async function scoreOKRQuality(input: OKRQualityScoreInput): Promise<OKRQualityScoreResult> {
+  const { objectiveTitle, objectiveDescription, keyResults, tenantId, alignedObjectives } = input;
+  const startTime = Date.now();
+
+  const prompt = `You are an OKR quality expert. Analyze the following OKR and provide a quality score with specific, actionable feedback.
+
+## OKR to Analyze
+**Objective:** ${objectiveTitle}
+${objectiveDescription ? `**Description:** ${objectiveDescription}` : ''}
+${keyResults && keyResults.length > 0 ? `
+**Key Results:**
+${keyResults.map((kr, i) => `${i + 1}. ${kr.title}${kr.target ? ` (Target: ${kr.target}${kr.unit ? ' ' + kr.unit : ''})` : ''}`).join('\n')}` : '(No Key Results defined yet)'}
+${alignedObjectives && alignedObjectives.length > 0 ? `**Aligned to:** ${alignedObjectives.join(', ')}` : ''}
+
+## Scoring Dimensions (100 points total)
+1. **Clarity (25 points):** Is the objective specific, unambiguous, and easy to understand?
+2. **Measurability (25 points):** Can progress be quantified? Are Key Results truly measurable?
+3. **Achievability (20 points):** Is this realistic given typical organizational capacity?
+4. **Alignment (15 points):** Does it connect to higher-level objectives or strategy?
+5. **Time-Bound (15 points):** Is the timeline clear and appropriate?
+
+## Response Format
+Respond with a JSON object (no markdown code blocks, just raw JSON):
+{
+  "score": <total score 0-100>,
+  "dimensions": {
+    "clarity": { "score": <0-25>, "maxScore": 25, "feedback": "<specific feedback>" },
+    "measurability": { "score": <0-25>, "maxScore": 25, "feedback": "<specific feedback>" },
+    "achievability": { "score": <0-20>, "maxScore": 20, "feedback": "<specific feedback>" },
+    "alignment": { "score": <0-15>, "maxScore": 15, "feedback": "<specific feedback>" },
+    "timeBound": { "score": <0-15>, "maxScore": 15, "feedback": "<specific feedback>" }
+  },
+  "issues": [
+    { "type": "<dimension>", "message": "<specific issue>", "impact": <points deducted> }
+  ],
+  "strengths": [
+    { "type": "<dimension>", "message": "<what's good>", "bonus": <points earned> }
+  ],
+  "suggestion": "<improved version of the objective, or null if already good>"
+}
+
+Be constructive and specific. Focus on actionable improvements.`;
+
+  try {
+    const response = await getChatCompletion(
+      [{ role: "user", content: prompt }],
+      { tenantId, maxTokens: 1500, temperature: 0.3 },
+      AI_FEATURES.OKR_QUALITY_SCORING
+    );
+
+    // Parse the JSON response
+    const cleanedResponse = response
+      .replace(/```json\s*/g, "")
+      .replace(/```\s*/g, "")
+      .replace(/^[^{]*/, "")
+      .replace(/[^}]*$/, "")
+      .trim();
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(cleanedResponse);
+    } catch (parseError) {
+      console.error("[AI Service] OKR Quality Score JSON parse error:", parseError);
+      // Return a default response if parsing fails
+      return {
+        score: 50,
+        dimensions: {
+          clarity: { score: 12, maxScore: 25, feedback: "Unable to analyze - please try again" },
+          measurability: { score: 12, maxScore: 25, feedback: "Unable to analyze - please try again" },
+          achievability: { score: 10, maxScore: 20, feedback: "Unable to analyze - please try again" },
+          alignment: { score: 8, maxScore: 15, feedback: "Unable to analyze - please try again" },
+          timeBound: { score: 8, maxScore: 15, feedback: "Unable to analyze - please try again" },
+        },
+        issues: [],
+        strengths: [],
+        suggestion: null,
+      };
+    }
+
+    // Validate and return the result
+    return {
+      score: typeof parsed.score === 'number' ? Math.min(100, Math.max(0, parsed.score)) : 50,
+      dimensions: {
+        clarity: parsed.dimensions?.clarity || { score: 0, maxScore: 25, feedback: "Not analyzed" },
+        measurability: parsed.dimensions?.measurability || { score: 0, maxScore: 25, feedback: "Not analyzed" },
+        achievability: parsed.dimensions?.achievability || { score: 0, maxScore: 20, feedback: "Not analyzed" },
+        alignment: parsed.dimensions?.alignment || { score: 0, maxScore: 15, feedback: "Not analyzed" },
+        timeBound: parsed.dimensions?.timeBound || { score: 0, maxScore: 15, feedback: "Not analyzed" },
+      },
+      issues: Array.isArray(parsed.issues) ? parsed.issues : [],
+      strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
+      suggestion: typeof parsed.suggestion === 'string' ? parsed.suggestion : null,
+    };
+  } catch (error: any) {
+    console.error("[AI Service] Error scoring OKR quality:", error.message);
+    throw new Error(`Failed to score OKR quality: ${error.message}`);
+  }
+}

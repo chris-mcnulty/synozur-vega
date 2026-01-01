@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
 import { insertGroundingDocumentSchema } from "@shared/schema";
-import { getChatCompletion, streamChatCompletion, streamChatWithTools, generateOKRSuggestions, suggestBigRocks, streamProgressSummary, streamGoalSuggestions, streamStrategyDraft, parseMeetingRecap, type ChatMessage, type ProgressSummaryData, type GoalSuggestionContext, type StrategyDraftContext, type MeetingRecapResult } from "./ai";
+import { getChatCompletion, streamChatCompletion, streamChatWithTools, generateOKRSuggestions, suggestBigRocks, streamProgressSummary, streamGoalSuggestions, streamStrategyDraft, parseMeetingRecap, scoreOKRQuality, type ChatMessage, type ProgressSummaryData, type GoalSuggestionContext, type StrategyDraftContext, type MeetingRecapResult, type OKRQualityScoreResult } from "./ai";
 import { z } from "zod";
 import { hasPermission, PERMISSIONS, Role } from "@shared/rbac";
 import { loadCurrentUser, requireTenantAccess } from "./middleware/rbac";
@@ -715,6 +715,47 @@ aiRouter.post("/parse-meeting-recap", requireAIChat, async (req: Request, res: R
       return res.status(400).json({ error: "Invalid request format", details: error.errors });
     }
     res.status(500).json({ error: error.message || "Failed to parse meeting notes" });
+  }
+});
+
+// ============================================
+// OKR QUALITY SCORING
+// ============================================
+
+const okrQualityScoreSchema = z.object({
+  objectiveTitle: z.string().min(3, "Objective title must be at least 3 characters"),
+  objectiveDescription: z.string().optional(),
+  keyResults: z.array(z.object({
+    title: z.string(),
+    target: z.number().optional(),
+    current: z.number().optional(),
+    unit: z.string().optional(),
+  })).optional(),
+  tenantId: z.string().optional(),
+  alignedObjectives: z.array(z.string()).optional(),
+});
+
+aiRouter.post("/score-okr", requireAIChat, async (req: Request, res: Response) => {
+  try {
+    const input = okrQualityScoreSchema.parse(req.body);
+    const user = (req as any).user;
+    
+    console.log("[OKR Quality Score] Request from:", user.email);
+    console.log("[OKR Quality Score] Objective:", input.objectiveTitle);
+
+    const result = await scoreOKRQuality({
+      ...input,
+      tenantId: input.tenantId || user.tenantId,
+    });
+
+    console.log("[OKR Quality Score] Score:", result.score);
+    res.json(result);
+  } catch (error: any) {
+    console.error("[OKR Quality Score] Error:", error.message || error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid request format", details: error.errors });
+    }
+    res.status(500).json({ error: error.message || "Failed to score OKR quality" });
   }
 });
 

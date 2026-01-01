@@ -1486,6 +1486,7 @@ export const AI_FEATURES = {
   STRATEGY_DRAFT: 'strategy_draft',      // Strategy drafting
   FUNCTION_CALL: 'function_call',        // Tool/function calling
   EMBEDDING: 'embedding',                // Text embeddings (future)
+  OKR_QUALITY_SCORING: 'okr_quality_scoring', // OKR quality scoring during creation
   OTHER: 'other',
 } as const;
 
