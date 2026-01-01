@@ -173,25 +173,45 @@ export default function ExecutiveDashboard() {
 
   const isLoading = loadingObjectives || loadingKRs;
 
+  // Helper function to calculate objective progress from its key results
+  const calculateObjectiveProgress = (objectiveId: string): number => {
+    const krs = keyResultsMap[objectiveId] || [];
+    if (krs.length === 0) return 0;
+    
+    const totalProgress = krs.reduce((sum, kr) => {
+      if (!kr.targetValue || kr.targetValue === 0) return sum;
+      const progress = Math.min(100, ((kr.currentValue ?? 0) / kr.targetValue) * 100);
+      return sum + progress;
+    }, 0);
+    
+    return Math.round(totalProgress / krs.length);
+  };
+
   const metrics = useMemo(() => {
     if (!objectives.length) return null;
 
     const allKRs = Object.values(keyResultsMap).flat();
     
-    const avgProgress = objectives.length > 0
-      ? Math.round(objectives.reduce((sum, obj) => sum + (obj.progress || 0), 0) / objectives.length)
+    // Calculate progress for each objective from its key results
+    const objectivesWithProgress = objectives.map(obj => ({
+      ...obj,
+      calculatedProgress: calculateObjectiveProgress(obj.id),
+    }));
+    
+    const avgProgress = objectivesWithProgress.length > 0
+      ? Math.round(objectivesWithProgress.reduce((sum, obj) => sum + obj.calculatedProgress, 0) / objectivesWithProgress.length)
       : 0;
 
-    const atRiskObjectives = objectives.filter(obj => 
-      obj.status === 'at_risk' || obj.status === 'behind' || (obj.progress || 0) < 30
+    const atRiskObjectives = objectivesWithProgress.filter(obj => 
+      obj.status === 'at_risk' || obj.status === 'behind' || obj.calculatedProgress < 30
     );
 
-    const completedObjectives = objectives.filter(obj => 
-      obj.status === 'completed' || (obj.progress || 0) >= 100
+    const completedObjectives = objectivesWithProgress.filter(obj => 
+      obj.status === 'completed' || obj.calculatedProgress >= 100
     );
 
-    const onTrackObjectives = objectives.filter(obj => 
-      obj.status === 'on_track' || ((obj.progress || 0) >= 50 && obj.status !== 'at_risk')
+    const onTrackObjectives = objectivesWithProgress.filter(obj => 
+      obj.status === 'on_track' || (obj.calculatedProgress >= 50 && obj.status !== 'at_risk')
     );
 
     const objectivesWithCheckIns = new Set<string>();
@@ -219,25 +239,25 @@ export default function ExecutiveDashboard() {
       : 0;
 
     const teamMetrics = teams.map(team => {
-      const teamObjectives = objectives.filter(obj => obj.teamId === team.id);
-      const teamProgress = teamObjectives.length > 0
-        ? Math.round(teamObjectives.reduce((sum, obj) => sum + (obj.progress || 0), 0) / teamObjectives.length)
+      const teamObjs = objectivesWithProgress.filter(obj => obj.teamId === team.id);
+      const teamProgress = teamObjs.length > 0
+        ? Math.round(teamObjs.reduce((sum, obj) => sum + obj.calculatedProgress, 0) / teamObjs.length)
         : 0;
-      const teamAtRisk = teamObjectives.filter(obj => 
+      const teamAtRisk = teamObjs.filter(obj => 
         obj.status === 'at_risk' || obj.status === 'behind'
       ).length;
       
       return {
         name: team.name,
-        objectives: teamObjectives.length,
+        objectives: teamObjs.length,
         progress: teamProgress,
         atRisk: teamAtRisk,
       };
     }).filter(tm => tm.objectives > 0);
 
-    const companyLevelObjectives = objectives.filter(obj => obj.level === 'company');
-    const departmentLevelObjectives = objectives.filter(obj => obj.level === 'department');
-    const individualLevelObjectives = objectives.filter(obj => obj.level === 'individual');
+    const companyLevelObjectives = objectivesWithProgress.filter(obj => obj.level === 'company');
+    const departmentLevelObjectives = objectivesWithProgress.filter(obj => obj.level === 'department');
+    const individualLevelObjectives = objectivesWithProgress.filter(obj => obj.level === 'individual');
 
     const levelBreakdown = [
       { name: 'Company', value: companyLevelObjectives.length, color: '#8b5cf6' },
@@ -249,7 +269,7 @@ export default function ExecutiveDashboard() {
       { name: 'Completed', value: completedObjectives.length, color: '#10b981' },
       { name: 'On Track', value: onTrackObjectives.length - completedObjectives.length, color: '#3b82f6' },
       { name: 'At Risk', value: atRiskObjectives.length, color: '#ef4444' },
-      { name: 'Not Started', value: objectives.filter(o => (o.progress || 0) === 0 && o.status !== 'at_risk').length, color: '#9ca3af' },
+      { name: 'Not Started', value: objectivesWithProgress.filter(o => o.calculatedProgress === 0 && o.status !== 'at_risk').length, color: '#9ca3af' },
     ].filter(s => s.value > 0);
 
     const bigRocksCompleted = bigRocks.filter(br => br.status === 'completed').length;
@@ -258,10 +278,10 @@ export default function ExecutiveDashboard() {
       ? Math.round((bigRocksCompleted / bigRocksTotal) * 100)
       : 0;
 
-    // Winning highlights - objectives exceeding 100% or high performers (>80% progress)
-    const winningObjectives = objectives
-      .filter(obj => (obj.progress || 0) >= 80 || obj.status === 'completed')
-      .sort((a, b) => (b.progress || 0) - (a.progress || 0))
+    // Winning highlights - objectives with high performers (>80% progress) or completed
+    const winningObjectives = objectivesWithProgress
+      .filter(obj => obj.calculatedProgress >= 80 || obj.status === 'completed')
+      .sort((a, b) => b.calculatedProgress - a.calculatedProgress)
       .slice(0, 5);
 
     // Recently completed big rocks
@@ -270,10 +290,11 @@ export default function ExecutiveDashboard() {
       .slice(0, 3);
 
     // Progress trend data from check-ins (aggregate by week)
+    // Only use key result check-ins as they have reliable progress data
     const weekMap = new Map<string, { totalProgress: number; count: number; timestamp: number }>();
     
     allCheckIns.forEach(ci => {
-      if (ci.createdAt) {
+      if (ci.createdAt && ci.entityType === 'key_result') {
         const date = new Date(ci.createdAt);
         const weekStart = new Date(date);
         weekStart.setDate(date.getDate() - date.getDay());
@@ -281,8 +302,11 @@ export default function ExecutiveDashboard() {
         // Include year to avoid cross-year collisions
         const weekKey = `${weekStart.getFullYear()}-${weekStart.getMonth() + 1}/${weekStart.getDate()}`;
         
+        // Normalize progress to 0-100 range (cap at 100)
+        const normalizedProgress = Math.min(100, Math.max(0, ci.newProgress || 0));
+        
         const existing = weekMap.get(weekKey) || { totalProgress: 0, count: 0, timestamp: weekStart.getTime() };
-        existing.totalProgress += ci.newProgress || 0;
+        existing.totalProgress += normalizedProgress;
         existing.count += 1;
         weekMap.set(weekKey, existing);
       }
@@ -570,8 +594,8 @@ export default function ExecutiveDashboard() {
                           </div>
                           <div className="flex items-center gap-4">
                             <div className="text-right">
-                              <p className={cn("text-lg font-bold", getProgressColor(obj.progress || 0))}>
-                                {obj.progress || 0}%
+                              <p className={cn("text-lg font-bold", getProgressColor(obj.calculatedProgress))}>
+                                {obj.calculatedProgress}%
                               </p>
                             </div>
                             <Link href="/planning">
@@ -606,7 +630,7 @@ export default function ExecutiveDashboard() {
                   <div className="space-y-3">
                     {metrics.winningObjectives.map((obj) => {
                       const team = teams.find(t => t.id === obj.teamId);
-                      const isExceeding = (obj.progress || 0) > 100;
+                      const isComplete = obj.calculatedProgress >= 100 || obj.status === 'completed';
                       return (
                         <div 
                           key={obj.id} 
@@ -616,7 +640,7 @@ export default function ExecutiveDashboard() {
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
                               <p className="font-medium truncate">{obj.title}</p>
-                              {isExceeding && <Sparkles className="h-4 w-4 text-amber-500 flex-shrink-0" />}
+                              {isComplete && <Sparkles className="h-4 w-4 text-amber-500 flex-shrink-0" />}
                             </div>
                             <div className="flex items-center gap-2 mt-1">
                               {team && <Badge variant="outline" className="text-xs">{team.name}</Badge>}
@@ -628,7 +652,7 @@ export default function ExecutiveDashboard() {
                           <div className="flex items-center gap-4">
                             <div className="text-right">
                               <p className="text-lg font-bold text-green-600 dark:text-green-400">
-                                {obj.progress || 0}%
+                                {obj.calculatedProgress}%
                               </p>
                             </div>
                           </div>
