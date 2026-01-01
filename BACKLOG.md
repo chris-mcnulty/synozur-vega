@@ -1,6 +1,6 @@
 # Vega Platform Backlog
 
-**Last Updated:** December 29, 2025
+**Last Updated:** December 30, 2025
 
 ---
 
@@ -123,6 +123,972 @@ These tasks are ideal for junior developers - well-scoped, low-risk, and provide
 **Implementation:**
 - `AppSidebar.tsx`: Uses `hasPermission()` from `shared/rbac.ts` to conditionally show Import Data, AI Grounding, Tenant Admin, and System Admin menu items based on user permissions
 - `FocusRhythm.tsx`: Delete meeting button only visible to users with `DELETE_MEETING` permission
+
+---
+
+## 🌟 BUSINESS SUCCESS OPTIMIZATION (Strategic Enhancements)
+
+**Reference Document:** `BUSINESS_SUCCESS_OPTIMIZATION.md`  
+**Goal:** Transform Vega from an OKR tracking tool into the **central nervous system for organizational excellence**
+
+These proposals go beyond incremental features to fundamentally optimize organizational performance and business outcomes. Organized into six strategic pillars.
+
+---
+
+### Pillar 1: Predictive Intelligence Engine
+
+Transform Vega from reactive tracking to proactive guidance.
+
+#### PI-1. Probabilistic Outcome Forecasting ⭐ HIGH IMPACT
+
+**Status:** Not Started  
+**Priority:** High  
+**Effort:** 6-8 weeks  
+**Dependencies:** Historical check-in data (minimum 2 quarters)
+
+**Description:**
+Monte Carlo simulations and Bayesian probability updates to predict objective success probability with confidence intervals.
+
+**Key Capabilities:**
+- Success probability percentage for each objective (updated with each check-in)
+- Monte Carlo simulation with 95% confidence intervals for completion dates
+- Progress velocity analysis (current rate vs. required rate)
+- Top risk factors identified and quantified
+- AI-generated recovery recommendations with effort-to-impact ranking
+- What-if scenario modeling ("If we add one engineer, probability increases to X%")
+
+**Schema:**
+```sql
+outcome_forecasts (
+  id UUID PRIMARY KEY,
+  tenantId UUID REFERENCES tenants(id),
+  objectiveId UUID REFERENCES objectives(id),
+  forecastDate TIMESTAMP NOT NULL,
+  
+  -- Probability metrics
+  successProbability DOUBLE PRECISION, -- 0.0 to 1.0
+  previousProbability DOUBLE PRECISION,
+  probabilityTrend TEXT, -- 'improving', 'stable', 'declining'
+  
+  -- Confidence intervals
+  completionDateP5 TIMESTAMP, -- 5th percentile (optimistic)
+  completionDateP50 TIMESTAMP, -- 50th percentile (most likely)
+  completionDateP95 TIMESTAMP, -- 95th percentile (conservative)
+  targetDate TIMESTAMP,
+  
+  -- Risk factors (JSONB array)
+  riskFactors JSONB, -- [{factor, impact, recommendation}]
+  
+  -- Velocity metrics
+  currentVelocity DOUBLE PRECISION, -- progress units per week
+  requiredVelocity DOUBLE PRECISION, -- to meet target
+  velocityRatio DOUBLE PRECISION, -- current/required
+  
+  -- Simulation metadata
+  simulationCount INTEGER DEFAULT 1000,
+  historicalDataPoints INTEGER,
+  modelVersion TEXT,
+  
+  createdAt TIMESTAMP DEFAULT NOW()
+)
+```
+
+**Algorithm Inputs:**
+1. Historical check-in velocity (slope of progress over time)
+2. Seasonality patterns (Q4 tends to be 18% slower)
+3. Team historical performance (past quarter success rates)
+4. Dependency health (linked items status)
+5. Time remaining vs. work remaining
+6. Cross-organizational patterns (anonymized, opt-in)
+
+**API Endpoints:**
+- `GET /api/forecast/objective/:id` - Single objective forecast
+- `GET /api/forecast/overview/:tenantId` - All objectives forecast summary
+- `POST /api/forecast/scenario` - What-if scenario analysis
+- `GET /api/forecast/risks/:tenantId` - Top risk factors across all objectives
+
+**UI Components:**
+- Forecast widget on objective detail pane
+- Probability sparkline on objective cards
+- Risk dashboard with sorted risk factors
+- Scenario modeling dialog
+
+**Business Value:**
+- Executives allocate resources proactively, not reactively
+- Teams course-correct weeks earlier
+- Organizations learn their "execution metabolism"
+
+---
+
+#### PI-2. Leading Indicator Detection
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Effort:** 4-5 weeks  
+**Dependencies:** PI-1, minimum 3 quarters historical data
+
+**Description:**
+AI analyzes historical data to find correlations between leading indicators and outcomes, then surfaces early warning metrics.
+
+**Key Capabilities:**
+- Automatic correlation analysis between metrics
+- Identification of leading vs. lagging indicators
+- Lead time estimation (how far ahead the indicator predicts)
+- Dashboard widget for early warning metrics
+- AI-generated KR suggestions for leading indicators
+
+**Schema:**
+```sql
+leading_indicators (
+  id UUID PRIMARY KEY,
+  tenantId UUID REFERENCES tenants(id),
+  
+  -- Correlation definition
+  leadingMetricType TEXT, -- 'key_result', 'big_rock_completion', 'check_in_frequency', 'custom'
+  leadingMetricId VARCHAR, -- KR ID or custom metric name
+  leadingMetricName TEXT,
+  
+  laggingMetricType TEXT,
+  laggingMetricId VARCHAR,
+  laggingMetricName TEXT,
+  
+  -- Statistical relationship
+  correlationCoefficient DOUBLE PRECISION, -- -1.0 to 1.0
+  confidenceLevel DOUBLE PRECISION, -- 0.0 to 1.0
+  leadTimeWeeks INTEGER, -- how far ahead leading indicator predicts
+  sampleSize INTEGER,
+  
+  -- Current status
+  isActive BOOLEAN DEFAULT true,
+  lastAnalyzedAt TIMESTAMP,
+  
+  createdAt TIMESTAMP DEFAULT NOW()
+)
+```
+
+**Example Output:**
+```
+"Based on your historical data, 'Weekly Customer Meetings' is a strong 
+leading indicator for 'Qualified Leads Generated'. Meetings typically 
+lead conversions by 6-8 weeks (r=0.73, p<0.01). Current meeting trend 
+suggests KR2 will be 15% below target."
+```
+
+---
+
+#### PI-3. Organizational Stress Detection
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Effort:** 3-4 weeks  
+**Dependencies:** Check-in data, activity tracking
+
+**Description:**
+Identify organizational stress signals before they manifest as missed objectives.
+
+**Signals Monitored:**
+| Signal | Calculation | Threshold |
+|--------|-------------|-----------|
+| Check-in frequency decline | 14-day rolling average vs. 30-day | >25% decline |
+| Status update brevity | Average note length trending | >40% shorter |
+| At-risk without notes | % of at-risk items with empty notes | >50% |
+| Quarter-end panic | Status change frequency in final 2 weeks | >3x normal |
+| Dependency stalls | Unacknowledged dependencies | >7 days |
+| Executive disengagement | Days since sponsor viewed dashboard | >14 days |
+
+**Schema:**
+```sql
+organizational_health_scores (
+  id UUID PRIMARY KEY,
+  tenantId UUID REFERENCES tenants(id),
+  
+  scoreDate DATE NOT NULL,
+  overallScore INTEGER, -- 0-100
+  previousScore INTEGER,
+  trend TEXT, -- 'improving', 'stable', 'declining'
+  
+  -- Individual signal scores
+  signals JSONB, -- {signalName: {score, details, threshold, actual}}
+  
+  -- Recommendations
+  recommendations JSONB, -- [{priority, action, expectedImpact}]
+  
+  createdAt TIMESTAMP DEFAULT NOW(),
+  
+  UNIQUE(tenantId, scoreDate)
+)
+```
+
+**API Endpoints:**
+- `GET /api/health/organization/:tenantId` - Current health score and signals
+- `GET /api/health/team/:teamId` - Team-level health
+- `GET /api/health/history/:tenantId` - Historical health trend
+
+---
+
+### Pillar 2: Behavioral Science Integration
+
+Apply behavioral economics to make high-performance behaviors automatic.
+
+#### BS-1. Habit-Forming Check-In System
+
+**Status:** Not Started  
+**Priority:** High  
+**Effort:** 3-4 weeks  
+**Dependencies:** None
+
+**Description:**
+Apply habit science (Cue → Routine → Reward) to drive consistent check-in behavior.
+
+**Key Capabilities:**
+
+**Smart Timing (Cue):**
+- AI learns optimal check-in time per user (after standup? Before 1:1?)
+- Contextual nudges via email/Teams at personalized times
+- "Your team is checking in - don't miss out" social triggers
+
+**Frictionless Entry (Routine):**
+- Voice check-ins via Microsoft Teams bot
+- 1-click quick updates from email
+- Inline progress slider on dashboard
+- Mobile-friendly check-in interface
+
+**Immediate Rewards:**
+- Streak counters with visual badges
+- Team leaderboards (opt-in)
+- Impact visibility ("Your update helped your manager prep in 5 min instead of 30")
+- Variable rewards (occasional "surprise" recognition)
+
+**Schema:**
+```sql
+user_habits (
+  id UUID PRIMARY KEY,
+  userId UUID REFERENCES users(id),
+  tenantId UUID REFERENCES tenants(id),
+  
+  -- Check-in habit tracking
+  currentStreak INTEGER DEFAULT 0,
+  longestStreak INTEGER DEFAULT 0,
+  totalCheckIns INTEGER DEFAULT 0,
+  lastCheckInAt TIMESTAMP,
+  
+  -- Optimal timing
+  preferredCheckInDay INTEGER, -- 0-6 (Sunday-Saturday)
+  preferredCheckInHour INTEGER, -- 0-23
+  nudgeSentAt TIMESTAMP,
+  
+  -- Engagement metrics
+  averageNoteLength INTEGER,
+  checkInConsistencyScore DOUBLE PRECISION, -- 0-100
+  
+  -- Badges earned
+  badges JSONB, -- [{badge, earnedAt}]
+  
+  updatedAt TIMESTAMP DEFAULT NOW()
+)
+
+habit_badges (
+  id UUID PRIMARY KEY,
+  name TEXT NOT NULL,
+  description TEXT,
+  iconUrl TEXT,
+  requirement TEXT, -- 'streak_7', 'streak_30', 'top_10_percent', etc.
+  tier TEXT -- 'bronze', 'silver', 'gold', 'platinum'
+)
+```
+
+**Badge Examples:**
+- 🔥 7-Day Streak
+- 💪 30-Day Streak
+- ⭐ Top 10% Contributor
+- 🎯 100% On-Time Check-ins
+- 📊 Detailed Notes Champion
+
+---
+
+#### BS-2. Commitment Devices
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Effort:** 2-3 weeks  
+**Dependencies:** BS-1
+
+**Description:**
+Help users pre-commit to outcomes using behavioral science techniques.
+
+**Features:**
+- **Public Commitments:** "I'm committed" badge on objectives
+- **Implementation Intentions:** Prompts for when/where to work on Big Rocks
+- **Premortem Prompts:** "Imagine you failed. What went wrong?" during OKR creation
+- **Ulysses Contracts:** Auto-schedule focus time when Big Rocks at risk
+
+---
+
+#### BS-3. Social Proof Engine
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Effort:** 2-3 weeks  
+**Dependencies:** Cross-organization benchmarking (opt-in)
+
+**Description:**
+Leverage social proof to drive best practices adoption.
+
+**Features:**
+- "Organizations like yours typically have 3-5 org-level objectives per quarter"
+- "Teams with weekly Focus Rhythm meetings achieve 34% more OKRs"
+- Anonymous percentile benchmarking dashboards
+- Best practice suggestions based on successful organizations
+
+**Schema:**
+```sql
+benchmark_data (
+  id UUID PRIMARY KEY,
+  tenantId UUID REFERENCES tenants(id),
+  
+  -- Consent
+  benchmarkOptIn BOOLEAN DEFAULT false,
+  optInDate TIMESTAMP,
+  
+  -- Anonymous metrics shared
+  industryCategory TEXT,
+  employeeCountRange TEXT, -- '1-50', '51-200', '201-1000', '1000+'
+  averageObjectivesPerQuarter DOUBLE PRECISION,
+  averageKRsPerObjective DOUBLE PRECISION,
+  objectiveCompletionRate DOUBLE PRECISION,
+  checkInFrequencyWeekly DOUBLE PRECISION,
+  
+  -- Percentile rankings received
+  percentileRankings JSONB,
+  
+  updatedAt TIMESTAMP DEFAULT NOW()
+)
+```
+
+---
+
+### Pillar 3: Organizational Network Intelligence
+
+Map and optimize how work actually flows.
+
+#### ONI-1. Collaboration Graph
+
+**Status:** Not Started  
+**Priority:** Medium-High  
+**Effort:** 4-5 weeks  
+**Dependencies:** None
+
+**Description:**
+Build a real-time map of actual collaboration patterns from Vega data.
+
+**Data Sources:**
+- Shared objective ownership and contributors
+- Cross-team dependencies
+- Meeting attendees (Focus Rhythm)
+- @mentions in check-in notes
+
+**Key Capabilities:**
+- Force-directed graph visualization
+- Identify silos (low cross-team connectivity)
+- Discover hidden influencers (high betweenness centrality)
+- Highlight bottleneck teams
+- Collaboration strength scoring
+
+**Schema:**
+```sql
+collaboration_edges (
+  id UUID PRIMARY KEY,
+  tenantId UUID REFERENCES tenants(id),
+  
+  -- Nodes (teams or users)
+  sourceType TEXT, -- 'team' or 'user'
+  sourceId VARCHAR,
+  targetType TEXT,
+  targetId VARCHAR,
+  
+  -- Edge weight and type
+  collaborationType TEXT, -- 'dependency', 'co-ownership', 'meeting', 'mention'
+  weight DOUBLE PRECISION, -- strength of collaboration
+  interactionCount INTEGER,
+  
+  -- Time period
+  periodStart DATE,
+  periodEnd DATE,
+  
+  updatedAt TIMESTAMP DEFAULT NOW(),
+  
+  UNIQUE(tenantId, sourceId, targetId, collaborationType, periodStart)
+)
+
+network_metrics (
+  id UUID PRIMARY KEY,
+  tenantId UUID REFERENCES tenants(id),
+  
+  -- Node metrics
+  entityType TEXT, -- 'team' or 'user'
+  entityId VARCHAR,
+  
+  -- Centrality measures
+  degreeCentrality DOUBLE PRECISION,
+  betweennessCentrality DOUBLE PRECISION,
+  closenessCentrality DOUBLE PRECISION,
+  
+  -- Cluster membership
+  clusterId VARCHAR,
+  clusterName TEXT,
+  
+  -- Calculated
+  calculatedAt TIMESTAMP DEFAULT NOW()
+)
+```
+
+**API Endpoints:**
+- `GET /api/network/graph/:tenantId` - Full collaboration graph
+- `GET /api/network/metrics/:tenantId` - Network metrics and insights
+- `GET /api/network/silos/:tenantId` - Identified silos
+- `GET /api/network/influencers/:tenantId` - Key influencers
+
+---
+
+#### ONI-2. Dependency Intelligence
+
+**Status:** Not Started  
+**Priority:** High  
+**Effort:** 3-4 weeks  
+**Dependencies:** A3 (Cross-Team Dependencies)
+
+**Description:**
+AI-powered dependency detection and risk scoring.
+
+**Key Capabilities:**
+
+**Automatic Detection:**
+- AI analyzes objective descriptions to suggest dependencies
+- Pattern matching: "API objectives usually need Platform team"
+- Historical analysis: "These teams' objectives have co-failed 4 of 5 quarters"
+
+**Risk Scoring:**
+- Team capacity analysis
+- Historical delivery performance
+- Current objective health
+- Cascading impact analysis
+
+**Schema (extends A3 dependencies table):**
+```sql
+dependency_risks (
+  id UUID PRIMARY KEY,
+  dependencyId UUID REFERENCES dependencies(id),
+  
+  riskScore INTEGER, -- 0-100
+  riskLevel TEXT, -- 'low', 'medium', 'high', 'critical'
+  
+  -- Risk factors
+  factors JSONB, -- [{factor, weight, score, details}]
+  
+  -- Cascading impact
+  downstreamObjectives INTEGER, -- how many objectives affected if this fails
+  totalImpactScore DOUBLE PRECISION,
+  
+  -- Recommendations
+  recommendations JSONB,
+  
+  calculatedAt TIMESTAMP DEFAULT NOW()
+)
+```
+
+---
+
+#### ONI-3. Meeting Intelligence
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Effort:** 3-4 weeks  
+**Dependencies:** Focus Rhythm module
+
+**Description:**
+Optimize meeting effectiveness and connect to OKR outcomes.
+
+**Key Capabilities:**
+- **Meeting ROI Dashboard:** Time in meetings vs. OKR progress correlation
+- **Attendee Optimization:** "Based on agenda, you may not need [Person X]"
+- **Meeting Type Analysis:** Which cadences correlate with success?
+- **AI-Generated Prep:** Summarize relevant OKR changes before each meeting
+- **Post-Meeting Action Extraction:** Parse notes and create/update Big Rocks
+
+**Schema:**
+```sql
+meeting_analytics (
+  id UUID PRIMARY KEY,
+  tenantId UUID REFERENCES tenants(id),
+  
+  -- Time period
+  periodStart DATE,
+  periodEnd DATE,
+  
+  -- Meeting time metrics
+  totalMeetingMinutes INTEGER,
+  meetingsByType JSONB, -- {type: {count, totalMinutes}}
+  averageAttendees DOUBLE PRECISION,
+  
+  -- Correlation with OKR progress
+  okrProgressDuringPeriod DOUBLE PRECISION,
+  meetingToProgressCorrelation DOUBLE PRECISION,
+  
+  -- Optimization opportunities
+  lowValueMeetings JSONB, -- meetings with low engagement/outcomes
+  recommendedReductions JSONB,
+  
+  calculatedAt TIMESTAMP DEFAULT NOW()
+)
+```
+
+---
+
+### Pillar 4: Adaptive Learning System
+
+Build a self-improving organization.
+
+#### AL-1. Automated Retrospectives
+
+**Status:** Not Started  
+**Priority:** High  
+**Effort:** 3-4 weeks  
+**Dependencies:** PI-1
+
+**Description:**
+AI-generated quarter-end analysis with data-driven recommendations.
+
+**Auto-Generated Report Sections:**
+1. Executive Summary (completion rate, trend vs. previous quarter)
+2. What Worked (practices correlated with success)
+3. What Didn't Work (failure patterns)
+4. Data-Driven Recommendations for Next Quarter
+5. Benchmarking (percentile vs. similar organizations)
+
+**Schema:**
+```sql
+automated_retrospectives (
+  id UUID PRIMARY KEY,
+  tenantId UUID REFERENCES tenants(id),
+  
+  quarter INTEGER NOT NULL,
+  year INTEGER NOT NULL,
+  
+  -- Summary metrics
+  objectiveCompletionRate DOUBLE PRECISION,
+  previousQuarterRate DOUBLE PRECISION,
+  changeFromPrevious DOUBLE PRECISION,
+  
+  -- AI-generated content
+  executiveSummary TEXT,
+  whatWorked JSONB, -- [{practice, correlation, evidence}]
+  whatDidntWork JSONB, -- [{pattern, impact, evidence}]
+  recommendations JSONB, -- [{recommendation, expectedImpact, effort}]
+  benchmarkComparison JSONB,
+  
+  -- Generation metadata
+  generatedAt TIMESTAMP DEFAULT NOW(),
+  generatedBy TEXT, -- 'ai_auto', 'manual_trigger'
+  modelVersion TEXT
+)
+```
+
+---
+
+#### AL-2. OKR Quality Scoring
+
+**Status:** Not Started  
+**Priority:** High  
+**Effort:** 2-3 weeks  
+**Dependencies:** None
+
+**Description:**
+Real-time feedback during OKR creation with specific improvement suggestions.
+
+**Scoring Dimensions (each 0-20 points, total 0-100):**
+
+| Dimension | Criteria |
+|-----------|----------|
+| **Clarity** | No vague language, specific outcomes defined |
+| **Measurability** | KRs have quantifiable metrics with units |
+| **Achievability** | Historical data suggests realistic targets |
+| **Alignment** | Links to strategies/goals established |
+| **Time-Bound** | Quarter/year specified, reasonable scope |
+
+**Schema:**
+```sql
+okr_quality_scores (
+  id UUID PRIMARY KEY,
+  
+  entityType TEXT, -- 'objective' or 'key_result'
+  entityId UUID,
+  tenantId UUID REFERENCES tenants(id),
+  
+  overallScore INTEGER, -- 0-100
+  
+  -- Dimension scores
+  clarityScore INTEGER,
+  measurabilityScore INTEGER,
+  achievabilityScore INTEGER,
+  alignmentScore INTEGER,
+  timeBoundScore INTEGER,
+  
+  -- Issues and suggestions
+  issues JSONB, -- [{dimension, issue, deduction, suggestion}]
+  aiSuggestion TEXT, -- Rewritten version
+  
+  scoredAt TIMESTAMP DEFAULT NOW()
+)
+```
+
+**API Endpoints:**
+- `POST /api/quality/score` - Score an OKR before/after creation
+- `GET /api/quality/average/:tenantId` - Tenant average scores
+
+---
+
+#### AL-3. Pattern Library
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Effort:** 2-3 weeks  
+**Dependencies:** Cross-org benchmarking
+
+**Description:**
+Curated best practices from successful organizations.
+
+**Content Types:**
+- OKR Templates by objective type ("Market Expansion", "Product Launch")
+- Big Rock Patterns by initiative type
+- Anti-Patterns with failure rates
+- Industry-specific benchmarks
+
+**Schema:**
+```sql
+pattern_library (
+  id UUID PRIMARY KEY,
+  
+  patternType TEXT, -- 'okr_template', 'big_rock_pattern', 'anti_pattern', 'benchmark'
+  category TEXT, -- 'growth', 'product', 'operations', 'people'
+  industry TEXT, -- NULL for universal patterns
+  
+  title TEXT NOT NULL,
+  description TEXT,
+  content JSONB, -- Template structure or pattern details
+  
+  -- Usage metrics
+  usageCount INTEGER DEFAULT 0,
+  successRate DOUBLE PRECISION, -- for templates
+  
+  -- Source
+  isSystemPattern BOOLEAN DEFAULT true,
+  sourceTenantId UUID, -- NULL for system patterns
+  
+  createdAt TIMESTAMP DEFAULT NOW()
+)
+```
+
+---
+
+### Pillar 5: Ecosystem Orchestration
+
+Become the strategic layer above operational tools.
+
+#### EO-1. Universal Data Connectors
+
+**Status:** Not Started  
+**Priority:** High  
+**Effort:** 8-12 weeks (phased)  
+**Dependencies:** OAuth infrastructure
+
+**Description:**
+Expand integrations beyond M365 to become the strategic hub.
+
+**Phase 1: CRM (4 weeks)**
+| Integration | Read | Write | Use Case |
+|-------------|------|-------|----------|
+| Salesforce | ✅ | ❌ | Auto-update revenue KRs from pipeline |
+| HubSpot | ✅ | ❌ | Marketing metrics, deal stages |
+
+**Phase 2: Product Tools (4 weeks)**
+| Integration | Read | Write | Use Case |
+|-------------|------|-------|----------|
+| Jira | ✅ | ✅ | Sync Big Rocks ↔ Epics |
+| Linear | ✅ | ✅ | Sync initiatives ↔ projects |
+| Asana | ✅ | ❌ | Import project status |
+
+**Phase 3: Analytics (2 weeks)**
+| Integration | Read | Write | Use Case |
+|-------------|------|-------|----------|
+| Mixpanel | ✅ | ❌ | Product KRs from events |
+| Google Analytics | ✅ | ❌ | Traffic/engagement KRs |
+
+**Schema:**
+```sql
+integrations (
+  id UUID PRIMARY KEY,
+  tenantId UUID REFERENCES tenants(id),
+  
+  provider TEXT NOT NULL, -- 'salesforce', 'jira', 'hubspot', etc.
+  status TEXT DEFAULT 'disconnected', -- 'connected', 'error', 'expired'
+  
+  -- OAuth tokens (encrypted)
+  accessToken TEXT,
+  refreshToken TEXT,
+  tokenExpiresAt TIMESTAMP,
+  
+  -- Configuration
+  config JSONB, -- provider-specific settings
+  scopes JSONB, -- granted permissions
+  
+  -- Sync metadata
+  lastSyncAt TIMESTAMP,
+  syncError TEXT,
+  
+  connectedAt TIMESTAMP,
+  connectedBy UUID REFERENCES users(id)
+)
+
+metric_bindings (
+  id UUID PRIMARY KEY,
+  tenantId UUID REFERENCES tenants(id),
+  
+  -- What Vega entity
+  entityType TEXT, -- 'key_result'
+  entityId UUID,
+  
+  -- External source
+  integrationId UUID REFERENCES integrations(id),
+  externalMetricId TEXT, -- ID in external system
+  externalMetricName TEXT,
+  
+  -- Sync settings
+  syncDirection TEXT DEFAULT 'pull', -- 'pull', 'push', 'bidirectional'
+  syncFrequency TEXT DEFAULT 'hourly',
+  lastSyncAt TIMESTAMP,
+  lastSyncValue DOUBLE PRECISION,
+  
+  createdAt TIMESTAMP DEFAULT NOW()
+)
+```
+
+---
+
+#### EO-2. Bi-Directional Workflows
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Effort:** 3-4 weeks  
+**Dependencies:** EO-1
+
+**Description:**
+Not just reading data—trigger actions in external systems.
+
+**Example Workflows:**
+```yaml
+# When KR goes At Risk, create Jira epic
+trigger: kr.status.changed
+conditions:
+  - newStatus: "at_risk"
+  - hasIntegration: "jira"
+actions:
+  - createJiraEpic:
+      summary: "Recovery Sprint: {{kr.title}}"
+      labels: ["vega-generated", "at-risk"]
+  - slackNotify:
+      channel: "#{{team.slackChannel}}"
+      message: "🚨 {{kr.title}} is now At Risk"
+  - addToMeetingAgenda:
+      meetingType: "weekly"
+      item: "Discuss: {{kr.title}} recovery"
+```
+
+**Schema:**
+```sql
+automation_rules (
+  id UUID PRIMARY KEY,
+  tenantId UUID REFERENCES tenants(id),
+  
+  name TEXT NOT NULL,
+  description TEXT,
+  isActive BOOLEAN DEFAULT true,
+  
+  -- Trigger
+  triggerType TEXT, -- 'status_change', 'progress_threshold', 'time_based'
+  triggerConfig JSONB,
+  
+  -- Conditions
+  conditions JSONB,
+  
+  -- Actions
+  actions JSONB,
+  
+  -- Execution tracking
+  lastExecutedAt TIMESTAMP,
+  executionCount INTEGER DEFAULT 0,
+  
+  createdBy UUID REFERENCES users(id),
+  createdAt TIMESTAMP DEFAULT NOW()
+)
+
+automation_logs (
+  id UUID PRIMARY KEY,
+  ruleId UUID REFERENCES automation_rules(id),
+  
+  triggeredAt TIMESTAMP DEFAULT NOW(),
+  triggerData JSONB,
+  
+  actionsExecuted JSONB, -- [{action, status, result}]
+  status TEXT, -- 'success', 'partial', 'failed'
+  error TEXT
+)
+```
+
+---
+
+#### EO-3. Strategic Command Center
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Effort:** 3-4 weeks  
+**Dependencies:** EO-1, PI-1
+
+**Description:**
+Single pane of glass for executives with live data from all connected systems.
+
+**Widgets:**
+- Company Health Score (from PI-3)
+- Quarterly Pulse (days remaining, at-risk count)
+- Live Metrics (from connected integrations)
+- Needs Attention (top priority items)
+- Winning (items exceeding targets)
+
+---
+
+### Pillar 6: Consultant-as-a-Platform
+
+Scale strategic consulting through AI.
+
+#### CAP-1. Virtual Strategy Consultant
+
+**Status:** Not Started  
+**Priority:** High  
+**Effort:** 6-8 weeks  
+**Dependencies:** Existing AI infrastructure, AL-1, AL-2
+
+**Description:**
+AI-powered strategic advisory that guides organizations through planning and execution.
+
+**Key Capabilities:**
+- **Annual Planning Facilitation:** AI guides executives through structured annual planning
+- **OKR Coaching:** Real-time guidance during creation
+- **Quarterly Review Facilitation:** AI-generated agendas with data
+- **Best Practice Injection:** Contextual suggestions from pattern library
+
+**API Endpoints:**
+- `POST /api/consultant/session/start` - Start guided session
+- `POST /api/consultant/session/:id/step` - Advance to next step
+- `GET /api/consultant/recommendations/:tenantId` - Proactive suggestions
+
+---
+
+#### CAP-2. Self-Service Transformation Journeys
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Effort:** 4-5 weeks  
+**Dependencies:** CAP-1
+
+**Description:**
+Guided multi-week programs for organizations without consultants.
+
+**Journey Types:**
+1. **First 90 Days with OKRs** - 12-week implementation
+2. **Scaling OKRs Company-Wide** - For pilot→org rollout
+3. **Turnaround: Fixing Broken OKRs** - Reset program
+4. **OKRs + Culture Transformation** - Values integration
+
+**Schema:**
+```sql
+transformation_journeys (
+  id UUID PRIMARY KEY,
+  tenantId UUID REFERENCES tenants(id),
+  
+  journeyType TEXT NOT NULL,
+  startedAt TIMESTAMP DEFAULT NOW(),
+  currentWeek INTEGER DEFAULT 1,
+  totalWeeks INTEGER,
+  
+  -- Progress
+  completedMilestones JSONB,
+  currentMilestone TEXT,
+  nextActions JSONB,
+  
+  -- Engagement
+  lastActivityAt TIMESTAMP,
+  engagementScore DOUBLE PRECISION,
+  
+  status TEXT DEFAULT 'active' -- 'active', 'paused', 'completed', 'abandoned'
+)
+```
+
+---
+
+#### CAP-3. Certification Platform
+
+**Status:** Not Started  
+**Priority:** Low  
+**Effort:** 4-6 weeks  
+**Dependencies:** None
+
+**Description:**
+Build organizational capability through training and certification.
+
+**Courses:**
+- OKR Champion Certification (internal leaders)
+- Executive OKR Briefing (30-min for C-suite)
+- Manager Coaching Modules
+
+---
+
+### Business Success Optimization: Implementation Phases
+
+```
+PHASE 1: Quick Wins (Q1 2026) - 8-10 weeks
+├── AL-2: OKR Quality Scoring (2-3 weeks)
+├── AL-1: Automated Retrospectives (3-4 weeks)
+├── BS-1: Habit-Forming Check-Ins (3-4 weeks, parallel)
+└── ONI-2: Dependency Intelligence (3-4 weeks)
+
+PHASE 2: Intelligence Layer (Q2 2026) - 10-12 weeks
+├── PI-1: Probabilistic Forecasting (6-8 weeks)
+├── ONI-1: Collaboration Graph (4-5 weeks)
+├── PI-2: Leading Indicator Detection (4-5 weeks)
+└── ONI-3: Meeting Intelligence (3-4 weeks)
+
+PHASE 3: Ecosystem (Q3 2026) - 10-12 weeks
+├── EO-1: Universal Connectors (8-12 weeks)
+├── EO-2: Bi-Directional Workflows (3-4 weeks)
+└── EO-3: Strategic Command Center (3-4 weeks)
+
+PHASE 4: Transformation (Q4 2026) - 10-12 weeks
+├── CAP-1: Virtual Strategy Consultant (6-8 weeks)
+├── CAP-2: Self-Service Journeys (4-5 weeks)
+└── BS-3: Social Proof Engine (2-3 weeks)
+```
+
+---
+
+### Success Metrics for Business Optimization
+
+| Metric | Current | Year 1 Target | Year 2 Target |
+|--------|---------|---------------|---------------|
+| Customer OKR Achievement Rate | ~65% | 75% | 85% |
+| Time to Value (first quarter) | 12 weeks | 8 weeks | 6 weeks |
+| Check-in Consistency | ~45% | 70% | 85% |
+| Strategic Alignment Score | Unknown | 70% | 85% |
+| Forecasting Accuracy | N/A | 75% | 85% |
+| AI Recommendations Acted On | N/A | 30% | 50% |
 
 ---
 
