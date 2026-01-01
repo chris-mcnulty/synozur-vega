@@ -56,6 +56,7 @@ const navigationSections: NavigationSection[] = [
     defaultExpanded: true,
     items: [
       { title: 'Company OS', url: '/dashboard', icon: LayoutDashboard, testId: 'sidebar-company-os' },
+      { title: 'Executive', url: '/executive', icon: BarChart2, testId: 'sidebar-executive' },
       { title: 'Team Mode', url: '/team', icon: Users, testId: 'sidebar-team-mode' }
     ]
   },
