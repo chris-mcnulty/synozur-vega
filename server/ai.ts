@@ -1129,44 +1129,58 @@ export interface OKRQualityScoreInput {
 }
 
 export async function scoreOKRQuality(input: OKRQualityScoreInput): Promise<OKRQualityScoreResult> {
-  const { objectiveTitle, objectiveDescription, keyResults, tenantId, alignedObjectives } = input;
+  const { objectiveTitle, objectiveDescription, keyResults, alignedObjectives } = input;
   const startTime = Date.now();
   const maxRetries = 2;
 
-  const prompt = `Analyze this OKR and return ONLY a JSON object with your assessment. No other text.
+  // Use a lightweight, direct call to avoid the heavy system prompt with grounding docs
+  const systemMessage = `You are an OKR quality analyst. Always respond with valid JSON only, no other text.`;
+  
+  const userMessage = `Analyze this OKR and score it. Return only JSON.
 
-OBJECTIVE: "${objectiveTitle}"
-${objectiveDescription ? `DESCRIPTION: "${objectiveDescription}"` : ''}
-${keyResults && keyResults.length > 0 ? `KEY RESULTS:\n${keyResults.map((kr, i) => `${i + 1}. ${kr.title}${kr.target ? ` (Target: ${kr.target}${kr.unit ? ' ' + kr.unit : ''})` : ''}`).join('\n')}` : '(No Key Results yet)'}
-${alignedObjectives && alignedObjectives.length > 0 ? `ALIGNED TO: ${alignedObjectives.join(', ')}` : ''}
+Objective: "${objectiveTitle}"${objectiveDescription ? `\nDescription: "${objectiveDescription}"` : ''}${keyResults && keyResults.length > 0 ? `\nKey Results: ${keyResults.map((kr, i) => `${i + 1}. ${kr.title}`).join(', ')}` : ''}${alignedObjectives && alignedObjectives.length > 0 ? `\nAligned to: ${alignedObjectives.join(', ')}` : ''}
 
-Score each dimension: Clarity (0-25), Measurability (0-25), Achievability (0-20), Alignment (0-15), Time-Bound (0-15).
+Score: Clarity(0-25), Measurability(0-25), Achievability(0-20), Alignment(0-15), Time-Bound(0-15). Total 0-100.
 
-Return this exact JSON structure:
-{"score":75,"dimensions":{"clarity":{"score":20,"maxScore":25,"feedback":"Clear objective"},"measurability":{"score":18,"maxScore":25,"feedback":"Could add metrics"},"achievability":{"score":15,"maxScore":20,"feedback":"Seems achievable"},"alignment":{"score":12,"maxScore":15,"feedback":"Aligns well"},"timeBound":{"score":10,"maxScore":15,"feedback":"Add deadline"}},"issues":[{"type":"measurability","message":"Add specific metrics","impact":7}],"strengths":[{"type":"clarity","message":"Well defined","bonus":5}],"suggestion":"Improved objective text or null"}
-
-YOUR JSON RESPONSE:`;
+JSON format:
+{"score":75,"dimensions":{"clarity":{"score":20,"maxScore":25,"feedback":"feedback text"},"measurability":{"score":18,"maxScore":25,"feedback":"feedback"},"achievability":{"score":15,"maxScore":20,"feedback":"feedback"},"alignment":{"score":12,"maxScore":15,"feedback":"feedback"},"timeBound":{"score":10,"maxScore":15,"feedback":"feedback"}},"issues":[{"type":"dimension","message":"issue","impact":5}],"strengths":[{"type":"dimension","message":"strength","bonus":5}],"suggestion":"improved text or null"}`;
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const response = await getChatCompletion(
-        [{ role: "user", content: prompt }],
-        { tenantId, maxTokens: 1500, temperature: 0.2 },
-        AI_FEATURES.OKR_QUALITY_SCORING
-      );
+      // Direct lightweight call without the full grounding context
+      const response = await openai.chat.completions.create({
+        model: MODEL,
+        messages: [
+          { role: "system", content: systemMessage },
+          { role: "user", content: userMessage }
+        ],
+        max_completion_tokens: 1000,
+        temperature: 0.3,
+      });
 
-      console.log(`[AI Service] OKR Quality Score attempt ${attempt} raw response:`, response.substring(0, 300));
+      const content = response.choices[0]?.message?.content || "";
+      console.log(`[AI Service] OKR Quality Score attempt ${attempt} response:`, content.substring(0, 300));
 
-      // Check for non-JSON responses (apologies, refusals, etc.)
-      if (response.toLowerCase().includes("apologize") || 
-          response.toLowerCase().includes("sorry") || 
-          response.toLowerCase().includes("unable to")) {
-        console.log("[AI Service] Received refusal response, retrying...");
+      // Log AI usage
+      const latencyMs = Date.now() - startTime;
+      await logAiUsage({
+        feature: AI_FEATURES.OKR_QUALITY_SCORING,
+        promptTokens: response.usage?.prompt_tokens || 0,
+        completionTokens: response.usage?.completion_tokens || 0,
+        latencyMs,
+      });
+
+      // Check for refusal responses
+      if (content.toLowerCase().includes("apologize") || 
+          content.toLowerCase().includes("sorry") || 
+          content.toLowerCase().includes("unable to") ||
+          !content.includes("{")) {
+        console.log("[AI Service] Received non-JSON response, retrying...");
         if (attempt < maxRetries) continue;
       }
 
       // Parse the JSON response
-      let cleanedResponse = response
+      let cleanedResponse = content
         .replace(/```json\s*/gi, "")
         .replace(/```\s*/g, "")
         .trim();
@@ -1178,11 +1192,10 @@ YOUR JSON RESPONSE:`;
         cleanedResponse = cleanedResponse.substring(firstBrace, lastBrace + 1);
       }
 
-      console.log("[AI Service] OKR Quality Score cleaned response:", cleanedResponse.substring(0, 200));
+      console.log("[AI Service] OKR Quality Score cleaned:", cleanedResponse.substring(0, 200));
 
       const parsed = JSON.parse(cleanedResponse);
       
-      // Validate and return the result
       return {
         score: typeof parsed.score === 'number' ? Math.min(100, Math.max(0, parsed.score)) : 50,
         dimensions: {
@@ -1196,8 +1209,8 @@ YOUR JSON RESPONSE:`;
         strengths: Array.isArray(parsed.strengths) ? parsed.strengths : [],
         suggestion: typeof parsed.suggestion === 'string' ? parsed.suggestion : null,
       };
-    } catch (parseError) {
-      console.error(`[AI Service] OKR Quality Score attempt ${attempt} failed:`, parseError);
+    } catch (parseError: any) {
+      console.error(`[AI Service] OKR Quality Score attempt ${attempt} failed:`, parseError.message);
       if (attempt < maxRetries) {
         console.log("[AI Service] Retrying OKR quality scoring...");
         continue;
