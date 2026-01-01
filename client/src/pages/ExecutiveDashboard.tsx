@@ -223,19 +223,36 @@ export default function ExecutiveDashboard() {
       obj.status === 'on_track' || (obj.calculatedProgress >= 50 && obj.status !== 'at_risk')
     );
 
+    // Build KR to objective mapping for check-in attribution
+    const krToObjectiveMap = new Map<string, string>();
+    objectives.forEach(obj => {
+      const krs = keyResultsMap[obj.id] || [];
+      krs.forEach(kr => krToObjectiveMap.set(kr.id, obj.id));
+    });
+
+    // Count objectives with ANY check-in activity (objective or KR level)
     const objectivesWithCheckIns = new Set<string>();
     allCheckIns.forEach(ci => {
       if (ci.entityType === 'objective') {
         objectivesWithCheckIns.add(ci.entityId);
+      } else if (ci.entityType === 'key_result') {
+        const parentObjId = krToObjectiveMap.get(ci.entityId);
+        if (parentObjId) {
+          objectivesWithCheckIns.add(parentObjId);
+        }
       }
     });
 
+    const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     const objectivesCheckedInThisWeek = objectives.filter(obj => {
-      const recentCheckIn = allCheckIns.find(ci => 
-        ci.entityId === obj.id && 
-        ci.entityType === 'objective' &&
-        new Date(ci.createdAt!).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000
-      );
+      const krs = keyResultsMap[obj.id] || [];
+      const krIds = new Set(krs.map(kr => kr.id));
+      
+      // Check for any recent check-in on this objective OR its key results
+      const recentCheckIn = allCheckIns.find(ci => {
+        if (!ci.createdAt || new Date(ci.createdAt).getTime() <= oneWeekAgo) return false;
+        return ci.entityId === obj.id || krIds.has(ci.entityId);
+      });
       return !!recentCheckIn;
     });
 
