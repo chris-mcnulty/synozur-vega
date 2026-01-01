@@ -12,7 +12,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { 
   Target, 
   Gauge, 
-  Leaf, 
+  CheckCircle2, 
   AlertTriangle, 
   Clock,
   User,
@@ -135,7 +135,7 @@ function formatValue(value: number | undefined, unit?: string): string {
   if (value === undefined) return "-";
   if (unit === "%" || unit === "percent") return `${value}%`;
   if (unit === "$" || unit === "currency" || unit === "USD") return `$${value.toLocaleString()}`;
-  if (unit) return `${value.toLocaleString()} ${unit}`;
+  if (unit && unit.toLowerCase() !== "number") return `${value.toLocaleString()} ${unit}`;
   return value.toLocaleString();
 }
 
@@ -230,7 +230,7 @@ export function OKRDetailPane({
                 onClick={onCheckIn}
                 data-testid="button-detail-checkin"
               >
-                <Leaf className="h-4 w-4 mr-2 text-teal-500" />
+                <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" />
                 Check-in
               </Button>
             </div>

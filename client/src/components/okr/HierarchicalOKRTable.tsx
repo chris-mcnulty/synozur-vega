@@ -268,7 +268,7 @@ function formatProgressText(
     if (unit === '$' || unit === 'currency' || unit === 'USD') {
       return `$${currentValue.toLocaleString()}`;
     }
-    if (unit) {
+    if (unit && unit.toLowerCase() !== 'number') {
       return `${currentValue.toLocaleString()} ${unit}`;
     }
     return currentValue.toLocaleString();
