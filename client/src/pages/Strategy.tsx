@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Sparkles, Trash2, Pencil, Target, Link2, Loader2, Check, AlertCircle, X, Filter } from "lucide-react";
+import { Plus, Sparkles, Trash2, Pencil, Target, Link2, Loader2, Check, AlertCircle, X, AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -29,6 +29,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
+import { useVocabulary } from "@/contexts/VocabularyContext";
 import { ValueTagSelector } from "@/components/ValueTagSelector";
 import type { Strategy, Foundation, CompanyValue } from "@shared/schema";
 
@@ -60,6 +61,7 @@ interface StrategyFormData {
 export default function Strategy() {
   const { toast } = useToast();
   const { currentTenant, isLoading: tenantLoading } = useTenant();
+  const { t } = useVocabulary();
   const search = useSearch();
   const [, navigate] = useLocation();
   
@@ -129,13 +131,33 @@ export default function Strategy() {
   // Get annual goals from foundation
   const annualGoals = foundation?.annualGoals || [];
   
+  // Compute which goals have no strategies linked to them
+  const unlinkedGoals = useMemo(() => {
+    if (!annualGoals || annualGoals.length === 0) return [];
+    
+    // Get all goal indices that are linked to at least one strategy
+    const linkedGoalIndices = new Set<number>();
+    strategies.forEach(s => {
+      (s.linkedGoals || []).forEach((goalIdx: string) => {
+        linkedGoalIndices.add(parseInt(goalIdx));
+      });
+    });
+    
+    // Find goals that are NOT linked
+    return annualGoals
+      .map((goal: any, idx: number) => ({
+        index: idx,
+        title: typeof goal === 'string' ? goal : goal.title,
+        year: typeof goal === 'string' ? null : goal.year,
+      }))
+      .filter(g => !linkedGoalIndices.has(g.index));
+  }, [annualGoals, strategies]);
+  
   // Filter strategies based on focus filter
   const filteredStrategies = useMemo(() => {
     if (activeFocusFilter === 'unlinked-goals') {
-      // Show strategies that have linked goals where those goals have no other strategies
-      // Actually, we want to highlight strategies that should be linked to goals
-      // For now, show strategies that have NO linked goals
-      return strategies.filter(s => !s.linkedGoals || s.linkedGoals.length === 0);
+      // When showing unlinked goals, show all strategies so user can link them
+      return strategies;
     }
     return strategies;
   }, [strategies, activeFocusFilter]);
@@ -314,7 +336,10 @@ export default function Strategy() {
   }
 
   // Use actual annual goals from Foundations, with fallback
-  const availableGoals = foundation?.annualGoals || [];
+  // Extract goal titles for display (handle both old string format and new AnnualGoal format)
+  const availableGoals: string[] = (foundation?.annualGoals || []).map((goal: any) => 
+    typeof goal === 'string' ? goal : goal.title
+  );
 
   const openEditDialog = async (strategy: Strategy) => {
     setSelectedStrategy(strategy);
@@ -588,28 +613,7 @@ export default function Strategy() {
               Define and manage your organization's strategies
             </p>
           </div>
-          {/* Focus filter banner - shown when navigated from Sankey recommendations */}
-          {activeFocusFilter && (
-            <Alert className="border-primary/50 bg-primary/10 mt-2">
-              <Filter className="h-4 w-4" />
-              <AlertDescription>
-                <strong>Filtered view:</strong>{" "}
-                {activeFocusFilter === 'unlinked-goals' && "Showing strategies that need to be linked to goals"}
-              </AlertDescription>
-            </Alert>
-          )}
           <div className="flex gap-2">
-            {activeFocusFilter && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setActiveFocusFilter(null)}
-                className="text-muted-foreground"
-              >
-                <X className="h-4 w-4 mr-1" />
-                Clear filter
-              </Button>
-            )}
             <Dialog open={aiDialogOpen} onOpenChange={handleCloseAiDialog}>
               <DialogTrigger asChild>
                 <Button variant="outline" data-testid="button-ai-draft">
@@ -906,6 +910,47 @@ export default function Strategy() {
             </Dialog>
           </div>
         </div>
+
+        {/* Unlinked Goals Banner - shown when navigated from Sankey or when there are unlinked goals */}
+        {activeFocusFilter === 'unlinked-goals' && unlinkedGoals.length > 0 && (
+          <Alert className="border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+            <AlertTriangle className="h-4 w-4 text-amber-600" />
+            <AlertDescription className="flex flex-col gap-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <strong className="text-amber-800 dark:text-amber-200">
+                    {unlinkedGoals.length} Annual {unlinkedGoals.length === 1 ? t('goal', 'singular') : t('goal', 'plural')} {unlinkedGoals.length === 1 ? 'has' : 'have'} no aligned strategies:
+                  </strong>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setActiveFocusFilter(null)}
+                  className="text-muted-foreground"
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Clear filter
+                </Button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {unlinkedGoals.map((goal) => (
+                  <Badge 
+                    key={goal.index} 
+                    variant="outline" 
+                    className="border-amber-500 bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200"
+                  >
+                    <Target className="h-3 w-3 mr-1" />
+                    {goal.title}
+                    {goal.year && <span className="ml-1 text-amber-600">({goal.year})</span>}
+                  </Badge>
+                ))}
+              </div>
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                Edit a strategy below and link it to one of these goals, or create a new strategy.
+              </p>
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Tabs defaultValue="all" className="space-y-6">
           <TabsList>
