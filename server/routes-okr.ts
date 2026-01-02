@@ -280,9 +280,9 @@ okrRouter.post("/objectives/:id/clone", async (req, res) => {
     const { id } = req.params;
     const { targetQuarter, targetYear, keepOriginalOwner, newOwnerId, cloneScope } = req.body;
     
-    // Validate required fields
-    if (targetQuarter === undefined || targetYear === undefined) {
-      return res.status(400).json({ error: "targetQuarter and targetYear are required" });
+    // Validate required fields - targetQuarter can be null for annual objectives
+    if (targetYear === undefined) {
+      return res.status(400).json({ error: "targetYear is required" });
     }
     
     if (!cloneScope || !['objective_only', 'immediate_children', 'all_children'].includes(cloneScope)) {
@@ -290,7 +290,7 @@ okrRouter.post("/objectives/:id/clone", async (req, res) => {
     }
     
     const clonedObjective = await storage.cloneObjective(id, {
-      targetQuarter: Number(targetQuarter),
+      targetQuarter: targetQuarter === null || targetQuarter === undefined ? null : Number(targetQuarter),
       targetYear: Number(targetYear),
       keepOriginalOwner: keepOriginalOwner !== false,
       newOwnerId: newOwnerId || undefined,

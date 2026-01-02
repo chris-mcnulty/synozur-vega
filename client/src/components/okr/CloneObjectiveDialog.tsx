@@ -48,7 +48,7 @@ export function CloneObjectiveDialog({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const [targetQuarter, setTargetQuarter] = useState(currentQuarter);
+  const [targetQuarter, setTargetQuarter] = useState<number | null>(currentQuarter);
   const [targetYear, setTargetYear] = useState(currentYear);
   const [keepOriginalOwner, setKeepOriginalOwner] = useState(true);
   const [newOwnerId, setNewOwnerId] = useState<string>("");
@@ -58,7 +58,7 @@ export function CloneObjectiveDialog({
     mutationFn: async () => {
       if (!objective) throw new Error("No objective selected");
       return await apiRequest("POST", `/api/okr/objectives/${objective.id}/clone`, {
-        targetQuarter,
+        targetQuarter: targetQuarter,
         targetYear,
         keepOriginalOwner,
         newOwnerId: keepOriginalOwner ? undefined : newOwnerId,
@@ -66,9 +66,10 @@ export function CloneObjectiveDialog({
       });
     },
     onSuccess: () => {
+      const periodLabel = targetQuarter ? `Q${targetQuarter} ${targetYear}` : `Full Year ${targetYear}`;
       toast({
         title: "Objective cloned",
-        description: `Successfully cloned to Q${targetQuarter} ${targetYear}`,
+        description: `Successfully cloned to ${periodLabel}`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/okr/hierarchy"] });
       queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives"] });
@@ -108,22 +109,23 @@ export function CloneObjectiveDialog({
             <div className="rounded-md bg-muted p-3">
               <p className="text-sm font-medium">{objective.title}</p>
               <p className="text-xs text-muted-foreground mt-1">
-                Original: Q{objective.quarter} {objective.year}
+                Original: {objective.quarter ? `Q${objective.quarter} ${objective.year}` : `Full Year ${objective.year}`}
               </p>
             </div>
 
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="target-quarter">Target Quarter</Label>
+                  <Label htmlFor="target-quarter">Target Period</Label>
                   <Select
-                    value={targetQuarter.toString()}
-                    onValueChange={(v) => setTargetQuarter(parseInt(v))}
+                    value={targetQuarter === null ? "annual" : targetQuarter.toString()}
+                    onValueChange={(v) => setTargetQuarter(v === "annual" ? null : parseInt(v))}
                   >
                     <SelectTrigger id="target-quarter" data-testid="select-target-quarter">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="annual">Full Year (Annual)</SelectItem>
                       {quarters.map((q) => (
                         <SelectItem key={q} value={q.toString()}>
                           Q{q}

@@ -98,7 +98,7 @@ export interface IStorage {
   updateObjective(id: string, objective: Partial<InsertObjective>): Promise<Objective>;
   deleteObjective(id: string): Promise<void>;
   cloneObjective(objectiveId: string, options: {
-    targetQuarter: number;
+    targetQuarter: number | null;
     targetYear: number;
     keepOriginalOwner: boolean;
     newOwnerId?: string;
@@ -764,7 +764,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async cloneObjective(objectiveId: string, options: {
-    targetQuarter: number;
+    targetQuarter: number | null;
     targetYear: number;
     keepOriginalOwner: boolean;
     newOwnerId?: string;
@@ -775,9 +775,18 @@ export class DatabaseStorage implements IStorage {
       throw new Error('Source objective not found');
     }
 
-    // Build dates for the target quarter
-    const startDate = new Date(options.targetYear, (options.targetQuarter - 1) * 3, 1);
-    const endDate = new Date(options.targetYear, options.targetQuarter * 3, 0);
+    // Build dates for the target period (annual or quarterly)
+    let startDate: Date;
+    let endDate: Date;
+    if (options.targetQuarter === null) {
+      // Annual objective: full year
+      startDate = new Date(options.targetYear, 0, 1);
+      endDate = new Date(options.targetYear, 11, 31);
+    } else {
+      // Quarterly objective
+      startDate = new Date(options.targetYear, (options.targetQuarter - 1) * 3, 1);
+      endDate = new Date(options.targetYear, options.targetQuarter * 3, 0);
+    }
 
     // Clone the main objective with reset progress
     const clonedObjectiveData: InsertObjective = {
@@ -843,7 +852,7 @@ export class DatabaseStorage implements IStorage {
     sourceParentId: string, 
     targetParentId: string, 
     options: {
-      targetQuarter: number;
+      targetQuarter: number | null;
       targetYear: number;
       keepOriginalOwner: boolean;
       newOwnerId?: string;
@@ -852,8 +861,15 @@ export class DatabaseStorage implements IStorage {
     const childObjectives = await this.getChildObjectives(sourceParentId);
     
     for (const child of childObjectives) {
-      const startDate = new Date(options.targetYear, (options.targetQuarter - 1) * 3, 1);
-      const endDate = new Date(options.targetYear, options.targetQuarter * 3, 0);
+      let startDate: Date;
+      let endDate: Date;
+      if (options.targetQuarter === null) {
+        startDate = new Date(options.targetYear, 0, 1);
+        endDate = new Date(options.targetYear, 11, 31);
+      } else {
+        startDate = new Date(options.targetYear, (options.targetQuarter - 1) * 3, 1);
+        endDate = new Date(options.targetYear, options.targetQuarter * 3, 0);
+      }
 
       const clonedChildData: InsertObjective = {
         tenantId: child.tenantId,
