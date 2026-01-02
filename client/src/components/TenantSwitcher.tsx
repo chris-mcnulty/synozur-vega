@@ -56,7 +56,7 @@ export function TenantSwitcher() {
           <CommandList>
             <CommandEmpty>No tenant found.</CommandEmpty>
             <CommandGroup>
-              {tenants.map((tenant) => (
+              {[...tenants].sort((a, b) => a.name.localeCompare(b.name)).map((tenant) => (
                 <CommandItem
                   key={tenant.id}
                   value={tenant.name}
