@@ -60,8 +60,9 @@ const upload = multer({
 
 async function extractTextFromDocument(buffer: Buffer, mimetype: string): Promise<string> {
   if (mimetype === 'application/pdf') {
-    const pdfParseModule = await import("pdf-parse") as any;
-    const pdfParse = pdfParseModule.default || pdfParseModule;
+    // pdf-parse is a CommonJS module - import its default export properly
+    const pdfParseModule = await import("pdf-parse/lib/pdf-parse.js");
+    const pdfParse = (pdfParseModule as any).default ?? pdfParseModule;
     const data = await pdfParse(buffer);
     return data.text;
   } else if (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {

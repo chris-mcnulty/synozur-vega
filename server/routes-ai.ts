@@ -57,8 +57,9 @@ aiRouter.post("/parse-pdf", requireAIAdmin, async (req: Request, res: Response) 
     req.on('end', async () => {
       try {
         const buffer = Buffer.concat(chunks);
-        const pdfParseModule = await import("pdf-parse") as any;
-        const pdfParse = pdfParseModule.default || pdfParseModule;
+        // pdf-parse is a CommonJS module - import its default export properly
+        const pdfParseModule = await import("pdf-parse/lib/pdf-parse.js");
+        const pdfParse = (pdfParseModule as any).default ?? pdfParseModule;
         const data = await pdfParse(buffer);
         res.json({ text: data.text });
       } catch (parseError) {
