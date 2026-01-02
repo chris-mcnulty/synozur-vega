@@ -60,10 +60,12 @@ const upload = multer({
 
 async function extractTextFromDocument(buffer: Buffer, mimetype: string): Promise<string> {
   if (mimetype === 'application/pdf') {
-    // pdf-parse v2.x exports ESM module
-    const { default: pdfParse } = await import("pdf-parse");
-    const data = await pdfParse(buffer);
-    return data.text;
+    // pdf-parse v2.x uses class-based API
+    const { PDFParse } = await import("pdf-parse");
+    const parser = new PDFParse({ data: buffer });
+    const result = await parser.getText();
+    await parser.destroy();
+    return result.text;
   } else if (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
     const mammoth = await import("mammoth");
     const result = await mammoth.extractRawText({ buffer });

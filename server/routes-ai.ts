@@ -57,10 +57,12 @@ aiRouter.post("/parse-pdf", requireAIAdmin, async (req: Request, res: Response) 
     req.on('end', async () => {
       try {
         const buffer = Buffer.concat(chunks);
-        // pdf-parse v2.x exports ESM module
-        const { default: pdfParse } = await import("pdf-parse");
-        const data = await pdfParse(buffer);
-        res.json({ text: data.text });
+        // pdf-parse v2.x uses class-based API
+        const { PDFParse } = await import("pdf-parse");
+        const parser = new PDFParse({ data: buffer });
+        const result = await parser.getText();
+        await parser.destroy();
+        res.json({ text: result.text });
       } catch (parseError) {
         console.error("Error parsing PDF:", parseError);
         res.status(400).json({ error: "Failed to parse PDF file" });
