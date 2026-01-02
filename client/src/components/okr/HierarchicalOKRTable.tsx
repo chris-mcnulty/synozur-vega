@@ -83,6 +83,7 @@ interface HierarchyObjective {
   createdBy?: string;
   quarter: number;
   year: number;
+  teamId?: string;
   keyResults: KeyResult[];
   childObjectives: HierarchyObjective[];
   alignedObjectives?: HierarchyObjective[]; // Objectives that "ladder up" to this one
@@ -91,8 +92,14 @@ interface HierarchyObjective {
   lastUpdated: Date | null;
 }
 
+interface Team {
+  id: string;
+  name: string;
+}
+
 interface HierarchicalOKRTableProps {
   objectives: HierarchyObjective[];
+  teams?: Team[];
   onSelectObjective?: (objective: HierarchyObjective) => void;
   onSelectKeyResult?: (keyResult: KeyResult, parentObjective: HierarchyObjective) => void;
   onEditObjective?: (objective: HierarchyObjective) => void;
@@ -283,6 +290,7 @@ function formatProgressText(
 function ObjectiveRow({ 
   objective, 
   depth = 0,
+  teams = [],
   onSelectObjective,
   onSelectKeyResult,
   onEditObjective,
@@ -303,6 +311,7 @@ function ObjectiveRow({
 }: { 
   objective: HierarchyObjective; 
   depth?: number;
+  teams?: Team[];
   onSelectObjective?: (objective: HierarchyObjective) => void;
   onSelectKeyResult?: (keyResult: KeyResult, parentObjective: HierarchyObjective) => void;
   onEditObjective?: (objective: HierarchyObjective) => void;
@@ -381,7 +390,11 @@ function ObjectiveRow({
                 className="text-xs flex-shrink-0"
                 data-testid={`badge-level-${objective.id}`}
               >
-                {objective.level === "organization" ? "Organization" : objective.level === "team" ? "Team" : objective.level}
+                {objective.level === "organization" 
+                  ? "Organization" 
+                  : objective.level === "team" 
+                    ? (objective.teamId && teams.find(t => t.id === objective.teamId)?.name) || "Team"
+                    : objective.level}
               </Badge>
             )}
             {isAligned && (
@@ -614,6 +627,7 @@ function ObjectiveRow({
               key={child.id}
               objective={child}
               depth={depth + 1}
+              teams={teams}
               onSelectObjective={onSelectObjective}
               onSelectKeyResult={onSelectKeyResult}
               onEditObjective={onEditObjective}
@@ -640,6 +654,7 @@ function ObjectiveRow({
               key={`aligned-${aligned.id}`}
               objective={{ ...aligned, isAligned: true }}
               depth={depth + 1}
+              teams={teams}
               onSelectObjective={onSelectObjective}
               onSelectKeyResult={onSelectKeyResult}
               onEditObjective={onEditObjective}
@@ -916,7 +931,8 @@ function KeyResultRow({
 }
 
 export function HierarchicalOKRTable({ 
-  objectives, 
+  objectives,
+  teams = [],
   onSelectObjective,
   onSelectKeyResult,
   onEditObjective,
@@ -965,6 +981,7 @@ export function HierarchicalOKRTable({
             <ObjectiveRow
               key={objective.id}
               objective={objective}
+              teams={teams}
               onSelectObjective={onSelectObjective}
               onSelectKeyResult={onSelectKeyResult}
               onEditObjective={onEditObjective}

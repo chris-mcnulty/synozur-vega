@@ -52,6 +52,7 @@ interface Objective {
   quarter: number;
   year: number;
   tenantId: string;
+  teamId?: string;
 }
 
 interface KeyResult {
@@ -1655,6 +1656,7 @@ export default function PlanningEnhanced() {
               ) : (
                 <HierarchicalOKRTable
                   objectives={filteredHierarchyData}
+                  teams={teamsData}
                   onSelectObjective={(obj) => {
                     setDetailPaneEntityType("objective");
                     setDetailPaneEntity(obj);
