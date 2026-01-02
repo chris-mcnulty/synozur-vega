@@ -286,14 +286,15 @@ export default function PlanningEnhanced() {
   }, [urlFocus, navigate]);
   
   // Find strategies without objectives for the focus filter
+  // Uses objectives data (always fetched) rather than hierarchyData (only fetched on hierarchy tab)
   const strategiesWithoutObjectives = useMemo(() => {
     if (!strategies || strategies.length === 0) return [];
     const strategiesWithObjs = new Set<string>();
-    hierarchyData.forEach((obj: any) => {
+    objectives.forEach((obj: any) => {
       (obj.linkedStrategies || []).forEach((stratId: string) => strategiesWithObjs.add(stratId));
     });
     return strategies.filter((s: any) => !strategiesWithObjs.has(s.id));
-  }, [strategies, hierarchyData]);
+  }, [strategies, objectives]);
   
   // Filter hierarchy data by status and URL focus filter
   const filteredHierarchyData = useMemo(() => {
