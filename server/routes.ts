@@ -1982,6 +1982,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const launchpadRouter = await import("./routes-launchpad");
   app.use("/api/launchpad", ...authWithTenant, launchpadRouter.default);
 
+  // Import and use Export routes (Company OS document export)
+  const exportRouter = await import("./routes-export");
+  app.use("/api/export", ...authWithTenant, exportRouter.default);
+
   // ============================================
   // PLATFORM ADMIN ROUTES - Service Plans & Blocked Domains
   // ============================================
