@@ -88,7 +88,7 @@ export function CloneObjectiveDialog({
     cloneMutation.mutate();
   };
 
-  const years = [currentYear - 1, currentYear, currentYear + 1];
+  const years = [currentYear - 1, currentYear, currentYear + 1, currentYear + 2, currentYear + 3];
   const quarters = [1, 2, 3, 4];
 
   return (
