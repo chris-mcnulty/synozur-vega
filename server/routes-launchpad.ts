@@ -194,11 +194,11 @@ router.post("/:sessionId/analyze", async (req: Request, res: Response) => {
     const systemPrompt = `You are an expert organizational strategist. Analyze the provided document and extract/propose a comprehensive Company Operating System structure.
 
 Return a JSON object with these fields:
-- mission: A concise mission statement (1-2 sentences)${hasExistingFoundation ? " - Only include if document has a NEW/DIFFERENT mission, otherwise set to null" : ""}
-- vision: A compelling vision statement (1-2 sentences)${hasExistingFoundation ? " - Only include if document has a NEW/DIFFERENT vision, otherwise set to null" : ""}
-- values: Array of {title, description} for core values${hasExistingFoundation ? " - Only include NEW values not already in the existing list" : ""}
-- goals: Array of {title, description} for annual goals - Only include NEW goals not duplicating existing ones
-- strategies: Array of {title, description, linkedGoals} for strategic initiatives - Only include NEW strategies
+- mission: A concise mission statement (1-2 sentences)${hasExistingFoundation ? " - Only include if document has a NEW/DIFFERENT mission, otherwise set to null" : " - REQUIRED: extract from document"}
+- vision: A compelling vision statement (1-2 sentences)${hasExistingFoundation ? " - Only include if document has a NEW/DIFFERENT vision, otherwise set to null" : " - REQUIRED: extract from document"}
+- values: Array of {title, description} for core values${hasExistingFoundation ? " - Only include NEW values not already in the existing list" : " - REQUIRED: extract all values from document"}
+- goals: Array of {title, description} for annual goals${hasExistingFoundation ? " - Only include NEW goals not duplicating existing ones" : " - REQUIRED: extract all goals from document"}
+- strategies: Array of {title, description, linkedGoals} for strategic initiatives${hasExistingFoundation ? " - Only include NEW strategies" : " - REQUIRED: extract all strategies from document"}
 - objectives: Array of {title, description, level, keyResults, bigRocks} where:
   - level is "organization", "department", or "team"
   - keyResults is array of {title, metricType, targetValue, unit}
@@ -206,10 +206,11 @@ Return a JSON object with these fields:
   - Only include NEW objectives not duplicating existing ones
 
 IMPORTANT: 
-- Do NOT propose items that essentially duplicate existing data (check the EXISTING COMPANY DATA section)
-- Mission/Vision/Values rarely change year to year - only propose changes if the document explicitly contains new ones
-- Focus on extracting NEW goals, strategies, and objectives from the document
-- If a section has no new items to add, return an empty array or null
+${hasExistingFoundation ? `- Do NOT propose items that essentially duplicate existing data (check the EXISTING COMPANY DATA section)
+- Mission/Vision/Values rarely change year to year - only propose changes if the document explicitly contains new ones` : `- This appears to be a new company with no existing foundation - ALWAYS extract mission, vision, values, and goals from the document if present
+- Be thorough in extracting all foundational elements`}
+- Extract all goals, strategies, and objectives from the document
+- If a section is not present in the document, return an empty array or null
 
 Always return valid JSON that can be parsed.`;
 
