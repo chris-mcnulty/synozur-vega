@@ -199,32 +199,52 @@ router.post("/:sessionId/analyze", async (req: Request, res: Response) => {
       apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
     });
 
-    const systemPrompt = `You are an expert organizational strategist. Analyze the provided document and extract a comprehensive Company Operating System structure.
+    const systemPrompt = `You are an expert document parser for organizational OKR systems. Your task is to EXTRACT (not summarize) every Objective, Key Result, and Big Rock from the document.
 
-ALWAYS extract everything you find in the document - the user will decide what to keep via a selective approval UI.
+CRITICAL EXTRACTION RULES:
+1. Extract EVERY objective listed in the document - do NOT summarize or consolidate
+2. If the document lists 10 objectives, return 10 objectives. If it lists 50, return 50.
+3. Preserve the exact titles and descriptions as written in the document
+4. Extract ALL key results for EACH objective - do not skip any
+5. The document may have hierarchical OKRs (organizational, departmental, team-level) - extract ALL levels
 
 Return a JSON object with these fields:
-- mission: A concise mission statement (1-2 sentences) - extract if present in document
-- vision: A compelling vision statement (1-2 sentences) - extract if present in document  
-- values: Array of {title, description} for core values - extract all values from document
-- goals: Array of {title, description} for annual goals/targets - extract all goals from document
-  IMPORTANT: Goal titles MUST be descriptive phrases of 3-8 words that convey the goal's intent. 
-  Examples of GOOD goal titles: "Increase recurring revenue by 25%", "Expand into European markets", "Launch mobile app for customers"
-  Examples of BAD goal titles: "Revenue", "Growth", "Expansion" (single words are not acceptable)
-- strategies: Array of {title, description, linkedGoals} for strategic initiatives - extract all strategies
-- objectives: Array of {title, description, level, keyResults, bigRocks} where:
-  - level is "organization", "department", or "team"
-  - keyResults is array of {title, metricType, targetValue, unit}
-  - bigRocks is array of {title, description, priority} - extract all major initiatives/projects
-- bigRocks: Also include a top-level array of {title, description, priority, quarter} for standalone big rocks/initiatives not tied to specific objectives
+- mission: Mission statement if present (extract verbatim)
+- vision: Vision statement if present (extract verbatim)
+- values: Array of {title, description} - extract ALL values listed
+- goals: Array of {title, description} for annual goals/targets
+  IMPORTANT: Goal titles MUST be descriptive phrases (3-8 words), not single words
+- strategies: Array of {title, description, linkedGoals} - extract ALL strategies
+- objectives: Array of ALL objectives found, each with:
+  - title: The objective title (extract verbatim)
+  - description: The objective description
+  - level: "organization", "department", or "team" 
+  - team: The team/department name if specified (e.g., "IT & Product", "Marketing", "HR")
+  - keyResults: Array of ALL key results for this objective, each with:
+    - title: The KR text (extract verbatim, e.g., "Vega live in production by Q2")
+    - metricType: "number", "percentage", "currency", "boolean", or "custom"
+    - targetValue: The target number if applicable
+    - unit: The unit of measurement if applicable
+  - bigRocks: Array of initiatives tied to this objective
+- bigRocks: Top-level array for standalone big rocks not tied to objectives
 
-IMPORTANT:
-- Extract EVERYTHING from the document - user will selectively approve what to import
-- Be thorough - don't skip sections even if similar data might exist
-- Big Rocks are major quarterly initiatives/projects - extract all mentioned in the document
-- If a section is not present in the document, return an empty array or null
+EXAMPLE - If document says:
+"IT Team Objectives:
+Objective 1: Deliver Vega
+- KR1: Vega live by Q2
+- KR2: 3 clients piloted
+Objective 2: Drive innovation  
+- KR1: 100% AI integration
+- KR2: 80% adoption"
 
-Always return valid JSON that can be parsed.`;
+You MUST return 2 separate objectives with their respective key results, NOT 1 combined objective.
+
+DO NOT:
+- Consolidate multiple objectives into one
+- Skip objectives or key results
+- Summarize - extract verbatim
+
+Always return valid JSON.`;
 
     const userPrompt = `Analyze this organizational document and extract a Company OS structure for the year ${session.targetYear}:
 ${groundingContext ? `\nUse this company background context to better understand the organization:\n${groundingContext}` : ""}
@@ -234,7 +254,9 @@ DOCUMENT TO ANALYZE:
 ${session.sourceDocumentText.substring(0, 45000)}
 ---
 
-Return valid JSON with all elements found in the document. Extract everything - the user will decide what to approve.`;
+CRITICAL: Extract EVERY objective and key result from this document - do not summarize or consolidate. 
+The document contains multiple team-level objectives (IT, Marketing, Sales, HR, Finance, etc.) - extract ALL of them as separate objectives.
+Return valid JSON with all elements found.`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -243,7 +265,8 @@ Return valid JSON with all elements found in the document. Extract everything - 
         { role: "user", content: userPrompt }
       ],
       response_format: { type: "json_object" },
-      temperature: 0.7,
+      temperature: 0.3, // Lower temperature for more deterministic extraction
+      max_tokens: 16000, // Increase token limit to allow extraction of all OKRs
     });
 
     await storage.updateLaunchpadSession(session.id, {
