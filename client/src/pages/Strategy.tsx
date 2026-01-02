@@ -1,13 +1,15 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
+import { useSearch, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Plus, Sparkles, Trash2, Pencil, Target, Link2, Loader2, Check, AlertCircle } from "lucide-react";
+import { Plus, Sparkles, Trash2, Pencil, Target, Link2, Loader2, Check, AlertCircle, X, Filter } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -58,6 +60,18 @@ interface StrategyFormData {
 export default function Strategy() {
   const { toast } = useToast();
   const { currentTenant, isLoading: tenantLoading } = useTenant();
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  
+  // Parse URL focus parameter for deep linking from Sankey recommendations
+  const urlFocus = useMemo(() => {
+    const params = new URLSearchParams(search);
+    return params.get("focus");
+  }, [search]);
+  
+  // Track active focus filter for UI display
+  const [activeFocusFilter, setActiveFocusFilter] = useState<string | null>(null);
+  
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -102,6 +116,29 @@ export default function Strategy() {
     enabled: !!currentTenant?.id,
     retry: false,
   });
+  
+  // Handle URL focus parameter - set active filter when URL changes
+  useEffect(() => {
+    if (urlFocus) {
+      setActiveFocusFilter(urlFocus);
+      // Clear the URL parameter after applying it
+      navigate("/strategy", { replace: true });
+    }
+  }, [urlFocus, navigate]);
+  
+  // Get annual goals from foundation
+  const annualGoals = foundation?.annualGoals || [];
+  
+  // Filter strategies based on focus filter
+  const filteredStrategies = useMemo(() => {
+    if (activeFocusFilter === 'unlinked-goals') {
+      // Show strategies that have linked goals where those goals have no other strategies
+      // Actually, we want to highlight strategies that should be linked to goals
+      // For now, show strategies that have NO linked goals
+      return strategies.filter(s => !s.linkedGoals || s.linkedGoals.length === 0);
+    }
+    return strategies;
+  }, [strategies, activeFocusFilter]);
 
   // Helper function to sync value tags
   const syncValueTags = async (
@@ -518,10 +555,10 @@ export default function Strategy() {
   };
 
   const groupedStrategies = {
-    critical: strategies.filter(s => s.priority === "critical"),
-    high: strategies.filter(s => s.priority === "high"),
-    medium: strategies.filter(s => s.priority === "medium"),
-    low: strategies.filter(s => s.priority === "low"),
+    critical: filteredStrategies.filter(s => s.priority === "critical"),
+    high: filteredStrategies.filter(s => s.priority === "high"),
+    medium: filteredStrategies.filter(s => s.priority === "medium"),
+    low: filteredStrategies.filter(s => s.priority === "low"),
   };
 
   if (isLoading) {
@@ -551,7 +588,28 @@ export default function Strategy() {
               Define and manage your organization's strategies
             </p>
           </div>
+          {/* Focus filter banner - shown when navigated from Sankey recommendations */}
+          {activeFocusFilter && (
+            <Alert className="border-primary/50 bg-primary/10 mt-2">
+              <Filter className="h-4 w-4" />
+              <AlertDescription>
+                <strong>Filtered view:</strong>{" "}
+                {activeFocusFilter === 'unlinked-goals' && "Showing strategies that need to be linked to goals"}
+              </AlertDescription>
+            </Alert>
+          )}
           <div className="flex gap-2">
+            {activeFocusFilter && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setActiveFocusFilter(null)}
+                className="text-muted-foreground"
+              >
+                <X className="h-4 w-4 mr-1" />
+                Clear filter
+              </Button>
+            )}
             <Dialog open={aiDialogOpen} onOpenChange={handleCloseAiDialog}>
               <DialogTrigger asChild>
                 <Button variant="outline" data-testid="button-ai-draft">

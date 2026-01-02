@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useSearch, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -28,7 +29,7 @@ import { OKRDetailPane } from "@/components/okr/OKRDetailPane";
 import { ProgressSummaryBar } from "@/components/okr/ProgressSummaryBar";
 import { MilestoneEditor, type PhasedTargets } from "@/components/okr/MilestoneEditor";
 import { MilestoneTimeline } from "@/components/okr/MilestoneTimeline";
-import { TrendingUp, Target, Activity, AlertCircle, AlertTriangle, CheckCircle, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink, Calendar } from "lucide-react";
+import { TrendingUp, Target, Activity, AlertCircle, AlertTriangle, CheckCircle, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink, Calendar, X, Filter } from "lucide-react";
 import { ExcelFilePicker } from "@/components/ExcelFilePicker";
 import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
 import { cn } from "@/lib/utils";
@@ -142,6 +143,17 @@ export default function PlanningEnhanced() {
   const { currentTenant } = useTenant();
   const { user } = useAuth();
   const permissions = usePermissions();
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  
+  // Parse URL focus parameter for deep linking from Sankey recommendations
+  const urlFocus = useMemo(() => {
+    const params = new URLSearchParams(search);
+    return params.get("focus");
+  }, [search]);
+  
+  // Track active focus filter for UI display
+  const [activeFocusFilter, setActiveFocusFilter] = useState<string | null>(null);
   
   // Load saved filters from localStorage
   const savedFilters = getSavedPlanningFilters();
@@ -263,10 +275,45 @@ export default function PlanningEnhanced() {
     enabled: !!currentTenant?.id && selectedTab === 'hierarchy',
   });
 
-  // Filter hierarchy data by status (unified filter)
-  const filteredHierarchyData = statusFilter === 'all' 
-    ? hierarchyData 
-    : hierarchyData.filter((obj: any) => obj.status === statusFilter);
+  // Handle URL focus parameter - set active filter when URL changes
+  useEffect(() => {
+    if (urlFocus) {
+      setActiveFocusFilter(urlFocus);
+      // Clear the URL parameter after applying it
+      navigate("/planning", { replace: true });
+    }
+  }, [urlFocus, navigate]);
+  
+  // Find strategies without objectives for the focus filter
+  const strategiesWithoutObjectives = useMemo(() => {
+    if (!strategies || strategies.length === 0) return [];
+    const strategiesWithObjs = new Set<string>();
+    hierarchyData.forEach((obj: any) => {
+      (obj.linkedStrategies || []).forEach((stratId: string) => strategiesWithObjs.add(stratId));
+    });
+    return strategies.filter((s: any) => !strategiesWithObjs.has(s.id));
+  }, [strategies, hierarchyData]);
+  
+  // Filter hierarchy data by status and URL focus filter
+  const filteredHierarchyData = useMemo(() => {
+    let data = hierarchyData;
+    
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      data = data.filter((obj: any) => obj.status === statusFilter);
+    }
+    
+    // Apply URL focus filter for objectives without key results
+    if (activeFocusFilter === 'objectives-without-key-results') {
+      // Filter to show only objectives that have no key results
+      data = data.filter((obj: any) => {
+        const hasKeyResults = obj.keyResults && obj.keyResults.length > 0;
+        return !hasKeyResults;
+      });
+    }
+    
+    return data;
+  }, [hierarchyData, statusFilter, activeFocusFilter]);
 
   // Enrich objectives with their key results and big rocks
   const [enrichedObjectives, setEnrichedObjectives] = useState<any[]>([]);
@@ -1646,6 +1693,68 @@ export default function PlanningEnhanced() {
 
           <TabsContent value="hierarchy">
             <div className="space-y-4">
+              {/* Focus filter banner - shown when navigated from Sankey recommendations */}
+              {activeFocusFilter && (
+                <Alert className="border-primary/50 bg-primary/10">
+                  <Filter className="h-4 w-4" />
+                  <AlertDescription className="flex items-center justify-between">
+                    <span>
+                      <strong>Filtered view:</strong>{" "}
+                      {activeFocusFilter === 'strategies-without-objectives' && `Showing ${strategiesWithoutObjectives.length} strategies without aligned objectives`}
+                      {activeFocusFilter === 'objectives-without-key-results' && `Showing ${filteredHierarchyData.length} objectives without key results`}
+                      {activeFocusFilter === 'at-risk' && "Showing at-risk and behind items"}
+                    </span>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => setActiveFocusFilter(null)}
+                      className="ml-2"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Clear filter
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              {/* Show strategies needing objectives when that filter is active */}
+              {activeFocusFilter === 'strategies-without-objectives' && strategiesWithoutObjectives.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Strategies Needing Objectives</CardTitle>
+                    <CardDescription>
+                      These strategies have no linked objectives. Create objectives to drive execution.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-3">
+                      {strategiesWithoutObjectives.map((strategy: any) => (
+                        <div key={strategy.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
+                          <div className="flex-1">
+                            <p className="font-medium">{strategy.title}</p>
+                            {strategy.description && (
+                              <p className="text-sm text-muted-foreground line-clamp-1">{strategy.description}</p>
+                            )}
+                          </div>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setObjectiveForm({
+                                ...objectiveForm,
+                                linkedStrategies: [strategy.id],
+                              });
+                              setObjectiveDialogOpen(true);
+                            }}
+                          >
+                            <Plus className="h-4 w-4 mr-1" />
+                            Create Objective
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
               {!loadingHierarchy && filteredHierarchyData.length > 0 && (
                 <ProgressSummaryBar objectives={filteredHierarchyData} />
               )}

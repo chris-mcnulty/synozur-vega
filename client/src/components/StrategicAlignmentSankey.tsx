@@ -219,7 +219,7 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
         type: "gap",
         message: `${unlinkedGoals.length} ${unlinkedGoals.length === 1 ? "goal has" : "goals have"} no aligned ${t("strategy", "plural").toLowerCase()}`,
         action: `Link ${t("strategy", "plural").toLowerCase()} to these goals`,
-        actionLink: "/strategy",
+        actionLink: "/strategy?focus=unlinked-goals",
       });
     }
 
@@ -231,7 +231,7 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
         type: "gap",
         message: `${strategiesWithoutObjectives.length} ${strategiesWithoutObjectives.length === 1 ? "strategy has" : "strategies have"} no aligned ${t("objective", "plural").toLowerCase()}`,
         action: `Create ${t("objective", "plural").toLowerCase()} for these strategies`,
-        actionLink: "/planning",
+        actionLink: "/planning?focus=strategies-without-objectives",
       });
     }
 
@@ -243,7 +243,7 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
         type: "gap",
         message: `${objectivesWithoutKRs.length} ${t("objective", "plural").toLowerCase()} ${objectivesWithoutKRs.length === 1 ? "has" : "have"} no ${t("keyResult", "plural").toLowerCase()}`,
         action: `Add ${t("keyResult", "plural").toLowerCase()} to measure progress`,
-        actionLink: "/planning",
+        actionLink: "/planning?focus=objectives-without-key-results",
       });
     }
 
@@ -253,7 +253,7 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
         type: "risk",
         message: `${atRiskObjectives.length} ${t("objective", "plural").toLowerCase()} ${atRiskObjectives.length === 1 ? "is" : "are"} at risk or behind`,
         action: "Schedule review meetings",
-        actionLink: "/focus-rhythm",
+        actionLink: "/focus-rhythm?focus=at-risk",
       });
     }
 
