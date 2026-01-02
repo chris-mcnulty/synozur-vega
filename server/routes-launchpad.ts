@@ -189,39 +189,38 @@ router.post("/:sessionId/analyze", async (req: Request, res: Response) => {
       apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
     });
 
-    const hasExistingFoundation = existingFoundation?.mission || existingFoundation?.vision;
-    
-    const systemPrompt = `You are an expert organizational strategist. Analyze the provided document and extract/propose a comprehensive Company Operating System structure.
+    const systemPrompt = `You are an expert organizational strategist. Analyze the provided document and extract a comprehensive Company Operating System structure.
+
+ALWAYS extract everything you find in the document - the user will decide what to keep via a selective approval UI.
 
 Return a JSON object with these fields:
-- mission: A concise mission statement (1-2 sentences)${hasExistingFoundation ? " - Only include if document has a NEW/DIFFERENT mission, otherwise set to null" : " - REQUIRED: extract from document"}
-- vision: A compelling vision statement (1-2 sentences)${hasExistingFoundation ? " - Only include if document has a NEW/DIFFERENT vision, otherwise set to null" : " - REQUIRED: extract from document"}
-- values: Array of {title, description} for core values${hasExistingFoundation ? " - Only include NEW values not already in the existing list" : " - REQUIRED: extract all values from document"}
-- goals: Array of {title, description} for annual goals${hasExistingFoundation ? " - Only include NEW goals not duplicating existing ones" : " - REQUIRED: extract all goals from document"}
-- strategies: Array of {title, description, linkedGoals} for strategic initiatives${hasExistingFoundation ? " - Only include NEW strategies" : " - REQUIRED: extract all strategies from document"}
+- mission: A concise mission statement (1-2 sentences) - extract if present in document
+- vision: A compelling vision statement (1-2 sentences) - extract if present in document  
+- values: Array of {title, description} for core values - extract all values from document
+- goals: Array of {title, description} for annual goals/targets - extract all goals from document
+- strategies: Array of {title, description, linkedGoals} for strategic initiatives - extract all strategies
 - objectives: Array of {title, description, level, keyResults, bigRocks} where:
   - level is "organization", "department", or "team"
   - keyResults is array of {title, metricType, targetValue, unit}
-  - bigRocks is array of {title, description, priority}
-  - Only include NEW objectives not duplicating existing ones
+  - bigRocks is array of {title, description, priority} - extract all major initiatives/projects
+- bigRocks: Also include a top-level array of {title, description, priority, quarter} for standalone big rocks/initiatives not tied to specific objectives
 
-IMPORTANT: 
-${hasExistingFoundation ? `- Do NOT propose items that essentially duplicate existing data (check the EXISTING COMPANY DATA section)
-- Mission/Vision/Values rarely change year to year - only propose changes if the document explicitly contains new ones` : `- This appears to be a new company with no existing foundation - ALWAYS extract mission, vision, values, and goals from the document if present
-- Be thorough in extracting all foundational elements`}
-- Extract all goals, strategies, and objectives from the document
+IMPORTANT:
+- Extract EVERYTHING from the document - user will selectively approve what to import
+- Be thorough - don't skip sections even if similar data might exist
+- Big Rocks are major quarterly initiatives/projects - extract all mentioned in the document
 - If a section is not present in the document, return an empty array or null
 
 Always return valid JSON that can be parsed.`;
 
-    const userPrompt = `Analyze this organizational document and extract/propose a Company OS structure for the year ${session.targetYear}:
-${existingContext}
+    const userPrompt = `Analyze this organizational document and extract a Company OS structure for the year ${session.targetYear}:
+${existingContext ? `\nFor reference, here is what already exists (user may choose to skip duplicates):\n${existingContext}` : ""}
 ---
 DOCUMENT TO ANALYZE:
 ${session.sourceDocumentText.substring(0, 45000)}
 ---
 
-Return only valid JSON matching the structure described. Remember: do NOT duplicate existing data.`;
+Return valid JSON with all elements found in the document. Extract everything - the user will decide what to approve.`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
