@@ -354,7 +354,7 @@ function ObjectiveRow({
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
-        <TableCell className={cn("py-3", depth > 0 && `pl-${8 + depth * 4}`)}>
+        <TableCell className="py-3" style={{ paddingLeft: depth > 0 ? `${1 + depth * 1.5}rem` : undefined }}>
           <div className="flex items-center gap-2">
             {hasChildren ? (
               <Button
@@ -473,9 +473,9 @@ function ObjectiveRow({
           </Badge>
         </TableCell>
         
-        <TableCell className="py-3">
+        <TableCell className="py-3 text-right">
           <div className={cn(
-            "flex items-center gap-1 transition-opacity",
+            "flex items-center justify-end gap-1 transition-opacity",
             isHovered ? "opacity-100" : "opacity-0"
           )}>
             {objective.status !== 'closed' && (
@@ -717,7 +717,7 @@ function KeyResultRow({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <TableCell className={cn("py-2", `pl-${12 + depth * 4}`)}>
+      <TableCell className="py-2" style={{ paddingLeft: `${1.5 + depth * 1.5}rem` }}>
         <div className="flex items-center gap-2">
           <div className="w-6 flex-shrink-0" />
           <Gauge className="h-4 w-4 text-primary flex-shrink-0" />
@@ -846,9 +846,9 @@ function KeyResultRow({
       
       <TableCell className="py-2">-</TableCell>
       
-      <TableCell className="py-2">
+      <TableCell className="py-2 text-right">
         <div className={cn(
-          "flex items-center gap-1 transition-opacity",
+          "flex items-center justify-end gap-1 transition-opacity",
           isHovered ? "opacity-100" : "opacity-0"
         )}>
           {keyResult.status !== 'closed' && parentObjective.status !== 'closed' && (
@@ -968,12 +968,12 @@ export function HierarchicalOKRTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[35%]">Title</TableHead>
-            <TableHead className="w-[12%]">Owner</TableHead>
-            <TableHead className="w-[18%]">Status & Progress</TableHead>
-            <TableHead className="w-[10%]">Last Updated</TableHead>
-            <TableHead className="w-[10%]">Time Period</TableHead>
-            <TableHead className="w-[15%]">Actions</TableHead>
+            <TableHead className="w-[42%]">Title</TableHead>
+            <TableHead className="w-[10%]">Owner</TableHead>
+            <TableHead className="w-[16%]">Status & Progress</TableHead>
+            <TableHead className="w-[8%]">Updated</TableHead>
+            <TableHead className="w-[9%]">Period</TableHead>
+            <TableHead className="w-[15%] text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
