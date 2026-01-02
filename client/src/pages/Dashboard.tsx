@@ -39,6 +39,8 @@ import type { Foundation, Strategy, Objective, BigRock, Meeting, Team } from "@s
 import { ValueBadges } from "@/components/ValueBadges";
 import { ExpandableText } from "@/components/ExpandableText";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
+import { CompanyOSExportDialog } from "@/components/CompanyOSExportDialog";
+import { FileDown } from "lucide-react";
 
 type Quarter = {
   id: string;
@@ -213,7 +215,15 @@ export default function Dashboard() {
             {currentQuarter?.label}
           </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap items-center">
+          <CompanyOSExportDialog
+            trigger={
+              <Button variant="outline" data-testid="button-export-company-os">
+                <FileDown className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            }
+          />
           <Select value={selectedTeam} onValueChange={setSelectedTeam}>
             <SelectTrigger className="w-44" data-testid="select-team">
               <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
