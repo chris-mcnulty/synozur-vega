@@ -760,9 +760,10 @@ export default function Reporting() {
             onSubmit={(e) => {
               e.preventDefault();
               const formData = new FormData(e.currentTarget);
+              const snapshotIdValue = formData.get('snapshotId') as string;
               generateReportMutation.mutate({
                 title: formData.get('title') as string,
-                snapshotId: formData.get('snapshotId') as string || undefined,
+                snapshotId: snapshotIdValue && snapshotIdValue !== 'current' ? snapshotIdValue : undefined,
                 periodType: formData.get('periodType') as string || 'quarter',
                 quarter,
                 year,
@@ -797,12 +798,12 @@ export default function Reporting() {
               {snapshots.length > 0 && (
                 <div>
                   <Label htmlFor="snapshotId">Use Snapshot (optional)</Label>
-                  <Select name="snapshotId" defaultValue="">
+                  <Select name="snapshotId" defaultValue="current">
                     <SelectTrigger data-testid="select-snapshot">
                       <SelectValue placeholder="Use current state" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Use current state</SelectItem>
+                      <SelectItem value="current">Use current state</SelectItem>
                       {snapshots.map((s) => (
                         <SelectItem key={s.id} value={s.id}>
                           {s.title} - {format(new Date(s.snapshotDate), 'MMM d')}
