@@ -7,6 +7,7 @@ import { verifyPassword } from "./auth";
 import { z } from "zod";
 import { 
   insertTenantSchema,
+  createTenantSchema,
   insertFoundationSchema,
   insertStrategySchema,
   insertOkrSchema,
@@ -243,6 +244,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!email || !password) {
         return res.status(400).json({ error: "Email and password required" });
+      }
+
+      // Validate required organization classification fields
+      if (!organizationSize || !industry || !location) {
+        return res.status(400).json({ 
+          error: "Organization classification is required",
+          details: "Please provide organization size, industry, and location"
+        });
       }
 
       // Verify reCAPTCHA if token provided and secret is configured
@@ -704,7 +713,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tenants", ...platformAdminOnly, async (req: Request, res: Response) => {
     try {
-      const validatedData = insertTenantSchema.parse(req.body);
+      // Use createTenantSchema which requires org classification fields
+      const validatedData = createTenantSchema.parse(req.body);
       const tenant = await storage.createTenant(validatedData);
       res.json(tenant);
     } catch (error) {

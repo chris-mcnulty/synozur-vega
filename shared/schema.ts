@@ -301,6 +301,7 @@ export const tenants = pgTable("tenants", {
   location: text("location"), // e.g., 'United States', 'United Kingdom', etc.
 });
 
+// Base schema for tenant updates - keeps org classification optional for legacy compatibility
 export const insertTenantSchema = createInsertSchema(tenants).omit({
   id: true,
 }).extend({
@@ -311,7 +312,15 @@ export const insertTenantSchema = createInsertSchema(tenants).omit({
   ).optional(),
 });
 
+// Schema for NEW tenant creation - requires org classification fields
+export const createTenantSchema = insertTenantSchema.extend({
+  organizationSize: z.string().min(1, "Organization size is required"),
+  industry: z.string().min(1, "Industry is required"),
+  location: z.string().min(1, "Location is required"),
+});
+
 export type InsertTenant = z.infer<typeof insertTenantSchema>;
+export type CreateTenant = z.infer<typeof createTenantSchema>;
 export type Tenant = typeof tenants.$inferSelect;
 
 // System-wide vocabulary defaults (managed by vega_admin/global_admin)
