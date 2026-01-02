@@ -40,6 +40,7 @@ import { ValueBadges } from "@/components/ValueBadges";
 import { ExpandableText } from "@/components/ExpandableText";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { CompanyOSExportDialog } from "@/components/CompanyOSExportDialog";
+import { StrategicAlignmentSankey } from "@/components/StrategicAlignmentSankey";
 import { FileDown } from "lucide-react";
 
 type Quarter = {
@@ -847,6 +848,12 @@ export default function Dashboard() {
           )}
         </div>
       </div>
+
+      {/* Strategic Alignment Flow */}
+      <StrategicAlignmentSankey 
+        year={currentQuarter?.year || new Date().getFullYear()} 
+        quarter={currentQuarter?.quarter}
+      />
     </div>
   );
 }

@@ -61,7 +61,6 @@ import {
   CartesianGrid,
 } from "recharts";
 import { cn } from "@/lib/utils";
-import { StrategicAlignmentSankey } from "@/components/StrategicAlignmentSankey";
 
 type Quarter = {
   id: string;
@@ -1175,11 +1174,6 @@ export default function ExecutiveDashboard() {
               </div>
             </CardContent>
           </Card>
-
-          <StrategicAlignmentSankey 
-            year={currentQuarter?.year || new Date().getFullYear()} 
-            quarter={currentQuarter?.quarter}
-          />
         </>
       )}
 
