@@ -206,6 +206,23 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
       }
     });
 
+    // Check for unlinked goals (goals with no strategies pointing to them)
+    const goalsWithLinks = new Set<number>();
+    linkList.forEach(link => {
+      if (link.source < goals.length) {
+        goalsWithLinks.add(link.source);
+      }
+    });
+    const unlinkedGoals = goals.filter((_, idx) => !goalsWithLinks.has(idx));
+    if (unlinkedGoals.length > 0 && strategies.length > 0) {
+      recommendations.push({
+        type: "gap",
+        message: `${unlinkedGoals.length} ${unlinkedGoals.length === 1 ? "goal has" : "goals have"} no aligned ${t("strategy", "plural").toLowerCase()}`,
+        action: `Link ${t("strategy", "plural").toLowerCase()} to these goals`,
+        actionLink: "/strategy",
+      });
+    }
+
     const strategiesWithoutObjectives = strategies.filter(
       (s) => !objectives.some((o) => (o.linkedStrategies || []).includes(s.id))
     );
@@ -249,8 +266,8 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
       });
     }
 
-    const height = Math.max(400, nodeList.length * 25);
-    const width = 900;
+    const height = Math.max(500, nodeList.length * 30);
+    const width = 1000;
 
     return { nodes: nodeList, links: linkList, recommendations, width, height };
   }, [alignmentData, t]);
@@ -266,9 +283,9 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
 
     try {
       const sankeyGenerator = sankey<SankeyNodeData, SankeyLinkData>()
-        .nodeWidth(20)
-        .nodePadding(12)
-        .extent([[50, 20], [width - 50, height - 20]]);
+        .nodeWidth(24)
+        .nodePadding(15)
+        .extent([[60, 25], [width - 60, height - 25]]);
 
       const graph = sankeyGenerator({
         nodes: nodes.map((d) => ({ ...d })),
@@ -366,7 +383,7 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
         </div>
 
         <div className="overflow-x-auto border rounded-lg bg-muted/20">
-          <svg width={width} height={height + 40} className="min-w-[900px]">
+          <svg width={width} height={height + 40} className="min-w-[1000px]">
             <g transform="translate(0, 30)">
               {layerLabels.map((layer, idx) => (
                 <text
@@ -382,11 +399,16 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
 
               {sankeyData.links.map((link, idx) => {
                 const linkData = link as SankeyLink<SankeyNodeData, SankeyLinkData>;
+                const sourceNode = linkData.source as SankeyNode<SankeyNodeData, SankeyLinkData>;
+                const targetNode = linkData.target as SankeyNode<SankeyNodeData, SankeyLinkData>;
                 const isHovered = hoveredLink === idx || 
-                  hoveredNode === (linkData.source as SankeyNode<SankeyNodeData, SankeyLinkData>).id ||
-                  hoveredNode === (linkData.target as SankeyNode<SankeyNodeData, SankeyLinkData>).id;
+                  hoveredNode === sourceNode.id ||
+                  hoveredNode === targetNode.id;
                 const status = (link as any).status;
-                const color = status ? STATUS_COLORS[status] || "#9CA3AF" : "#9CA3AF";
+                // Use status color if available, otherwise use the target node's type color for visual flow
+                const color = status 
+                  ? STATUS_COLORS[status] || LAYER_COLORS[targetNode.type] 
+                  : LAYER_COLORS[targetNode.type] || "#9CA3AF";
 
                 return (
                   <path
@@ -394,8 +416,8 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
                     d={sankeyLinkHorizontal()(linkData) || ""}
                     fill="none"
                     stroke={color}
-                    strokeWidth={Math.max(2, linkData.width || 1)}
-                    strokeOpacity={isHovered ? 0.8 : 0.3}
+                    strokeWidth={Math.max(3, linkData.width || 2)}
+                    strokeOpacity={isHovered ? 0.8 : 0.4}
                     onMouseEnter={() => setHoveredLink(idx)}
                     onMouseLeave={() => setHoveredLink(null)}
                     className="transition-opacity cursor-pointer"
@@ -407,7 +429,14 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
                 const nodeData = node as SankeyNode<SankeyNodeData, SankeyLinkData>;
                 const isHovered = hoveredNode === nodeData.id;
                 const nodeHeight = (nodeData.y1 || 0) - (nodeData.y0 || 0);
+                const nodeWidth = (nodeData.x1 || 0) - (nodeData.x0 || 0);
                 const color = LAYER_COLORS[nodeData.type] || "#6B7280";
+                // Truncate name for label display (show first 15 chars)
+                const labelText = nodeData.name.length > 18 
+                  ? nodeData.name.substring(0, 15) + "..." 
+                  : nodeData.name;
+                // Position label to the right for first 2 layers, left for last 3 layers
+                const isLeftAligned = nodeData.layer >= 3;
 
                 return (
                   <g
@@ -419,33 +448,53 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
                     <rect
                       x={nodeData.x0}
                       y={nodeData.y0}
-                      width={(nodeData.x1 || 0) - (nodeData.x0 || 0)}
+                      width={nodeWidth}
                       height={nodeHeight}
                       fill={color}
-                      opacity={isHovered ? 1 : 0.8}
-                      rx={3}
+                      opacity={isHovered ? 1 : 0.85}
+                      rx={4}
                       className="transition-opacity"
+                      stroke={isHovered ? "#fff" : "none"}
+                      strokeWidth={isHovered ? 2 : 0}
                     />
+                    {/* Node label - show abbreviated name */}
+                    {nodeHeight >= 12 && (
+                      <text
+                        x={isLeftAligned ? (nodeData.x0 || 0) - 5 : (nodeData.x1 || 0) + 5}
+                        y={(nodeData.y0 || 0) + nodeHeight / 2 + 4}
+                        textAnchor={isLeftAligned ? "end" : "start"}
+                        className="fill-muted-foreground text-[10px] pointer-events-none"
+                        style={{ fontSize: "10px" }}
+                      >
+                        {labelText}
+                      </text>
+                    )}
                     {isHovered && (
                       <foreignObject
-                        x={(nodeData.x0 || 0) + 25}
-                        y={(nodeData.y0 || 0) - 5}
-                        width={200}
-                        height={60}
-                        className="pointer-events-none"
+                        x={Math.min((nodeData.x0 || 0) + 25, width - 320)}
+                        y={Math.max((nodeData.y0 || 0) - 10, 0)}
+                        width={300}
+                        height={120}
+                        className="pointer-events-none overflow-visible"
+                        style={{ zIndex: 1000 }}
                       >
-                        <div className="bg-popover border rounded-md shadow-lg p-2 text-xs">
-                          <div className="font-medium truncate">{nodeData.name}</div>
-                          {nodeData.status && (
-                            <Badge variant="outline" className="mt-1 text-xs">
-                              {nodeData.status.replace("_", " ")}
-                            </Badge>
-                          )}
-                          {nodeData.progress !== undefined && (
-                            <div className="mt-1 text-muted-foreground">
-                              Progress: {Math.round(nodeData.progress)}%
-                            </div>
-                          )}
+                        <div className="bg-popover border rounded-md shadow-lg p-3 text-sm max-w-[290px]">
+                          <div className="font-medium text-foreground break-words whitespace-normal leading-snug">{nodeData.name}</div>
+                          <div className="mt-2 flex items-center gap-2 flex-wrap">
+                            {nodeData.status && (
+                              <Badge variant="outline" className="text-xs capitalize">
+                                {nodeData.status.replace("_", " ")}
+                              </Badge>
+                            )}
+                            {nodeData.progress !== undefined && (
+                              <span className="text-xs text-muted-foreground">
+                                Progress: {Math.round(nodeData.progress)}%
+                              </span>
+                            )}
+                          </div>
+                          <div className="mt-1 text-xs text-muted-foreground capitalize">
+                            {nodeData.type === "keyResult" ? "Key Result" : nodeData.type === "bigRock" ? "Big Rock" : nodeData.type}
+                          </div>
                         </div>
                       </foreignObject>
                     )}
