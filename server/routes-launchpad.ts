@@ -58,6 +58,35 @@ const upload = multer({
   }
 });
 
+/**
+ * Detect if document contains structured OKR patterns
+ * Returns true if explicit OKRs are found, false for narrative content
+ */
+function hasStructuredOKRs(text: string): boolean {
+  const okrPatterns = [
+    /\bobjective\s*\d+\s*:/i,           // "Objective 1:"
+    /\bKR\s*\d+\s*:/i,                   // "KR1:", "KR 1:"
+    /\bkey\s*result\s*\d+\s*:/i,         // "Key Result 1:"
+    /\bobjectives?\s*&?\s*key\s*results?/i, // "Objectives & Key Results"
+    /\bOKR\s*(hierarchy|framework)/i,   // "OKR hierarchy", "OKR framework"
+    /\bteam\s+objectives?\s*:/i,        // "Team Objectives:"
+    /\borganizational\s+objectives?\s*:/i, // "Organizational Objectives:"
+    /\bdepartment\s+objectives?\s*:/i,  // "Department Objectives:"
+    /\bbig\s*rocks?\s*\(/i,             // "Big Rocks (..."
+    /\bquarterly\s+initiatives?\s*:/i,  // "Quarterly Initiatives:"
+  ];
+  
+  let matchCount = 0;
+  for (const pattern of okrPatterns) {
+    if (pattern.test(text)) {
+      matchCount++;
+    }
+  }
+  
+  // If 2+ patterns match, it's likely a structured OKR document
+  return matchCount >= 2;
+}
+
 async function extractTextFromDocument(buffer: Buffer, mimetype: string): Promise<string> {
   if (mimetype === 'application/pdf') {
     // pdf-parse v2.x uses class-based API
@@ -199,7 +228,12 @@ router.post("/:sessionId/analyze", async (req: Request, res: Response) => {
       apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
     });
 
-    const systemPrompt = `You are an expert document parser for organizational OKR systems. Your task is to EXTRACT (not summarize) every Objective, Key Result, and Big Rock from the document.
+    // Detect document type to choose appropriate extraction mode
+    const isStructuredOKR = hasStructuredOKRs(session.sourceDocumentText);
+    console.log(`[Launchpad] Document mode: ${isStructuredOKR ? 'EXTRACTION (structured OKRs detected)' : 'INFERENCE (narrative content)'}`);
+
+    // Extraction mode prompt - for documents with explicit OKRs
+    const extractionPrompt = `You are an expert document parser for organizational OKR systems. Your task is to EXTRACT (not summarize) every Objective, Key Result, and Big Rock from the document.
 
 CRITICAL EXTRACTION RULES:
 1. Extract EVERY objective listed in the document - do NOT summarize or consolidate
@@ -246,7 +280,38 @@ DO NOT:
 
 Always return valid JSON.`;
 
-    const userPrompt = `Analyze this organizational document and extract a Company OS structure for the year ${session.targetYear}:
+    // Inference mode prompt - for narrative documents without explicit OKRs
+    const inferencePrompt = `You are an expert organizational strategist. Analyze the provided document and generate a comprehensive Company Operating System structure based on the content.
+
+The document does NOT contain explicit OKRs - you must INFER appropriate objectives, key results, and initiatives from the narrative content.
+
+Return a JSON object with these fields:
+- mission: A concise mission statement (1-2 sentences) - extract if present, or infer from document
+- vision: A compelling vision statement (1-2 sentences) - extract if present, or infer from document
+- values: Array of {title, description} for core values - extract or infer from document
+- goals: Array of {title, description} for annual goals/targets
+  IMPORTANT: Goal titles MUST be descriptive phrases of 3-8 words that convey the goal's intent.
+  Examples of GOOD goal titles: "Increase recurring revenue by 25%", "Expand into European markets"
+  Examples of BAD goal titles: "Revenue", "Growth" (single words are not acceptable)
+- strategies: Array of {title, description, linkedGoals} for strategic initiatives
+- objectives: Array of {title, description, level, keyResults, bigRocks} where:
+  - level is "organization", "department", or "team"
+  - keyResults is array of {title, metricType, targetValue, unit} - propose measurable key results
+  - bigRocks is array of {title, description, priority} - major initiatives/projects
+- bigRocks: Top-level array of {title, description, priority, quarter} for standalone big rocks
+
+GUIDELINES:
+- Propose 3-6 high-impact objectives based on the document content
+- Each objective should have 2-4 measurable key results
+- Identify major projects or initiatives as Big Rocks
+- Use specific, measurable language for key results
+- If a section is not present in the document, make reasonable inferences or return empty array
+
+Always return valid JSON.`;
+
+    const systemPrompt = isStructuredOKR ? extractionPrompt : inferencePrompt;
+
+    const extractionUserPrompt = `Analyze this organizational document and extract a Company OS structure for the year ${session.targetYear}:
 ${groundingContext ? `\nUse this company background context to better understand the organization:\n${groundingContext}` : ""}
 ${existingContext ? `\nFor reference, here is what already exists (user may choose to skip duplicates):\n${existingContext}` : ""}
 ---
@@ -257,6 +322,19 @@ ${session.sourceDocumentText.substring(0, 45000)}
 CRITICAL: Extract EVERY objective and key result from this document - do not summarize or consolidate. 
 The document contains multiple team-level objectives (IT, Marketing, Sales, HR, Finance, etc.) - extract ALL of them as separate objectives.
 Return valid JSON with all elements found.`;
+
+    const inferenceUserPrompt = `Analyze this organizational document and generate a Company OS structure for the year ${session.targetYear}:
+${groundingContext ? `\nUse this company background context to better understand the organization:\n${groundingContext}` : ""}
+${existingContext ? `\nFor reference, here is what already exists (avoid duplicating these):\n${existingContext}` : ""}
+---
+DOCUMENT TO ANALYZE:
+${session.sourceDocumentText.substring(0, 45000)}
+---
+
+Based on the content, propose appropriate objectives, key results, strategies, and initiatives.
+Return valid JSON with your proposed Company OS structure.`;
+
+    const userPrompt = isStructuredOKR ? extractionUserPrompt : inferenceUserPrompt;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
