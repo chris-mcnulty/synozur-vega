@@ -339,4 +339,38 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
+router.get("/strategic-alignment", requireAuth, async (req: Request, res: Response) => {
+  try {
+    const user = await storage.getUser(req.session.userId!);
+    if (!user?.tenantId) {
+      return res.status(403).json({ error: "No tenant access" });
+    }
+
+    const year = req.query.year ? parseInt(req.query.year as string) : undefined;
+    const quarter = req.query.quarter ? parseInt(req.query.quarter as string) : undefined;
+
+    const [foundation, strategies, objectives, keyResults, bigRocks] = await Promise.all([
+      storage.getFoundationByTenantId(user.tenantId),
+      storage.getStrategiesByTenantId(user.tenantId),
+      storage.getObjectivesByTenantId(user.tenantId, quarter, year),
+      storage.getKeyResultsByTenantId(user.tenantId),
+      storage.getBigRocksByTenantId(user.tenantId, quarter, year),
+    ]);
+
+    const objectiveIds = new Set(objectives.map(o => o.id));
+    const filteredKeyResults = keyResults.filter(kr => objectiveIds.has(kr.objectiveId));
+
+    res.json({
+      foundation,
+      strategies,
+      objectives,
+      keyResults: filteredKeyResults,
+      bigRocks,
+    });
+  } catch (error) {
+    console.error("Error fetching strategic alignment:", error);
+    res.status(500).json({ error: "Failed to fetch strategic alignment data" });
+  }
+});
+
 export default router;
