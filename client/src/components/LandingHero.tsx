@@ -133,7 +133,7 @@ export function LandingHero() {
           <div className="relative rounded-xl overflow-hidden shadow-2xl border">
             <img 
               src={vegaScreenshot} 
-              alt="Vega Enhanced Planning - OKR Hierarchy and Progress Tracking" 
+              alt="Vega OKR Planning - OKR Hierarchy and Progress Tracking" 
               className="w-full h-auto"
             />
           </div>

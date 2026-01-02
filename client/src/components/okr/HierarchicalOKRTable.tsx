@@ -375,6 +375,15 @@ function ObjectiveRow({
             >
               {objective.title}
             </span>
+            {objective.level && (
+              <Badge 
+                variant="secondary" 
+                className="text-xs flex-shrink-0"
+                data-testid={`badge-level-${objective.id}`}
+              >
+                {objective.level === "organization" ? "Organization" : objective.level === "team" ? "Team" : objective.level}
+              </Badge>
+            )}
             {isAligned && (
               <Badge variant="outline" className="text-xs bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-700">
                 <Link2 className="h-3 w-3 mr-1" />
