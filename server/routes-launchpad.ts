@@ -198,6 +198,9 @@ Return a JSON object with these fields:
 - vision: A compelling vision statement (1-2 sentences) - extract if present in document  
 - values: Array of {title, description} for core values - extract all values from document
 - goals: Array of {title, description} for annual goals/targets - extract all goals from document
+  IMPORTANT: Goal titles MUST be descriptive phrases of 3-8 words that convey the goal's intent. 
+  Examples of GOOD goal titles: "Increase recurring revenue by 25%", "Expand into European markets", "Launch mobile app for customers"
+  Examples of BAD goal titles: "Revenue", "Growth", "Expansion" (single words are not acceptable)
 - strategies: Array of {title, description, linkedGoals} for strategic initiatives - extract all strategies
 - objectives: Array of {title, description, level, keyResults, bigRocks} where:
   - level is "organization", "department", or "team"
@@ -398,7 +401,20 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
       keyResults: 0,
       bigRocks: 0,
       skipped: [] as string[],
+      duplicatesSkipped: 0,
     };
+
+    // Helper to normalize titles for deduplication
+    const normalizeTitle = (title: string) => title.toLowerCase().trim();
+
+    // Pre-fetch existing items for deduplication
+    const existingStrategies = await storage.getStrategiesByTenantId(session.tenantId);
+    const existingObjectives = await storage.getObjectivesByTenantId(session.tenantId);
+    const existingBigRocks = await storage.getBigRocksByTenantId(session.tenantId);
+    
+    const existingStrategyTitles = new Set(existingStrategies.map((s: any) => normalizeTitle(s.title)));
+    const existingObjectiveTitles = new Set(existingObjectives.map((o: any) => normalizeTitle(o.title)));
+    const existingBigRockTitles = new Set(existingBigRocks.map((b: any) => normalizeTitle(b.title)));
 
     // Foundation updates (mission, vision, values) - only if approved
     const existingFoundation = await storage.getFoundationByTenantId(session.tenantId);
@@ -427,47 +443,73 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
     // Goals - only if approved
     if (approveGoals && proposal.goals && proposal.goals.length > 0) {
       const existingAnnualGoals = existingFoundation?.annualGoals || [];
+      const existingGoalTitles = new Set(existingAnnualGoals.map(g => normalizeTitle(g)));
       
       // annualGoals is a string[] - extract titles from the proposal goals
-      const newGoalTitles = proposal.goals.map((g: any) => 
-        typeof g === 'string' ? g : g.title || g.description || String(g)
-      );
+      // Ensure goal titles are descriptive (3+ words) - use description if title is too short
+      const newGoalTitles = proposal.goals
+        .map((g: any) => {
+          let title = typeof g === 'string' ? g : g.title || "";
+          const description = typeof g === 'string' ? "" : g.description || "";
+          
+          // If title is too short (less than 3 words), derive from description
+          if (title.split(/\s+/).length < 3 && description) {
+            // Extract first meaningful clause from description (up to ~50 chars)
+            const firstClause = description.split(/[.;,]/).find((c: string) => c.trim().length > 10) || description;
+            title = firstClause.trim().slice(0, 60).replace(/\s+\S*$/, ''); // Trim to word boundary
+          }
+          return title || description.slice(0, 60);
+        })
+        .filter((title: string) => !existingGoalTitles.has(normalizeTitle(title)));
 
-      await storage.upsertFoundation({
-        tenantId: session.tenantId,
-        mission: existingFoundation?.mission || "",
-        vision: existingFoundation?.vision || "",
-        values: existingFoundation?.values || [],
-        annualGoals: [...existingAnnualGoals, ...newGoalTitles],
-      });
-      
-      createdEntities.goals = proposal.goals.length;
+      if (newGoalTitles.length > 0) {
+        await storage.upsertFoundation({
+          tenantId: session.tenantId,
+          mission: existingFoundation?.mission || "",
+          vision: existingFoundation?.vision || "",
+          values: existingFoundation?.values || [],
+          annualGoals: [...existingAnnualGoals, ...newGoalTitles],
+        });
+        createdEntities.goals = newGoalTitles.length;
+      }
+      createdEntities.duplicatesSkipped += proposal.goals.length - newGoalTitles.length;
     } else if (!approveGoals && proposal.goals?.length) {
       createdEntities.skipped.push('goals');
     }
 
-    // Strategies - only if approved
+    // Strategies - only if approved (with deduplication)
     if (approveStrategies && proposal.strategies && proposal.strategies.length > 0) {
       for (const s of proposal.strategies) {
+        // Skip if strategy with same title already exists
+        if (existingStrategyTitles.has(normalizeTitle(s.title))) {
+          createdEntities.duplicatesSkipped++;
+          continue;
+        }
         await storage.createStrategy({
           tenantId: session.tenantId,
           title: s.title,
           description: s.description,
           status: "active",
         });
-        
+        existingStrategyTitles.add(normalizeTitle(s.title)); // Prevent duplicates within same batch
         createdEntities.strategies++;
       }
     } else if (!approveStrategies && proposal.strategies?.length) {
       createdEntities.skipped.push('strategies');
     }
 
-    // Objectives - only if approved
+    // Objectives - only if approved (with deduplication)
     if (approveObjectives && proposal.objectives && proposal.objectives.length > 0) {
       // Use targetQuarter if set, otherwise leave null for annual objectives
       const quarter = session.targetQuarter || null;
       
       for (const obj of proposal.objectives) {
+        // Skip if objective with same title already exists
+        if (existingObjectiveTitles.has(normalizeTitle(obj.title))) {
+          createdEntities.duplicatesSkipped++;
+          continue;
+        }
+        
         const objective = await storage.createObjective({
           tenantId: session.tenantId,
           title: obj.title,
@@ -478,6 +520,7 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
           status: "not_started",
         } as any);
         
+        existingObjectiveTitles.add(normalizeTitle(obj.title)); // Prevent duplicates within same batch
         createdEntities.objectives++;
 
         if (obj.keyResults && obj.keyResults.length > 0) {
@@ -496,12 +539,17 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
           }
         }
 
-        // Create big rocks attached to this objective (only if approveBigRocks is true)
+        // Create big rocks attached to this objective (only if approveBigRocks is true, with dedup)
         if (approveBigRocks && obj.bigRocks && obj.bigRocks.length > 0) {
           // Big rocks require a quarter due to database constraint
           // Use: 1) explicit bigRockQuarter from request, 2) session.targetQuarter, 3) current quarter
           const effectiveBigRockQuarter = bigRockQuarter || session.targetQuarter || Math.ceil((new Date().getMonth() + 1) / 3);
           for (const br of obj.bigRocks) {
+            // Skip if big rock with same title already exists
+            if (existingBigRockTitles.has(normalizeTitle(br.title))) {
+              createdEntities.duplicatesSkipped++;
+              continue;
+            }
             await storage.createBigRock({
               objectiveId: objective.id,
               tenantId: session.tenantId,
@@ -512,6 +560,7 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
               quarter: effectiveBigRockQuarter,
               year: session.targetYear,
             });
+            existingBigRockTitles.add(normalizeTitle(br.title));
             createdEntities.bigRocks++;
           }
         }
@@ -520,10 +569,15 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
       createdEntities.skipped.push('objectives');
     }
 
-    // Create top-level (standalone) big rocks - only if approveBigRocks is true
+    // Create top-level (standalone) big rocks - only if approveBigRocks is true (with dedup)
     if (approveBigRocks && proposal.bigRocks && proposal.bigRocks.length > 0) {
       const effectiveBigRockQuarter = bigRockQuarter || session.targetQuarter || Math.ceil((new Date().getMonth() + 1) / 3);
       for (const br of proposal.bigRocks) {
+        // Skip if big rock with same title already exists
+        if (existingBigRockTitles.has(normalizeTitle(br.title))) {
+          createdEntities.duplicatesSkipped++;
+          continue;
+        }
         await storage.createBigRock({
           tenantId: session.tenantId,
           title: br.title,
@@ -533,6 +587,7 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
           quarter: (br as any).quarter || effectiveBigRockQuarter,
           year: session.targetYear,
         });
+        existingBigRockTitles.add(normalizeTitle(br.title));
         createdEntities.bigRocks++;
       }
     } else if (!approveBigRocks && (proposal.bigRocks?.length || proposal.objectives?.some((o: any) => o.bigRocks?.length))) {
