@@ -155,10 +155,20 @@ router.post("/:sessionId/analyze", async (req: Request, res: Response) => {
     const existingFoundation = await storage.getFoundationByTenantId(session.tenantId);
     const existingStrategies = await storage.getStrategiesByTenantId(session.tenantId);
     const existingObjectives = await storage.getObjectivesByTenantId(session.tenantId);
+    
+    // Fetch AI grounding documents for enhanced context
+    const groundingDocs = await storage.getActiveGroundingDocumentsForTenant(session.tenantId);
 
     await storage.updateLaunchpadSession(session.id, {
       analysisProgress: 20,
     });
+
+    // Build grounding context from tenant's AI background documents
+    let groundingContext = "";
+    if (groundingDocs.length > 0) {
+      groundingContext = "\n\n## COMPANY BACKGROUND CONTEXT:\n";
+      groundingContext += groundingDocs.map(doc => `### ${doc.title}\n${doc.content}`).join("\n\n");
+    }
 
     // Build context about existing data
     let existingContext = "";
@@ -217,6 +227,7 @@ IMPORTANT:
 Always return valid JSON that can be parsed.`;
 
     const userPrompt = `Analyze this organizational document and extract a Company OS structure for the year ${session.targetYear}:
+${groundingContext ? `\nUse this company background context to better understand the organization:\n${groundingContext}` : ""}
 ${existingContext ? `\nFor reference, here is what already exists (user may choose to skip duplicates):\n${existingContext}` : ""}
 ---
 DOCUMENT TO ANALYZE:
