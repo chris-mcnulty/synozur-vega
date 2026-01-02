@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -1723,34 +1724,90 @@ export default function PlanningEnhanced() {
                   <CardHeader>
                     <CardTitle className="text-lg">Strategies Needing Objectives</CardTitle>
                     <CardDescription>
-                      These strategies have no linked objectives. Create objectives to drive execution.
+                      These strategies have no linked objectives. Create new objectives or link to existing ones.
                     </CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="space-y-3">
-                      {strategiesWithoutObjectives.map((strategy: any) => (
-                        <div key={strategy.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30">
-                          <div className="flex-1">
-                            <p className="font-medium">{strategy.title}</p>
-                            {strategy.description && (
-                              <p className="text-sm text-muted-foreground line-clamp-1">{strategy.description}</p>
-                            )}
+                      {strategiesWithoutObjectives.map((strategy: any) => {
+                        // Find objectives that could be linked to this strategy
+                        const linkableObjectives = objectives.filter((obj: any) => 
+                          !obj.linkedStrategies?.includes(strategy.id)
+                        );
+                        
+                        return (
+                          <div key={strategy.id} className="flex items-center justify-between p-3 border rounded-lg bg-muted/30 gap-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium">{strategy.title}</p>
+                              {strategy.description && (
+                                <p className="text-sm text-muted-foreground line-clamp-1">{strategy.description}</p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {linkableObjectives.length > 0 && (
+                                <DropdownMenu>
+                                  <DropdownMenuTrigger asChild>
+                                    <Button variant="outline" size="sm">
+                                      <Link2 className="h-4 w-4 mr-1" />
+                                      Link Existing
+                                    </Button>
+                                  </DropdownMenuTrigger>
+                                  <DropdownMenuContent align="end" className="max-h-64 overflow-y-auto w-72">
+                                    <DropdownMenuLabel>Select an Objective</DropdownMenuLabel>
+                                    <DropdownMenuSeparator />
+                                    {linkableObjectives.map((obj: any) => (
+                                      <DropdownMenuItem
+                                        key={obj.id}
+                                        onClick={async () => {
+                                          try {
+                                            // Update objective to add this strategy
+                                            const updatedStrategies = [...(obj.linkedStrategies || []), strategy.id];
+                                            await apiRequest("PATCH", `/api/okr/objectives/${obj.id}`, {
+                                              linkedStrategies: updatedStrategies,
+                                            });
+                                            queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives"] });
+                                            queryClient.invalidateQueries({ queryKey: ["/api/okr/hierarchy"] });
+                                            toast({
+                                              title: "Strategy Linked",
+                                              description: `"${strategy.title}" has been linked to "${obj.title}"`,
+                                            });
+                                          } catch (error) {
+                                            toast({
+                                              title: "Error",
+                                              description: "Failed to link strategy to objective",
+                                              variant: "destructive",
+                                            });
+                                          }
+                                        }}
+                                      >
+                                        <div className="flex flex-col">
+                                          <span className="font-medium truncate">{obj.title}</span>
+                                          <span className="text-xs text-muted-foreground">
+                                            Q{obj.quarter} {obj.year} • {obj.level || 'organization'}
+                                          </span>
+                                        </div>
+                                      </DropdownMenuItem>
+                                    ))}
+                                  </DropdownMenuContent>
+                                </DropdownMenu>
+                              )}
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  setObjectiveForm({
+                                    ...objectiveForm,
+                                    linkedStrategies: [strategy.id],
+                                  });
+                                  setObjectiveDialogOpen(true);
+                                }}
+                              >
+                                <Plus className="h-4 w-4 mr-1" />
+                                Create New
+                              </Button>
+                            </div>
                           </div>
-                          <Button
-                            size="sm"
-                            onClick={() => {
-                              setObjectiveForm({
-                                ...objectiveForm,
-                                linkedStrategies: [strategy.id],
-                              });
-                              setObjectiveDialogOpen(true);
-                            }}
-                          >
-                            <Plus className="h-4 w-4 mr-1" />
-                            Create Objective
-                          </Button>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>
@@ -2225,17 +2282,20 @@ export default function PlanningEnhanced() {
                       {(!foundation?.annualGoals || foundation.annualGoals.length === 0) ? (
                         <p className="text-sm text-muted-foreground">No annual goals defined yet</p>
                       ) : (
-                        foundation.annualGoals.map((goal) => (
-                          <Badge
-                            key={goal}
-                            variant={(objectiveForm.linkedGoals || []).includes(goal) ? "default" : "outline"}
-                            className="cursor-pointer"
-                            onClick={() => toggleObjectiveGoal(goal)}
-                            data-testid={`badge-goal-${goal?.toLowerCase().replace(/\s+/g, '-')}`}
-                          >
-                            {goal}
-                          </Badge>
-                        ))
+                        foundation.annualGoals.map((goal: any, idx: number) => {
+                          const goalTitle = typeof goal === 'string' ? goal : goal.title;
+                          return (
+                            <Badge
+                              key={`goal-${idx}`}
+                              variant={(objectiveForm.linkedGoals || []).includes(goalTitle) ? "default" : "outline"}
+                              className="cursor-pointer"
+                              onClick={() => toggleObjectiveGoal(goalTitle)}
+                              data-testid={`badge-goal-${goalTitle?.toLowerCase().replace(/\s+/g, '-')}`}
+                            >
+                              {goalTitle}
+                            </Badge>
+                          );
+                        })
                       )}
                     </div>
                   </div>
