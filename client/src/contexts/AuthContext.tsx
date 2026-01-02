@@ -65,7 +65,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const signupMutation = useMutation({
-    mutationFn: async (data: { email: string; password: string; name?: string; recaptchaToken?: string }) => {
+    mutationFn: async (data: { 
+      email: string; 
+      password: string; 
+      name?: string; 
+      recaptchaToken?: string;
+      organizationSize?: string;
+      industry?: string;
+      location?: string;
+    }) => {
       const res = await apiRequest("POST", "/api/auth/signup", data);
       return await res.json();
     },
@@ -88,7 +96,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await loginMutation.mutateAsync(credentials);
   };
 
-  const signup = async (data: { email: string; password: string; name?: string; recaptchaToken?: string }) => {
+  const signup = async (data: { 
+    email: string; 
+    password: string; 
+    name?: string; 
+    recaptchaToken?: string;
+    organizationSize?: string;
+    industry?: string;
+    location?: string;
+  }) => {
     await signupMutation.mutateAsync(data);
   };
 

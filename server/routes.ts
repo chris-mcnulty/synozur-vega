@@ -239,7 +239,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/auth/signup", async (req, res) => {
     try {
-      const { email, password, name, recaptchaToken } = req.body;
+      const { email, password, name, recaptchaToken, organizationSize, industry, location } = req.body;
 
       if (!email || !password) {
         return res.status(400).json({ error: "Email and password required" });
@@ -340,6 +340,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             planExpiresAt: expiresAt,
             planStatus: 'active',
             inviteOnly: true, // New members must be explicitly invited
+            organizationSize: organizationSize || null,
+            industry: industry || null,
+            location: location || null,
           });
           console.log(`[Signup] Created invite-only tenant for public domain user ${email}:`, tenant.id);
         } else {
@@ -355,6 +358,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             planExpiresAt: expiresAt,
             planStatus: 'active',
             inviteOnly: false,
+            organizationSize: organizationSize || null,
+            industry: industry || null,
+            location: location || null,
           });
           console.log(`[Signup] Created new tenant for domain ${domain}:`, tenant.id);
         }

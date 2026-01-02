@@ -295,6 +295,10 @@ export const tenants = pgTable("tenants", {
   // Invite-only mode: when true, new users cannot auto-join via domain matching
   // Used for tenants created by users with public email domains (Gmail, Yahoo, etc.)
   inviteOnly: boolean("invite_only").default(false),
+  // Organization classification fields (collected during signup)
+  organizationSize: text("organization_size"), // '1-10', '11-50', '51-200', '201-500', '501-1000', '1000+'
+  industry: text("industry"), // e.g., 'Technology', 'Healthcare', 'Finance', etc.
+  location: text("location"), // e.g., 'United States', 'United Kingdom', etc.
 });
 
 export const insertTenantSchema = createInsertSchema(tenants).omit({

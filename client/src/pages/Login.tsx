@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Eye, EyeOff, Shield, Loader2 } from "lucide-react";
 import microsoftLogo from "@assets/Microsoft_Icon_6_1765741102026.jpeg";
@@ -13,6 +14,42 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import starTrailsBg from "@assets/AdobeStock_362805421_1763398687511.jpeg";
 import vegaLogo from "@assets/VegaTight_1766605018223.png";
 import ReCAPTCHA from "react-google-recaptcha";
+
+const ORGANIZATION_SIZES = [
+  { value: "1-10", label: "1-10 employees" },
+  { value: "11-50", label: "11-50 employees" },
+  { value: "51-200", label: "51-200 employees" },
+  { value: "201-500", label: "201-500 employees" },
+  { value: "501-1000", label: "501-1,000 employees" },
+  { value: "1000+", label: "1,000+ employees" },
+];
+
+const INDUSTRIES = [
+  { value: "technology", label: "Technology" },
+  { value: "healthcare", label: "Healthcare" },
+  { value: "finance", label: "Finance & Banking" },
+  { value: "manufacturing", label: "Manufacturing" },
+  { value: "retail", label: "Retail & E-commerce" },
+  { value: "education", label: "Education" },
+  { value: "consulting", label: "Consulting & Professional Services" },
+  { value: "media", label: "Media & Entertainment" },
+  { value: "real_estate", label: "Real Estate" },
+  { value: "nonprofit", label: "Non-profit" },
+  { value: "government", label: "Government" },
+  { value: "other", label: "Other" },
+];
+
+const LOCATIONS = [
+  { value: "us", label: "United States" },
+  { value: "ca", label: "Canada" },
+  { value: "uk", label: "United Kingdom" },
+  { value: "eu", label: "Europe (EU)" },
+  { value: "au", label: "Australia" },
+  { value: "asia", label: "Asia" },
+  { value: "latam", label: "Latin America" },
+  { value: "mena", label: "Middle East & Africa" },
+  { value: "other", label: "Other" },
+];
 
 interface SsoPolicy {
   tenantFound: boolean;
@@ -40,6 +77,9 @@ export default function Login() {
   const [signupName, setSignupName] = useState("");
   const [signupEmail, setSignupEmail] = useState("");
   const [signupPassword, setSignupPassword] = useState("");
+  const [signupOrgSize, setSignupOrgSize] = useState("");
+  const [signupIndustry, setSignupIndustry] = useState("");
+  const [signupLocation, setSignupLocation] = useState("");
   const [isSubmittingSignup, setIsSubmittingSignup] = useState(false);
   const [showSignupPassword, setShowSignupPassword] = useState(false);
   const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
@@ -222,6 +262,9 @@ export default function Login() {
         email: signupEmail,
         password: signupPassword,
         recaptchaToken: recaptchaToken || undefined,
+        organizationSize: signupOrgSize || undefined,
+        industry: signupIndustry || undefined,
+        location: signupLocation || undefined,
       });
       toast({
         title: "Account Created!",
@@ -431,6 +474,51 @@ export default function Login() {
                         {showSignupPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
                     </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-org-size">Organization Size</Label>
+                    <Select value={signupOrgSize} onValueChange={setSignupOrgSize}>
+                      <SelectTrigger id="signup-org-size" data-testid="select-signup-org-size">
+                        <SelectValue placeholder="Select size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {ORGANIZATION_SIZES.map((size) => (
+                          <SelectItem key={size.value} value={size.value}>
+                            {size.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-industry">Industry</Label>
+                    <Select value={signupIndustry} onValueChange={setSignupIndustry}>
+                      <SelectTrigger id="signup-industry" data-testid="select-signup-industry">
+                        <SelectValue placeholder="Select industry" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {INDUSTRIES.map((industry) => (
+                          <SelectItem key={industry.value} value={industry.value}>
+                            {industry.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-location">Location</Label>
+                    <Select value={signupLocation} onValueChange={setSignupLocation}>
+                      <SelectTrigger id="signup-location" data-testid="select-signup-location">
+                        <SelectValue placeholder="Select region" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {LOCATIONS.map((loc) => (
+                          <SelectItem key={loc.value} value={loc.value}>
+                            {loc.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                   {recaptchaSiteKey && (
                     <div className="flex justify-center">
