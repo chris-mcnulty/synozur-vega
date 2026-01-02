@@ -1607,6 +1607,12 @@ export type LaunchpadProposal = {
       priority: string;
     }>;
   }>;
+  bigRocks?: Array<{
+    title: string;
+    description: string;
+    priority: string;
+    quarter?: number;
+  }>;
 };
 
 // Existing data reference for Launchpad review UI
@@ -1638,6 +1644,7 @@ export const launchpadSessions = pgTable("launchpad_sessions", {
   approveGoals: boolean("approve_goals").default(true),
   approveStrategies: boolean("approve_strategies").default(true),
   approveObjectives: boolean("approve_objectives").default(true),
+  approveBigRocks: boolean("approve_big_rocks").default(true),
   
   status: text("status").notNull().default("draft"),
   targetYear: integer("target_year").notNull(),

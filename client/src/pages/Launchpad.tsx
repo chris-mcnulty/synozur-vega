@@ -29,6 +29,7 @@ interface SectionApprovals {
   goals: boolean;
   strategies: boolean;
   objectives: boolean;
+  bigRocks: boolean;
 }
 
 export default function Launchpad() {
@@ -48,6 +49,7 @@ export default function Launchpad() {
     goals: true,
     strategies: true,
     objectives: true,
+    bigRocks: true,
   });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -119,6 +121,7 @@ export default function Launchpad() {
         goals: (session as any).approveGoals ?? true,
         strategies: (session as any).approveStrategies ?? true,
         objectives: (session as any).approveObjectives ?? true,
+        bigRocks: (session as any).approveBigRocks ?? true,
       });
       setStep('review');
       queryClient.invalidateQueries({ queryKey: ['/api/launchpad/sessions'] });
@@ -217,6 +220,7 @@ export default function Launchpad() {
       goals: (session as any).approveGoals ?? true,
       strategies: (session as any).approveStrategies ?? true,
       objectives: (session as any).approveObjectives ?? true,
+      bigRocks: (session as any).approveBigRocks ?? true,
     });
     if (session.status === 'pending_review') {
       setStep('review');
@@ -239,6 +243,7 @@ export default function Launchpad() {
       goals: true,
       strategies: true,
       objectives: true,
+      bigRocks: true,
     });
     setEditedProposal(null);
   };
@@ -255,6 +260,7 @@ export default function Launchpad() {
         goals: 'approveGoals',
         strategies: 'approveStrategies',
         objectives: 'approveObjectives',
+        bigRocks: 'approveBigRocks',
       };
       try {
         await apiRequest('PATCH', `/api/launchpad/${currentSession.id}`, {
@@ -891,6 +897,76 @@ export default function Launchpad() {
                     )}
                   </div>
                 ))}
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="bigRocks" className="border rounded-lg px-4">
+              <AccordionTrigger className="hover:no-underline">
+                <div className="flex items-center gap-2 flex-1">
+                  <Target className="h-4 w-4 text-primary" />
+                  <span>Big Rocks (Initiatives)</span>
+                  <Badge variant="secondary" className="ml-2">
+                    {editedProposal?.bigRocks?.length || 0} proposed
+                  </Badge>
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="space-y-4 pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-muted-foreground">Major quarterly initiatives from the document</p>
+                  {editedProposal?.bigRocks?.length ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {sectionApprovals.bigRocks ? 'Will add' : 'Skip adding'}
+                      </span>
+                      <Switch
+                        checked={sectionApprovals.bigRocks}
+                        onCheckedChange={(checked) => updateApprovalState('bigRocks', checked)}
+                        data-testid="switch-approve-bigrocks"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+                {sectionApprovals.bigRocks && editedProposal?.bigRocks?.map((br, idx) => (
+                  <div key={idx} className="p-3 border rounded-lg space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        value={br.title}
+                        onChange={(e) => {
+                          const newBigRocks = [...(editedProposal.bigRocks || [])];
+                          newBigRocks[idx] = { ...newBigRocks[idx], title: e.target.value };
+                          setEditedProposal({ ...editedProposal, bigRocks: newBigRocks });
+                        }}
+                        className="font-medium flex-1"
+                        data-testid={`input-bigrock-title-${idx}`}
+                      />
+                      <Badge variant="outline">{br.priority || 'P1'}</Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          const newBigRocks = editedProposal.bigRocks?.filter((_, i) => i !== idx);
+                          setEditedProposal({ ...editedProposal, bigRocks: newBigRocks });
+                        }}
+                        data-testid={`button-remove-bigrock-${idx}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Textarea
+                      value={br.description}
+                      onChange={(e) => {
+                        const newBigRocks = [...(editedProposal.bigRocks || [])];
+                        newBigRocks[idx] = { ...newBigRocks[idx], description: e.target.value };
+                        setEditedProposal({ ...editedProposal, bigRocks: newBigRocks });
+                      }}
+                      className="text-sm"
+                      data-testid={`input-bigrock-desc-${idx}`}
+                    />
+                  </div>
+                ))}
+                {(!editedProposal?.bigRocks || editedProposal.bigRocks.length === 0) && (
+                  <p className="text-sm text-muted-foreground italic">No standalone big rocks proposed. Note: Big rocks attached to objectives are shown in the Objectives section above.</p>
+                )}
               </AccordionContent>
             </AccordionItem>
           </Accordion>
