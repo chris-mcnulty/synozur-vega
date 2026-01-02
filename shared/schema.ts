@@ -1586,8 +1586,8 @@ export type AiUsageSummary = typeof aiUsageSummaries.$inferSelect;
 
 // Launchpad Sessions - AI-powered document-to-Company OS generator
 export type LaunchpadProposal = {
-  mission?: string;
-  vision?: string;
+  mission?: string | null;
+  vision?: string | null;
   values?: Array<{ title: string; description: string }>;
   goals?: Array<{ title: string; description: string }>;
   strategies?: Array<{ title: string; description: string; linkedGoals?: string[] }>;
@@ -1609,6 +1609,16 @@ export type LaunchpadProposal = {
   }>;
 };
 
+// Existing data reference for Launchpad review UI
+export type LaunchpadExistingData = {
+  mission: string | null;
+  vision: string | null;
+  values: Array<{ title: string; description: string }>;
+  annualGoals: string[];
+  strategies: Array<{ id: string; title: string; description: string | null }>;
+  objectives: Array<{ id: string; title: string; description: string | null }>;
+};
+
 export const launchpadSessions = pgTable("launchpad_sessions", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
@@ -1619,6 +1629,15 @@ export const launchpadSessions = pgTable("launchpad_sessions", {
   
   aiProposal: jsonb("ai_proposal").$type<LaunchpadProposal>(),
   userEdits: jsonb("user_edits").$type<LaunchpadProposal>(),
+  existingData: jsonb("existing_data").$type<LaunchpadExistingData>(),
+  
+  // Per-section approval toggles (default all to true for new sessions)
+  approveMission: boolean("approve_mission").default(true),
+  approveVision: boolean("approve_vision").default(true),
+  approveValues: boolean("approve_values").default(true),
+  approveGoals: boolean("approve_goals").default(true),
+  approveStrategies: boolean("approve_strategies").default(true),
+  approveObjectives: boolean("approve_objectives").default(true),
   
   status: text("status").notNull().default("draft"),
   targetYear: integer("target_year").notNull(),

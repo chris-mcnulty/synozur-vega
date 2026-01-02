@@ -151,34 +151,76 @@ router.post("/:sessionId/analyze", async (req: Request, res: Response) => {
       analysisProgress: 10,
     });
 
+    // Fetch existing data to avoid duplicates
+    const existingFoundation = await storage.getFoundationByTenantId(session.tenantId);
+    const existingStrategies = await storage.getStrategiesByTenantId(session.tenantId);
+    const existingObjectives = await storage.getObjectivesByTenantId(session.tenantId);
+
+    await storage.updateLaunchpadSession(session.id, {
+      analysisProgress: 20,
+    });
+
+    // Build context about existing data
+    let existingContext = "";
+    if (existingFoundation?.mission || existingFoundation?.vision || (existingFoundation?.values && existingFoundation.values.length > 0)) {
+      existingContext += "\n\n## EXISTING COMPANY DATA (do NOT duplicate these):\n";
+      if (existingFoundation.mission) {
+        existingContext += `- Existing Mission: "${existingFoundation.mission}"\n`;
+      }
+      if (existingFoundation.vision) {
+        existingContext += `- Existing Vision: "${existingFoundation.vision}"\n`;
+      }
+      if (existingFoundation.values && existingFoundation.values.length > 0) {
+        existingContext += `- Existing Values: ${existingFoundation.values.map(v => v.title).join(", ")}\n`;
+      }
+      if (existingFoundation.annualGoals && existingFoundation.annualGoals.length > 0) {
+        existingContext += `- Existing Annual Goals: ${existingFoundation.annualGoals.join(", ")}\n`;
+      }
+    }
+    if (existingStrategies.length > 0) {
+      existingContext += `- Existing Strategies: ${existingStrategies.map(s => s.title).join(", ")}\n`;
+    }
+    if (existingObjectives.length > 0) {
+      existingContext += `- Existing Objectives: ${existingObjectives.map(o => o.title).join(", ")}\n`;
+    }
+
     const openai = new OpenAI({
       baseURL: process.env.AI_INTEGRATIONS_OPENAI_BASE_URL,
       apiKey: process.env.AI_INTEGRATIONS_OPENAI_API_KEY,
     });
 
+    const hasExistingFoundation = existingFoundation?.mission || existingFoundation?.vision;
+    
     const systemPrompt = `You are an expert organizational strategist. Analyze the provided document and extract/propose a comprehensive Company Operating System structure.
 
 Return a JSON object with these fields:
-- mission: A concise mission statement (1-2 sentences)
-- vision: A compelling vision statement (1-2 sentences)  
-- values: Array of {title, description} for 3-5 core values
-- goals: Array of {title, description} for 3-5 annual goals
-- strategies: Array of {title, description, linkedGoals} for 3-6 strategic initiatives
+- mission: A concise mission statement (1-2 sentences)${hasExistingFoundation ? " - Only include if document has a NEW/DIFFERENT mission, otherwise set to null" : ""}
+- vision: A compelling vision statement (1-2 sentences)${hasExistingFoundation ? " - Only include if document has a NEW/DIFFERENT vision, otherwise set to null" : ""}
+- values: Array of {title, description} for core values${hasExistingFoundation ? " - Only include NEW values not already in the existing list" : ""}
+- goals: Array of {title, description} for annual goals - Only include NEW goals not duplicating existing ones
+- strategies: Array of {title, description, linkedGoals} for strategic initiatives - Only include NEW strategies
 - objectives: Array of {title, description, level, keyResults, bigRocks} where:
   - level is "organization", "department", or "team"
   - keyResults is array of {title, metricType, targetValue, unit}
   - bigRocks is array of {title, description, priority}
+  - Only include NEW objectives not duplicating existing ones
 
-Be specific and actionable. If the document doesn't contain certain elements, propose reasonable ones based on context.
+IMPORTANT: 
+- Do NOT propose items that essentially duplicate existing data (check the EXISTING COMPANY DATA section)
+- Mission/Vision/Values rarely change year to year - only propose changes if the document explicitly contains new ones
+- Focus on extracting NEW goals, strategies, and objectives from the document
+- If a section has no new items to add, return an empty array or null
+
 Always return valid JSON that can be parsed.`;
 
     const userPrompt = `Analyze this organizational document and extract/propose a Company OS structure for the year ${session.targetYear}:
-
+${existingContext}
 ---
-${session.sourceDocumentText.substring(0, 50000)}
+DOCUMENT TO ANALYZE:
+${session.sourceDocumentText.substring(0, 45000)}
 ---
 
-Return only valid JSON matching the structure described.`;
+Return only valid JSON matching the structure described. Remember: do NOT duplicate existing data.`;
 
     const completion = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -207,9 +249,20 @@ Return only valid JSON matching the structure described.`;
       return res.status(500).json({ error: "AI response parsing failed" });
     }
 
+    // Store existing data reference for the review UI
+    const existingData = {
+      mission: existingFoundation?.mission || null,
+      vision: existingFoundation?.vision || null,
+      values: existingFoundation?.values || [],
+      annualGoals: existingFoundation?.annualGoals || [],
+      strategies: existingStrategies.map(s => ({ id: s.id, title: s.title, description: s.description })),
+      objectives: existingObjectives.map(o => ({ id: o.id, title: o.title, description: o.description })),
+    };
+
     const updatedSession = await storage.updateLaunchpadSession(session.id, {
       aiProposal: proposal,
       userEdits: proposal,
+      existingData: existingData as any,
       status: "pending_review",
       analysisProgress: 100,
     });
@@ -324,8 +377,16 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "No proposal to approve" });
     }
 
-    // Get bigRockQuarter from request body if provided (for annual objectives)
-    const { bigRockQuarter } = req.body || {};
+    // Get section approval flags from request body (defaults from session or true)
+    const { 
+      bigRockQuarter,
+      approveMission = session.approveMission ?? true,
+      approveVision = session.approveVision ?? true,
+      approveValues = session.approveValues ?? true,
+      approveGoals = session.approveGoals ?? true,
+      approveStrategies = session.approveStrategies ?? true,
+      approveObjectives = session.approveObjectives ?? true,
+    } = req.body || {};
 
     const createdEntities = {
       foundation: false,
@@ -335,25 +396,35 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
       objectives: 0,
       keyResults: 0,
       bigRocks: 0,
+      skipped: [] as string[],
     };
 
-    if (proposal.mission || proposal.vision || (proposal.values && proposal.values.length > 0)) {
-      const existingFoundation = await storage.getFoundationByTenantId(session.tenantId);
-      
+    // Foundation updates (mission, vision, values) - only if approved
+    const existingFoundation = await storage.getFoundationByTenantId(session.tenantId);
+    const shouldUpdateMission = approveMission && proposal.mission;
+    const shouldUpdateVision = approveVision && proposal.vision;
+    const shouldUpdateValues = approveValues && proposal.values && proposal.values.length > 0;
+    
+    if (shouldUpdateMission || shouldUpdateVision || shouldUpdateValues) {
       const foundationData: any = {
         tenantId: session.tenantId,
-        mission: proposal.mission || existingFoundation?.mission || "",
-        vision: proposal.vision || existingFoundation?.vision || "",
-        values: proposal.values || existingFoundation?.values || [],
+        mission: shouldUpdateMission ? proposal.mission : (existingFoundation?.mission || ""),
+        vision: shouldUpdateVision ? proposal.vision : (existingFoundation?.vision || ""),
+        values: shouldUpdateValues ? proposal.values : (existingFoundation?.values || []),
       };
 
       await storage.upsertFoundation(foundationData);
       createdEntities.foundation = true;
-      createdEntities.values = proposal.values?.length || 0;
+      if (shouldUpdateValues) createdEntities.values = proposal.values?.length || 0;
     }
+    
+    // Track skipped sections
+    if (!approveMission && proposal.mission) createdEntities.skipped.push('mission');
+    if (!approveVision && proposal.vision) createdEntities.skipped.push('vision');
+    if (!approveValues && proposal.values?.length) createdEntities.skipped.push('values');
 
-    if (proposal.goals && proposal.goals.length > 0) {
-      const existingFoundation = await storage.getFoundationByTenantId(session.tenantId);
+    // Goals - only if approved
+    if (approveGoals && proposal.goals && proposal.goals.length > 0) {
       const existingAnnualGoals = existingFoundation?.annualGoals || [];
       
       // annualGoals is a string[] - extract titles from the proposal goals
@@ -370,9 +441,12 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
       });
       
       createdEntities.goals = proposal.goals.length;
+    } else if (!approveGoals && proposal.goals?.length) {
+      createdEntities.skipped.push('goals');
     }
 
-    if (proposal.strategies && proposal.strategies.length > 0) {
+    // Strategies - only if approved
+    if (approveStrategies && proposal.strategies && proposal.strategies.length > 0) {
       for (const s of proposal.strategies) {
         await storage.createStrategy({
           tenantId: session.tenantId,
@@ -383,9 +457,12 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
         
         createdEntities.strategies++;
       }
+    } else if (!approveStrategies && proposal.strategies?.length) {
+      createdEntities.skipped.push('strategies');
     }
 
-    if (proposal.objectives && proposal.objectives.length > 0) {
+    // Objectives - only if approved
+    if (approveObjectives && proposal.objectives && proposal.objectives.length > 0) {
       // Use targetQuarter if set, otherwise leave null for annual objectives
       const quarter = session.targetQuarter || null;
       
@@ -437,6 +514,8 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
           }
         }
       }
+    } else if (!approveObjectives && proposal.objectives?.length) {
+      createdEntities.skipped.push('objectives');
     }
 
     await storage.updateLaunchpadSession(session.id, {
