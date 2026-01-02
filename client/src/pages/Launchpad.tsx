@@ -11,13 +11,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Upload, Rocket, FileText, Sparkles, Check, ChevronRight, Target, Flag, Lightbulb, CheckCircle2, Loader2, AlertCircle, X, Edit2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Upload, Rocket, FileText, Sparkles, Check, ChevronRight, Target, Flag, Lightbulb, CheckCircle2, Loader2, AlertCircle, X, Edit2, SkipForward, Info } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
 import { useTenant } from '@/contexts/TenantContext';
-import type { LaunchpadSession, LaunchpadProposal } from '@shared/schema';
+import type { LaunchpadSession, LaunchpadProposal, LaunchpadExistingData } from '@shared/schema';
 
 type Step = 'upload' | 'analyzing' | 'review' | 'complete';
+
+// Section approval state
+interface SectionApprovals {
+  mission: boolean;
+  vision: boolean;
+  values: boolean;
+  goals: boolean;
+  strategies: boolean;
+  objectives: boolean;
+}
 
 export default function Launchpad() {
   const [step, setStep] = useState<Step>('upload');
@@ -29,9 +41,20 @@ export default function Launchpad() {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [showBigRockQuarterDialog, setShowBigRockQuarterDialog] = useState(false);
   const [bigRockQuarter, setBigRockQuarter] = useState<string>("1");
+  const [sectionApprovals, setSectionApprovals] = useState<SectionApprovals>({
+    mission: true,
+    vision: true,
+    values: true,
+    goals: true,
+    strategies: true,
+    objectives: true,
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const { currentTenant } = useTenant();
+  
+  // Get existing data from the session for comparison
+  const existingData: LaunchpadExistingData | null = (currentSession as any)?.existingData || null;
 
   const { data: sessions, isLoading: sessionsLoading } = useQuery<LaunchpadSession[]>({
     queryKey: ['/api/launchpad/sessions'],
@@ -88,6 +111,15 @@ export default function Launchpad() {
     onSuccess: (session: LaunchpadSession) => {
       setCurrentSession(session);
       setEditedProposal(session.userEdits || session.aiProposal || null);
+      // Restore approval states from session (default to true for new analysis)
+      setSectionApprovals({
+        mission: (session as any).approveMission ?? true,
+        vision: (session as any).approveVision ?? true,
+        values: (session as any).approveValues ?? true,
+        goals: (session as any).approveGoals ?? true,
+        strategies: (session as any).approveStrategies ?? true,
+        objectives: (session as any).approveObjectives ?? true,
+      });
       setStep('review');
       queryClient.invalidateQueries({ queryKey: ['/api/launchpad/sessions'] });
     },
@@ -109,7 +141,19 @@ export default function Launchpad() {
         await apiRequest('PATCH', `/api/launchpad/${currentSession.id}`, { userEdits: editedProposal });
       }
       
-      const body = overrideBigRockQuarter ? { bigRockQuarter: overrideBigRockQuarter } : undefined;
+      // Pass section approval flags to backend
+      const body: any = {
+        approveMission: sectionApprovals.mission,
+        approveVision: sectionApprovals.vision,
+        approveValues: sectionApprovals.values,
+        approveGoals: sectionApprovals.goals,
+        approveStrategies: sectionApprovals.strategies,
+        approveObjectives: sectionApprovals.objectives,
+      };
+      if (overrideBigRockQuarter) {
+        body.bigRockQuarter = overrideBigRockQuarter;
+      }
+      
       const response = await apiRequest('POST', `/api/launchpad/${currentSession.id}/approve`, body);
       return response.json();
     },
@@ -119,9 +163,12 @@ export default function Launchpad() {
       queryClient.invalidateQueries({ queryKey: ['/api/foundations'] });
       queryClient.invalidateQueries({ queryKey: ['/api/strategies'] });
       queryClient.invalidateQueries({ queryKey: ['/api/okr/objectives'] });
+      
+      const skippedCount = result.created?.skipped?.length || 0;
+      const skippedText = skippedCount > 0 ? ` (${skippedCount} sections skipped)` : '';
       toast({
-        title: 'Company OS created!',
-        description: `Created ${result.created.objectives} objectives, ${result.created.strategies} strategies, and ${result.created.goals} goals.`,
+        title: 'Company OS updated!',
+        description: `Created ${result.created.objectives} objectives, ${result.created.strategies} strategies, and ${result.created.goals} goals.${skippedText}`,
       });
     },
     onError: (error: any) => {
@@ -162,6 +209,15 @@ export default function Launchpad() {
   const resumeSession = (session: LaunchpadSession) => {
     setCurrentSession(session);
     setEditedProposal(session.userEdits || session.aiProposal || null);
+    // Restore saved approval states from session
+    setSectionApprovals({
+      mission: (session as any).approveMission ?? true,
+      vision: (session as any).approveVision ?? true,
+      values: (session as any).approveValues ?? true,
+      goals: (session as any).approveGoals ?? true,
+      strategies: (session as any).approveStrategies ?? true,
+      objectives: (session as any).approveObjectives ?? true,
+    });
     if (session.status === 'pending_review') {
       setStep('review');
     } else if (session.status === 'approved') {
@@ -175,7 +231,39 @@ export default function Launchpad() {
     setStep('upload');
     setSelectedFile(null);
     setCurrentSession(null);
+    // Reset approvals for new session
+    setSectionApprovals({
+      mission: true,
+      vision: true,
+      values: true,
+      goals: true,
+      strategies: true,
+      objectives: true,
+    });
     setEditedProposal(null);
+  };
+
+  // Persist approval changes to backend
+  const updateApprovalState = async (field: keyof typeof sectionApprovals, checked: boolean) => {
+    setSectionApprovals(prev => ({ ...prev, [field]: checked }));
+    
+    if (currentSession) {
+      const fieldMap: Record<string, string> = {
+        mission: 'approveMission',
+        vision: 'approveVision',
+        values: 'approveValues',
+        goals: 'approveGoals',
+        strategies: 'approveStrategies',
+        objectives: 'approveObjectives',
+      };
+      try {
+        await apiRequest('PATCH', `/api/launchpad/${currentSession.id}`, {
+          [fieldMap[field]]: checked,
+        });
+      } catch (error) {
+        console.error('Failed to persist approval state:', error);
+      }
+    }
   };
 
   const updateProposalField = (path: string[], value: any) => {
@@ -375,97 +463,243 @@ export default function Launchpad() {
           <Alert>
             <Lightbulb className="h-4 w-4" />
             <AlertDescription>
-              Review the AI-generated proposal below. Click any section to edit before creating your Company OS.
+              Review the AI-generated proposal below. Use the switches to approve or skip each section.
+              {existingData && (existingData.mission || existingData.vision) && (
+                <span className="block mt-1 text-xs">Existing data is shown for comparison. Skipped sections will keep your current data.</span>
+              )}
             </AlertDescription>
           </Alert>
 
-          <Accordion type="multiple" defaultValue={['foundation', 'strategies', 'objectives']} className="space-y-4">
+          <Accordion type="multiple" defaultValue={['foundation', 'goals', 'strategies', 'objectives']} className="space-y-4">
             <AccordionItem value="foundation" className="border rounded-lg px-4">
               <AccordionTrigger className="hover:no-underline">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-1">
                   <Flag className="h-4 w-4 text-primary" />
                   <span>Foundation</span>
                   <Badge variant="secondary" className="ml-2">
                     {(editedProposal.values?.length || 0)} values
                   </Badge>
+                  {existingData?.mission && (
+                    <Badge variant="outline" className="ml-auto mr-2 text-xs">Has existing data</Badge>
+                  )}
                 </div>
               </AccordionTrigger>
-              <AccordionContent className="space-y-4 pt-4">
-                <div>
-                  <Label>Mission</Label>
-                  <Textarea
-                    value={editedProposal.mission || ''}
-                    onChange={(e) => updateProposalField(['mission'], e.target.value)}
-                    className="mt-1"
-                    data-testid="input-mission"
-                  />
-                </div>
-                <div>
-                  <Label>Vision</Label>
-                  <Textarea
-                    value={editedProposal.vision || ''}
-                    onChange={(e) => updateProposalField(['vision'], e.target.value)}
-                    className="mt-1"
-                    data-testid="input-vision"
-                  />
-                </div>
-                <div>
-                  <Label>Values ({editedProposal.values?.length || 0})</Label>
-                  <div className="space-y-2 mt-2">
-                    {editedProposal.values?.map((value, idx) => (
-                      <div key={idx} className="flex gap-2">
-                        <Input
-                          value={value.title}
-                          onChange={(e) => {
-                            const newValues = [...(editedProposal.values || [])];
-                            newValues[idx] = { ...newValues[idx], title: e.target.value };
-                            setEditedProposal({ ...editedProposal, values: newValues });
-                          }}
-                          placeholder="Value title"
-                          className="w-1/3"
-                          data-testid={`input-value-title-${idx}`}
-                        />
-                        <Input
-                          value={value.description}
-                          onChange={(e) => {
-                            const newValues = [...(editedProposal.values || [])];
-                            newValues[idx] = { ...newValues[idx], description: e.target.value };
-                            setEditedProposal({ ...editedProposal, values: newValues });
-                          }}
-                          placeholder="Description"
-                          className="flex-1"
-                          data-testid={`input-value-desc-${idx}`}
+              <AccordionContent className="space-y-6 pt-4">
+                {/* Mission Section */}
+                {(editedProposal.mission || existingData?.mission) && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-medium">Mission</Label>
+                      {editedProposal.mission && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {sectionApprovals.mission ? 'Will update' : 'Keeping existing'}
+                          </span>
+                          <Switch
+                            checked={sectionApprovals.mission}
+                            onCheckedChange={(checked) => updateApprovalState('mission', checked)}
+                            data-testid="switch-approve-mission"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    {existingData?.mission && (
+                      <div className="p-3 bg-muted/50 rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-1">Current Mission:</p>
+                        <p className="text-sm">{existingData.mission}</p>
+                      </div>
+                    )}
+                    {editedProposal.mission && sectionApprovals.mission && (
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Proposed Mission:</p>
+                        <Textarea
+                          value={editedProposal.mission || ''}
+                          onChange={(e) => updateProposalField(['mission'], e.target.value)}
+                          className="mt-1"
+                          data-testid="input-mission"
                         />
                       </div>
-                    ))}
+                    )}
                   </div>
-                </div>
+                )}
+
+                {/* Vision Section */}
+                {(editedProposal.vision || existingData?.vision) && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-medium">Vision</Label>
+                      {editedProposal.vision && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {sectionApprovals.vision ? 'Will update' : 'Keeping existing'}
+                          </span>
+                          <Switch
+                            checked={sectionApprovals.vision}
+                            onCheckedChange={(checked) => updateApprovalState('vision', checked)}
+                            data-testid="switch-approve-vision"
+                          />
+                        </div>
+                      )}
+                    </div>
+                    {existingData?.vision && (
+                      <div className="p-3 bg-muted/50 rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-1">Current Vision:</p>
+                        <p className="text-sm">{existingData.vision}</p>
+                      </div>
+                    )}
+                    {editedProposal.vision && sectionApprovals.vision && (
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground">Proposed Vision:</p>
+                        <Textarea
+                          value={editedProposal.vision || ''}
+                          onChange={(e) => updateProposalField(['vision'], e.target.value)}
+                          className="mt-1"
+                          data-testid="input-vision"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Values Section */}
+                {(editedProposal.values?.length || existingData?.values?.length) ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base font-medium">Values ({editedProposal.values?.length || 0} proposed)</Label>
+                      {editedProposal.values?.length ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            {sectionApprovals.values ? 'Will update' : 'Keeping existing'}
+                          </span>
+                          <Switch
+                            checked={sectionApprovals.values}
+                            onCheckedChange={(checked) => updateApprovalState('values', checked)}
+                            data-testid="switch-approve-values"
+                          />
+                        </div>
+                      ) : null}
+                    </div>
+                    {existingData?.values && existingData.values.length > 0 && (
+                      <div className="p-3 bg-muted/50 rounded-lg">
+                        <p className="text-xs text-muted-foreground mb-2">Current Values ({existingData.values.length}):</p>
+                        <div className="flex flex-wrap gap-2">
+                          {existingData.values.map((v, i) => (
+                            <Badge key={i} variant="secondary">{v.title}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {editedProposal.values && editedProposal.values.length > 0 && sectionApprovals.values && (
+                      <div className="space-y-2 mt-2">
+                        <p className="text-xs text-muted-foreground">Proposed Values:</p>
+                        {editedProposal.values.map((value, idx) => (
+                          <div key={idx} className="flex gap-2">
+                            <Input
+                              value={value.title}
+                              onChange={(e) => {
+                                const newValues = [...(editedProposal.values || [])];
+                                newValues[idx] = { ...newValues[idx], title: e.target.value };
+                                setEditedProposal({ ...editedProposal, values: newValues });
+                              }}
+                              placeholder="Value title"
+                              className="w-1/3"
+                              data-testid={`input-value-title-${idx}`}
+                            />
+                            <Input
+                              value={value.description}
+                              onChange={(e) => {
+                                const newValues = [...(editedProposal.values || [])];
+                                newValues[idx] = { ...newValues[idx], description: e.target.value };
+                                setEditedProposal({ ...editedProposal, values: newValues });
+                              }}
+                              placeholder="Description"
+                              className="flex-1"
+                              data-testid={`input-value-desc-${idx}`}
+                            />
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                const newValues = editedProposal.values?.filter((_, i) => i !== idx);
+                                setEditedProposal({ ...editedProposal, values: newValues });
+                              }}
+                              data-testid={`button-remove-value-${idx}`}
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </AccordionContent>
             </AccordionItem>
 
             <AccordionItem value="goals" className="border rounded-lg px-4">
               <AccordionTrigger className="hover:no-underline">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-1">
                   <Target className="h-4 w-4 text-primary" />
-                  <span>Annual Goals</span>
+                  <span>Annual Goals (Targets)</span>
                   <Badge variant="secondary" className="ml-2">
-                    {editedProposal.goals?.length || 0}
+                    {editedProposal.goals?.length || 0} proposed
                   </Badge>
+                  {existingData?.annualGoals && existingData.annualGoals.length > 0 && (
+                    <Badge variant="outline" className="ml-auto mr-2 text-xs">{existingData.annualGoals.length} existing</Badge>
+                  )}
                 </div>
               </AccordionTrigger>
               <AccordionContent className="space-y-3 pt-4">
-                {editedProposal.goals?.map((goal, idx) => (
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-muted-foreground">Add new annual goals from the document</p>
+                  {editedProposal.goals?.length ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {sectionApprovals.goals ? 'Will add' : 'Skip adding'}
+                      </span>
+                      <Switch
+                        checked={sectionApprovals.goals}
+                        onCheckedChange={(checked) => updateApprovalState('goals', checked)}
+                        data-testid="switch-approve-goals"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+                {existingData?.annualGoals && existingData.annualGoals.length > 0 && (
+                  <div className="p-3 bg-muted/50 rounded-lg mb-3">
+                    <p className="text-xs text-muted-foreground mb-2">Current Goals ({existingData.annualGoals.length}):</p>
+                    <ul className="list-disc list-inside text-sm space-y-1">
+                      {existingData.annualGoals.map((goal, i) => (
+                        <li key={i}>{goal}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {sectionApprovals.goals && editedProposal.goals?.map((goal, idx) => (
                   <div key={idx} className="p-3 border rounded-lg space-y-2">
-                    <Input
-                      value={goal.title}
-                      onChange={(e) => {
-                        const newGoals = [...(editedProposal.goals || [])];
-                        newGoals[idx] = { ...newGoals[idx], title: e.target.value };
-                        setEditedProposal({ ...editedProposal, goals: newGoals });
-                      }}
-                      className="font-medium"
-                      data-testid={`input-goal-title-${idx}`}
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        value={goal.title}
+                        onChange={(e) => {
+                          const newGoals = [...(editedProposal.goals || [])];
+                          newGoals[idx] = { ...newGoals[idx], title: e.target.value };
+                          setEditedProposal({ ...editedProposal, goals: newGoals });
+                        }}
+                        className="font-medium flex-1"
+                        data-testid={`input-goal-title-${idx}`}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          const newGoals = editedProposal.goals?.filter((_, i) => i !== idx);
+                          setEditedProposal({ ...editedProposal, goals: newGoals });
+                        }}
+                        data-testid={`button-remove-goal-${idx}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                     <Textarea
                       value={goal.description}
                       onChange={(e) => {
@@ -478,32 +712,76 @@ export default function Launchpad() {
                     />
                   </div>
                 ))}
+                {(!editedProposal.goals || editedProposal.goals.length === 0) && (
+                  <p className="text-sm text-muted-foreground italic">No new goals proposed from the document.</p>
+                )}
               </AccordionContent>
             </AccordionItem>
 
             <AccordionItem value="strategies" className="border rounded-lg px-4">
               <AccordionTrigger className="hover:no-underline">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-1">
                   <Lightbulb className="h-4 w-4 text-primary" />
                   <span>Strategies</span>
                   <Badge variant="secondary" className="ml-2">
-                    {editedProposal.strategies?.length || 0}
+                    {editedProposal.strategies?.length || 0} proposed
                   </Badge>
+                  {existingData?.strategies && existingData.strategies.length > 0 && (
+                    <Badge variant="outline" className="ml-auto mr-2 text-xs">{existingData.strategies.length} existing</Badge>
+                  )}
                 </div>
               </AccordionTrigger>
               <AccordionContent className="space-y-3 pt-4">
-                {editedProposal.strategies?.map((strategy, idx) => (
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-muted-foreground">Add new strategies from the document</p>
+                  {editedProposal.strategies?.length ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {sectionApprovals.strategies ? 'Will add' : 'Skip adding'}
+                      </span>
+                      <Switch
+                        checked={sectionApprovals.strategies}
+                        onCheckedChange={(checked) => updateApprovalState('strategies', checked)}
+                        data-testid="switch-approve-strategies"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+                {existingData?.strategies && existingData.strategies.length > 0 && (
+                  <div className="p-3 bg-muted/50 rounded-lg mb-3">
+                    <p className="text-xs text-muted-foreground mb-2">Current Strategies ({existingData.strategies.length}):</p>
+                    <ul className="list-disc list-inside text-sm space-y-1">
+                      {existingData.strategies.map((s, i) => (
+                        <li key={i}>{s.title}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {sectionApprovals.strategies && editedProposal.strategies?.map((strategy, idx) => (
                   <div key={idx} className="p-3 border rounded-lg space-y-2">
-                    <Input
-                      value={strategy.title}
-                      onChange={(e) => {
-                        const newStrategies = [...(editedProposal.strategies || [])];
-                        newStrategies[idx] = { ...newStrategies[idx], title: e.target.value };
-                        setEditedProposal({ ...editedProposal, strategies: newStrategies });
-                      }}
-                      className="font-medium"
-                      data-testid={`input-strategy-title-${idx}`}
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        value={strategy.title}
+                        onChange={(e) => {
+                          const newStrategies = [...(editedProposal.strategies || [])];
+                          newStrategies[idx] = { ...newStrategies[idx], title: e.target.value };
+                          setEditedProposal({ ...editedProposal, strategies: newStrategies });
+                        }}
+                        className="font-medium flex-1"
+                        data-testid={`input-strategy-title-${idx}`}
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          const newStrategies = editedProposal.strategies?.filter((_, i) => i !== idx);
+                          setEditedProposal({ ...editedProposal, strategies: newStrategies });
+                        }}
+                        data-testid={`button-remove-strategy-${idx}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
                     <Textarea
                       value={strategy.description}
                       onChange={(e) => {
@@ -516,21 +794,52 @@ export default function Launchpad() {
                     />
                   </div>
                 ))}
+                {(!editedProposal.strategies || editedProposal.strategies.length === 0) && (
+                  <p className="text-sm text-muted-foreground italic">No new strategies proposed from the document.</p>
+                )}
               </AccordionContent>
             </AccordionItem>
 
             <AccordionItem value="objectives" className="border rounded-lg px-4">
               <AccordionTrigger className="hover:no-underline">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-1">
                   <Target className="h-4 w-4 text-primary" />
                   <span>Objectives & Key Results</span>
                   <Badge variant="secondary" className="ml-2">
-                    {editedProposal.objectives?.length || 0} objectives
+                    {editedProposal.objectives?.length || 0} proposed
                   </Badge>
+                  {existingData?.objectives && existingData.objectives.length > 0 && (
+                    <Badge variant="outline" className="ml-auto mr-2 text-xs">{existingData.objectives.length} existing</Badge>
+                  )}
                 </div>
               </AccordionTrigger>
               <AccordionContent className="space-y-4 pt-4">
-                {editedProposal.objectives?.map((obj, idx) => (
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-muted-foreground">Add new objectives from the document</p>
+                  {editedProposal.objectives?.length ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {sectionApprovals.objectives ? 'Will add' : 'Skip adding'}
+                      </span>
+                      <Switch
+                        checked={sectionApprovals.objectives}
+                        onCheckedChange={(checked) => updateApprovalState('objectives', checked)}
+                        data-testid="switch-approve-objectives"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+                {existingData?.objectives && existingData.objectives.length > 0 && (
+                  <div className="p-3 bg-muted/50 rounded-lg mb-3">
+                    <p className="text-xs text-muted-foreground mb-2">Current Objectives ({existingData.objectives.length}):</p>
+                    <ul className="list-disc list-inside text-sm space-y-1">
+                      {existingData.objectives.map((o, i) => (
+                        <li key={i}>{o.title}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {sectionApprovals.objectives && editedProposal.objectives?.map((obj, idx) => (
                   <div key={idx} className="p-4 border rounded-lg space-y-3">
                     <div className="flex items-start gap-2">
                       <Badge variant="outline" className="shrink-0">{obj.level}</Badge>
@@ -541,9 +850,20 @@ export default function Launchpad() {
                           newObjectives[idx] = { ...newObjectives[idx], title: e.target.value };
                           setEditedProposal({ ...editedProposal, objectives: newObjectives });
                         }}
-                        className="font-medium"
+                        className="font-medium flex-1"
                         data-testid={`input-objective-title-${idx}`}
                       />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          const newObjectives = editedProposal.objectives?.filter((_, i) => i !== idx);
+                          setEditedProposal({ ...editedProposal, objectives: newObjectives });
+                        }}
+                        data-testid={`button-remove-objective-${idx}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
                     </div>
                     <Textarea
                       value={obj.description}
