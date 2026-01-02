@@ -593,6 +593,9 @@ export default function TenantAdmin() {
     name: "",
     color: "#3B82F6",
     logoUrl: "",
+    organizationSize: "",
+    industry: "",
+    location: "",
   });
 
   const [domainDialogOpen, setDomainDialogOpen] = useState(false);
@@ -995,7 +998,7 @@ export default function TenantAdmin() {
 
   const handleOpenCreateDialog = () => {
     setEditingTenant(null);
-    setTenantFormData({ name: "", color: "#3B82F6", logoUrl: "" });
+    setTenantFormData({ name: "", color: "#3B82F6", logoUrl: "", organizationSize: "", industry: "", location: "" });
     setTenantDialogOpen(true);
   };
 
@@ -1005,6 +1008,9 @@ export default function TenantAdmin() {
       name: tenant.name,
       color: tenant.color || "#3B82F6",
       logoUrl: tenant.logoUrl || "",
+      organizationSize: (tenant as any).organizationSize || "",
+      industry: (tenant as any).industry || "",
+      location: (tenant as any).location || "",
     });
     setTenantDialogOpen(true);
   };
@@ -2242,6 +2248,86 @@ export default function TenantAdmin() {
               <p className="text-xs text-muted-foreground">
                 Enter a URL to your organization's logo image
               </p>
+            </div>
+
+            <div className="border-t pt-4 mt-4">
+              <p className="text-sm font-medium mb-3">Organization Classification</p>
+              <div className="grid grid-cols-1 gap-3">
+                <div className="space-y-2">
+                  <Label htmlFor="org-size">Organization Size</Label>
+                  <Select
+                    value={tenantFormData.organizationSize}
+                    onValueChange={(value) =>
+                      setTenantFormData({ ...tenantFormData, organizationSize: value })
+                    }
+                  >
+                    <SelectTrigger id="org-size" data-testid="select-tenant-org-size">
+                      <SelectValue placeholder="Select size" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[60]">
+                      <SelectItem value="1-10">1-10 employees</SelectItem>
+                      <SelectItem value="11-50">11-50 employees</SelectItem>
+                      <SelectItem value="51-200">51-200 employees</SelectItem>
+                      <SelectItem value="201-500">201-500 employees</SelectItem>
+                      <SelectItem value="501-1000">501-1,000 employees</SelectItem>
+                      <SelectItem value="1000+">1,000+ employees</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="industry">Industry</Label>
+                  <Select
+                    value={tenantFormData.industry}
+                    onValueChange={(value) =>
+                      setTenantFormData({ ...tenantFormData, industry: value })
+                    }
+                  >
+                    <SelectTrigger id="industry" data-testid="select-tenant-industry">
+                      <SelectValue placeholder="Select industry" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[60]">
+                      <SelectItem value="technology">Technology</SelectItem>
+                      <SelectItem value="healthcare">Healthcare</SelectItem>
+                      <SelectItem value="finance">Finance & Banking</SelectItem>
+                      <SelectItem value="manufacturing">Manufacturing</SelectItem>
+                      <SelectItem value="retail">Retail & E-commerce</SelectItem>
+                      <SelectItem value="education">Education</SelectItem>
+                      <SelectItem value="consulting">Consulting & Professional Services</SelectItem>
+                      <SelectItem value="media">Media & Entertainment</SelectItem>
+                      <SelectItem value="real_estate">Real Estate</SelectItem>
+                      <SelectItem value="nonprofit">Non-profit</SelectItem>
+                      <SelectItem value="government">Government</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="location">Location</Label>
+                  <Select
+                    value={tenantFormData.location}
+                    onValueChange={(value) =>
+                      setTenantFormData({ ...tenantFormData, location: value })
+                    }
+                  >
+                    <SelectTrigger id="location" data-testid="select-tenant-location">
+                      <SelectValue placeholder="Select region" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[60]">
+                      <SelectItem value="us">United States</SelectItem>
+                      <SelectItem value="ca">Canada</SelectItem>
+                      <SelectItem value="uk">United Kingdom</SelectItem>
+                      <SelectItem value="eu">Europe (EU)</SelectItem>
+                      <SelectItem value="au">Australia</SelectItem>
+                      <SelectItem value="asia">Asia</SelectItem>
+                      <SelectItem value="latam">Latin America</SelectItem>
+                      <SelectItem value="mena">Middle East & Africa</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </div>
           </div>
           <DialogFooter>
