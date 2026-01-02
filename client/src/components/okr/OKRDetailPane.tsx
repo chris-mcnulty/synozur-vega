@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +10,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Target, 
   Gauge, 
@@ -24,7 +37,8 @@ import {
   Minus,
   Pencil,
   Scale,
-  Lock
+  Lock,
+  Edit2
 } from "lucide-react";
 import { format } from "date-fns";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
@@ -151,7 +165,14 @@ export function OKRDetailPane({
   onEdit,
 }: OKRDetailPaneProps) {
   const [activeTab, setActiveTab] = useState("overview");
+  const [editingCheckIn, setEditingCheckIn] = useState<CheckIn | null>(null);
+  const [editFormData, setEditFormData] = useState({
+    newValue: 0,
+    newProgress: 0,
+    note: "",
+  });
   const permissions = usePermissions();
+  const { toast } = useToast();
   
   // Check if user can modify this entity
   const canModify = permissions.canModifyOKR(entity?.ownerId, entity?.createdBy) || 
@@ -167,6 +188,47 @@ export function OKRDetailPane({
     },
     enabled: !!entity?.id && open,
   });
+
+  // Mutation for updating check-ins
+  const updateCheckInMutation = useMutation({
+    mutationFn: async (data: { id: string; newValue?: number; newProgress: number; note?: string }) => {
+      const res = await apiRequest("PATCH", `/api/okr/check-ins/${data.id}`, {
+        newValue: data.newValue,
+        newProgress: data.newProgress,
+        note: data.note,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Check-in updated", description: "The check-in has been corrected successfully." });
+      queryClient.invalidateQueries({ queryKey: ["/api/okr/check-ins", entity?.id, entityType] });
+      queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/okr/key-results"] });
+      setEditingCheckIn(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update check-in", variant: "destructive" });
+    },
+  });
+
+  const handleEditCheckIn = (checkIn: CheckIn) => {
+    setEditFormData({
+      newValue: checkIn.newValue || 0,
+      newProgress: checkIn.newProgress || 0,
+      note: checkIn.note || "",
+    });
+    setEditingCheckIn(checkIn);
+  };
+
+  const handleSaveCheckInEdit = () => {
+    if (!editingCheckIn) return;
+    updateCheckInMutation.mutate({
+      id: editingCheckIn.id,
+      newValue: editFormData.newValue,
+      newProgress: editFormData.newProgress,
+      note: editFormData.note,
+    });
+  };
 
   if (!entity) return null;
 
@@ -533,11 +595,31 @@ export function OKRDetailPane({
                                   {checkIn.userEmail?.split("@")[0] || "Unknown"}
                                 </span>
                               </div>
-                              <span className="text-xs text-muted-foreground">
-                                {format(new Date(checkIn.asOfDate || checkIn.createdAt || new Date()), "MMM d, yyyy")}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">
+                                  {format(new Date(checkIn.asOfDate || checkIn.createdAt || new Date()), "MMM d, yyyy")}
+                                </span>
+                                {canModify && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={() => handleEditCheckIn(checkIn)}
+                                    data-testid={`button-edit-checkin-${checkIn.id}`}
+                                    title="Edit check-in"
+                                  >
+                                    <Edit2 className="h-3 w-3" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex items-center gap-3 text-sm">
+                            <div className="flex flex-wrap items-center gap-2 text-sm">
+                              {(checkIn.previousValue !== null && checkIn.previousValue !== undefined) || 
+                               (checkIn.newValue !== null && checkIn.newValue !== undefined) ? (
+                                <Badge variant="secondary" className="text-xs">
+                                  {formatValue(checkIn.previousValue ?? undefined, entity.unit)} → {formatValue(checkIn.newValue ?? undefined, entity.unit)}
+                                </Badge>
+                              ) : null}
                               <Badge variant="outline" className="text-xs">
                                 {Math.round(checkIn.previousProgress || 0)}% → {Math.round(checkIn.newProgress || 0)}%
                               </Badge>
@@ -596,6 +678,70 @@ export function OKRDetailPane({
           </div>
         </ScrollArea>
       </SheetContent>
+
+      {/* Edit Check-in Dialog */}
+      <Dialog open={!!editingCheckIn} onOpenChange={(open) => !open && setEditingCheckIn(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Check-in</DialogTitle>
+            <DialogDescription>
+              Correct the values for this check-in from {editingCheckIn && format(new Date(editingCheckIn.asOfDate || editingCheckIn.createdAt || new Date()), "MMM d, yyyy")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {entityType === "key_result" && (
+              <div>
+                <Label htmlFor="editNewValue">Actual Value {entity.unit && `(${entity.unit})`}</Label>
+                <Input
+                  id="editNewValue"
+                  type="number"
+                  value={editFormData.newValue}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, newValue: parseFloat(e.target.value) || 0 }))}
+                  data-testid="input-edit-checkin-value"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Target: {formatValue(entity.targetValue, entity.unit)}
+                </p>
+              </div>
+            )}
+            <div>
+              <Label htmlFor="editNewProgress">Progress (%)</Label>
+              <Input
+                id="editNewProgress"
+                type="number"
+                min={0}
+                max={100}
+                value={editFormData.newProgress}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, newProgress: parseFloat(e.target.value) || 0 }))}
+                data-testid="input-edit-checkin-progress"
+              />
+            </div>
+            <div>
+              <Label htmlFor="editNote">Note</Label>
+              <Textarea
+                id="editNote"
+                value={editFormData.note}
+                onChange={(e) => setEditFormData(prev => ({ ...prev, note: e.target.value }))}
+                placeholder="Optional note about this check-in..."
+                data-testid="input-edit-checkin-note"
+              />
+            </div>
+          </div>
+          <DialogFooter className="mt-6">
+            <Button type="button" variant="outline" onClick={() => setEditingCheckIn(null)}>
+              Cancel
+            </Button>
+            <Button 
+              type="button" 
+              onClick={handleSaveCheckInEdit}
+              disabled={updateCheckInMutation.isPending}
+              data-testid="button-save-checkin-edit"
+            >
+              {updateCheckInMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Sheet>
   );
 }
