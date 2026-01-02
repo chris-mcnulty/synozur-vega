@@ -428,12 +428,19 @@ export default function Dashboard() {
                   <h3 className="font-semibold">Annual {t('goal', 'plural')} ({currentQuarter?.year})</h3>
                   {foundations?.annualGoals && foundations.annualGoals.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      {foundations.annualGoals.map((goal, idx) => (
-                        <div key={idx} className="flex items-start gap-2 text-base">
-                          <Target className="h-4 w-4 text-primary mt-1 flex-shrink-0" />
-                          <span className="text-muted-foreground">{goal}</span>
-                        </div>
-                      ))}
+                      {foundations.annualGoals.map((goal: any, idx) => {
+                        const title = typeof goal === "string" ? goal : goal.title;
+                        const year = typeof goal === "string" ? currentQuarter?.year : goal.year;
+                        return (
+                          <div key={idx} className="flex items-start gap-2 text-base">
+                            <Target className="h-4 w-4 text-primary mt-1 flex-shrink-0" />
+                            <span className="text-muted-foreground">{title}</span>
+                            {year && year !== currentQuarter?.year && (
+                              <Badge variant="outline" className="text-xs">{year}</Badge>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   ) : (
                     <p className="text-base text-muted-foreground">Not yet defined</p>

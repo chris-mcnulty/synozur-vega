@@ -344,13 +344,19 @@ export type CompanyValue = {
   description: string;
 };
 
+export type AnnualGoal = {
+  title: string;
+  year: number;
+  description?: string;
+};
+
 export const foundations = pgTable("foundations", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   mission: text("mission"),
   vision: text("vision"),
   values: jsonb("values").$type<CompanyValue[]>(),
-  annualGoals: jsonb("annual_goals").$type<string[]>(),
+  annualGoals: jsonb("annual_goals").$type<AnnualGoal[]>(),
   fiscalYearStartMonth: integer("fiscal_year_start_month"),
   tagline: text("tagline"),
   companySummary: text("company_summary"),
@@ -1629,7 +1635,7 @@ export type LaunchpadExistingData = {
   mission: string | null;
   vision: string | null;
   values: Array<{ title: string; description: string }>;
-  annualGoals: string[];
+  annualGoals: AnnualGoal[];
   strategies: Array<{ id: string; title: string; description: string | null }>;
   objectives: Array<{ id: string; title: string; description: string | null }>;
 };

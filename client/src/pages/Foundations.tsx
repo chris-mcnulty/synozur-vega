@@ -18,7 +18,7 @@ import { ValueDetailView } from "@/components/ValueDetailView";
 import { AIGoalsSuggestionDialog } from "@/components/AIGoalsSuggestionDialog";
 import { ValuesAlignmentWidget } from "@/components/ValuesAlignmentWidget";
 import { getCurrentQuarter } from "@/lib/fiscal-utils";
-import type { Foundation, CompanyValue } from "@shared/schema";
+import type { Foundation, CompanyValue, AnnualGoal } from "@shared/schema";
 
 // Suggested options for quick selection
 const missionSuggestions = [
@@ -83,7 +83,8 @@ export default function Foundations() {
   const [mission, setMission] = useState<string>("");
   const [vision, setVision] = useState<string>("");
   const [values, setValues] = useState<CompanyValue[]>([]);
-  const [goals, setGoals] = useState<string[]>([]);
+  const [goals, setGoals] = useState<AnnualGoal[]>([]);
+  const currentYear = new Date().getFullYear();
   
   // New organizational identity fields
   const [tagline, setTagline] = useState<string>("");
@@ -118,7 +119,16 @@ export default function Foundations() {
       });
       setValues(migratedValues);
       
-      setGoals(foundation.annualGoals || []);
+      // Migrate legacy string goals to new AnnualGoal format
+      const rawGoals = foundation.annualGoals || [];
+      const migratedGoals: AnnualGoal[] = rawGoals.map((goal: any) => {
+        if (typeof goal === "string") {
+          // Legacy format: convert string to object with current year
+          return { title: goal, year: currentYear };
+        }
+        return goal;
+      });
+      setGoals(migratedGoals);
       
       // Initialize new organizational identity fields
       setTagline(foundation.tagline || "");
@@ -264,8 +274,9 @@ export default function Foundations() {
   };
 
   const handleAddCustomGoal = () => {
-    if (customGoal.trim() && !goals.includes(customGoal.trim())) {
-      setGoals([...goals, customGoal.trim()]);
+    const trimmedGoal = customGoal.trim();
+    if (trimmedGoal && !goals.some(g => g.title === trimmedGoal)) {
+      setGoals([...goals, { title: trimmedGoal, year: currentYear }]);
       setCustomGoal("");
     }
   };
@@ -284,8 +295,8 @@ export default function Foundations() {
         setValues([...values, newValue]);
       }
     } else if (type === "goal") {
-      if (!goals.includes(suggestion)) {
-        setGoals([...goals, suggestion]);
+      if (!goals.some(g => g.title === suggestion)) {
+        setGoals([...goals, { title: suggestion, year: currentYear }]);
       }
     }
   };
@@ -294,8 +305,8 @@ export default function Foundations() {
     setValues(values.filter((_, i) => i !== index));
   };
 
-  const handleRemoveGoal = (goal: string) => {
-    setGoals(goals.filter(g => g !== goal));
+  const handleRemoveGoal = (goalTitle: string) => {
+    setGoals(goals.filter(g => g.title !== goalTitle));
   };
 
   const handleClearAll = () => {
@@ -739,13 +750,13 @@ export default function Foundations() {
                       data-testid={`goal-item-${index}`}
                     >
                       <div className="flex items-start gap-2 flex-1">
-                        <Badge variant="secondary" className="mt-0.5">{index + 1}</Badge>
-                        <p className="text-sm">{goal}</p>
+                        <Badge variant="secondary" className="mt-0.5">{goal.year}</Badge>
+                        <p className="text-sm">{goal.title}</p>
                       </div>
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleRemoveGoal(goal)}
+                        onClick={() => handleRemoveGoal(goal.title)}
                         data-testid={`button-remove-goal-${index}`}
                       >
                         <X className="h-4 w-4" />
@@ -761,7 +772,7 @@ export default function Foundations() {
                   {goalSuggestions.map((suggestion, index) => (
                     <Badge
                       key={index}
-                      variant={goals.includes(suggestion) ? "default" : "outline"}
+                      variant={goals.some(g => g.title === suggestion) ? "default" : "outline"}
                       className="cursor-pointer py-2 px-4 hover-elevate"
                       onClick={() => handleAddSuggestion("goal", suggestion)}
                       data-testid={`suggestion-goal-${index}`}
@@ -858,8 +869,8 @@ export default function Foundations() {
         open={aiGoalsSuggestionOpen}
         onOpenChange={setAiGoalsSuggestionOpen}
         onAddGoal={(goalTitle) => {
-          if (!goals.includes(goalTitle)) {
-            setGoals(prev => [...prev, goalTitle]);
+          if (!goals.some(g => g.title === goalTitle)) {
+            setGoals(prev => [...prev, { title: goalTitle, year: currentYear }]);
           }
         }}
       />

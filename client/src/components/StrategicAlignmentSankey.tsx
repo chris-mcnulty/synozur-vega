@@ -100,12 +100,14 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
     const objectiveIdMap = new Map<string, number>();
     const krIdMap = new Map<string, number>();
 
-    goals.forEach((goal, idx) => {
+    goals.forEach((goal: any, idx) => {
       const nodeIdx = nodeList.length;
       goalIdMap.set(`goal-${idx}`, nodeIdx);
+      // Handle both old string format and new {title, year} format
+      const goalTitle = typeof goal === "string" ? goal : (goal.title || goal.goal || `Goal ${idx + 1}`);
       nodeList.push({
         id: `goal-${idx}`,
-        name: typeof goal === "string" ? goal : (goal as { goal?: string }).goal || `Goal ${idx + 1}`,
+        name: goalTitle,
         type: "goal",
         layer: 0,
       });

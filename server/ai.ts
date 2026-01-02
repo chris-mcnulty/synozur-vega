@@ -881,7 +881,11 @@ export async function* streamStrategyDraft(
       organizationContext += `**Values:**\n${valuesText}\n`;
     }
     if (foundation.annualGoals && Array.isArray(foundation.annualGoals) && foundation.annualGoals.length > 0) {
-      const goalsText = foundation.annualGoals.map((g: string) => `- ${g}`).join('\n');
+      const goalsText = foundation.annualGoals.map((g: any) => {
+        const title = typeof g === 'string' ? g : g.title;
+        const year = typeof g === 'string' ? '' : ` (${g.year})`;
+        return `- ${title}${year}`;
+      }).join('\n');
       organizationContext += `**Annual Goals:**\n${goalsText}\n`;
     }
   }

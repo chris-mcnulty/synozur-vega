@@ -213,7 +213,7 @@ router.post("/:sessionId/analyze", async (req: Request, res: Response) => {
         existingContext += `- Existing Values: ${existingFoundation.values.map(v => v.title).join(", ")}\n`;
       }
       if (existingFoundation.annualGoals && existingFoundation.annualGoals.length > 0) {
-        existingContext += `- Existing Annual Goals: ${existingFoundation.annualGoals.join(", ")}\n`;
+        existingContext += `- Existing Annual Goals: ${existingFoundation.annualGoals.map(g => typeof g === 'string' ? g : g.title).join(", ")}\n`;
       }
     }
     if (existingStrategies.length > 0) {
@@ -555,11 +555,12 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
     // Goals - only if approved
     if (approveGoals && proposal.goals && proposal.goals.length > 0) {
       const existingAnnualGoals = existingFoundation?.annualGoals || [];
-      const existingGoalTitles = new Set(existingAnnualGoals.map(g => normalizeTitle(g)));
+      // Handle both old string[] format and new AnnualGoal[] format for backwards compatibility
+      const existingGoalTitles = new Set(existingAnnualGoals.map(g => normalizeTitle(typeof g === 'string' ? g : g.title)));
       
-      // annualGoals is a string[] - extract titles from the proposal goals
-      // Ensure goal titles are descriptive (3+ words) - use description if title is too short
-      const newGoalTitles = proposal.goals
+      // Create AnnualGoal objects with year from session.targetYear
+      const targetYear = session.targetYear;
+      const newGoals = proposal.goals
         .map((g: any) => {
           let title = typeof g === 'string' ? g : g.title || "";
           const description = typeof g === 'string' ? "" : g.description || "";
@@ -570,21 +571,31 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
             const firstClause = description.split(/[.;,]/).find((c: string) => c.trim().length > 10) || description;
             title = firstClause.trim().slice(0, 60).replace(/\s+\S*$/, ''); // Trim to word boundary
           }
-          return title || description.slice(0, 60);
+          const finalTitle = title || description.slice(0, 60);
+          return { 
+            title: finalTitle, 
+            year: targetYear,
+            description: description || undefined 
+          };
         })
-        .filter((title: string) => !existingGoalTitles.has(normalizeTitle(title)));
+        .filter((goal: any) => !existingGoalTitles.has(normalizeTitle(goal.title)));
 
-      if (newGoalTitles.length > 0) {
+      if (newGoals.length > 0) {
+        // Migrate old string goals to new format if needed
+        const migratedExistingGoals = existingAnnualGoals.map(g => 
+          typeof g === 'string' ? { title: g, year: targetYear - 1 } : g
+        );
+        
         await storage.upsertFoundation({
           tenantId: session.tenantId,
           mission: existingFoundation?.mission || "",
           vision: existingFoundation?.vision || "",
           values: existingFoundation?.values || [],
-          annualGoals: [...existingAnnualGoals, ...newGoalTitles],
+          annualGoals: [...migratedExistingGoals, ...newGoals],
         });
-        createdEntities.goals = newGoalTitles.length;
+        createdEntities.goals = newGoals.length;
       }
-      createdEntities.duplicatesSkipped += proposal.goals.length - newGoalTitles.length;
+      createdEntities.duplicatesSkipped += proposal.goals.length - newGoals.length;
     } else if (!approveGoals && proposal.goals?.length) {
       createdEntities.skipped.push('goals');
     }
