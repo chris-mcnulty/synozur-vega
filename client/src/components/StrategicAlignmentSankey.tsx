@@ -294,6 +294,19 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
   }
 
   if (!sankeyData || sankeyData.nodes.length === 0) {
+    const hasGoals = alignmentData?.foundation?.annualGoals?.length > 0;
+    const hasStrategies = (alignmentData?.strategies?.length || 0) > 0;
+    const hasObjectives = (alignmentData?.objectives?.length || 0) > 0;
+    
+    let message = "No alignment data available. Add goals, strategies, and objectives to see the flow.";
+    if (hasGoals || hasStrategies) {
+      if (!hasObjectives) {
+        message = `No ${t("objective", "plural").toLowerCase()} found for this quarter. Create ${t("objective", "plural").toLowerCase()} linked to strategies to see the alignment flow.`;
+      } else {
+        message = `Your goals, strategies, and ${t("objective", "plural").toLowerCase()} need to be linked together to visualize the flow. Edit items to add links.`;
+      }
+    }
+    
     return (
       <Card>
         <CardHeader>
@@ -305,7 +318,7 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
         </CardHeader>
         <CardContent>
           <div className="text-center py-8 text-muted-foreground">
-            <p>No alignment data available. Add goals, strategies, and objectives to see the flow.</p>
+            <p>{message}</p>
           </div>
         </CardContent>
       </Card>
