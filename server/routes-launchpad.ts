@@ -386,6 +386,7 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
       approveGoals = session.approveGoals ?? true,
       approveStrategies = session.approveStrategies ?? true,
       approveObjectives = session.approveObjectives ?? true,
+      approveBigRocks = (session as any).approveBigRocks ?? true,
     } = req.body || {};
 
     const createdEntities = {
@@ -495,7 +496,8 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
           }
         }
 
-        if (obj.bigRocks && obj.bigRocks.length > 0) {
+        // Create big rocks attached to this objective (only if approveBigRocks is true)
+        if (approveBigRocks && obj.bigRocks && obj.bigRocks.length > 0) {
           // Big rocks require a quarter due to database constraint
           // Use: 1) explicit bigRockQuarter from request, 2) session.targetQuarter, 3) current quarter
           const effectiveBigRockQuarter = bigRockQuarter || session.targetQuarter || Math.ceil((new Date().getMonth() + 1) / 3);
@@ -516,6 +518,25 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
       }
     } else if (!approveObjectives && proposal.objectives?.length) {
       createdEntities.skipped.push('objectives');
+    }
+
+    // Create top-level (standalone) big rocks - only if approveBigRocks is true
+    if (approveBigRocks && proposal.bigRocks && proposal.bigRocks.length > 0) {
+      const effectiveBigRockQuarter = bigRockQuarter || session.targetQuarter || Math.ceil((new Date().getMonth() + 1) / 3);
+      for (const br of proposal.bigRocks) {
+        await storage.createBigRock({
+          tenantId: session.tenantId,
+          title: br.title,
+          description: br.description,
+          priority: br.priority as any || "high",
+          status: "not_started",
+          quarter: (br as any).quarter || effectiveBigRockQuarter,
+          year: session.targetYear,
+        });
+        createdEntities.bigRocks++;
+      }
+    } else if (!approveBigRocks && (proposal.bigRocks?.length || proposal.objectives?.some((o: any) => o.bigRocks?.length))) {
+      createdEntities.skipped.push('bigRocks');
     }
 
     await storage.updateLaunchpadSession(session.id, {

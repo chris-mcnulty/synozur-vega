@@ -152,6 +152,7 @@ export default function Launchpad() {
         approveGoals: sectionApprovals.goals,
         approveStrategies: sectionApprovals.strategies,
         approveObjectives: sectionApprovals.objectives,
+        approveBigRocks: sectionApprovals.bigRocks,
       };
       if (overrideBigRockQuarter) {
         body.bigRockQuarter = overrideBigRockQuarter;
