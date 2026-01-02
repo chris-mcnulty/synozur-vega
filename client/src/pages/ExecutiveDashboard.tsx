@@ -62,6 +62,8 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 import { StrategicAlignmentSankey } from "@/components/StrategicAlignmentSankey";
+import { CompanyOSExportDialog } from "@/components/CompanyOSExportDialog";
+import { FileDown } from "lucide-react";
 
 type Quarter = {
   id: string;
@@ -459,18 +461,28 @@ export default function ExecutiveDashboard() {
             Strategic overview and organizational health for {currentQuarter?.label}
           </p>
         </div>
-        <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
-          <SelectTrigger className="w-40" data-testid="select-exec-quarter">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {quarters.map((q) => (
-              <SelectItem key={q.id} value={q.id}>
-                {q.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex items-center gap-2">
+          <CompanyOSExportDialog
+            trigger={
+              <Button variant="outline" data-testid="button-export-company-os">
+                <FileDown className="h-4 w-4 mr-2" />
+                Export
+              </Button>
+            }
+          />
+          <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
+            <SelectTrigger className="w-40" data-testid="select-exec-quarter">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {quarters.map((q) => (
+                <SelectItem key={q.id} value={q.id}>
+                  {q.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {metrics && (

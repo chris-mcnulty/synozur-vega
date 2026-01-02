@@ -36,8 +36,6 @@ import type { Foundation, CompanyValue } from "@shared/schema";
 import { ProgressSummaryDialog } from "@/components/ProgressSummaryDialog";
 import { CloneObjectiveDialog } from "@/components/okr/CloneObjectiveDialog";
 import { OKRQualityScore } from "@/components/okr/OKRQualityScore";
-import { CompanyOSExportDialog } from "@/components/CompanyOSExportDialog";
-import { Download } from "lucide-react";
 
 interface Objective {
   id: string;
@@ -1622,14 +1620,6 @@ export default function PlanningEnhanced() {
               <Sparkles className="h-4 w-4 mr-2" />
               Generate Summary
             </Button>
-            <CompanyOSExportDialog
-              trigger={
-                <Button variant="outline" data-testid="button-export-company-os">
-                  <Download className="h-4 w-4 mr-2" />
-                  Export
-                </Button>
-              }
-            />
             <Button
               onClick={() => handleCreateObjective()}
               data-testid="button-add-objective"
