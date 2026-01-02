@@ -99,7 +99,7 @@ export function AIUsageWidget() {
   const [periodType, setPeriodType] = useState<"daily" | "monthly">("daily");
   
   const { data: usageData, isLoading, error, refetch } = useQuery<UsageSummaryResponse>({
-    queryKey: ["/api/ai/usage/summary", periodType],
+    queryKey: ["/api/ai/usage/summary", { periodType }],
     refetchInterval: 60000,
   });
 
@@ -324,7 +324,7 @@ export function PlatformAIUsageWidget() {
     byModel: Record<string, { requests: number; tokens: number; cost: number }>;
     byProvider: Record<string, { requests: number; tokens: number; cost: number }>;
   }>({
-    queryKey: ["/api/ai/usage/platform", periodType],
+    queryKey: ["/api/ai/usage/platform", { periodType }],
     refetchInterval: 60000,
   });
 

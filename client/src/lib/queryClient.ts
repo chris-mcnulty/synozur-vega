@@ -41,7 +41,33 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey.join("/") as string, {
+    // First element is the base URL, subsequent elements are query parameters
+    // If there's only one element, use it directly (may already contain query params)
+    let url: string;
+    if (queryKey.length === 1) {
+      url = queryKey[0] as string;
+    } else {
+      // Build URL with query parameters from array elements
+      const baseUrl = queryKey[0] as string;
+      const params = queryKey.slice(1);
+      if (params.length > 0 && params.every(p => typeof p === 'object' && p !== null)) {
+        // If params are objects, treat them as key-value pairs
+        const searchParams = new URLSearchParams();
+        for (const param of params) {
+          for (const [key, value] of Object.entries(param as Record<string, string>)) {
+            if (value !== undefined && value !== null) {
+              searchParams.append(key, String(value));
+            }
+          }
+        }
+        url = searchParams.toString() ? `${baseUrl}?${searchParams.toString()}` : baseUrl;
+      } else {
+        // Legacy behavior: join with "/" for backwards compatibility with existing code
+        url = queryKey.join("/") as string;
+      }
+    }
+
+    const res = await fetch(url, {
       credentials: "include",
       cache: "no-cache", // Disable HTTP caching to avoid 304 responses
       headers: getTenantHeader(),
