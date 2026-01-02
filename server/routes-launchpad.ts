@@ -354,23 +354,20 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
 
     if (proposal.goals && proposal.goals.length > 0) {
       const existingFoundation = await storage.getFoundationByTenantId(session.tenantId);
-      const existingGoals = (existingFoundation as any)?.goals || [];
+      const existingAnnualGoals = existingFoundation?.annualGoals || [];
       
-      const newGoals = proposal.goals.map((g, idx) => ({
-        id: `goal-${Date.now()}-${idx}`,
-        title: g.title,
-        description: g.description,
-        year: session.targetYear,
-        progress: 0,
-      }));
+      // annualGoals is a string[] - extract titles from the proposal goals
+      const newGoalTitles = proposal.goals.map((g: any) => 
+        typeof g === 'string' ? g : g.title || g.description || String(g)
+      );
 
       await storage.upsertFoundation({
         tenantId: session.tenantId,
         mission: existingFoundation?.mission || "",
         vision: existingFoundation?.vision || "",
         values: existingFoundation?.values || [],
-        goals: [...existingGoals, ...newGoals],
-      } as any);
+        annualGoals: [...existingAnnualGoals, ...newGoalTitles],
+      });
       
       createdEntities.goals = proposal.goals.length;
     }
