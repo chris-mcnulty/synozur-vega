@@ -266,7 +266,6 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
 
     try {
       const sankeyGenerator = sankey<SankeyNodeData, SankeyLinkData>()
-        .nodeId((d) => d.id)
         .nodeWidth(20)
         .nodePadding(12)
         .extent([[50, 20], [width - 50, height - 20]]);
@@ -294,7 +293,7 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
   }
 
   if (!sankeyData || sankeyData.nodes.length === 0) {
-    const hasGoals = alignmentData?.foundation?.annualGoals?.length > 0;
+    const hasGoals = (alignmentData?.foundation?.annualGoals?.length ?? 0) > 0;
     const hasStrategies = (alignmentData?.strategies?.length || 0) > 0;
     const hasObjectives = (alignmentData?.objectives?.length || 0) > 0;
     
