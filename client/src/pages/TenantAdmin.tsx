@@ -1093,7 +1093,7 @@ export default function TenantAdmin() {
     // tenant_user sees their tenant
     // Both rely on backend filtering, but we allow any tenant returned by backend
     return true;
-  });
+  }).sort((a, b) => a.name.localeCompare(b.name));
 
   const updateFiscalYearMutation = useMutation({
     mutationFn: async ({ tenantId, month }: { tenantId: string; month: number }) => {
@@ -1583,15 +1583,6 @@ export default function TenantAdmin() {
                       >
                         <Settings className="h-3 w-3 mr-1" />
                         Settings
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleOpenEditDialog(tenant)}
-                        data-testid={`button-edit-tenant-${tenant.id}`}
-                      >
-                        <Pencil className="h-3 w-3 mr-1" />
-                        Edit
                       </Button>
                       <Button
                         variant="outline"
@@ -3403,30 +3394,74 @@ export default function TenantAdmin() {
                       <div>
                         <p className="font-medium text-sm">Invite Only Mode</p>
                         <p className="text-sm text-muted-foreground">
-                          {(selectedTenantForSettings as any).inviteOnly ? "Enabled" : "Disabled"}
+                          {(selectedTenantForSettings as any).inviteOnly ? "Users must be invited to join" : "Users with allowed domain can self-register"}
                         </p>
                       </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => {
-                          setSettingsDialogOpen(false);
-                          handleOpenDomainDialog(selectedTenantForSettings);
+                      <Switch
+                        checked={(selectedTenantForSettings as any).inviteOnly || false}
+                        onCheckedChange={(checked) => {
+                          updateTenantMutation.mutate({
+                            id: selectedTenantForSettings.id,
+                            data: { inviteOnly: checked } as any
+                          });
                         }}
-                        data-testid="settings-configure-domains"
-                      >
-                        Configure
-                      </Button>
+                        data-testid="settings-toggle-invite-only"
+                      />
                     </div>
                     <div className="pt-3 border-t">
-                      <p className="font-medium text-sm mb-2">Allowed Domains</p>
+                      <p className="font-medium text-sm mb-2">Allowed Email Domains</p>
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Users with these email domains can join this organization
+                      </p>
+                      <div className="flex gap-2 mb-3">
+                        <Input
+                          placeholder="example.com"
+                          value={newDomain}
+                          onChange={(e) => setNewDomain(e.target.value)}
+                          className="flex-1"
+                          data-testid="input-new-domain"
+                        />
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            if (newDomain.trim()) {
+                              const currentDomains = selectedTenantForSettings.allowedDomains || [];
+                              if (!currentDomains.includes(newDomain.trim().toLowerCase())) {
+                                updateTenantMutation.mutate({
+                                  id: selectedTenantForSettings.id,
+                                  data: { allowedDomains: [...currentDomains, newDomain.trim().toLowerCase()] }
+                                });
+                                setNewDomain("");
+                              }
+                            }
+                          }}
+                          disabled={!newDomain.trim()}
+                          data-testid="button-add-domain"
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          Add
+                        </Button>
+                      </div>
                       {(selectedTenantForSettings.allowedDomains || []).length === 0 ? (
                         <p className="text-sm text-muted-foreground">No domains configured</p>
                       ) : (
-                        <div className="flex flex-wrap gap-1">
+                        <div className="flex flex-wrap gap-2">
                           {(selectedTenantForSettings.allowedDomains || []).map((domain) => (
-                            <Badge key={domain} variant="secondary" className="text-xs font-mono">
+                            <Badge key={domain} variant="secondary" className="text-xs font-mono flex items-center gap-1">
                               {domain}
+                              <button
+                                onClick={() => {
+                                  const currentDomains = selectedTenantForSettings.allowedDomains || [];
+                                  updateTenantMutation.mutate({
+                                    id: selectedTenantForSettings.id,
+                                    data: { allowedDomains: currentDomains.filter(d => d !== domain) }
+                                  });
+                                }}
+                                className="ml-1 hover:text-destructive"
+                                data-testid={`button-remove-domain-${domain}`}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
                             </Badge>
                           ))}
                         </div>
