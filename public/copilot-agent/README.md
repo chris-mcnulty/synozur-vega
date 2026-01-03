@@ -4,9 +4,12 @@ This folder contains the manifests required to deploy Vega as a Microsoft 365 Co
 
 ## Files
 
-- `manifest.json` - Teams app manifest (v1.19) that packages the Copilot agent
+- `manifest.json` - Teams app manifest (v1.23) that packages the Copilot agent
 - `declarative-agent.json` - Declarative agent manifest (v1.6) defining behavior and instructions
-- `vega-api-plugin.json` - API plugin manifest connecting to Vega's OpenAPI spec
+- `vega-api-plugin.json` - API plugin manifest (v2.2) connecting to Vega's OpenAPI spec
+- `color.png` - Color icon (192x192 pixels, PNG format)
+- `outline.png` - Outline icon (32x32 pixels, PNG format)
+- `vega-copilot-agent.zip` - Pre-built package ready for upload
 
 ## Prerequisites
 
@@ -98,9 +101,9 @@ Update the following placeholders in the manifests:
 
 ## Deployment Steps
 
-1. Package the files into a ZIP archive:
+1. Package the files into a ZIP archive (or use the pre-built `vega-copilot-agent.zip`):
    ```
-   zip vega-copilot-agent.zip manifest.json declarative-agent.json vega-api-plugin.json color-icon.png outline-icon.png
+   zip vega-copilot-agent.zip manifest.json declarative-agent.json vega-api-plugin.json color.png outline.png
    ```
 
 2. Upload to Microsoft 365 Admin Center:
@@ -144,19 +147,36 @@ Users can start conversations with:
 
 ## Troubleshooting
 
+**App not recognized in Teams App Center:**
+1. Verify manifest version compatibility:
+   - Use `manifestVersion: "1.23"` (latest version with full Copilot agent support)
+   - Schema URL must match: `https://developer.microsoft.com/json-schemas/teams/v1.23/MicrosoftTeams.schema.json`
+2. Check icon requirements:
+   - Color icon: exactly 192x192 pixels, PNG format
+   - Outline icon: exactly 32x32 pixels, PNG format, white with transparency
+   - File names must match manifest.json references exactly
+3. Validate the app package:
+   - Use Teams Developer Portal validation tool
+   - Ensure ZIP contains exactly: manifest.json, declarative-agent.json, vega-api-plugin.json, color.png, outline.png
+4. Check declarative agent schema:
+   - Use schema version v1.6: `https://developer.microsoft.com/json-schemas/copilot/declarative-agent/v1.6/schema.json`
+
 **401 Unauthorized errors:**
-- Verify OAuth connection is configured correctly
+- Verify OAuth connection is configured correctly in Teams Developer Portal
 - Check that user has appropriate Vega permissions
 - Ensure tenant context is being passed correctly
+- Verify the OAuth reference_id in vega-api-plugin.json matches your registration
 
-**Agent not appearing:**
-- Verify manifest is uploaded and approved
-- Check Teams Admin Center for app status
-- Ensure user has Copilot license
+**Agent not appearing in Copilot:**
+- Verify manifest is uploaded and approved in Teams Admin Center
+- Check Teams Admin Center > Manage Apps for app status
+- Ensure user has Microsoft 365 Copilot license
+- Wait 45 minutes to several hours after approval for propagation
 
 **API calls failing:**
-- Verify production OpenAPI spec is accessible
-- Check operationIds match function names
+- Verify production OpenAPI spec is accessible at https://vega.synozur.com/openapi.json
+- Check operationIds in OpenAPI spec match function names in vega-api-plugin.json
+- Ensure server URL in OpenAPI spec is absolute (not relative)
 - Review server logs for errors
 
 ## Publishing to Microsoft Marketplace
