@@ -1,13 +1,13 @@
 {
   "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
-  "manifestVersion": "1.19",
+  "manifestVersion": "1.20",
   "version": "1.0.0",
-  "id": "00000000-0000-0000-0000-000000000000",
+  "id": "e8b5f3a2-7c91-4d6e-b8a3-2f1e9c0d5a4b",
   "developer": {
     "name": "Synozur",
-    "websiteUrl": "https://synozur.com",
-    "privacyUrl": "https://synozur.com/privacy",
-    "termsOfUseUrl": "https://synozur.com/terms"
+    "websiteUrl": "https://www.synozur.com",
+    "privacyUrl": "https://www.synozur.com/privacy",
+    "termsOfUseUrl": "https://www.synozur.com/terms"
   },
   "name": {
     "short": "Vega",
@@ -21,7 +21,7 @@
     "color": "color-icon.png",
     "outline": "outline-icon.png"
   },
-  "accentColor": "#0EA5E9",
+  "accentColor": "#E60CB3",
   "copilotAgents": {
     "declarativeAgents": [
       {
@@ -38,3 +38,4 @@
     "vega.synozur.com"
   ]
 }
+zip

@@ -227,7 +227,7 @@
       "type": "OpenApi",
       "auth": {
         "type": "OAuthPluginVault",
-        "reference_id": "{YjRmYmVhZjctMWM5MS00M2JiLTgwMzEtNDllYjhkNDE3NWVlIyM2MmQ4MzVlMi01NjczLTQ1NzktYWI4Ny00Mjg0NDVlN2NlM2I=}"
+        "reference_id": "YjRmYmVhZjctMWM5MS00M2JiLTgwMzEtNDllYjhkNDE3NWVlIyM2MmQ4MzVlMi01NjczLTQ1NzktYWI4Ny00Mjg0NDVlN2NlM2I="
       },
       "spec": {
         "url": "https://vega.synozur.com/openapi.json"
