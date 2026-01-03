@@ -2,7 +2,7 @@
 
 **Welcome to Vega - The Synozur Alliance Company Operating System**
 
-Version 1.2 | Last Updated: December 23, 2025
+Version 1.3 | Last Updated: January 3, 2026
 
 ---
 
@@ -1153,13 +1153,35 @@ View and manage:
 
 ### Tenant Administration
 
-If you have admin permissions, access advanced settings.
+If you have admin permissions, access advanced settings for your organization.
 
 #### Accessing Tenant Admin
 
 Click **"Admin"** in the left sidebar (only visible to admins).
 
-### Admin Functions
+#### Tenant Admin Tabs (Updated Jan 3, 2026)
+
+The Tenant Administration page is organized into three tabs for easier navigation:
+
+1. **Organization Tab**: Manage tenant settings, branding, SSO, domains, vocabulary, and M365 connectors
+2. **Users & Teams Tab**: Create and manage users and teams
+3. **Integrations Tab**: Configure M365 connectors, admin consent, and consultant access
+
+### Organization Tab Functions
+
+#### Tenant Settings
+
+Each organization card provides quick access to:
+- **Edit/Delete**: Modify organization name, color, and logo
+- **Membership**: Manage allowed email domains or invite-only mode
+- **Default Time Period**: Set current quarter or specific time period
+- **Fiscal Year**: Configure when your fiscal year starts
+- **SSO**: Configure Microsoft Entra ID single sign-on
+- **M365 Connectors**: Enable/disable OneDrive, SharePoint, Outlook, Excel, Planner
+- **Vocabulary**: Customize terminology (Goals, Objectives, Key Results, etc.)
+- **Branding**: Configure logos, colors, and report branding
+
+### Users & Teams Tab Functions
 
 #### 1. Manage Users
 
@@ -1177,6 +1199,11 @@ View and manage users in your organization:
 4. Click **"Create"**
 5. User receives welcome email
 
+**Bulk Import:**
+- Upload CSV file to create multiple users at once
+- Required columns: email, password
+- Optional columns: name, role
+
 **Edit User:**
 1. Click user row
 2. Update role, status, or other fields
@@ -1186,16 +1213,16 @@ View and manage users in your organization:
 - **User (tenant_user)**: Standard user, can view and edit own OKRs
 - **Tenant Admin**: Can manage tenant settings and users
 - **Admin**: Full access to tenant management
-- **Vega Consultant**: Multi-tenant access
-- **Vega Admin**: Platform-level access
+- **Vega Consultant**: Multi-tenant access (managed by platform admins)
+- **Vega Admin**: Platform-level access (managed by platform admins)
 
-#### 2. Manage Teams (Enhanced Dec 20, 2025)
+#### 2. Manage Teams
 
 Create and organize teams with full CRUD (Create, Read, Update, Delete) capabilities:
 
 **Accessing Team Management:**
 1. Navigate to **Tenant Admin** section (Admin sidebar item)
-2. Click on **"Teams"** or **"Team Management"** tab
+2. Click on the **"Users & Teams"** tab
 
 **View Teams:**
 - See all teams in your organization
@@ -1329,46 +1356,83 @@ Admin-level import and export functions:
 - **View Import History**: See past imports
 - **Manage Templates**: Export for reuse
 
-#### 6. AI Usage Reporting (Added Dec 20, 2025)
+### Integrations Tab Functions
 
-Track and monitor AI usage across your organization to understand costs and usage patterns.
+#### Consultant Access Management
 
-**Accessing AI Usage Reports:**
-1. Navigate to **Tenant Admin** section
-2. Click **"AI Usage"** or **"AI Reporting"** tab
+Grant and revoke consultant access to your organization:
 
-**Available Reports:**
+- View which consultants have access to each tenant
+- Grant access with optional expiration dates
+- Revoke access when engagements end
+
+#### Microsoft 365 Integration
+
+Configure M365 admin consent and connectors:
+
+- **Admin Consent**: Grant Azure AD consent for M365 API access
+- **Available Connectors**: View connector descriptions and capabilities
+
+---
+
+### System Administration (Platform Admins Only)
+
+System Administration is accessible only to Vega Admins and Global Admins. This section manages platform-wide settings that affect all tenants.
+
+#### Accessing System Admin
+
+Click **"System"** in the left sidebar (only visible to platform admins).
+
+#### System Admin Tabs (Updated Jan 3, 2026)
+
+1. **Vocabulary**: Set system-wide default terminology
+2. **AI Usage**: Monitor platform-wide AI token consumption and costs
+3. **Plans**: Create and manage service plans for tenant licensing
+4. **Security**: Manage blocked email domains
+5. **Tenants**: View tenant activity, assign service plans
+6. **Traffic**: Website traffic analytics
+7. **Announcements**: System-wide announcement banners
+
+#### AI Usage Reporting (Platform-wide)
+
+Track and monitor AI usage across **all tenants** to understand platform operating costs.
 
 **Summary Dashboard:**
-- **Total AI Calls**: Number of AI requests made
+- **Total AI Calls**: Number of AI requests made platform-wide
 - **Total Tokens Used**: Input and output tokens consumed
 - **Cost Estimates**: Approximate costs based on usage
-- **Usage by Time Period**: Daily, weekly, or monthly trends
-- **Usage by User**: See who is using AI features most
+- **Usage by Provider**: Track usage by AI provider (Azure OpenAI, Anthropic, etc.)
+- **Usage by Model**: Compare model performance and usage patterns
 
-**Detailed Usage Logs:**
-- **Timestamp**: When each AI call was made
-- **User**: Who made the request
-- **Model**: Which AI model was used (GPT-4, GPT-3.5, etc.)
-- **Provider**: AI provider (e.g., OpenAI, Azure OpenAI, Anthropic Claude, or other configured providers)
-- **Function**: What AI tool was used (query OKRs, analyze gaps, etc.)
-- **Tokens**: Input and output token counts
-- **Cost**: Estimated cost for that call
+**Why Platform-level:**
+AI usage is a platform operating cost, not charged to individual tenants. Platform admins use this to monitor overall costs and capacity.
 
-**Filtering and Export:**
-- Filter by date range, user, or function
-- Export usage data to CSV for further analysis
-- View aggregated summaries or detailed logs
+#### Service Plans Management
 
-**Cost Management:**
-- Set usage alerts (if configured) *(feature coming soon)*
-- Track spending trends over time
-- Identify heavy users or functions
-- Support for chargeback to departments or teams
+Create and manage subscription plans for tenants:
 
-**Available to:**
-- **Tenant Admins**: View usage for their organization
-- **Platform Admins**: View usage across all tenants
+- **Internal Name**: Technical identifier
+- **Display Name**: User-facing plan name
+- **Duration**: How long the plan lasts (e.g., 60 days for trial)
+- **Max Read/Write Users**: User limits
+- **Max Read-Only Users**: Read-only user limits
+- **Default Plan**: Set which plan applies to new self-service signups
+
+#### Blocked Domains (Security)
+
+Prevent specific email domains from self-service signup:
+
+- Block disposable email domains
+- Block competitor domains
+- Add reasons for audit purposes
+
+#### Tenant Plan Assignment
+
+View and manage service plans for each organization:
+
+- See current plan status (Active, Expired, Days Left)
+- Assign or change plans
+- Set expiration dates
 
 #### 7. Enhanced Reporting with PDF/PPTX Export (Added Dec 20, 2025)
 
@@ -1674,6 +1738,12 @@ Vega uses role-based permissions to control access:
   - Launchpad / AI Kickstart Wizard (completed Dec 20, 2025)
   - Updated navigation to include Launchpad
   - Added glossary terms: Branding, Cloning, Launchpad
+- **v1.3** (January 3, 2026): Improved admin screen UX:
+  - Reorganized Tenant Admin into three tabs: Organization, Users & Teams, Integrations
+  - Moved platform-level features to System Admin: Service Plans, Blocked Domains, Tenant Plan Assignment, AI Usage
+  - Added responsive mobile design for admin screens
+  - System Admin now has tabs: Vocabulary, AI Usage, Plans, Security, Tenants, Traffic, Announcements
+  - Updated navigation and documentation for admin screens
 
 ---
 
