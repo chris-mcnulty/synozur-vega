@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Eye, Edit, X, Plus, Save, Trash2, Loader2, Sparkles, Calendar, AlertCircle } from "lucide-react";
+import { Eye, Edit, X, Plus, Save, Trash2, Loader2, Sparkles, Calendar, AlertCircle, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
@@ -80,6 +80,9 @@ export default function Foundations() {
   // AI suggestions dialog state
   const [aiGoalsSuggestionOpen, setAiGoalsSuggestionOpen] = useState(false);
   
+  // Clone all goals state
+  const [cloneSourceYear, setCloneSourceYear] = useState<number | null>(null);
+  
   const [mission, setMission] = useState<string>("");
   const [vision, setVision] = useState<string>("");
   const [values, setValues] = useState<CompanyValue[]>([]);
@@ -120,11 +123,17 @@ export default function Foundations() {
       setValues(migratedValues);
       
       // Migrate legacy string goals to new AnnualGoal format
+      // Backfill missing years: string goals get currentYear - 1 (assumed to be last year's goals)
+      // Goals with year=0, null, or undefined also get backfilled
       const rawGoals = foundation.annualGoals || [];
       const migratedGoals: AnnualGoal[] = rawGoals.map((goal: any) => {
         if (typeof goal === "string") {
-          // Legacy format: convert string to object with current year
-          return { title: goal, year: currentYear };
+          // Legacy format: convert string to object - assume previous year
+          return { title: goal, year: currentYear - 1 };
+        }
+        // Backfill missing or invalid year
+        if (!goal.year || goal.year === 0) {
+          return { ...goal, year: currentYear - 1 };
         }
         return goal;
       });
@@ -305,9 +314,85 @@ export default function Foundations() {
     setValues(values.filter((_, i) => i !== index));
   };
 
-  const handleRemoveGoal = (goalTitle: string) => {
-    setGoals(goals.filter(g => g.title !== goalTitle));
+  // Remove goal by index to avoid deleting duplicate titles across years
+  const handleRemoveGoal = (index: number) => {
+    setGoals(goals.filter((_, i) => i !== index));
   };
+
+  // Update the year of a specific goal
+  const handleUpdateGoalYear = (index: number, newYear: number) => {
+    const updatedGoals = [...goals];
+    updatedGoals[index] = { ...updatedGoals[index], year: newYear };
+    setGoals(updatedGoals);
+  };
+
+  // Clone a single goal to a target year
+  const handleCloneGoal = (goal: AnnualGoal, targetYear: number) => {
+    // Check if a goal with the same title already exists for the target year
+    const exists = goals.some(g => g.title === goal.title && g.year === targetYear);
+    if (exists) {
+      toast({
+        title: "Goal Already Exists",
+        description: `"${goal.title}" already exists for ${targetYear}`,
+        variant: "destructive",
+      });
+      return;
+    }
+    setGoals([...goals, { ...goal, year: targetYear }]);
+    toast({
+      title: "Goal Cloned",
+      description: `"${goal.title}" has been cloned to ${targetYear}`,
+    });
+  };
+
+  // Clone all goals from one year to another
+  const handleCloneAllGoals = (sourceYear: number, targetYear: number) => {
+    const goalsToClone = goals.filter(g => g.year === sourceYear);
+    if (goalsToClone.length === 0) {
+      toast({
+        title: "No Goals Found",
+        description: `No goals found for ${sourceYear}`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const newGoals: AnnualGoal[] = [];
+    let skipped = 0;
+    
+    for (const goal of goalsToClone) {
+      const exists = goals.some(g => g.title === goal.title && g.year === targetYear);
+      if (!exists) {
+        newGoals.push({ ...goal, year: targetYear });
+      } else {
+        skipped++;
+      }
+    }
+    
+    if (newGoals.length > 0) {
+      setGoals([...goals, ...newGoals]);
+      toast({
+        title: "Goals Cloned",
+        description: `${newGoals.length} goal(s) cloned to ${targetYear}${skipped > 0 ? ` (${skipped} skipped - already exist)` : ''}`,
+      });
+    } else {
+      toast({
+        title: "No New Goals",
+        description: `All ${sourceYear} goals already exist in ${targetYear}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Get unique years from goals for the clone all dropdown
+  const uniqueGoalYears = [...new Set(goals.map(g => g.year))].sort((a, b) => b - a);
+  
+  // Generate available years for selection (includes years from existing goals plus standard range)
+  const availableYears = useMemo(() => {
+    const yearsFromGoals = goals.map(g => g.year);
+    const standardYears = [currentYear + 1, currentYear, currentYear - 1, currentYear - 2, currentYear - 3];
+    return [...new Set([...yearsFromGoals, ...standardYears])].sort((a, b) => b - a);
+  }, [goals, currentYear]);
 
   const handleClearAll = () => {
     setMission("");
@@ -743,24 +828,99 @@ export default function Foundations() {
 
               {goals.length > 0 && (
                 <div className="space-y-2">
+                  {/* Clone All Goals Section */}
+                  {uniqueGoalYears.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-muted/50 rounded-lg">
+                      <span className="text-sm text-muted-foreground">Clone all goals from</span>
+                      <Select
+                        value={(cloneSourceYear ?? uniqueGoalYears[0])?.toString()}
+                        onValueChange={(value) => setCloneSourceYear(parseInt(value))}
+                      >
+                        <SelectTrigger className="w-24" data-testid="select-clone-source-year">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {uniqueGoalYears.map((year) => (
+                            <SelectItem key={year} value={year.toString()}>
+                              {year}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <span className="text-sm text-muted-foreground">to</span>
+                      <Select
+                        onValueChange={(targetYear) => {
+                          const sourceYear = cloneSourceYear ?? uniqueGoalYears[0] ?? currentYear;
+                          handleCloneAllGoals(sourceYear, parseInt(targetYear));
+                        }}
+                      >
+                        <SelectTrigger className="w-24" data-testid="select-clone-target-year">
+                          <SelectValue placeholder="Year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableYears.map((year) => (
+                            <SelectItem key={year} value={year.toString()}>
+                              {year}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                  
                   {goals.map((goal, index) => (
                     <div
                       key={index}
-                      className="bg-muted rounded-lg p-3 flex items-start justify-between gap-2"
+                      className="bg-muted rounded-lg p-3 flex items-center justify-between gap-2"
                       data-testid={`goal-item-${index}`}
                     >
-                      <div className="flex items-start gap-2 flex-1">
-                        <Badge variant="secondary" className="mt-0.5">{goal.year}</Badge>
-                        <p className="text-sm">{goal.title}</p>
+                      <div className="flex items-center gap-2 flex-1">
+                        <Select
+                          value={goal.year?.toString() || currentYear.toString()}
+                          onValueChange={(value) => handleUpdateGoalYear(index, parseInt(value))}
+                        >
+                          <SelectTrigger className="w-20 h-8" data-testid={`select-goal-year-${index}`}>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableYears.map((year) => (
+                              <SelectItem key={year} value={year.toString()}>
+                                {year}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className="text-sm flex-1">{goal.title}</p>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleRemoveGoal(goal.title)}
-                        data-testid={`button-remove-goal-${index}`}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
+                      <div className="flex items-center gap-1">
+                        <Select
+                          onValueChange={(targetYear) => handleCloneGoal(goal, parseInt(targetYear))}
+                        >
+                          <SelectTrigger className="w-8 h-8 p-0" data-testid={`button-clone-goal-${index}`}>
+                            <Copy className="h-4 w-4 mx-auto" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="header" disabled className="font-medium text-xs">
+                              Clone to year...
+                            </SelectItem>
+                            {availableYears
+                              .filter(year => year !== goal.year)
+                              .map((year) => (
+                                <SelectItem key={year} value={year.toString()}>
+                                  {year}
+                                </SelectItem>
+                              ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveGoal(index)}
+                          data-testid={`button-remove-goal-${index}`}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   ))}
                 </div>
