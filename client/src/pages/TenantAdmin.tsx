@@ -1738,7 +1738,8 @@ export default function TenantAdmin() {
 
         {/* Integrations Tab */}
         <TabsContent value="integrations" className="space-y-6">
-        {/* Consultant Access Management */}
+        {/* Consultant Access Management - Only visible to platform admins */}
+        {(['vega_admin', 'global_admin'].includes(currentUser?.role || '')) && (
         <div>
           <div className="mb-4">
             <h2 className="text-lg md:text-xl font-semibold">Consultant Access</h2>
@@ -1747,7 +1748,7 @@ export default function TenantAdmin() {
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {tenants.map((tenant) => (
+            {filteredTenants.map((tenant) => (
               <ConsultantAccessCard 
                 key={tenant.id} 
                 tenant={tenant} 
@@ -1759,6 +1760,7 @@ export default function TenantAdmin() {
             ))}
           </div>
         </div>
+        )}
 
         {/* Microsoft 365 Integration */}
         <div>
@@ -1772,7 +1774,7 @@ export default function TenantAdmin() {
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <ShieldCheck className="h-5 w-5 text-primary" />
-                Multi-Tenant Admin Consent
+                Admin Consent
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -1782,7 +1784,7 @@ export default function TenantAdmin() {
               </p>
               
               <div className="space-y-3">
-                {tenants.map((tenant) => {
+                {filteredTenants.map((tenant) => {
                   const hasConsent = (tenant as any).adminConsentGranted;
                   const consentDate = (tenant as any).adminConsentGrantedAt;
                   
