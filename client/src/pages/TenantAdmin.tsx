@@ -1735,14 +1735,13 @@ export default function TenantAdmin() {
               )}
             </CardContent>
           </Card>
-        </div>
 
-        {/* Team Management Section */}
-        <TeamManagementSection tenants={tenants} users={users} />
-      </TabsContent>
+          {/* Team Management Section */}
+          <TeamManagementSection tenants={tenants} users={users} />
+        </TabsContent>
 
-      {/* Integrations Tab */}
-      <TabsContent value="integrations" className="space-y-6">
+        {/* Integrations Tab */}
+        <TabsContent value="integrations" className="space-y-6">
         {/* Consultant Access Management */}
         <div>
           <div className="mb-4">
@@ -1894,8 +1893,8 @@ export default function TenantAdmin() {
       </TabsContent>
     </Tabs>
 
-      <Dialog open={tenantDialogOpen} onOpenChange={setTenantDialogOpen}>
-        <DialogContent data-testid="dialog-tenant-form">
+    <Dialog open={tenantDialogOpen} onOpenChange={setTenantDialogOpen}>
+      <DialogContent data-testid="dialog-tenant-form">
           <DialogHeader>
             <DialogTitle>
               {editingTenant ? "Edit Organization" : "Create New Organization"}
