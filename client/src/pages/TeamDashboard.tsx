@@ -391,7 +391,8 @@ function TeamDashboardContent() {
     return strategies.filter((s) => linkedStrategyIds.has(s.id));
   }, [strategies, objectives]);
 
-  const annualGoals = foundation?.annualGoals as string[] | undefined;
+  // Annual goals can be either strings (legacy) or objects with {title, year, description}
+  const annualGoals = foundation?.annualGoals as Array<string | { title: string; year?: number; description?: string }> | undefined;
 
   // Helper function to open check-in dialog
   const openCheckInDialog = (kr: KeyResult) => {
@@ -576,16 +577,19 @@ function TeamDashboardContent() {
             </Link>
           </div>
           <div className="flex flex-wrap gap-2">
-            {annualGoals.map((goal, index) => (
-              <Badge 
-                key={index} 
-                variant="outline" 
-                className="py-1.5 px-3 text-sm"
-                data-testid={`badge-goal-${index}`}
-              >
-                {goal}
-              </Badge>
-            ))}
+            {annualGoals.map((goal, index) => {
+              const goalTitle = typeof goal === 'string' ? goal : goal.title;
+              return (
+                <Badge 
+                  key={index} 
+                  variant="outline" 
+                  className="py-1.5 px-3 text-sm"
+                  data-testid={`badge-goal-${index}`}
+                >
+                  {goalTitle}
+                </Badge>
+              );
+            })}
           </div>
         </div>
       )}
