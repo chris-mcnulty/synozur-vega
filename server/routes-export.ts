@@ -346,15 +346,19 @@ router.get("/strategic-alignment", requireAuth, async (req: Request, res: Respon
       return res.status(403).json({ error: "No tenant access" });
     }
 
+    // Use x-tenant-id header for tenant switching support (consultants/admins)
+    const headerTenantId = req.headers['x-tenant-id'] as string | undefined;
+    const effectiveTenantId = headerTenantId || user.tenantId;
+
     const year = req.query.year ? parseInt(req.query.year as string) : undefined;
     const quarter = req.query.quarter ? parseInt(req.query.quarter as string) : undefined;
 
     const [foundation, strategies, objectives, keyResults, bigRocks] = await Promise.all([
-      storage.getFoundationByTenantId(user.tenantId),
-      storage.getStrategiesByTenantId(user.tenantId),
-      storage.getObjectivesByTenantId(user.tenantId, quarter, year),
-      storage.getKeyResultsByTenantId(user.tenantId),
-      storage.getBigRocksByTenantId(user.tenantId, quarter, year),
+      storage.getFoundationByTenantId(effectiveTenantId),
+      storage.getStrategiesByTenantId(effectiveTenantId),
+      storage.getObjectivesByTenantId(effectiveTenantId, quarter, year),
+      storage.getKeyResultsByTenantId(effectiveTenantId),
+      storage.getBigRocksByTenantId(effectiveTenantId, quarter, year),
     ]);
 
     const objectiveIds = new Set(objectives.map(o => o.id));

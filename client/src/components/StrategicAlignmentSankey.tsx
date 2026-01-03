@@ -77,7 +77,12 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
         year: String(year),
         ...(quarter && { quarter: String(quarter) }),
       });
-      const res = await fetch(`/api/export/strategic-alignment?${params}`);
+      const res = await fetch(`/api/export/strategic-alignment?${params}`, {
+        headers: {
+          "x-tenant-id": currentTenant.id,
+        },
+        credentials: "include",
+      });
       if (!res.ok) throw new Error("Failed to fetch alignment data");
       return res.json();
     },
