@@ -1,6 +1,6 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.23/MicrosoftTeams.schema.json",
-  "manifestVersion": "1.23",
+  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.19",
   "version": "1.0.0",
   "id": "3e36a6b7-437c-4276-b0f0-34d812d0b3f6",
   "developer": {
@@ -19,8 +19,8 @@
     "full": "Vega is your AI-powered Company Operating System assistant. Ask about objectives, key results, big rocks, meetings, and company strategy. Vega helps you stay aligned with your organization's goals and track progress on what matters most."
   },
   "icons": {
-    "color": "color-icon.png",
-    "outline": "outline-icon.png"
+    "color": "color.png",
+    "outline": "outline.png"
   },
   "accentColor": "#810FFB",
   "copilotAgents": {
