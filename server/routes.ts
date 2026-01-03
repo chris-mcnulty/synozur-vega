@@ -1260,6 +1260,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      // Backfill missing years in annualGoals for legacy data
+      // Goals without years are assigned the previous year
+      const currentYear = new Date().getFullYear();
+      const defaultYear = currentYear - 1;
+      
+      if (foundation.annualGoals && Array.isArray(foundation.annualGoals)) {
+        const migratedGoals = foundation.annualGoals.map((goal: any) => {
+          if (typeof goal === 'string') {
+            // Legacy string format - convert to object with default year
+            return { title: goal, year: defaultYear, description: '' };
+          }
+          if (!goal.year || typeof goal.year !== 'number' || goal.year < 2000 || goal.year > 2100) {
+            // Missing or invalid year - assign default
+            return { ...goal, year: defaultYear };
+          }
+          return goal;
+        });
+        
+        // Return foundation with migrated goals
+        return res.json({
+          ...foundation,
+          annualGoals: migratedGoals
+        });
+      }
+      
       res.json(foundation);
     } catch (error) {
       console.error("Error fetching foundation:", error);
