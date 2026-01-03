@@ -2,9 +2,10 @@
   "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
   "manifestVersion": "1.20",
   "version": "1.0.0",
-  "id": "e8b5f3a2-7c91-4d6e-b8a3-2f1e9c0d5a4b",
+  "id": "3e36a6b7-437c-4276-b0f0-34d812d0b3f6",
   "developer": {
     "name": "Synozur",
+    "mpnId": "6711413",
     "websiteUrl": "https://www.synozur.com",
     "privacyUrl": "https://www.synozur.com/privacy",
     "termsOfUseUrl": "https://www.synozur.com/terms"
@@ -38,4 +39,3 @@
     "vega.synozur.com"
   ]
 }
-zip
