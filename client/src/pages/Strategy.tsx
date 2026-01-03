@@ -919,7 +919,7 @@ export default function Strategy() {
               <div className="flex items-center justify-between flex-wrap gap-2">
                 <div>
                   <strong className="text-amber-800 dark:text-amber-200">
-                    {unlinkedGoals.length} Annual {unlinkedGoals.length === 1 ? t('goal', 'singular') : t('goal', 'plural')} {unlinkedGoals.length === 1 ? 'has' : 'have'} no aligned strategies:
+                    {unlinkedGoals.length} {unlinkedGoals.length === 1 ? t('goal', 'singular') : t('goal', 'plural')} {unlinkedGoals.length === 1 ? 'has' : 'have'} no aligned {t('strategy', 'plural').toLowerCase()}:
                   </strong>
                 </div>
                 <Button
@@ -946,7 +946,7 @@ export default function Strategy() {
                 ))}
               </div>
               <p className="text-sm text-amber-700 dark:text-amber-300">
-                Edit a strategy below and link it to one of these goals, or create a new strategy.
+                Edit a {t('strategy', 'singular').toLowerCase()} below and link it to one of these {t('goal', 'plural').toLowerCase()}, or create a new {t('strategy', 'singular').toLowerCase()}.
               </p>
             </AlertDescription>
           </Alert>
