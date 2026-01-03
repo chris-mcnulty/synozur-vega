@@ -528,24 +528,16 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
     const existingObjectiveTitles = new Set(existingObjectives.map((o: any) => normalizeTitle(o.title)));
     const existingBigRockTitles = new Set(existingBigRocks.map((b: any) => normalizeTitle(b.title)));
 
-    // Foundation updates (mission, vision, values) - only if approved
+    // Foundation updates (mission, vision, values, goals) - combined to avoid overwriting
     const existingFoundation = await storage.getFoundationByTenantId(session.tenantId);
     const shouldUpdateMission = approveMission && proposal.mission;
     const shouldUpdateVision = approveVision && proposal.vision;
     const shouldUpdateValues = approveValues && proposal.values && proposal.values.length > 0;
     
-    if (shouldUpdateMission || shouldUpdateVision || shouldUpdateValues) {
-      const foundationData: any = {
-        tenantId: session.tenantId,
-        mission: shouldUpdateMission ? proposal.mission : (existingFoundation?.mission || ""),
-        vision: shouldUpdateVision ? proposal.vision : (existingFoundation?.vision || ""),
-        values: shouldUpdateValues ? proposal.values : (existingFoundation?.values || []),
-      };
-
-      await storage.upsertFoundation(foundationData);
-      createdEntities.foundation = true;
-      if (shouldUpdateValues) createdEntities.values = proposal.values?.length || 0;
-    }
+    // Track the values we'll use (either new from proposal or existing)
+    const newMission = shouldUpdateMission ? proposal.mission : (existingFoundation?.mission || "");
+    const newVision = shouldUpdateVision ? proposal.vision : (existingFoundation?.vision || "");
+    const newValues = shouldUpdateValues ? proposal.values : (existingFoundation?.values || []);
     
     // Track skipped sections
     if (!approveMission && proposal.mission) createdEntities.skipped.push('mission');
@@ -553,6 +545,7 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
     if (!approveValues && proposal.values?.length) createdEntities.skipped.push('values');
 
     // Goals - only if approved
+    let newAnnualGoals = existingFoundation?.annualGoals || [];
     if (approveGoals && proposal.goals && proposal.goals.length > 0) {
       const existingAnnualGoals = existingFoundation?.annualGoals || [];
       // Handle both old string[] format and new AnnualGoal[] format for backwards compatibility
@@ -560,7 +553,7 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
       
       // Create AnnualGoal objects with year from session.targetYear
       const targetYear = session.targetYear;
-      const newGoals = proposal.goals
+      const goalsToAdd = proposal.goals
         .map((g: any) => {
           let title = typeof g === 'string' ? g : g.title || "";
           const description = typeof g === 'string' ? "" : g.description || "";
@@ -580,24 +573,31 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
         })
         .filter((goal: any) => !existingGoalTitles.has(normalizeTitle(goal.title)));
 
-      if (newGoals.length > 0) {
+      if (goalsToAdd.length > 0) {
         // Migrate old string goals to new format if needed
         const migratedExistingGoals = existingAnnualGoals.map(g => 
           typeof g === 'string' ? { title: g, year: targetYear - 1 } : g
         );
-        
-        await storage.upsertFoundation({
-          tenantId: session.tenantId,
-          mission: existingFoundation?.mission || "",
-          vision: existingFoundation?.vision || "",
-          values: existingFoundation?.values || [],
-          annualGoals: [...migratedExistingGoals, ...newGoals],
-        });
-        createdEntities.goals = newGoals.length;
+        newAnnualGoals = [...migratedExistingGoals, ...goalsToAdd];
+        createdEntities.goals = goalsToAdd.length;
       }
-      createdEntities.duplicatesSkipped += proposal.goals.length - newGoals.length;
+      createdEntities.duplicatesSkipped += proposal.goals.length - goalsToAdd.length;
     } else if (!approveGoals && proposal.goals?.length) {
       createdEntities.skipped.push('goals');
+    }
+    
+    // Single upsert for all foundation fields to avoid overwriting
+    const shouldUpdateFoundation = shouldUpdateMission || shouldUpdateVision || shouldUpdateValues || createdEntities.goals > 0;
+    if (shouldUpdateFoundation) {
+      await storage.upsertFoundation({
+        tenantId: session.tenantId,
+        mission: newMission,
+        vision: newVision,
+        values: newValues,
+        annualGoals: newAnnualGoals,
+      });
+      createdEntities.foundation = true;
+      if (shouldUpdateValues) createdEntities.values = proposal.values?.length || 0;
     }
 
     // Strategies - only if approved (with deduplication)
