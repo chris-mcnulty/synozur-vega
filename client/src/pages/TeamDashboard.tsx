@@ -113,6 +113,7 @@ const currentYear = new Date().getFullYear();
 const quarters: Quarter[] = [
   ...generateQuarters(currentYear),
   ...generateQuarters(currentYear - 1),
+  ...generateQuarters(currentYear - 2),
 ];
 
 // Storage keys are scoped by tenant to prevent cross-tenant team ID conflicts
@@ -205,12 +206,30 @@ function TeamDashboardContent() {
   const [selectedQuarter, setSelectedQuarter] = useState(savedQuarter || defaultQuarterId);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(savedTeam);
   
+  // Update selected quarter when tenant loads with its default time period
+  useEffect(() => {
+    if (currentTenant && !tenantLoading) {
+      const storedQuarter = storageKeys ? localStorage.getItem(storageKeys.QUARTER) : null;
+      // If no stored quarter, use tenant default time period
+      if (!storedQuarter) {
+        const tenantTimePeriod = currentTenant.defaultTimePeriod as { mode?: string; year?: number; quarter?: number } | null;
+        if (tenantTimePeriod?.mode === 'specific' && tenantTimePeriod.year && tenantTimePeriod.quarter) {
+          const tenantQuarterId = `q${tenantTimePeriod.quarter}-${tenantTimePeriod.year}`;
+          // Only update if different from current selection
+          if (selectedQuarter !== tenantQuarterId) {
+            setSelectedQuarter(tenantQuarterId);
+          }
+        }
+      }
+    }
+  }, [currentTenant, tenantLoading, storageKeys]);
+  
   // Update state when tenant loads and we have saved values
   useEffect(() => {
     if (storageKeys) {
       const storedQuarter = localStorage.getItem(storageKeys.QUARTER);
       const storedTeam = localStorage.getItem(storageKeys.TEAM);
-      if (storedQuarter && !selectedQuarter) {
+      if (storedQuarter) {
         setSelectedQuarter(storedQuarter);
       }
       if (storedTeam && !selectedTeamId) {
