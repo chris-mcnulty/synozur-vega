@@ -4,7 +4,7 @@ This folder contains the manifests required to deploy Vega as a Microsoft 365 Co
 
 ## Files
 
-- `manifest.json` - Teams app manifest (v1.17) that packages the Copilot agent
+- `manifest.json` - Teams app manifest (v1.23) that packages the Copilot agent
 - `declarative-agent.json` - Declarative agent manifest (v1.2) defining behavior and instructions
 - `vega-api-plugin.json` - API plugin manifest (v2.2) connecting to Vega's OpenAPI spec
 - `color.png` - Color icon (192x192 pixels, PNG format)
@@ -149,8 +149,8 @@ Users can start conversations with:
 
 **App not recognized in Teams App Center:**
 1. Verify manifest version compatibility:
-   - Use `manifestVersion: "1.17"` (minimum required for Copilot agents)
-   - Schema URL must match: `https://developer.microsoft.com/json-schemas/teams/v1.17/MicrosoftTeams.schema.json`
+   - Use `manifestVersion: "1.23"` (latest version with full Copilot agent support)
+   - Schema URL must match: `https://developer.microsoft.com/json-schemas/teams/v1.23/MicrosoftTeams.schema.json`
 2. Check icon requirements:
    - Color icon: exactly 192x192 pixels, PNG format
    - Outline icon: exactly 32x32 pixels, PNG format, white with transparency
