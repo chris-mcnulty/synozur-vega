@@ -912,6 +912,10 @@ export default function PlanningEnhanced() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/key-results`] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`] });
+      setSelectedObjective(null);
       toast({ title: "Success", description: "Objective deleted successfully" });
     },
     onError: () => {
