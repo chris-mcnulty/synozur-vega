@@ -5,7 +5,7 @@ This folder contains the manifests required to deploy Vega as a Microsoft 365 Co
 ## Files
 
 - `manifest.json` - Teams app manifest (v1.23) that packages the Copilot agent
-- `declarative-agent.json` - Declarative agent manifest (v1.2) defining behavior and instructions
+- `declarative-agent.json` - Declarative agent manifest (v1.6) defining behavior and instructions
 - `vega-api-plugin.json` - API plugin manifest (v2.2) connecting to Vega's OpenAPI spec
 - `color.png` - Color icon (192x192 pixels, PNG format)
 - `outline.png` - Outline icon (32x32 pixels, PNG format)
@@ -159,7 +159,7 @@ Users can start conversations with:
    - Use Teams Developer Portal validation tool
    - Ensure ZIP contains exactly: manifest.json, declarative-agent.json, vega-api-plugin.json, color.png, outline.png
 4. Check declarative agent schema:
-   - Use schema version v1.2: `https://developer.microsoft.com/json-schemas/copilot/declarative-agent/v1.2/schema.json`
+   - Use schema version v1.6: `https://developer.microsoft.com/json-schemas/copilot/declarative-agent/v1.6/schema.json`
 
 **401 Unauthorized errors:**
 - Verify OAuth connection is configured correctly in Teams Developer Portal
