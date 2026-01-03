@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Component, type ErrorInfo, type ReactNode } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +39,7 @@ import {
   Edit3,
   History,
   Flag,
+  RefreshCw,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useTenant } from "@/contexts/TenantContext";
@@ -49,6 +50,55 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCurrentQuarter, generateQuarters } from "@/lib/fiscal-utils";
 import { format } from "date-fns";
 import type { Objective, KeyResult, BigRock, Strategy, Team, Foundation, CheckIn } from "@shared/schema";
+
+// Error Boundary for Team Dashboard
+class TeamDashboardErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: { children: ReactNode }) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error("TeamDashboard Error:", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="max-w-7xl mx-auto space-y-6 p-4">
+          <Card className="border-destructive">
+            <CardContent className="pt-6">
+              <div className="flex flex-col items-center justify-center py-12 text-center">
+                <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+                <h3 className="text-lg font-medium mb-2">Something went wrong</h3>
+                <p className="text-muted-foreground max-w-md mb-4">
+                  There was an error loading Team Mode. Please try refreshing the page.
+                </p>
+                <Button onClick={() => window.location.reload()}>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Refresh Page
+                </Button>
+                {this.state.error && (
+                  <p className="text-xs text-muted-foreground mt-4 font-mono">
+                    {this.state.error.message}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 type Quarter = {
   id: string;
@@ -106,7 +156,7 @@ function getProgressColor(progress: number) {
   return 'bg-red-500';
 }
 
-export default function TeamDashboard() {
+function TeamDashboardContent() {
   const { currentTenant, isLoading: tenantLoading } = useTenant();
   const { user } = useAuth();
   const { t } = useVocabulary();
@@ -951,5 +1001,13 @@ export default function TeamDashboard() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+export default function TeamDashboard() {
+  return (
+    <TeamDashboardErrorBoundary>
+      <TeamDashboardContent />
+    </TeamDashboardErrorBoundary>
   );
 }

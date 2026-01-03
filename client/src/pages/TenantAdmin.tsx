@@ -507,11 +507,13 @@ function TeamManagementSection({
 function ConsultantAccessCard({ 
   tenant, 
   onOpenGrantDialog, 
-  onRevokeAccess 
+  onRevokeAccess,
+  readOnly = false
 }: { 
   tenant: Tenant; 
   onOpenGrantDialog: (tenant: Tenant) => void;
   onRevokeAccess: (userId: string) => void;
+  readOnly?: boolean;
 }) {
   const { data: grants = [], isLoading } = useQuery<ConsultantAccessGrant[]>({
     queryKey: ["/api/consultant-access/tenant", tenant.id],
@@ -528,22 +530,24 @@ function ConsultantAccessCard({
             />
             <CardTitle className="text-base">{tenant.name}</CardTitle>
           </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => onOpenGrantDialog(tenant)}
-            data-testid={`button-grant-access-${tenant.id}`}
-          >
-            <UserPlus className="h-3 w-3 mr-1" />
-            Grant Access
-          </Button>
+          {!readOnly && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onOpenGrantDialog(tenant)}
+              data-testid={`button-grant-access-${tenant.id}`}
+            >
+              <UserPlus className="h-3 w-3 mr-1" />
+              Grant Access
+            </Button>
+          )}
         </div>
       </CardHeader>
       <CardContent className="pt-0">
         {isLoading ? (
           <p className="text-sm text-muted-foreground">Loading...</p>
         ) : grants.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No consultants have access</p>
+          <p className="text-sm text-muted-foreground">No external users have access</p>
         ) : (
           <div className="space-y-2">
             {grants.map((grant) => (
@@ -561,21 +565,28 @@ function ConsultantAccessCard({
                     </p>
                   )}
                 </div>
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => {
-                    if (confirm(`Revoke access for ${grant.consultantEmail}?`)) {
-                      onRevokeAccess(grant.consultantUserId);
-                    }
-                  }}
-                  data-testid={`button-revoke-${grant.id}`}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
+                {!readOnly && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      if (confirm(`Revoke access for ${grant.consultantEmail}?`)) {
+                        onRevokeAccess(grant.consultantUserId);
+                      }
+                    }}
+                    data-testid={`button-revoke-${grant.id}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                )}
               </div>
             ))}
           </div>
+        )}
+        {readOnly && (
+          <p className="text-xs text-muted-foreground mt-3 pt-3 border-t">
+            To modify external user access, please contact support.
+          </p>
         )}
       </CardContent>
     </Card>
@@ -1738,13 +1749,14 @@ export default function TenantAdmin() {
 
         {/* Integrations Tab */}
         <TabsContent value="integrations" className="space-y-6">
-        {/* Consultant Access Management - Only visible to platform admins */}
-        {(['vega_admin', 'global_admin'].includes(currentUser?.role || '')) && (
+        {/* External User Access - Read-only for tenant admins, full control for platform admins */}
         <div>
           <div className="mb-4">
-            <h2 className="text-lg md:text-xl font-semibold">Consultant Access</h2>
+            <h2 className="text-lg md:text-xl font-semibold">External User Access</h2>
             <p className="text-sm text-muted-foreground">
-              Grant consultants access to specific organizations
+              {(['vega_admin', 'global_admin'].includes(currentUser?.role || ''))
+                ? 'Grant consultants access to specific organizations'
+                : 'View external users who have access to your organization'}
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1756,11 +1768,11 @@ export default function TenantAdmin() {
                 onRevokeAccess={(userId: string) => 
                   revokeConsultantAccessMutation.mutate({ userId, tenantId: tenant.id })
                 }
+                readOnly={!(['vega_admin', 'global_admin'].includes(currentUser?.role || ''))}
               />
             ))}
           </div>
         </div>
-        )}
 
         {/* Microsoft 365 Integration */}
         <div>
