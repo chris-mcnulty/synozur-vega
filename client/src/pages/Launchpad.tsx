@@ -677,7 +677,7 @@ export default function Launchpad() {
                     <p className="text-xs text-muted-foreground mb-2">Current Goals ({existingData.annualGoals.length}):</p>
                     <ul className="list-disc list-inside text-sm space-y-1">
                       {existingData.annualGoals.map((goal, i) => (
-                        <li key={i}>{goal}</li>
+                        <li key={i}>{typeof goal === 'string' ? goal : goal.title} {typeof goal !== 'string' && goal.year ? `(${goal.year})` : ''}</li>
                       ))}
                     </ul>
                   </div>

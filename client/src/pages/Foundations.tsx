@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -388,11 +388,9 @@ export default function Foundations() {
   const uniqueGoalYears = [...new Set(goals.map(g => g.year))].sort((a, b) => b - a);
   
   // Generate available years for selection (includes years from existing goals plus standard range)
-  const availableYears = useMemo(() => {
-    const yearsFromGoals = goals.map(g => g.year);
-    const standardYears = [currentYear + 1, currentYear, currentYear - 1, currentYear - 2, currentYear - 3];
-    return [...new Set([...yearsFromGoals, ...standardYears])].sort((a, b) => b - a);
-  }, [goals, currentYear]);
+  const yearsFromGoals = goals.map(g => g.year);
+  const standardYears = [currentYear + 1, currentYear, currentYear - 1, currentYear - 2, currentYear - 3];
+  const availableYears = [...new Set([...yearsFromGoals, ...standardYears])].sort((a, b) => b - a);
 
   const handleClearAll = () => {
     setMission("");

@@ -298,7 +298,7 @@ Return a JSON object with these fields:
   - level is "organization", "department", or "team"
   - keyResults is array of {title, metricType, targetValue, unit} - propose measurable key results
   - bigRocks is array of {title, description, priority} - major initiatives/projects
-- bigRocks: Top-level array of {title, description, priority, quarter} for standalone big rocks
+- bigRocks: Top-level array of {title, description, priority, quarter} for standalone big rocks. IMPORTANT: quarter must be an integer (1, 2, 3, or 4), NOT a string like "Q1"
 
 GUIDELINES:
 - Propose 3-6 high-impact objectives based on the document content
@@ -701,13 +701,22 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
           createdEntities.duplicatesSkipped++;
           continue;
         }
+        // Parse quarter - handle both integer (1-4) and string formats ("Q1", "1", etc.)
+        let brQuarter = (br as any).quarter;
+        if (typeof brQuarter === 'string') {
+          // Extract numeric part from strings like "Q1", "Q2", etc.
+          const match = brQuarter.match(/\d+/);
+          brQuarter = match ? parseInt(match[0]) : null;
+        }
+        const finalQuarter = (brQuarter && brQuarter >= 1 && brQuarter <= 4) ? brQuarter : effectiveBigRockQuarter;
+        
         await storage.createBigRock({
           tenantId: session.tenantId,
           title: br.title,
           description: br.description,
           priority: br.priority as any || "high",
           status: "not_started",
-          quarter: (br as any).quarter || effectiveBigRockQuarter,
+          quarter: finalQuarter,
           year: session.targetYear,
         });
         existingBigRockTitles.add(normalizeTitle(br.title));
