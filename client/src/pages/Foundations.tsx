@@ -182,6 +182,7 @@ export default function Foundations() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/foundations/${currentTenant?.id}`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/values/analytics/distribution'] });
       toast({
         title: "Changes Saved",
         description: "Your foundation elements have been updated successfully",
