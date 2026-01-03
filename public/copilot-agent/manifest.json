@@ -1,8 +1,12 @@
 {
-  "$schema": "https://developer.microsoft.com/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
-  "manifestVersion": "1.19",
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.20/MicrosoftTeams.schema.json",
   "version": "1.0.0",
-  "id": "3e36a6b7-437c-4276-b0f0-34d812d0b3f6",
+  "manifestVersion": "1.20",
+  "id": "6aeac29a-cb76-405b-b0c6-df4a1a368f62",
+  "name": {
+    "short": "Vega",
+    "full": "Vega Company OS Assistant"
+  },
   "developer": {
     "name": "Synozur",
     "mpnId": "6711413",
@@ -10,28 +14,24 @@
     "privacyUrl": "https://www.synozur.com/privacy",
     "termsOfUseUrl": "https://www.synozur.com/terms"
   },
-  "name": {
-    "short": "Vega",
-    "full": "Vega Company OS Assistant"
-  },
   "description": {
     "short": "AI assistant for OKRs and strategic planning",
     "full": "Vega is your AI-powered Company Operating System assistant. Ask about objectives, key results, big rocks, meetings, and company strategy. Vega helps you stay aligned with your organization's goals and track progress on what matters most."
   },
   "icons": {
-    "color": "color.png",
-    "outline": "outline.png"
+    "outline": "outline.png",
+    "color": "color.png"
   },
-  "accentColor": "#810FFB",
+  "accentColor": "#E60CB3",
+  "validDomains": [
+    "vega.synozur.com"
+  ],
   "copilotAgents": {
     "declarativeAgents": [
       {
-        "id": "vegaAssistant",
-        "file": "declarative-agent.json"
+        "file": "declarative-agent.json",
+        "id": "vegaAssistant"
       }
     ]
-  },
-  "validDomains": [
-    "vega.synozur.com"
-  ]
+  }
 }
