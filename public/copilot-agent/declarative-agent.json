@@ -38,7 +38,7 @@
   "actions": [
     {
       "id": "vegaApi",
-      "file": "vega-api-plugin.json"
+      "file": "https://vega.synozur.com/copilot-agent/vega-api-plugin.json"
     }
   ]
 }
