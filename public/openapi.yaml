@@ -17,8 +17,8 @@ info:
     email: support@synozur.com
 
 servers:
-  - url: /
-    description: Current server
+  - url: https://vega.synozur.com
+    description: Vega Production Server
 
 tags:
   - name: Authentication
