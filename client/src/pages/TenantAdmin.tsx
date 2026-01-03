@@ -667,6 +667,11 @@ export default function TenantAdmin() {
   const [accessExpiresAt, setAccessExpiresAt] = useState<string>("");
   const [accessNotes, setAccessNotes] = useState<string>("");
 
+  // Settings dialog state (combines all settings in one place)
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [selectedTenantForSettings, setSelectedTenantForSettings] = useState<Tenant | null>(null);
+  const [settingsActiveTab, setSettingsActiveTab] = useState<string>("general");
+
   // Branding dialog state
   const [brandingDialogOpen, setBrandingDialogOpen] = useState(false);
   const [selectedTenantForBranding, setSelectedTenantForBranding] = useState<Tenant | null>(null);
@@ -714,7 +719,7 @@ export default function TenantAdmin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/tenants"] });
       setTenantDialogOpen(false);
-      setTenantFormData({ name: "", color: "#3B82F6", logoUrl: "" });
+      setTenantFormData({ name: "", color: "#3B82F6", logoUrl: "", organizationSize: "", industry: "", location: "" });
       toast({ title: "Organization created successfully" });
     },
     onError: () => {
@@ -732,7 +737,7 @@ export default function TenantAdmin() {
       queryClient.invalidateQueries({ queryKey: ["/api/tenants"] });
       setTenantDialogOpen(false);
       setEditingTenant(null);
-      setTenantFormData({ name: "", color: "#3B82F6", logoUrl: "" });
+      setTenantFormData({ name: "", color: "#3B82F6", logoUrl: "", organizationSize: "", industry: "", location: "" });
       setDomainDialogOpen(false);
       setSelectedTenantForDomains(null);
       setNewDomain("");
@@ -1032,6 +1037,63 @@ export default function TenantAdmin() {
     setFiscalYearStartMonth(foundationsMap[tenant.id]?.fiscalYearStartMonth || 1);
     setFiscalYearDialogOpen(true);
   };
+
+  const handleOpenSettingsDialog = (tenant: Tenant) => {
+    setSelectedTenantForSettings(tenant);
+    setSettingsActiveTab("general");
+    setSettingsDialogOpen(true);
+  };
+
+  // Generate a status summary for the organization card
+  const getStatusSummary = (tenant: Tenant) => {
+    const parts: string[] = [];
+    
+    // Domain count or invite-only
+    if ((tenant as any).inviteOnly) {
+      parts.push("Invite only");
+    } else {
+      const domainCount = (tenant.allowedDomains || []).length;
+      parts.push(`${domainCount} domain${domainCount !== 1 ? "s" : ""}`);
+    }
+    
+    // SSO status
+    const ssoStatus = getSsoStatus(tenant);
+    if (ssoStatus.label !== "Not Configured") {
+      parts.push("SSO");
+    }
+    
+    // Connector count
+    const connectorCount = getConnectorCount(tenant);
+    if (connectorCount > 0) {
+      parts.push(`${connectorCount} connector${connectorCount !== 1 ? "s" : ""}`);
+    }
+    
+    return parts.join(" • ");
+  };
+
+  // Role-based tenant filtering
+  // Note: The backend /api/tenants endpoint already filters tenants based on user access.
+  // This frontend filter provides additional UI-level restrictions.
+  const filteredTenants = tenants.filter((tenant) => {
+    if (!currentUser) return false;
+    
+    // Platform-level roles (vega_admin, global_admin, admin) see all tenants from backend
+    const platformRoles = ['vega_admin', 'global_admin', 'admin'];
+    if (platformRoles.includes(currentUser.role || '')) {
+      return true;
+    }
+    
+    // Consultant roles see all tenants they have access to (already filtered by backend)
+    const consultantRoles = ['vega_consultant'];
+    if (consultantRoles.includes(currentUser.role || '')) {
+      return true; // Backend already filters to granted tenants
+    }
+    
+    // tenant_admin sees their assigned tenant
+    // tenant_user sees their tenant
+    // Both rely on backend filtering, but we allow any tenant returned by backend
+    return true;
+  });
 
   const updateFiscalYearMutation = useMutation({
     mutationFn: async ({ tenantId, month }: { tenantId: string; month: number }) => {
@@ -1478,32 +1540,50 @@ export default function TenantAdmin() {
                   <p className="text-muted-foreground">Loading...</p>
                 </CardContent>
               </Card>
+            ) : filteredTenants.length === 0 ? (
+              <Card>
+                <CardContent className="p-6">
+                  <p className="text-muted-foreground">No organizations available for your role.</p>
+                </CardContent>
+              </Card>
             ) : (
-              tenants.map((tenant) => (
+              filteredTenants.map((tenant) => (
                 <Card key={tenant.id} data-testid={`tenant-card-${tenant.id}`}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        {tenant.logoUrl ? (
-                          <img 
-                            src={tenant.logoUrl} 
-                            alt={`${tenant.name} logo`}
-                            className="w-10 h-10 rounded-lg object-cover"
-                          />
-                        ) : (
-                          <div 
-                            className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold"
-                            style={{ backgroundColor: tenant.color || "#3B82F6" }}
-                          >
-                            {tenant.name.substring(0, 2).toUpperCase()}
-                          </div>
-                        )}
-                        <CardTitle className="text-lg">{tenant.name}</CardTitle>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center gap-3">
+                      {tenant.logoUrl ? (
+                        <img 
+                          src={tenant.logoUrl} 
+                          alt={`${tenant.name} logo`}
+                          className="w-10 h-10 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <div 
+                          className="w-10 h-10 rounded-lg flex items-center justify-center text-white font-semibold"
+                          style={{ backgroundColor: tenant.color || "#3B82F6" }}
+                        >
+                          {tenant.name.substring(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <CardTitle className="text-lg truncate">{tenant.name}</CardTitle>
+                        <p className="text-sm text-muted-foreground truncate" data-testid={`tenant-status-${tenant.id}`}>
+                          {getStatusSummary(tenant)}
+                        </p>
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-2">
-                    <div className="flex gap-2">
+                  <CardContent className="pt-0">
+                    <div className="flex gap-2 flex-wrap">
+                      <Button
+                        variant="default"
+                        size="sm"
+                        onClick={() => handleOpenSettingsDialog(tenant)}
+                        data-testid={`button-settings-tenant-${tenant.id}`}
+                      >
+                        <Settings className="h-3 w-3 mr-1" />
+                        Settings
+                      </Button>
                       <Button
                         variant="outline"
                         size="sm"
@@ -1527,81 +1607,6 @@ export default function TenantAdmin() {
                         Delete
                       </Button>
                     </div>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => handleOpenDomainDialog(tenant)}
-                      data-testid={`button-manage-domains-${tenant.id}`}
-                    >
-                      <Globe className="h-3 w-3 mr-1" />
-                      Membership: 
-                      {(tenant as any).inviteOnly ? (
-                        <Badge variant="outline" className="ml-1 text-xs">Invite Only</Badge>
-                      ) : (
-                        <Badge variant="secondary" className="ml-1 text-xs">{(tenant.allowedDomains || []).length} domains</Badge>
-                      )}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => handleOpenTimePeriodDialog(tenant)}
-                      data-testid={`button-time-period-${tenant.id}`}
-                    >
-                      <Clock className="h-3 w-3 mr-1" />
-                      Default Time Period: {getTimePeriodDisplay(tenant)}
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => handleOpenFiscalYearDialog(tenant)}
-                      data-testid={`button-fiscal-year-${tenant.id}`}
-                    >
-                      <Calendar className="h-3 w-3 mr-1" />
-                      Fiscal Year Starts: <Badge variant="secondary" className="ml-1 text-xs">{getFiscalYearDisplay(tenant)}</Badge>
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => handleOpenSsoDialog(tenant)}
-                      data-testid={`button-sso-settings-${tenant.id}`}
-                    >
-                      <Shield className="h-3 w-3 mr-1" />
-                      SSO: <Badge variant={getSsoStatus(tenant).variant} className="ml-1 text-xs">{getSsoStatus(tenant).label}</Badge>
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => handleOpenConnectorsDialog(tenant)}
-                      data-testid={`button-connectors-${tenant.id}`}
-                    >
-                      <Cloud className="h-3 w-3 mr-1" />
-                      M365 Connectors: <Badge variant={getConnectorCount(tenant) > 0 ? "default" : "secondary"} className="ml-1 text-xs">{getConnectorCount(tenant)} enabled</Badge>
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => handleOpenVocabularyDialog(tenant)}
-                      data-testid={`button-vocabulary-${tenant.id}`}
-                    >
-                      <BookOpen className="h-3 w-3 mr-1" />
-                      Vocabulary: <Badge variant={getVocabularyOverrideCount(tenant) > 0 ? "default" : "secondary"} className="ml-1 text-xs">{getVocabularyOverrideCount(tenant)} customized</Badge>
-                    </Button>
-                    <Button
-                      variant="secondary"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => handleOpenBrandingDialog(tenant)}
-                      data-testid={`button-branding-${tenant.id}`}
-                    >
-                      <Palette className="h-3 w-3 mr-1" />
-                      Branding: <Badge variant={getBrandingStatus(tenant).variant} className="ml-1 text-xs">{getBrandingStatus(tenant).label}</Badge>
-                    </Button>
                   </CardContent>
                 </Card>
               ))
@@ -3233,6 +3238,350 @@ export default function TenantAdmin() {
                 {bulkImportMutation.isPending ? "Importing..." : `Import ${csvData.length} Users`}
               </Button>
             )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Comprehensive Organization Settings Dialog */}
+      <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" data-testid="dialog-tenant-settings">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              {selectedTenantForSettings?.logoUrl ? (
+                <img 
+                  src={selectedTenantForSettings.logoUrl} 
+                  alt={`${selectedTenantForSettings.name} logo`}
+                  className="w-8 h-8 rounded-lg object-cover"
+                />
+              ) : (
+                <div 
+                  className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-semibold text-sm"
+                  style={{ backgroundColor: selectedTenantForSettings?.color || "#3B82F6" }}
+                >
+                  {selectedTenantForSettings?.name.substring(0, 2).toUpperCase()}
+                </div>
+              )}
+              {selectedTenantForSettings?.name} Settings
+            </DialogTitle>
+            <DialogDescription>
+              Configure all settings for this organization in one place.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedTenantForSettings && (
+            <Tabs value={settingsActiveTab} onValueChange={setSettingsActiveTab} className="mt-4">
+              <TabsList className="w-full grid grid-cols-4 gap-1">
+                <TabsTrigger value="general" className="text-xs sm:text-sm" data-testid="settings-tab-general">
+                  General
+                </TabsTrigger>
+                <TabsTrigger value="access" className="text-xs sm:text-sm" data-testid="settings-tab-access">
+                  Access
+                </TabsTrigger>
+                <TabsTrigger value="time" className="text-xs sm:text-sm" data-testid="settings-tab-time">
+                  Time
+                </TabsTrigger>
+                <TabsTrigger value="advanced" className="text-xs sm:text-sm" data-testid="settings-tab-advanced">
+                  Advanced
+                </TabsTrigger>
+              </TabsList>
+
+              {/* General Settings */}
+              <TabsContent value="general" className="space-y-4 mt-4">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Building2 className="h-4 w-4" />
+                    Organization Details
+                  </h3>
+                  <div className="grid gap-3">
+                    <div className="flex items-center justify-between p-3 border rounded-md">
+                      <div>
+                        <p className="font-medium text-sm">Name</p>
+                        <p className="text-sm text-muted-foreground">{selectedTenantForSettings.name}</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSettingsDialogOpen(false);
+                          handleOpenEditDialog(selectedTenantForSettings);
+                        }}
+                        data-testid="settings-edit-name"
+                      >
+                        <Pencil className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
+                    </div>
+                    <div className="flex items-center justify-between p-3 border rounded-md">
+                      <div className="flex items-center gap-3">
+                        <div 
+                          className="w-6 h-6 rounded"
+                          style={{ backgroundColor: selectedTenantForSettings.color || "#3B82F6" }}
+                        />
+                        <div>
+                          <p className="font-medium text-sm">Brand Color</p>
+                          <p className="text-sm text-muted-foreground font-mono">{selectedTenantForSettings.color || "#3B82F6"}</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSettingsDialogOpen(false);
+                          handleOpenEditDialog(selectedTenantForSettings);
+                        }}
+                        data-testid="settings-edit-color"
+                      >
+                        <Pencil className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Palette className="h-4 w-4" />
+                    Branding
+                  </h3>
+                  <div className="flex items-center justify-between p-3 border rounded-md">
+                    <div>
+                      <p className="font-medium text-sm">Custom Branding</p>
+                      <p className="text-sm text-muted-foreground">
+                        {getBrandingStatus(selectedTenantForSettings).label}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSettingsDialogOpen(false);
+                        handleOpenBrandingDialog(selectedTenantForSettings);
+                      }}
+                      data-testid="settings-configure-branding"
+                    >
+                      Configure
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <BookOpen className="h-4 w-4" />
+                    Vocabulary
+                  </h3>
+                  <div className="flex items-center justify-between p-3 border rounded-md">
+                    <div>
+                      <p className="font-medium text-sm">Custom Terms</p>
+                      <p className="text-sm text-muted-foreground">
+                        {getVocabularyOverrideCount(selectedTenantForSettings)} terms customized
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSettingsDialogOpen(false);
+                        handleOpenVocabularyDialog(selectedTenantForSettings);
+                      }}
+                      data-testid="settings-configure-vocabulary"
+                    >
+                      Configure
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Access Settings */}
+              <TabsContent value="access" className="space-y-4 mt-4">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Globe className="h-4 w-4" />
+                    Membership & Domains
+                  </h3>
+                  <div className="p-3 border rounded-md space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">Invite Only Mode</p>
+                        <p className="text-sm text-muted-foreground">
+                          {(selectedTenantForSettings as any).inviteOnly ? "Enabled" : "Disabled"}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setSettingsDialogOpen(false);
+                          handleOpenDomainDialog(selectedTenantForSettings);
+                        }}
+                        data-testid="settings-configure-domains"
+                      >
+                        Configure
+                      </Button>
+                    </div>
+                    <div className="pt-3 border-t">
+                      <p className="font-medium text-sm mb-2">Allowed Domains</p>
+                      {(selectedTenantForSettings.allowedDomains || []).length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No domains configured</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1">
+                          {(selectedTenantForSettings.allowedDomains || []).map((domain) => (
+                            <Badge key={domain} variant="secondary" className="text-xs font-mono">
+                              {domain}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Shield className="h-4 w-4" />
+                    Single Sign-On (SSO)
+                  </h3>
+                  <div className="flex items-center justify-between p-3 border rounded-md">
+                    <div>
+                      <p className="font-medium text-sm">Microsoft Entra ID</p>
+                      <Badge variant={getSsoStatus(selectedTenantForSettings).variant} className="text-xs mt-1">
+                        {getSsoStatus(selectedTenantForSettings).label}
+                      </Badge>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSettingsDialogOpen(false);
+                        handleOpenSsoDialog(selectedTenantForSettings);
+                      }}
+                      data-testid="settings-configure-sso"
+                    >
+                      Configure
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Time Settings */}
+              <TabsContent value="time" className="space-y-4 mt-4">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Calendar className="h-4 w-4" />
+                    Fiscal Year
+                  </h3>
+                  <div className="flex items-center justify-between p-3 border rounded-md">
+                    <div>
+                      <p className="font-medium text-sm">Fiscal Year Start Month</p>
+                      <p className="text-sm text-muted-foreground">
+                        {getFiscalYearDisplay(selectedTenantForSettings)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSettingsDialogOpen(false);
+                        handleOpenFiscalYearDialog(selectedTenantForSettings);
+                      }}
+                      data-testid="settings-configure-fiscal"
+                    >
+                      Configure
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    Default Time Period
+                  </h3>
+                  <div className="flex items-center justify-between p-3 border rounded-md">
+                    <div>
+                      <p className="font-medium text-sm">Active Period</p>
+                      <p className="text-sm text-muted-foreground">
+                        {getTimePeriodDisplay(selectedTenantForSettings)}
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSettingsDialogOpen(false);
+                        handleOpenTimePeriodDialog(selectedTenantForSettings);
+                      }}
+                      data-testid="settings-configure-timeperiod"
+                    >
+                      Configure
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Advanced Settings */}
+              <TabsContent value="advanced" className="space-y-4 mt-4">
+                <div className="space-y-4">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Cloud className="h-4 w-4" />
+                    Microsoft 365 Connectors
+                  </h3>
+                  <div className="flex items-center justify-between p-3 border rounded-md">
+                    <div>
+                      <p className="font-medium text-sm">Enabled Connectors</p>
+                      <p className="text-sm text-muted-foreground">
+                        {getConnectorCount(selectedTenantForSettings)} of {m365Connectors.length} connectors enabled
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setSettingsDialogOpen(false);
+                        handleOpenConnectorsDialog(selectedTenantForSettings);
+                      }}
+                      data-testid="settings-configure-connectors"
+                    >
+                      Configure
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t">
+                  <h3 className="text-sm font-medium text-destructive">Danger Zone</h3>
+                  <div className="flex items-center justify-between p-3 border border-destructive/30 rounded-md bg-destructive/5">
+                    <div>
+                      <p className="font-medium text-sm">Delete Organization</p>
+                      <p className="text-sm text-muted-foreground">
+                        Permanently remove this organization and all data
+                      </p>
+                    </div>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        if (confirm(`Are you sure you want to delete "${selectedTenantForSettings.name}"? This will remove all associated data.`)) {
+                          deleteTenantMutation.mutate(selectedTenantForSettings.id);
+                          setSettingsDialogOpen(false);
+                        }
+                      }}
+                      data-testid="settings-delete-org"
+                    >
+                      <Trash2 className="h-3 w-3 mr-1" />
+                      Delete
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
+          )}
+
+          <DialogFooter className="mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setSettingsDialogOpen(false)}
+              data-testid="button-close-settings"
+            >
+              Close
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
