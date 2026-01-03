@@ -8,14 +8,32 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, BookOpen, Save, RotateCcw, Activity, BarChart3, Globe, Monitor, Smartphone, Tablet, Bot, Download, Users, Building2, Check, X, Megaphone, ExternalLink, Info } from "lucide-react";
+import { Shield, BookOpen, Save, RotateCcw, Activity, BarChart3, Globe, Monitor, Smartphone, Tablet, Bot, Download, Users, Building2, Check, X, Megaphone, ExternalLink, Info, CreditCard, Ban, Plus, Pencil } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import type { SystemBanner } from "@shared/schema";
+import type { SystemBanner, ServicePlan, BlockedDomain } from "@shared/schema";
 import { PlatformAIUsageWidget } from "@/components/AIUsageWidget";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { format, subDays } from "date-fns";
+import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 type VocabularyTerm = {
   singular: string;
@@ -168,6 +186,33 @@ export default function SystemAdmin() {
     endDate: format(new Date(), 'yyyy-MM-dd'),
   });
 
+  // Service Plans state
+  const [servicePlanDialogOpen, setServicePlanDialogOpen] = useState(false);
+  const [editingServicePlan, setEditingServicePlan] = useState<ServicePlan | null>(null);
+  const [servicePlanFormData, setServicePlanFormData] = useState({
+    name: "",
+    displayName: "",
+    durationDays: "",
+    maxReadWriteUsers: "",
+    maxReadOnlyUsers: "",
+    isDefault: false,
+  });
+
+  // Blocked Domains state
+  const [blockedDomainDialogOpen, setBlockedDomainDialogOpen] = useState(false);
+  const [blockedDomainFormData, setBlockedDomainFormData] = useState({
+    domain: "",
+    reason: "",
+  });
+
+  // Tenant Plan state
+  const [tenantPlanDialogOpen, setTenantPlanDialogOpen] = useState(false);
+  const [selectedTenantForPlan, setSelectedTenantForPlan] = useState<any>(null);
+  const [tenantPlanFormData, setTenantPlanFormData] = useState({
+    servicePlanId: "",
+    planExpiresAt: "",
+  });
+
   const userRole = user?.role;
   const hasAccess = userRole === 'vega_admin' || userRole === 'global_admin';
 
@@ -197,6 +242,24 @@ export default function SystemAdmin() {
     enabled: hasAccess,
   });
 
+  // Service Plans query
+  const { data: servicePlans = [] } = useQuery<ServicePlan[]>({
+    queryKey: ["/api/admin/service-plans"],
+    enabled: hasAccess,
+  });
+
+  // Blocked Domains query
+  const { data: blockedDomains = [] } = useQuery<BlockedDomain[]>({
+    queryKey: ["/api/admin/blocked-domains"],
+    enabled: hasAccess,
+  });
+
+  // Admin tenants query (for plan assignment)
+  const { data: adminTenants = [] } = useQuery<any[]>({
+    queryKey: ["/api/admin/tenants"],
+    enabled: hasAccess,
+  });
+
   useEffect(() => {
     if (systemVocabulary) {
       setVocabulary(systemVocabulary);
@@ -218,6 +281,75 @@ export default function SystemAdmin() {
         description: error.message || "An error occurred",
         variant: "destructive" 
       });
+    },
+  });
+
+  // Service Plan mutations
+  const createServicePlanMutation = useMutation({
+    mutationFn: (data: any) => apiRequest("POST", "/api/admin/service-plans", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/service-plans"] });
+      setServicePlanDialogOpen(false);
+      setServicePlanFormData({ name: "", displayName: "", durationDays: "", maxReadWriteUsers: "", maxReadOnlyUsers: "", isDefault: false });
+      toast({ title: "Service plan created" });
+    },
+    onError: () => {
+      toast({ title: "Failed to create service plan", variant: "destructive" });
+    },
+  });
+
+  const updateServicePlanMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest("PATCH", `/api/admin/service-plans/${id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/service-plans"] });
+      setServicePlanDialogOpen(false);
+      setEditingServicePlan(null);
+      setServicePlanFormData({ name: "", displayName: "", durationDays: "", maxReadWriteUsers: "", maxReadOnlyUsers: "", isDefault: false });
+      toast({ title: "Service plan updated" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update service plan", variant: "destructive" });
+    },
+  });
+
+  // Blocked Domain mutations
+  const blockDomainMutation = useMutation({
+    mutationFn: (data: { domain: string; reason?: string }) => apiRequest("POST", "/api/admin/blocked-domains", data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/blocked-domains"] });
+      setBlockedDomainDialogOpen(false);
+      setBlockedDomainFormData({ domain: "", reason: "" });
+      toast({ title: "Domain blocked" });
+    },
+    onError: (error: any) => {
+      const msg = error?.message?.includes("already blocked") ? "Domain is already blocked" : "Failed to block domain";
+      toast({ title: msg, variant: "destructive" });
+    },
+  });
+
+  const unblockDomainMutation = useMutation({
+    mutationFn: (domain: string) => apiRequest("DELETE", `/api/admin/blocked-domains/${encodeURIComponent(domain)}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/blocked-domains"] });
+      toast({ title: "Domain unblocked" });
+    },
+    onError: () => {
+      toast({ title: "Failed to unblock domain", variant: "destructive" });
+    },
+  });
+
+  // Tenant Plan mutation
+  const updateTenantPlanMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: any }) => apiRequest("PATCH", `/api/admin/tenants/${id}/plan`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/tenants"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tenants"] });
+      setTenantPlanDialogOpen(false);
+      setSelectedTenantForPlan(null);
+      toast({ title: "Tenant plan updated" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update tenant plan", variant: "destructive" });
     },
   });
 
@@ -375,23 +507,31 @@ export default function SystemAdmin() {
       </div>
 
       <Tabs defaultValue="vocabulary" className="space-y-4">
-        <div className="w-full overflow-x-auto">
-          <TabsList className="w-max min-w-full sm:w-auto">
+        <div className="w-full overflow-x-auto pb-1">
+          <TabsList className="w-max min-w-full sm:w-auto flex flex-wrap gap-1">
             <TabsTrigger value="vocabulary" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-vocabulary">
               <BookOpen className="h-4 w-4 shrink-0" />
               <span className="text-xs sm:text-sm">Vocab</span>
             </TabsTrigger>
             <TabsTrigger value="ai-usage" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-ai-usage">
               <Activity className="h-4 w-4 shrink-0" />
-              <span className="text-xs sm:text-sm">AI</span>
+              <span className="text-xs sm:text-sm">AI Usage</span>
+            </TabsTrigger>
+            <TabsTrigger value="plans" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-plans">
+              <CreditCard className="h-4 w-4 shrink-0" />
+              <span className="text-xs sm:text-sm">Plans</span>
+            </TabsTrigger>
+            <TabsTrigger value="security" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-security">
+              <Ban className="h-4 w-4 shrink-0" />
+              <span className="text-xs sm:text-sm">Security</span>
+            </TabsTrigger>
+            <TabsTrigger value="tenants" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-tenants">
+              <Building2 className="h-4 w-4 shrink-0" />
+              <span className="text-xs sm:text-sm">Tenants</span>
             </TabsTrigger>
             <TabsTrigger value="traffic" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-traffic">
               <BarChart3 className="h-4 w-4 shrink-0" />
               <span className="text-xs sm:text-sm">Traffic</span>
-            </TabsTrigger>
-            <TabsTrigger value="tenant-activity" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-tenant-activity">
-              <Building2 className="h-4 w-4 shrink-0" />
-              <span className="text-xs sm:text-sm">Tenants</span>
             </TabsTrigger>
             <TabsTrigger value="announcements" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-announcements">
               <Megaphone className="h-4 w-4 shrink-0" />
@@ -505,6 +645,398 @@ export default function SystemAdmin() {
                 <strong>Token Counting:</strong> For streaming responses, token counts are estimated 
                 (approximately 4 characters per token). Non-streaming calls provide exact counts.
               </p>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="plans" className="space-y-4">
+          <Card data-testid="service-plans-section">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <CreditCard className="h-5 w-5" />
+                  Service Plans
+                </CardTitle>
+                <CardDescription>
+                  Define subscription plans with user limits and duration for tenant licensing
+                </CardDescription>
+              </div>
+              <Button 
+                size="sm" 
+                onClick={() => {
+                  setEditingServicePlan(null);
+                  setServicePlanFormData({ name: "", displayName: "", durationDays: "", maxReadWriteUsers: "", maxReadOnlyUsers: "", isDefault: false });
+                  setServicePlanDialogOpen(true);
+                }}
+                data-testid="button-add-service-plan"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Add Plan
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {servicePlans.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No service plans defined yet. Create your first plan to enable tenant licensing.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Name</TableHead>
+                        <TableHead className="hidden sm:table-cell">Display Name</TableHead>
+                        <TableHead>Duration</TableHead>
+                        <TableHead className="hidden md:table-cell">R/W Users</TableHead>
+                        <TableHead className="hidden md:table-cell">Read-Only</TableHead>
+                        <TableHead>Default</TableHead>
+                        <TableHead className="w-[80px]">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {servicePlans.map((plan) => (
+                        <TableRow key={plan.id} data-testid={`row-plan-${plan.id}`}>
+                          <TableCell className="font-medium">{plan.name}</TableCell>
+                          <TableCell className="hidden sm:table-cell">{plan.displayName}</TableCell>
+                          <TableCell>{plan.durationDays ? `${plan.durationDays}d` : "∞"}</TableCell>
+                          <TableCell className="hidden md:table-cell">{plan.maxReadWriteUsers ?? "∞"}</TableCell>
+                          <TableCell className="hidden md:table-cell">{plan.maxReadOnlyUsers ?? "∞"}</TableCell>
+                          <TableCell>
+                            {plan.isDefault && <Badge variant="default">Default</Badge>}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setEditingServicePlan(plan);
+                                setServicePlanFormData({
+                                  name: plan.name,
+                                  displayName: plan.displayName,
+                                  durationDays: plan.durationDays?.toString() || "",
+                                  maxReadWriteUsers: plan.maxReadWriteUsers?.toString() || "",
+                                  maxReadOnlyUsers: plan.maxReadOnlyUsers?.toString() || "",
+                                  isDefault: plan.isDefault || false,
+                                });
+                                setServicePlanDialogOpen(true);
+                              }}
+                              data-testid={`button-edit-plan-${plan.id}`}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="security" className="space-y-4">
+          <Card data-testid="blocked-domains-section">
+            <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Ban className="h-5 w-5" />
+                  Blocked Domains
+                </CardTitle>
+                <CardDescription>
+                  Prevent specific email domains from creating self-service accounts
+                </CardDescription>
+              </div>
+              <Button 
+                size="sm" 
+                onClick={() => {
+                  setBlockedDomainFormData({ domain: "", reason: "" });
+                  setBlockedDomainDialogOpen(true);
+                }}
+                data-testid="button-add-blocked-domain"
+              >
+                <Plus className="h-4 w-4 mr-1" />
+                Block Domain
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {blockedDomains.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No blocked domains. All email domains can create self-service accounts.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Domain</TableHead>
+                        <TableHead className="hidden sm:table-cell">Reason</TableHead>
+                        <TableHead className="hidden md:table-cell">Blocked At</TableHead>
+                        <TableHead className="w-[80px]">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {blockedDomains.map((domain) => (
+                        <TableRow key={domain.domain} data-testid={`row-blocked-${domain.domain}`}>
+                          <TableCell className="font-mono text-sm">{domain.domain}</TableCell>
+                          <TableCell className="hidden sm:table-cell text-muted-foreground">{domain.reason || "-"}</TableCell>
+                          <TableCell className="hidden md:table-cell text-muted-foreground">
+                            {domain.blockedAt ? new Date(domain.blockedAt).toLocaleDateString() : "-"}
+                          </TableCell>
+                          <TableCell>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                if (confirm(`Unblock domain "${domain.domain}"?`)) {
+                                  unblockDomainMutation.mutate(domain.domain);
+                                }
+                              }}
+                              data-testid={`button-unblock-${domain.domain}`}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="tenants" className="space-y-4">
+          <Card data-testid="tenant-plans-section">
+            <CardHeader>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Tenant Service Plans
+              </CardTitle>
+              <CardDescription>
+                View and manage service plans assigned to each organization
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {adminTenants.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No tenants found.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Organization</TableHead>
+                        <TableHead>Plan</TableHead>
+                        <TableHead className="hidden sm:table-cell">Started</TableHead>
+                        <TableHead className="hidden md:table-cell">Expires</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead className="w-[80px]">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {adminTenants.map((tenant) => {
+                        const isExpired = tenant.planExpiresAt && new Date(tenant.planExpiresAt) < new Date();
+                        const daysLeft = tenant.planExpiresAt 
+                          ? Math.ceil((new Date(tenant.planExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                          : null;
+                        return (
+                          <TableRow key={tenant.id} data-testid={`row-tenant-plan-${tenant.id}`}>
+                            <TableCell>
+                              <div className="flex items-center gap-2">
+                                <div 
+                                  className="w-3 h-3 rounded-full shrink-0"
+                                  style={{ backgroundColor: tenant.color || '#6366F1' }}
+                                />
+                                <span className="font-medium truncate max-w-[120px] sm:max-w-none">{tenant.name}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={tenant.servicePlan ? "default" : "secondary"} className="text-xs">
+                                {tenant.servicePlan?.displayName || "No Plan"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="hidden sm:table-cell text-muted-foreground text-sm">
+                              {tenant.planStartedAt ? new Date(tenant.planStartedAt).toLocaleDateString() : "-"}
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell text-muted-foreground text-sm">
+                              {tenant.planExpiresAt ? new Date(tenant.planExpiresAt).toLocaleDateString() : "Never"}
+                            </TableCell>
+                            <TableCell>
+                              {isExpired ? (
+                                <Badge variant="destructive" className="text-xs">Expired</Badge>
+                              ) : daysLeft !== null && daysLeft <= 30 ? (
+                                <Badge variant="outline" className="text-xs text-amber-600 border-amber-600">
+                                  {daysLeft}d left
+                                </Badge>
+                              ) : (
+                                <Badge variant="outline" className="text-xs text-green-600 border-green-600">Active</Badge>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setSelectedTenantForPlan(tenant);
+                                  setTenantPlanFormData({
+                                    servicePlanId: tenant.servicePlanId || "none",
+                                    planExpiresAt: tenant.planExpiresAt ? new Date(tenant.planExpiresAt).toISOString().split('T')[0] : "",
+                                  });
+                                  setTenantPlanDialogOpen(true);
+                                }}
+                                data-testid={`button-edit-tenant-plan-${tenant.id}`}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Tenant Activity Report */}
+          <Card>
+            <CardHeader>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div>
+                  <CardTitle className="text-lg">Tenant Activity Report</CardTitle>
+                  <CardDescription>
+                    Monitor tenant usage, user activity, and Company OS element adoption
+                  </CardDescription>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportTenantActivityToCsv}
+                  disabled={!tenantActivity || tenantActivityLoading}
+                  data-testid="button-export-tenant-activity"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  <span className="hidden sm:inline">Export CSV</span>
+                  <span className="sm:hidden">CSV</span>
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {tenantActivityLoading ? (
+                <div className="flex items-center justify-center py-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : tenantActivity ? (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                    <Card>
+                      <CardContent className="pt-4 md:pt-6">
+                        <div className="flex items-center gap-2">
+                          <Building2 className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground shrink-0" />
+                          <div className="min-w-0">
+                            <div className="text-xl md:text-2xl font-bold">{tenantActivity.summary.totalTenants}</div>
+                            <p className="text-xs text-muted-foreground truncate">Tenants</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-4 md:pt-6">
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4 md:h-5 md:w-5 text-muted-foreground shrink-0" />
+                          <div className="min-w-0">
+                            <div className="text-xl md:text-2xl font-bold">{tenantActivity.summary.totalUsers}</div>
+                            <p className="text-xs text-muted-foreground truncate">Users</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-4 md:pt-6">
+                        <div className="flex items-center gap-2">
+                          <Activity className="h-4 w-4 md:h-5 md:w-5 text-green-500 shrink-0" />
+                          <div className="min-w-0">
+                            <div className="text-xl md:text-2xl font-bold">{tenantActivity.summary.activeUsersLast30Days}</div>
+                            <p className="text-xs text-muted-foreground truncate">Active (30d)</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                    <Card>
+                      <CardContent className="pt-4 md:pt-6">
+                        <div className="flex items-center gap-2">
+                          <X className="h-4 w-4 md:h-5 md:w-5 text-orange-500 shrink-0" />
+                          <div className="min-w-0">
+                            <div className="text-xl md:text-2xl font-bold">{tenantActivity.summary.inactiveTrialTenants}</div>
+                            <p className="text-xs text-muted-foreground truncate">Inactive Trials</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm" data-testid="table-tenant-activity">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left py-3 px-2 font-medium">Tenant</th>
+                          <th className="text-left py-3 px-2 font-medium hidden sm:table-cell">Plan</th>
+                          <th className="text-center py-3 px-2 font-medium">Users</th>
+                          <th className="text-center py-3 px-2 font-medium hidden md:table-cell">Active</th>
+                          <th className="text-center py-3 px-2 font-medium hidden lg:table-cell">M</th>
+                          <th className="text-center py-3 px-2 font-medium hidden lg:table-cell">V</th>
+                          <th className="text-center py-3 px-2 font-medium hidden xl:table-cell">Val</th>
+                          <th className="text-center py-3 px-2 font-medium hidden xl:table-cell">G</th>
+                          <th className="text-center py-3 px-2 font-medium hidden xl:table-cell">S</th>
+                          <th className="text-center py-3 px-2 font-medium">OKRs</th>
+                          <th className="text-left py-3 px-2 font-medium hidden md:table-cell">Last Active</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {tenantActivity.tenants.map((tenant) => (
+                          <tr key={tenant.id} className="border-b hover:bg-muted/50" data-testid={`row-tenant-${tenant.id}`}>
+                            <td className="py-3 px-2">
+                              <div className="max-w-[120px] sm:max-w-none">
+                                <div className="font-medium truncate">{tenant.name}</div>
+                                {tenant.selfServiceSignup && (
+                                  <span className="text-xs text-muted-foreground">Self-service</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-2 hidden sm:table-cell">
+                              <div>
+                                <div className="text-xs">{tenant.planName || 'No Plan'}</div>
+                                <span className={`text-xs ${tenant.planStatus === 'active' ? 'text-green-600' : 'text-orange-600'}`}>
+                                  {tenant.planStatus || 'N/A'}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-2 text-center">{tenant.totalUsers}</td>
+                            <td className="py-3 px-2 text-center hidden md:table-cell">
+                              <span className={tenant.activeUsersLast30Days > 0 ? 'text-green-600 font-medium' : 'text-muted-foreground'}>
+                                {tenant.activeUsersLast30Days}
+                              </span>
+                            </td>
+                            <td className="py-3 px-2 text-center hidden lg:table-cell">
+                              {tenant.elements.hasMission ? <Check className="h-4 w-4 text-green-500 mx-auto" /> : <X className="h-4 w-4 text-muted-foreground mx-auto" />}
+                            </td>
+                            <td className="py-3 px-2 text-center hidden lg:table-cell">
+                              {tenant.elements.hasVision ? <Check className="h-4 w-4 text-green-500 mx-auto" /> : <X className="h-4 w-4 text-muted-foreground mx-auto" />}
+                            </td>
+                            <td className="py-3 px-2 text-center hidden xl:table-cell">{tenant.elements.valuesCount}</td>
+                            <td className="py-3 px-2 text-center hidden xl:table-cell">{tenant.elements.goalsCount}</td>
+                            <td className="py-3 px-2 text-center hidden xl:table-cell">{tenant.elements.strategiesCount}</td>
+                            <td className="py-3 px-2 text-center">{tenant.elements.objectivesCount}</td>
+                            <td className="py-3 px-2 text-sm text-muted-foreground hidden md:table-cell">
+                              {tenant.lastActivityDate || 'Never'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-center py-12">No tenant activity data available</p>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -706,158 +1238,236 @@ export default function SystemAdmin() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="tenant-activity" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                  <CardTitle>Tenant Activity Report</CardTitle>
-                  <CardDescription>
-                    Monitor tenant usage, user activity, and Company OS element adoption across all organizations
-                  </CardDescription>
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={exportTenantActivityToCsv}
-                  disabled={!tenantActivity || tenantActivityLoading}
-                  data-testid="button-export-tenant-activity"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Export CSV
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {tenantActivityLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : tenantActivity ? (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-5 w-5 text-muted-foreground" />
-                          <div>
-                            <div className="text-2xl font-bold">{tenantActivity.summary.totalTenants}</div>
-                            <p className="text-xs text-muted-foreground">Total Tenants</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="flex items-center gap-2">
-                          <Users className="h-5 w-5 text-muted-foreground" />
-                          <div>
-                            <div className="text-2xl font-bold">{tenantActivity.summary.totalUsers}</div>
-                            <p className="text-xs text-muted-foreground">Total Users</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="flex items-center gap-2">
-                          <Activity className="h-5 w-5 text-green-500" />
-                          <div>
-                            <div className="text-2xl font-bold">{tenantActivity.summary.activeUsersLast30Days}</div>
-                            <p className="text-xs text-muted-foreground">Active (30 Days)</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="flex items-center gap-2">
-                          <X className="h-5 w-5 text-orange-500" />
-                          <div>
-                            <div className="text-2xl font-bold">{tenantActivity.summary.inactiveTrialTenants}</div>
-                            <p className="text-xs text-muted-foreground">Inactive Trials</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm" data-testid="table-tenant-activity">
-                      <thead>
-                        <tr className="border-b">
-                          <th className="text-left py-3 px-2 font-medium">Tenant</th>
-                          <th className="text-left py-3 px-2 font-medium">Plan</th>
-                          <th className="text-center py-3 px-2 font-medium">Users</th>
-                          <th className="text-center py-3 px-2 font-medium">Active</th>
-                          <th className="text-center py-3 px-2 font-medium">Mission</th>
-                          <th className="text-center py-3 px-2 font-medium">Vision</th>
-                          <th className="text-center py-3 px-2 font-medium">Values</th>
-                          <th className="text-center py-3 px-2 font-medium">Goals</th>
-                          <th className="text-center py-3 px-2 font-medium">Strategies</th>
-                          <th className="text-center py-3 px-2 font-medium">OKRs</th>
-                          <th className="text-center py-3 px-2 font-medium">KRs</th>
-                          <th className="text-center py-3 px-2 font-medium">Meetings</th>
-                          <th className="text-left py-3 px-2 font-medium">Last Activity</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tenantActivity.tenants.map((tenant) => (
-                          <tr key={tenant.id} className="border-b hover:bg-muted/50" data-testid={`row-tenant-${tenant.id}`}>
-                            <td className="py-3 px-2">
-                              <div>
-                                <div className="font-medium">{tenant.name}</div>
-                                {tenant.selfServiceSignup && (
-                                  <span className="text-xs text-muted-foreground">Self-service</span>
-                                )}
-                              </div>
-                            </td>
-                            <td className="py-3 px-2">
-                              <div>
-                                <div className="text-xs">{tenant.planName || 'No Plan'}</div>
-                                <span className={`text-xs ${tenant.planStatus === 'active' ? 'text-green-600' : 'text-orange-600'}`}>
-                                  {tenant.planStatus || 'N/A'}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-2 text-center">{tenant.totalUsers}</td>
-                            <td className="py-3 px-2 text-center">
-                              <span className={tenant.activeUsersLast30Days > 0 ? 'text-green-600 font-medium' : 'text-muted-foreground'}>
-                                {tenant.activeUsersLast30Days}
-                              </span>
-                            </td>
-                            <td className="py-3 px-2 text-center">
-                              {tenant.elements.hasMission ? <Check className="h-4 w-4 text-green-500 mx-auto" /> : <X className="h-4 w-4 text-muted-foreground mx-auto" />}
-                            </td>
-                            <td className="py-3 px-2 text-center">
-                              {tenant.elements.hasVision ? <Check className="h-4 w-4 text-green-500 mx-auto" /> : <X className="h-4 w-4 text-muted-foreground mx-auto" />}
-                            </td>
-                            <td className="py-3 px-2 text-center">{tenant.elements.valuesCount}</td>
-                            <td className="py-3 px-2 text-center">{tenant.elements.goalsCount}</td>
-                            <td className="py-3 px-2 text-center">{tenant.elements.strategiesCount}</td>
-                            <td className="py-3 px-2 text-center">{tenant.elements.objectivesCount}</td>
-                            <td className="py-3 px-2 text-center">{tenant.elements.keyResultsCount}</td>
-                            <td className="py-3 px-2 text-center">{tenant.elements.meetingsCount}</td>
-                            <td className="py-3 px-2 text-sm text-muted-foreground">
-                              {tenant.lastActivityDate || 'Never'}
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-muted-foreground text-center py-12">No tenant activity data available</p>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="announcements" className="space-y-4">
           <AnnouncementManager />
         </TabsContent>
       </Tabs>
+
+      {/* Service Plan Dialog */}
+      <Dialog open={servicePlanDialogOpen} onOpenChange={setServicePlanDialogOpen}>
+        <DialogContent data-testid="dialog-service-plan" className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>
+              {editingServicePlan ? "Edit Service Plan" : "Create Service Plan"}
+            </DialogTitle>
+            <DialogDescription>
+              Define a service plan with limits and duration.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="plan-name">Internal Name</Label>
+                <Input
+                  id="plan-name"
+                  placeholder="trial"
+                  value={servicePlanFormData.name}
+                  onChange={(e) => setServicePlanFormData({ ...servicePlanFormData, name: e.target.value })}
+                  data-testid="input-plan-name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="plan-display-name">Display Name</Label>
+                <Input
+                  id="plan-display-name"
+                  placeholder="Trial Plan"
+                  value={servicePlanFormData.displayName}
+                  onChange={(e) => setServicePlanFormData({ ...servicePlanFormData, displayName: e.target.value })}
+                  data-testid="input-plan-display-name"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="plan-duration">Duration (days)</Label>
+                <Input
+                  id="plan-duration"
+                  type="number"
+                  placeholder="60 (blank = ∞)"
+                  value={servicePlanFormData.durationDays}
+                  onChange={(e) => setServicePlanFormData({ ...servicePlanFormData, durationDays: e.target.value })}
+                  data-testid="input-plan-duration"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="plan-rw-users">Max R/W Users</Label>
+                <Input
+                  id="plan-rw-users"
+                  type="number"
+                  placeholder="blank = ∞"
+                  value={servicePlanFormData.maxReadWriteUsers}
+                  onChange={(e) => setServicePlanFormData({ ...servicePlanFormData, maxReadWriteUsers: e.target.value })}
+                  data-testid="input-plan-rw-users"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="plan-ro-users">Max Read-Only</Label>
+                <Input
+                  id="plan-ro-users"
+                  type="number"
+                  placeholder="blank = ∞"
+                  value={servicePlanFormData.maxReadOnlyUsers}
+                  onChange={(e) => setServicePlanFormData({ ...servicePlanFormData, maxReadOnlyUsers: e.target.value })}
+                  data-testid="input-plan-ro-users"
+                />
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="plan-is-default"
+                checked={servicePlanFormData.isDefault}
+                onCheckedChange={(checked) => setServicePlanFormData({ ...servicePlanFormData, isDefault: checked === true })}
+                data-testid="checkbox-plan-default"
+              />
+              <Label htmlFor="plan-is-default" className="text-sm font-normal cursor-pointer">
+                Set as default plan for new self-service signups
+              </Label>
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setServicePlanDialogOpen(false)} data-testid="button-cancel-plan" className="w-full sm:w-auto">
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                const data = {
+                  name: servicePlanFormData.name,
+                  displayName: servicePlanFormData.displayName,
+                  durationDays: servicePlanFormData.durationDays ? parseInt(servicePlanFormData.durationDays) : null,
+                  maxReadWriteUsers: servicePlanFormData.maxReadWriteUsers ? parseInt(servicePlanFormData.maxReadWriteUsers) : null,
+                  maxReadOnlyUsers: servicePlanFormData.maxReadOnlyUsers ? parseInt(servicePlanFormData.maxReadOnlyUsers) : null,
+                  isDefault: servicePlanFormData.isDefault,
+                };
+                if (editingServicePlan) {
+                  updateServicePlanMutation.mutate({ id: editingServicePlan.id, data });
+                } else {
+                  createServicePlanMutation.mutate(data);
+                }
+              }}
+              disabled={!servicePlanFormData.name || !servicePlanFormData.displayName || createServicePlanMutation.isPending || updateServicePlanMutation.isPending}
+              data-testid="button-save-plan"
+              className="w-full sm:w-auto"
+            >
+              {editingServicePlan ? "Update Plan" : "Create Plan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Blocked Domain Dialog */}
+      <Dialog open={blockedDomainDialogOpen} onOpenChange={setBlockedDomainDialogOpen}>
+        <DialogContent data-testid="dialog-block-domain">
+          <DialogHeader>
+            <DialogTitle>Block Domain</DialogTitle>
+            <DialogDescription>
+              Prevent users with this email domain from creating self-service accounts.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="block-domain">Domain</Label>
+              <Input
+                id="block-domain"
+                placeholder="example.com"
+                value={blockedDomainFormData.domain}
+                onChange={(e) => setBlockedDomainFormData({ ...blockedDomainFormData, domain: e.target.value })}
+                data-testid="input-block-domain"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="block-reason">Reason (optional)</Label>
+              <Input
+                id="block-reason"
+                placeholder="Reason for blocking this domain..."
+                value={blockedDomainFormData.reason}
+                onChange={(e) => setBlockedDomainFormData({ ...blockedDomainFormData, reason: e.target.value })}
+                data-testid="input-block-reason"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setBlockedDomainDialogOpen(false)} data-testid="button-cancel-block" className="w-full sm:w-auto">
+              Cancel
+            </Button>
+            <Button
+              onClick={() => blockDomainMutation.mutate({ domain: blockedDomainFormData.domain, reason: blockedDomainFormData.reason || undefined })}
+              disabled={!blockedDomainFormData.domain || blockDomainMutation.isPending}
+              data-testid="button-confirm-block"
+              className="w-full sm:w-auto"
+            >
+              Block Domain
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Tenant Plan Dialog */}
+      <Dialog open={tenantPlanDialogOpen} onOpenChange={setTenantPlanDialogOpen}>
+        <DialogContent data-testid="dialog-tenant-plan">
+          <DialogHeader>
+            <DialogTitle>
+              Update Plan - {selectedTenantForPlan?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Change the service plan and expiration date for this organization.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>Service Plan</Label>
+              <Select
+                value={tenantPlanFormData.servicePlanId}
+                onValueChange={(value) => setTenantPlanFormData({ ...tenantPlanFormData, servicePlanId: value })}
+              >
+                <SelectTrigger data-testid="select-tenant-plan">
+                  <SelectValue placeholder="Select a plan" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Plan</SelectItem>
+                  {servicePlans.map((plan) => (
+                    <SelectItem key={plan.id} value={plan.id}>
+                      {plan.displayName} {plan.isDefault && "(Default)"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="plan-expires-at">Expiration Date (blank = never expires)</Label>
+              <Input
+                id="plan-expires-at"
+                type="date"
+                value={tenantPlanFormData.planExpiresAt}
+                onChange={(e) => setTenantPlanFormData({ ...tenantPlanFormData, planExpiresAt: e.target.value })}
+                data-testid="input-plan-expires-at"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex-col sm:flex-row gap-2">
+            <Button variant="outline" onClick={() => setTenantPlanDialogOpen(false)} data-testid="button-cancel-tenant-plan" className="w-full sm:w-auto">
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedTenantForPlan) {
+                  updateTenantPlanMutation.mutate({
+                    id: selectedTenantForPlan.id,
+                    data: {
+                      servicePlanId: (!tenantPlanFormData.servicePlanId || tenantPlanFormData.servicePlanId === "none") ? null : tenantPlanFormData.servicePlanId,
+                      planExpiresAt: tenantPlanFormData.planExpiresAt || null,
+                    },
+                  });
+                }
+              }}
+              disabled={updateTenantPlanMutation.isPending}
+              data-testid="button-save-tenant-plan"
+              className="w-full sm:w-auto"
+            >
+              Update Plan
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
