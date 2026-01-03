@@ -607,6 +607,10 @@ export default function TenantAdmin() {
   const [timePeriodMode, setTimePeriodMode] = useState<'current' | 'specific'>('current');
   const [selectedQuarterValue, setSelectedQuarterValue] = useState(`${currentYear}-Q${getCurrentQuarter()}`);
 
+  const [fiscalYearDialogOpen, setFiscalYearDialogOpen] = useState(false);
+  const [selectedTenantForFiscal, setSelectedTenantForFiscal] = useState<Tenant | null>(null);
+  const [fiscalYearStartMonth, setFiscalYearStartMonth] = useState(1);
+
   const [userDialogOpen, setUserDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [userFormData, setUserFormData] = useState({
@@ -1112,6 +1116,56 @@ export default function TenantAdmin() {
     return `Q${defaultTime.quarter} ${defaultTime.year}`;
   };
 
+  const { data: foundationsMap = {} } = useQuery<Record<string, { fiscalYearStartMonth?: number }>>({
+    queryKey: ["/api/foundations-fiscal-map"],
+    queryFn: async () => {
+      const tenantIds = tenants.map(t => t.id);
+      const results: Record<string, { fiscalYearStartMonth?: number }> = {};
+      for (const tid of tenantIds) {
+        try {
+          const res = await fetch(`/api/foundations/${tid}`, { credentials: "include" });
+          if (res.ok) {
+            const data = await res.json();
+            results[tid] = { fiscalYearStartMonth: data.fiscalYearStartMonth || 1 };
+          }
+        } catch {}
+      }
+      return results;
+    },
+    enabled: tenants.length > 0,
+  });
+
+  const handleOpenFiscalYearDialog = (tenant: Tenant) => {
+    setSelectedTenantForFiscal(tenant);
+    setFiscalYearStartMonth(foundationsMap[tenant.id]?.fiscalYearStartMonth || 1);
+    setFiscalYearDialogOpen(true);
+  };
+
+  const updateFiscalYearMutation = useMutation({
+    mutationFn: async ({ tenantId, month }: { tenantId: string; month: number }) => {
+      await apiRequest("PATCH", `/api/foundations/${tenantId}`, { fiscalYearStartMonth: month });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/foundations-fiscal-map"] });
+      toast({ title: "Fiscal year updated", description: "The fiscal year start month has been saved." });
+      setFiscalYearDialogOpen(false);
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to update fiscal year setting.", variant: "destructive" });
+    },
+  });
+
+  const handleSaveFiscalYear = () => {
+    if (!selectedTenantForFiscal) return;
+    updateFiscalYearMutation.mutate({ tenantId: selectedTenantForFiscal.id, month: fiscalYearStartMonth });
+  };
+
+  const getFiscalYearDisplay = (tenant: Tenant) => {
+    const month = foundationsMap[tenant.id]?.fiscalYearStartMonth || 1;
+    const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    return months[month - 1];
+  };
+
   const handleOpenCreateUserDialog = () => {
     setEditingUser(null);
     setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false, userType: "client" });
@@ -1583,6 +1637,16 @@ export default function TenantAdmin() {
                     >
                       <Clock className="h-3 w-3 mr-1" />
                       Default Time Period: {getTimePeriodDisplay(tenant)}
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      className="w-full"
+                      onClick={() => handleOpenFiscalYearDialog(tenant)}
+                      data-testid={`button-fiscal-year-${tenant.id}`}
+                    >
+                      <Calendar className="h-3 w-3 mr-1" />
+                      Fiscal Year Starts: <Badge variant="secondary" className="ml-1 text-xs">{getFiscalYearDisplay(tenant)}</Badge>
                     </Button>
                     <Button
                       variant="secondary"
@@ -2519,6 +2583,59 @@ export default function TenantAdmin() {
               data-testid="button-save-time-period"
             >
               Save
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={fiscalYearDialogOpen} onOpenChange={setFiscalYearDialogOpen}>
+        <DialogContent data-testid="dialog-fiscal-year">
+          <DialogHeader>
+            <DialogTitle>
+              Fiscal Year Start Month - {selectedTenantForFiscal?.name}
+            </DialogTitle>
+            <DialogDescription>
+              Set the month when your organization's fiscal year begins. This affects how quarters are calculated throughout the platform.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <Select
+              value={String(fiscalYearStartMonth)}
+              onValueChange={(v) => setFiscalYearStartMonth(parseInt(v))}
+            >
+              <SelectTrigger className="w-full" data-testid="select-fiscal-year-start">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">January</SelectItem>
+                <SelectItem value="2">February</SelectItem>
+                <SelectItem value="3">March</SelectItem>
+                <SelectItem value="4">April</SelectItem>
+                <SelectItem value="5">May</SelectItem>
+                <SelectItem value="6">June</SelectItem>
+                <SelectItem value="7">July</SelectItem>
+                <SelectItem value="8">August</SelectItem>
+                <SelectItem value="9">September</SelectItem>
+                <SelectItem value="10">October</SelectItem>
+                <SelectItem value="11">November</SelectItem>
+                <SelectItem value="12">December</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setFiscalYearDialogOpen(false)}
+              data-testid="button-cancel-fiscal-year"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveFiscalYear}
+              disabled={updateFiscalYearMutation.isPending}
+              data-testid="button-save-fiscal-year"
+            >
+              {updateFiscalYearMutation.isPending ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>
