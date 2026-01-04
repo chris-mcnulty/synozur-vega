@@ -259,8 +259,17 @@ Return a JSON object with these fields:
     - metricType: "number", "percentage", "currency", "boolean", or "custom"
     - targetValue: The target number if applicable
     - unit: The unit of measurement if applicable
-  - bigRocks: Array of initiatives tied to this objective
+  - bigRocks: Array of major initiatives/projects tied to this objective
 - bigRocks: Top-level array for standalone big rocks not tied to objectives
+
+BIG ROCKS GUIDANCE:
+Big Rocks are major initiatives, projects, or milestones that drive progress toward objectives. Look for:
+- Projects, programs, or launches mentioned (e.g., "Launch loyalty program", "RFID rollout")
+- System implementations or upgrades mentioned
+- Major milestones or deliverables
+- Strategic initiatives or programs
+For each objective, identify 1-3 big rocks that represent the main work/projects to achieve it.
+Example: If an objective is "Grow e-commerce to 25% of sales", big rocks might be: "Implement BOPIS functionality", "Launch mobile app", "Redesign checkout flow"
 
 EXAMPLE - If document says:
 "IT Team Objectives:
@@ -297,13 +306,20 @@ Return a JSON object with these fields:
 - objectives: Array of {title, description, level, keyResults, bigRocks} where:
   - level is "organization", "department", or "team"
   - keyResults is array of {title, metricType, targetValue, unit} - propose measurable key results
-  - bigRocks is array of {title, description, priority} - major initiatives/projects
+  - bigRocks is array of {title, description, priority} - major initiatives/projects for THIS objective
 - bigRocks: Top-level array of {title, description, priority, quarter} for standalone big rocks. IMPORTANT: quarter must be an integer (1, 2, 3, or 4), NOT a string like "Q1"
+
+BIG ROCKS ARE REQUIRED:
+Big Rocks are the major initiatives, projects, and milestones that will drive progress. They are NOT optional.
+- For EACH objective, include 1-3 big rocks representing the key work to achieve it
+- Big rocks should be actionable projects like "Launch loyalty program", "Implement RFID system", "Redesign checkout flow"
+- Priority should be "high", "medium", or "low"
+- If the document mentions specific projects, use those; otherwise, infer logical initiatives from the objectives
 
 GUIDELINES:
 - Propose 3-6 high-impact objectives based on the document content
 - Each objective should have 2-4 measurable key results
-- Identify major projects or initiatives as Big Rocks
+- EACH objective MUST have 1-3 big rocks (major initiatives/projects)
 - Use specific, measurable language for key results
 - If a section is not present in the document, make reasonable inferences or return empty array
 
@@ -321,6 +337,7 @@ ${session.sourceDocumentText.substring(0, 45000)}
 
 CRITICAL: Extract EVERY objective and key result from this document - do not summarize or consolidate. 
 The document contains multiple team-level objectives (IT, Marketing, Sales, HR, Finance, etc.) - extract ALL of them as separate objectives.
+IMPORTANT: For each objective, also identify 1-3 Big Rocks (major initiatives/projects) that will drive progress. Look for projects, launches, implementations, or programs mentioned in the document. If none are explicitly stated, infer logical initiatives from the key results.
 Return valid JSON with all elements found.`;
 
     const inferenceUserPrompt = `Analyze this organizational document and generate a Company OS structure for the year ${session.targetYear}:
@@ -332,6 +349,7 @@ ${session.sourceDocumentText.substring(0, 45000)}
 ---
 
 Based on the content, propose appropriate objectives, key results, strategies, and initiatives.
+IMPORTANT: For each objective, include 1-3 Big Rocks (major initiatives/projects) that will drive progress toward that objective. Big rocks are actionable projects like "Launch loyalty program", "Implement new CRM", "Redesign checkout flow".
 Return valid JSON with your proposed Company OS structure.`;
 
     const userPrompt = isStructuredOKR ? extractionUserPrompt : inferenceUserPrompt;
