@@ -44,13 +44,25 @@ const TenantContext = createContext<TenantContextType | undefined>(undefined);
 
 export function TenantProvider({ children }: { children: ReactNode }) {
   const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
+  const [tenantSelectionComplete, setTenantSelectionComplete] = useState(false);
 
-  const { data: tenants = [], isLoading } = useQuery<Tenant[]>({
+  const { data: tenants = [], isLoading: queryLoading } = useQuery<Tenant[]>({
     queryKey: ["/api/tenants"],
   });
 
   useEffect(() => {
-    if (tenants.length === 0) return;
+    // Reset selection state when query starts loading
+    if (queryLoading) {
+      setTenantSelectionComplete(false);
+      return;
+    }
+    
+    // Query is done - now handle tenant selection
+    if (tenants.length === 0) {
+      // No tenants available - mark selection as complete (user truly has no access)
+      setTenantSelectionComplete(true);
+      return;
+    }
     
     const savedTenantId = localStorage.getItem("currentTenantId");
     if (savedTenantId) {
@@ -67,7 +79,11 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       setCurrentTenant(tenants[0]);
       localStorage.setItem("currentTenantId", tenants[0].id);
     }
-  }, [tenants]);
+    setTenantSelectionComplete(true);
+  }, [tenants, queryLoading]);
+
+  // Loading is true until both the query is done AND tenant selection is complete
+  const isLoading = queryLoading || !tenantSelectionComplete;
 
   // Apply favicon when tenant changes (reset to default if no tenant favicon)
   useEffect(() => {
