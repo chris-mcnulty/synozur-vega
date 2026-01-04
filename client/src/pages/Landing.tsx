@@ -56,7 +56,7 @@ export default function Landing() {
       <div className="fixed top-0 left-0 right-0 z-50">
         <AnnouncementBanner />
         <nav className={`transition-all duration-200 border-b ${isScrolled ? 'bg-background/95 backdrop-blur-md' : 'bg-transparent border-transparent'}`}>
-          <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-6 h-16 flex items-center justify-between gap-4">
+          <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
             {/* Logo - Left */}
             <div className="flex items-center gap-2">
               <img src={synozurMark} alt="Vega" className="h-8 object-contain" />
@@ -111,7 +111,7 @@ export default function Landing() {
 
         {/* Footer */}
         <footer className="py-12 bg-background border-t">
-          <div className="max-w-7xl 2xl:max-w-[1600px] mx-auto px-6">
+          <div className="max-w-6xl mx-auto px-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
               <div>
                 <div className="mb-4">
