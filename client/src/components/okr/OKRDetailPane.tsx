@@ -221,11 +221,23 @@ export function OKRDetailPane({
   };
 
   const handleSaveCheckInEdit = () => {
-    if (!editingCheckIn) return;
+    if (!editingCheckIn || !entity) return;
+    
+    // For Key Results, calculate progress from actual value
+    let calculatedProgress = editFormData.newProgress;
+    if (entityType === "key_result" && entity.targetValue !== undefined && entity.targetValue !== 0) {
+      const startValue = entity.currentValue || 0;
+      const targetValue = entity.targetValue;
+      const range = targetValue - startValue;
+      if (range !== 0) {
+        calculatedProgress = Math.round(((editFormData.newValue - startValue) / range) * 100);
+      }
+    }
+    
     updateCheckInMutation.mutate({
       id: editingCheckIn.id,
-      newValue: editFormData.newValue,
-      newProgress: editFormData.newProgress,
+      newValue: entityType === "key_result" ? editFormData.newValue : undefined,
+      newProgress: calculatedProgress,
       note: editFormData.note,
     });
   };
@@ -689,7 +701,7 @@ export function OKRDetailPane({
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            {entityType === "key_result" && (
+            {entityType === "key_result" ? (
               <div>
                 <Label htmlFor="editNewValue">Actual Value {entity.unit && `(${entity.unit})`}</Label>
                 <Input
@@ -700,22 +712,22 @@ export function OKRDetailPane({
                   data-testid="input-edit-checkin-value"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  Target: {formatValue(entity.targetValue, entity.unit)}
+                  Target: {formatValue(entity.targetValue, entity.unit)} (progress is calculated automatically)
                 </p>
               </div>
+            ) : (
+              <div>
+                <Label htmlFor="editNewProgress">Progress (%)</Label>
+                <Input
+                  id="editNewProgress"
+                  type="number"
+                  min={0}
+                  value={editFormData.newProgress}
+                  onChange={(e) => setEditFormData(prev => ({ ...prev, newProgress: parseFloat(e.target.value) || 0 }))}
+                  data-testid="input-edit-checkin-progress"
+                />
+              </div>
             )}
-            <div>
-              <Label htmlFor="editNewProgress">Progress (%)</Label>
-              <Input
-                id="editNewProgress"
-                type="number"
-                min={0}
-                max={100}
-                value={editFormData.newProgress}
-                onChange={(e) => setEditFormData(prev => ({ ...prev, newProgress: parseFloat(e.target.value) || 0 }))}
-                data-testid="input-edit-checkin-progress"
-              />
-            </div>
             <div>
               <Label htmlFor="editNote">Note</Label>
               <Textarea

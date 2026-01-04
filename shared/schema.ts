@@ -916,7 +916,7 @@ export const insertCheckInSchema = createInsertSchema(checkIns).omit({
 
 export const updateCheckInSchema = z.object({
   newValue: z.number().optional(),
-  newProgress: z.number().min(0).max(100),
+  newProgress: z.number().min(0), // No max - progress can exceed 100% when targets are exceeded
   newStatus: z.string().optional(),
   note: z.string().optional(),
   achievements: z.array(z.string()).optional(),
