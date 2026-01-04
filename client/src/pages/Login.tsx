@@ -13,6 +13,7 @@ import microsoftLogo from "@assets/Microsoft_Icon_6_1765741102026.jpeg";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import starTrailsBg from "@assets/AdobeStock_362805421_1763398687511.jpeg";
 import vegaLogo from "@assets/VegaTight_1766605018223.png";
+import vegaLogoWhite from "@assets/Vega_-_White_1767549184769.png";
 import ReCAPTCHA from "react-google-recaptcha";
 
 const ORGANIZATION_SIZES = [
@@ -312,7 +313,9 @@ export default function Login() {
         
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center">
-            <img src={vegaLogo} alt="Vega Company OS" className="h-24 object-contain drop-shadow-xl" />
+            {/* White logo on mobile for better contrast, regular logo on desktop */}
+            <img src={vegaLogoWhite} alt="Vega Company OS" className="h-28 object-contain drop-shadow-xl md:hidden" />
+            <img src={vegaLogo} alt="Vega Company OS" className="hidden md:block h-24 object-contain drop-shadow-xl" />
           </div>
           <p className="text-gray-200">Your AI-Augmented Company OS</p>
         </div>
