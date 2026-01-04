@@ -7,7 +7,7 @@ import starTrailsBg from "@assets/AdobeStock_362805421_1767551096391.jpeg";
 import lightBeamBg from "@assets/AdobeStock_167081726_1767551096392.jpeg";
 import telescopeBg from "@assets/AdobeStock_1114783441_1767551096393.jpeg";
 import vegaLogo from "@assets/VegaTight_1766605018223.png";
-import vegaScreenshot from "@assets/VegaSS_1767053840858.jpg";
+import vegaScreenshot from "@assets/VegaSS3_1767556369927.jpg";
 
 const trustBadges = [
   { icon: Shield, label: "SOC 2 Type II" },
