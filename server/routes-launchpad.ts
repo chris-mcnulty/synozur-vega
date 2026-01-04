@@ -668,6 +668,10 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
           // Use: 1) explicit bigRockQuarter from request, 2) session.targetQuarter, 3) current quarter
           const effectiveBigRockQuarter = bigRockQuarter || session.targetQuarter || Math.ceil((new Date().getMonth() + 1) / 3);
           for (const br of obj.bigRocks) {
+            // Skip big rocks without a valid title
+            if (!br.title || !br.title.trim()) {
+              continue;
+            }
             // Skip if big rock with same title already exists
             if (existingBigRockTitles.has(normalizeTitle(br.title))) {
               createdEntities.duplicatesSkipped++;
@@ -676,7 +680,7 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
             await storage.createBigRock({
               objectiveId: objective.id,
               tenantId: session.tenantId,
-              title: br.title,
+              title: br.title.trim(),
               description: br.description,
               priority: br.priority as any || "high",
               status: "not_started",
@@ -696,6 +700,10 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
     if (approveBigRocks && proposal.bigRocks && proposal.bigRocks.length > 0) {
       const effectiveBigRockQuarter = bigRockQuarter || session.targetQuarter || Math.ceil((new Date().getMonth() + 1) / 3);
       for (const br of proposal.bigRocks) {
+        // Skip big rocks without a valid title
+        if (!br.title || !br.title.trim()) {
+          continue;
+        }
         // Skip if big rock with same title already exists
         if (existingBigRockTitles.has(normalizeTitle(br.title))) {
           createdEntities.duplicatesSkipped++;
@@ -712,7 +720,7 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
         
         await storage.createBigRock({
           tenantId: session.tenantId,
-          title: br.title,
+          title: br.title.trim(),
           description: br.description,
           priority: br.priority as any || "high",
           status: "not_started",
