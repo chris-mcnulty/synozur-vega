@@ -10,17 +10,10 @@ import vegaScreenshot from "@assets/VegaSS_1767053840858.jpg";
 export function LandingHero() {
   return (
     <>
-      <section className="relative w-full flex items-center justify-center overflow-hidden py-8 md:py-16 pb-12 md:pb-20">
-        <style>{`
-          .hero-bg { background-size: 200% auto; }
-          @media (min-width: 768px) {
-            .hero-bg { background-size: cover; }
-          }
-        `}</style>
-        <div
-          className="hero-bg absolute inset-0 bg-center bg-no-repeat"
-          style={{ backgroundImage: `url(${starTrailsBg})` }}
-        />
+      <section 
+        className="relative w-full min-h-[80vh] flex items-center justify-center py-8 md:py-16 pb-12 md:pb-20 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: `url(${starTrailsBg})` }}
+      >
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-background" />
         
         <div className="relative z-10 w-full max-w-5xl 2xl:max-w-6xl mx-auto px-4 md:px-6 text-white">
