@@ -1,0 +1,78 @@
+You are a senior frontend engineer. Fix a layout bug on https://vega.synozur.com where the entire page content renders in a narrow left column and leaves a large empty white area on the right on wide screens.
+
+GOAL
+On desktop/wide screens (>= 1200px), the page should be centered and use the available width appropriately:
+- No giant white gutter on the right
+- Sections should be centered horizontally
+- Backgrounds should span full width when intended (hero/feature bands)
+- Content blocks should have a consistent max-width and be centered
+
+WHAT TO DO (DIAGNOSE FIRST)
+1) Inspect the DOM structure and identify the outermost layout wrappers:
+   - body, #root / __next, main, page wrapper, section wrappers
+2) Find the element that is constraining or offsetting layout (common culprits):
+   - width: 50% / width: 640px / max-width without centering
+   - display: grid with 2 columns where the right column is empty
+   - flex container with an unused sibling or incorrect flex-basis
+   - position: absolute/relative with left: 0 and no centering
+3) Confirm the issue occurs only on wide screens by checking media queries.
+
+FIX REQUIREMENTS (IMPLEMENT)
+A) Establish a standard centered content container used across sections:
+   - Create a reusable CSS utility/class, e.g. .container
+   - Recommended:
+     width: 100%;
+     max-width: 1200px (or 1280px);
+     margin-left: auto;
+     margin-right: auto;
+     padding-left/right: 24px (responsive)
+
+B) Apply the container to all content sections so they center:
+   - Hero content block
+   - “First 15 minutes”
+   - Outcomes cards
+   - “How Vega is different”
+   - “Is Vega right for you?”
+   - Modules
+   - Enterprise-ready
+   - Screenshots
+   - Footer columns
+
+C) Ensure FULL-WIDTH BACKGROUNDS remain full-width:
+   - For dark/gradient background sections, the section background should span 100vw,
+     but inner content should be inside the centered container.
+
+D) Remove/repair any layout that creates an empty right column:
+   - If using CSS grid, ensure grid-template-columns is not leaving a blank column.
+   - If you find something like grid-template-columns: 1fr 1fr; and the second column is empty,
+     change to 1fr or remove the second column.
+   - If using flex, ensure no sibling is reserving space (e.g., empty div with flex:1).
+
+E) Add guardrails:
+   - Ensure html, body { width: 100%; overflow-x: hidden; } ONLY if needed
+   - Ensure no element uses fixed widths that break responsiveness
+   - Make sure hero image/background is centered (background-position: center)
+
+TAILWIND NOTE (IF APPLICABLE)
+If the project uses Tailwind:
+- Wrap major section contents in: <div className="mx-auto w-full max-w-6xl px-6">
+- Ensure the outer section uses: w-full
+- If any wrapper uses: max-w-* without mx-auto, add mx-auto
+- If any layout uses: grid grid-cols-2 but second column is empty, change to grid-cols-1 on lg
+  or remove the empty column.
+
+CSS NOTE (IF NOT TAILWIND)
+If plain CSS:
+- Implement a .container class and apply it consistently.
+- Audit for any left padding/margin causing offset (e.g., margin-left: 0 but no centering).
+
+DELIVERABLES
+1) Commit the layout fix so that on 1440px and 1920px wide screens the page is centered.
+2) Provide a short note listing:
+   - The root cause you found (e.g., “grid had 2 columns and right column was empty”)
+   - Files changed (e.g., layout.css, HomePage.jsx)
+   - The new container max-width used
+
+DO NOT
+- Do not change copy, colors, or typography unless necessary for layout centering.
+- Do not remove full-width background styling; keep backgrounds full bleed with centered content.

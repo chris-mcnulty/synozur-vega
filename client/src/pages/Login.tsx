@@ -299,7 +299,7 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center p-4">
+    <div className="relative min-h-screen w-full flex items-center justify-center p-4">
       <div 
         className="fixed inset-0 z-0"
         style={{
