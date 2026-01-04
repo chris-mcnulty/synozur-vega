@@ -256,7 +256,8 @@ export function registerValueRoutes(app: Express) {
       }
 
       const valueTitle = decodeURIComponent(req.params.valueTitle);
-      const tenantId = user.tenantId;
+      // Use effective tenant from tenant switcher, fallback to user's default tenant
+      const tenantId = req.effectiveTenantId || user.tenantId;
 
       const items = await storage.getItemsTaggedWithValue(tenantId, valueTitle);
       res.json(items);
@@ -279,7 +280,8 @@ export function registerValueRoutes(app: Express) {
         return res.status(401).json({ error: "Invalid session" });
       }
 
-      const tenantId = user.tenantId;
+      // Use effective tenant from tenant switcher, fallback to user's default tenant
+      const tenantId = req.effectiveTenantId || user.tenantId;
       const quarter = req.query.quarter ? parseInt(req.query.quarter as string) : undefined;
       const year = req.query.year ? parseInt(req.query.year as string) : undefined;
 
