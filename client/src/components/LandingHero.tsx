@@ -125,7 +125,7 @@ export function LandingHero() {
             </h1>
             
             <p className="text-lg md:text-xl text-white/90 mb-6 md:mb-8 max-w-3xl mx-auto leading-relaxed" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
-              Vega is an AI-augmented Company Operating System that connects strategy, OKRs, and leadership cadence in one place.
+              Vega is an AI-augmented Company Operating System™ that connects strategy, OKRs, and leadership cadence in one place.
             </p>
             
             <div className="flex flex-col sm:flex-row justify-center gap-4 mb-4">
