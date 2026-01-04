@@ -1,0 +1,125 @@
+You are a senior conversion-focused product marketing + frontend engineer. Update the Vega marketing site pages to improve readability and increase free-trial signups.
+
+TARGET PAGES
+1) https://vega.synozur.com (primary marketing site / landing page)
+
+PRIMARY GOAL
+Increase trial signups (primary CTA) while keeping enterprise credibility (security, SOC2, Entra SSO, RBAC).
+
+AUDIENCE
+CEOs/COOs, Heads of Strategy/Transformation, and consultants who need a “Company Operating System” to turn strategy into execution.
+
+BRAND / VOICE
+Clear, confident, empathetic, not hypey. Avoid jargon. Short sentences. Scannable sections. Use outcome language. Use “North Star” sparingly. Keep tone professional.
+
+PAGE DESIGN PRINCIPLES
+- Above the fold must answer “What is it?” + “Who is it for?” + “Why now?” in < 7 seconds
+- One dominant primary CTA repeated throughout
+- Break long paragraphs into short blocks and bullet lists
+- Use cards for features (outcome-first) rather than long feature walls
+- Move security/compliance down the page but make it strong and scannable
+- Add a “What you’ll do in your first 15 minutes” trial onboarding section near the top
+- Add “Who it’s for / not for” to reduce uncertainty
+- Add sticky header CTA
+- Ensure excellent mobile readability (spacing, font sizes, line length)
+
+IMPLEMENTATION REQUIREMENTS (FRONTEND)
+- Use a clean, modern SaaS landing layout with these sections in this order:
+  1) Sticky Header (logo left, nav anchors, primary CTA button right)
+  2) Hero (headline, subhead, primary CTA, secondary CTA)
+  3) Trust strip (SOC2 / Entra SSO / RBAC / Audit trails as short badges)
+  4) “First 15 minutes” section (numbered steps + screenshot placeholder)
+  5) Outcomes section (3 cards: Align, Execute, Learn/Adjust)
+  6) “How Vega is different” section (3 cards)
+  7) “Who it’s for / not for” two-column block
+  8) Modules overview (Foundations, Strategy, Planning/OKRs, Focus Rhythm, AI Assistant) as compact cards w/ “Explore in trial” links
+  9) Security & Compliance (strong but below conversion sections)
+  10) Final CTA band (restate value + CTA)
+  11) Footer (links, privacy, terms)
+
+CTA BEHAVIOR
+- Primary CTA button text (consistent): “Start a free trial”
+- Under-CTA microcopy: “No credit card. Be set up in minutes.”
+- Secondary CTA: “Watch 2-minute walkthrough” (opens modal or goes to /demo)
+- Repeat primary CTA after sections 4, 7, and 10
+
+HERO COPY (USE EXACT OR VERY CLOSE)
+Headline: “Turn strategy into action—every week, not once a year.”
+Subhead: “Vega is an AI-augmented Company Operating System that connects strategy, OKRs, and leadership cadence in one place.”
+Primary CTA: “Start a free trial”
+Microcopy: “No credit card. Be set up in minutes.”
+Secondary CTA: “Watch 2-minute walkthrough”
+
+TRUST STRIP BADGES (SHORT)
+- “SOC 2 Type II”
+- “Microsoft Entra SSO”
+- “Role-based access”
+- “Audit trails”
+
+FIRST 15 MINUTES SECTION COPY
+Title: “What you’ll do in your first 15 minutes”
+Bullets/steps:
+1) “Define 1–3 strategic priorities (with AI prompts)”
+2) “Create your first OKRs”
+3) “Link initiatives and meetings to what matters”
+4) “See what’s at risk—automatically”
+Micro-CTA: “Start free—no credit card”
+
+OUTCOMES CARDS (3)
+Card 1 title: “Align”
+Body: “Connect mission, strategy, and priorities so everyone rows in the same direction.”
+Card 2 title: “Execute”
+Body: “Turn plans into weekly focus with OKRs, initiatives, and clear ownership.”
+Card 3 title: “Adjust”
+Body: “Spot drift early with AI insights, check-ins, and decision logs.”
+
+HOW VEGA IS DIFFERENT (3 CARDS)
+1) “Not another dashboard” — “One system that links strategy, OKRs, initiatives, and leadership rhythm.”
+2) “AI that supports—not replaces” — “Recommendations and risk signals you control.”
+3) “Built for real adoption” — “Cadence, meeting workflows, and accountability people actually use.”
+
+WHO IT’S FOR / NOT FOR
+For:
+- “CEOs & COOs scaling beyond ad-hoc leadership”
+- “Strategy & Transformation leaders tired of slideware”
+- “Consultants running multi-client operating cadences”
+Not for:
+- “Task-only project management”
+- “Individual productivity tracking”
+- “Lightweight to-do apps”
+
+MODULES OVERVIEW (COMPACT CARDS)
+Each card includes a 1-sentence outcome description and an “Explore in trial →” link.
+- Foundations: mission/vision/values/goals
+- Strategy: strategic priorities aligned to annual goals
+- Planning (OKRs): objectives, weighted key results, check-ins
+- Focus Rhythm: meeting cadences, agendas, decisions, action items
+- AI Assistant & Insights: at-risk detection, summaries, reporting exports
+
+SECURITY SECTION (BOLD, SCANNABLE)
+Heading: “Enterprise-ready by design”
+Bullets:
+- “SOC 2 Type II”
+- “Encryption in transit and at rest”
+- “Microsoft Entra SSO + RBAC”
+- “Audit logging”
+- “Multi-tenant isolation”
+
+VISUALS
+- Add 1 hero image or product screenshot placeholder (use a local image asset path like /assets/vega-hero.png). If no assets, create a simple placeholder block with “Product UI screenshot”.
+- Add small iconography for cards (optional).
+
+TECHNICAL / SEO
+- Ensure semantic headings (one H1, structured H2/H3)
+- Add meta title + description focused on trial
+- Add canonical URL to synozur domain
+- Performance: optimize images, avoid heavy JS
+- Accessibility: button labels, contrast, keyboard nav
+
+DO NOT
+- Do not add long paragraphs.
+- Do not bury the trial CTA below multiple scrolls.
+- Do not use hypey words like “revolutionary” or “game-changing”.
+- Do not remove enterprise security credibility; just move it lower and make it scannable.
+
+Ensure site uses responsive design and that home page and login page are consistent in look and feel. Feel free to use attached brand imagery but do not let pictures dominate other than the existing screenshot on the home page.

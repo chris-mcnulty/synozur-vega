@@ -11,8 +11,13 @@ export function LandingHero() {
   return (
     <>
       <section 
-        className="relative w-full min-h-[80vh] flex items-center justify-center py-8 md:py-16 pb-12 md:pb-20 bg-cover bg-center bg-no-repeat"
-        style={{ backgroundImage: `url(${starTrailsBg})` }}
+        className="relative w-full min-h-[80vh] flex items-center justify-center py-8 md:py-16 pb-12 md:pb-20"
+        style={{ 
+          backgroundImage: `url(${starTrailsBg})`,
+          backgroundSize: 'cover',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat'
+        }}
       >
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-background" />
         
