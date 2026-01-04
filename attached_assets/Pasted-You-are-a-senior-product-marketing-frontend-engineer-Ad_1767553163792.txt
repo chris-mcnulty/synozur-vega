@@ -1,0 +1,79 @@
+You are a senior product marketing + frontend engineer. Add a concise “Company Operating System” credibility blurb to the Vega marketing page that builds trust without slowing trial conversion.
+
+CONTEXT
+Vega is built on a Company Operating System (Company OS) created by Synozur, a strategy consulting firm. This OS reflects real-world strategy and leadership work proven across dozens of companies—large and small—and should be framed as “codified experience,” not consulting marketing.
+
+PRIMARY GOAL
+Increase executive confidence and trial signups by explaining *why Vega exists* and *why it’s credible*—without adding cognitive load.
+
+PLACEMENT (REQUIRED)
+Place the primary Company OS blurb in ONE location only:
+
+→ Directly under the hero section
+→ Above the first major CTA repetition
+→ Before any feature/module breakdown
+
+This should appear as a short text block (not a card, not a long section).
+
+OPTIONAL SECONDARY PLACEMENT
+Add a one-line reinforcement version in the “Why Vega Is Different” section.
+
+DO NOT place this content:
+- Below the fold near security
+- Inside long feature descriptions
+- As a standalone section with a large heading
+
+PRIMARY BLURB COPY (USE EXACT OR VERY CLOSE)
+
+Headline (optional, small text style):
+“Built on our proven Company Operating System (TM)”
+
+Body copy:
+“Vega is built on the Company Operating System(TM) created by Synozur and shaped by decades of strategy consulting work. It reflects how real leadership teams align strategy, planning, and execution—refined through hands-on work with dozens of organizations, from growing mid-market companies to complex global enterprises.”
+
+Tone requirements:
+- Calm, confident, factual
+- No hype words (avoid: revolutionary, world-class, best-in-class)
+- Written for executives
+- 2 sentences max
+
+WHY THIS WORKS (DO NOT RENDER THIS TEXT)
+This explains authorship (Synozur), credibility (strategy consultants), and proof (dozens of companies) without turning the page into consulting sales copy.
+
+CASE STUDY REFERENCES (SUBTLE, OPTIONAL, LINKED)
+Immediately below the blurb, add a single muted text line with inline links:
+
+“See how this Company OS(TM) approach has been applied in practice:
+• Microsoft management frameworks
+• Luxury brand leadership transformation”
+
+Link targets:
+https://www.synozur.com/case-studies/transforming-management-frameworks-at-microsoft
+https://www.synozur.com/case-studies/management-makeover-at-a-luxury-brand
+
+Formatting rules:
+- Small text
+- Low visual weight
+- Inline links only
+- No logos, no callouts, no quotes
+
+SECONDARY (ONE-LINE) VERSION FOR “WHY VEGA IS DIFFERENT”
+
+“Unlike generic tools, Vega codifies the Company OS developed by Synozur through real strategy and transformation work.”
+
+Use this only once, as supporting proof—not as a headline.
+
+CTA SAFETY RULE
+Do NOT insert a CTA inside or immediately adjacent to this blurb.
+The next CTA should remain the primary trial CTA already defined on the page.
+
+ACCESSIBILITY / UI NOTES
+- Max line width: readable paragraph width
+- Font size slightly smaller than hero subhead
+- Visually grouped with hero, not features
+- Mobile: ensure it collapses cleanly to 2–3 short lines
+
+DELIVERABLE
+- Update the page layout to include this blurb exactly as specified
+- Ensure links open normally (no modal)
+- No new navigation items added

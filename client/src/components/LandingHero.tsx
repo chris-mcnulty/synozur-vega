@@ -171,6 +171,38 @@ export function LandingHero() {
         </div>
       </section>
 
+      {/* Company OS Credibility Blurb */}
+      <section className="py-10 md:py-14 bg-background border-b">
+        <div className="max-w-3xl mx-auto px-6 text-center">
+          <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
+            Built on our proven Company Operating System™
+          </p>
+          <p className="text-base md:text-lg text-foreground/90 leading-relaxed mb-4">
+            Vega is built on the Company Operating System™ created by Synozur and shaped by decades of strategy consulting work. It reflects how real leadership teams align strategy, planning, and execution—refined through hands-on work with dozens of organizations, from growing mid-market companies to complex global enterprises.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            See how this approach has been applied in practice:{" "}
+            <a 
+              href="https://www.synozur.com/case-studies/transforming-management-frameworks-at-microsoft" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="underline hover:text-foreground transition-colors"
+            >
+              Microsoft management frameworks
+            </a>
+            {" • "}
+            <a 
+              href="https://www.synozur.com/case-studies/management-makeover-at-a-luxury-brand" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="underline hover:text-foreground transition-colors"
+            >
+              Luxury brand leadership transformation
+            </a>
+          </p>
+        </div>
+      </section>
+
       {/* First 15 Minutes Section */}
       <section 
         className="relative py-16 md:py-24"
@@ -247,6 +279,9 @@ export function LandingHero() {
           <div className="text-center mb-12">
             <Badge variant="outline" className="mb-4">Why Vega</Badge>
             <h2 className="text-3xl md:text-4xl font-semibold">How Vega is Different</h2>
+            <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
+              Unlike generic tools, Vega codifies the Company OS developed by Synozur through real strategy and transformation work.
+            </p>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
