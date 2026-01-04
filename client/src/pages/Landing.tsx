@@ -114,7 +114,7 @@ export default function Landing() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
               <div>
                 <div className="mb-4">
-                  <img src={vegaLogo} alt="Vega Company OS" className="h-20 object-contain" />
+                  <img src={vegaLogo} alt="Vega Company OS" className="h-40 object-contain" />
                 </div>
                 <p className="text-sm text-muted-foreground mb-4">
                   Powered by The Synozur Alliance LLC
