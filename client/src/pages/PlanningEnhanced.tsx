@@ -8,6 +8,7 @@ import { format } from "date-fns";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -378,6 +379,8 @@ export default function PlanningEnhanced() {
   const [alignmentTargetObjective, setAlignmentTargetObjective] = useState<string | null>(null);
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [cloneObjective, setCloneObjective] = useState<Objective | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: "objective" | "keyResult" | "bigRock"; id: string; title: string } | null>(null);
   const [savedSummary, setSavedSummary] = useState<{ content: string; dateRange: string } | null>(null);
   const [managedWeights, setManagedWeights] = useState<KeyResult[]>([]);
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
@@ -1205,9 +1208,9 @@ export default function PlanningEnhanced() {
   };
 
   const handleDeleteObjective = (id: string) => {
-    if (confirm("Are you sure you want to delete this objective? This will also delete all associated Key Results and Big Rocks.")) {
-      deleteObjectiveMutation.mutate(id);
-    }
+    const objective = objectives.find(o => o.id === id);
+    setDeleteTarget({ type: "objective", id, title: objective?.title || "this objective" });
+    setDeleteConfirmOpen(true);
   };
 
   const handleCreateKeyResult = (objectiveId: string) => {
@@ -1252,10 +1255,20 @@ export default function PlanningEnhanced() {
     setKeyResultDialogOpen(true);
   };
 
-  const handleDeleteKeyResult = (id: string, objectiveId: string) => {
-    if (window.confirm("Are you sure you want to delete this Key Result? Associated Big Rocks will also be deleted.")) {
-      deleteKeyResultMutation.mutate(id);
+  const handleDeleteKeyResult = (id: string, objectiveId?: string) => {
+    // Find the KR - either from the specific objective or search all
+    let kr: KeyResult | undefined;
+    if (objectiveId && keyResultsByObjective[objectiveId]) {
+      kr = keyResultsByObjective[objectiveId]?.find((k: KeyResult) => k.id === id);
+    } else {
+      // Search all key results across objectives
+      for (const objId of Object.keys(keyResultsByObjective)) {
+        kr = keyResultsByObjective[objId]?.find((k: KeyResult) => k.id === id);
+        if (kr) break;
+      }
     }
+    setDeleteTarget({ type: "keyResult", id, title: kr?.title || "this Key Result" });
+    setDeleteConfirmOpen(true);
   };
 
   const handleCreateBigRock = (objectiveId: string, keyResultId?: string) => {
@@ -1291,9 +1304,22 @@ export default function PlanningEnhanced() {
   };
 
   const handleDeleteBigRock = (id: string) => {
-    if (window.confirm("Are you sure you want to delete this Big Rock?")) {
-      deleteBigRockMutation.mutate(id);
+    const rock = bigRocks.find(b => b.id === id);
+    setDeleteTarget({ type: "bigRock", id, title: rock?.title || "this Big Rock" });
+    setDeleteConfirmOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (!deleteTarget) return;
+    if (deleteTarget.type === "objective") {
+      deleteObjectiveMutation.mutate(deleteTarget.id);
+    } else if (deleteTarget.type === "keyResult") {
+      deleteKeyResultMutation.mutate(deleteTarget.id);
+    } else if (deleteTarget.type === "bigRock") {
+      deleteBigRockMutation.mutate(deleteTarget.id);
     }
+    setDeleteConfirmOpen(false);
+    setDeleteTarget(null);
   };
 
   const handleBigRockCheckIn = (rock: BigRock) => {
@@ -2013,14 +2039,10 @@ export default function PlanningEnhanced() {
                     setCheckInDialogOpen(true);
                   }}
                   onDeleteObjective={(objectiveId) => {
-                    if (confirm("Are you sure you want to delete this objective? This will also delete all its key results.")) {
-                      deleteObjectiveMutation.mutate(objectiveId);
-                    }
+                    handleDeleteObjective(objectiveId);
                   }}
                   onDeleteKeyResult={(keyResultId) => {
-                    if (confirm("Are you sure you want to delete this key result?")) {
-                      deleteKeyResultMutation.mutate(keyResultId);
-                    }
+                    handleDeleteKeyResult(keyResultId, "");
                   }}
                   onCloseObjective={(objectiveId) => {
                     if (confirm("Close this objective? It will become read-only until reopened.")) {
@@ -3952,6 +3974,42 @@ export default function PlanningEnhanced() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+              <AlertDialogDescription>
+                {deleteTarget?.type === "objective" && (
+                  <>
+                    This will permanently delete <strong>"{deleteTarget.title}"</strong> and all of its associated Key Results and Big Rocks. This action cannot be undone.
+                  </>
+                )}
+                {deleteTarget?.type === "keyResult" && (
+                  <>
+                    This will permanently delete <strong>"{deleteTarget.title}"</strong> and any associated Big Rocks. This action cannot be undone.
+                  </>
+                )}
+                {deleteTarget?.type === "bigRock" && (
+                  <>
+                    This will permanently delete <strong>"{deleteTarget.title}"</strong>. This action cannot be undone.
+                  </>
+                )}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setDeleteTarget(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleConfirmDelete}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                data-testid="button-confirm-delete"
+              >
+                Delete
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* OKR Detail Pane */}
         <OKRDetailPane
