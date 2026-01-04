@@ -99,10 +99,9 @@ export function ValuesAlignmentWidget({ quarter, year }: ValuesAlignmentWidgetPr
           <Target className="h-5 w-5 text-muted-foreground" />
         </CardHeader>
         <CardContent>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <AlertCircle className="h-4 w-4" />
-            <span>Unable to load values analytics</span>
-          </div>
+          <p className="text-sm text-muted-foreground">
+            Add company values in the Foundations module to see how your OKRs and strategies align with what matters most.
+          </p>
         </CardContent>
       </Card>
     );
