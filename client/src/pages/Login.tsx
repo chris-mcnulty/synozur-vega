@@ -315,15 +315,15 @@ export default function Login() {
         <Link href="/">
           <Button variant="ghost" className="text-white hover:bg-white/10">
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Home
+            About Vega
           </Button>
         </Link>
         
         <div className="text-center space-y-3">
           <div className="flex items-center justify-center">
-            {/* White logo on mobile for better contrast, regular logo on desktop */}
+            {/* White logo on mobile for better contrast, larger logo on desktop */}
             <img src={vegaLogoWhite} alt="Vega Company OS" className="h-28 object-contain drop-shadow-xl md:hidden" />
-            <img src={vegaLogo} alt="Vega Company OS" className="hidden md:block h-24 object-contain drop-shadow-xl" />
+            <img src={vegaLogo} alt="Vega Company OS" className="hidden md:block h-40 object-contain drop-shadow-xl" />
           </div>
           <p className="text-gray-200">Your AI-Augmented Company OS</p>
         </div>
