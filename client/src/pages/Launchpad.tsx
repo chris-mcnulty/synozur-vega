@@ -896,6 +896,25 @@ export default function Launchpad() {
                         ))}
                       </div>
                     )}
+                    {obj.bigRocks && obj.bigRocks.length > 0 && (
+                      <div className="pl-4 border-l-2 border-primary/30 space-y-2 mt-2">
+                        <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Target className="h-3 w-3" />
+                          Big Rocks (Initiatives)
+                        </Label>
+                        {obj.bigRocks.map((br, brIdx) => (
+                          <div key={brIdx} className="flex items-start gap-2 text-sm p-2 bg-muted/30 rounded">
+                            <Target className="h-3 w-3 text-primary shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                              <div className="font-medium">{br.title}</div>
+                              {br.description && (
+                                <div className="text-xs text-muted-foreground mt-1">{br.description}</div>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </AccordionContent>
@@ -913,7 +932,7 @@ export default function Launchpad() {
               </AccordionTrigger>
               <AccordionContent className="space-y-4 pt-4">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm text-muted-foreground">Major quarterly initiatives from the document</p>
+                  <p className="text-sm text-muted-foreground">Cross-cutting initiatives that span multiple objectives</p>
                   {editedProposal?.bigRocks?.length ? (
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-muted-foreground">
@@ -966,7 +985,7 @@ export default function Launchpad() {
                   </div>
                 ))}
                 {(!editedProposal?.bigRocks || editedProposal.bigRocks.length === 0) && (
-                  <p className="text-sm text-muted-foreground italic">No standalone big rocks proposed. Note: Big rocks attached to objectives are shown in the Objectives section above.</p>
+                  <p className="text-sm text-muted-foreground italic">No cross-cutting initiatives proposed for this section. Objective-specific big rocks appear within each objective above.</p>
                 )}
               </AccordionContent>
             </AccordionItem>
