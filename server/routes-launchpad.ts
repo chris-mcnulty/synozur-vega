@@ -263,13 +263,19 @@ Return a JSON object with these fields:
 - bigRocks: Top-level array for standalone big rocks not tied to objectives
 
 BIG ROCKS GUIDANCE:
-Big Rocks are major initiatives, projects, or milestones that drive progress toward objectives. Look for:
+Big Rocks are major initiatives, projects, or milestones that drive progress. They can be:
+1. OBJECTIVE-TIED: Specific to one objective (e.g., "RFID rollout" for a store operations objective)
+2. STANDALONE: Cross-cutting initiatives that support multiple objectives or the organization broadly
+
+Look for and extract:
 - Projects, programs, or launches mentioned (e.g., "Launch loyalty program", "RFID rollout")
-- System implementations or upgrades mentioned
+- System implementations or upgrades
 - Major milestones or deliverables
 - Strategic initiatives or programs
-For each objective, identify 1-3 big rocks that represent the main work/projects to achieve it.
-Example: If an objective is "Grow e-commerce to 25% of sales", big rocks might be: "Implement BOPIS functionality", "Launch mobile app", "Redesign checkout flow"
+
+Put objective-specific initiatives in that objective's bigRocks array.
+Put cross-cutting or standalone initiatives in the top-level bigRocks array.
+Example standalone big rocks: "ERP system upgrade", "Company-wide training program", "Brand refresh initiative"
 
 EXAMPLE - If document says:
 "IT Team Objectives:
@@ -309,17 +315,23 @@ Return a JSON object with these fields:
   - bigRocks is array of {title, description, priority} - major initiatives/projects for THIS objective
 - bigRocks: Top-level array of {title, description, priority, quarter} for standalone big rocks. IMPORTANT: quarter must be an integer (1, 2, 3, or 4), NOT a string like "Q1"
 
-BIG ROCKS ARE REQUIRED:
-Big Rocks are the major initiatives, projects, and milestones that will drive progress. They are NOT optional.
-- For EACH objective, include 1-3 big rocks representing the key work to achieve it
-- Big rocks should be actionable projects like "Launch loyalty program", "Implement RFID system", "Redesign checkout flow"
+BIG ROCKS GUIDANCE:
+Big Rocks are the major initiatives, projects, and milestones that drive progress. They can be:
+1. OBJECTIVE-TIED: Specific to one objective (put in that objective's bigRocks array)
+2. STANDALONE: Cross-cutting initiatives that support multiple objectives (put in top-level bigRocks array)
+
+Examples of standalone big rocks: "ERP system upgrade", "Company-wide training program", "Digital transformation initiative"
+Examples of objective-tied big rocks: "Launch loyalty app" (for marketing objective), "RFID pilot program" (for operations objective)
+
+- Big rocks should be actionable projects
 - Priority should be "high", "medium", or "low"
-- If the document mentions specific projects, use those; otherwise, infer logical initiatives from the objectives
+- Generate BOTH objective-tied AND standalone big rocks where appropriate
 
 GUIDELINES:
 - Propose 3-6 high-impact objectives based on the document content
 - Each objective should have 2-4 measurable key results
-- EACH objective MUST have 1-3 big rocks (major initiatives/projects)
+- Include big rocks where appropriate (either tied to objectives or standalone)
+- Generate 3-6 standalone big rocks for cross-cutting or company-wide initiatives
 - Use specific, measurable language for key results
 - If a section is not present in the document, make reasonable inferences or return empty array
 
@@ -337,7 +349,7 @@ ${session.sourceDocumentText.substring(0, 45000)}
 
 CRITICAL: Extract EVERY objective and key result from this document - do not summarize or consolidate. 
 The document contains multiple team-level objectives (IT, Marketing, Sales, HR, Finance, etc.) - extract ALL of them as separate objectives.
-IMPORTANT: For each objective, also identify 1-3 Big Rocks (major initiatives/projects) that will drive progress. Look for projects, launches, implementations, or programs mentioned in the document. If none are explicitly stated, infer logical initiatives from the key results.
+IMPORTANT: Also identify Big Rocks (major initiatives/projects). Put objective-specific projects in that objective's bigRocks array, and put cross-cutting or company-wide initiatives in the top-level bigRocks array.
 Return valid JSON with all elements found.`;
 
     const inferenceUserPrompt = `Analyze this organizational document and generate a Company OS structure for the year ${session.targetYear}:
@@ -349,7 +361,7 @@ ${session.sourceDocumentText.substring(0, 45000)}
 ---
 
 Based on the content, propose appropriate objectives, key results, strategies, and initiatives.
-IMPORTANT: For each objective, include 1-3 Big Rocks (major initiatives/projects) that will drive progress toward that objective. Big rocks are actionable projects like "Launch loyalty program", "Implement new CRM", "Redesign checkout flow".
+IMPORTANT: Also generate Big Rocks (major initiatives/projects). Include both objective-specific big rocks AND standalone big rocks for cross-cutting initiatives. Examples: "Launch loyalty program", "ERP upgrade", "Digital transformation initiative".
 Return valid JSON with your proposed Company OS structure.`;
 
     const userPrompt = isStructuredOKR ? extractionUserPrompt : inferenceUserPrompt;
