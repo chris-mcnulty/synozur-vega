@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TrendingUp, TrendingDown, Target, AlertCircle, ChevronDown, ChevronRight, Building2, Users, Layers, User } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useTenant } from "@/contexts/TenantContext";
 
 type LevelBreakdown = {
   organization: number;
@@ -62,18 +63,20 @@ const levelLabels = {
 
 export function ValuesAlignmentWidget({ quarter, year }: ValuesAlignmentWidgetProps) {
   const [expandedValues, setExpandedValues] = useState<Set<string>>(new Set());
+  const { currentTenant } = useTenant();
 
   // Build query key with filters - use object format for query params
   const queryParamsObj: Record<string, string> = {};
   if (quarter !== undefined) queryParamsObj.quarter = quarter.toString();
   if (year !== undefined) queryParamsObj.year = year.toString();
 
-  // Use the default queryFn which includes the tenant header
+  // Include tenant ID in query key so cache is invalidated when tenant switches
   const { data: analytics, isLoading, error } = useQuery<ValuesAnalytics>({
     queryKey: Object.keys(queryParamsObj).length > 0 
-      ? ['/api/values/analytics/distribution', queryParamsObj]
-      : ['/api/values/analytics/distribution'],
+      ? ['/api/values/analytics/distribution', currentTenant?.id, queryParamsObj]
+      : ['/api/values/analytics/distribution', currentTenant?.id],
     retry: 1,
+    enabled: !!currentTenant,
   });
 
   const toggleExpanded = (valueTitle: string) => {
