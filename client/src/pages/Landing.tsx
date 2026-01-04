@@ -47,7 +47,7 @@ export default function Landing() {
   }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen overflow-x-hidden">
       <div className="fixed top-0 left-0 right-0 z-50">
         <AnnouncementBanner />
         <nav className="bg-background/80 backdrop-blur-sm border-b">
