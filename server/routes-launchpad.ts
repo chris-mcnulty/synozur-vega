@@ -516,8 +516,8 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
       duplicatesSkipped: 0,
     };
 
-    // Helper to normalize titles for deduplication
-    const normalizeTitle = (title: string) => title.toLowerCase().trim();
+    // Helper to normalize titles for deduplication (handles null/undefined)
+    const normalizeTitle = (title: string | null | undefined) => (title || '').toLowerCase().trim();
 
     // Pre-fetch existing items for deduplication
     const existingStrategies = await storage.getStrategiesByTenantId(session.tenantId);
