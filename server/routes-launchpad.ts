@@ -364,6 +364,45 @@ Return valid JSON with your proposed Company OS structure.`;
       return res.status(500).json({ error: "AI response parsing failed" });
     }
 
+    // Normalize AI response to ensure all items have proper titles
+    // AI sometimes returns 'name' instead of 'title' or omits titles entirely
+    const normalizeItem = (item: any) => {
+      if (!item) return item;
+      // Use 'name' as 'title' if title is missing
+      if (!item.title && item.name) {
+        item.title = item.name;
+      }
+      // Use description as title if both are missing (truncated)
+      if (!item.title && item.description) {
+        item.title = item.description.slice(0, 100);
+      }
+      return item;
+    };
+
+    // Normalize objectives and their nested items
+    if (proposal.objectives && Array.isArray(proposal.objectives)) {
+      proposal.objectives = proposal.objectives.map((obj: any) => {
+        normalizeItem(obj);
+        if (obj.keyResults && Array.isArray(obj.keyResults)) {
+          obj.keyResults = obj.keyResults.map(normalizeItem).filter((kr: any) => kr?.title);
+        }
+        if (obj.bigRocks && Array.isArray(obj.bigRocks)) {
+          obj.bigRocks = obj.bigRocks.map(normalizeItem).filter((br: any) => br?.title);
+        }
+        return obj;
+      }).filter((obj: any) => obj?.title);
+    }
+
+    // Normalize top-level big rocks
+    if (proposal.bigRocks && Array.isArray(proposal.bigRocks)) {
+      proposal.bigRocks = proposal.bigRocks.map(normalizeItem).filter((br: any) => br?.title);
+    }
+
+    // Normalize strategies
+    if (proposal.strategies && Array.isArray(proposal.strategies)) {
+      proposal.strategies = proposal.strategies.map(normalizeItem).filter((s: any) => s?.title);
+    }
+
     // Store existing data reference for the review UI
     const existingData = {
       mission: existingFoundation?.mission || null,
