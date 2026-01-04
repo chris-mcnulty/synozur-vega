@@ -54,13 +54,13 @@ export default function Landing() {
     <div className="min-h-screen w-full overflow-x-hidden">
       {/* Sticky Header */}
       <div className="fixed top-0 left-0 right-0 z-50">
-        <nav className={`transition-all duration-200 border-b ${isScrolled ? 'bg-background/95 backdrop-blur-md border-border' : 'bg-black/50 backdrop-blur-sm border-transparent'}`}>
+        <nav className={`transition-all duration-200 border-b ${isScrolled ? 'bg-background/95 backdrop-blur-md border-border' : 'bg-white/95 dark:bg-black/50 backdrop-blur-sm border-transparent'}`}>
           <div className="max-w-5xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between gap-4">
             {/* Logo - Left */}
             <div className="flex items-center gap-2">
               <img src={synozurMark} alt="Vega" className="h-8 object-contain" />
-              <span className={`text-lg font-semibold ${isScrolled ? 'text-foreground' : 'text-white'}`}>Vega</span>
-              <Badge variant="secondary" className={`text-xs ${isScrolled ? '' : 'bg-white/20 text-white border-white/30'}`}>Beta</Badge>
+              <span className={`text-lg font-semibold ${isScrolled ? 'text-foreground' : 'text-foreground dark:text-white'}`}>Vega</span>
+              <Badge variant="secondary" className={`text-xs ${isScrolled ? '' : 'dark:bg-white/20 dark:text-white dark:border-white/30'}`}>Beta</Badge>
             </div>
             
             {/* Nav Links - Center (hidden on mobile) */}
@@ -69,7 +69,7 @@ export default function Landing() {
                 variant="ghost" 
                 size="sm"
                 onClick={() => document.getElementById('features')?.scrollIntoView({ behavior: 'smooth' })}
-                className={isScrolled ? '' : 'text-white hover:bg-white/10'}
+                className={isScrolled ? '' : 'dark:text-white dark:hover:bg-white/10'}
               >
                 Features
               </Button>
@@ -77,7 +77,7 @@ export default function Landing() {
                 variant="ghost" 
                 size="sm"
                 onClick={() => document.getElementById('security')?.scrollIntoView({ behavior: 'smooth' })}
-                className={isScrolled ? '' : 'text-white hover:bg-white/10'}
+                className={isScrolled ? '' : 'dark:text-white dark:hover:bg-white/10'}
               >
                 Security
               </Button>
@@ -85,7 +85,7 @@ export default function Landing() {
                 variant="ghost" 
                 size="sm"
                 onClick={() => document.getElementById('modules')?.scrollIntoView({ behavior: 'smooth' })}
-                className={isScrolled ? '' : 'text-white hover:bg-white/10'}
+                className={isScrolled ? '' : 'dark:text-white dark:hover:bg-white/10'}
               >
                 Modules
               </Button>
