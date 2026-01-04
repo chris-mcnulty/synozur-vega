@@ -6,7 +6,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
-import microsoftPartnerBadge from "@assets/OIP_(1)_1766339770092.jpg";
+import microsoftPartnerBadge from "@assets/MicrosoftCAPPPreferredTrans_1767552040578.png";
 import vegaLogo from "@assets/VegaTight_1766605018223.png";
 import synozurMark from "@assets/SynozurMark_color1400_1766606244412.png";
 
@@ -122,7 +122,7 @@ export default function Landing() {
                 <img 
                   src={microsoftPartnerBadge} 
                   alt="Microsoft Preferred Content AI Partner" 
-                  className="h-20 object-contain rounded"
+                  className="h-20 object-contain dark:invert-0 invert"
                 />
               </div>
               <div>
