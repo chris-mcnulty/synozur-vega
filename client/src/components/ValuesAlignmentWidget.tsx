@@ -63,20 +63,16 @@ const levelLabels = {
 export function ValuesAlignmentWidget({ quarter, year }: ValuesAlignmentWidgetProps) {
   const [expandedValues, setExpandedValues] = useState<Set<string>>(new Set());
 
-  // Build query key with filters
-  const queryParams = new URLSearchParams();
-  if (quarter !== undefined) queryParams.set('quarter', quarter.toString());
-  if (year !== undefined) queryParams.set('year', year.toString());
-  const queryString = queryParams.toString();
-  const queryUrl = `/api/values/analytics/distribution${queryString ? `?${queryString}` : ''}`;
+  // Build query key with filters - use object format for query params
+  const queryParamsObj: Record<string, string> = {};
+  if (quarter !== undefined) queryParamsObj.quarter = quarter.toString();
+  if (year !== undefined) queryParamsObj.year = year.toString();
 
+  // Use the default queryFn which includes the tenant header
   const { data: analytics, isLoading, error } = useQuery<ValuesAnalytics>({
-    queryKey: ['/api/values/analytics/distribution', quarter, year],
-    queryFn: async () => {
-      const response = await fetch(queryUrl, { credentials: 'include' });
-      if (!response.ok) throw new Error('Failed to fetch values analytics');
-      return response.json();
-    },
+    queryKey: Object.keys(queryParamsObj).length > 0 
+      ? ['/api/values/analytics/distribution', queryParamsObj]
+      : ['/api/values/analytics/distribution'],
     retry: 1,
   });
 
