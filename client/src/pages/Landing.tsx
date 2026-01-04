@@ -54,8 +54,7 @@ export default function Landing() {
     <div className="min-h-screen w-full overflow-x-hidden">
       {/* Sticky Header */}
       <div className="fixed top-0 left-0 right-0 z-50">
-        <AnnouncementBanner />
-        <nav className={`transition-all duration-200 border-b ${isScrolled ? 'bg-background/95 backdrop-blur-md' : 'bg-transparent border-transparent'}`}>
+        <nav className={`transition-all duration-200 border-b ${isScrolled ? 'bg-background/95 backdrop-blur-md border-border' : 'bg-black/50 backdrop-blur-sm border-transparent'}`}>
           <div className="max-w-5xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between gap-4">
             {/* Logo - Left */}
             <div className="flex items-center gap-2">
@@ -103,9 +102,10 @@ export default function Landing() {
             </div>
           </div>
         </nav>
+        <AnnouncementBanner />
       </div>
 
-      {/* Main Content */}
+      {/* Main Content - account for header + potential banner */}
       <div className="pt-16">
         <LandingHero />
 
