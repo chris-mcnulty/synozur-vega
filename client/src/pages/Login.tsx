@@ -267,6 +267,14 @@ export default function Login() {
         industry: signupIndustry || undefined,
         location: signupLocation || undefined,
       });
+      
+      // Track signup conversion in Google Ads
+      if (typeof window !== 'undefined' && (window as any).gtag) {
+        (window as any).gtag('event', 'conversion', {
+          'send_to': 'AW-16740929164/vEQ2CJ3c2dwbEIyd2a4-',
+        });
+      }
+      
       toast({
         title: "Account Created!",
         description: "Please check your email to verify your account.",
