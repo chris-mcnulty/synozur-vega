@@ -117,7 +117,7 @@ export function LandingHero() {
         <div className="relative z-10 w-full max-w-5xl mx-auto px-4 md:px-6 text-white">
           <div className="max-w-4xl mx-auto text-center">
             <div className="mb-6 md:mb-8 flex justify-center">
-              <img src={vegaLogo} alt="Vega Company OS" className="h-24 md:h-40 object-contain drop-shadow-2xl" />
+              <img src={vegaLogo} alt="Vega Company OS" className="h-48 md:h-80 object-contain drop-shadow-2xl" />
             </div>
             
             <h1 className="text-3xl md:text-5xl lg:text-6xl font-semibold leading-tight mb-4 md:mb-6" style={{ textShadow: '0 4px 16px rgba(0,0,0,0.9)' }}>
