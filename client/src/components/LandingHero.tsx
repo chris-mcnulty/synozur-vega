@@ -23,14 +23,14 @@ export function LandingHero() {
         />
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-background" />
         
-        <div className="relative z-10 max-w-7xl 2xl:max-w-[1400px] mx-auto px-4 md:px-6 text-white">
-          {/* Centered content container for large screens */}
-          <div className="max-w-4xl 2xl:max-w-5xl mx-auto text-center lg:text-left lg:mx-0">
-            <div className="mb-4 md:mb-8 flex justify-center lg:justify-start">
+        <div className="relative z-10 w-full max-w-5xl 2xl:max-w-6xl mx-auto px-4 md:px-6 text-white">
+          {/* Centered content container */}
+          <div className="max-w-4xl 2xl:max-w-5xl mx-auto text-center">
+            <div className="mb-4 md:mb-8 flex justify-center">
               <img src={vegaLogo} alt="Vega Company OS" className="h-32 md:h-56 object-contain drop-shadow-2xl" />
             </div>
             
-            <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 md:gap-4 mb-4 md:mb-6">
+            <div className="flex flex-wrap items-center justify-center gap-2 md:gap-4 mb-4 md:mb-6">
               <Badge variant="secondary" className="bg-white/25 text-white border-white/40 px-3 md:px-4 py-1 md:py-1.5 text-xs md:text-sm font-medium backdrop-blur-sm">
                 <Star className="h-3 w-3 mr-1.5 fill-current" />
                 Your North Star
@@ -54,7 +54,7 @@ export function LandingHero() {
               </span>
             </h1>
             
-            <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 md:p-6 mb-4 md:mb-6 max-w-3xl mx-auto lg:mx-0">
+            <div className="bg-black/40 backdrop-blur-sm rounded-xl p-4 md:p-6 mb-4 md:mb-6 max-w-3xl mx-auto">
               <p className="text-base md:text-2xl text-white mb-3 md:mb-4 leading-relaxed">
                 Strategy isn't about big plans—it's about the choices and risks that position you to win.
                 Vega operationalizes your vision, connecting why to what to how to when.
@@ -74,7 +74,7 @@ export function LandingHero() {
               </p>
             </div>
             
-            <div className="flex flex-wrap justify-center lg:justify-start gap-2 md:gap-4 mb-5 md:mb-8">
+            <div className="flex flex-wrap justify-center gap-2 md:gap-4 mb-5 md:mb-8">
               <div className="flex items-center gap-2 bg-black/30 backdrop-blur-sm rounded-full px-3 md:px-4 py-1.5 md:py-2">
                 <CheckCircle2 className="h-3 md:h-4 w-3 md:w-4 text-green-400" />
                 <span className="text-white text-xs md:text-sm font-medium">Viva Goals migration</span>
@@ -89,7 +89,7 @@ export function LandingHero() {
               </div>
             </div>
             
-            <div className="flex flex-wrap justify-center lg:justify-start gap-4 mb-2 md:mb-4">
+            <div className="flex flex-wrap justify-center gap-4 mb-2 md:mb-4">
               <Link href="/login">
                 <Button
                   size="lg"
@@ -115,7 +115,7 @@ export function LandingHero() {
             </p>
             
             {/* Microsoft badge - desktop only, moved to footer on mobile */}
-            <div className="hidden md:flex items-center justify-center lg:justify-start gap-4 mt-6">
+            <div className="hidden md:flex items-center justify-center gap-4 mt-6">
               <img 
                 src={microsoftPartnerBadge} 
                 alt="Microsoft Preferred Content AI Partner" 
