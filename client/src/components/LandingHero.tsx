@@ -8,7 +8,7 @@ import lightBeamBg from "@assets/AdobeStock_167081726_1767551096392.jpeg";
 import telescopeBg from "@assets/AdobeStock_1114783441_1767551096393.jpeg";
 import vegaLogo from "@assets/VegaTight_1766605018223.png";
 import vegaLogoWhite from "@assets/Vega_-_White_1767549184769.png";
-import vegaScreenshot from "@assets/VegaSS3_1767556369927.jpg";
+import vegaScreenshot from "@assets/VegaSS4_1767644736409.jpg";
 
 const trustBadges = [
   { icon: Shield, label: "SOC 2 Type II" },
@@ -448,7 +448,7 @@ export function LandingHero() {
           <div className="relative rounded-xl overflow-hidden shadow-2xl border">
             <img 
               src={vegaScreenshot} 
-              alt="Vega OKR Planning - OKR Hierarchy and Progress Tracking" 
+              alt="Vega Outcomes - OKR Hierarchy and Progress Tracking" 
               className="w-full h-auto"
             />
           </div>
