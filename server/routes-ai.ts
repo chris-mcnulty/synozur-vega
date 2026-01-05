@@ -993,10 +993,21 @@ CRITICAL: Output ONLY the rewritten note text. No explanations, no quotes, no pr
     let userPrompt: string;
 
     if (input.entityType === "key_result") {
+      // Calculate actual progress from newValue if provided (for key results)
+      let displayProgress: number;
+      if (input.newValue !== undefined && context.targetValue) {
+        const startValue = context.startValue || 0;
+        const range = context.targetValue - startValue;
+        displayProgress = range > 0 ? Math.round(((input.newValue - startValue) / range) * 100) : 0;
+      } else {
+        displayProgress = input.newProgress || context.progress || 0;
+      }
+      
       userPrompt = `Context:
 - Key Result: ${context.krTitle || "Unknown"}
 - Target: ${context.targetValue || 100} ${context.unit || ""}
-- Progress: ${input.newProgress || context.progress || 0}%
+- Current Value: ${input.newValue !== undefined ? input.newValue : context.currentValue || 0} ${context.unit || ""}
+- Progress: ${displayProgress}%
 ${context.objectiveTitle ? `- Objective: ${context.objectiveTitle}` : ""}
 
 Original note to rewrite:
