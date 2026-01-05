@@ -95,7 +95,7 @@ export default function Landing() {
             <div className="flex items-center gap-3">
               <Link href="/login">
                 <Button size="sm" data-testid="button-nav-cta">
-                  Start a free trial
+                  Sign up / Login
                 </Button>
               </Link>
               <ThemeToggle />

@@ -7,6 +7,7 @@ import starTrailsBg from "@assets/AdobeStock_362805421_1767551096391.jpeg";
 import lightBeamBg from "@assets/AdobeStock_167081726_1767551096392.jpeg";
 import telescopeBg from "@assets/AdobeStock_1114783441_1767551096393.jpeg";
 import vegaLogo from "@assets/VegaTight_1766605018223.png";
+import vegaLogoWhite from "@assets/Vega_-_White_1767549184769.png";
 import vegaScreenshot from "@assets/VegaSS3_1767556369927.jpg";
 
 const trustBadges = [
@@ -117,7 +118,9 @@ export function LandingHero() {
         <div className="relative z-10 w-full max-w-5xl mx-auto px-4 md:px-6 text-white">
           <div className="max-w-4xl mx-auto text-center">
             <div className="mb-6 md:mb-8 flex justify-center">
-              <img src={vegaLogo} alt="Vega Company OS" className="h-48 md:h-80 object-contain drop-shadow-2xl" />
+              {/* White logo on mobile for better contrast, regular logo on desktop */}
+              <img src={vegaLogoWhite} alt="Vega Company OS" className="h-56 object-contain drop-shadow-2xl md:hidden" />
+              <img src={vegaLogo} alt="Vega Company OS" className="hidden md:block h-80 object-contain drop-shadow-2xl" />
             </div>
             
             <h1 className="text-3xl md:text-5xl lg:text-6xl font-semibold leading-tight mb-4 md:mb-6" style={{ textShadow: '0 4px 16px rgba(0,0,0,0.9)' }}>
