@@ -978,23 +978,22 @@ aiRouter.post("/rewrite-checkin", requireAIChat, async (req: Request, res: Respo
       expand: "Expand the note by adding relevant context about progress, timeline, and next steps based on the data provided.",
     };
 
-    const systemPrompt = `You are an expert at writing professional OKR check-in notes. 
-Your task is to rewrite or improve check-in notes based on the context provided. Notes should be:
-- Specific and data-driven when possible
-- Professional but conversational
-- Include progress context relative to the goal
-- Highlight blockers or wins when relevant
-- Be appropriately brief (1-3 sentences typically)
-
-${modeInstructions[input.mode]}
-
-Respond with ONLY the rewritten note, no explanations or preamble.`;
-
     let userPrompt: string;
     
-    if (input.entityType === "key_result") {
-      userPrompt = `Rewrite this check-in note for a Key Result.
+    const instructions = `You are an expert at writing professional OKR check-in notes. 
+Your task is to rewrite the provided check-in note. The rewritten note should be:
+- Specific and data-driven when possible
+- Professional but conversational  
+- Appropriately brief (1-3 sentences typically)
+- ${modeInstructions[input.mode]}
 
+IMPORTANT: Respond with ONLY the rewritten note text. No explanations, no preamble, no quotes around the note.`;
+
+    if (input.entityType === "key_result") {
+      userPrompt = `${instructions}
+
+---
+CONTEXT:
 Key Result: ${context.krTitle || "Unknown"}
 ${context.objectiveTitle ? `Parent Objective: ${context.objectiveTitle}` : ""}
 Target: ${context.targetValue || 100} ${context.unit || ""}
@@ -1002,21 +1001,21 @@ Current Progress: ${context.currentValue || 0} → ${input.newValue || context.c
 Overall Progress: ${input.newProgress || context.progress || 0}% toward goal
 ${daysRemaining !== null ? `Time Remaining: ${daysRemaining} days in Q${context.quarter} ${context.year}` : ""}
 
-Original Note: "${input.originalNote}"
-
-Mode: ${input.mode}`;
+ORIGINAL NOTE TO REWRITE:
+${input.originalNote}`;
     } else {
-      userPrompt = `Rewrite this check-in note for a Big Rock (initiative).
+      userPrompt = `${instructions}
 
+---
+CONTEXT:
 Big Rock: ${context.title || "Unknown"}
 ${context.objectiveTitle ? `Parent Objective: ${context.objectiveTitle}` : ""}
 Current Status: ${context.status || "unknown"}
 Completion: ${context.progress || 0}% → ${input.newProgress || context.progress || 0}%
 ${daysRemaining !== null ? `Time Remaining: ${daysRemaining} days in Q${context.quarter} ${context.year}` : ""}
 
-Original Note: "${input.originalNote}"
-
-Mode: ${input.mode}`;
+ORIGINAL NOTE TO REWRITE:
+${input.originalNote}`;
     }
 
     const result = await getChatCompletion(
