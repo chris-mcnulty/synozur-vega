@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Eye, EyeOff, Shield, Loader2 } from "lucide-react";
+import { ArrowLeft, Eye, EyeOff, Shield, Loader2, AlertCircle, ExternalLink, X } from "lucide-react";
 import microsoftLogo from "@assets/Microsoft_Icon_6_1765741102026.jpeg";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import starTrailsBg from "@assets/AdobeStock_362805421_1763398687511.jpeg";
@@ -97,6 +97,7 @@ export default function Login() {
   
   const [ssoPolicy, setSsoPolicy] = useState<SsoPolicy | null>(null);
   const [checkingPolicy, setCheckingPolicy] = useState(false);
+  const [adminConsentError, setAdminConsentError] = useState<string | null>(null);
   
   const ssoErrorMessages: Record<string, string> = {
     'sso_not_configured': 'Microsoft SSO is not configured for this application. Please contact your administrator.',
@@ -132,6 +133,13 @@ export default function Login() {
     const message = params.get('message');
     
     if (error) {
+      // Special handling for admin consent errors - show detailed guidance
+      if (error === 'access_denied' || error === 'consent_required') {
+        setAdminConsentError(errorDescription || message || error);
+        window.history.replaceState({}, '', '/login');
+        return;
+      }
+      
       const friendlyMessage = ssoErrorMessages[error] || errorDescription || message || `Authentication error: ${error}`;
       toast({
         variant: "destructive",
@@ -327,6 +335,64 @@ export default function Login() {
           </div>
           <p className="text-gray-200">Your AI-Augmented Company OS</p>
         </div>
+
+        {adminConsentError && (
+          <Card className="backdrop-blur-md bg-background/95 border-amber-500/50 mb-4">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="h-5 w-5 text-amber-500" />
+                  <CardTitle className="text-lg">Admin Consent Required</CardTitle>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 -mt-1 -mr-2"
+                  onClick={() => setAdminConsentError(null)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <p>
+                Your organization's IT administrator needs to grant permission for Vega to access your Microsoft account.
+              </p>
+              
+              <div className="bg-muted/50 rounded-md p-3 space-y-2">
+                <p className="font-medium">What to tell your IT admin:</p>
+                <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                  <li>Go to <span className="font-mono text-xs">entra.microsoft.com</span> or <span className="font-mono text-xs">portal.azure.com</span></li>
+                  <li>Navigate to Enterprise Applications</li>
+                  <li>Search for "Vega" or add application ID:<br/>
+                    <code className="text-xs bg-background px-1 py-0.5 rounded">6aeac29a-cb76-405b-b0c6-df4a1a368f62</code>
+                  </li>
+                  <li>Grant admin consent for requested permissions</li>
+                </ol>
+              </div>
+
+              <div className="bg-blue-50 dark:bg-blue-950 rounded-md p-3 border border-blue-200 dark:border-blue-800">
+                <p className="text-blue-800 dark:text-blue-200 text-xs">
+                  <strong>Note:</strong> This consent is granted in <em>your organization's</em> Microsoft Entra ID (Azure AD), not in Vega. 
+                  Only your organization's Global Administrator or Application Administrator can grant this consent.
+                </p>
+              </div>
+
+              <p className="text-muted-foreground">
+                Need help? Contact <a href="mailto:Chris.McNulty@synozur.com" className="text-primary hover:underline">Chris.McNulty@synozur.com</a>
+              </p>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setAdminConsentError(null)}
+              >
+                Try signing in again
+              </Button>
+            </CardContent>
+          </Card>
+        )}
 
         <Card className="backdrop-blur-md bg-background/95 border-white/20">
           <CardContent className="pt-6">
