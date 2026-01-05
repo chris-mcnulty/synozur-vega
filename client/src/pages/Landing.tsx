@@ -127,7 +127,7 @@ export default function Landing() {
                 <img 
                   src={microsoftPartnerBadgeWhite} 
                   alt="Microsoft Preferred Content AI Partner" 
-                  className="h-20 object-contain hidden dark:block"
+                  className="h-[7.5rem] object-contain hidden dark:block"
                 />
               </div>
               <div>
