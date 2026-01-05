@@ -379,7 +379,7 @@ export default function Login() {
               </div>
 
               <p className="text-muted-foreground">
-                Need help? Contact <a href="mailto:Chris.McNulty@synozur.com" className="text-primary hover:underline">Chris.McNulty@synozur.com</a>
+                Need help? Contact <a href="mailto:ContactUS@synozur.com" className="text-primary hover:underline">ContactUS@synozur.com</a>
               </p>
 
               <Button
