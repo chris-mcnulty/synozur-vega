@@ -6,7 +6,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
-import microsoftPartnerBadgeWhite from "@assets/MicrosoftCAPPPreferredTrans_1767552040578.png";
+import microsoftPartnerBadgeWhite from "@assets/MSFT-CAPP-PREFERRED-White_1767641957468.png";
 import microsoftPartnerBadgeBlack from "@assets/MSFT-CAPP-PREFERRED-BlackColor_1767641891731.png";
 import vegaLogo from "@assets/VegaTight_1766605018223.png";
 import synozurMark from "@assets/SynozurMark_color1400_1766606244412.png";
