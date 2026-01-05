@@ -1703,8 +1703,8 @@ export default function PlanningEnhanced() {
         const current = await res.json();
         setCheckInEntity({ type: checkIn.entityType, id: checkIn.entityId, current });
         setCheckInForm({
-          newValue: checkIn.newValue || 0,
-          newProgress: checkIn.newProgress,
+          newValue: checkIn.newValue ?? 0,
+          newProgress: checkIn.newProgress ?? current?.progress ?? 0,
           newStatus: checkIn.newStatus || "on_track",
           note: checkIn.note || "",
           achievements: checkIn.achievements || [""],
@@ -1714,7 +1714,7 @@ export default function PlanningEnhanced() {
             ? new Date(checkIn.asOfDate).toISOString().split('T')[0]
             : new Date().toISOString().split('T')[0],
         });
-        setValueInputDraft((checkIn.newValue || 0).toString());
+        setValueInputDraft((checkIn.newValue ?? 0).toString());
         setEditingCheckIn(checkIn);
         setCheckInHistoryDialogOpen(false);
         setCheckInDialogOpen(true);
@@ -3316,7 +3316,8 @@ export default function PlanningEnhanced() {
                       const initialValue = kr.initialValue ?? 0;
                       const targetValue = kr.targetValue ?? 0;
                       
-                      let progress = 0;
+                      // Start with existing progress as fallback for unhandled metric types
+                      let progress: number | null = null;
                       
                       if (kr.metricType === "increase") {
                         const denominator = targetValue - initialValue;
@@ -3343,7 +3344,8 @@ export default function PlanningEnhanced() {
                           const deviation = Math.abs(newVal - targetValue) / Math.abs(targetValue);
                           progress = deviation <= 0.05 ? 100 : Math.max(0, 100 - (deviation * 100));
                         }
-                      } else if (kr.metricType === "complete") {
+                      } else if (kr.metricType === "complete" || kr.metricType === "survey") {
+                        // For "complete" and "survey" types: simple percentage of target
                         if (targetValue === 0 || targetValue < 0) {
                           progress = 0;
                         } else {
@@ -3351,8 +3353,11 @@ export default function PlanningEnhanced() {
                         }
                       }
                       
+                      // For unhandled metric types, keep the existing progress
                       // Allow progress >100% for exceeding targets, only clamp negative to 0
-                      const finalProgress = isNaN(progress) ? 0 : Math.max(0, Math.round(progress));
+                      const finalProgress = progress !== null 
+                        ? (isNaN(progress) ? 0 : Math.max(0, Math.round(progress)))
+                        : checkInForm.newProgress;
                       
                       setCheckInForm({ 
                         ...checkInForm, 
