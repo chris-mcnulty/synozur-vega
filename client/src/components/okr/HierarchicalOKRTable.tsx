@@ -431,7 +431,13 @@ function ObjectiveRow({
               : objective.progress;
             return (
               <div className="flex items-center gap-3">
-                <CircularProgress progress={calculatedProgress} size={36} strokeWidth={3} />
+                <CircularProgress 
+                  progress={calculatedProgress} 
+                  size={36} 
+                  strokeWidth={3}
+                  quarter={objective.quarter}
+                  year={objective.year}
+                />
                 <div className="flex flex-col gap-0.5">
                   <div className="flex items-center gap-1.5">
                     <Badge 
@@ -819,7 +825,15 @@ function KeyResultRow({
             const calculatedProgress = keyResult.targetValue && keyResult.targetValue > 0 
               ? Math.min(((keyResult.currentValue ?? 0) / keyResult.targetValue) * 100, 100)
               : keyResult.progress;
-            return <CircularProgress progress={calculatedProgress} size={28} strokeWidth={2.5} />;
+            return (
+              <CircularProgress 
+                progress={calculatedProgress} 
+                size={28} 
+                strokeWidth={2.5}
+                quarter={parentObjective.quarter}
+                year={parentObjective.year}
+              />
+            );
           })()}
           <div className="flex flex-col gap-0.5">
             <Badge 

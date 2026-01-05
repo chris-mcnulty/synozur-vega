@@ -1468,18 +1468,29 @@ export default function PlanningEnhanced() {
   const handleSaveWeights = async () => {
     // Batch update all Key Results
     try {
-      await Promise.all(
-        managedWeights.map(kr =>
-          fetch(`/api/okr/key-results/${kr.id}`, {
+      const results = await Promise.all(
+        managedWeights.map(async kr => {
+          const response = await fetch(`/api/okr/key-results/${kr.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
+            credentials: "include",
             body: JSON.stringify({
               weight: kr.weight,
               isWeightLocked: kr.isWeightLocked,
             }),
-          })
-        )
+          });
+          
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+            console.error(`[Weight Save] Failed for KR ${kr.id}:`, errorData);
+            throw new Error(errorData.error || `Failed to update weight for ${kr.title}`);
+          }
+          
+          return response.json();
+        })
       );
+      
+      console.log("[Weight Save] All weights saved successfully:", results);
       
       // Invalidate cache once after all updates
       await queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives"] });
@@ -1487,8 +1498,13 @@ export default function PlanningEnhanced() {
       toast({ title: "Success", description: "Key Result weights updated successfully" });
       setWeightManagementDialogOpen(false);
       setManagedWeights([]);
-    } catch (error) {
-      toast({ title: "Error", description: "Failed to update weights", variant: "destructive" });
+    } catch (error: any) {
+      console.error("[Weight Save] Error:", error);
+      toast({ 
+        title: "Error", 
+        description: error.message || "Failed to update weights", 
+        variant: "destructive" 
+      });
     }
   };
 
