@@ -1018,7 +1018,7 @@ Original note to rewrite:
     const result = await getSimpleCompletion(
       systemPrompt,
       userPrompt,
-      { tenantId, maxTokens: 300 },
+      { tenantId, maxTokens: 1000 },  // Increased for GPT-5 reasoning tokens
       AI_FEATURES.CHECK_IN_REWRITE
     );
 
