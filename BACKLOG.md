@@ -1,6 +1,6 @@
 # Vega Platform Master Backlog
 
-**Last Updated:** January 5, 2026 (Help Chatbot & Support Ticket System designed)
+**Last Updated:** January 5, 2026 (AI Check-in Note Rewriter designed)
 
 > **Note:** This is the single source of truth for all Vega feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference this document for backlog-related questions.
 
@@ -677,6 +677,221 @@ View ticket: {{adminTicketUrl}}
 - Consider rate limiting on ticket creation (max 5 per hour per user)
 - Automatically capture context: current page, browser, tenant, timestamp
 - Store tickets per-tenant but make visible to Vega admins globally
+
+---
+
+### AI Check-in Note Rewriter
+
+**Status:** Designed, Not Implemented  
+**Effort:** 3-5 days  
+**Priority:** Medium (AI Enhancement)  
+**Added:** January 5, 2026
+
+AI-powered feature that helps users write better, more professional check-in notes by rewriting their input based on the current value, context, and OKR details.
+
+#### User Experience
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Check-in for: Increase MRR to $500K                        │
+│  ═══════════════════════════════════════════════════════   │
+│                                                             │
+│  Current: $425,000  →  New Value: [_$450,000_]              │
+│                                                             │
+│  📝 Note:                                                   │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ got some new customers this week                    │   │
+│  │                                                     │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  [✨ AI Rewrite]  [Improve Clarity]  [Make Concise]        │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│  AI Suggestion:                                             │
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │ Closed 3 new enterprise accounts this week,         │   │
+│  │ adding $25K MRR. Progress: 90% toward Q1 target.    │   │
+│  │ On track to exceed goal by end of month.            │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  [Accept]  [Edit & Accept]  [Regenerate]  [Dismiss]        │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Rewrite Modes
+
+| Mode | Purpose | Example Output |
+|------|---------|----------------|
+| **AI Rewrite** | Full rewrite with professional tone | Detailed, contextual note |
+| **Improve Clarity** | Keep meaning, improve grammar/structure | Same info, clearer writing |
+| **Make Concise** | Shorten while preserving key points | Brief, punchy update |
+| **Add Context** | Expand with relevant metrics/status | Original + progress context |
+
+#### Context Provided to AI
+
+The AI rewriter receives rich context to generate relevant suggestions:
+
+```typescript
+interface CheckInRewriteContext {
+  // Current check-in data
+  originalNote: string;
+  previousValue: number | null;
+  newValue: number;
+  
+  // Key Result context
+  krTitle: string;
+  krDescription: string | null;
+  targetValue: number;
+  startValue: number;
+  unit: string;
+  metricType: 'number' | 'percentage' | 'currency' | 'binary';
+  
+  // Objective context
+  objectiveTitle: string;
+  objectiveDescription: string | null;
+  
+  // Progress context
+  currentProgress: number; // 0-100%
+  progressDelta: number;   // Change from this check-in
+  
+  // Time context
+  daysRemaining: number;
+  quarterName: string;     // e.g., "Q1 2026"
+  
+  // Historical context (optional)
+  recentCheckIns: Array<{
+    date: string;
+    value: number;
+    note: string;
+  }>;
+  
+  // Rewrite mode
+  mode: 'full' | 'clarity' | 'concise' | 'expand';
+}
+```
+
+#### AI Prompt Strategy
+
+**System Prompt:**
+```
+You are an expert at writing professional OKR check-in notes. 
+Your task is to rewrite or improve check-in notes based on the 
+context provided. Notes should be:
+- Specific and data-driven when possible
+- Professional but conversational
+- Include progress context relative to the goal
+- Highlight blockers or wins when relevant
+- Be appropriately brief (1-3 sentences typically)
+```
+
+**User Prompt Template:**
+```
+Rewrite this check-in note for a Key Result.
+
+Key Result: {{krTitle}}
+Target: {{targetValue}} {{unit}}
+Current Progress: {{previousValue}} → {{newValue}} ({{progressDelta}}% change)
+Overall Progress: {{currentProgress}}% toward goal
+Time Remaining: {{daysRemaining}} days in {{quarterName}}
+
+Original Note: "{{originalNote}}"
+
+Mode: {{mode}}
+
+Provide an improved version of this note.
+```
+
+#### API Endpoint
+
+```
+POST /api/ai/rewrite-checkin
+{
+  "keyResultId": "uuid",
+  "originalNote": "string",
+  "newValue": number,
+  "mode": "full" | "clarity" | "concise" | "expand"
+}
+
+Response:
+{
+  "rewrittenNote": "string",
+  "suggestions": ["alternative1", "alternative2"], // optional alternatives
+  "tokensUsed": number
+}
+```
+
+#### Integration Points
+
+1. **OKRDetailPane Check-in Dialog:**
+   - Add "AI Rewrite" button next to the note textarea
+   - Show AI suggestion in a preview area below
+   - Accept/Edit/Regenerate controls
+
+2. **Bulk Check-in Flow:**
+   - Option to AI-rewrite notes during bulk updates
+   - "Improve All Notes" action for multiple check-ins
+
+3. **Meeting Check-in:**
+   - Quick rewrite during Focus Rhythm meeting prep
+   - Batch mode for all team KR updates
+
+#### UI Components
+
+```typescript
+// New component
+interface AIRewriteButtonProps {
+  originalNote: string;
+  onRewrite: (rewrittenNote: string) => void;
+  context: CheckInRewriteContext;
+}
+
+// Add to CheckInDialog
+<div className="flex gap-2 mt-2">
+  <Button variant="ghost" size="sm" onClick={() => rewrite('full')}>
+    <Sparkles className="w-4 h-4 mr-1" />
+    AI Rewrite
+  </Button>
+  <Button variant="ghost" size="sm" onClick={() => rewrite('clarity')}>
+    Improve Clarity
+  </Button>
+  <Button variant="ghost" size="sm" onClick={() => rewrite('concise')}>
+    Make Concise
+  </Button>
+</div>
+
+{aiSuggestion && (
+  <div className="mt-3 p-3 bg-muted rounded-md">
+    <p className="text-sm text-muted-foreground mb-2">AI Suggestion:</p>
+    <p className="text-sm">{aiSuggestion}</p>
+    <div className="flex gap-2 mt-2">
+      <Button size="sm" onClick={acceptSuggestion}>Accept</Button>
+      <Button size="sm" variant="outline" onClick={editAndAccept}>
+        Edit & Accept
+      </Button>
+      <Button size="sm" variant="ghost" onClick={regenerate}>
+        Regenerate
+      </Button>
+    </div>
+  </div>
+)}
+```
+
+#### Business Value
+
+- **Time Savings:** Users spend less time crafting professional updates
+- **Consistency:** More uniform, high-quality check-in notes across the org
+- **Better Reporting:** Clearer notes improve readability in reports/exports
+- **User Adoption:** AI assistance reduces friction in the check-in process
+- **Context Awareness:** Notes automatically reference progress and timelines
+
+#### Implementation Notes
+
+- Use existing OpenAI integration (streaming optional for single rewrites)
+- Track AI usage for cost monitoring (existing aiUsageLogs table)
+- Consider caching common patterns to reduce API calls
+- Rate limit: Max 10 rewrites per user per hour
+- Graceful fallback if AI service unavailable
 
 ---
 
