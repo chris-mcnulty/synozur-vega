@@ -1492,8 +1492,9 @@ export default function PlanningEnhanced() {
       
       console.log("[Weight Save] All weights saved successfully:", results);
       
-      // Invalidate cache once after all updates
-      await queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives"] });
+      // Invalidate cache once after all updates - both objectives and hierarchy
+      await queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives"], exact: false });
+      await queryClient.invalidateQueries({ queryKey: ["/api/okr/hierarchy"], exact: false });
       
       toast({ title: "Success", description: "Key Result weights updated successfully" });
       setWeightManagementDialogOpen(false);
