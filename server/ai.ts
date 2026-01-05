@@ -236,6 +236,64 @@ export async function getChatCompletion(
   }
 }
 
+// Simple completion with a custom system prompt (bypasses grounding docs)
+// Use this for focused tasks like text rewriting where the full Vega context is not needed
+export async function getSimpleCompletion(
+  systemPrompt: string,
+  userMessage: string,
+  options: { tenantId?: string; maxTokens?: number } = {},
+  feature: AIFeature = AI_FEATURES.CHAT
+): Promise<string> {
+  const { tenantId, maxTokens = 500 } = options;
+  const startTime = Date.now();
+
+  const fullMessages: OpenAI.ChatCompletionMessageParam[] = [
+    { role: "system", content: systemPrompt },
+    { role: "user", content: userMessage },
+  ];
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: MODEL,
+      messages: fullMessages,
+      max_completion_tokens: maxTokens,
+    });
+
+    const latencyMs = Date.now() - startTime;
+    
+    await logAiUsage({
+      tenantId,
+      feature,
+      promptTokens: response.usage?.prompt_tokens || 0,
+      completionTokens: response.usage?.completion_tokens || 0,
+      latencyMs,
+      wasStreaming: false,
+      requestId: response.id,
+    });
+
+    const content = response.choices[0]?.message?.content;
+    if (!content) {
+      throw new Error("AI returned empty response");
+    }
+    return content;
+  } catch (error: any) {
+    console.error("OpenAI API Error in getSimpleCompletion:", error);
+    
+    await logAiUsage({
+      tenantId,
+      feature,
+      promptTokens: 0,
+      completionTokens: 0,
+      latencyMs: Date.now() - startTime,
+      wasStreaming: false,
+      errorCode: error?.code || 'unknown',
+      errorMessage: error?.message,
+    });
+    
+    throw error;
+  }
+}
+
 // Streaming chat completion for better UX
 export async function* streamChatCompletion(
   messages: ChatMessage[],

@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
 import { insertGroundingDocumentSchema } from "@shared/schema";
-import { getChatCompletion, streamChatCompletion, streamChatWithTools, generateOKRSuggestions, suggestBigRocks, streamProgressSummary, streamGoalSuggestions, streamStrategyDraft, parseMeetingRecap, scoreOKRQuality, type ChatMessage, type ProgressSummaryData, type GoalSuggestionContext, type StrategyDraftContext, type MeetingRecapResult, type OKRQualityScoreResult } from "./ai";
+import { getChatCompletion, getSimpleCompletion, streamChatCompletion, streamChatWithTools, generateOKRSuggestions, suggestBigRocks, streamProgressSummary, streamGoalSuggestions, streamStrategyDraft, parseMeetingRecap, scoreOKRQuality, type ChatMessage, type ProgressSummaryData, type GoalSuggestionContext, type StrategyDraftContext, type MeetingRecapResult, type OKRQualityScoreResult } from "./ai";
 import { z } from "zod";
 import { hasPermission, PERMISSIONS, Role } from "@shared/rbac";
 import { loadCurrentUser, requireTenantAccess } from "./middleware/rbac";
@@ -978,49 +978,44 @@ aiRouter.post("/rewrite-checkin", requireAIChat, async (req: Request, res: Respo
       expand: "Expand the note by adding relevant context about progress, timeline, and next steps based on the data provided.",
     };
 
-    let userPrompt: string;
-    
-    const instructions = `You are an expert at writing professional OKR check-in notes. 
-Your task is to rewrite the provided check-in note. The rewritten note should be:
-- Specific and data-driven when possible
-- Professional but conversational  
-- Appropriately brief (1-3 sentences typically)
-- ${modeInstructions[input.mode]}
+    const systemPrompt = `You are a professional writing assistant that rewrites OKR check-in notes.
 
-IMPORTANT: Respond with ONLY the rewritten note text. No explanations, no preamble, no quotes around the note.`;
+Your task: Rewrite the provided check-in note to be more professional and effective.
+
+Style guidelines:
+- ${modeInstructions[input.mode]}
+- Keep notes brief (1-3 sentences)
+- Be professional but conversational
+- Use data when available
+
+CRITICAL: Output ONLY the rewritten note text. No explanations, no quotes, no preamble.`;
+
+    let userPrompt: string;
 
     if (input.entityType === "key_result") {
-      userPrompt = `${instructions}
+      userPrompt = `Context:
+- Key Result: ${context.krTitle || "Unknown"}
+- Target: ${context.targetValue || 100} ${context.unit || ""}
+- Progress: ${input.newProgress || context.progress || 0}%
+${context.objectiveTitle ? `- Objective: ${context.objectiveTitle}` : ""}
 
----
-CONTEXT:
-Key Result: ${context.krTitle || "Unknown"}
-${context.objectiveTitle ? `Parent Objective: ${context.objectiveTitle}` : ""}
-Target: ${context.targetValue || 100} ${context.unit || ""}
-Current Progress: ${context.currentValue || 0} → ${input.newValue || context.currentValue || 0} (${progressDelta >= 0 ? "+" : ""}${progressDelta.toFixed(1)}% change)
-Overall Progress: ${input.newProgress || context.progress || 0}% toward goal
-${daysRemaining !== null ? `Time Remaining: ${daysRemaining} days in Q${context.quarter} ${context.year}` : ""}
-
-ORIGINAL NOTE TO REWRITE:
-${input.originalNote}`;
+Original note to rewrite:
+"${input.originalNote}"`;
     } else {
-      userPrompt = `${instructions}
+      userPrompt = `Context:
+- Big Rock: ${context.title || "Unknown"}
+- Status: ${context.status || "unknown"}
+- Completion: ${input.newProgress || context.progress || 0}%
+${context.objectiveTitle ? `- Objective: ${context.objectiveTitle}` : ""}
 
----
-CONTEXT:
-Big Rock: ${context.title || "Unknown"}
-${context.objectiveTitle ? `Parent Objective: ${context.objectiveTitle}` : ""}
-Current Status: ${context.status || "unknown"}
-Completion: ${context.progress || 0}% → ${input.newProgress || context.progress || 0}%
-${daysRemaining !== null ? `Time Remaining: ${daysRemaining} days in Q${context.quarter} ${context.year}` : ""}
-
-ORIGINAL NOTE TO REWRITE:
-${input.originalNote}`;
+Original note to rewrite:
+"${input.originalNote}"`;
     }
 
-    const result = await getChatCompletion(
-      [{ role: "user", content: userPrompt }],
-      { tenantId, maxTokens: 500 },
+    const result = await getSimpleCompletion(
+      systemPrompt,
+      userPrompt,
+      { tenantId, maxTokens: 300 },
       "check_in_rewrite" as any
     );
 
