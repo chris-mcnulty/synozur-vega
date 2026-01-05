@@ -783,7 +783,7 @@ export default function TenantAdmin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setUserDialogOpen(false);
-      setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false, userType: "client" });
+      setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false, userType: "client", azureObjectId: "" });
       toast({ title: "User created successfully" });
     },
     onError: () => {
@@ -801,7 +801,7 @@ export default function TenantAdmin() {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       setUserDialogOpen(false);
       setEditingUser(null);
-      setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false, userType: "client" });
+      setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false, userType: "client", azureObjectId: "" });
       toast({ title: "User updated successfully" });
     },
     onError: () => {
@@ -1465,9 +1465,10 @@ export default function TenantAdmin() {
   const getSsoStatus = (tenant: Tenant) => {
     const azureTenantId = (tenant as any).azureTenantId;
     const enforceSso = (tenant as any).enforceSso;
-    if (!azureTenantId) return { label: "Not Configured", variant: "secondary" as const };
-    if (enforceSso) return { label: "SSO Required", variant: "default" as const };
-    return { label: "SSO Available", variant: "outline" as const };
+    // SSO is always available globally - tenant config adds extra features
+    if (!azureTenantId) return { label: "Using Global SSO", variant: "outline" as const, description: "Users can sign in with Microsoft. Configure to enable auto-provisioning." };
+    if (enforceSso) return { label: "SSO Required", variant: "default" as const, description: "Password login is disabled." };
+    return { label: "SSO Configured", variant: "default" as const, description: "Auto-provisioning enabled for this Azure tenant." };
   };
 
   // Branding handlers
@@ -2624,7 +2625,7 @@ export default function TenantAdmin() {
               SSO Settings - {selectedTenantForSso?.name}
             </DialogTitle>
             <DialogDescription>
-              Configure Microsoft Entra ID (Azure AD) Single Sign-On for this organization.
+              SSO is already available globally. Configure tenant-specific settings for auto-provisioning and access control.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -3563,6 +3564,9 @@ export default function TenantAdmin() {
                       <Badge variant={getSsoStatus(selectedTenantForSettings).variant} className="text-xs mt-1">
                         {getSsoStatus(selectedTenantForSettings).label}
                       </Badge>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {(getSsoStatus(selectedTenantForSettings) as any).description}
+                      </p>
                     </div>
                     <Button
                       variant="outline"
