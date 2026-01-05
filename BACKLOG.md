@@ -1,6 +1,6 @@
 # Vega Platform Master Backlog
 
-**Last Updated:** January 1, 2026 (Company OS Document Export added)
+**Last Updated:** January 5, 2026 (Help Chatbot & Support Ticket System designed)
 
 > **Note:** This is the single source of truth for all Vega feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference this document for backlog-related questions.
 
@@ -434,6 +434,251 @@ Standardized multi-select time period picker allowing selection of multiple quar
 ---
 
 ## FEATURE PROPOSALS
+
+### Help Chatbot & Support Ticket System
+
+**Status:** Designed, Not Implemented  
+**Effort:** 2-3 weeks  
+**Priority:** High (User Experience Critical)  
+**Added:** January 5, 2026
+
+A two-part integrated help system: (1) an AI-powered Help Bot grounded on the Vega user guide, and (2) a Support Ticket system for escalation and feedback.
+
+#### Feature 1: Help Chatbot (Primary)
+
+**Purpose:** Provide instant, context-aware help to users by answering questions based on the official Vega user guide documentation.
+
+**User Experience:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│  [?] Help button in header/sidebar (always visible)         │
+│      └── Opens slide-out chat panel or modal                │
+│                                                              │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │  🌟 Vega Help                                    [X] │   │
+│  │  ─────────────────────────────────────────────────── │   │
+│  │                                                      │   │
+│  │  Hi! I'm your Vega assistant. Ask me anything       │   │
+│  │  about using the platform.                          │   │
+│  │                                                      │   │
+│  │  💡 Quick topics:                                   │   │
+│  │  • How do I create an OKR?                          │   │
+│  │  • What is a Big Rock?                              │   │
+│  │  • How do check-ins work?                           │   │
+│  │                                                      │   │
+│  │  ─────────────────────────────────────────────────── │   │
+│  │  [Type your question...]              [Send] [📎]   │   │
+│  │                                                      │   │
+│  │  ─────────────────────────────────────────────────── │   │
+│  │  Can't find what you need?                          │   │
+│  │  [Open Support Ticket]                              │   │
+│  └──────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Technical Implementation:**
+1. **Grounding Documents:**
+   - Store user guide content as grounding documents (similar to existing Background Context system)
+   - System-level documents that apply to all tenants
+   - Chunk and index for efficient retrieval (RAG pattern)
+
+2. **AI Integration:**
+   - Use existing OpenAI integration with system prompt including user guide context
+   - Streaming responses for better UX
+   - Include current page/context for more relevant answers
+
+3. **Conversation Memory:**
+   - Maintain conversation history within session
+   - Option to clear/restart conversation
+
+4. **Escalation Path:**
+   - If user expresses frustration or bot can't answer after 2-3 attempts
+   - Show "Would you like to open a support ticket?" prompt
+   - Pre-fill ticket with conversation summary
+
+**Database Schema:**
+```typescript
+// Help conversations (optional - for analytics)
+helpConversations: {
+  id: uuid,
+  tenantId: uuid,
+  userId: uuid,
+  messages: jsonb, // Array of {role, content, timestamp}
+  resolved: boolean,
+  escalatedToTicket: boolean,
+  ticketId: uuid | null,
+  createdAt: timestamp,
+  updatedAt: timestamp,
+}
+```
+
+---
+
+#### Feature 2: Support Ticket System (Secondary)
+
+**Purpose:** Capture user feedback, bug reports, and support requests that can't be resolved by the Help Bot.
+
+**User Experience:**
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Open Support Ticket                                        │
+│  ═══════════════════════════════════════════════════════   │
+│                                                             │
+│  📋 Category:                                               │
+│  [▼ Bug Report | Feature Request | Question | Feedback ]   │
+│                                                             │
+│  📝 Subject:                                                │
+│  [Short description of your issue...]                       │
+│                                                             │
+│  📄 Description:                                            │
+│  [Detailed description...]                                  │
+│  (Pre-filled with conversation summary if from Help Bot)    │
+│                                                             │
+│  📎 Attachments: [Add Screenshot] [Add File]                │
+│                                                             │
+│  🔢 Priority: [Low | Medium | High]                         │
+│                                                             │
+│  ─────────────────────────────────────────────────────────  │
+│  [Cancel]                              [Submit Ticket]      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**On Ticket Submission:**
+1. **Acknowledgment Email to User:**
+   - Subject: "Vega Support Ticket #[ID] - We've received your request"
+   - Body: Ticket details, expected response time, ticket tracking link
+   - Sent via SendGrid (already integrated)
+
+2. **Internal Notification to Support:**
+   - Email to Chris.McNulty@synozur.com
+   - Subject: "New Vega Support Ticket #[ID] from [User] at [Tenant]"
+   - Body: Full ticket details, user info, conversation history if applicable
+   - Include direct link to admin ticket view
+
+3. **In-App Ticket Tracking:**
+   - Users can view their submitted tickets
+   - Status updates (Open → In Progress → Resolved → Closed)
+   - Reply thread for back-and-forth communication
+
+**Database Schema:**
+```typescript
+supportTickets: {
+  id: uuid,
+  ticketNumber: serial, // Human-readable ticket number
+  tenantId: uuid,
+  userId: uuid,
+  category: enum ['bug', 'feature_request', 'question', 'feedback'],
+  subject: text,
+  description: text,
+  priority: enum ['low', 'medium', 'high'],
+  status: enum ['open', 'in_progress', 'resolved', 'closed'],
+  helpConversationId: uuid | null, // Link to originating conversation
+  metadata: jsonb, // Browser info, current page, etc.
+  createdAt: timestamp,
+  updatedAt: timestamp,
+  resolvedAt: timestamp | null,
+  resolvedBy: uuid | null,
+}
+
+supportTicketReplies: {
+  id: uuid,
+  ticketId: uuid,
+  userId: uuid, // Can be user or admin
+  isInternal: boolean, // Internal notes vs user-visible replies
+  content: text,
+  createdAt: timestamp,
+}
+
+supportTicketAttachments: {
+  id: uuid,
+  ticketId: uuid,
+  fileName: text,
+  fileUrl: text,
+  fileSize: integer,
+  mimeType: text,
+  uploadedAt: timestamp,
+}
+```
+
+**API Routes:**
+```
+POST /api/support/tickets - Create new ticket
+GET /api/support/tickets - List user's tickets
+GET /api/support/tickets/:id - Get ticket details
+POST /api/support/tickets/:id/replies - Add reply
+PATCH /api/support/tickets/:id - Update status (admin)
+
+POST /api/help/conversations - Start help conversation
+POST /api/help/conversations/:id/messages - Send message to help bot
+POST /api/help/conversations/:id/escalate - Escalate to ticket
+```
+
+**Admin View (Vega Admin/Consultant):**
+- Dashboard showing all open tickets across tenants
+- Filter by status, priority, category, tenant
+- Assign tickets to team members
+- Internal notes and reply functionality
+- Bulk actions (close, assign, update priority)
+
+**Email Templates:**
+
+*User Acknowledgment:*
+```
+Subject: Vega Support Ticket #{{ticketNumber}} - We've received your request
+
+Hi {{userName}},
+
+Thank you for contacting Vega Support. We've received your {{category}} 
+and a member of our team will review it shortly.
+
+Ticket Details:
+- Ticket #: {{ticketNumber}}
+- Subject: {{subject}}
+- Priority: {{priority}}
+- Status: Open
+
+You can track your ticket status in Vega by visiting:
+{{ticketUrl}}
+
+We typically respond within 1 business day.
+
+Best regards,
+The Vega Team
+```
+
+*Internal Notification:*
+```
+Subject: [Vega Support] New {{priority}} {{category}} from {{userName}} ({{tenantName}})
+
+New support ticket submitted:
+
+Ticket #: {{ticketNumber}}
+User: {{userName}} ({{userEmail}})
+Tenant: {{tenantName}}
+Category: {{category}}
+Priority: {{priority}}
+
+Subject: {{subject}}
+
+Description:
+{{description}}
+
+{{#if helpConversation}}
+Previous Help Bot Conversation:
+{{helpConversation}}
+{{/if}}
+
+View ticket: {{adminTicketUrl}}
+```
+
+**Implementation Notes:**
+- Use existing SendGrid integration for emails
+- Help Bot should use the same AI infrastructure as existing AI chat
+- Consider rate limiting on ticket creation (max 5 per hour per user)
+- Automatically capture context: current page, browser, tenant, timestamp
+- Store tickets per-tenant but make visible to Vega admins globally
+
+---
 
 ### Strategy Cascade Visualization (Strategy Map)
 
