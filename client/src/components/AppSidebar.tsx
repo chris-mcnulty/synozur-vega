@@ -64,7 +64,7 @@ const navigationSections: NavigationSection[] = [
     id: 'plan-align',
     label: 'Plan & Align',
     icon: Target,
-    description: 'Strategic planning and goal alignment',
+    description: 'Strategy development and goal alignment',
     defaultExpanded: true,
     items: [
       { title: 'Foundations', url: '/foundations', icon: Building2, testId: 'sidebar-foundations' },

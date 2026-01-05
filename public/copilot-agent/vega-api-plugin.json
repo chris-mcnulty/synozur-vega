@@ -3,7 +3,7 @@
   "schema_version": "v2.2",
   "name_for_human": "Vega Company OS",
   "name_for_model": "vega_company_os",
-  "description_for_human": "Manage OKRs, strategic planning, and team alignment with the Vega Company Operating System.",
+  "description_for_human": "Manage OKRs, strategy, and team alignment with the Vega Company Operating System.",
   "description_for_model": "Use this plugin to interact with the Vega Company OS platform. You can retrieve and manage OKRs (Objectives and Key Results), Big Rocks (quarterly priorities), Focus Rhythm meetings, strategies, and company foundations. Always use the appropriate tenantId parameter when making requests.",
   "logo_url": "https://vega.synozur.com/vega-logo.png",
   "contact_email": "support@synozur.com",

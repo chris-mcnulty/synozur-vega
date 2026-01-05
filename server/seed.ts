@@ -307,7 +307,7 @@ async function seed() {
     {
       tenantId: acmeTenantId,
       meetingType: "weekly",
-      title: "Strategic Planning Review",
+      title: "Strategy Review",
       date: new Date("2025-01-20T09:00:00Z"),
       attendees: ["Sarah Chen", "Michael Torres", "Alex Kim", "Jordan Lee", "Product Team", "Sales Team", "Engineering Team", "Customer Success Team"],
       summary: "Weekly review of strategic initiatives and OKR progress. Focus on Q1 2025 objectives and key results alignment.",
@@ -581,7 +581,7 @@ async function seed() {
     {
       tenantId: synozurTenantId,
       meetingType: "weekly",
-      title: "Strategic Planning Review",
+      title: "Strategy Review",
       date: new Date("2025-01-20T09:00:00Z"),
       attendees: ["Sarah Chen", "Michael Torres", "Alex Kim", "Jordan Lee", "Product Team", "Sales Team", "Engineering Team", "Customer Success Team"],
       summary: "Weekly review of strategic initiatives and OKR progress. Focus on Q1 2025 objectives and key results alignment.",

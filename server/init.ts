@@ -430,7 +430,7 @@ export async function seedDatabase() {
     {
       tenantId: acmeTenantId,
       meetingType: "quarterly",
-      title: "Q1 Strategic Planning",
+      title: "Q1 Strategy Review",
       date: new Date("2025-01-15T10:00:00Z"),
       attendees: ["Executive Team", "Department Heads", "Product Team", "Sales Team"],
       summary: "Reviewed Q1 objectives and key results. Discussed product launch timeline and market expansion plans.",

@@ -561,7 +561,7 @@ export const MEETING_TEMPLATES: MeetingTemplate[] = [
       '[OKR] Annual OKR performance summary - what we achieved',
       'Mission, vision, and values alignment check',
       'Celebrate major wins and milestones',
-      '--- STRATEGIC PLANNING ---',
+      '--- STRATEGY DEVELOPMENT ---',
       'Market and competitive landscape analysis',
       'Strategic priorities for next year',
       'Annual goals definition',

@@ -294,7 +294,7 @@ Generate a comprehensive single-document view of an organization's Company OS, e
 
 **Business Value:**
 - Board presentations and leadership reviews
-- Strategic planning documentation
+- Strategy documentation
 - Consultant deliverables
 - Archival and compliance
 

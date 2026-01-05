@@ -115,7 +115,7 @@ export function AIChatPanel({ onClose }: AIChatPanelProps) {
     {
       id: "welcome",
       role: "assistant",
-      content: "Hello! I'm Vega AI, your strategic planning assistant. I can help you with:\n\n• Creating and refining OKRs\n• Strategic planning guidance\n• Company OS best practices\n• Big Rock suggestions\n\nHow can I assist you today?",
+      content: "Hello! I'm Vega AI, your strategy assistant. I can help you with:\n\n• Creating and refining OKRs\n• Strategy development guidance\n• Company OS best practices\n• Big Rock suggestions\n\nHow can I assist you today?",
     },
   ]);
   const [input, setInput] = useState("");
@@ -301,7 +301,7 @@ export function AIChatPanel({ onClose }: AIChatPanelProps) {
       {
         id: "welcome",
         role: "assistant",
-        content: "Hello! I'm Vega AI, your strategic planning assistant. How can I help you today?",
+        content: "Hello! I'm Vega AI, your strategy assistant. How can I help you today?",
       },
     ]);
   }

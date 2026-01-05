@@ -1,7 +1,7 @@
 # Vega - AI-Augmented Company OS Platform
 
 ## Overview
-Vega is a responsive web application serving as a comprehensive Company Operating System (Company OS). Its purpose is to align organizational strategy with execution using AI-powered modules for foundational elements, strategic planning, and focus rhythm management. The platform supports consultant-led and self-service approaches, integrates with Microsoft 365, and maintains a consistent UI/UX with Orion.synozur.com for brand continuity, aiming to provide a holistic solution for managing and implementing strategic objectives.
+Vega is a responsive web application serving as a comprehensive Company Operating System (Company OS). Its purpose is to align organizational strategy with execution using AI-powered modules for foundational elements, strategy development, and focus rhythm management. The platform supports consultant-led and self-service approaches, integrates with Microsoft 365, and maintains a consistent UI/UX with Orion.synozur.com for brand continuity, aiming to provide a holistic solution for managing and implementing strategic objectives.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.

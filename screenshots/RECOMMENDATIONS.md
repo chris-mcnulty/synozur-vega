@@ -49,7 +49,7 @@ Each screenshot covers a critical user journey or feature:
 | First-time user onboarding | #1, #2 | Authentication and navigation orientation |
 | Daily use | #3 | Main dashboard and overview |
 | Understanding company identity | #4 | Foundation elements |
-| Strategic planning | #5 | Strategy management |
+| Strategy development | #5 | Strategy management |
 | OKR management | #6, #7, #8 | Creating, viewing, and updating OKRs |
 | Meeting management | #9 | Focus Rhythm functionality |
 | AI-powered insights | #10 | AI assistant capabilities |

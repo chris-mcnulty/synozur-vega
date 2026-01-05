@@ -90,7 +90,7 @@ export default function About() {
                 </li>
                 <li className="flex items-center gap-2">
                   <Layers className="h-3 w-3 shrink-0" />
-                  Strategic planning and alignment
+                  Strategy development and alignment
                 </li>
                 <li className="flex items-center gap-2">
                   <Calendar className="h-3 w-3 shrink-0" />

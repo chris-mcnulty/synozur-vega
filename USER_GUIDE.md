@@ -29,14 +29,14 @@ Version 1.3 | Last Updated: January 3, 2026
 
 ### What is Vega?
 
-Vega is a comprehensive Company Operating System designed to help organizations align their culture, strategy, and execution. Built by The Synozur Alliance LLC, Vega brings together strategic planning, operational execution, and team alignment into one integrated platform.
+Vega is a comprehensive Company Operating System designed to help organizations align their culture, strategy, and execution. Built by The Synozur Alliance LLC, Vega brings together strategy development, operational execution, and team alignment into one integrated platform.
 
 ### Key Features
 
 - **Foundations**: Define your organization's identity through mission, vision, values, and annual goals
 - **Strategy**: Develop and track strategic initiatives that drive your business forward
 - **Planning (OKRs)**: Set and track Objectives and Key Results at organization, team, division, and individual levels
-- **Focus Rhythm**: Integrate strategic planning with regular meeting cadences (weekly, monthly, quarterly, annual)
+- **Focus Rhythm**: Integrate strategy reviews with regular meeting cadences (weekly, monthly, quarterly, annual)
 - **AI Assistant**: Get intelligent insights and assistance with AI-powered analysis
 - **Microsoft 365 Integration**: Connect seamlessly with your Microsoft 365 tools (Planner, SharePoint, OneDrive, Outlook)
 - **Culture-Driven**: Tag objectives and strategies with company values to ensure values-driven decision making
@@ -576,7 +576,7 @@ Clone objectives to simplify recurring OKR creation and cross-team alignment—e
 
 ## Focus Rhythm
 
-Focus Rhythm connects your strategic planning to regular meeting cadences, ensuring continuous alignment and execution.
+Focus Rhythm connects your strategy reviews to regular meeting cadences, ensuring continuous alignment and execution.
 
 ### Meeting Types
 
@@ -1344,7 +1344,7 @@ Manage documents that provide context to the AI Assistant:
 
 **Examples:**
 - Company-specific acronyms and definitions
-- Strategic planning methodology
+- Strategy development methodology
 - Values descriptions and examples
 - Industry-specific context
 
@@ -1700,7 +1700,7 @@ Vega uses role-based permissions to control access:
 
 **Company OS**: Company Operating System - the integrated platform for strategic alignment and execution (Vega).
 
-**Focus Rhythm**: Regular meeting cadences (weekly, monthly, quarterly, annual) that connect strategic planning to execution.
+**Focus Rhythm**: Regular meeting cadences (weekly, monthly, quarterly, annual) that connect strategy to execution.
 
 **Foundation**: The core identity elements of an organization: mission, vision, values, and annual goals.
 

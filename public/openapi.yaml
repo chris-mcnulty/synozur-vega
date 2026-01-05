@@ -3,7 +3,7 @@ info:
   title: Vega Company OS API
   description: |
     Vega is an AI-augmented Company Operating System that helps organizations align strategy with execution.
-    This API provides access to OKRs (Objectives and Key Results), strategic planning, focus rhythm meetings,
+    This API provides access to OKRs (Objectives and Key Results), strategy development, focus rhythm meetings,
     and AI-powered assistance.
     
     ## Authentication

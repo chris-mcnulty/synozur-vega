@@ -67,7 +67,7 @@ const TERM_DESCRIPTIONS: Record<keyof VocabularyTerms, string> = {
   keyResult: "Quantifiable metrics that measure objective progress",
   bigRock: "Major initiatives or projects that drive results",
   meeting: "Scheduled sessions for team collaboration",
-  focusRhythm: "Regular cadence of strategic planning sessions",
+  focusRhythm: "Regular cadence of strategy review sessions",
 };
 
 type TrafficStats = {
