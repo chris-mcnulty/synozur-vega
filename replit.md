@@ -17,7 +17,7 @@ Preferred communication style: Simple, everyday language.
     - **Company OS Dashboard**: Real-time overview of Foundations, Strategies, Quarterly OKRs, Big Rocks, and upcoming meetings.
     - **Foundations Module**: Manages mission, vision, values, and annual goals with AI suggestions.
     - **Strategy Module**: Facilitates strategy management with AI drafting and goal alignment.
-    - **Planning Module**: Enhanced OKR system with hierarchical objectives, Key Results, and "big rocks."
+    - **Outcomes Module**: Enhanced OKR system with hierarchical objectives, Key Results, and "big rocks."
     - **Focus Rhythm**: Full meeting management with OKR alignment, templates, auto-generated agendas, and search.
     - **Tenant Admin**: Manages organization, M365 integration status, tenant/user CRUD, and allowed email domains.
     - **Launchpad**: AI-powered document analysis for extracting and creating foundational company elements.

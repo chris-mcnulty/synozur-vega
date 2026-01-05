@@ -35,7 +35,7 @@ const features = [
   },
   {
     icon: TrendingUp,
-    title: "Planning",
+    title: "Outcomes",
     description: "Hierarchical OKRs with Key Results, Big Rocks, and weighted scoring. Bidirectional Microsoft Planner sync keeps tasks aligned with objectives.",
     badge: "M365 Integrated",
     badgeVariant: "outline" as const,

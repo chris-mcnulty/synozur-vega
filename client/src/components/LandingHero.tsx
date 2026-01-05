@@ -72,7 +72,7 @@ const notForItems = [
 const modules = [
   { icon: Building2, title: "Foundations", description: "Define mission, vision, values, and goals" },
   { icon: Compass, title: "Strategy", description: "Strategic priorities aligned to annual goals" },
-  { icon: Target, title: "Planning (OKRs)", description: "Objectives, weighted key results, check-ins" },
+  { icon: Target, title: "Outcomes (OKRs)", description: "Objectives, weighted key results, check-ins" },
   { icon: Calendar, title: "Focus Rhythm", description: "Meeting cadences, agendas, decisions, action items" },
   { icon: Sparkles, title: "AI Assistant", description: "At-risk detection, summaries, reporting exports" },
 ];

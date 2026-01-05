@@ -38,8 +38,8 @@ function detectQuickActions(content: string, navigate: (path: string) => void): 
   // Detect objective/OKR related content
   if (lowerContent.includes("objective") || lowerContent.includes("okr") || lowerContent.includes("key result")) {
     actions.push({
-      id: "view-planning",
-      label: "View Planning",
+      id: "view-outcomes",
+      label: "View Outcomes",
       icon: Target,
       action: () => navigate("/planning"),
       variant: "outline",

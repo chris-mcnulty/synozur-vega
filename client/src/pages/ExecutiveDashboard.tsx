@@ -1183,10 +1183,10 @@ export default function ExecutiveDashboard() {
             <Target className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold mb-2">No Data Available</h3>
             <p className="text-muted-foreground mb-4">
-              No objectives found for {currentQuarter?.label}. Create objectives in Planning to see executive metrics.
+              No objectives found for {currentQuarter?.label}. Create objectives in Outcomes to see executive metrics.
             </p>
             <Link href="/planning">
-              <Button data-testid="button-go-to-planning">Go to Planning</Button>
+              <Button data-testid="button-go-to-outcomes">Go to Outcomes</Button>
             </Link>
           </CardContent>
         </Card>

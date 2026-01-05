@@ -69,7 +69,7 @@ const navigationSections: NavigationSection[] = [
     items: [
       { title: 'Foundations', url: '/foundations', icon: Building2, testId: 'sidebar-foundations' },
       { title: 'Strategy', url: '/strategy', icon: Target, testId: 'sidebar-strategy' },
-      { title: 'Planning', url: '/planning', icon: TrendingUp, testId: 'sidebar-planning' }
+      { title: 'Outcomes', url: '/planning', icon: TrendingUp, testId: 'sidebar-planning' }
     ]
   },
   {
