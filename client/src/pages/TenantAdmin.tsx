@@ -632,6 +632,7 @@ export default function TenantAdmin() {
     tenantId: "NONE",
     sendWelcomeEmail: false,
     userType: "client" as "client" | "consultant" | "internal",
+    azureObjectId: "" as string, // For Entra/SSO users
   });
 
   const [ssoDialogOpen, setSsoDialogOpen] = useState(false);
@@ -1133,7 +1134,7 @@ export default function TenantAdmin() {
 
   const handleOpenCreateUserDialog = () => {
     setEditingUser(null);
-    setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false, userType: "client" });
+    setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false, userType: "client", azureObjectId: "" });
     setUserDialogOpen(true);
   };
 
@@ -1266,16 +1267,73 @@ export default function TenantAdmin() {
       tenantId: user.tenantId || "NONE",
       sendWelcomeEmail: false,
       userType: ((user as any).userType || "client") as "client" | "consultant" | "internal",
+      azureObjectId: "", // Reset for edit mode
     });
     setUserDialogOpen(true);
   };
 
-  const handleSaveUser = () => {
+  const handleSaveUser = async () => {
+    const tenantId = userFormData.tenantId === "NONE" ? null : userFormData.tenantId;
+    
+    // For Entra/SSO users (selected from Azure AD search), use the special SSO endpoint
+    if (userFormData.azureObjectId && !editingUser) {
+      try {
+        const response = await fetch('/auth/entra/users/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            azureObjectId: userFormData.azureObjectId,
+            email: userFormData.email,
+            displayName: userFormData.name,
+            tenantId: tenantId,
+            role: userFormData.role === 'tenant_admin' ? 'tenant_admin' : 'tenant_user',
+          }),
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok) {
+          toast({ 
+            title: "User added successfully",
+            description: result.message || "They can now sign in with Microsoft SSO."
+          });
+          queryClient.invalidateQueries({ queryKey: ['/api/users'] });
+          setUserDialogOpen(false);
+          setUserFormData({
+            email: "",
+            password: "",
+            name: "",
+            role: "user",
+            tenantId: "NONE",
+            sendWelcomeEmail: false,
+            userType: "client",
+            azureObjectId: "",
+          });
+        } else {
+          toast({ 
+            title: "Failed to add user",
+            description: result.error || "An error occurred",
+            variant: "destructive"
+          });
+        }
+      } catch (error) {
+        console.error('Error adding Entra user:', error);
+        toast({ 
+          title: "Failed to add user",
+          description: "Network error occurred",
+          variant: "destructive"
+        });
+      }
+      return;
+    }
+    
+    // Standard user creation (password-based)
     const userData = {
       email: userFormData.email,
       name: userFormData.name || undefined,
       role: userFormData.role,
-      tenantId: userFormData.tenantId === "NONE" ? null : userFormData.tenantId,
+      tenantId: tenantId,
       userType: userFormData.userType,
       ...(userFormData.password && { password: userFormData.password }),
     };
@@ -1496,6 +1554,7 @@ export default function TenantAdmin() {
       ...userFormData,
       email: user.mail || user.userPrincipalName,
       name: user.displayName || "",
+      azureObjectId: user.id || "", // Store Azure AD object ID for SSO users
     });
     setEntraSearchQuery("");
     setEntraSearchResults([]);
@@ -2395,21 +2454,30 @@ export default function TenantAdmin() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="user-password">
-                Password {editingUser && "(leave blank to keep current)"}
-              </Label>
-              <Input
-                id="user-password"
-                type="password"
-                placeholder={editingUser ? "••••••••" : "Enter password"}
-                value={userFormData.password}
-                onChange={(e) =>
-                  setUserFormData({ ...userFormData, password: e.target.value })
-                }
-                data-testid="input-user-password"
-              />
-            </div>
+            {userFormData.azureObjectId ? (
+              <div className="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md p-3">
+                <p className="text-sm font-medium text-blue-800 dark:text-blue-200">Microsoft SSO User</p>
+                <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                  This user will sign in with their Microsoft account. No password is required.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor="user-password">
+                  Password {editingUser && "(leave blank to keep current)"}
+                </Label>
+                <Input
+                  id="user-password"
+                  type="password"
+                  placeholder={editingUser ? "••••••••" : "Enter password"}
+                  value={userFormData.password}
+                  onChange={(e) =>
+                    setUserFormData({ ...userFormData, password: e.target.value })
+                  }
+                  data-testid="input-user-password"
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="user-name">Name (Optional)</Label>
@@ -2540,10 +2608,10 @@ export default function TenantAdmin() {
             </Button>
             <Button
               onClick={handleSaveUser}
-              disabled={!userFormData.email.trim() || (!editingUser && !userFormData.password)}
+              disabled={!userFormData.email.trim() || (!editingUser && !userFormData.password && !userFormData.azureObjectId)}
               data-testid="button-save-user"
             >
-              {editingUser ? "Update" : "Create"}
+              {editingUser ? "Update" : userFormData.azureObjectId ? "Add SSO User" : "Create"}
             </Button>
           </DialogFooter>
         </DialogContent>
