@@ -45,9 +45,12 @@ const TenantContext = createContext<TenantContextType | undefined>(undefined);
 export function TenantProvider({ children }: { children: ReactNode }) {
   const [currentTenant, setCurrentTenant] = useState<Tenant | null>(null);
   const [tenantSelectionComplete, setTenantSelectionComplete] = useState(false);
+  const [hasAttemptedFetch, setHasAttemptedFetch] = useState(false);
 
-  const { data: tenants = [], isLoading: queryLoading } = useQuery<Tenant[]>({
+  const { data: tenants = [], isLoading: queryLoading, isError, isFetched } = useQuery<Tenant[]>({
     queryKey: ["/api/tenants"],
+    retry: 2, // Retry a couple times in case of transient failures
+    retryDelay: 500,
   });
 
   useEffect(() => {
@@ -57,10 +60,23 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       return;
     }
     
+    // Mark that we've attempted a fetch (helps distinguish loading from truly no tenants)
+    if (isFetched) {
+      setHasAttemptedFetch(true);
+    }
+    
+    // If there was an error (like 401), keep loading - auth might not be ready yet
+    if (isError) {
+      return;
+    }
+    
     // Query is done - now handle tenant selection
     if (tenants.length === 0) {
-      // No tenants available - mark selection as complete (user truly has no access)
-      setTenantSelectionComplete(true);
+      // Only mark as complete if we've successfully fetched with no error
+      // This prevents the "No Organization Access" flash during auth race
+      if (isFetched && !isError) {
+        setTenantSelectionComplete(true);
+      }
       return;
     }
     
@@ -80,10 +96,11 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("currentTenantId", tenants[0].id);
     }
     setTenantSelectionComplete(true);
-  }, [tenants, queryLoading]);
+  }, [tenants, queryLoading, isError, isFetched]);
 
   // Loading is true until both the query is done AND tenant selection is complete
-  const isLoading = queryLoading || !tenantSelectionComplete;
+  // Also stay loading if we haven't even attempted a fetch yet
+  const isLoading = queryLoading || !tenantSelectionComplete || (!hasAttemptedFetch && !currentTenant);
 
   // Apply favicon when tenant changes (reset to default if no tenant favicon)
   useEffect(() => {
