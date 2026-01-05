@@ -1,6 +1,6 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
-import { insertGroundingDocumentSchema } from "@shared/schema";
+import { insertGroundingDocumentSchema, AI_FEATURES } from "@shared/schema";
 import { getChatCompletion, getSimpleCompletion, streamChatCompletion, streamChatWithTools, generateOKRSuggestions, suggestBigRocks, streamProgressSummary, streamGoalSuggestions, streamStrategyDraft, parseMeetingRecap, scoreOKRQuality, type ChatMessage, type ProgressSummaryData, type GoalSuggestionContext, type StrategyDraftContext, type MeetingRecapResult, type OKRQualityScoreResult } from "./ai";
 import { z } from "zod";
 import { hasPermission, PERMISSIONS, Role } from "@shared/rbac";
@@ -1012,13 +1012,17 @@ Original note to rewrite:
 "${input.originalNote}"`;
     }
 
+    console.log("[Check-in Rewrite] Calling AI with system prompt length:", systemPrompt.length);
+    console.log("[Check-in Rewrite] User prompt:", userPrompt);
+    
     const result = await getSimpleCompletion(
       systemPrompt,
       userPrompt,
       { tenantId, maxTokens: 300 },
-      "check_in_rewrite" as any
+      AI_FEATURES.CHECK_IN_REWRITE
     );
 
+    console.log("[Check-in Rewrite] Raw AI result:", result);
     const cleanedResult = result.replace(/^["']|["']$/g, '').trim();
 
     console.log("[Check-in Rewrite] Success, original length:", input.originalNote.length, "rewritten length:", cleanedResult.length);
