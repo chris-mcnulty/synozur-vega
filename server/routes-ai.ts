@@ -917,19 +917,19 @@ aiRouter.post("/rewrite-checkin", requireAIChat, async (req: Request, res: Respo
     let context: any = {};
     
     if (input.entityType === "key_result" && input.keyResultId) {
-      const keyResult = await storage.getKeyResult(input.keyResultId);
+      const keyResult = await storage.getKeyResultById(input.keyResultId);
       if (keyResult) {
         context.krTitle = keyResult.title;
         context.krDescription = keyResult.description;
-        context.targetValue = keyResult.target || 100;
-        context.startValue = keyResult.startValue || 0;
+        context.targetValue = keyResult.targetValue || 100;
+        context.startValue = keyResult.initialValue || 0;
         context.currentValue = keyResult.currentValue || 0;
         context.unit = keyResult.unit || "";
         context.metricType = keyResult.metricType || "number";
         context.progress = keyResult.progress || 0;
         
         if (keyResult.objectiveId) {
-          const objective = await storage.getObjective(keyResult.objectiveId);
+          const objective = await storage.getObjectiveById(keyResult.objectiveId);
           if (objective) {
             context.objectiveTitle = objective.title;
             context.objectiveDescription = objective.description;
@@ -939,7 +939,7 @@ aiRouter.post("/rewrite-checkin", requireAIChat, async (req: Request, res: Respo
         }
       }
     } else if (input.entityType === "big_rock" && input.bigRockId) {
-      const bigRock = await storage.getBigRock(input.bigRockId);
+      const bigRock = await storage.getBigRockById(input.bigRockId);
       if (bigRock) {
         context.title = bigRock.title;
         context.description = bigRock.description;
@@ -947,7 +947,7 @@ aiRouter.post("/rewrite-checkin", requireAIChat, async (req: Request, res: Respo
         context.status = bigRock.status;
         
         if (bigRock.objectiveId) {
-          const objective = await storage.getObjective(bigRock.objectiveId);
+          const objective = await storage.getObjectiveById(bigRock.objectiveId);
           if (objective) {
             context.objectiveTitle = objective.title;
             context.quarter = objective.quarter;
