@@ -253,11 +253,19 @@ export async function getSimpleCompletion(
   ];
 
   try {
+    console.log("[getSimpleCompletion] Calling OpenAI with model:", MODEL);
+    console.log("[getSimpleCompletion] Message count:", fullMessages.length, "maxTokens:", maxTokens);
+    
     const response = await openai.chat.completions.create({
       model: MODEL,
       messages: fullMessages,
       max_completion_tokens: maxTokens,
     });
+
+    console.log("[getSimpleCompletion] Response received, id:", response.id);
+    console.log("[getSimpleCompletion] Choices:", JSON.stringify(response.choices, null, 2));
+    console.log("[getSimpleCompletion] Usage:", response.usage);
+    console.log("[getSimpleCompletion] Finish reason:", response.choices[0]?.finish_reason);
 
     const latencyMs = Date.now() - startTime;
     
@@ -273,6 +281,7 @@ export async function getSimpleCompletion(
 
     const content = response.choices[0]?.message?.content;
     if (!content) {
+      console.error("[getSimpleCompletion] Empty content. Full response:", JSON.stringify(response, null, 2));
       throw new Error("AI returned empty response");
     }
     return content;
