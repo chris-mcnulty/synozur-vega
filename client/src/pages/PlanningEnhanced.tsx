@@ -573,16 +573,17 @@ export default function PlanningEnhanced() {
         error: null,
       }));
     },
-    onError: (error: any) => {
-      console.error('[AI Rewrite] Error:', error);
+    onError: (error: Error | unknown) => {
+      const errorMessage = error instanceof Error ? error.message : String(error) || 'Failed to rewrite note';
+      console.error('[AI Rewrite] Error:', errorMessage, error);
       setAiRewriteState(prev => ({
         ...prev,
         isRewriting: false,
-        error: error?.message || 'Failed to rewrite note',
+        error: errorMessage,
       }));
       toast({
         title: "Rewrite Failed",
-        description: error?.message || "Could not rewrite the check-in note. Please try again.",
+        description: errorMessage || "Could not rewrite the check-in note. Please try again.",
         variant: "destructive",
       });
     },
