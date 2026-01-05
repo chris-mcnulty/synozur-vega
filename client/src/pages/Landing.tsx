@@ -104,7 +104,6 @@ export default function Landing() {
         </nav>
         <AnnouncementBanner />
       </div>
-
       {/* Main Content - account for header + potential banner */}
       <div className="pt-16">
         <LandingHero />
@@ -158,9 +157,7 @@ export default function Landing() {
               </div>
             </div>
             <div className="mt-8 pt-8 border-t flex flex-col md:flex-row items-center justify-between gap-4">
-              <p className="text-sm text-muted-foreground">
-                © 2025 The Synozur Alliance LLC. All rights reserved.
-              </p>
+              <p className="text-sm text-muted-foreground">© 2026 The Synozur Alliance LLC. All rights reserved.</p>
               <a 
                 href="https://www.synozur.com" 
                 target="_blank" 
