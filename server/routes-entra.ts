@@ -116,6 +116,7 @@ function getMsalClient(): ConfidentialClientApplication | null {
 
 router.get('/status', (req: Request, res: Response) => {
   const isConfigured = !!(process.env.AZURE_CLIENT_ID && process.env.AZURE_CLIENT_SECRET);
+  console.log(`[Entra Status] Configured: ${isConfigured}, ClientID: ${process.env.AZURE_CLIENT_ID ? 'SET' : 'NOT SET'}, ClientSecret: ${process.env.AZURE_CLIENT_SECRET ? 'SET' : 'NOT SET'}`);
   res.json({
     configured: isConfigured,
     redirectUri: REDIRECT_URI,
@@ -123,15 +124,24 @@ router.get('/status', (req: Request, res: Response) => {
 });
 
 router.get('/login', async (req: Request, res: Response) => {
+  const requestId = Date.now().toString(36);
+  console.log(`[Entra SSO][${requestId}] Login initiated`);
+  console.log(`[Entra SSO][${requestId}] Base URL: ${getBaseUrl()}`);
+  console.log(`[Entra SSO][${requestId}] Redirect URI: ${REDIRECT_URI}`);
+  
   try {
     const client = getMsalClient();
     if (!client) {
+      console.error(`[Entra SSO][${requestId}] MSAL client not initialized - credentials missing`);
       return res.status(503).json({ error: 'Azure AD SSO is not configured' });
     }
+    console.log(`[Entra SSO][${requestId}] MSAL client initialized successfully`);
 
     const tenantHint = req.query.tenant as string | undefined;
+    console.log(`[Entra SSO][${requestId}] Tenant hint: ${tenantHint || 'none'}`);
 
     const { verifier, challenge } = await cryptoProvider.generatePkceCodes();
+    console.log(`[Entra SSO][${requestId}] PKCE codes generated`);
 
     // Encode PKCE verifier and tenant hint in state to survive cross-domain redirect
     // This is necessary when login starts on dev domain but callback goes to production domain
@@ -144,6 +154,7 @@ router.get('/login', async (req: Request, res: Response) => {
     
     // URL-safe base64 encoding for state parameter
     const state = Buffer.from(encryptedState).toString('base64url');
+    console.log(`[Entra SSO][${requestId}] State parameter encoded (length: ${state.length})`);
 
     const authCodeUrlParams = {
       scopes: SCOPES,
@@ -153,37 +164,49 @@ router.get('/login', async (req: Request, res: Response) => {
       state,
       prompt: 'select_account',
     };
+    console.log(`[Entra SSO][${requestId}] Auth params: scopes=${SCOPES.join(',')}`);
 
     const authUrl = await client.getAuthCodeUrl(authCodeUrlParams);
+    console.log(`[Entra SSO][${requestId}] Auth URL generated, redirecting to Microsoft`);
     res.redirect(authUrl);
-  } catch (error) {
-    console.error('[Entra SSO] Login error:', error);
+  } catch (error: any) {
+    console.error(`[Entra SSO][${requestId}] Login error:`, error);
+    console.error(`[Entra SSO][${requestId}] Error stack:`, error?.stack);
     res.status(500).json({ error: 'Failed to initiate SSO login' });
   }
 });
 
 router.get('/callback', async (req: Request, res: Response) => {
+  const requestId = Date.now().toString(36);
+  console.log(`[Entra Callback][${requestId}] Callback received`);
+  console.log(`[Entra Callback][${requestId}] Query params: code=${req.query.code ? 'present' : 'missing'}, state=${req.query.state ? 'present' : 'missing'}, error=${req.query.error || 'none'}`);
+  
   try {
     const client = getMsalClient();
     if (!client) {
+      console.error(`[Entra Callback][${requestId}] MSAL client not available`);
       return res.redirect('/auth?error=sso_not_configured');
     }
 
     const { code, state, error, error_description } = req.query;
 
     if (error) {
-      console.error('[Entra SSO] Auth error:', error, error_description);
+      console.error(`[Entra Callback][${requestId}] Microsoft returned error: ${error}`);
+      console.error(`[Entra Callback][${requestId}] Error description: ${error_description}`);
       return res.redirect(`/auth?error=${encodeURIComponent(error as string)}&error_description=${encodeURIComponent((error_description as string) || '')}`);
     }
 
     if (!code || typeof code !== 'string') {
+      console.error(`[Entra Callback][${requestId}] Missing authorization code`);
       return res.redirect('/auth?error=missing_auth_code');
     }
 
     if (!state || typeof state !== 'string') {
-      console.error('[Entra SSO] Missing state parameter');
+      console.error(`[Entra Callback][${requestId}] Missing state parameter`);
       return res.redirect('/auth?error=missing_state');
     }
+
+    console.log(`[Entra Callback][${requestId}] Authorization code received, decoding state...`);
 
     // Decode state parameter to get PKCE verifier (survives cross-domain redirect)
     let pkceVerifier: string;
@@ -194,11 +217,13 @@ router.get('/callback', async (req: Request, res: Response) => {
       const statePayload = JSON.parse(decryptedState);
       pkceVerifier = statePayload.pkceVerifier;
       tenantHint = statePayload.tenantHint;
-    } catch (stateError) {
-      console.error('[Entra SSO] Failed to decode state:', stateError);
+      console.log(`[Entra Callback][${requestId}] State decoded successfully, tenantHint: ${tenantHint || 'none'}`);
+    } catch (stateError: any) {
+      console.error(`[Entra Callback][${requestId}] Failed to decode state:`, stateError?.message);
       return res.redirect('/auth?error=invalid_state');
     }
 
+    console.log(`[Entra Callback][${requestId}] Exchanging code for tokens...`);
     const tokenRequest: AuthorizationCodeRequest = {
       code,
       scopes: SCOPES,
@@ -209,31 +234,43 @@ router.get('/callback', async (req: Request, res: Response) => {
     const tokenResponse = await client.acquireTokenByCode(tokenRequest);
 
     if (!tokenResponse || !tokenResponse.account) {
-      console.error('[Entra SSO] No token response');
+      console.error(`[Entra Callback][${requestId}] Token acquisition failed - no response or account`);
       return res.redirect('/auth?error=token_acquisition_failed');
     }
+
+    console.log(`[Entra Callback][${requestId}] Token acquired successfully`);
 
     const { account, idTokenClaims } = tokenResponse;
     const email = (idTokenClaims as any)?.preferred_username || (idTokenClaims as any)?.email || account.username;
     const name = (idTokenClaims as any)?.name || account.name;
     const azureObjectId = account.localAccountId;
-    const azureTenantId = (idTokenClaims as any)?.tid || account.tenantId;
+    const azureTenantId = account.tenantId;
+    
+    console.log(`[Entra Callback][${requestId}] User info: email=${email}, azureObjectId=${azureObjectId}, azureTenantId=${azureTenantId}`);
+    console.log(`[Entra Callback][${requestId}] Claims: preferred_username=${(idTokenClaims as any)?.preferred_username}, email=${(idTokenClaims as any)?.email}, name=${name}`);
 
     if (!email) {
-      console.error('[Entra SSO] No email in token claims');
+      console.error(`[Entra Callback][${requestId}] No email in token claims`);
       return res.redirect('/auth?error=no_email_claim');
     }
 
+    console.log(`[Entra Callback][${requestId}] Looking up user by email: ${email}`);
     let user = await storage.getUserByEmail(email);
     
     if (!user) {
+      console.log(`[Entra Callback][${requestId}] User not found, attempting JIT provisioning`);
       const emailDomain = email.split('@')[1];
+      console.log(`[Entra Callback][${requestId}] Email domain: ${emailDomain}, Azure tenant ID: ${azureTenantId}`);
+      
       const matchingTenant = await findTenantByAzureTenantOrDomain(azureTenantId, emailDomain, email);
       
       if (!matchingTenant) {
-        console.log(`[Entra SSO] No matching tenant for user ${email}`);
+        console.log(`[Entra Callback][${requestId}] No matching Vega tenant for user ${email}`);
+        console.log(`[Entra Callback][${requestId}] User cannot be auto-provisioned - organization not registered`);
         return res.redirect('/auth?error=no_tenant_access&message=Your organization is not registered in Vega');
       }
+
+      console.log(`[Entra Callback][${requestId}] Found matching tenant: ${matchingTenant.name} (${matchingTenant.id})`);
 
       const newUser = await storage.createUser({
         email,
@@ -247,9 +284,11 @@ router.get('/callback', async (req: Request, res: Response) => {
         azureTenantId,
       });
       user = newUser;
-      console.log(`[Entra SSO] Created new user via JIT: ${email}`);
+      console.log(`[Entra Callback][${requestId}] Created new user via JIT: ${email}, userId: ${user.id}`);
     } else {
+      console.log(`[Entra Callback][${requestId}] Existing user found: ${email}, userId: ${user.id}, tenantId: ${user.tenantId}`);
       if (!user.azureObjectId) {
+        console.log(`[Entra Callback][${requestId}] Linking existing user to Azure AD`);
         const updatedUser = await storage.updateUser(user.id, {
           azureObjectId,
           azureTenantId,
@@ -259,13 +298,14 @@ router.get('/callback', async (req: Request, res: Response) => {
         if (updatedUser) {
           user = updatedUser;
         }
-        console.log(`[Entra SSO] Linked existing user to Azure AD: ${email}`);
+        console.log(`[Entra Callback][${requestId}] Linked existing user to Azure AD: ${email}`);
       }
     }
 
     if (user.tenantId) {
       const tenant = await storage.getTenantById(user.tenantId);
       if (tenant?.enforceSso && user.authProvider !== 'entra') {
+        console.log(`[Entra Callback][${requestId}] Tenant enforces SSO, updating auth provider`);
         const updatedUser = await storage.updateUser(user.id, { authProvider: 'entra' });
         if (updatedUser) {
           user = updatedUser;
@@ -285,25 +325,28 @@ router.get('/callback', async (req: Request, res: Response) => {
           expiresAt: tokenResponse.expiresOn || null,
           scopes: SCOPES,
         });
-        console.log(`[Entra SSO] Stored Graph token for user ${email}`);
+        console.log(`[Entra Callback][${requestId}] Stored Graph token for user ${email}`);
       } catch (tokenError) {
-        console.warn('[Entra SSO] Failed to store Graph token:', tokenError);
+        console.warn(`[Entra Callback][${requestId}] Failed to store Graph token:`, tokenError);
         // Continue - this is not critical for login
       }
     }
 
+    console.log(`[Entra Callback][${requestId}] Creating session for user ${user.id}`);
     (req.session as any).userId = user.id;
     req.session.save((err) => {
       if (err) {
-        console.error('[Entra SSO] Session save error:', err);
+        console.error(`[Entra Callback][${requestId}] Session save error:`, err);
         return res.redirect(`${getBaseUrl()}/auth?error=session_error`);
       }
+      console.log(`[Entra Callback][${requestId}] Login successful, redirecting to dashboard`);
       // Redirect to dashboard after successful SSO login (absolute URL)
       res.redirect(`${getBaseUrl()}/dashboard`);
     });
 
-  } catch (error) {
-    console.error('[Entra SSO] Callback error:', error);
+  } catch (error: any) {
+    console.error(`[Entra Callback][${requestId}] Callback error:`, error);
+    console.error(`[Entra Callback][${requestId}] Error stack:`, error?.stack);
     res.redirect(`${getBaseUrl()}/auth?error=callback_failed`);
   }
 });
@@ -1013,6 +1056,125 @@ router.get('/users/search', async (req: Request, res: Response) => {
     }
     
     res.status(500).json({ error: 'Failed to search Azure AD users' });
+  }
+});
+
+/**
+ * POST /auth/entra/users/add
+ * Create or update a Vega user from Azure AD data
+ * SSO users don't need a password - they authenticate through Microsoft
+ * Body:
+ *   - azureObjectId: Azure AD user object ID
+ *   - email: User's email
+ *   - displayName: User's display name
+ *   - tenantId: Vega tenant ID to add user to
+ *   - role: Role to assign (default: tenant_user)
+ */
+router.post('/users/add', async (req: Request, res: Response) => {
+  try {
+    const adminUserId = (req.session as any)?.userId;
+    if (!adminUserId) {
+      return res.status(401).json({ error: 'Not authenticated' });
+    }
+
+    const adminUser = await storage.getUser(adminUserId);
+    if (!adminUser) {
+      return res.status(403).json({ error: 'User not found' });
+    }
+
+    // Only admins can add users from Azure AD
+    const adminRoles = [ROLES.TENANT_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_ADMIN, ROLES.VEGA_CONSULTANT];
+    if (!adminRoles.includes(adminUser.role as any)) {
+      return res.status(403).json({ error: 'Admin privileges required to add users' });
+    }
+
+    const { azureObjectId, email, displayName, tenantId, role = 'tenant_user' } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ error: 'Email is required' });
+    }
+
+    if (!tenantId) {
+      return res.status(400).json({ error: 'Tenant ID is required' });
+    }
+
+    // Validate tenantId exists
+    const tenant = await storage.getTenant(tenantId);
+    if (!tenant) {
+      return res.status(404).json({ error: 'Tenant not found' });
+    }
+
+    // Validate role
+    const validRoles = ['tenant_user', 'tenant_admin'];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ error: 'Invalid role. Must be tenant_user or tenant_admin' });
+    }
+
+    // Check if user already exists by email
+    const existingUser = await storage.getUserByEmail(email);
+    
+    if (existingUser) {
+      // User exists - update their tenant association if needed
+      if (existingUser.tenantId !== tenantId) {
+        // Update user's tenant
+        await storage.updateUser(existingUser.id, {
+          tenantId,
+          role,
+          authProvider: 'azure',
+          azureObjectId: azureObjectId || existingUser.azureObjectId,
+        });
+        console.log(`[Entra Add User] Updated existing user ${email} to tenant ${tenantId}`);
+        
+        const updatedUser = await storage.getUser(existingUser.id);
+        return res.json({ 
+          success: true, 
+          user: updatedUser,
+          message: 'User updated and added to organization'
+        });
+      } else {
+        // User already in this tenant
+        return res.json({ 
+          success: true, 
+          user: existingUser,
+          message: 'User already exists in this organization'
+        });
+      }
+    }
+
+    // Create new user - SSO users don't need a password
+    // Generate a random placeholder password (never used for SSO)
+    const crypto = await import('crypto');
+    const placeholderPassword = crypto.randomBytes(32).toString('hex');
+    const bcrypt = await import('bcryptjs');
+    const passwordHash = await bcrypt.hash(placeholderPassword, 10);
+
+    const newUser = await storage.createUser({
+      email: email.toLowerCase(),
+      password: passwordHash, // Placeholder - SSO users authenticate via Microsoft
+      role,
+      tenantId,
+      isVerified: true, // SSO users are verified by Microsoft
+      authProvider: 'azure',
+      azureObjectId: azureObjectId || null,
+    });
+
+    console.log(`[Entra Add User] Created new SSO user ${email} in tenant ${tenantId}`);
+    
+    res.json({ 
+      success: true, 
+      user: {
+        id: newUser.id,
+        email: newUser.email,
+        role: newUser.role,
+        tenantId: newUser.tenantId,
+        isVerified: newUser.isVerified,
+        authProvider: newUser.authProvider,
+      },
+      message: 'User created successfully. They can sign in with Microsoft.'
+    });
+  } catch (error: any) {
+    console.error('[Entra Add User] Error:', error);
+    res.status(500).json({ error: 'Failed to add user from Azure AD' });
   }
 });
 
