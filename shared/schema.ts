@@ -1506,6 +1506,7 @@ export const AI_FEATURES = {
   FUNCTION_CALL: 'function_call',        // Tool/function calling
   EMBEDDING: 'embedding',                // Text embeddings (future)
   OKR_QUALITY_SCORING: 'okr_quality_scoring', // OKR quality scoring during creation
+  CHECK_IN_REWRITE: 'check_in_rewrite',  // AI rewriting of check-in notes
   OTHER: 'other',
 } as const;
 

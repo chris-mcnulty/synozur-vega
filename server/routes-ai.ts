@@ -889,3 +889,155 @@ aiRouter.get("/usage/platform", async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message || "Failed to fetch platform AI usage" });
   }
 });
+
+// ============================================
+// CHECK-IN NOTE REWRITING
+// ============================================
+
+const checkInRewriteSchema = z.object({
+  keyResultId: z.string().optional(),
+  bigRockId: z.string().optional(),
+  originalNote: z.string().min(1, "Original note is required"),
+  newValue: z.number().optional(),
+  newProgress: z.number().optional(),
+  mode: z.enum(["full", "clarity", "concise", "expand"]).default("full"),
+  entityType: z.enum(["key_result", "big_rock"]).default("key_result"),
+});
+
+aiRouter.post("/rewrite-checkin", requireAIChat, async (req: Request, res: Response) => {
+  try {
+    const input = checkInRewriteSchema.parse(req.body);
+    const user = (req as any).user;
+    const tenantId = (req.session as any).currentTenantId || user.tenantId;
+    
+    console.log("[Check-in Rewrite] Request from:", user.email);
+    console.log("[Check-in Rewrite] Mode:", input.mode);
+    console.log("[Check-in Rewrite] Entity type:", input.entityType);
+
+    let context: any = {};
+    
+    if (input.entityType === "key_result" && input.keyResultId) {
+      const keyResult = await storage.getKeyResult(input.keyResultId);
+      if (keyResult) {
+        context.krTitle = keyResult.title;
+        context.krDescription = keyResult.description;
+        context.targetValue = keyResult.target || 100;
+        context.startValue = keyResult.startValue || 0;
+        context.currentValue = keyResult.currentValue || 0;
+        context.unit = keyResult.unit || "";
+        context.metricType = keyResult.metricType || "number";
+        context.progress = keyResult.progress || 0;
+        
+        if (keyResult.objectiveId) {
+          const objective = await storage.getObjective(keyResult.objectiveId);
+          if (objective) {
+            context.objectiveTitle = objective.title;
+            context.objectiveDescription = objective.description;
+            context.quarter = objective.quarter;
+            context.year = objective.year;
+          }
+        }
+      }
+    } else if (input.entityType === "big_rock" && input.bigRockId) {
+      const bigRock = await storage.getBigRock(input.bigRockId);
+      if (bigRock) {
+        context.title = bigRock.title;
+        context.description = bigRock.description;
+        context.progress = bigRock.completionPercentage || 0;
+        context.status = bigRock.status;
+        
+        if (bigRock.objectiveId) {
+          const objective = await storage.getObjective(bigRock.objectiveId);
+          if (objective) {
+            context.objectiveTitle = objective.title;
+            context.quarter = objective.quarter;
+            context.year = objective.year;
+          }
+        }
+      }
+    }
+
+    const now = new Date();
+    const quarterEnd = context.quarter && context.year 
+      ? new Date(context.year, context.quarter * 3, 0) 
+      : null;
+    const daysRemaining = quarterEnd 
+      ? Math.max(0, Math.ceil((quarterEnd.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
+      : null;
+
+    const progressDelta = input.newProgress !== undefined && context.progress !== undefined
+      ? input.newProgress - context.progress
+      : (input.newValue !== undefined && context.currentValue !== undefined 
+          ? ((input.newValue - context.currentValue) / Math.max(1, context.targetValue - context.startValue) * 100)
+          : 0);
+
+    const modeInstructions = {
+      full: "Provide a professional, detailed rewrite that includes context about progress toward the goal. Be specific and data-driven.",
+      clarity: "Improve grammar, structure, and clarity while keeping the original meaning. Don't add new information.",
+      concise: "Shorten the note while preserving the key points. Make it punchy and scannable.",
+      expand: "Expand the note by adding relevant context about progress, timeline, and next steps based on the data provided.",
+    };
+
+    const systemPrompt = `You are an expert at writing professional OKR check-in notes. 
+Your task is to rewrite or improve check-in notes based on the context provided. Notes should be:
+- Specific and data-driven when possible
+- Professional but conversational
+- Include progress context relative to the goal
+- Highlight blockers or wins when relevant
+- Be appropriately brief (1-3 sentences typically)
+
+${modeInstructions[input.mode]}
+
+Respond with ONLY the rewritten note, no explanations or preamble.`;
+
+    let userPrompt: string;
+    
+    if (input.entityType === "key_result") {
+      userPrompt = `Rewrite this check-in note for a Key Result.
+
+Key Result: ${context.krTitle || "Unknown"}
+${context.objectiveTitle ? `Parent Objective: ${context.objectiveTitle}` : ""}
+Target: ${context.targetValue || 100} ${context.unit || ""}
+Current Progress: ${context.currentValue || 0} → ${input.newValue || context.currentValue || 0} (${progressDelta >= 0 ? "+" : ""}${progressDelta.toFixed(1)}% change)
+Overall Progress: ${input.newProgress || context.progress || 0}% toward goal
+${daysRemaining !== null ? `Time Remaining: ${daysRemaining} days in Q${context.quarter} ${context.year}` : ""}
+
+Original Note: "${input.originalNote}"
+
+Mode: ${input.mode}`;
+    } else {
+      userPrompt = `Rewrite this check-in note for a Big Rock (initiative).
+
+Big Rock: ${context.title || "Unknown"}
+${context.objectiveTitle ? `Parent Objective: ${context.objectiveTitle}` : ""}
+Current Status: ${context.status || "unknown"}
+Completion: ${context.progress || 0}% → ${input.newProgress || context.progress || 0}%
+${daysRemaining !== null ? `Time Remaining: ${daysRemaining} days in Q${context.quarter} ${context.year}` : ""}
+
+Original Note: "${input.originalNote}"
+
+Mode: ${input.mode}`;
+    }
+
+    const result = await getChatCompletion(
+      [{ role: "user", content: userPrompt }],
+      { tenantId, maxTokens: 500 },
+      "check_in_rewrite" as any
+    );
+
+    const cleanedResult = result.replace(/^["']|["']$/g, '').trim();
+
+    console.log("[Check-in Rewrite] Success, original length:", input.originalNote.length, "rewritten length:", cleanedResult.length);
+
+    res.json({
+      rewrittenNote: cleanedResult,
+      mode: input.mode,
+    });
+  } catch (error: any) {
+    console.error("[Check-in Rewrite] Error:", error.message || error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid request format", details: error.errors });
+    }
+    res.status(500).json({ error: error.message || "Failed to rewrite check-in note" });
+  }
+});
