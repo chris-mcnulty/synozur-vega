@@ -526,6 +526,104 @@ export default function PlanningEnhanced() {
     }
   }, [checkInDialogOpen, checkInEntity?.id, checkInEntity?.type, checkInEntity?.current?.plannerSyncEnabled]);
 
+  // AI Check-in Rewrite state
+  const [aiRewriteState, setAiRewriteState] = useState<{
+    isRewriting: boolean;
+    suggestion: string | null;
+    mode: 'full' | 'clarity' | 'concise' | 'expand';
+    error: string | null;
+  }>({
+    isRewriting: false,
+    suggestion: null,
+    mode: 'full',
+    error: null,
+  });
+
+  // Reset AI rewrite state when dialog closes
+  useEffect(() => {
+    if (!checkInDialogOpen) {
+      setAiRewriteState({
+        isRewriting: false,
+        suggestion: null,
+        mode: 'full',
+        error: null,
+      });
+    }
+  }, [checkInDialogOpen]);
+
+  // AI Rewrite check-in note mutation
+  const rewriteCheckInMutation = useMutation({
+    mutationFn: async (data: {
+      keyResultId?: string;
+      bigRockId?: string;
+      originalNote: string;
+      newValue?: number;
+      newProgress?: number;
+      mode: 'full' | 'clarity' | 'concise' | 'expand';
+      entityType: 'key_result' | 'big_rock';
+    }) => {
+      const response = await apiRequest('POST', '/api/ai/rewrite-checkin', data);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setAiRewriteState(prev => ({
+        ...prev,
+        isRewriting: false,
+        suggestion: data.rewrittenNote,
+        error: null,
+      }));
+    },
+    onError: (error: any) => {
+      console.error('[AI Rewrite] Error:', error);
+      setAiRewriteState(prev => ({
+        ...prev,
+        isRewriting: false,
+        error: error?.message || 'Failed to rewrite note',
+      }));
+      toast({
+        title: "Rewrite Failed",
+        description: error?.message || "Could not rewrite the check-in note. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleRewriteNote = () => {
+    if (!checkInForm.note.trim()) {
+      toast({
+        title: "Note Required",
+        description: "Please write a note first before rewriting.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setAiRewriteState(prev => ({ ...prev, isRewriting: true, suggestion: null, error: null }));
+
+    const entityType = checkInEntity?.type === 'key_result' ? 'key_result' : 'big_rock';
+    
+    rewriteCheckInMutation.mutate({
+      keyResultId: entityType === 'key_result' ? checkInEntity?.id : undefined,
+      bigRockId: entityType === 'big_rock' ? checkInEntity?.id : undefined,
+      originalNote: checkInForm.note,
+      newValue: checkInForm.newValue,
+      newProgress: checkInForm.newProgress,
+      mode: aiRewriteState.mode,
+      entityType,
+    });
+  };
+
+  const acceptRewriteSuggestion = () => {
+    if (aiRewriteState.suggestion) {
+      setCheckInForm(prev => ({ ...prev, note: aiRewriteState.suggestion! }));
+      setAiRewriteState(prev => ({ ...prev, suggestion: null }));
+      toast({
+        title: "Note Updated",
+        description: "The AI-suggested note has been applied.",
+      });
+    }
+  };
+
   // Helper function to sync value tags
   const syncValueTags = async (
     entityId: string,
@@ -3369,7 +3467,43 @@ export default function PlanningEnhanced() {
                 </Select>
               </div>
               <div>
-                <Label htmlFor="ci-note">Note</Label>
+                <div className="flex items-center justify-between mb-1">
+                  <Label htmlFor="ci-note">Note</Label>
+                  <div className="flex items-center gap-2">
+                    <Select
+                      value={aiRewriteState.mode}
+                      onValueChange={(value: 'full' | 'clarity' | 'concise' | 'expand') => 
+                        setAiRewriteState(prev => ({ ...prev, mode: value }))
+                      }
+                    >
+                      <SelectTrigger className="w-[130px] h-8 text-xs" data-testid="select-rewrite-mode">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="z-[60]">
+                        <SelectItem value="full">Full Rewrite</SelectItem>
+                        <SelectItem value="clarity">Improve Clarity</SelectItem>
+                        <SelectItem value="concise">Make Concise</SelectItem>
+                        <SelectItem value="expand">Add Context</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleRewriteNote}
+                      disabled={aiRewriteState.isRewriting || !checkInForm.note.trim()}
+                      className="gap-1"
+                      data-testid="button-ai-rewrite-note"
+                    >
+                      {aiRewriteState.isRewriting ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3 w-3" />
+                      )}
+                      <span className="text-xs">AI Rewrite</span>
+                    </Button>
+                  </div>
+                </div>
                 <Textarea
                   id="ci-note"
                   value={checkInForm.note}
@@ -3378,6 +3512,39 @@ export default function PlanningEnhanced() {
                   rows={3}
                   data-testid="textarea-checkin-note"
                 />
+                
+                {aiRewriteState.suggestion && (
+                  <div className="mt-3 p-3 bg-primary/5 border border-primary/20 rounded-md space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                      <Sparkles className="h-4 w-4" />
+                      AI Suggestion
+                    </div>
+                    <div className="text-sm whitespace-pre-wrap bg-background p-2 rounded border">
+                      {aiRewriteState.suggestion}
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setAiRewriteState(prev => ({ ...prev, suggestion: null }))}
+                        data-testid="button-dismiss-suggestion"
+                      >
+                        Dismiss
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={acceptRewriteSuggestion}
+                        className="gap-1"
+                        data-testid="button-accept-suggestion"
+                      >
+                        <CheckCircle className="h-3 w-3" />
+                        Use This
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
             <DialogFooter>
