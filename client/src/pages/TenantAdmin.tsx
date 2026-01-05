@@ -29,7 +29,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings } from "lucide-react";
+import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type TenantBranding, vocabularyAlternatives, type VocabularyTerms } from "@shared/schema";
 import { useAuth } from "@/contexts/AuthContext";
 import excelIcon from "@assets/Excel_512_1765494903271.png";
@@ -2630,7 +2631,29 @@ export default function TenantAdmin() {
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label htmlFor="azure-tenant-id">Azure Tenant ID</Label>
+              <div className="flex items-center gap-1.5">
+                <Label htmlFor="azure-tenant-id">Entra Tenant ID</Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <HelpCircle className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="max-w-xs text-xs">
+                    <p className="font-medium mb-1">Your organization's Azure AD Tenant ID</p>
+                    <p className="text-muted-foreground mb-2">
+                      Find it in Azure Portal → Entra ID → Overview → Tenant ID
+                    </p>
+                    <p className="font-medium mb-1">What this enables:</p>
+                    <ul className="list-disc pl-3 space-y-0.5 text-muted-foreground">
+                      <li><span className="font-medium text-foreground">Auto-provisioning:</span> New SSO users from your Azure tenant automatically join this Vega tenant</li>
+                      <li><span className="font-medium text-foreground">Domain auto-join:</span> Users from mapped email domains auto-join</li>
+                      <li><span className="font-medium text-foreground">Enforce SSO:</span> Optionally require SSO login only</li>
+                    </ul>
+                    <p className="mt-2 text-muted-foreground italic">
+                      Leave blank if you don't need auto-provisioning. Global SSO works for everyone regardless.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
               <Input
                 id="azure-tenant-id"
                 type="text"
@@ -2642,7 +2665,7 @@ export default function TenantAdmin() {
                 data-testid="input-azure-tenant-id"
               />
               <p className="text-xs text-muted-foreground">
-                Find this in Azure Portal under Entra ID &gt; Overview
+                Find this in Azure Portal → Entra ID → Overview
               </p>
             </div>
 
