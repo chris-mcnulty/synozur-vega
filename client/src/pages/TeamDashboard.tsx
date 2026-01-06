@@ -50,7 +50,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useVocabulary } from "@/contexts/VocabularyContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { getCurrentQuarter, generateQuarters } from "@/lib/fiscal-utils";
+import { getCurrentQuarter, generateQuarters, getQuarterElapsedPercent, getYearElapsedPercent, getRelativeProgressColor, assessRelativeProgress } from "@/lib/fiscal-utils";
 import { format } from "date-fns";
 import type { Objective, KeyResult, BigRock, Strategy, Team, Foundation, CheckIn } from "@shared/schema";
 
@@ -154,10 +154,10 @@ function getStatusLabel(status: string) {
   }
 }
 
-function getProgressColor(progress: number) {
-  if (progress >= 70) return 'bg-green-500';
-  if (progress >= 40) return 'bg-yellow-500';
-  return 'bg-red-500';
+// Time-relative progress color - compares actual progress to expected progress for this point in time
+function getTimeRelativeProgressColor(progress: number, quarter: number, year: number) {
+  const expectedProgress = getQuarterElapsedPercent(quarter, year);
+  return getRelativeProgressColor(progress, expectedProgress);
 }
 
 function TeamDashboardContent() {
@@ -778,7 +778,10 @@ Status: ${checkInForm.newStatus}`;
               return kr.status !== 'completed' && progress < 100;
             }
             if (krFilter === 'at_risk') {
-              return kr.status === 'at_risk' || kr.status === 'behind' || progress < 40;
+              // Use time-relative assessment instead of absolute thresholds
+              const expectedProgress = currentQuarter ? getQuarterElapsedPercent(currentQuarter.quarter, currentQuarter.year) : 50;
+              const relativeStatus = assessRelativeProgress(progress, expectedProgress);
+              return kr.status === 'at_risk' || kr.status === 'behind' || relativeStatus === 'at_risk' || relativeStatus === 'behind';
             }
             return true;
           });
@@ -828,7 +831,7 @@ Status: ${checkInForm.newStatus}`;
                           <div className="flex items-center gap-3 mb-2">
                             <Progress 
                               value={progress} 
-                              className={cn("h-2 flex-1", getProgressColor(progress))}
+                              className={cn("h-2 flex-1", currentQuarter ? getTimeRelativeProgressColor(progress, currentQuarter.quarter, currentQuarter.year) : 'bg-gray-500')}
                             />
                             <span className="text-sm font-medium whitespace-nowrap">
                               {kr.currentValue ?? 0} / {kr.targetValue ?? 0} {kr.unit || ''}
