@@ -1,5 +1,6 @@
-import { Lock, Unlock, RefreshCw, AlertCircle, CheckCircle } from "lucide-react";
+import { Lock, Unlock, RefreshCw, AlertCircle, CheckCircle, Target, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -17,6 +18,7 @@ interface WeightManagerProps<T extends WeightedItem> {
   onChange: (items: T[]) => void;
   itemNameKey: keyof T;
   disabled?: boolean;
+  showItemType?: boolean;
 }
 
 export function WeightManager<T extends WeightedItem>({
@@ -24,6 +26,7 @@ export function WeightManager<T extends WeightedItem>({
   onChange,
   itemNameKey,
   disabled = false,
+  showItemType = false,
 }: WeightManagerProps<T>) {
   const total = calculateTotalWeight(items);
   const validation = getWeightValidationMessage(items);
@@ -133,6 +136,7 @@ export function WeightManager<T extends WeightedItem>({
           <div className="divide-y">
             {items.map((item, index) => {
               const isLocked = item.isWeightLocked === true;
+              const itemType = (item as any).itemType as string | undefined;
               return (
                 <div
                   key={item.id}
@@ -140,9 +144,33 @@ export function WeightManager<T extends WeightedItem>({
                   data-testid={`weight-item-${index}`}
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">
-                      {String(item[itemNameKey])}
-                    </p>
+                    <div className="flex items-center gap-2">
+                      {showItemType && itemType && (
+                        <Badge 
+                          variant="outline" 
+                          className={`text-xs shrink-0 ${
+                            itemType === "child_objective" 
+                              ? "border-blue-300 text-blue-600 dark:border-blue-600 dark:text-blue-400" 
+                              : "border-green-300 text-green-600 dark:border-green-600 dark:text-green-400"
+                          }`}
+                        >
+                          {itemType === "child_objective" ? (
+                            <>
+                              <Target className="h-3 w-3 mr-1" />
+                              Objective
+                            </>
+                          ) : (
+                            <>
+                              <TrendingUp className="h-3 w-3 mr-1" />
+                              KR
+                            </>
+                          )}
+                        </Badge>
+                      )}
+                      <p className="text-sm font-medium truncate">
+                        {String(item[itemNameKey])}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <Input

@@ -127,6 +127,15 @@ interface CheckIn {
   createdAt: Date;
 }
 
+// Type for items that can be weighted (Key Results or Child Objectives)
+interface WeightedItem {
+  id: string;
+  title: string;
+  weight: number;
+  isWeightLocked?: boolean;
+  itemType: "key_result" | "child_objective";
+}
+
 // Helper to get saved planning filters from localStorage
 function getSavedPlanningFilters() {
   try {
@@ -382,7 +391,7 @@ export default function PlanningEnhanced() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ type: "objective" | "keyResult" | "bigRock"; id: string; title: string } | null>(null);
   const [savedSummary, setSavedSummary] = useState<{ content: string; dateRange: string } | null>(null);
-  const [managedWeights, setManagedWeights] = useState<KeyResult[]>([]);
+  const [managedWeights, setManagedWeights] = useState<WeightedItem[]>([]);
   const [selectedObjective, setSelectedObjective] = useState<Objective | null>(null);
   const [selectedKeyResult, setSelectedKeyResult] = useState<KeyResult | null>(null);
   const [selectedBigRock, setSelectedBigRock] = useState<BigRock | null>(null);
@@ -1477,47 +1486,95 @@ export default function PlanningEnhanced() {
   };
 
   const handleManageWeights = async (objectiveId: string) => {
-    // Fetch the latest Key Results for this objective
-    const krRes = await fetch(`/api/okr/objectives/${objectiveId}/key-results`);
+    // Fetch both Key Results and Child Objectives for this objective
+    const [krRes, childRes] = await Promise.all([
+      fetch(`/api/okr/objectives/${objectiveId}/key-results`),
+      fetch(`/api/okr/objectives/${objectiveId}/children`),
+    ]);
+    
     if (!krRes.ok) {
       toast({ title: "Error", description: "Failed to fetch Key Results", variant: "destructive" });
       return;
     }
+    
     const keyResults = await krRes.json();
+    const childObjectives = childRes.ok ? await childRes.json() : [];
+    
+    // Convert to WeightedItem format
+    const krItems: WeightedItem[] = keyResults.map((kr: KeyResult) => ({
+      id: kr.id,
+      title: kr.title,
+      weight: kr.weight ?? 25,
+      isWeightLocked: kr.isWeightLocked,
+      itemType: "key_result" as const,
+    }));
+    
+    const childItems: WeightedItem[] = childObjectives.map((obj: Objective) => ({
+      id: obj.id,
+      title: obj.title,
+      weight: (obj as any).weight ?? 0, // Child objectives default to 0 (excluded from rollup)
+      isWeightLocked: (obj as any).isWeightLocked,
+      itemType: "child_objective" as const,
+    }));
     
     // Find the objective from the main objectives list
     const objective = objectives.find(o => o.id === objectiveId);
     if (objective) {
       setSelectedObjective(objective);
-      setManagedWeights(keyResults); // Initialize local state
+      setManagedWeights([...krItems, ...childItems]); // Combine KRs and child objectives
       setWeightManagementDialogOpen(true);
     }
   };
 
   const handleSaveWeights = async () => {
-    // Batch update all Key Results
+    // Batch update both Key Results and Child Objectives
     try {
-      const results = await Promise.all(
-        managedWeights.map(async kr => {
-          const response = await fetch(`/api/okr/key-results/${kr.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({
-              weight: kr.weight,
-              isWeightLocked: kr.isWeightLocked,
-            }),
-          });
-          
-          if (!response.ok) {
-            const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
-            console.error(`[Weight Save] Failed for KR ${kr.id}:`, errorData);
-            throw new Error(errorData.error || `Failed to update weight for ${kr.title}`);
-          }
-          
-          return response.json();
-        })
-      );
+      const krItems = managedWeights.filter(item => item.itemType === "key_result");
+      const childItems = managedWeights.filter(item => item.itemType === "child_objective");
+      
+      // Update Key Results
+      const krPromises = krItems.map(async item => {
+        const response = await fetch(`/api/okr/key-results/${item.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            weight: item.weight,
+            isWeightLocked: item.isWeightLocked,
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+          console.error(`[Weight Save] Failed for KR ${item.id}:`, errorData);
+          throw new Error(errorData.error || `Failed to update weight for ${item.title}`);
+        }
+        
+        return response.json();
+      });
+      
+      // Update Child Objectives
+      const objPromises = childItems.map(async item => {
+        const response = await fetch(`/api/okr/objectives/${item.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            weight: item.weight,
+            isWeightLocked: item.isWeightLocked,
+          }),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: "Unknown error" }));
+          console.error(`[Weight Save] Failed for Objective ${item.id}:`, errorData);
+          throw new Error(errorData.error || `Failed to update weight for ${item.title}`);
+        }
+        
+        return response.json();
+      });
+      
+      const results = await Promise.all([...krPromises, ...objPromises]);
       
       console.log("[Weight Save] All weights saved successfully:", results);
       
@@ -1525,7 +1582,7 @@ export default function PlanningEnhanced() {
       await queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives"], exact: false });
       await queryClient.invalidateQueries({ queryKey: ["/api/okr/hierarchy"], exact: false });
       
-      toast({ title: "Success", description: "Key Result weights updated successfully" });
+      toast({ title: "Success", description: "Weights updated successfully" });
       setWeightManagementDialogOpen(false);
       setManagedWeights([]);
     } catch (error: any) {
@@ -3107,7 +3164,7 @@ export default function PlanningEnhanced() {
         }}>
           <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
             <DialogHeader className="flex-shrink-0">
-              <DialogTitle>Manage Key Result Weights</DialogTitle>
+              <DialogTitle>Manage Weights</DialogTitle>
               <DialogDescription>
                 {selectedObjective && `For: ${selectedObjective.title}`}
               </DialogDescription>
@@ -3116,9 +3173,15 @@ export default function PlanningEnhanced() {
               {managedWeights.length > 0 && (
                 <WeightManager
                   items={managedWeights}
-                  onChange={setManagedWeights} // Update local state only
+                  onChange={setManagedWeights}
                   itemNameKey={"title" as any}
+                  showItemType={true}
                 />
+              )}
+              {managedWeights.length === 0 && (
+                <p className="text-muted-foreground text-center py-8">
+                  No Key Results or child Objectives to weight.
+                </p>
               )}
             </div>
             <DialogFooter className="flex-shrink-0 pt-4 border-t">
