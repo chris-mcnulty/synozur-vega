@@ -40,6 +40,9 @@ import {
   History,
   Flag,
   RefreshCw,
+  Sparkles,
+  Check,
+  X,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useTenant } from "@/contexts/TenantContext";
@@ -172,6 +175,19 @@ function TeamDashboardContent() {
     newProgress: 0,
     newStatus: "on_track",
     note: "",
+  });
+  
+  // AI Check-in Rewrite state
+  const [aiRewriteState, setAiRewriteState] = useState<{
+    isRewriting: boolean;
+    suggestion: string | null;
+    error: string | null;
+    mode: 'polish' | 'expand' | 'full';
+  }>({
+    isRewriting: false,
+    suggestion: null,
+    error: null,
+    mode: 'polish',
   });
   
   // KR filter state - defaults to showing incomplete
@@ -397,6 +413,72 @@ function TeamDashboardContent() {
       toast({ title: "Error", description: error.message || "Failed to record check-in", variant: "destructive" });
     },
   });
+
+  // Reset AI rewrite state when dialog closes
+  useEffect(() => {
+    if (!checkInDialogOpen) {
+      setAiRewriteState({
+        isRewriting: false,
+        suggestion: null,
+        error: null,
+        mode: 'polish',
+      });
+    }
+  }, [checkInDialogOpen]);
+
+  // AI Rewrite check-in note mutation
+  const rewriteCheckInMutation = useMutation({
+    mutationFn: async (data: { note: string; context: string; mode: 'polish' | 'expand' | 'full' }) => {
+      const response = await apiRequest('POST', '/api/ai/rewrite-checkin', data);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setAiRewriteState(prev => ({
+        ...prev,
+        isRewriting: false,
+        suggestion: data.rewrittenNote || data.suggestion,
+        error: null,
+      }));
+    },
+    onError: (error: any) => {
+      const errorMessage = error instanceof Error ? error.message : String(error) || 'Failed to rewrite note';
+      console.error('[AI Rewrite] Error:', errorMessage, error);
+      setAiRewriteState(prev => ({
+        ...prev,
+        isRewriting: false,
+        error: errorMessage,
+      }));
+      toast({
+        title: "Rewrite Failed",
+        description: errorMessage || "Could not rewrite the check-in note. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleRewriteNote = () => {
+    if (!checkInForm.note.trim() || !selectedKR) return;
+    
+    const context = `Key Result: ${selectedKR.title}
+Current Value: ${checkInForm.newValue} / ${selectedKR.targetValue} ${selectedKR.unit || ''}
+Progress: ${checkInForm.newProgress}%
+Status: ${checkInForm.newStatus}`;
+
+    setAiRewriteState(prev => ({ ...prev, isRewriting: true, suggestion: null, error: null }));
+    
+    rewriteCheckInMutation.mutate({
+      note: checkInForm.note,
+      context,
+      mode: aiRewriteState.mode,
+    });
+  };
+
+  const acceptRewriteSuggestion = () => {
+    if (aiRewriteState.suggestion) {
+      setCheckInForm(prev => ({ ...prev, note: aiRewriteState.suggestion! }));
+      setAiRewriteState(prev => ({ ...prev, suggestion: null }));
+    }
+  };
 
   const relevantStrategies = useMemo(() => {
     if (!strategies || !objectives) return [];
@@ -922,7 +1004,42 @@ function TeamDashboardContent() {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="checkin-note">Note (optional)</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="checkin-note">Note (optional)</Label>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={aiRewriteState.mode}
+                    onValueChange={(value: 'polish' | 'expand' | 'full') => 
+                      setAiRewriteState(prev => ({ ...prev, mode: value }))
+                    }
+                  >
+                    <SelectTrigger className="w-[110px] h-7 text-xs" data-testid="select-rewrite-mode">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="polish">Polish</SelectItem>
+                      <SelectItem value="expand">Expand</SelectItem>
+                      <SelectItem value="full">Full Rewrite</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRewriteNote}
+                    disabled={aiRewriteState.isRewriting || !checkInForm.note.trim()}
+                    className="h-7"
+                    data-testid="button-ai-rewrite-note"
+                  >
+                    {aiRewriteState.isRewriting ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3 w-3" />
+                    )}
+                    <span className="text-xs ml-1">AI Rewrite</span>
+                  </Button>
+                </div>
+              </div>
               <Textarea
                 id="checkin-note"
                 value={checkInForm.note}
@@ -931,6 +1048,40 @@ function TeamDashboardContent() {
                 rows={3}
                 data-testid="textarea-checkin-note"
               />
+              
+              {/* AI Suggestion */}
+              {aiRewriteState.suggestion && (
+                <div className="p-3 bg-primary/5 rounded-md border border-primary/20 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                    <Sparkles className="h-4 w-4" />
+                    AI Suggestion
+                  </div>
+                  <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                    {aiRewriteState.suggestion}
+                  </p>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setAiRewriteState(prev => ({ ...prev, suggestion: null }))}
+                      data-testid="button-reject-suggestion"
+                    >
+                      <X className="h-3 w-3 mr-1" />
+                      Dismiss
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={acceptRewriteSuggestion}
+                      data-testid="button-accept-suggestion"
+                    >
+                      <Check className="h-3 w-3 mr-1" />
+                      Use This
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
