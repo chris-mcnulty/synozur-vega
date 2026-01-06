@@ -422,7 +422,7 @@ export default function SystemAdmin() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `traffic-report-${trafficDateRange.startDate}-to-${trafficDateRange.endDate}.csv`;
+    a.download = `Vega-traffic-report-${trafficDateRange.startDate}-to-${trafficDateRange.endDate}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -453,7 +453,7 @@ export default function SystemAdmin() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `tenant-activity-report-${new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })}.csv`;
+    a.download = `Vega-tenant-activity-report-${new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })}.csv`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

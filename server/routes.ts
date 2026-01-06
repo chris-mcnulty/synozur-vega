@@ -2268,6 +2268,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const referrer = req.get('referer') || '';
       const forwardedFor = req.get('x-forwarded-for');
       const ipAddress = forwardedFor ? forwardedFor.split(',')[0].trim() : req.ip || '';
+      
+      // Try to get country from Cloudflare header first (fastest)
+      let country: string | null = req.get('cf-ipcountry') || null;
+      
+      // If no Cloudflare header and we have a valid IP, try IP geolocation API
+      if (!country && ipAddress && ipAddress !== '::1' && ipAddress !== '127.0.0.1' && !ipAddress.startsWith('192.168.') && !ipAddress.startsWith('10.')) {
+        try {
+          // Use ip-api.com free service (rate limit: 45 req/min)
+          const geoResponse = await fetch(`http://ip-api.com/json/${ipAddress}?fields=countryCode`);
+          if (geoResponse.ok) {
+            const geoData = await geoResponse.json();
+            if (geoData.countryCode) {
+              country = geoData.countryCode;
+            }
+          }
+        } catch (geoError) {
+          // Silently fail - country will be null/Unknown
+        }
+      }
 
       const visit = await storage.recordPageVisit({
         page,
@@ -2275,7 +2294,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userAgent,
         referrer,
         ipAddress,
-        country: null,
+        country,
       });
 
       res.status(201).json({ success: true, id: visit.id });
