@@ -3623,25 +3623,69 @@ export default function PlanningEnhanced() {
               <Button
                 onClick={() => {
                   if (checkInEntity) {
+                    // Prepare data for submission
+                    let submissionData = { ...checkInForm };
+                    
                     // Validate for Key Results: ensure we have a valid number from the draft input
-                    if (checkInEntity.type === "key_result") {
+                    if (checkInEntity.type === "key_result" && checkInEntity.current) {
                       const finalValue = parseFloat(valueInputDraft);
-                      // Use the parsed value from draft
-                      checkInForm.newValue = finalValue;
+                      submissionData.newValue = finalValue;
+                      
+                      // Always recalculate progress from value before submitting
+                      const kr = checkInEntity.current;
+                      const initialValue = kr.initialValue ?? 0;
+                      const targetValue = kr.targetValue ?? 0;
+                      const metricType = kr.metricType || "increase";
+                      
+                      let progress = 0;
+                      if (metricType === "increase") {
+                        const denom = targetValue - initialValue;
+                        if (denom === 0) {
+                          progress = finalValue >= targetValue ? 100 : 0;
+                        } else if (denom > 0) {
+                          progress = ((finalValue - initialValue) / denom) * 100;
+                        }
+                      } else if (metricType === "decrease") {
+                        const denom = initialValue - targetValue;
+                        if (denom === 0) {
+                          progress = finalValue <= targetValue ? 100 : 0;
+                        } else if (denom > 0) {
+                          progress = ((initialValue - finalValue) / denom) * 100;
+                        }
+                      } else if (metricType === "maintain") {
+                        if (targetValue === 0) {
+                          progress = Math.abs(finalValue) <= 0.05 ? 100 : 0;
+                        } else {
+                          const deviation = Math.abs(finalValue - targetValue) / Math.abs(targetValue);
+                          progress = deviation <= 0.05 ? 100 : Math.max(0, 100 - (deviation * 100));
+                        }
+                      } else {
+                        // Default: simple percentage (current / target)
+                        if (targetValue > 0) {
+                          progress = (finalValue / targetValue) * 100;
+                        }
+                      }
+                      
+                      submissionData.newProgress = Math.max(0, Math.round(progress));
+                    }
+                    
+                    // Ensure newProgress is always a valid number
+                    if (typeof submissionData.newProgress !== 'number' || isNaN(submissionData.newProgress)) {
+                      submissionData.newProgress = 0;
                     }
                     
                     if (editingCheckIn) {
                       // Update existing check-in
                       updateCheckInMutation.mutate({
                         id: editingCheckIn.id,
-                        data: checkInForm,
+                        data: submissionData,
                       });
                     } else {
                       // Create new check-in
                       createCheckInMutation.mutate({
                         entityType: checkInEntity.type,
                         entityId: checkInEntity.id,
-                        ...checkInForm,
+                        ...submissionData,
                         previousProgress: checkInEntity.current?.progress || 0,
                         previousValue: checkInEntity.current?.currentValue || 0,
                       });
