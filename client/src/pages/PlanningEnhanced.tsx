@@ -1806,9 +1806,24 @@ export default function PlanningEnhanced() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="on_track">On Track</SelectItem>
-                <SelectItem value="at_risk">At Risk</SelectItem>
-                <SelectItem value="behind">Behind</SelectItem>
+                <SelectItem value="on_track">
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-500" />
+                    On Track
+                  </span>
+                </SelectItem>
+                <SelectItem value="at_risk">
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-red-500" />
+                    At Risk
+                  </span>
+                </SelectItem>
+                <SelectItem value="behind">
+                  <span className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                    Behind
+                  </span>
+                </SelectItem>
               </SelectContent>
             </Select>
             <Select value={level} onValueChange={setLevel}>
@@ -3542,13 +3557,48 @@ export default function PlanningEnhanced() {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="z-[60]">
-                    <SelectItem value="not_started">Not Started</SelectItem>
-                    <SelectItem value="on_track">On Track</SelectItem>
-                    <SelectItem value="behind">Behind</SelectItem>
-                    <SelectItem value="at_risk">At Risk</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="postponed">Postponed</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
+                    <SelectItem value="not_started">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-gray-400" />
+                        Not Started
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="on_track">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-green-500" />
+                        On Track
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="behind">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                        Behind
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="at_risk">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-red-500" />
+                        At Risk
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="completed">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-500" />
+                        Completed
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="postponed">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-purple-500" />
+                        Postponed
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="cancelled">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-gray-600" />
+                        Cancelled
+                      </span>
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
