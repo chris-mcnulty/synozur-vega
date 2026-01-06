@@ -86,3 +86,12 @@ When adding new features or proposals, update BACKLOG.md rather than creating se
 - Check `isPeriodEnded()` BEFORE `isTargetExceeded()`
 - Period-ended uses amber styling, target-exceeded uses green
 - Closing notes are mandatory when choosing not to continue in next period
+
+### Mixed Child Rollup Progress Calculation
+- Objectives in rollup mode calculate progress from BOTH Key Results AND child objectives
+- Key Results always participate (using their weight, default 25% if unset)
+- Child objectives only participate if they have a weight explicitly set (weight > 0)
+- Child objectives with no weight (null) are excluded from parent rollup (backwards compatible)
+- When editing a child objective, a weight slider appears to set its contribution to parent's progress
+- Progress propagates upward: when a child's progress changes, parent is recalculated
+- Helper function `calculateObjectiveRollupProgress()` in routes-okr.ts handles the calculation

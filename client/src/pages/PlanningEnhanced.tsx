@@ -411,6 +411,7 @@ export default function PlanningEnhanced() {
     description: "",
     level: "organization",
     parentId: "",
+    weight: null as number | null, // Weight for rollup calculation when this is a child objective
     ownerEmail: "",
     teamId: "" as string,
     progressMode: "rollup",
@@ -1251,6 +1252,7 @@ export default function PlanningEnhanced() {
       description: "",
       level: parentId ? "team" : "organization",
       parentId: parentId || "",
+      weight: null,
       ownerEmail: "",
       teamId: "",
       progressMode: "rollup",
@@ -1259,6 +1261,7 @@ export default function PlanningEnhanced() {
       linkedStrategies: [],
       linkedGoals: [],
       linkedBigRocks: [],
+      alignedToObjectiveIds: [],
       phasedTargets: null,
     });
     setSelectedObjective(null);
@@ -1267,13 +1270,14 @@ export default function PlanningEnhanced() {
     setObjectiveDialogOpen(true);
   };
 
-  const handleEditObjective = async (objective: Objective & { phasedTargets?: PhasedTargets | null }) => {
+  const handleEditObjective = async (objective: Objective & { phasedTargets?: PhasedTargets | null; weight?: number | null }) => {
     // Set initial form state with defensive defaults
     const initialForm = {
       title: objective.title || "",
       description: objective.description || "",
       level: objective.level || "organization",
       parentId: objective.parentId || "",
+      weight: objective.weight ?? null,
       ownerEmail: objective.ownerEmail || "",
       teamId: objective.teamId || "",
       progressMode: "rollup" as const,
@@ -1282,6 +1286,7 @@ export default function PlanningEnhanced() {
       linkedStrategies: Array.isArray(objective.linkedStrategies) ? objective.linkedStrategies : [],
       linkedGoals: Array.isArray(objective.linkedGoals) ? objective.linkedGoals : [],
       linkedBigRocks: [] as string[],
+      alignedToObjectiveIds: Array.isArray((objective as any).alignedToObjectiveIds) ? (objective as any).alignedToObjectiveIds : [],
       phasedTargets: objective.phasedTargets || null,
     };
     
@@ -2028,6 +2033,7 @@ export default function PlanningEnhanced() {
                       description: obj.description,
                       level: obj.level || 'organization',
                       parentId: obj.parentId || '',
+                      weight: (obj as any).weight ?? null,
                       linkedStrategies: Array.isArray((obj as any).linkedStrategies) ? (obj as any).linkedStrategies : [],
                       linkedBigRocks: [],
                       ownerEmail: obj.ownerEmail || '',
@@ -2070,6 +2076,7 @@ export default function PlanningEnhanced() {
                       description: "",
                       level: "team",
                       parentId: parentId,
+                      weight: null,
                       linkedStrategies: [],
                       linkedBigRocks: [],
                       ownerEmail: user?.email || "",
@@ -2435,6 +2442,30 @@ export default function PlanningEnhanced() {
                         ))
                       )}
                     </div>
+                    
+                    {/* Weight field - only shown when parent is selected */}
+                    {objectiveForm.parentId && (
+                      <div className="mt-4">
+                        <Label htmlFor="objective-weight">Weight in Parent Rollup ({objectiveForm.weight !== null ? objectiveForm.weight : 0}%)</Label>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Set this objective's weight contribution to the parent's progress calculation.
+                          Leave at 0 to exclude from rollup (only KRs will be included).
+                        </p>
+                        <Slider
+                          id="objective-weight"
+                          min={0}
+                          max={100}
+                          step={1}
+                          value={[objectiveForm.weight ?? 0]}
+                          onValueChange={(values) => setObjectiveForm({ 
+                            ...objectiveForm, 
+                            weight: values[0] === 0 ? null : values[0] 
+                          })}
+                          className="mt-2"
+                          data-testid="slider-objective-weight"
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div>
@@ -4291,6 +4322,7 @@ export default function PlanningEnhanced() {
                     description: "",
                     level: "team",
                     parentId: "",
+                    weight: null,
                     linkedStrategies: [],
                     linkedBigRocks: [],
                     ownerEmail: user?.email || "",
@@ -4473,6 +4505,7 @@ export default function PlanningEnhanced() {
                 description: detailPaneEntity.description || "",
                 level: detailPaneEntity.level || 'organization',
                 parentId: detailPaneEntity.parentId || '',
+                weight: (detailPaneEntity as any).weight ?? null,
                 linkedStrategies: Array.isArray((detailPaneEntity as any).linkedStrategies) ? (detailPaneEntity as any).linkedStrategies : [],
                 linkedBigRocks: [],
                 ownerEmail: detailPaneEntity.ownerEmail || '',
@@ -4481,6 +4514,7 @@ export default function PlanningEnhanced() {
                 quarter: detailPaneEntity.quarter,
                 year: detailPaneEntity.year,
                 linkedGoals: Array.isArray((detailPaneEntity as any).linkedGoals) ? (detailPaneEntity as any).linkedGoals : [],
+                alignedToObjectiveIds: Array.isArray((detailPaneEntity as any).alignedToObjectiveIds) ? (detailPaneEntity as any).alignedToObjectiveIds : [],
                 phasedTargets: detailPaneEntity.phasedTargets || null,
               });
               setDetailPaneOpen(false);

@@ -109,6 +109,45 @@ async function detectCircularAlignment(
   return { hasCircle: false };
 }
 
+/**
+ * Calculate weighted rollup progress for an objective from both KRs and child objectives
+ * Returns the new progress value (0-100)
+ */
+async function calculateObjectiveRollupProgress(objectiveId: string): Promise<number> {
+  // Get all Key Results for this objective
+  const keyResults = await storage.getKeyResultsByObjectiveId(objectiveId);
+  
+  // Get all child objectives
+  const childObjectives = await storage.getChildObjectives(objectiveId);
+  
+  // If no children of any kind, return 0
+  if (keyResults.length === 0 && childObjectives.length === 0) {
+    return 0;
+  }
+  
+  let totalWeight = 0;
+  let weightedProgress = 0;
+  
+  // Add KRs to the calculation
+  for (const kr of keyResults) {
+    const weight = kr.weight || 25;
+    totalWeight += weight;
+    weightedProgress += (kr.progress || 0) * weight;
+  }
+  
+  // Add child objectives to the calculation (use their weight if set, otherwise distribute remaining)
+  for (const child of childObjectives) {
+    // Only include child objectives that have a weight set
+    // If no weight is set, they don't participate in rollup (backwards compatible)
+    if (child.weight !== null && child.weight !== undefined) {
+      totalWeight += child.weight;
+      weightedProgress += (child.progress || 0) * child.weight;
+    }
+  }
+  
+  return totalWeight > 0 ? Math.round(weightedProgress / totalWeight) : 0;
+}
+
 // Teams
 okrRouter.get("/teams", async (req, res) => {
   try {
@@ -171,6 +210,17 @@ okrRouter.post("/objectives", async (req, res) => {
   try {
     const validatedData = insertObjectiveSchema.parse(req.body);
     
+    // Validate weight bounds if provided (0-100 or null)
+    if (validatedData.weight !== undefined && validatedData.weight !== null) {
+      const weight = Number(validatedData.weight);
+      if (isNaN(weight) || weight < 0 || weight > 100) {
+        return res.status(400).json({ 
+          error: "Weight must be between 0 and 100" 
+        });
+      }
+      (validatedData as any).weight = weight;
+    }
+    
     // Auto-set createdBy from session if not provided
     const session = req.session as any;
     const userId = session?.passport?.user?.id || session?.userId;
@@ -198,6 +248,17 @@ okrRouter.patch("/objectives/:id", async (req, res) => {
     const updateData = { ...req.body };
     if (updateData.parentId === "") updateData.parentId = null;
     if (updateData.ownerId === "") updateData.ownerId = null;
+    
+    // Validate weight bounds if provided (0-100 or null)
+    if (updateData.weight !== undefined && updateData.weight !== null) {
+      const weight = Number(updateData.weight);
+      if (isNaN(weight) || weight < 0 || weight > 100) {
+        return res.status(400).json({ 
+          error: "Weight must be between 0 and 100" 
+        });
+      }
+      updateData.weight = weight;
+    }
     
     // Check if objective is closed - only allow status changes (reopen)
     const existingObjective = await storage.getObjectiveById(req.params.id);
@@ -251,6 +312,18 @@ okrRouter.patch("/objectives/:id", async (req, res) => {
     }
     
     const objective = await storage.updateObjective(req.params.id, updateData);
+    
+    // If this objective has a parent and progress changed, propagate to parent
+    if (objective.parentId && (updateData.progress !== undefined || updateData.weight !== undefined)) {
+      const parentObjective = await storage.getObjectiveById(objective.parentId);
+      
+      // Only recalculate if parent is using rollup mode
+      if (parentObjective && parentObjective.progressMode === 'rollup') {
+        const newProgress = await calculateObjectiveRollupProgress(objective.parentId);
+        await storage.updateObjective(objective.parentId, { progress: newProgress });
+      }
+    }
+    
     res.json(objective);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -761,25 +834,13 @@ okrRouter.post("/check-ins", async (req, res) => {
         lastCheckInNote: checkIn.note || undefined,
       });
       
-      // Recalculate parent objective's progress
+      // Recalculate parent objective's progress (includes both KRs and child objectives)
       if (keyResult && keyResult.objectiveId) {
         const objective = await storage.getObjectiveById(keyResult.objectiveId);
         
         // Only recalculate if using rollup mode
         if (objective && objective.progressMode === 'rollup') {
-          const allKeyResults = await storage.getKeyResultsByObjectiveId(keyResult.objectiveId);
-          
-          // Calculate weighted average progress
-          let totalWeight = 0;
-          let weightedProgress = 0;
-          
-          for (const kr of allKeyResults) {
-            const weight = kr.weight || 25;
-            totalWeight += weight;
-            weightedProgress += (kr.progress || 0) * weight;
-          }
-          
-          const newProgress = totalWeight > 0 ? Math.round(weightedProgress / totalWeight) : 0;
+          const newProgress = await calculateObjectiveRollupProgress(keyResult.objectiveId);
           
           // Update parent objective progress
           await storage.updateObjective(keyResult.objectiveId, {
@@ -868,25 +929,13 @@ okrRouter.patch("/check-ins/:id", async (req, res) => {
         lastCheckInNote: checkIn.note || undefined,
       });
       
-      // Recalculate parent objective's progress
+      // Recalculate parent objective's progress (includes both KRs and child objectives)
       if (keyResult && keyResult.objectiveId) {
         const objective = await storage.getObjectiveById(keyResult.objectiveId);
         
         // Only recalculate if using rollup mode
         if (objective && objective.progressMode === 'rollup') {
-          const allKeyResults = await storage.getKeyResultsByObjectiveId(keyResult.objectiveId);
-          
-          // Calculate weighted average progress
-          let totalWeight = 0;
-          let weightedProgress = 0;
-          
-          for (const kr of allKeyResults) {
-            const weight = kr.weight || 25;
-            totalWeight += weight;
-            weightedProgress += (kr.progress || 0) * weight;
-          }
-          
-          const newProgress = totalWeight > 0 ? Math.round(weightedProgress / totalWeight) : 0;
+          const newProgress = await calculateObjectiveRollupProgress(keyResult.objectiveId);
           
           // Update parent objective progress
           await storage.updateObjective(keyResult.objectiveId, {
@@ -925,24 +974,8 @@ okrRouter.get("/objectives/:id/calculate-progress", async (req, res) => {
       return res.json({ progress: objective.progress });
     }
     
-    // Calculate from key results
-    const keyResults = await storage.getKeyResultsByObjectiveId(req.params.id);
-    
-    if (keyResults.length === 0) {
-      return res.json({ progress: 0 });
-    }
-    
-    // Calculate weighted average
-    let totalWeight = 0;
-    let weightedProgress = 0;
-    
-    for (const kr of keyResults) {
-      const weight = kr.weight || 25; // Default 25% if no weight specified
-      totalWeight += weight;
-      weightedProgress += (kr.progress || 0) * weight;
-    }
-    
-    const calculatedProgress = totalWeight > 0 ? Math.round(weightedProgress / totalWeight) : 0;
+    // Calculate from key results and child objectives
+    const calculatedProgress = await calculateObjectiveRollupProgress(req.params.id);
     
     // Update the objective with calculated progress
     await storage.updateObjective(req.params.id, { progress: calculatedProgress });
@@ -1044,31 +1077,18 @@ okrRouter.post("/backfill-progress", async (req, res) => {
       }
     }
     
-    // Now recalculate all objective rollups
+    // Now recalculate all objective rollups (includes both KRs and child objectives)
     const allObjectives = await storage.getAllObjectives();
     let objectivesUpdated = 0;
     
     for (const obj of allObjectives) {
       if (obj.progressMode === 'rollup') {
         try {
-          const keyResults = await storage.getKeyResultsByObjectiveId(obj.id);
+          const newProgress = await calculateObjectiveRollupProgress(obj.id);
           
-          if (keyResults.length > 0) {
-            let totalWeight = 0;
-            let weightedProgress = 0;
-            
-            for (const kr of keyResults) {
-              const weight = kr.weight || 25;
-              totalWeight += weight;
-              weightedProgress += (kr.progress || 0) * weight;
-            }
-            
-            const newProgress = totalWeight > 0 ? Math.round(weightedProgress / totalWeight) : 0;
-            
-            if (newProgress !== obj.progress) {
-              await storage.updateObjective(obj.id, { progress: newProgress });
-              objectivesUpdated++;
-            }
+          if (newProgress !== obj.progress) {
+            await storage.updateObjective(obj.id, { progress: newProgress });
+            objectivesUpdated++;
           }
         } catch (err) {
           console.error(`[Backfill] Error updating Objective ${obj.id}:`, err);

@@ -672,6 +672,10 @@ export const objectives = pgTable("objectives", {
   statusOverride: varchar("status_override").default('false'),
   closingNote: text("closing_note"), // Note captured when closing out an objective
   
+  // Weight (for child objectives - included in parent's rollup alongside KRs)
+  weight: integer("weight"), // Nullable - only set for child objectives participating in parent's weighted rollup
+  isWeightLocked: boolean("is_weight_locked").default(false),
+  
   // Time period
   quarter: integer("quarter"),
   year: integer("year"),
