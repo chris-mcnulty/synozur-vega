@@ -3388,9 +3388,18 @@ export default function PlanningEnhanced() {
                         } else {
                           progress = newVal >= targetValue ? 100 : (newVal / targetValue) * 100;
                         }
+                      } else {
+                        // Default fallback for undefined/unknown metric types: treat as "increase" from 0
+                        // This handles legacy data and ensures progress is always calculated
+                        if (targetValue === 0 || targetValue < 0) {
+                          progress = 0;
+                        } else {
+                          // Simple percentage: current / target * 100
+                          progress = (newVal / targetValue) * 100;
+                        }
                       }
                       
-                      // For unhandled metric types, keep the existing progress
+                      // Progress is now always calculated
                       // Allow progress >100% for exceeding targets, only clamp negative to 0
                       const finalProgress = progress !== null 
                         ? (isNaN(progress) ? 0 : Math.max(0, Math.round(progress)))

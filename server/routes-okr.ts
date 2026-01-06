@@ -733,17 +733,35 @@ okrRouter.post("/check-ins", async (req, res) => {
       
       await storage.updateObjective(entityId, updateData);
     } else if (entityType === "key_result") {
-      // Update the key result
+      // Get the Key Result to recalculate progress from values
+      const keyResult = await storage.getKeyResultById(entityId);
+      
+      // Recalculate progress server-side to ensure accuracy
+      let calculatedProgress = checkIn.newProgress || 0;
+      if (keyResult && checkIn.newValue !== undefined && checkIn.newValue !== null) {
+        const currentValue = checkIn.newValue;
+        const targetValue = keyResult.targetValue ?? 0;
+        const initialValue = keyResult.initialValue ?? 0;
+        const metricType = keyResult.metricType || "increase";
+        
+        calculatedProgress = calculateKeyResultProgress(
+          currentValue,
+          targetValue,
+          initialValue,
+          metricType
+        );
+      }
+      
+      // Update the key result with recalculated progress
       await storage.updateKeyResult(entityId, {
         currentValue: checkIn.newValue,
-        progress: checkIn.newProgress,
+        progress: calculatedProgress,
         status: checkIn.newStatus || undefined,
         lastCheckInAt: checkIn.createdAt,
         lastCheckInNote: checkIn.note || undefined,
       });
       
       // Recalculate parent objective's progress
-      const keyResult = await storage.getKeyResultById(entityId);
       if (keyResult && keyResult.objectiveId) {
         const objective = await storage.getObjectiveById(keyResult.objectiveId);
         
@@ -822,17 +840,35 @@ okrRouter.patch("/check-ins/:id", async (req, res) => {
       
       await storage.updateObjective(entityId, objectiveUpdateData);
     } else if (entityType === "key_result") {
-      // Update the key result
+      // Get the Key Result to recalculate progress from values
+      const keyResult = await storage.getKeyResultById(entityId);
+      
+      // Recalculate progress server-side to ensure accuracy
+      let calculatedProgress = checkIn.newProgress || 0;
+      if (keyResult && checkIn.newValue !== undefined && checkIn.newValue !== null) {
+        const currentValue = checkIn.newValue;
+        const targetValue = keyResult.targetValue ?? 0;
+        const initialValue = keyResult.initialValue ?? 0;
+        const metricType = keyResult.metricType || "increase";
+        
+        calculatedProgress = calculateKeyResultProgress(
+          currentValue,
+          targetValue,
+          initialValue,
+          metricType
+        );
+      }
+      
+      // Update the key result with recalculated progress
       await storage.updateKeyResult(entityId, {
         currentValue: checkIn.newValue,
-        progress: checkIn.newProgress,
+        progress: calculatedProgress,
         status: checkIn.newStatus || undefined,
         lastCheckInAt: checkIn.createdAt,
         lastCheckInNote: checkIn.note || undefined,
       });
       
       // Recalculate parent objective's progress
-      const keyResult = await storage.getKeyResultById(entityId);
       if (keyResult && keyResult.objectiveId) {
         const objective = await storage.getObjectiveById(keyResult.objectiveId);
         
