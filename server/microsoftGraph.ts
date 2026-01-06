@@ -6,8 +6,6 @@ let outlookConnectionSettings: any;
 let oneDriveConnectionSettings: any;
 let sharePointConnectionSettings: any;
 
-// Cached token for Entra app confidential client
-let entraAppToken: { token: string; expiresAt: number } | null = null;
 
 type ConnectorType = 'outlook' | 'onedrive' | 'sharepoint';
 
@@ -22,24 +20,33 @@ function hasEntraAppCredentials(): boolean {
   );
 }
 
-async function getEntraAppAccessToken(): Promise<string> {
+// Cache tokens per tenant ID to support multi-tenant scenarios
+const entraAppTokenCache: Map<string, { token: string; expiresAt: number }> = new Map();
+
+async function getEntraAppAccessToken(overrideTenantId?: string): Promise<string> {
   const clientId = process.env.AZURE_CLIENT_ID;
   const clientSecret = process.env.AZURE_CLIENT_SECRET;
-  const tenantId = process.env.AZURE_TENANT_ID;
+  // Use override tenant ID if provided, otherwise fall back to env var
+  const tenantId = overrideTenantId || process.env.AZURE_TENANT_ID;
 
-  if (!clientId || !clientSecret || !tenantId) {
-    throw new Error('Entra app credentials not configured (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID)');
+  if (!clientId || !clientSecret) {
+    throw new Error('Entra app credentials not configured (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET)');
+  }
+  
+  if (!tenantId) {
+    throw new Error('Azure tenant ID not configured. Either pass a tenantId or set AZURE_TENANT_ID environment variable.');
   }
 
   // Validate tenant ID - client credentials flow requires a specific tenant, not 'common'
   const invalidTenantIds = ['common', 'organizations', 'consumers'];
   if (invalidTenantIds.includes(tenantId.toLowerCase())) {
-    throw new Error(`AZURE_TENANT_ID cannot be "${tenantId}" for client credentials flow. Please set it to your actual Azure AD tenant ID (e.g., xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx or your-domain.onmicrosoft.com)`);
+    throw new Error(`Tenant ID cannot be "${tenantId}" for client credentials flow. Please configure your Azure AD tenant ID in Tenant Admin settings.`);
   }
 
-  // Check if cached token is still valid (with 5 min buffer)
-  if (entraAppToken && entraAppToken.expiresAt > Date.now() + 5 * 60 * 1000) {
-    return entraAppToken.token;
+  // Check if cached token for this tenant is still valid (with 5 min buffer)
+  const cachedToken = entraAppTokenCache.get(tenantId);
+  if (cachedToken && cachedToken.expiresAt > Date.now() + 5 * 60 * 1000) {
+    return cachedToken.token;
   }
 
   console.log('[EntraApp] Acquiring new token via client credentials flow with tenant:', tenantId.substring(0, 8) + '...');
@@ -53,18 +60,18 @@ async function getEntraAppAccessToken(): Promise<string> {
     throw new Error('Failed to acquire token from Entra app');
   }
 
-  // Cache the token
-  entraAppToken = {
+  // Cache the token for this tenant
+  entraAppTokenCache.set(tenantId, {
     token: tokenResponse.token,
     expiresAt: tokenResponse.expiresOnTimestamp || (Date.now() + 3600 * 1000), // Default 1 hour
-  };
+  });
 
   console.log('[EntraApp] Token acquired successfully');
-  return entraAppToken.token;
+  return tokenResponse.token;
 }
 
-async function getEntraAppGraphClient(): Promise<Client> {
-  const accessToken = await getEntraAppAccessToken();
+async function getEntraAppGraphClient(overrideTenantId?: string): Promise<Client> {
+  const accessToken = await getEntraAppAccessToken(overrideTenantId);
 
   return Client.initWithMiddleware({
     authProvider: {
@@ -99,13 +106,18 @@ export interface AzureADUser {
   department: string | null;
 }
 
-export async function searchAzureADUsers(query: string, top: number = 10): Promise<AzureADUser[]> {
-  if (!hasEntraAppCredentials()) {
-    throw new Error('Azure AD credentials not configured');
+export async function searchAzureADUsers(query: string, top: number = 10, azureTenantId?: string): Promise<AzureADUser[]> {
+  // Check for client ID and secret (tenant ID can be provided as parameter)
+  if (!process.env.AZURE_CLIENT_ID || !process.env.AZURE_CLIENT_SECRET) {
+    throw new Error('Azure AD credentials not configured (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET)');
+  }
+  
+  if (!azureTenantId && !process.env.AZURE_TENANT_ID) {
+    throw new Error('Azure tenant ID not configured. Please set the Azure Tenant ID in Tenant Admin settings.');
   }
 
   try {
-    const client = await getEntraAppGraphClient();
+    const client = await getEntraAppGraphClient(azureTenantId);
     
     // Search users by displayName or mail starting with query
     // Note: Graph API requires encoding special characters

@@ -1045,25 +1045,40 @@ router.get('/users/search', async (req: Request, res: Response) => {
 
     const limit = Math.min(parseInt(req.query.limit as string) || 10, 50);
 
-    const users = await searchAzureADUsers(query.trim(), limit);
+    // Get the tenant's Azure tenant ID from the database
+    let azureTenantId: string | undefined;
+    if (user.tenantId) {
+      const tenant = await storage.getTenantById(user.tenantId);
+      if (tenant?.azureTenantId) {
+        azureTenantId = tenant.azureTenantId;
+      }
+    }
+    
+    if (!azureTenantId) {
+      return res.status(400).json({ 
+        error: 'Azure Tenant ID not configured. Please set it in Tenant Admin → Microsoft 365 Integration settings.' 
+      });
+    }
+
+    const users = await searchAzureADUsers(query.trim(), limit, azureTenantId);
     res.json({ users });
   } catch (error: any) {
     console.error('[Entra User Search] Error:', error.message || error);
     
     // Handle specific error cases
     if (error.message?.includes('credentials not configured')) {
-      return res.status(503).json({ error: 'Azure AD integration not configured' });
+      return res.status(503).json({ error: 'Azure AD integration not configured. Please ensure AZURE_CLIENT_ID and AZURE_CLIENT_SECRET are set.' });
     }
     
-    if (error.message?.includes('AZURE_TENANT_ID cannot be')) {
+    if (error.message?.includes('Tenant ID cannot be')) {
       return res.status(503).json({ 
-        error: 'Invalid Azure AD tenant configuration. The AZURE_TENANT_ID secret must be set to your actual tenant ID, not "common".' 
+        error: 'Invalid Azure AD tenant configuration. Please verify your Azure Tenant ID in Tenant Admin settings.' 
       });
     }
     
-    if (error.message?.includes('missing_tenant_id_error')) {
+    if (error.message?.includes('missing_tenant_id_error') || error.message?.includes('must be specified')) {
       return res.status(503).json({ 
-        error: 'Azure AD tenant ID misconfigured. Please verify AZURE_TENANT_ID is set to a valid tenant ID.' 
+        error: 'Azure AD tenant ID misconfigured. Please verify the Azure Tenant ID is correctly set in Tenant Admin settings.' 
       });
     }
     
