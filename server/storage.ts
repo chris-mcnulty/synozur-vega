@@ -290,11 +290,13 @@ export interface IStorage {
   recordPageVisit(visit: InsertPageVisit): Promise<PageVisit>;
   getPageVisitStats(startDate?: Date, endDate?: Date): Promise<{
     totalVisits: number;
+    totalSessions: number;
     visitsByPage: { page: string; count: number }[];
     visitsByDay: { date: string; count: number }[];
     visitsByCountry: { country: string; count: number }[];
     visitsByDevice: { device: string; count: number }[];
     visitsByBrowser: { browser: string; count: number }[];
+    visitsByReferrer: { referrer: string; count: number }[];
   }>;
   
   // Tenant Activity Report for Platform Admins
@@ -2590,11 +2592,13 @@ export class DatabaseStorage implements IStorage {
 
   async getPageVisitStats(startDate?: Date, endDate?: Date): Promise<{
     totalVisits: number;
+    totalSessions: number;
     visitsByPage: { page: string; count: number }[];
     visitsByDay: { date: string; count: number }[];
     visitsByCountry: { country: string; count: number }[];
     visitsByDevice: { device: string; count: number }[];
     visitsByBrowser: { browser: string; count: number }[];
+    visitsByReferrer: { referrer: string; count: number }[];
   }> {
     const conditions: any[] = [];
     if (startDate) {
@@ -2613,6 +2617,8 @@ export class DatabaseStorage implements IStorage {
     const countryMap = new Map<string, number>();
     const deviceMap = new Map<string, number>();
     const browserMap = new Map<string, number>();
+    const referrerMap = new Map<string, number>();
+    const uniqueVisitors = new Set<string>();
 
     for (const visit of allVisits) {
       pageMap.set(visit.page, (pageMap.get(visit.page) || 0) + 1);
@@ -2631,16 +2637,38 @@ export class DatabaseStorage implements IStorage {
 
       const browser = this.parseBrowserName(visit.userAgent || '');
       browserMap.set(browser, (browserMap.get(browser) || 0) + 1);
+
+      // Track referrers
+      const referrer = this.parseReferrerDomain(visit.referrer || '');
+      referrerMap.set(referrer, (referrerMap.get(referrer) || 0) + 1);
+
+      // Track unique sessions by visitorId
+      if (visit.visitorId) {
+        uniqueVisitors.add(visit.visitorId);
+      }
     }
 
     return {
       totalVisits,
+      totalSessions: uniqueVisitors.size,
       visitsByPage: Array.from(pageMap.entries()).map(([page, count]) => ({ page, count })).sort((a, b) => b.count - a.count),
       visitsByDay: Array.from(dayMap.entries()).map(([date, count]) => ({ date, count })).sort((a, b) => a.date.localeCompare(b.date)),
       visitsByCountry: Array.from(countryMap.entries()).map(([country, count]) => ({ country, count })).sort((a, b) => b.count - a.count),
       visitsByDevice: Array.from(deviceMap.entries()).map(([device, count]) => ({ device, count })).sort((a, b) => b.count - a.count),
       visitsByBrowser: Array.from(browserMap.entries()).map(([browser, count]) => ({ browser, count })).sort((a, b) => b.count - a.count),
+      visitsByReferrer: Array.from(referrerMap.entries()).map(([referrer, count]) => ({ referrer, count })).sort((a, b) => b.count - a.count),
     };
+  }
+
+  private parseReferrerDomain(referrer: string): string {
+    if (!referrer || referrer.trim() === '') return 'Direct';
+    try {
+      const url = new URL(referrer);
+      return url.hostname || 'Direct';
+    } catch {
+      // If not a valid URL, return as-is or Direct
+      return referrer.trim() || 'Direct';
+    }
   }
 
   private parseDeviceType(userAgent: string): string {

@@ -73,11 +73,13 @@ const TERM_DESCRIPTIONS: Record<keyof VocabularyTerms, string> = {
 
 type TrafficStats = {
   totalVisits: number;
+  totalSessions: number;
   visitsByPage: { page: string; count: number }[];
   visitsByDay: { date: string; count: number }[];
   visitsByCountry: { country: string; count: number }[];
   visitsByDevice: { device: string; count: number }[];
   visitsByBrowser: { browser: string; count: number }[];
+  visitsByReferrer: { referrer: string; count: number }[];
 };
 
 type TenantActivityReport = {
@@ -381,42 +383,47 @@ export default function SystemAdmin() {
   const exportTrafficToCsv = () => {
     if (!trafficStats) return;
     
-    let csv = "Traffic Analytics Report\n";
-    csv += `Date Range: ${trafficDateRange.startDate} to ${trafficDateRange.endDate}\n\n`;
+    // Fixed row/column structure for OKR Excel data binding
+    // Row 1: Header row with metric names
+    // Row 2: Totals row - FIXED position for Excel cell references (B2 = Total Sessions, C2 = Total Visits)
+    let csv = "Metric,Total Sessions,Total Visits,Unique Pages,Countries,Referrers\n";
+    csv += `Totals,${trafficStats.totalSessions},${trafficStats.totalVisits},${trafficStats.visitsByPage.length},${trafficStats.visitsByCountry.length},${trafficStats.visitsByReferrer.length}\n`;
+    csv += `Date Range,${trafficDateRange.startDate},${trafficDateRange.endDate},,,\n\n`;
     
-    csv += "Summary\n";
-    csv += `Total Page Views,${trafficStats.totalVisits}\n`;
-    csv += `Unique Pages,${trafficStats.visitsByPage.length}\n`;
-    csv += `Countries,${trafficStats.visitsByCountry.length}\n\n`;
-    
-    csv += "Visits by Page\n";
-    csv += "Page,Count\n";
+    // Visits by Page section - starts at fixed row 5
+    csv += "Page,Visits,,,,\n";
     trafficStats.visitsByPage.forEach(item => {
-      csv += `"${item.page}",${item.count}\n`;
+      csv += `"${item.page}",${item.count},,,,\n`;
     });
     
-    csv += "\nVisits by Day\n";
-    csv += "Date,Count\n";
+    // Visits by Referrer section
+    csv += "\nReferrer,Visits,,,,\n";
+    trafficStats.visitsByReferrer.forEach(item => {
+      csv += `"${item.referrer}",${item.count},,,,\n`;
+    });
+    
+    // Visits by Day section
+    csv += "\nDate,Visits,,,,\n";
     trafficStats.visitsByDay.forEach(item => {
-      csv += `${item.date},${item.count}\n`;
+      csv += `${item.date},${item.count},,,,\n`;
     });
     
-    csv += "\nVisits by Device\n";
-    csv += "Device,Count\n";
+    // Visits by Device section
+    csv += "\nDevice,Visits,,,,\n";
     trafficStats.visitsByDevice.forEach(item => {
-      csv += `${item.device},${item.count}\n`;
+      csv += `${item.device},${item.count},,,,\n`;
     });
     
-    csv += "\nVisits by Browser\n";
-    csv += "Browser,Count\n";
+    // Visits by Browser section
+    csv += "\nBrowser,Visits,,,,\n";
     trafficStats.visitsByBrowser.forEach(item => {
-      csv += `${item.browser},${item.count}\n`;
+      csv += `${item.browser},${item.count},,,,\n`;
     });
     
-    csv += "\nVisits by Country\n";
-    csv += "Country,Count\n";
+    // Visits by Country section
+    csv += "\nCountry,Visits,,,,\n";
     trafficStats.visitsByCountry.forEach(item => {
-      csv += `"${item.country}",${item.count}\n`;
+      csv += `"${item.country}",${item.count},,,,\n`;
     });
     
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -1120,12 +1127,25 @@ export default function SystemAdmin() {
           ) : trafficStats ? (
             <>
               {/* Summary Stats Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                 <Card>
                   <CardContent className="pt-6">
                     <div className="flex items-center gap-3">
                       <div className="p-2 bg-primary/10 rounded-lg">
-                        <Eye className="h-5 w-5 text-primary" />
+                        <Users className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold">{trafficStats.totalSessions.toLocaleString()}</div>
+                        <p className="text-xs text-muted-foreground">Total Sessions</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-500/10 rounded-lg">
+                        <Eye className="h-5 w-5 text-blue-500" />
                       </div>
                       <div>
                         <div className="text-2xl font-bold">{trafficStats.totalVisits.toLocaleString()}</div>
@@ -1137,12 +1157,12 @@ export default function SystemAdmin() {
                 <Card>
                   <CardContent className="pt-6">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-500/10 rounded-lg">
-                        <Home className="h-5 w-5 text-blue-500" />
+                      <div className="p-2 bg-indigo-500/10 rounded-lg">
+                        <Home className="h-5 w-5 text-indigo-500" />
                       </div>
                       <div>
                         <div className="text-2xl font-bold">
-                          {trafficStats.visitsByPage.find(p => p.page === 'Homepage')?.count || 0}
+                          {trafficStats.visitsByPage.find(p => p.page === '/')?.count || 0}
                         </div>
                         <p className="text-xs text-muted-foreground">Homepage</p>
                       </div>
@@ -1157,9 +1177,9 @@ export default function SystemAdmin() {
                       </div>
                       <div>
                         <div className="text-2xl font-bold">
-                          {trafficStats.visitsByPage.find(p => p.page === 'Sign Up')?.count || 0}
+                          {trafficStats.visitsByPage.find(p => p.page === '/login')?.count || 0}
                         </div>
-                        <p className="text-xs text-muted-foreground">Sign Up</p>
+                        <p className="text-xs text-muted-foreground">Login/Signup</p>
                       </div>
                     </div>
                   </CardContent>
@@ -1310,6 +1330,34 @@ export default function SystemAdmin() {
                             <div className="flex items-center gap-3">
                               <span className="text-muted-foreground text-sm w-5">{index + 1}.</span>
                               <span className="font-medium">{item.country}</span>
+                            </div>
+                            <Badge variant="secondary">{item.count}</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Top Referrers */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <ExternalLink className="h-4 w-4" />
+                      Top Referrers
+                    </CardTitle>
+                    <CardDescription>Where visitors are coming from</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {trafficStats.visitsByReferrer.length === 0 ? (
+                      <p className="text-muted-foreground text-sm text-center py-12">No referrer data available</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {trafficStats.visitsByReferrer.slice(0, 8).map((item, index) => (
+                          <div key={item.referrer} className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className="text-muted-foreground text-sm w-5">{index + 1}.</span>
+                              <span className="font-medium truncate max-w-[200px]">{item.referrer}</span>
                             </div>
                             <Badge variant="secondary">{item.count}</Badge>
                           </div>
