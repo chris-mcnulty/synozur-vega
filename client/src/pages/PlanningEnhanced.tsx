@@ -1087,13 +1087,23 @@ export default function PlanningEnhanced() {
   const createCheckInMutation = useMutation({
     mutationFn: async (data: any) => {
       // Include userId and userEmail from current user, plus tenantId
-      // Convert asOfDate string to ISO timestamp if present
+      // Convert asOfDate string to ISO timestamp - add noon time to avoid UTC/local timezone shifts
+      let asOfDateISO: string;
+      if (data.asOfDate) {
+        // Parse date string and set to noon local time to avoid day-shift issues
+        const [year, month, day] = data.asOfDate.split('-').map(Number);
+        const localDate = new Date(year, month - 1, day, 12, 0, 0); // Noon local time
+        asOfDateISO = localDate.toISOString();
+      } else {
+        asOfDateISO = new Date().toISOString();
+      }
+      
       const checkInData = {
         ...data,
         userId: user?.id,
         userEmail: user?.email,
         tenantId: currentTenant.id,
-        asOfDate: data.asOfDate ? new Date(data.asOfDate).toISOString() : new Date().toISOString(),
+        asOfDate: asOfDateISO,
       };
       return apiRequest("POST", "/api/okr/check-ins", checkInData);
     },
@@ -1115,10 +1125,17 @@ export default function PlanningEnhanced() {
 
   const updateCheckInMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
-      // Convert asOfDate string to ISO timestamp if present
+      // Convert asOfDate string to ISO timestamp - add noon time to avoid UTC/local timezone shifts
+      let asOfDateISO: string | undefined;
+      if (data.asOfDate) {
+        const [year, month, day] = data.asOfDate.split('-').map(Number);
+        const localDate = new Date(year, month - 1, day, 12, 0, 0); // Noon local time
+        asOfDateISO = localDate.toISOString();
+      }
+      
       const checkInData = {
         ...data,
-        asOfDate: data.asOfDate ? new Date(data.asOfDate).toISOString() : undefined,
+        asOfDate: asOfDateISO,
       };
       return apiRequest("PATCH", `/api/okr/check-ins/${id}`, checkInData);
     },
