@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, BookOpen, Save, RotateCcw, Activity, BarChart3, Globe, Monitor, Smartphone, Tablet, Bot, Download, Users, Building2, Check, X, Megaphone, ExternalLink, Info, CreditCard, Ban, Plus, Pencil } from "lucide-react";
+import { Shield, BookOpen, Save, RotateCcw, Activity, BarChart3, Globe, Monitor, Smartphone, Tablet, Bot, Download, Users, Building2, Check, X, Megaphone, ExternalLink, Info, CreditCard, Ban, Plus, Pencil, Eye, Home, UserPlus, RefreshCw, Calendar } from "lucide-react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from "recharts";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import type { SystemBanner, ServicePlan, BlockedDomain } from "@shared/schema";
@@ -1041,201 +1042,341 @@ export default function SystemAdmin() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="traffic" className="space-y-4">
+        <TabsContent value="traffic" className="space-y-6">
+          {/* Header with Title and Controls */}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight">Traffic Analytics</h2>
+              <p className="text-muted-foreground">Monitor visitor activity on key pages</p>
+            </div>
+            <div className="flex flex-wrap gap-2 items-center">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => queryClient.invalidateQueries({ queryKey: ['/api/admin/traffic'] })}
+                data-testid="button-refresh-traffic"
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+              <Button
+                size="sm"
+                onClick={exportTrafficToCsv}
+                disabled={!trafficStats || trafficLoading}
+                data-testid="button-export-traffic"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export CSV
+              </Button>
+            </div>
+          </div>
+
+          {/* Filters Card */}
           <Card>
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                  <CardTitle>Website Traffic Analytics</CardTitle>
-                  <CardDescription>
-                    Monitor website visits, page popularity, and visitor demographics
-                  </CardDescription>
-                </div>
-                <div className="flex flex-wrap gap-2 items-center">
-                  <Label className="text-sm">Date Range:</Label>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Filters</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-4 items-end">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">From Date</Label>
                   <Input
                     type="date"
                     value={trafficDateRange.startDate}
                     onChange={(e) => setTrafficDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-                    className="w-36"
+                    className="w-40"
                     data-testid="input-traffic-start-date"
                   />
-                  <span className="text-muted-foreground">to</span>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">To Date</Label>
                   <Input
                     type="date"
                     value={trafficDateRange.endDate}
                     onChange={(e) => setTrafficDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-                    className="w-36"
+                    className="w-40"
                     data-testid="input-traffic-end-date"
                   />
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={exportTrafficToCsv}
-                    disabled={!trafficStats || trafficLoading}
-                    data-testid="button-export-traffic"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Export CSV
-                  </Button>
                 </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setTrafficDateRange({
+                    startDate: format(subDays(new Date(), 30), 'yyyy-MM-dd'),
+                    endDate: format(new Date(), 'yyyy-MM-dd'),
+                  })}
+                  data-testid="button-reset-filters"
+                >
+                  Reset Filters
+                </Button>
               </div>
-            </CardHeader>
-            <CardContent>
-              {trafficLoading ? (
-                <div className="flex items-center justify-center py-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : trafficStats ? (
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-2xl font-bold">{trafficStats.totalVisits.toLocaleString()}</div>
-                        <p className="text-xs text-muted-foreground">Total Page Views</p>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-2xl font-bold">{trafficStats.visitsByPage.length}</div>
-                        <p className="text-xs text-muted-foreground">Unique Pages Visited</p>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-2xl font-bold">{trafficStats.visitsByCountry.length}</div>
-                        <p className="text-xs text-muted-foreground">Countries</p>
-                      </CardContent>
-                    </Card>
-                    <Card>
-                      <CardContent className="pt-6">
-                        <div className="text-2xl font-bold">{trafficStats.visitsByDay.length}</div>
-                        <p className="text-xs text-muted-foreground">Days with Activity</p>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-base">Top Pages</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {trafficStats.visitsByPage.length === 0 ? (
-                          <p className="text-muted-foreground text-sm">No page visits recorded yet</p>
-                        ) : (
-                          <div className="space-y-3">
-                            {trafficStats.visitsByPage.slice(0, 10).map((item) => {
-                              const maxCount = trafficStats.visitsByPage[0]?.count || 1;
-                              const percentage = (item.count / maxCount) * 100;
-                              return (
-                                <div key={item.page} className="space-y-1">
-                                  <div className="flex items-center justify-between text-sm">
-                                    <span className="truncate max-w-[200px]" title={item.page}>{item.page}</span>
-                                    <span className="font-medium">{item.count.toLocaleString()}</span>
-                                  </div>
-                                  <Progress value={percentage} className="h-2" />
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-base">Device Breakdown</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {trafficStats.visitsByDevice.length === 0 ? (
-                          <p className="text-muted-foreground text-sm">No device data available</p>
-                        ) : (
-                          <div className="space-y-3">
-                            {trafficStats.visitsByDevice.map((item) => {
-                              const maxCount = trafficStats.visitsByDevice[0]?.count || 1;
-                              const percentage = (item.count / maxCount) * 100;
-                              return (
-                                <div key={item.device} className="space-y-1">
-                                  <div className="flex items-center justify-between text-sm">
-                                    <span className="flex items-center gap-2">
-                                      {getDeviceIcon(item.device)}
-                                      {item.device}
-                                    </span>
-                                    <span className="font-medium">{item.count.toLocaleString()}</span>
-                                  </div>
-                                  <Progress value={percentage} className="h-2" />
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-base">Browser Usage</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {trafficStats.visitsByBrowser.length === 0 ? (
-                          <p className="text-muted-foreground text-sm">No browser data available</p>
-                        ) : (
-                          <div className="space-y-3">
-                            {trafficStats.visitsByBrowser.map((item) => {
-                              const maxCount = trafficStats.visitsByBrowser[0]?.count || 1;
-                              const percentage = (item.count / maxCount) * 100;
-                              return (
-                                <div key={item.browser} className="space-y-1">
-                                  <div className="flex items-center justify-between text-sm">
-                                    <span>{item.browser}</span>
-                                    <span className="font-medium">{item.count.toLocaleString()}</span>
-                                  </div>
-                                  <Progress value={percentage} className="h-2" />
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-base flex items-center gap-2">
-                          <Globe className="h-4 w-4" />
-                          Top Countries
-                        </CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {trafficStats.visitsByCountry.length === 0 ? (
-                          <p className="text-muted-foreground text-sm">No country data available</p>
-                        ) : (
-                          <div className="space-y-3">
-                            {trafficStats.visitsByCountry.slice(0, 10).map((item) => {
-                              const maxCount = trafficStats.visitsByCountry[0]?.count || 1;
-                              const percentage = (item.count / maxCount) * 100;
-                              return (
-                                <div key={item.country} className="space-y-1">
-                                  <div className="flex items-center justify-between text-sm">
-                                    <span>{item.country}</span>
-                                    <span className="font-medium">{item.count.toLocaleString()}</span>
-                                  </div>
-                                  <Progress value={percentage} className="h-2" />
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-muted-foreground text-center py-12">No traffic data available</p>
-              )}
             </CardContent>
           </Card>
+
+          {trafficLoading ? (
+            <div className="flex items-center justify-center py-20">
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary"></div>
+            </div>
+          ) : trafficStats ? (
+            <>
+              {/* Summary Stats Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <Eye className="h-5 w-5 text-primary" />
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold">{trafficStats.totalVisits.toLocaleString()}</div>
+                        <p className="text-xs text-muted-foreground">Total Visits</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-blue-500/10 rounded-lg">
+                        <Home className="h-5 w-5 text-blue-500" />
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold">
+                          {trafficStats.visitsByPage.find(p => p.page === 'Homepage')?.count || 0}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Homepage</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-green-500/10 rounded-lg">
+                        <UserPlus className="h-5 w-5 text-green-500" />
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold">
+                          {trafficStats.visitsByPage.find(p => p.page === 'Sign Up')?.count || 0}
+                        </div>
+                        <p className="text-xs text-muted-foreground">Sign Up</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardContent className="pt-6">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-purple-500/10 rounded-lg">
+                        <Globe className="h-5 w-5 text-purple-500" />
+                      </div>
+                      <div>
+                        <div className="text-2xl font-bold">{trafficStats.visitsByCountry.length}</div>
+                        <p className="text-xs text-muted-foreground">Countries</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Charts Row - Visits Over Time + Device Distribution */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Visits Over Time Line Chart */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Calendar className="h-4 w-4" />
+                      Visits Over Time
+                    </CardTitle>
+                    <CardDescription>Daily visit count for the selected period</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {trafficStats.visitsByDay.length === 0 ? (
+                      <p className="text-muted-foreground text-sm text-center py-12">No data for selected period</p>
+                    ) : (
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <LineChart data={trafficStats.visitsByDay.map(d => ({
+                            ...d,
+                            displayDate: format(new Date(d.date), 'MMM d')
+                          }))}>
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                            <XAxis 
+                              dataKey="displayDate" 
+                              tick={{ fontSize: 11 }}
+                              tickLine={false}
+                              axisLine={false}
+                            />
+                            <YAxis 
+                              tick={{ fontSize: 11 }}
+                              tickLine={false}
+                              axisLine={false}
+                              allowDecimals={false}
+                            />
+                            <Tooltip 
+                              contentStyle={{ 
+                                backgroundColor: 'hsl(var(--card))', 
+                                border: '1px solid hsl(var(--border))',
+                                borderRadius: '8px'
+                              }}
+                            />
+                            <Line 
+                              type="monotone" 
+                              dataKey="count" 
+                              stroke="hsl(var(--primary))" 
+                              strokeWidth={2}
+                              dot={{ fill: 'hsl(var(--primary))', strokeWidth: 0, r: 3 }}
+                              activeDot={{ r: 5, strokeWidth: 0 }}
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Device Distribution Pie Chart */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Monitor className="h-4 w-4" />
+                      Device Distribution
+                    </CardTitle>
+                    <CardDescription>Breakdown by device type</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {trafficStats.visitsByDevice.length === 0 ? (
+                      <p className="text-muted-foreground text-sm text-center py-12">No device data available</p>
+                    ) : (
+                      <div className="h-64 flex items-center justify-center">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart>
+                            <Pie
+                              data={trafficStats.visitsByDevice.map(d => ({
+                                ...d,
+                                percentage: Math.round((d.count / trafficStats.totalVisits) * 100)
+                              }))}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={90}
+                              paddingAngle={2}
+                              dataKey="count"
+                              nameKey="device"
+                              label={({ device, percentage }) => `${device} ${percentage}%`}
+                              labelLine={false}
+                            >
+                              {trafficStats.visitsByDevice.map((_, index) => (
+                                <Cell 
+                                  key={`cell-${index}`} 
+                                  fill={['hsl(var(--primary))', 'hsl(280, 100%, 70%)', 'hsl(200, 100%, 60%)', 'hsl(150, 100%, 50%)'][index % 4]} 
+                                />
+                              ))}
+                            </Pie>
+                            <Tooltip 
+                              formatter={(value: number) => [value, 'Visits']}
+                              contentStyle={{ 
+                                backgroundColor: 'hsl(var(--card))', 
+                                border: '1px solid hsl(var(--border))',
+                                borderRadius: '8px'
+                              }}
+                            />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Bottom Row - Countries + Browsers */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Top Countries */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <Globe className="h-4 w-4" />
+                      Top Countries
+                    </CardTitle>
+                    <CardDescription>Visitor distribution by country</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {trafficStats.visitsByCountry.length === 0 ? (
+                      <p className="text-muted-foreground text-sm text-center py-12">No country data available</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {trafficStats.visitsByCountry.slice(0, 8).map((item, index) => (
+                          <div key={item.country} className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span className="text-muted-foreground text-sm w-5">{index + 1}.</span>
+                              <span className="font-medium">{item.country}</span>
+                            </div>
+                            <Badge variant="secondary">{item.count}</Badge>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Top Browsers - Horizontal Bar Chart */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <BarChart3 className="h-4 w-4" />
+                      Top Browsers
+                    </CardTitle>
+                    <CardDescription>Visitor distribution by browser</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {trafficStats.visitsByBrowser.length === 0 ? (
+                      <p className="text-muted-foreground text-sm text-center py-12">No browser data available</p>
+                    ) : (
+                      <div className="h-64">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart 
+                            data={trafficStats.visitsByBrowser.slice(0, 6)} 
+                            layout="vertical"
+                            margin={{ left: 0, right: 20 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={false} />
+                            <XAxis type="number" tick={{ fontSize: 11 }} tickLine={false} axisLine={false} />
+                            <YAxis 
+                              type="category" 
+                              dataKey="browser" 
+                              tick={{ fontSize: 11 }} 
+                              tickLine={false} 
+                              axisLine={false}
+                              width={80}
+                            />
+                            <Tooltip 
+                              formatter={(value: number) => [value, 'Visits']}
+                              contentStyle={{ 
+                                backgroundColor: 'hsl(var(--card))', 
+                                border: '1px solid hsl(var(--border))',
+                                borderRadius: '8px'
+                              }}
+                            />
+                            <Bar 
+                              dataKey="count" 
+                              fill="hsl(var(--primary))" 
+                              radius={[0, 4, 4, 0]}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+            </>
+          ) : (
+            <Card>
+              <CardContent className="py-20">
+                <p className="text-muted-foreground text-center">No traffic data available for the selected period</p>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
 
         <TabsContent value="announcements" className="space-y-4">
