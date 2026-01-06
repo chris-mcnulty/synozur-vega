@@ -1,0 +1,124 @@
+2026-01-05 20:59:38.00
+c32f64de
+User
+at GraphRequest. (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphRequest.js:315:84) {
+2026-01-05 20:59:38.00
+c32f64de
+User
+'request-id': 'df1e374c-367a-4dbb-862e-6b2bbf2c7d45',
+2026-01-05 20:59:38.00
+c32f64de
+User
+at step (/home/runner/workspace/node_modules/tslib/tslib.js:196:27)
+2026-01-05 20:59:38.00
+c32f64de
+User
+'strict-transport-security': 'max-age=31536000',
+2026-01-05 20:59:38.00
+c32f64de
+User
+'transfer-encoding': 'chunked',
+2026-01-05 20:59:38.00
+c32f64de
+User
+date: 2026-01-06T04:59:37.000Z,
+2026-01-05 20:59:38.00
+c32f64de
+User
+headers: Headers {
+2026-01-05 20:59:38.00
+c32f64de
+User
+[Entra User Search] Error: Insufficient privileges to complete the operation.
+2026-01-05 20:59:38.00
+c32f64de
+User
+}
+2026-01-05 20:59:38.00
+c32f64de
+User
+at GraphErrorHandler.constructErrorFromResponse (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphErrorHandler.js:63:22)
+2026-01-05 20:59:38.00
+c32f64de
+User
+code: 'Authorization_RequestDenied',
+2026-01-05 20:59:38.00
+c32f64de
+User
+body: '{"code":"Authorization_RequestDenied","message":"Insufficient privileges to complete the operation.","innerError":{"date":"2026-01-06T04:59:37","request-id":"df1e374c-367a-4dbb-862e-6b2bbf2c7d45","client-request-id":"6b816c1f-cd88-5c7b-67f8-f7bb2098be21"}}',
+2026-01-05 20:59:38.00
+c32f64de
+User
+statusCode: 403,
+2026-01-05 20:59:38.00
+c32f64de
+User
+'x-ms-resource-unit': '1',
+2026-01-05 20:59:38.00
+c32f64de
+User
+at Function. (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphErrorHandler.js:91:48)
+2026-01-05 20:59:38.00
+c32f64de
+User
+'content-type': 'application/json',
+2026-01-05 20:59:38.00
+c32f64de
+User
+'cache-control': 'no-cache',
+2026-01-05 20:59:38.00
+c32f64de
+User
+}
+2026-01-05 20:59:38.00
+c32f64de
+User
+requestId: 'df1e374c-367a-4dbb-862e-6b2bbf2c7d45',
+2026-01-05 20:59:38.00
+c32f64de
+User
+at Object.next (/home/runner/workspace/node_modules/tslib/tslib.js:177:57)
+2026-01-05 20:59:38.00
+c32f64de
+User
+at new GraphError (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphError.js:34:28)
+2026-01-05 20:59:38.00
+c32f64de
+User
+at GraphErrorHandler.getError (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphErrorHandler.js:87:24)
+2026-01-05 20:59:38.00
+c32f64de
+User
+at /home/runner/workspace/node_modules/tslib/tslib.js:170:75
+2026-01-05 20:59:38.00
+c32f64de
+User
+'content-encoding': 'gzip',
+2026-01-05 20:59:38.00
+c32f64de
+User
+vary: 'Accept-Encoding',
+2026-01-05 20:59:38.00
+c32f64de
+User
+at new Promise ()
+2026-01-05 20:59:38.00
+c32f64de
+User
+[AzureAD] User search failed: GraphError: Insufficient privileges to complete the operation.
+2026-01-05 20:59:38.00
+c32f64de
+User
+at Object.__awaiter (/home/runner/workspace/node_modules/tslib/tslib.js:166:16)
+2026-01-05 20:59:38.00
+c32f64de
+User
+date: 'Tue, 06 Jan 2026 04:59:37 GMT'
+2026-01-05 20:59:38.00
+c32f64de
+User
+'client-request-id': '6b816c1f-cd88-5c7b-67f8-f7bb2098be21',
+2026-01-05 20:59:38.00
+c32f64de
+User
+'x-ms-ags-diagnostic': '{"ServerInfo":{"DataCenter":"Central US","Slice":"E","Ring":"4","ScaleUnit":"004","RoleInstance":"DS2PEPF00003A1E"}}',

@@ -1011,7 +1011,73 @@ router.post('/admin-consent/revoke', async (req: Request, res: Response) => {
 
 // ==================== Azure AD User Search ====================
 
-import { searchAzureADUsers } from './microsoftGraph';
+import { searchAzureADUsers, clearEntraAppTokenCache, getEntraAppId } from './microsoftGraph';
+
+/**
+ * GET /auth/entra/users/diagnostic
+ * Get diagnostic info about Entra app configuration (for admins)
+ */
+router.get('/users/diagnostic', async (req: Request, res: Response) => {
+  const userId = (req.session as any)?.userId;
+  if (!userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  const user = await storage.getUser(userId);
+  if (!user) {
+    return res.status(403).json({ error: 'User not found' });
+  }
+
+  const adminRoles = [ROLES.GLOBAL_ADMIN, ROLES.VEGA_ADMIN];
+  if (!adminRoles.includes(user.role as any)) {
+    return res.status(403).json({ error: 'Global admin privileges required' });
+  }
+
+  const configuredAppId = getEntraAppId();
+  const expectedVegaAppId = '33479c45-f21f-4911-8189-0c7a53c6a9d7';
+  
+  res.json({
+    configuredAppId,
+    expectedVegaAppId,
+    isCorrectApp: configuredAppId === expectedVegaAppId,
+    hasClientSecret: !!process.env.AZURE_CLIENT_SECRET,
+    hasTenantId: !!process.env.AZURE_TENANT_ID,
+  });
+});
+
+/**
+ * POST /auth/entra/users/clear-cache
+ * Clear the Entra app token cache (after granting new permissions)
+ */
+router.post('/users/clear-cache', async (req: Request, res: Response) => {
+  const userId = (req.session as any)?.userId;
+  if (!userId) {
+    return res.status(401).json({ error: 'Not authenticated' });
+  }
+
+  const user = await storage.getUser(userId);
+  if (!user) {
+    return res.status(403).json({ error: 'User not found' });
+  }
+
+  const adminRoles = [ROLES.TENANT_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_ADMIN, ROLES.VEGA_CONSULTANT];
+  if (!adminRoles.includes(user.role as any)) {
+    return res.status(403).json({ error: 'Admin privileges required' });
+  }
+
+  // Clear cache for the user's tenant's Azure tenant ID, or all if not specified
+  if (user.tenantId) {
+    const tenant = await storage.getTenantById(user.tenantId);
+    if (tenant?.azureTenantId) {
+      clearEntraAppTokenCache(tenant.azureTenantId);
+    }
+  }
+  
+  // Also clear all caches to be safe
+  clearEntraAppTokenCache();
+  
+  res.json({ success: true, message: 'Token cache cleared. Please try searching again.' });
+});
 
 /**
  * GET /auth/entra/users/search

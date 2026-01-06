@@ -23,6 +23,22 @@ function hasEntraAppCredentials(): boolean {
 // Cache tokens per tenant ID to support multi-tenant scenarios
 const entraAppTokenCache: Map<string, { token: string; expiresAt: number }> = new Map();
 
+// Clear the token cache (useful after granting new permissions)
+export function clearEntraAppTokenCache(tenantId?: string): void {
+  if (tenantId) {
+    entraAppTokenCache.delete(tenantId);
+    console.log('[EntraApp] Cleared token cache for tenant:', tenantId.substring(0, 8) + '...');
+  } else {
+    entraAppTokenCache.clear();
+    console.log('[EntraApp] Cleared all token caches');
+  }
+}
+
+// Get the configured app ID for diagnostics
+export function getEntraAppId(): string | undefined {
+  return process.env.AZURE_CLIENT_ID;
+}
+
 async function getEntraAppAccessToken(overrideTenantId?: string): Promise<string> {
   const clientId = process.env.AZURE_CLIENT_ID;
   const clientSecret = process.env.AZURE_CLIENT_SECRET;
@@ -49,7 +65,9 @@ async function getEntraAppAccessToken(overrideTenantId?: string): Promise<string
     return cachedToken.token;
   }
 
-  console.log('[EntraApp] Acquiring new token via client credentials flow with tenant:', tenantId.substring(0, 8) + '...');
+  console.log('[EntraApp] Acquiring new token via client credentials flow');
+  console.log('[EntraApp] Using App ID:', clientId);
+  console.log('[EntraApp] Target Tenant:', tenantId.substring(0, 8) + '...');
   
   const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
   
