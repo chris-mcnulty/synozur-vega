@@ -1,0 +1,124 @@
+6-01-05 19:36:22.79
+86f25b3d
+User
+date: 2026-01-06T03:36:22.000Z,
+2026-01-05 19:36:22.79
+86f25b3d
+User
+body: '{"code":"Authorization_RequestDenied","message":"Insufficient privileges to complete the operation.","innerError":{"date":"2026-01-06T03:36:22","request-id":"acda451f-a7a7-4ad6-8d9c-8449319c8134","client-request-id":"2cae9d3c-dfdb-89bb-7059-453867f7a666"}}',
+2026-01-05 19:36:22.79
+86f25b3d
+User
+'cache-control': 'no-cache',
+2026-01-05 19:36:22.79
+86f25b3d
+User
+'content-type': 'application/json',
+2026-01-05 19:36:22.79
+86f25b3d
+User
+at GraphErrorHandler.getError (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphErrorHandler.js:87:24)
+2026-01-05 19:36:22.79
+86f25b3d
+User
+statusCode: 403,
+2026-01-05 19:36:22.79
+86f25b3d
+User
+at Object.__awaiter (/home/runner/workspace/node_modules/tslib/tslib.js:166:16)
+2026-01-05 19:36:22.79
+86f25b3d
+User
+at new GraphError (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphError.js:34:28)
+2026-01-05 19:36:22.79
+86f25b3d
+User
+at /home/runner/workspace/node_modules/tslib/tslib.js:170:75
+2026-01-05 19:36:22.79
+86f25b3d
+User
+}
+2026-01-05 19:36:22.79
+86f25b3d
+User
+at new Promise ()
+2026-01-05 19:36:22.79
+86f25b3d
+User
+'transfer-encoding': 'chunked',
+2026-01-05 19:36:22.79
+86f25b3d
+User
+}
+2026-01-05 19:36:22.79
+86f25b3d
+User
+vary: 'Accept-Encoding',
+2026-01-05 19:36:22.79
+86f25b3d
+User
+'strict-transport-security': 'max-age=31536000',
+2026-01-05 19:36:22.79
+86f25b3d
+User
+'client-request-id': '2cae9d3c-dfdb-89bb-7059-453867f7a666',
+2026-01-05 19:36:22.79
+86f25b3d
+User
+'cache-control': 'no-cache',
+2026-01-05 19:36:22.79
+86f25b3d
+User
+'x-ms-resource-unit': '1',
+2026-01-05 19:36:22.79
+86f25b3d
+User
+'content-type': 'application/json',
+2026-01-05 19:36:22.79
+86f25b3d
+User
+at /home/runner/workspace/node_modules/tslib/tslib.js:170:75
+2026-01-05 19:36:22.79
+86f25b3d
+User
+at Object.next (/home/runner/workspace/node_modules/tslib/tslib.js:177:57)
+2026-01-05 19:36:22.79
+86f25b3d
+User
+statusCode: 403,
+2026-01-05 19:36:22.79
+86f25b3d
+User
+'content-encoding': 'gzip',
+2026-01-05 19:36:22.79
+86f25b3d
+User
+date: 2026-01-06T03:36:22.000Z,
+2026-01-05 19:36:22.79
+86f25b3d
+User
+at GraphErrorHandler.getError (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphErrorHandler.js:87:24)
+2026-01-05 19:36:22.79
+86f25b3d
+User
+at new Promise ()
+2026-01-05 19:36:22.79
+86f25b3d
+User
+at Object.__awaiter (/home/runner/workspace/node_modules/tslib/tslib.js:166:16)
+2026-01-05 19:36:22.79
+86f25b3d
+User
+'client-request-id': '9c772313-8c2b-279b-6884-c8b5c82c4d14',
+2026-01-05 19:36:22.79
+86f25b3d
+User
+at new GraphError (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphError.js:34:28)
+2026-01-05 19:36:22.79
+86f25b3d
+User
+code: 'Authorization_RequestDenied',
+2026-01-05 19:36:22.79
+86f25b3d
+User
+requestId: '464f0ba6-203f-4b73-8c72-c45fa9fe2d4f',
