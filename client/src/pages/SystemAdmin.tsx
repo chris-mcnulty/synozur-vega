@@ -384,46 +384,54 @@ export default function SystemAdmin() {
     if (!trafficStats) return;
     
     // Fixed row/column structure for OKR Excel data binding
-    // Row 1: Header row with metric names
-    // Row 2: Totals row - FIXED position for Excel cell references (B2 = Total Sessions, C2 = Total Visits)
-    let csv = "Metric,Total Sessions,Total Visits,Unique Pages,Countries,Referrers\n";
-    csv += `Totals,${trafficStats.totalSessions},${trafficStats.totalVisits},${trafficStats.visitsByPage.length},${trafficStats.visitsByCountry.length},${trafficStats.visitsByReferrer.length}\n`;
-    csv += `Date Range,${trafficDateRange.startDate},${trafficDateRange.endDate},,,\n\n`;
+    // Header row with clear column labels - these stay fixed for Excel cell references
+    // A1=Label, B1=Total_Sessions, C1=Total_Visits, D1=Homepage_Visits, E1=Login_Visits
+    let csv = "Label,Total_Sessions,Total_Visits,Homepage_Visits,Login_Visits,Countries,Referrers\n";
+    
+    // Row 2: Values row - FIXED positions for Excel cell references
+    // B2=Total Sessions, C2=Total Visits, D2=Homepage, E2=Login
+    const homepageVisits = trafficStats.visitsByPage.find(p => p.page === '/')?.count || 0;
+    const loginVisits = trafficStats.visitsByPage.find(p => p.page === '/login')?.count || 0;
+    csv += `TOTALS,${trafficStats.totalSessions},${trafficStats.totalVisits},${homepageVisits},${loginVisits},${trafficStats.visitsByCountry.length},${trafficStats.visitsByReferrer.length}\n`;
+    
+    // Row 3: Date range info
+    csv += `Date_Range,${trafficDateRange.startDate},${trafficDateRange.endDate},,,,\n`;
+    csv += "\n";
     
     // Visits by Page section - starts at fixed row 5
-    csv += "Page,Visits,,,,\n";
+    csv += "Page,Visits,,,,,\n";
     trafficStats.visitsByPage.forEach(item => {
-      csv += `"${item.page}",${item.count},,,,\n`;
+      csv += `"${item.page}",${item.count},,,,,\n`;
     });
     
     // Visits by Referrer section
-    csv += "\nReferrer,Visits,,,,\n";
+    csv += "\nReferrer,Visits,,,,,\n";
     trafficStats.visitsByReferrer.forEach(item => {
-      csv += `"${item.referrer}",${item.count},,,,\n`;
+      csv += `"${item.referrer}",${item.count},,,,,\n`;
     });
     
     // Visits by Day section
-    csv += "\nDate,Visits,,,,\n";
+    csv += "\nDate,Visits,,,,,\n";
     trafficStats.visitsByDay.forEach(item => {
-      csv += `${item.date},${item.count},,,,\n`;
+      csv += `${item.date},${item.count},,,,,\n`;
     });
     
     // Visits by Device section
-    csv += "\nDevice,Visits,,,,\n";
+    csv += "\nDevice,Visits,,,,,\n";
     trafficStats.visitsByDevice.forEach(item => {
-      csv += `${item.device},${item.count},,,,\n`;
+      csv += `${item.device},${item.count},,,,,\n`;
     });
     
     // Visits by Browser section
-    csv += "\nBrowser,Visits,,,,\n";
+    csv += "\nBrowser,Visits,,,,,\n";
     trafficStats.visitsByBrowser.forEach(item => {
-      csv += `${item.browser},${item.count},,,,\n`;
+      csv += `${item.browser},${item.count},,,,,\n`;
     });
     
     // Visits by Country section
-    csv += "\nCountry,Visits,,,,\n";
+    csv += "\nCountry,Visits,,,,,\n";
     trafficStats.visitsByCountry.forEach(item => {
-      csv += `"${item.country}",${item.count},,,,\n`;
+      csv += `"${item.country}",${item.count},,,,,\n`;
     });
     
     const blob = new Blob([csv], { type: 'text/csv' });
