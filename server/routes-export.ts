@@ -126,11 +126,12 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
         markdown += `### Vision\n\n${foundation.vision}\n\n`;
       }
       
-      const values = foundation.values as Array<{ name: string; description?: string }> | null;
+      const values = foundation.values as Array<{ title?: string; name?: string; description?: string }> | null;
       if (values && values.length > 0) {
         markdown += `### Core Values\n\n`;
         values.forEach((value, index) => {
-          markdown += `${index + 1}. **${value.name}**`;
+          const valueName = value.title || value.name || 'Unnamed Value';
+          markdown += `${index + 1}. **${valueName}**`;
           if (value.description) {
             markdown += ` - ${value.description}`;
           }
