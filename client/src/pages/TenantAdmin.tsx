@@ -936,6 +936,20 @@ export default function TenantAdmin() {
         data: tenantFormData,
       });
     } else {
+      // Validate required fields for new tenant creation
+      const missingFields: string[] = [];
+      if (!tenantFormData.organizationSize) missingFields.push("Organization Size");
+      if (!tenantFormData.industry) missingFields.push("Industry");
+      if (!tenantFormData.location) missingFields.push("Location");
+      
+      if (missingFields.length > 0) {
+        toast({
+          title: "Please complete all required fields",
+          description: `To create your organization, please select: ${missingFields.join(", ")}`,
+          variant: "destructive",
+        });
+        return;
+      }
       createTenantMutation.mutate(tenantFormData);
     }
   };
@@ -2069,7 +2083,9 @@ export default function TenantAdmin() {
               <p className="text-sm font-medium mb-3">Organization Classification</p>
               <div className="grid grid-cols-1 gap-3">
                 <div className="space-y-2">
-                  <Label htmlFor="org-size">Organization Size</Label>
+                  <Label htmlFor="org-size">
+                    Organization Size {!editingTenant && <span className="text-destructive">*</span>}
+                  </Label>
                   <Select
                     value={tenantFormData.organizationSize}
                     onValueChange={(value) =>
@@ -2091,7 +2107,9 @@ export default function TenantAdmin() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="industry">Industry</Label>
+                  <Label htmlFor="industry">
+                    Industry {!editingTenant && <span className="text-destructive">*</span>}
+                  </Label>
                   <Select
                     value={tenantFormData.industry}
                     onValueChange={(value) =>
@@ -2119,7 +2137,9 @@ export default function TenantAdmin() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
+                  <Label htmlFor="location">
+                    Location {!editingTenant && <span className="text-destructive">*</span>}
+                  </Label>
                   <Select
                     value={tenantFormData.location}
                     onValueChange={(value) =>
