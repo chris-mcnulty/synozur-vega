@@ -1048,11 +1048,23 @@ router.get('/users/search', async (req: Request, res: Response) => {
     const users = await searchAzureADUsers(query.trim(), limit);
     res.json({ users });
   } catch (error: any) {
-    console.error('[Entra User Search] Error:', error);
+    console.error('[Entra User Search] Error:', error.message || error);
     
     // Handle specific error cases
     if (error.message?.includes('credentials not configured')) {
       return res.status(503).json({ error: 'Azure AD integration not configured' });
+    }
+    
+    if (error.message?.includes('AZURE_TENANT_ID cannot be')) {
+      return res.status(503).json({ 
+        error: 'Invalid Azure AD tenant configuration. The AZURE_TENANT_ID secret must be set to your actual tenant ID, not "common".' 
+      });
+    }
+    
+    if (error.message?.includes('missing_tenant_id_error')) {
+      return res.status(503).json({ 
+        error: 'Azure AD tenant ID misconfigured. Please verify AZURE_TENANT_ID is set to a valid tenant ID.' 
+      });
     }
     
     res.status(500).json({ error: 'Failed to search Azure AD users' });

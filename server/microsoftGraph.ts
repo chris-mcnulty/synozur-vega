@@ -31,12 +31,18 @@ async function getEntraAppAccessToken(): Promise<string> {
     throw new Error('Entra app credentials not configured (AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, AZURE_TENANT_ID)');
   }
 
+  // Validate tenant ID - client credentials flow requires a specific tenant, not 'common'
+  const invalidTenantIds = ['common', 'organizations', 'consumers'];
+  if (invalidTenantIds.includes(tenantId.toLowerCase())) {
+    throw new Error(`AZURE_TENANT_ID cannot be "${tenantId}" for client credentials flow. Please set it to your actual Azure AD tenant ID (e.g., xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx or your-domain.onmicrosoft.com)`);
+  }
+
   // Check if cached token is still valid (with 5 min buffer)
   if (entraAppToken && entraAppToken.expiresAt > Date.now() + 5 * 60 * 1000) {
     return entraAppToken.token;
   }
 
-  console.log('[EntraApp] Acquiring new token via client credentials flow...');
+  console.log('[EntraApp] Acquiring new token via client credentials flow with tenant:', tenantId.substring(0, 8) + '...');
   
   const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
   
