@@ -70,6 +70,11 @@ When adding new features or proposals, update BACKLOG.md rather than creating se
 
 ## Development Notes
 
+### Azure App Registrations
+- **Vega App ID**: `33479c45-f21f-4911-8189-0c7a53c6a9d7` (main Vega application - needs `User.Read.All` for Entra user search)
+- **M365 Copilot Agent App ID**: `6aeac29a-cb76-405b-b0c6-df4a1a368f62` (declarative agent for Teams/Copilot)
+- **M365 Enterprise Token Store Client**: `ab3be6b7-f5df-413d-ac2d-abf1e3fd9c0b`
+
 ### Key Implementation Patterns
 - **Pacific Time Requirement**: All date/time operations use America/Los_Angeles timezone to prevent misdating
 - **React Hooks Rule**: All hooks must be called unconditionally BEFORE any early returns or conditional rendering
