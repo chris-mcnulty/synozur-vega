@@ -445,6 +445,8 @@ export default function PlanningEnhanced() {
     ownerEmail: "",
     completionPercentage: 0,
     linkedStrategies: [] as string[],
+    quarter: 1 as number,
+    year: new Date().getFullYear() as number,
   });
 
   const [checkInForm, setCheckInForm] = useState({
@@ -839,13 +841,14 @@ export default function PlanningEnhanced() {
   const createBigRockMutation = useMutation({
     mutationFn: async (data: any) => {
       // Convert empty objectiveId/keyResultId to null
+      // Use form's quarter/year which can be different from page's quarter/year
       const cleanedData = {
         ...data,
         objectiveId: data.objectiveId || null,
         keyResultId: data.keyResultId || null,
         tenantId: currentTenant.id,
-        quarter,
-        year,
+        quarter: data.quarter ?? quarter, // Use form value, fall back to page quarter
+        year: data.year ?? year,
       };
       return apiRequest("POST", "/api/okr/big-rocks", cleanedData);
     },
@@ -1383,6 +1386,8 @@ export default function PlanningEnhanced() {
       ownerEmail: "",
       completionPercentage: 0,
       linkedStrategies: [],
+      quarter: quarter, // Use current page quarter (0=Annual, 1-4=Quarterly)
+      year: year,
     });
     setBigRockDialogOpen(true);
   };
@@ -1398,6 +1403,8 @@ export default function PlanningEnhanced() {
       ownerEmail: bigRock.ownerEmail || "",
       completionPercentage: bigRock.completionPercentage,
       linkedStrategies: bigRock.linkedStrategies || [],
+      quarter: bigRock.quarter,
+      year: bigRock.year,
     });
     setBigRockDialogOpen(true);
   };
@@ -2826,7 +2833,37 @@ export default function PlanningEnhanced() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div>
+                    <Label htmlFor="br-period">Period</Label>
+                    <Select
+                      value={`${bigRockForm.quarter}-${bigRockForm.year}`}
+                      onValueChange={(value) => {
+                        const [q, y] = value.split('-').map(Number);
+                        setBigRockForm({ ...bigRockForm, quarter: q, year: y });
+                      }}
+                    >
+                      <SelectTrigger data-testid="select-bigrock-period">
+                        <SelectValue placeholder="Select period" />
+                      </SelectTrigger>
+                      <SelectContent className="z-[60]">
+                        <SelectItem value={`0-${year}`}>Annual {year}</SelectItem>
+                        <SelectItem value={`1-${year}`}>Q1 {year}</SelectItem>
+                        <SelectItem value={`2-${year}`}>Q2 {year}</SelectItem>
+                        <SelectItem value={`3-${year}`}>Q3 {year}</SelectItem>
+                        <SelectItem value={`4-${year}`}>Q4 {year}</SelectItem>
+                        {year !== new Date().getFullYear() + 1 && (
+                          <>
+                            <SelectItem value={`0-${year + 1}`}>Annual {year + 1}</SelectItem>
+                            <SelectItem value={`1-${year + 1}`}>Q1 {year + 1}</SelectItem>
+                            <SelectItem value={`2-${year + 1}`}>Q2 {year + 1}</SelectItem>
+                            <SelectItem value={`3-${year + 1}`}>Q3 {year + 1}</SelectItem>
+                            <SelectItem value={`4-${year + 1}`}>Q4 {year + 1}</SelectItem>
+                          </>
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
                   <div>
                     <Label htmlFor="br-team">Assign to Team</Label>
                     <Select
@@ -4439,7 +4476,12 @@ function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, on
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
-                    <CardTitle className="text-lg leading-tight">{rock.title}</CardTitle>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <CardTitle className="text-lg leading-tight">{rock.title}</CardTitle>
+                      <Badge variant="secondary" className="text-xs">
+                        {rock.quarter === 0 ? 'Annual' : `Q${rock.quarter}`} {rock.year}
+                      </Badge>
+                    </div>
                     {rock.objectiveId && (
                       <p className="text-sm text-muted-foreground mt-1">
                         Linked to: {getObjectiveTitle(rock.objectiveId)}

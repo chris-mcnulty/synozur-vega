@@ -807,9 +807,9 @@ export const bigRocks = pgTable("big_rocks", {
   accountableId: varchar("accountable_id").references(() => users.id),
   accountableEmail: text("accountable_email"),
   
-  // Time period
-  quarter: integer("quarter"),
-  year: integer("year"),
+  // Time period (quarter=0 means Annual, 1-4 means Q1-Q4)
+  quarter: integer("quarter").notNull(),
+  year: integer("year").notNull(),
   startDate: timestamp("start_date"),
   dueDate: timestamp("due_date"),
   completedAt: timestamp("completed_at"),
