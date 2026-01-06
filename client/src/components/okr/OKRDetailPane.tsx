@@ -40,7 +40,7 @@ import {
   Lock,
   Edit2
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, startOfYear, endOfYear, startOfQuarter, endOfQuarter, differenceInDays, addMonths } from "date-fns";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import type { CheckIn, Objective, KeyResult, Strategy, BigRock } from "@shared/schema";
 import { MilestoneTimeline, type PhasedTargets } from "./MilestoneTimeline";
@@ -223,16 +223,52 @@ export function OKRDetailPane({
   const handleSaveCheckInEdit = () => {
     if (!editingCheckIn || !entity) return;
     
-    // For Key Results, calculate progress from actual value
-    let calculatedProgress = editFormData.newProgress;
-    if (entityType === "key_result" && entity.targetValue !== undefined && entity.targetValue !== 0) {
-      const startValue = entity.currentValue || 0;
+    // For Key Results, calculate progress from actual value using proper formula
+    let calculatedProgress = editFormData.newProgress || 0;
+    if (entityType === "key_result" && entity.targetValue !== undefined) {
+      const newValue = editFormData.newValue;
+      const initialValue = entity.initialValue ?? entity.startValue ?? 0;
       const targetValue = entity.targetValue;
-      const range = targetValue - startValue;
-      if (range !== 0) {
-        calculatedProgress = Math.round(((editFormData.newValue - startValue) / range) * 100);
+      const metricType = entity.metricType || "increase";
+      
+      if (metricType === "increase") {
+        const denom = targetValue - initialValue;
+        if (denom === 0) {
+          calculatedProgress = newValue >= targetValue ? 100 : 0;
+        } else if (denom > 0) {
+          calculatedProgress = Math.round(((newValue - initialValue) / denom) * 100);
+        } else {
+          calculatedProgress = 0;
+        }
+      } else if (metricType === "decrease") {
+        const denom = initialValue - targetValue;
+        if (denom === 0) {
+          calculatedProgress = newValue <= targetValue ? 100 : 0;
+        } else if (denom > 0) {
+          calculatedProgress = Math.round(((initialValue - newValue) / denom) * 100);
+        } else {
+          calculatedProgress = 0;
+        }
+      } else if (metricType === "maintain") {
+        if (targetValue === 0) {
+          calculatedProgress = Math.abs(newValue) <= 0.05 ? 100 : 0;
+        } else {
+          const deviation = Math.abs(newValue - targetValue) / Math.abs(targetValue);
+          calculatedProgress = Math.round(deviation <= 0.05 ? 100 : Math.max(0, 100 - (deviation * 100)));
+        }
+      } else {
+        // Default: simple percentage (current / target)
+        if (targetValue > 0) {
+          calculatedProgress = Math.round((newValue / targetValue) * 100);
+        }
       }
     }
+    
+    // Ensure progress is always a valid non-negative number
+    if (typeof calculatedProgress !== 'number' || isNaN(calculatedProgress)) {
+      calculatedProgress = 0;
+    }
+    calculatedProgress = Math.max(0, calculatedProgress);
     
     updateCheckInMutation.mutate({
       id: editingCheckIn.id,
@@ -246,26 +282,79 @@ export function OKRDetailPane({
 
   const latestCheckIn = checkInHistory[0];
 
+  // Determine period start and end dates based on quarter/year
+  const getPeriodDates = () => {
+    const year = entity.year || new Date().getFullYear();
+    const quarter = entity.quarter;
+    
+    if (quarter === 0 || quarter === undefined) {
+      // Annual goal: Jan 1 to Dec 31
+      return {
+        periodStart: new Date(year, 0, 1), // Jan 1
+        periodEnd: new Date(year, 11, 31), // Dec 31
+      };
+    } else {
+      // Quarterly goal
+      const qStartMonth = (quarter - 1) * 3; // Q1=0, Q2=3, Q3=6, Q4=9
+      return {
+        periodStart: new Date(year, qStartMonth, 1),
+        periodEnd: new Date(year, qStartMonth + 3, 0), // Last day of quarter
+      };
+    }
+  };
+  
+  const { periodStart, periodEnd } = getPeriodDates();
+  const totalPeriodDays = Math.max(1, differenceInDays(periodEnd, periodStart));
+  const today = new Date();
+  
+  // Calculate expected progress for a given date (linear progression over the period)
+  const getExpectedProgress = (date: Date): number => {
+    const daysSinceStart = differenceInDays(date, periodStart);
+    if (daysSinceStart <= 0) return 0;
+    if (daysSinceStart >= totalPeriodDays) return 100;
+    return Math.round((daysSinceStart / totalPeriodDays) * 100);
+  };
+
+  // Build chart data from check-in history
   const chartData = checkInHistory
     .slice()
     .reverse()
-    .map((checkIn, index) => ({
-      date: format(new Date(checkIn.asOfDate || checkIn.createdAt || new Date()), "MMM d"),
-      actual: checkIn.newProgress,
-      expected: Math.min(100, ((index + 1) / Math.max(checkInHistory.length, 1)) * 100),
-    }));
+    .map((checkIn) => {
+      const checkInDate = new Date(checkIn.asOfDate || checkIn.createdAt || new Date());
+      return {
+        date: format(checkInDate, "MMM d"),
+        actual: checkIn.newProgress,
+        expected: getExpectedProgress(checkInDate),
+      };
+    });
 
+  // Add period start point if no check-ins or first check-in is not at start
   if (chartData.length === 0) {
+    // No check-ins: show from period start to now
     chartData.push({
-      date: "Start",
+      date: format(periodStart, "MMM d"),
       actual: 0,
       expected: 0,
     });
     chartData.push({
-      date: "Now",
+      date: format(today, "MMM d"),
       actual: entity.progress,
-      expected: 50,
+      expected: getExpectedProgress(today),
     });
+  } else {
+    // Add a start point at period beginning if first check-in isn't there
+    const firstCheckInDate = checkInHistory.length > 0 
+      ? new Date(checkInHistory[checkInHistory.length - 1].asOfDate || checkInHistory[checkInHistory.length - 1].createdAt || new Date())
+      : periodStart;
+    
+    if (differenceInDays(firstCheckInDate, periodStart) > 7) {
+      // Insert a start point at period beginning
+      chartData.unshift({
+        date: format(periodStart, "MMM d"),
+        actual: 0,
+        expected: 0,
+      });
+    }
   }
 
   return (
