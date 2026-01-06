@@ -716,7 +716,16 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
         createdEntities.objectives++;
 
         if (obj.keyResults && obj.keyResults.length > 0) {
-          for (const kr of obj.keyResults) {
+          // Calculate auto-balanced weights for all KRs under this objective
+          const krCount = obj.keyResults.length;
+          const baseWeight = Math.floor(100 / krCount);
+          const remainder = 100 - (baseWeight * krCount);
+          
+          for (let i = 0; i < obj.keyResults.length; i++) {
+            const kr = obj.keyResults[i];
+            // Distribute remainder to first N KRs (1 extra point each)
+            const weight = baseWeight + (i < remainder ? 1 : 0);
+            
             await storage.createKeyResult({
               objectiveId: objective.id,
               tenantId: session.tenantId,
@@ -726,6 +735,7 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
               currentValue: 0,
               initialValue: 0,
               unit: kr.unit || "",
+              weight,
             });
             createdEntities.keyResults++;
           }
