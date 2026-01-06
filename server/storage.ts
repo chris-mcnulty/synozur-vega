@@ -351,10 +351,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTenantByDomain(domain: string): Promise<Tenant | undefined> {
-    const allTenants = await db.select().from(tenants);
-    const tenant = allTenants.find(t => 
-      t.allowedDomains && Array.isArray(t.allowedDomains) && t.allowedDomains.includes(domain)
-    );
+    // PERFORMANCE: Use SQL array containment instead of loading all tenants
+    // This uses PostgreSQL's @> operator to check if allowedDomains array contains the domain
+    const [tenant] = await db
+      .select()
+      .from(tenants)
+      .where(sql`${tenants.allowedDomains} @> ARRAY[${domain}]::text[]`)
+      .limit(1);
     return tenant || undefined;
   }
 

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, memo, useCallback, useMemo } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -287,7 +287,9 @@ function formatProgressText(
   return `${Math.round(progress)}%`;
 }
 
-function ObjectiveRow({ 
+// PERFORMANCE: Memoize ObjectiveRow to prevent unnecessary re-renders
+// Only re-renders when props change (checked by shallow comparison)
+const ObjectiveRow = memo(function ObjectiveRow({ 
   objective, 
   depth = 0,
   teams = [],
@@ -684,9 +686,10 @@ function ObjectiveRow({
       )}
     </>
   );
-}
+});
 
-function KeyResultRow({
+// PERFORMANCE: Memoize KeyResultRow to prevent unnecessary re-renders
+const KeyResultRow = memo(function KeyResultRow({
   keyResult,
   parentObjective,
   depth,
@@ -942,7 +945,7 @@ function KeyResultRow({
       </TableCell>
     </TableRow>
   );
-}
+});
 
 export function HierarchicalOKRTable({ 
   objectives,

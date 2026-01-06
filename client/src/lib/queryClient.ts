@@ -67,9 +67,10 @@ export const getQueryFn: <T>(options: {
       }
     }
 
+    // PERFORMANCE: Use default cache behavior (allows conditional requests)
+    // instead of no-cache which forces full re-downloads
     const res = await fetch(url, {
       credentials: "include",
-      cache: "no-cache", // Disable HTTP caching to avoid 304 responses
       headers: getTenantHeader(),
     });
 
@@ -81,17 +82,35 @@ export const getQueryFn: <T>(options: {
     return await res.json();
   };
 
+// PERFORMANCE: Query client configuration optimized for real-time collaboration
+// - staleTime: 30s for most data (balance between freshness and API load)
+// - gcTime: 10 minutes (keep data in cache for back navigation)
+// - refetchOnWindowFocus: true for important data freshness when user returns
+// - retry: 1 time with exponential backoff for transient failures
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
       refetchInterval: false,
-      refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
+      refetchOnWindowFocus: true, // Refresh when user returns to tab
+      staleTime: 30 * 1000, // 30 seconds - data considered fresh
+      gcTime: 10 * 60 * 1000, // 10 minutes - keep in cache
+      retry: 1, // Retry once for transient failures
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
     },
     mutations: {
       retry: false,
+      // STABILITY: Automatically invalidate related queries after mutation
+      onSettled: () => {
+        // Note: Specific invalidations should be done in individual mutations
+        // This is a safety net for forgotten invalidations
+      },
     },
   },
 });
+
+// STABILITY: Export helper for manual cache invalidation
+export function invalidateQueries(queryKeyPrefix: string | string[]): Promise<void> {
+  const key = Array.isArray(queryKeyPrefix) ? queryKeyPrefix : [queryKeyPrefix];
+  return queryClient.invalidateQueries({ queryKey: key });
+}

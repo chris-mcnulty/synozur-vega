@@ -495,18 +495,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Track recently verified tokens to handle duplicate requests (in-memory, short-lived)
+  // STABILITY: Track recently verified tokens with bounded size to prevent memory leaks
+  // Max 1000 entries, 5 minute expiry, cleaned up every minute
+  const MAX_VERIFIED_TOKENS = 1000;
+  const TOKEN_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
   const recentlyVerifiedTokens = new Map<string, { email: string; timestamp: number }>();
   
-  // Clean up old entries every 5 minutes
-  setInterval(() => {
-    const fiveMinutesAgo = Date.now() - 5 * 60 * 1000;
-    for (const [token, data] of recentlyVerifiedTokens) {
-      if (data.timestamp < fiveMinutesAgo) {
+  // Clean up old entries and enforce size limit
+  const cleanupVerifiedTokens = () => {
+    const now = Date.now();
+    const expiredThreshold = now - TOKEN_EXPIRY_MS;
+    
+    // Remove expired entries - use Array.from for ES5 compatibility
+    const entries = Array.from(recentlyVerifiedTokens.entries());
+    for (const [token, data] of entries) {
+      if (data.timestamp < expiredThreshold) {
         recentlyVerifiedTokens.delete(token);
       }
     }
-  }, 60 * 1000);
+    
+    // If still over limit, remove oldest entries (FIFO)
+    if (recentlyVerifiedTokens.size > MAX_VERIFIED_TOKENS) {
+      const sortedEntries = Array.from(recentlyVerifiedTokens.entries())
+        .sort((a, b) => a[1].timestamp - b[1].timestamp);
+      const toRemove = sortedEntries.slice(0, sortedEntries.length - MAX_VERIFIED_TOKENS);
+      for (const [token] of toRemove) {
+        recentlyVerifiedTokens.delete(token);
+      }
+    }
+  };
+  
+  // Clean up every minute, using unref() to not block process exit
+  const cleanupInterval = setInterval(cleanupVerifiedTokens, 60 * 1000);
+  cleanupInterval.unref();
 
   // Email verification
   app.post("/api/auth/verify-email", async (req, res) => {

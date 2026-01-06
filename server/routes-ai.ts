@@ -5,6 +5,7 @@ import { getChatCompletion, getSimpleCompletion, streamChatCompletion, streamCha
 import { z } from "zod";
 import { hasPermission, PERMISSIONS, Role } from "@shared/rbac";
 import { loadCurrentUser, requireTenantAccess } from "./middleware/rbac";
+import { rateLimitMiddleware, requestDeduplicator, RequestDeduplicator } from "./utils/rate-limiter";
 
 export const aiRouter = Router();
 
@@ -204,7 +205,8 @@ const chatRequestSchema = z.object({
   tenantId: z.string().optional(),
 });
 
-aiRouter.post("/chat", requireAIChat, async (req: Request, res: Response) => {
+// PERFORMANCE: Rate limit AI chat to 30 req/min per user
+aiRouter.post("/chat", requireAIChat, rateLimitMiddleware('AI_CHAT'), async (req: Request, res: Response) => {
   try {
     const { messages, tenantId } = chatRequestSchema.parse(req.body);
     const user = (req as any).user;
@@ -227,7 +229,8 @@ aiRouter.post("/chat", requireAIChat, async (req: Request, res: Response) => {
 });
 
 // Streaming chat endpoint (Server-Sent Events) - WITH TOOL SUPPORT
-aiRouter.post("/chat/stream", requireAIChat, async (req: Request, res: Response) => {
+// PERFORMANCE: Rate limit streaming chat to 30 req/min per user
+aiRouter.post("/chat/stream", requireAIChat, rateLimitMiddleware('AI_CHAT'), async (req: Request, res: Response) => {
   console.log("[AI Chat Stream] Request received");
   try {
     const { messages, tenantId } = chatRequestSchema.parse(req.body);
@@ -339,7 +342,8 @@ const okrSuggestionSchema = z.object({
   year: z.number().optional(),
 });
 
-aiRouter.post("/suggest/okrs", requireAIChat, async (req: Request, res: Response) => {
+// PERFORMANCE: Rate limit suggestions to 10 req/min per user
+aiRouter.post("/suggest/okrs", requireAIChat, rateLimitMiddleware('AI_SUGGESTION'), async (req: Request, res: Response) => {
   try {
     const { tenantId, focusArea, quarter, year } = okrSuggestionSchema.parse(req.body);
     
@@ -372,7 +376,7 @@ const bigRockSuggestionSchema = z.object({
   objectiveId: z.string(),
 });
 
-aiRouter.post("/suggest/big-rocks", requireAIChat, async (req: Request, res: Response) => {
+aiRouter.post("/suggest/big-rocks", requireAIChat, rateLimitMiddleware('AI_SUGGESTION'), async (req: Request, res: Response) => {
   try {
     const { tenantId, objectiveId } = bigRockSuggestionSchema.parse(req.body);
     
@@ -554,7 +558,7 @@ const goalSuggestionSchema = z.object({
   tenantId: z.string(),
 });
 
-aiRouter.post("/suggest/goals/stream", requireAIChat, async (req: Request, res: Response) => {
+aiRouter.post("/suggest/goals/stream", requireAIChat, rateLimitMiddleware('AI_SUGGESTION'), async (req: Request, res: Response) => {
   console.log("[Goal Suggestions] Request received");
   try {
     const { tenantId } = goalSuggestionSchema.parse(req.body);
@@ -620,7 +624,7 @@ const strategyDraftSchema = z.object({
   prompt: z.string().min(10, "Please provide a more detailed description of the strategy you want to create"),
 });
 
-aiRouter.post("/strategy-draft/stream", requireAIChat, async (req: Request, res: Response) => {
+aiRouter.post("/strategy-draft/stream", requireAIChat, rateLimitMiddleware('AI_SUGGESTION'), async (req: Request, res: Response) => {
   console.log("[Strategy Draft] Request received");
   try {
     const { tenantId, prompt } = strategyDraftSchema.parse(req.body);
@@ -690,7 +694,8 @@ const meetingRecapSchema = z.object({
   })).optional(),
 });
 
-aiRouter.post("/parse-meeting-recap", requireAIChat, async (req: Request, res: Response) => {
+// PERFORMANCE: Rate limit heavy AI operations to 5 req/min per user
+aiRouter.post("/parse-meeting-recap", requireAIChat, rateLimitMiddleware('AI_HEAVY'), async (req: Request, res: Response) => {
   try {
     const { meetingNotes, tenantId, meetingTitle, meetingType, linkedOKRs } = meetingRecapSchema.parse(req.body);
     
@@ -737,7 +742,8 @@ const okrQualityScoreSchema = z.object({
   alignedObjectives: z.array(z.string()).optional(),
 });
 
-aiRouter.post("/score-okr", requireAIChat, async (req: Request, res: Response) => {
+// PERFORMANCE: Rate limit OKR scoring to 5 req/min per user
+aiRouter.post("/score-okr", requireAIChat, rateLimitMiddleware('AI_HEAVY'), async (req: Request, res: Response) => {
   try {
     const input = okrQualityScoreSchema.parse(req.body);
     const user = (req as any).user;

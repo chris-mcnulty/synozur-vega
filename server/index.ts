@@ -88,17 +88,48 @@ app.use((req, res, next) => {
 
   const server = await registerRoutes(app);
 
+  // STABILITY: Enhanced global error handler with structured logging and response
   app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
+    const requestId = req.headers['x-request-id'] || `req-${Date.now()}`;
     
-    console.error("Error:", err);
+    // Structured error logging with context
+    const errorContext = {
+      requestId,
+      path: req.path,
+      method: req.method,
+      status,
+      message,
+      userId: req.session?.userId,
+      tenantId: req.headers['x-tenant-id'],
+      userAgent: req.headers['user-agent'],
+      timestamp: new Date().toISOString(),
+    };
     
-    // For API routes, return JSON error
+    // Log full stack trace for 5xx errors in development
+    if (status >= 500) {
+      console.error('[ERROR] Server Error:', errorContext);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[ERROR] Stack:', err.stack);
+      }
+    } else if (status >= 400) {
+      // Log 4xx as warnings (client errors)
+      console.warn('[WARN] Client Error:', errorContext);
+    }
+    
+    // Don't send error details to client in production for 5xx
+    const clientMessage = (status >= 500 && process.env.NODE_ENV === 'production')
+      ? 'An unexpected error occurred. Please try again.'
+      : message;
+    
+    // For API routes, return JSON error with request ID for support
     if (req.path.startsWith('/api')) {
       return res.status(status).json({ 
-        error: message,
-        status: status 
+        error: clientMessage,
+        status,
+        requestId,
+        ...(process.env.NODE_ENV === 'development' && { stack: err.stack }),
       });
     }
     
@@ -108,10 +139,16 @@ app.use((req, res, next) => {
       <html>
         <head>
           <title>Error ${status}</title>
+          <style>
+            body { font-family: system-ui, sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+            h1 { color: #dc2626; }
+            code { background: #f3f4f6; padding: 2px 6px; border-radius: 4px; }
+          </style>
         </head>
         <body>
           <h1>Error ${status}</h1>
-          <p>${message}</p>
+          <p>${clientMessage}</p>
+          <p><small>Request ID: <code>${requestId}</code></small></p>
         </body>
       </html>
     `);
