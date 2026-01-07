@@ -395,12 +395,12 @@ function TeamManagementSection({
             </div>
             <div>
               <Label htmlFor="team-leader">Team Leader (optional)</Label>
-              <Select value={selectedLeaderId} onValueChange={setSelectedLeaderId}>
+              <Select value={selectedLeaderId || "none"} onValueChange={(val) => setSelectedLeaderId(val === "none" ? "" : val)}>
                 <SelectTrigger data-testid="select-team-leader">
                   <SelectValue placeholder="Select a leader" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No leader</SelectItem>
+                  <SelectItem value="none">No leader</SelectItem>
                   {tenantUsers.map(user => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.name || user.email}
@@ -461,12 +461,12 @@ function TeamManagementSection({
             </div>
             <div>
               <Label htmlFor="edit-team-leader">Team Leader</Label>
-              <Select value={selectedLeaderId} onValueChange={setSelectedLeaderId}>
+              <Select value={selectedLeaderId || "none"} onValueChange={(val) => setSelectedLeaderId(val === "none" ? "" : val)}>
                 <SelectTrigger data-testid="select-edit-team-leader">
                   <SelectValue placeholder="Select a leader" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">No leader</SelectItem>
+                  <SelectItem value="none">No leader</SelectItem>
                   {tenantUsers.map(user => (
                     <SelectItem key={user.id} value={user.id}>
                       {user.name || user.email}
