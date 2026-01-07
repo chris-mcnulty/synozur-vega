@@ -71,13 +71,21 @@ type Tenant = {
   name: string;
 };
 
+// INSTRUCTIONAL categories - included in AI system prompt as rules/guidance
+const INSTRUCTIONAL_CATEGORIES = ["methodology", "best_practices", "terminology", "examples"];
+// CONTEXTUAL categories - included in AI user prompt as organizational context
+const CONTEXTUAL_CATEGORIES = ["background_context", "company_os"];
+
 const CATEGORIES = [
-  { value: "company_os", label: "Company OS Overview", icon: BookOpen, description: "Core Company OS concepts and methodology" },
-  { value: "methodology", label: "Methodology & Framework", icon: Brain, description: "OKR methodology and best practices" },
-  { value: "best_practices", label: "Best Practices", icon: Lightbulb, description: "Tips and guidelines for effective execution" },
-  { value: "terminology", label: "Key Terminology", icon: Tag, description: "Definitions and glossary" },
-  { value: "examples", label: "Examples & Templates", icon: FileCode, description: "Sample content and templates" },
+  { value: "methodology", label: "Methodology & Framework", icon: Brain, description: "OKR methodology and best practices (instructional)", type: "instructional" },
+  { value: "best_practices", label: "Best Practices", icon: Lightbulb, description: "Tips and guidelines for effective execution (instructional)", type: "instructional" },
+  { value: "terminology", label: "Key Terminology", icon: Tag, description: "Definitions and glossary (instructional)", type: "instructional" },
+  { value: "examples", label: "Examples & Templates", icon: FileCode, description: "Sample content and templates (instructional)", type: "instructional" },
+  { value: "background_context", label: "Background Context", icon: Building2, description: "Company-specific background, industry, history (contextual)", type: "contextual" },
+  { value: "company_os", label: "Company OS Overview", icon: BookOpen, description: "Existing CoS elements for reference (contextual)", type: "contextual" },
 ];
+
+export { INSTRUCTIONAL_CATEGORIES, CONTEXTUAL_CATEGORIES };
 
 function getCategoryInfo(category: string) {
   return CATEGORIES.find(c => c.value === category) || CATEGORIES[0];

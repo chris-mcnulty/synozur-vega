@@ -1264,7 +1264,7 @@ export const groundingDocuments = pgTable("grounding_documents", {
   // Document metadata
   title: text("title").notNull(),
   description: text("description"),
-  category: text("category").notNull(), // 'company_os', 'methodology', 'best_practices', 'terminology', 'examples'
+  category: text("category").notNull(), // INSTRUCTIONAL: 'methodology', 'best_practices', 'terminology', 'examples' | CONTEXTUAL: 'background_context', 'company_os'
   
   // Document content
   content: text("content").notNull(),
