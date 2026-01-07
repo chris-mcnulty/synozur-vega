@@ -192,11 +192,29 @@ router.post("/:sessionId/analyze", async (req: Request, res: Response) => {
       analysisProgress: 20,
     });
 
-    // Build grounding context from tenant's AI background documents
-    let groundingContext = "";
-    if (groundingDocs.length > 0) {
-      groundingContext = "\n\n## COMPANY BACKGROUND CONTEXT:\n";
-      groundingContext += groundingDocs.map(doc => `### ${doc.title}\n${doc.content}`).join("\n\n");
+    // Categorize grounding documents by type
+    // INSTRUCTIONAL: methodology, best_practices, terminology, examples - goes in SYSTEM prompt as rules
+    // CONTEXTUAL: background_context, company_os - goes in USER prompt as organizational context
+    const INSTRUCTIONAL_CATEGORIES = ["methodology", "best_practices", "terminology", "examples"];
+    const CONTEXTUAL_CATEGORIES = ["background_context", "company_os"];
+    
+    const instructionalDocs = groundingDocs.filter(doc => INSTRUCTIONAL_CATEGORIES.includes(doc.category));
+    const contextualDocs = groundingDocs.filter(doc => CONTEXTUAL_CATEGORIES.includes(doc.category));
+    
+    console.log(`[Launchpad] Grounding docs: ${groundingDocs.length} total, ${instructionalDocs.length} instructional (${instructionalDocs.map(d => d.title).join(', ')}), ${contextualDocs.length} contextual`);
+    
+    // Build instructional guidance (for system prompt)
+    let instructionalGuidance = "";
+    if (instructionalDocs.length > 0) {
+      instructionalGuidance = "\n\n## COMPANY OS BEST PRACTICES & DEFINITIONS:\nFollow these guidelines when creating or classifying Company OS elements:\n\n";
+      instructionalGuidance += instructionalDocs.map(doc => `### ${doc.title}\n${doc.content}`).join("\n\n");
+    }
+    
+    // Build organizational context (for user prompt)
+    let organizationalContext = "";
+    if (contextualDocs.length > 0) {
+      organizationalContext = "\n\n## COMPANY BACKGROUND CONTEXT:\nUse this background information to understand the organization:\n";
+      organizationalContext += contextualDocs.map(doc => `### ${doc.title}\n${doc.content}`).join("\n\n");
     }
 
     // Build context about existing data
@@ -297,6 +315,7 @@ Always return valid JSON.`;
 
     // Inference mode prompt - for narrative documents without explicit OKRs
     const inferencePrompt = `You are an expert organizational strategist. Analyze the provided document and generate a comprehensive Company Operating System structure based on the content.
+${instructionalGuidance}
 
 The document does NOT contain explicit OKRs - you must INFER appropriate objectives, key results, and initiatives from the narrative content.
 
@@ -340,7 +359,7 @@ Always return valid JSON.`;
     const systemPrompt = isStructuredOKR ? extractionPrompt : inferencePrompt;
 
     const extractionUserPrompt = `Analyze this organizational document and extract a Company OS structure for the year ${session.targetYear}:
-${groundingContext ? `\nUse this company background context to better understand the organization:\n${groundingContext}` : ""}
+${organizationalContext}
 ${existingContext ? `\nFor reference, here is what already exists (user may choose to skip duplicates):\n${existingContext}` : ""}
 ---
 DOCUMENT TO ANALYZE:
@@ -353,7 +372,7 @@ IMPORTANT: Also identify Big Rocks (major initiatives/projects). Put objective-s
 Return valid JSON with all elements found.`;
 
     const inferenceUserPrompt = `Analyze this organizational document and generate a Company OS structure for the year ${session.targetYear}:
-${groundingContext ? `\nUse this company background context to better understand the organization:\n${groundingContext}` : ""}
+${organizationalContext}
 ${existingContext ? `\nFor reference, here is what already exists (avoid duplicating these):\n${existingContext}` : ""}
 ---
 DOCUMENT TO ANALYZE:
