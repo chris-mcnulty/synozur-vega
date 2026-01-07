@@ -1,6 +1,6 @@
 # Vega Platform Master Backlog
 
-**Last Updated:** January 5, 2026 (AI Check-in Note Rewriter designed)
+**Last Updated:** January 7, 2026 (Tenant Snapshot & Recovery System designed)
 
 > **Note:** This is the single source of truth for all Vega feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference this document for backlog-related questions.
 
@@ -892,6 +892,239 @@ interface AIRewriteButtonProps {
 - Consider caching common patterns to reduce API calls
 - Rate limit: Max 10 rewrites per user per hour
 - Graceful fallback if AI service unavailable
+
+---
+
+### Tenant Snapshot & Recovery System
+
+**Status:** Designed, Not Implemented  
+**Effort:** 3-4 weeks  
+**Priority:** Medium-High (Premium Feature)  
+**Added:** January 7, 2026
+
+A premium feature that automatically backs up tenant data daily, keeping up to 90 days of history for data recovery. Only available to tenants with qualifying service plans.
+
+#### Overview
+
+Daily automated snapshots of tenant data with point-in-time recovery capabilities, enabling tenants to restore their data to any previous day within the retention window.
+
+#### Database Schema Additions
+
+**New Tables:**
+
+```typescript
+// Service plans with feature flags
+servicePlans: {
+  id: uuid,
+  name: text,                    // "Free", "Standard", "Premium"
+  includesSnapshotService: boolean,
+  maxSnapshotRetentionDays: integer,  // 0, 30, or 90
+  maxStorageBytes: bigint,
+  monthlyPrice: decimal,
+  createdAt: timestamp,
+}
+
+// Tenant table addition
+tenants: {
+  // ... existing fields
+  servicePlanId: uuid FK -> servicePlans.id,
+}
+
+// Snapshot metadata
+tenantSnapshots: {
+  id: uuid,
+  tenantId: uuid FK,
+  snapshotDate: date,
+  status: text,                  // "pending", "in_progress", "completed", "failed"
+  sizeBytes: bigint,
+  storageUrl: text,              // S3/Azure Blob URL
+  checksum: text,                // SHA-256 for integrity
+  encryptionKeyId: text,
+  expiresAt: timestamp,
+  createdAt: timestamp,
+}
+
+// What's included in each snapshot
+tenantSnapshotItems: {
+  id: uuid,
+  snapshotId: uuid FK,
+  domain: text,                  // "foundations", "strategies", "objectives", etc.
+  itemCount: integer,
+  sizeBytes: bigint,
+}
+
+// Restore operation audit log
+tenantSnapshotRestoreJobs: {
+  id: uuid,
+  tenantId: uuid FK,
+  snapshotId: uuid FK,
+  requestedBy: uuid FK -> users.id,
+  requestedAt: timestamp,
+  completedAt: timestamp,
+  status: text,                  // "pending", "in_progress", "completed", "failed"
+  restoreScope: jsonb,           // ["foundations", "objectives"] or ["all"]
+  restoreMode: text,             // "full_overwrite" or "selective_merge"
+  resultSummary: jsonb,          // Items restored, conflicts resolved
+  notes: text,                   // Reason for restore
+}
+```
+
+#### Snapshot Strategy
+
+- **Daily full snapshots** capturing all tenant-scoped data
+- **Data captured:**
+  - Foundations (mission, vision, values, annual goals)
+  - Strategies and strategy values
+  - Objectives, Key Results, Big Rocks
+  - Check-in history
+  - Teams and team memberships
+  - Meetings and meeting items
+  - AI/Grounding documents
+  - Custom vocabulary settings
+  
+- **Why full vs incremental?** Full snapshots provide simpler, more reliable restores without the complexity of rebuilding from incremental chains.
+
+#### Storage Approach
+
+- **Object Storage:** Azure Blob or S3-compatible storage
+- **Compression:** zstd compression before upload
+- **Encryption:** AES-256 encryption at rest (customer-managed key support for enterprise)
+- **Lifecycle Policies:** Auto-delete objects past retention window
+- **Estimated Sizing:** (avg tenant data × retention days) for cost calculation
+
+#### Scheduling Mechanism
+
+```
+Daily Snapshot Pipeline (runs 2:00 AM UTC):
+├── Enumerate premium tenants with snapshot access
+├── For each tenant:
+│   ├── Begin read-only transaction
+│   ├── Export all tenant-scoped tables
+│   ├── Compress and encrypt payload
+│   ├── Upload to object storage
+│   ├── Record metadata in tenant_snapshots
+│   └── Commit and log success/failure
+└── Run cleanup for expired snapshots
+```
+
+- **Background Job Runner:** BullMQ or Agenda for job queue management
+- **Isolation:** Each tenant snapshot runs in isolated transaction
+- **Monitoring:** Health metrics and failure alerting
+
+#### Recovery Workflow
+
+**Steps:**
+1. Admin selects tenant and target snapshot date
+2. Preview mode shows what will change (dry-run comparison)
+3. Choose restore scope:
+   - Full restore (all data)
+   - Selective restore (specific modules only)
+4. Choose restore mode:
+   - Full overwrite (replace existing data)
+   - Selective merge (with conflict resolution)
+5. Execute restore with progress tracking
+6. Notify tenant admins upon completion
+7. Log operation in audit trail
+
+#### Service Plan Integration
+
+| Plan | Snapshot Access | Retention | Storage Limit |
+|------|----------------|-----------|---------------|
+| Free | ❌ No | - | - |
+| Standard | ✅ Yes | 30 days | 1 GB |
+| Premium | ✅ Yes | 90 days | 10 GB |
+
+- API validates `includesSnapshotService` before snapshot/restore operations
+- Upgrade CTA shown to non-premium tenants
+
+#### API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/admin/snapshots/:tenantId` | GET | List available snapshots |
+| `/api/admin/snapshots/:tenantId` | POST | Trigger manual snapshot |
+| `/api/admin/snapshots/:id` | GET | Get snapshot details |
+| `/api/admin/snapshots/:id/download` | GET | Download snapshot (signed URL) |
+| `/api/admin/snapshots/:id/restore` | POST | Request data restore |
+| `/api/admin/snapshots/:id/restore/preview` | POST | Dry-run restore preview |
+| `/api/admin/snapshots/jobs/:jobId` | GET | Check restore job status |
+
+#### Admin UI Components
+
+**New "Data Protection" tab in Tenant Admin:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Data Protection                                             │
+│  ═══════════════════════════════════════════════════════   │
+│                                                              │
+│  📊 Storage Usage: 245 MB / 10 GB                           │
+│  ████████░░░░░░░░░░░░░░░░░░░░░░░░░░░░ 2.4%                  │
+│                                                              │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │ Available Snapshots                [📸 Create Now]     │ │
+│  ├────────────┬──────────┬────────┬───────────┬──────────┤ │
+│  │ Date       │ Size     │ Status │ Expires   │ Actions  │ │
+│  ├────────────┼──────────┼────────┼───────────┼──────────┤ │
+│  │ 2026-01-07 │ 2.8 MB   │ ✅     │ 89 days   │ [↻] [⬇]  │ │
+│  │ 2026-01-06 │ 2.7 MB   │ ✅     │ 88 days   │ [↻] [⬇]  │ │
+│  │ 2026-01-05 │ 2.6 MB   │ ✅     │ 87 days   │ [↻] [⬇]  │ │
+│  │ ...        │ ...      │ ...    │ ...       │ ...      │ │
+│  └────────────┴──────────┴────────┴───────────┴──────────┘ │
+│                                                              │
+│  📜 Restore History                                         │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │ 2026-01-03 • Restored OKRs from 2026-01-01            │ │
+│  │            • By chris.mcnulty@synozur.com             │ │
+│  │            • Reason: Accidental deletion              │ │
+│  └────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Restore Wizard:**
+1. Select snapshot date
+2. Choose scope (checkboxes for each module)
+3. Preview changes (diff view)
+4. Confirm with mandatory reason field
+5. Progress indicator during restore
+6. Success confirmation with summary
+
+#### Retention & Cleanup
+
+- **Rolling Retention:** Automatic deletion past retention window
+- **Nightly Cleanup Job:** Removes expired records and storage objects
+- **Per-Tenant Quotas:** Alerts when approaching storage limits
+- **Immutable Audit Log:** All operations logged for compliance
+
+#### Security Considerations
+
+- **Encryption at Rest:** All snapshot data encrypted before storage
+- **Signed URLs:** Time-limited download links (15-minute expiry)
+- **RBAC:** Platform admin or tenant's own admin only
+- **Temp File Cleanup:** Sanitize local files after upload
+- **Audit Trail:** Complete logging of all snapshot/restore operations
+
+#### Implementation Phases
+
+```
+Phase 1: Foundation (Week 1-2)
+├── Database schema + migrations
+├── Service plan model + tenant association
+├── Object storage integration (Azure Blob/S3)
+└── Basic snapshot export logic
+
+Phase 2: Automation (Week 2-3)
+├── Background job runner setup
+├── Daily snapshot scheduling
+├── Retention/cleanup worker
+└── Monitoring + alerting
+
+Phase 3: Recovery (Week 3-4)
+├── Restore logic + conflict handling
+├── Preview/dry-run capability
+├── Admin UI components
+└── Notification system
+```
 
 ---
 
