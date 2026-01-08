@@ -4,6 +4,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, Shield, Lock, Users, FileCheck, CheckCircle2, X, Compass, Target, RefreshCcw, Layers, BarChart3, Calendar, Sparkles, Building2, Play } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
+import { CapabilityShowcase } from "./CapabilityShowcase";
 import starTrailsBg from "@assets/AdobeStock_362805421_1767551096391.jpeg";
 import lightBeamBg from "@assets/AdobeStock_167081726_1767551096392.jpeg";
 import telescopeBg from "@assets/AdobeStock_1114783441_1767551096393.jpeg";
@@ -257,6 +258,9 @@ export function LandingHero() {
           </div>
         </div>
       </section>
+
+      {/* Capability Showcase Section - dynamically rendered if enabled */}
+      <CapabilityShowcase />
 
       {/* Outcomes Section */}
       <section className="py-16 md:py-24 bg-background">
