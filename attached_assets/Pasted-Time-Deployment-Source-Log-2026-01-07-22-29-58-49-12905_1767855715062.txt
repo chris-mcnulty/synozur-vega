@@ -1,0 +1,200 @@
+Time
+Deployment
+Source
+Log
+2026-01-07 22:29:58.49
+12905e8f
+User
+6:29:58 AM [express] GET /api/tenants 200 in 84ms :: [{"id":"f892084d-1a4c-4539-8611-0a9eaba8a623","…
+2026-01-07 22:55:15.99
+12905e8f
+User
+6:55:15 AM [express] POST /api/track/visit 201 in 83ms :: {"success":true,"id":"439b8cdd-30d0-45d5-8…
+2026-01-07 22:55:19.63
+12905e8f
+User
+[Entra SSO][mk53eus6] Login initiated
+2026-01-07 22:55:19.63
+12905e8f
+User
+[Entra SSO][mk53eus6] Tenant hint: none
+2026-01-07 22:55:19.63
+12905e8f
+User
+[Entra SSO][mk53eus6] MSAL client initialized successfully
+2026-01-07 22:55:19.63
+12905e8f
+User
+[Entra SSO][mk53eus6] Redirect URI: https://vega.synozur.com/auth/entra/callback
+2026-01-07 22:55:19.63
+12905e8f
+User
+[Entra SSO][mk53eus6] Base URL: https://vega.synozur.com
+2026-01-07 22:55:19.63
+12905e8f
+User
+[Entra SSO][mk53eus6] PKCE codes generated
+2026-01-07 22:55:19.65
+12905e8f
+User
+[Entra SSO][mk53eus6] State parameter encoded (length: 430)
+2026-01-07 22:55:19.65
+12905e8f
+User
+[Entra SSO][mk53eus6] Auth params: scopes=openid,profile,email,User.Read,Files.Read.All,Sites.Read.All,offline_access
+2026-01-07 22:55:19.65
+12905e8f
+User
+[Entra SSO][mk53eus6] Auth URL generated, redirecting to Microsoft
+2026-01-07 22:55:24.07
+12905e8f
+User
+[Entra Callback][mk53ey7j] Callback received
+2026-01-07 22:55:24.07
+12905e8f
+User
+[Entra Callback][mk53ey7j] Authorization code received, decoding state...
+2026-01-07 22:55:24.09
+12905e8f
+User
+[Entra Callback][mk53ey7j] State decoded successfully, tenantHint: none
+2026-01-07 22:55:24.09
+12905e8f
+User
+[Entra Callback][mk53ey7j] Exchanging code for tokens...
+2026-01-07 22:55:24.45
+12905e8f
+User
+[Entra Callback][mk53ey7j] Looking up user by email: megan.bowen@chrismcnulty.net
+2026-01-07 22:55:24.45
+12905e8f
+User
+[Entra Callback][mk53ey7j] Claims: preferred_username=megan.bowen@chrismcnulty.net, email=megan.bowen@chrismcnulty.net, name=Megan Bowen
+2026-01-07 22:55:24.45
+12905e8f
+User
+[Entra Callback][mk53ey7j] User info: email=megan.bowen@chrismcnulty.net, azureObjectId=303ef94c-1447-4bbb-a198-60009699a19d, azureTenantId=e8ae3614-c17a-4336-904e-d141718c94f1
+2026-01-07 22:55:24.45
+12905e8f
+User
+[Entra Callback][mk53ey7j] Token acquired successfully
+2026-01-07 22:55:24.47
+12905e8f
+User
+[Entra Callback][mk53ey7j] Email domain: chrismcnulty.net, Azure tenant ID: e8ae3614-c17a-4336-904e-d141718c94f1
+2026-01-07 22:55:24.47
+12905e8f
+User
+[Entra Callback][mk53ey7j] User not found, attempting JIT provisioning
+2026-01-07 22:55:24.51
+12905e8f
+User
+[Entra Callback][mk53ey7j] User cannot be auto-provisioned - organization not registered
+2026-01-07 22:55:24.51
+12905e8f
+User
+[Entra Callback][mk53ey7j] No matching Vega tenant for user megan.bowen@chrismcnulty.net
+2026-01-07 22:55:25.11
+12905e8f
+User
+6:55:25 AM [express] GET /api/vocabulary 401 in 1ms :: {"error":"Authentication required"}
+2026-01-07 22:55:25.11
+12905e8f
+User
+6:55:25 AM [express] GET /api/auth/me 401 in 1ms :: {"error":"Not authenticated"}
+2026-01-07 22:55:25.18
+12905e8f
+User
+6:55:25 AM [express] GET /api/tenants 401 in 1ms :: {"error":"Authentication required"}
+2026-01-07 22:55:25.78
+12905e8f
+User
+6:55:25 AM [express] GET /api/tenants 401 in 1ms :: {"error":"Authentication required"}
+2026-01-07 22:55:26.22
+12905e8f
+User
+6:55:26 AM [express] GET /api/vocabulary 401 in 1ms :: {"error":"Authentication required"}
+2026-01-07 22:55:26.39
+12905e8f
+User
+6:55:26 AM [express] GET /api/tenants 401 in 1ms :: {"error":"Authentication required"}
+2026-01-07 22:59:18.64
+5c2b466c
+System
+metasidecar: loaded enterprise status from environment is_enterprise=false
+2026-01-07 22:59:18.64
+5c2b466c
+System
+starting up user application
+2026-01-07 22:59:18.65
+5c2b466c
+System
+forwarding local port 5000 to external port 80 (mapped as 1104)
+2026-01-07 22:59:21.10
+5c2b466c
+User
+> NODE_ENV=production node dist/index.js
+2026-01-07 22:59:21.10
+5c2b466c
+User
+> rest-express@1.0.0 start
+2026-01-07 22:59:24.66
+5c2b466c
+User
+Checking database schema...
+2026-01-07 22:59:27.28
+5c2b466c
+User
+✓ Database schema verified
+2026-01-07 22:59:27.28
+5c2b466c
+User
+Ensuring global admin users...
+2026-01-07 22:59:27.43
+5c2b466c
+User
+✓ Verified consultant@synozur.com (updated/created)
+2026-01-07 22:59:27.45
+5c2b466c
+User
+✓ Verified superadmin@vega.com (updated/created)
+2026-01-07 22:59:27.50
+5c2b466c
+User
+✓ Global admin users initialized and verified in database
+2026-01-07 22:59:27.67
+5c2b466c
+User
+6:59:27 AM [express] serving on port 5000
+2026-01-07 23:00:13.48
+5c2b466c
+User
+7:00:13 AM [express] GET /api/tenants 401 in 1ms :: {"error":"Authentication required"}
+2026-01-07 23:00:13.48
+5c2b466c
+User
+7:00:13 AM [express] POST /api/track/visit 201 in 89ms :: {"success":true,"id":"fc93fcd4-c9ae-4bbb-a…
+2026-01-07 23:00:14.14
+5c2b466c
+User
+7:00:14 AM [express] GET /api/tenants 401 in 1ms :: {"error":"Authentication required"}
+2026-01-07 23:00:14.73
+5c2b466c
+User
+7:00:14 AM [express] GET /api/tenants 401 in 0ms :: {"error":"Authentication required"}
+2026-01-07 23:00:15.48
+5c2b466c
+User
+7:00:15 AM [express] GET /api/auth/me 401 in 0ms :: {"error":"Not authenticated"}
+2026-01-07 23:00:15.48
+5c2b466c
+User
+7:00:15 AM [express] GET /api/vocabulary 401 in 0ms :: {"error":"Authentication required"}
+2026-01-07 23:00:15.65
+5c2b466c
+User
+7:00:15 AM [express] GET /api/banners/active 304 in 41ms
+2026-01-07 23:00:15.65
+5c2b466c
+User
+7:00:15 AM [express] GET /api/capability-tabs 200 in 41ms :: []
