@@ -346,6 +346,13 @@ router.get('/callback', async (req: Request, res: Response) => {
         }
       } else {
         console.log(`[Entra Callback][${requestId}] Found matching tenant: ${matchingTenant.name} (${matchingTenant.id})`);
+        
+        // Check if tenant is invite-only - block new users from auto-joining
+        if (matchingTenant.inviteOnly) {
+          console.log(`[Entra Callback][${requestId}] Tenant ${matchingTenant.name} is invite-only, blocking auto-join for ${email}`);
+          const tenantNameEncoded = encodeURIComponent(matchingTenant.name);
+          return res.redirect(`${getBaseUrl()}/login?error=invite_only&tenant_name=${tenantNameEncoded}`);
+        }
       }
 
       const newUser = await storage.createUser({

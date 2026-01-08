@@ -99,6 +99,8 @@ export default function Login() {
   const [checkingPolicy, setCheckingPolicy] = useState(false);
   const [adminConsentError, setAdminConsentError] = useState<string | null>(null);
   
+  const [inviteOnlyError, setInviteOnlyError] = useState<{tenantName: string} | null>(null);
+  
   const ssoErrorMessages: Record<string, string> = {
     'sso_not_configured': 'Microsoft SSO is not configured for this application. Please contact your administrator.',
     'token_acquisition_failed': 'Failed to complete authentication. Please try again.',
@@ -112,6 +114,7 @@ export default function Login() {
     'access_denied': 'Access was denied. You may have cancelled the login or lack permissions.',
     'consent_required': 'Your organization administrator needs to grant consent for this application.',
     'interaction_required': 'Additional interaction is required. Please try signing in again.',
+    'domain_blocked': 'Signups from your email domain are not allowed. Please contact vega@synozur.com for assistance.',
   };
   
   useEffect(() => {
@@ -136,6 +139,14 @@ export default function Login() {
       // Special handling for admin consent errors - show detailed guidance
       if (error === 'access_denied' || error === 'consent_required') {
         setAdminConsentError(errorDescription || message || error);
+        window.history.replaceState({}, '', '/login');
+        return;
+      }
+      
+      // Special handling for invite-only tenant errors - show persistent message
+      if (error === 'invite_only') {
+        const tenantName = params.get('tenant_name') || 'this organization';
+        setInviteOnlyError({ tenantName: decodeURIComponent(tenantName) });
         window.history.replaceState({}, '', '/login');
         return;
       }
@@ -387,6 +398,56 @@ export default function Login() {
                 size="sm"
                 className="w-full"
                 onClick={() => setAdminConsentError(null)}
+              >
+                Try signing in again
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+
+        {inviteOnlyError && (
+          <Card className="backdrop-blur-md bg-background/95 border-amber-500/50 mb-4" data-testid="card-invite-only-error">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between">
+                <div className="flex items-center gap-2">
+                  <Shield className="h-5 w-5 text-amber-500" />
+                  <CardTitle className="text-lg">Invitation Required</CardTitle>
+                </div>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 -mt-1 -mr-2"
+                  onClick={() => setInviteOnlyError(null)}
+                  data-testid="button-dismiss-invite-error"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <p>
+                <strong>{inviteOnlyError.tenantName}</strong> requires an invitation to join.
+              </p>
+              
+              <div className="bg-muted/50 rounded-md p-3 space-y-2">
+                <p className="font-medium">To get access:</p>
+                <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                  <li>Contact your organization's Vega administrator</li>
+                  <li>Ask them to add you as a team member in Tenant Admin</li>
+                  <li>Once added, try signing in again</li>
+                </ul>
+              </div>
+
+              <p className="text-muted-foreground">
+                If you believe this is an error, contact <a href="mailto:ContactUs@synozur.com" className="text-primary hover:underline">ContactUs@synozur.com</a>
+              </p>
+
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={() => setInviteOnlyError(null)}
+                data-testid="button-try-again-invite"
               >
                 Try signing in again
               </Button>
