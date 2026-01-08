@@ -931,7 +931,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const role = validatedData.role;
       const allowedRoles = getAvailableRolesForUserType(userType);
       
-      if (!allowedRoles.includes(role)) {
+      if (!allowedRoles.includes(role as Role)) {
         return res.status(400).json({ 
           error: "Invalid role for user type",
           message: `Users with type '${userType}' can only have roles: ${allowedRoles.join(', ')}`
@@ -941,6 +941,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Tenant admins can only create users in their own tenant
       const callerRole = req.user?.role as string;
       const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(callerRole as any);
+      
+      // Tenant admins can only assign tenant_user or tenant_admin roles
+      // They cannot create consultant, global_admin, or vega_admin users
+      if (!canAccessAny) {
+        const tenantAdminAssignableRoles = [ROLES.TENANT_USER, ROLES.TENANT_ADMIN, ROLES.ADMIN];
+        if (!tenantAdminAssignableRoles.includes(role as any)) {
+          return res.status(403).json({ 
+            error: "Insufficient permissions",
+            message: "Tenant administrators can only create User or Admin roles within their organization"
+          });
+        }
+        
+        // Tenant admins cannot create consultant or internal users
+        if (userType !== USER_TYPES.CLIENT) {
+          return res.status(403).json({
+            error: "Insufficient permissions", 
+            message: "Only platform administrators can create consultant or internal users"
+          });
+        }
+      }
       
       if (!canAccessAny && validatedData.tenantId && validatedData.tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Cannot create users in other tenants" });
@@ -1009,11 +1029,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const newRole = validatedData.role ?? targetUser.role;
       const allowedRoles = getAvailableRolesForUserType(newUserType);
       
-      if (!allowedRoles.includes(newRole)) {
+      if (!allowedRoles.includes(newRole as Role)) {
         return res.status(400).json({ 
           error: "Invalid role for user type",
           message: `Users with type '${newUserType}' can only have roles: ${allowedRoles.join(', ')}`
         });
+      }
+      
+      // Tenant admins can only assign tenant_user or tenant_admin roles within their tenant
+      // They cannot promote users to consultant, global_admin, or vega_admin roles
+      if (!canAccessAny && validatedData.role) {
+        const tenantAdminAssignableRoles = [ROLES.TENANT_USER, ROLES.TENANT_ADMIN, ROLES.ADMIN];
+        if (!tenantAdminAssignableRoles.includes(validatedData.role as any)) {
+          return res.status(403).json({ 
+            error: "Insufficient permissions",
+            message: "Tenant administrators can only assign User or Admin roles within their organization"
+          });
+        }
+      }
+      
+      // Tenant admins cannot change user type to consultant or internal
+      if (!canAccessAny && (validatedData as any).userType) {
+        if ((validatedData as any).userType !== USER_TYPES.CLIENT) {
+          return res.status(403).json({
+            error: "Insufficient permissions", 
+            message: "Only platform administrators can create consultant or internal users"
+          });
+        }
       }
       
       // Prevent non-platform admins from moving users to other tenants

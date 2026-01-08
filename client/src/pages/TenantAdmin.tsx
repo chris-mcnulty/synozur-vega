@@ -2529,41 +2529,46 @@ export default function TenantAdmin() {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="user-type">User Type</Label>
-              <Select
-                value={userFormData.userType}
-                onValueChange={(value: "client" | "consultant" | "internal") => {
-                  const newFormData = { ...userFormData, userType: value };
-                  if (value === "client") {
-                    if (!["tenant_user", "tenant_admin", "admin"].includes(newFormData.role)) {
-                      newFormData.role = "tenant_user";
+            {/* User Type - Only platform admins can create consultant/internal users */}
+            {(['vega_admin', 'global_admin'].includes(currentUser?.role || '')) ? (
+              <div className="space-y-2">
+                <Label htmlFor="user-type">User Type</Label>
+                <Select
+                  value={userFormData.userType}
+                  onValueChange={(value: "client" | "consultant" | "internal") => {
+                    const newFormData = { ...userFormData, userType: value };
+                    if (value === "client") {
+                      if (!["tenant_user", "tenant_admin", "admin"].includes(newFormData.role)) {
+                        newFormData.role = "tenant_user";
+                      }
+                    } else if (value === "consultant") {
+                      newFormData.role = "vega_consultant";
+                    } else if (value === "internal") {
+                      if (!["global_admin", "vega_admin"].includes(newFormData.role)) {
+                        newFormData.role = "vega_admin";
+                      }
                     }
-                  } else if (value === "consultant") {
-                    newFormData.role = "vega_consultant";
-                  } else if (value === "internal") {
-                    if (!["global_admin", "vega_admin"].includes(newFormData.role)) {
-                      newFormData.role = "vega_admin";
-                    }
-                  }
-                  setUserFormData(newFormData);
-                }}
-              >
-                <SelectTrigger data-testid="select-user-type">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="z-[60]">
-                  <SelectItem value="client">Client - Organization User</SelectItem>
-                  <SelectItem value="consultant">Consultant - External Advisor</SelectItem>
-                  <SelectItem value="internal">Internal - Vega Staff</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {userFormData.userType === "client" && "Regular user belonging to a client organization"}
-                {userFormData.userType === "consultant" && "External consultant who works with multiple client organizations"}
-                {userFormData.userType === "internal" && "Vega internal staff (platform admins, support)"}
-              </p>
-            </div>
+                    setUserFormData(newFormData);
+                  }}
+                >
+                  <SelectTrigger data-testid="select-user-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="z-[60]">
+                    <SelectItem value="client">Client - Organization User</SelectItem>
+                    <SelectItem value="consultant">Consultant - External Advisor</SelectItem>
+                    <SelectItem value="internal">Internal - Vega Staff</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  {userFormData.userType === "client" && "Regular user belonging to a client organization"}
+                  {userFormData.userType === "consultant" && "External consultant who works with multiple client organizations"}
+                  {userFormData.userType === "internal" && "Vega internal staff (platform admins, support)"}
+                </p>
+              </div>
+            ) : (
+              <input type="hidden" value="client" />
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="user-role">Role</Label>
@@ -2577,20 +2582,32 @@ export default function TenantAdmin() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="z-[60]">
-                  {userFormData.userType === "client" && (
+                  {/* Tenant admins can only assign client roles within their tenant */}
+                  {(['tenant_admin', 'admin'].includes(currentUser?.role || '')) && (
                     <>
                       <SelectItem value="tenant_user">Tenant User</SelectItem>
                       <SelectItem value="tenant_admin">Tenant Admin</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
                     </>
                   )}
-                  {userFormData.userType === "consultant" && (
-                    <SelectItem value="vega_consultant">Vega Consultant</SelectItem>
-                  )}
-                  {userFormData.userType === "internal" && (
+                  {/* Platform admins can assign all roles based on user type */}
+                  {(['vega_admin', 'global_admin'].includes(currentUser?.role || '')) && (
                     <>
-                      <SelectItem value="global_admin">Global Admin</SelectItem>
-                      <SelectItem value="vega_admin">Platform Admin</SelectItem>
+                      {userFormData.userType === "client" && (
+                        <>
+                          <SelectItem value="tenant_user">Tenant User</SelectItem>
+                          <SelectItem value="tenant_admin">Tenant Admin</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </>
+                      )}
+                      {userFormData.userType === "consultant" && (
+                        <SelectItem value="vega_consultant">Vega Consultant</SelectItem>
+                      )}
+                      {userFormData.userType === "internal" && (
+                        <>
+                          <SelectItem value="global_admin">Global Admin</SelectItem>
+                          <SelectItem value="vega_admin">Platform Admin</SelectItem>
+                        </>
+                      )}
                     </>
                   )}
                 </SelectContent>
