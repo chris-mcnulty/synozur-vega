@@ -262,21 +262,97 @@ router.get('/callback', async (req: Request, res: Response) => {
       const emailDomain = email.split('@')[1];
       console.log(`[Entra Callback][${requestId}] Email domain: ${emailDomain}, Azure tenant ID: ${azureTenantId}`);
       
-      const matchingTenant = await findTenantByAzureTenantOrDomain(azureTenantId, emailDomain, email);
+      let matchingTenant = await findTenantByAzureTenantOrDomain(azureTenantId, emailDomain, email);
+      let isNewTenant = false;
+      let userRole: string = ROLES.TENANT_USER;
       
       if (!matchingTenant) {
-        console.log(`[Entra Callback][${requestId}] No matching Vega tenant for user ${email}`);
-        console.log(`[Entra Callback][${requestId}] User cannot be auto-provisioned - organization not registered`);
-        return res.redirect('/login?error=no_tenant_access&message=Your organization is not registered in Vega');
+        // Self-service SSO tenant creation (same pattern as password signup)
+        console.log(`[Entra Callback][${requestId}] No matching Vega tenant found, creating new tenant for ${email}`);
+        
+        // Check if domain is blocked
+        const isBlocked = await storage.isDomainBlocked(emailDomain);
+        if (isBlocked) {
+          console.log(`[Entra Callback][${requestId}] Domain ${emailDomain} is blocked`);
+          return res.redirect('/login?error=domain_blocked&message=Signups from this domain are not allowed');
+        }
+        
+        // Get default service plan (Trial)
+        let servicePlan = await storage.getDefaultServicePlan();
+        if (!servicePlan) {
+          servicePlan = await storage.getServicePlanByName('trial');
+        }
+        
+        const now = new Date();
+        const expiresAt = servicePlan?.durationDays 
+          ? new Date(now.getTime() + servicePlan.durationDays * 24 * 60 * 60 * 1000)
+          : null;
+        
+        const isPublicDomain = isPublicEmailDomain(email);
+        
+        if (isPublicDomain) {
+          // Public domain (Gmail, Yahoo, etc.): create invite-only personal tenant
+          const userName = name || email.split('@')[0];
+          matchingTenant = await storage.createTenant({
+            name: `${userName}'s Organization`,
+            allowedDomains: [], // Don't claim the public domain
+            selfServiceSignup: true,
+            signupCompletedAt: now,
+            servicePlanId: servicePlan?.id,
+            planStartedAt: now,
+            planExpiresAt: expiresAt,
+            planStatus: 'active',
+            inviteOnly: true, // New members must be explicitly invited
+            azureTenantId: null, // Don't link Azure tenant for public domains
+          });
+          console.log(`[Entra Callback][${requestId}] Created invite-only SSO tenant for public domain user: ${matchingTenant.id}`);
+        } else {
+          // Business domain: create standard tenant with domain claim and Azure tenant link
+          const companyName = emailDomain.split('.')[0].charAt(0).toUpperCase() + emailDomain.split('.')[0].slice(1);
+          matchingTenant = await storage.createTenant({
+            name: `${companyName} (${emailDomain})`,
+            allowedDomains: [emailDomain],
+            selfServiceSignup: true,
+            signupCompletedAt: now,
+            servicePlanId: servicePlan?.id,
+            planStartedAt: now,
+            planExpiresAt: expiresAt,
+            planStatus: 'active',
+            inviteOnly: false,
+            azureTenantId, // Link Azure tenant so other users from same org auto-join
+          });
+          console.log(`[Entra Callback][${requestId}] Created SSO tenant for business domain ${emailDomain}: ${matchingTenant.id} (linked to Azure tenant ${azureTenantId})`);
+        }
+        
+        isNewTenant = true;
+        userRole = ROLES.TENANT_ADMIN; // First user is admin
+        
+        // Push to HubSpot as new deal
+        try {
+          const { createHubSpotDeal, isHubSpotConnected } = await import('./hubspot');
+          const hubspotConnected = await isHubSpotConnected();
+          if (hubspotConnected) {
+            console.log(`[Entra Callback][${requestId}] Creating HubSpot deal for SSO signup: ${email}`);
+            await createHubSpotDeal({
+              tenantName: matchingTenant.name,
+              email,
+              domain: emailDomain,
+              planName: servicePlan?.displayName || 'Trial',
+              signupDate: new Date(),
+            });
+          }
+        } catch (hubspotError) {
+          console.error(`[Entra Callback][${requestId}] Failed to create HubSpot deal:`, hubspotError);
+        }
+      } else {
+        console.log(`[Entra Callback][${requestId}] Found matching tenant: ${matchingTenant.name} (${matchingTenant.id})`);
       }
-
-      console.log(`[Entra Callback][${requestId}] Found matching tenant: ${matchingTenant.name} (${matchingTenant.id})`);
 
       const newUser = await storage.createUser({
         email,
         name: name || email.split('@')[0],
         password: '',
-        role: ROLES.TENANT_USER,
+        role: userRole,
         tenantId: matchingTenant.id,
         emailVerified: true,
         authProvider: 'entra',
@@ -284,7 +360,7 @@ router.get('/callback', async (req: Request, res: Response) => {
         azureTenantId,
       });
       user = newUser;
-      console.log(`[Entra Callback][${requestId}] Created new user via JIT: ${email}, userId: ${user.id}`);
+      console.log(`[Entra Callback][${requestId}] Created new user via ${isNewTenant ? 'self-service SSO' : 'JIT'}: ${email}, userId: ${user.id}, role: ${userRole}`);
     } else {
       console.log(`[Entra Callback][${requestId}] Existing user found: ${email}, userId: ${user.id}, tenantId: ${user.tenantId}`);
       if (!user.azureObjectId) {
