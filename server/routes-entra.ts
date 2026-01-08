@@ -1208,11 +1208,23 @@ router.get('/users/search', async (req: Request, res: Response) => {
 
     // Get the tenant's Azure tenant ID from the database
     let azureTenantId: string | undefined;
+    let vegaTenantName: string | undefined;
     if (user.tenantId) {
       const tenant = await storage.getTenantById(user.tenantId);
+      vegaTenantName = tenant?.name;
       if (tenant?.azureTenantId) {
         azureTenantId = tenant.azureTenantId;
       }
+    }
+    
+    // Diagnostic logging - helps identify which tenant is being targeted
+    const synozurHomeTenant = 'b4fbeaf7-1c91-43bb-8031-49eb8d4175ee';
+    console.log('[Entra User Search] Starting search...');
+    console.log('[Entra User Search] Vega Tenant:', vegaTenantName || 'unknown');
+    console.log('[Entra User Search] Target Azure Tenant ID:', azureTenantId || 'NOT SET');
+    console.log('[Entra User Search] Is Synozur home tenant:', azureTenantId === synozurHomeTenant ? 'YES' : 'NO');
+    if (azureTenantId && azureTenantId !== synozurHomeTenant) {
+      console.log('[Entra User Search] WARNING: Targeting non-Synozur tenant - that tenant must grant admin consent separately!');
     }
     
     if (!azureTenantId) {
