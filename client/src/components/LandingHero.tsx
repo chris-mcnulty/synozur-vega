@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -108,21 +108,30 @@ const heroHeadlines = [
   "Put strategy to work—every day, not once a year.",
 ];
 
+function getSessionHeadlineIndex(): number {
+  const storageKey = 'vega_headline_index';
+  const stored = sessionStorage.getItem(storageKey);
+  if (stored !== null) {
+    return parseInt(stored, 10);
+  }
+  const index = Math.floor(Math.random() * heroHeadlines.length);
+  sessionStorage.setItem(storageKey, index.toString());
+  return index;
+}
+
 export function LandingHero() {
-  const [headlineIndex, setHeadlineIndex] = useState(0);
+  const [headlineIndex] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return getSessionHeadlineIndex();
+    }
+    return 0;
+  });
   
   const { data: landingSettings } = useQuery<{ heroMediaType: string }>({
     queryKey: ["/api/landing-settings"],
   });
   
   const heroMediaType = landingSettings?.heroMediaType || 'image';
-  
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setHeadlineIndex((prev) => (prev + 1) % heroHeadlines.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, []);
 
   return (
     <>
