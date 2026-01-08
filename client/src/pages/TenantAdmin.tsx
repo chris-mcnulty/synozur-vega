@@ -744,15 +744,30 @@ export default function TenantAdmin() {
   });
 
   const updateTenantMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name?: string; color?: string; logoUrl?: string; allowedDomains?: string[] } }) =>
-      apiRequest("PATCH", `/api/tenants/${id}`, data),
-    onSuccess: () => {
+    mutationFn: async ({ id, data }: { id: string; data: { name?: string; color?: string; logoUrl?: string; allowedDomains?: string[]; inviteOnly?: boolean } }) => {
+      const response = await apiRequest("PATCH", `/api/tenants/${id}`, data);
+      return response.json();
+    },
+    onSuccess: (updatedTenant, variables) => {
       queryClient.invalidateQueries({ queryKey: ["/api/tenants"] });
-      setTenantDialogOpen(false);
-      setEditingTenant(null);
-      setTenantFormData({ name: "", color: "#3B82F6", logoUrl: "", organizationSize: "", industry: "", location: "" });
-      setDomainDialogOpen(false);
-      setSelectedTenantForDomains(null);
+      
+      // Update local settings dialog state if it's the same tenant
+      if (selectedTenantForSettings?.id === variables.id) {
+        setSelectedTenantForSettings({ ...selectedTenantForSettings, ...variables.data } as Tenant);
+      }
+      
+      // Update local domains dialog state if it's the same tenant
+      if (selectedTenantForDomains?.id === variables.id) {
+        setSelectedTenantForDomains({ ...selectedTenantForDomains, ...variables.data } as Tenant);
+      }
+      
+      // Only close dialogs and reset form if we're in the edit tenant dialog
+      if (editingTenant?.id === variables.id) {
+        setTenantDialogOpen(false);
+        setEditingTenant(null);
+        setTenantFormData({ name: "", color: "#3B82F6", logoUrl: "", organizationSize: "", industry: "", location: "" });
+      }
+      
       setNewDomain("");
       toast({ title: "Organization updated successfully" });
     },
