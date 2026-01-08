@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -102,12 +103,26 @@ function CTAButton({ className = "" }: { className?: string }) {
   );
 }
 
+const heroHeadlines = [
+  "Turn strategy into action—every week, not once a year.",
+  "Put strategy to work—every day, not once a year.",
+];
+
 export function LandingHero() {
+  const [headlineIndex, setHeadlineIndex] = useState(0);
+  
   const { data: landingSettings } = useQuery<{ heroMediaType: string }>({
     queryKey: ["/api/landing-settings"],
   });
   
   const heroMediaType = landingSettings?.heroMediaType || 'image';
+  
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setHeadlineIndex((prev) => (prev + 1) % heroHeadlines.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   return (
     <>
@@ -132,8 +147,12 @@ export function LandingHero() {
               <img src={vegaLogo} alt="Vega Company OS" className="hidden md:block h-80 object-contain drop-shadow-2xl" />
             </div>
             
-            <h1 className="text-3xl md:text-5xl lg:text-6xl font-semibold leading-tight mb-4 md:mb-6" style={{ textShadow: '0 4px 16px rgba(0,0,0,0.9)' }}>
-              Turn strategy into action—every week, not once a year.
+            <h1 
+              className="text-3xl md:text-5xl lg:text-6xl font-semibold leading-tight mb-4 md:mb-6 transition-opacity duration-500" 
+              style={{ textShadow: '0 4px 16px rgba(0,0,0,0.9)' }}
+              data-testid="hero-headline"
+            >
+              {heroHeadlines[headlineIndex]}
             </h1>
             
             <p className="text-lg md:text-xl text-white/90 mb-6 md:mb-8 max-w-3xl mx-auto leading-relaxed" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
