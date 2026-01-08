@@ -1,0 +1,159 @@
+Create a tabbed navigation overview component for the Vega website at vega.synozur.com, inspired by the interaction pattern used on the Microsoft Viva Learning page under “Discover, share, and prioritize learning.”
+
+This component should present Vega’s key capabilities in a modern, scannable, enterprise-grade layout that matches the existing Vega visual style (typography, spacing, color system, tone).
+
+The component will be managed from System Admin → Communication and must be configurable, toggleable, and editable without code changes.
+
+Placement & Behavior
+
+Insert this component as a new section that appears:
+
+Only when enabled
+
+Directly above the section that begins with:
+
+“What You’ll Achieve
+Three outcomes that matter”
+
+When the feature is OFF, the page layout should collapse cleanly with no spacing artifacts.
+
+Component Structure
+Layout
+
+Left-hand vertical tab navigation (desktop)
+
+Horizontal tabs or accordion (mobile responsive)
+
+Right-hand content panel that updates dynamically based on the selected tab
+
+Each Tab Includes
+
+Tab name (short, action-oriented)
+
+Sidebar heading (editable)
+
+Supporting paragraph text (editable, rich text allowed)
+
+One primary screenshot or image
+
+Optional secondary screenshot or diagram
+
+Optional CTA link (internal or external)
+
+Admin Configuration Requirements
+
+Expose the following controls in System Admin → Communication → Vega Capabilities Section:
+
+Global Controls
+
+Feature ON / OFF toggle
+
+Section headline (editable)
+
+Section sub-headline (editable)
+
+Per-Tab Controls (repeatable)
+
+Tab label
+
+Sidebar heading
+
+Body copy (rich text)
+
+Image upload (in-page upload, stored with media assets)
+
+Optional secondary image
+
+Optional CTA text + URL
+
+Tab order (drag-and-drop preferred)
+
+All text and images must be editable without code deployment.
+
+Recommended Default Tabs & Screenshot Guidance
+
+Populate with sensible defaults that admins can modify later:
+
+Company Operating System
+
+Screenshot: Vega dashboard showing strategy → execution alignment
+
+Visual focus: operating rhythm, priorities, decision flow
+
+Strategy to Execution
+
+Screenshot: goal cascade, OKRs, or initiative tracking
+
+Visual focus: clarity, progress, accountability
+
+Leadership Alignment
+
+Screenshot: executive view or board-level summary
+
+Visual focus: shared context, decision readiness
+
+AI-Powered Insights
+
+Screenshot: Copilot-style insights, summaries, or recommendations
+
+Visual focus: signal over noise, foresight
+
+Governance & Visibility
+
+Screenshot: permissions, auditability, system-level visibility
+
+Visual focus: control, transparency, confidence
+
+(Use placeholder images if real screenshots are not yet available.)
+
+Design & UX Requirements
+
+Match the existing Vega page style:
+
+Typography scale
+
+Color palette
+
+Spacing rhythm
+
+Button styles
+
+Smooth tab transitions (no full page reload)
+
+Accessible:
+
+Keyboard navigable
+
+ARIA roles for tabs
+
+WCAG-compliant contrast
+
+Performance-safe:
+
+Lazy-load images
+
+No blocking scripts
+
+Technical Guidance
+
+Implement as a reusable component
+
+Content should be driven from a config object or CMS-style data structure
+
+Avoid hard-coding text or image paths
+
+Ensure future tabs can be added without layout refactoring
+
+Deliverables
+
+Front-end component (responsive, accessible)
+
+Admin configuration schema
+
+Default content populated
+
+Clear inline comments explaining how to extend or customize
+
+Outcome
+
+The result should feel like a polished Microsoft-grade capability explainer, adapted to Vega’s positioning as a Company Operating System, while giving Synozur full editorial control over messaging, visuals, and rollout timing.

@@ -3,12 +3,14 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight, Shield, Lock, Users, FileCheck, CheckCircle2, X, Compass, Target, RefreshCcw, Layers, BarChart3, Calendar, Sparkles, Building2, Play } from "lucide-react";
 import { Link } from "wouter";
+import { useQuery } from "@tanstack/react-query";
 import starTrailsBg from "@assets/AdobeStock_362805421_1767551096391.jpeg";
 import lightBeamBg from "@assets/AdobeStock_167081726_1767551096392.jpeg";
 import telescopeBg from "@assets/AdobeStock_1114783441_1767551096393.jpeg";
 import vegaLogo from "@assets/VegaTight_1766605018223.png";
 import vegaLogoWhite from "@assets/Vega_-_White_1767549184769.png";
 import vegaScreenshot from "@assets/VegaSS4_1767644736409.jpg";
+import vegaDemoVideo from "@assets/VegaDemo_1767845821092.mp4";
 
 const trustBadges = [
   { icon: Shield, label: "SOC 2 Type II" },
@@ -100,6 +102,12 @@ function CTAButton({ className = "" }: { className?: string }) {
 }
 
 export function LandingHero() {
+  const { data: landingSettings } = useQuery<{ heroMediaType: string }>({
+    queryKey: ["/api/landing-settings"],
+  });
+  
+  const heroMediaType = landingSettings?.heroMediaType || 'image';
+
   return (
     <>
       {/* Hero Section */}
@@ -438,19 +446,38 @@ export function LandingHero() {
         </div>
       </section>
 
-      {/* Screenshot Section */}
+      {/* Screenshot/Video Section */}
       <section id="screenshot-section" className="relative bg-background py-12 md:py-20 px-4 md:px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-6 md:mb-10">
             <h2 className="text-2xl md:text-3xl font-semibold mb-2">See Vega in Action</h2>
-            <p className="text-muted-foreground">Hierarchical OKRs, Big Rocks, and Progress Tracking</p>
+            <p className="text-muted-foreground">
+              {heroMediaType === 'video' 
+                ? 'From business plan to AI-powered check-in in less than 90 seconds'
+                : 'Hierarchical OKRs, Big Rocks, and Progress Tracking'}
+            </p>
           </div>
           <div className="relative rounded-xl overflow-hidden shadow-2xl border">
-            <img 
-              src={vegaScreenshot} 
-              alt="Vega Outcomes - OKR Hierarchy and Progress Tracking" 
-              className="w-full h-auto"
-            />
+            {heroMediaType === 'video' ? (
+              <video 
+                src={vegaDemoVideo}
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-full h-auto"
+                data-testid="hero-video"
+              >
+                Your browser does not support the video tag.
+              </video>
+            ) : (
+              <img 
+                src={vegaScreenshot} 
+                alt="Vega Outcomes - OKR Hierarchy and Progress Tracking" 
+                className="w-full h-auto"
+                data-testid="hero-image"
+              />
+            )}
           </div>
         </div>
       </section>
