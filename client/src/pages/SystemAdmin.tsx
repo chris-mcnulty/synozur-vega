@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, BookOpen, Save, RotateCcw, Activity, BarChart3, Globe, Monitor, Smartphone, Tablet, Bot, Download, Users, Building2, Check, X, Megaphone, ExternalLink, Info, CreditCard, Ban, Plus, Pencil, Eye, Home, UserPlus, RefreshCw, Calendar } from "lucide-react";
+import { Shield, BookOpen, Save, RotateCcw, Activity, BarChart3, Globe, Monitor, Smartphone, Tablet, Bot, Download, Users, Building2, Check, X, Megaphone, ExternalLink, Info, CreditCard, Ban, Plus, Pencil, Eye, Home, UserPlus, RefreshCw, Calendar, Film } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from "recharts";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -1437,6 +1437,7 @@ export default function SystemAdmin() {
 
         <TabsContent value="announcements" className="space-y-4">
           <AnnouncementManager />
+          <LandingHeroSettings />
         </TabsContent>
       </Tabs>
 
@@ -1832,6 +1833,92 @@ function AnnouncementManager() {
         >
           <Save className="h-4 w-4 mr-2" />
           {isSaving ? "Saving..." : "Save Announcement"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LandingHeroSettings() {
+  const { toast } = useToast();
+  const [heroMediaType, setHeroMediaType] = useState<'image' | 'video'>('image');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const { data: settings, isLoading } = useQuery<{ heroMediaType: string }>({
+    queryKey: ["/api/landing-settings"],
+  });
+
+  useEffect(() => {
+    if (settings?.heroMediaType) {
+      setHeroMediaType(settings.heroMediaType as 'image' | 'video');
+    }
+  }, [settings]);
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      await apiRequest("PATCH", "/api/admin/landing-settings", { heroMediaType });
+      queryClient.invalidateQueries({ queryKey: ["/api/landing-settings"] });
+      toast({
+        title: "Landing page settings saved",
+        description: "The hero media type has been updated.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save landing page settings.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-32">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Film className="h-5 w-5" />
+          Landing Page Hero
+        </CardTitle>
+        <CardDescription>
+          Choose whether to display a static screenshot or a looping demo video in the hero section
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <Label htmlFor="hero-video" className="text-base font-medium">Show Demo Video</Label>
+            <p className="text-sm text-muted-foreground">
+              {heroMediaType === 'video' 
+                ? 'Displaying looping demo video with "From business plan to AI-powered check-in in less than 90 seconds"' 
+                : 'Displaying static screenshot with "Hierarchical OKRs, Big Rocks, and Progress Tracking"'}
+            </p>
+          </div>
+          <Switch
+            id="hero-video"
+            checked={heroMediaType === 'video'}
+            onCheckedChange={(checked) => setHeroMediaType(checked ? 'video' : 'image')}
+            data-testid="switch-hero-video"
+          />
+        </div>
+
+        <Button 
+          onClick={handleSave} 
+          disabled={isSaving}
+          className="w-full sm:w-auto"
+          data-testid="button-save-hero-settings"
+        >
+          <Save className="h-4 w-4 mr-2" />
+          {isSaving ? "Saving..." : "Save Hero Settings"}
         </Button>
       </CardContent>
     </Card>
