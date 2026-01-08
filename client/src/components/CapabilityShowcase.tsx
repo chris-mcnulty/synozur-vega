@@ -6,12 +6,54 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowRight, Layers } from "lucide-react";
 import { Link } from "wouter";
 import { useIsMobile } from "@/hooks/use-mobile";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { CapabilitySection, CapabilityTab } from "@shared/schema";
+
+function LoadingSkeleton() {
+  return (
+    <section className="py-16 md:py-24 bg-muted/30" data-testid="capability-showcase-loading">
+      <div className="max-w-6xl mx-auto px-6">
+        <div className="text-center mb-12">
+          <Skeleton className="h-6 w-24 mx-auto mb-4" />
+          <Skeleton className="h-10 w-80 mx-auto mb-3" />
+          <Skeleton className="h-5 w-96 mx-auto" />
+        </div>
+        <div className="flex gap-6">
+          <div className="w-[220px] shrink-0 hidden md:block">
+            <div className="space-y-2">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-12 w-full rounded-lg" />
+              ))}
+            </div>
+          </div>
+          <div className="flex-1">
+            <Card>
+              <CardContent className="p-0">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-0">
+                  <div className="p-6 lg:p-8">
+                    <Skeleton className="h-8 w-48 mb-4" />
+                    <Skeleton className="h-4 w-full mb-2" />
+                    <Skeleton className="h-4 w-full mb-2" />
+                    <Skeleton className="h-4 w-3/4 mb-6" />
+                    <Skeleton className="h-10 w-32" />
+                  </div>
+                  <div className="bg-muted/50 min-h-[300px]">
+                    <Skeleton className="w-full h-full" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export function CapabilityShowcase() {
   const isMobile = useIsMobile();
@@ -26,7 +68,7 @@ export function CapabilityShowcase() {
   });
 
   if (sectionLoading || tabsLoading) {
-    return null;
+    return <LoadingSkeleton />;
   }
 
   if (!section?.enabled || tabs.length === 0) {
