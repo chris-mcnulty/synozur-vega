@@ -933,14 +933,17 @@ router.get('/admin-consent', async (req: Request, res: Response) => {
     const state = Buffer.from(encryptedState).toString('base64url');
 
     // Build admin consent URL
-    // For multi-tenant apps, we use /adminconsent endpoint
-    const adminConsentUrl = new URL('https://login.microsoftonline.com/organizations/v2.0/adminconsent');
+    // Use v1.0 /adminconsent endpoint (not v2.0) to grant BOTH Delegated AND Application permissions
+    // The v2.0 endpoint with specific scopes only grants Delegated permissions
+    // The v1.0 endpoint grants all permissions configured in the app registration (including Application permissions like User.Read.All)
+    const adminConsentUrl = new URL('https://login.microsoftonline.com/organizations/adminconsent');
     adminConsentUrl.searchParams.set('client_id', process.env.AZURE_CLIENT_ID);
     adminConsentUrl.searchParams.set('redirect_uri', ADMIN_CONSENT_REDIRECT_URI);
-    adminConsentUrl.searchParams.set('scope', ALL_SCOPES.join(' '));
     adminConsentUrl.searchParams.set('state', state);
+    // Note: Not setting 'scope' parameter - v1.0 adminconsent grants all pre-configured permissions from app registration
 
     console.log('[Entra Admin Consent] Initiating admin consent for tenant:', vegaTenantId);
+    console.log('[Entra Admin Consent] Using v1.0 adminconsent endpoint to include Application permissions');
     res.redirect(adminConsentUrl.toString());
   } catch (error) {
     console.error('[Entra Admin Consent] Error initiating consent:', error);
