@@ -1,0 +1,89 @@
+
+12-27 09:29:05
+detail: undefined,
+01-05 09:38:10
+tracingOptions: { tracingContext: [TracingContextImpl] },
+01-05 09:38:10
+at async getEntraAppGraphClient (file:///home/runner/workspace/dist/index.js:8865:23)
+01-05 09:38:10
+[Entra User Search] Error: AuthenticationRequiredError: missing_tenant_id_error: A tenant id - not common, organizations, or consumers - must be specified when using the client_credentials flow.
+01-05 09:38:10
+tenantId: 'common'
+01-05 09:38:10
+at async file:///home/runner/workspace/dist/index.js:11259:24 {
+01-05 09:38:10
+[AzureAD] User search failed: AuthenticationRequiredError: missing_tenant_id_error: A tenant id - not common, organizations, or consumers - must be specified when using the client_credentials flow.
+01-05 09:38:10
+at async file:///home/runner/workspace/dist/index.js:11259:24 {
+01-05 09:38:10
+at async searchAzureADUsers (file:///home/runner/workspace/dist/index.js:8877:20)
+01-05 09:38:10
+at Object.getTokenByClientSecret (file:///home/runner/workspace/node_modules/@azure/identity/dist/esm/msal/nodeFlows/msalClient.js:225:19)
+01-05 09:38:10
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+01-05 09:38:10
+scopes: [ 'https://graph.microsoft.com/.default' ],
+01-05 09:38:10
+at async getEntraAppGraphClient (file:///home/runner/workspace/dist/index.js:8865:23)
+01-05 09:38:10
+at async Object.withSpan (file:///home/runner/workspace/node_modules/@azure/core-tracing/dist/esm/tracingClient.js:37:28)
+01-05 09:38:11
+getTokenOptions: {
+01-05 09:38:11
+at async searchAzureADUsers (file:///home/runner/workspace/dist/index.js:8877:20)
+01-05 09:38:11
+tracingOptions: { tracingContext: [TracingContextImpl] },
+01-05 09:38:11
+at async Object.withSpan (file:///home/runner/workspace/node_modules/@azure/core-tracing/dist/esm/tracingClient.js:37:28)
+01-05 09:38:11
+at async Object.withSpan (file:///home/runner/workspace/node_modules/@azure/core-tracing/dist/esm/tracingClient.js:37:28)
+01-05 09:38:11
+at Object.getTokenByClientSecret (file:///home/runner/workspace/node_modules/@azure/identity/dist/esm/msal/nodeFlows/msalClient.js:225:19)
+01-05 09:38:11
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+01-05 09:38:11
+at async getEntraAppGraphClient (file:///home/runner/workspace/dist/index.js:8865:23)
+01-05 09:38:11
+at async file:///home/runner/workspace/dist/index.js:11259:24 {
+01-05 09:38:11
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+01-05 09:38:11
+tenantId: 'common'
+01-05 09:38:11
+at async getEntraAppAccessToken (file:///home/runner/workspace/dist/index.js:8852:25)
+01-05 09:38:11
+scopes: [ 'https://graph.microsoft.com/.default' ],
+01-05 09:38:11
+[Entra User Search] Error: AuthenticationRequiredError: missing_tenant_id_error: A tenant id - not common, organizations, or consumers - must be specified when using the client_credentials flow.
+01-05 09:38:11
+}
+01-05 09:38:11
+at handleMsalError (file:///home/runner/workspace/node_modules/@azure/identity/dist/esm/msal/utils.js:167:12)
+01-05 09:38:11
+[AzureAD] User search failed: AuthenticationRequiredError: missing_tenant_id_error: A tenant id - not common, organizations, or consumers - must be specified when using the client_credentials flow.
+01-05 09:38:11
+at Object.getTokenByClientSecret (file:///home/runner/workspace/node_modules/@azure/identity/dist/esm/msal/nodeFlows/msalClient.js:225:19)
+01-05 09:38:11
+}
+01-05 09:38:11
+at async getEntraAppAccessToken (file:///home/runner/workspace/dist/index.js:8852:25)
+01-05 09:38:11
+at handleMsalError (file:///home/runner/workspace/node_modules/@azure/identity/dist/esm/msal/utils.js:167:12)
+01-05 09:38:11
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+01-05 09:38:11
+at async searchAzureADUsers (file:///home/runner/workspace/dist/index.js:8877:20)
+01-05 09:38:11
+tracingOptions: { tracingContext: [TracingContextImpl] },
+01-05 09:38:11
+[AzureAD] User search failed: AuthenticationRequiredError: missing_tenant_id_error: A tenant id - not common, organizations, or consumers - must be specified when using the client_credentials flow.
+01-05 09:38:11
+at async file:///home/runner/workspace/dist/index.js:11259:24 {
+01-05 09:38:11
+tenantId: 'common'
+01-05 09:38:11
+at Object.getTokenByClientSecret (file:///home/runner/workspace/node_modules/@azure/identity/dist/esm/msal/nodeFlows/msalClient.js:225:19)
+01-05 09:38:16
+scopes: [ 'https://graph.microsoft.com/.default' ],
+01-05 09:38:16
+tracingOptions: { tracingContext: [TracingContextImpl] },

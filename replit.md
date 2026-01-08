@@ -78,6 +78,11 @@ When adding new features or proposals, update BACKLOG.md rather than creating se
 - **M365 Copilot Agent App ID**: `6aeac29a-cb76-405b-b0c6-df4a1a368f62` (declarative agent for Teams/Copilot)
 - **M365 Enterprise Token Store Client**: `ab3be6b7-f5df-413d-ac2d-abf1e3fd9c0b`
 
+### Important: Production vs Development Environments
+- **Production database is separate**: Users login to production (vega.synozur.com) where SSO is configured. The development database has no information about production user accounts, tenants, or SSO configurations.
+- **Cannot debug production auth issues from dev**: Production logs and database must be obtained separately to debug authentication issues.
+- **Azure AD SSO is configured in production**: The Entra app registration points to production URLs.
+
 ### Key Implementation Patterns
 - **Pacific Time Requirement**: All date/time operations use America/Los_Angeles timezone to prevent misdating
 - **React Hooks Rule**: All hooks must be called unconditionally BEFORE any early returns or conditional rendering
