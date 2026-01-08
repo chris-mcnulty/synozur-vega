@@ -8,11 +8,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, BookOpen, Save, RotateCcw, Activity, BarChart3, Globe, Monitor, Smartphone, Tablet, Bot, Download, Users, Building2, Check, X, Megaphone, ExternalLink, Info, CreditCard, Ban, Plus, Pencil, Eye, Home, UserPlus, RefreshCw, Calendar, Film } from "lucide-react";
+import { Shield, BookOpen, Save, RotateCcw, Activity, BarChart3, Globe, Monitor, Smartphone, Tablet, Bot, Download, Users, Building2, Check, X, Megaphone, ExternalLink, Info, CreditCard, Ban, Plus, Pencil, Eye, Home, UserPlus, RefreshCw, Calendar, Film, Layers, Trash2, GripVertical, ImagePlus, Upload } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from "recharts";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import type { SystemBanner, ServicePlan, BlockedDomain } from "@shared/schema";
+import type { SystemBanner, ServicePlan, BlockedDomain, CapabilitySection, CapabilityTab } from "@shared/schema";
 import { PlatformAIUsageWidget } from "@/components/AIUsageWidget";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
@@ -1438,6 +1438,7 @@ export default function SystemAdmin() {
         <TabsContent value="announcements" className="space-y-4">
           <AnnouncementManager />
           <LandingHeroSettings />
+          <CapabilityShowcaseSettings />
         </TabsContent>
       </Tabs>
 
@@ -1922,5 +1923,442 @@ function LandingHeroSettings() {
         </Button>
       </CardContent>
     </Card>
+  );
+}
+
+function CapabilityShowcaseSettings() {
+  const { toast } = useToast();
+  const [sectionEnabled, setSectionEnabled] = useState(false);
+  const [headline, setHeadline] = useState("Explore Vega Capabilities");
+  const [subHeadline, setSubHeadline] = useState("Discover how Vega transforms strategy into weekly action");
+  const [isSavingSection, setIsSavingSection] = useState(false);
+  const [editingTab, setEditingTab] = useState<CapabilityTab | null>(null);
+  const [tabDialogOpen, setTabDialogOpen] = useState(false);
+  const [tabFormData, setTabFormData] = useState({
+    tabLabel: "",
+    heading: "",
+    bodyCopy: "",
+    primaryImageUrl: "",
+    secondaryImageUrl: "",
+    ctaText: "",
+    ctaUrl: "",
+  });
+  const [isSavingTab, setIsSavingTab] = useState(false);
+
+  const { data: section, isLoading: sectionLoading } = useQuery<CapabilitySection>({
+    queryKey: ["/api/capability-section"],
+  });
+
+  const { data: tabs = [], isLoading: tabsLoading } = useQuery<CapabilityTab[]>({
+    queryKey: ["/api/capability-tabs"],
+  });
+
+  useEffect(() => {
+    if (section) {
+      setSectionEnabled(section.enabled);
+      setHeadline(section.headline);
+      setSubHeadline(section.subHeadline || "");
+    }
+  }, [section]);
+
+  const handleSaveSection = async () => {
+    setIsSavingSection(true);
+    try {
+      await apiRequest("PATCH", "/api/admin/capability-section", {
+        enabled: sectionEnabled,
+        headline,
+        subHeadline,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/capability-section"] });
+      toast({
+        title: "Capability section saved",
+        description: "Settings have been updated.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to save capability section settings.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingSection(false);
+    }
+  };
+
+  const openTabDialog = (tab?: CapabilityTab) => {
+    if (tab) {
+      setEditingTab(tab);
+      setTabFormData({
+        tabLabel: tab.tabLabel,
+        heading: tab.heading,
+        bodyCopy: tab.bodyCopy,
+        primaryImageUrl: tab.primaryImageUrl || "",
+        secondaryImageUrl: tab.secondaryImageUrl || "",
+        ctaText: tab.ctaText || "",
+        ctaUrl: tab.ctaUrl || "",
+      });
+    } else {
+      setEditingTab(null);
+      setTabFormData({
+        tabLabel: "",
+        heading: "",
+        bodyCopy: "",
+        primaryImageUrl: "",
+        secondaryImageUrl: "",
+        ctaText: "",
+        ctaUrl: "",
+      });
+    }
+    setTabDialogOpen(true);
+  };
+
+  const handleSaveTab = async () => {
+    if (!tabFormData.tabLabel || !tabFormData.heading || !tabFormData.bodyCopy) {
+      toast({
+        title: "Validation Error",
+        description: "Tab label, heading, and body copy are required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSavingTab(true);
+    try {
+      if (editingTab) {
+        await apiRequest("PATCH", `/api/admin/capability-tabs/${editingTab.id}`, tabFormData);
+      } else {
+        await apiRequest("POST", "/api/admin/capability-tabs", tabFormData);
+      }
+      queryClient.invalidateQueries({ queryKey: ["/api/capability-tabs"] });
+      setTabDialogOpen(false);
+      toast({
+        title: editingTab ? "Tab updated" : "Tab created",
+        description: `"${tabFormData.tabLabel}" has been ${editingTab ? "updated" : "created"}.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: `Failed to ${editingTab ? "update" : "create"} tab.`,
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingTab(false);
+    }
+  };
+
+  const handleDeleteTab = async (tab: CapabilityTab) => {
+    if (!confirm(`Delete "${tab.tabLabel}"? This action cannot be undone.`)) return;
+    
+    try {
+      await apiRequest("DELETE", `/api/admin/capability-tabs/${tab.id}`);
+      queryClient.invalidateQueries({ queryKey: ["/api/capability-tabs"] });
+      toast({
+        title: "Tab deleted",
+        description: `"${tab.tabLabel}" has been removed.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete tab.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const moveTab = async (tabId: string, direction: 'up' | 'down') => {
+    const index = tabs.findIndex(t => t.id === tabId);
+    if (index === -1) return;
+    if (direction === 'up' && index === 0) return;
+    if (direction === 'down' && index === tabs.length - 1) return;
+
+    const swapIndex = direction === 'up' ? index - 1 : index + 1;
+    const newOrder = tabs.map((t, i) => {
+      if (i === index) return { id: t.id, sortOrder: tabs[swapIndex].sortOrder };
+      if (i === swapIndex) return { id: t.id, sortOrder: tabs[index].sortOrder };
+      return { id: t.id, sortOrder: t.sortOrder };
+    });
+
+    try {
+      await apiRequest("POST", "/api/admin/capability-tabs/reorder", { tabOrders: newOrder });
+      queryClient.invalidateQueries({ queryKey: ["/api/capability-tabs"] });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to reorder tabs.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  if (sectionLoading || tabsLoading) {
+    return (
+      <div className="flex items-center justify-center h-32">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Layers className="h-5 w-5" />
+            Capability Showcase
+          </CardTitle>
+          <CardDescription>
+            Configure the tabbed capability showcase section on the landing page
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <Label htmlFor="capability-enabled" className="text-base font-medium">Enable Showcase Section</Label>
+              <p className="text-sm text-muted-foreground">
+                Show the capability showcase below the hero section
+              </p>
+            </div>
+            <Switch
+              id="capability-enabled"
+              checked={sectionEnabled}
+              onCheckedChange={setSectionEnabled}
+              data-testid="switch-capability-enabled"
+            />
+          </div>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="capability-headline">Section Headline</Label>
+              <Input
+                id="capability-headline"
+                value={headline}
+                onChange={(e) => setHeadline(e.target.value)}
+                placeholder="Explore Vega Capabilities"
+                data-testid="input-capability-headline"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="capability-subheadline">Sub-headline</Label>
+              <Input
+                id="capability-subheadline"
+                value={subHeadline}
+                onChange={(e) => setSubHeadline(e.target.value)}
+                placeholder="Discover how Vega transforms strategy into weekly action"
+                data-testid="input-capability-subheadline"
+              />
+            </div>
+          </div>
+
+          <Button
+            onClick={handleSaveSection}
+            disabled={isSavingSection}
+            className="w-full sm:w-auto"
+            data-testid="button-save-capability-section"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {isSavingSection ? "Saving..." : "Save Section Settings"}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Layers className="h-5 w-5" />
+                Capability Tabs
+              </CardTitle>
+              <CardDescription>
+                Manage the individual capability tabs displayed in the showcase
+              </CardDescription>
+            </div>
+            <Button onClick={() => openTabDialog()} size="sm" data-testid="button-add-capability-tab">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Tab
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {tabs.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Layers className="h-12 w-12 mx-auto mb-4 opacity-50" />
+              <p>No capability tabs configured yet.</p>
+              <p className="text-sm">Click "Add Tab" to create your first capability showcase tab.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {tabs.map((tab, index) => (
+                <div
+                  key={tab.id}
+                  className="flex items-center gap-3 p-3 border rounded-lg bg-muted/30"
+                  data-testid={`capability-tab-${tab.id}`}
+                >
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => moveTab(tab.id, 'up')}
+                      disabled={index === 0}
+                      data-testid={`button-move-up-${tab.id}`}
+                    >
+                      <GripVertical className="h-3 w-3 rotate-90" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => moveTab(tab.id, 'down')}
+                      disabled={index === tabs.length - 1}
+                      data-testid={`button-move-down-${tab.id}`}
+                    >
+                      <GripVertical className="h-3 w-3 rotate-90" />
+                    </Button>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium truncate">{tab.tabLabel}</div>
+                    <div className="text-sm text-muted-foreground truncate">{tab.heading}</div>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    {tab.primaryImageUrl && (
+                      <Badge variant="secondary" className="text-xs">
+                        <ImagePlus className="h-3 w-3 mr-1" />
+                        Image
+                      </Badge>
+                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openTabDialog(tab)}
+                      data-testid={`button-edit-tab-${tab.id}`}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteTab(tab)}
+                      data-testid={`button-delete-tab-${tab.id}`}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={tabDialogOpen} onOpenChange={setTabDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto" data-testid="dialog-capability-tab">
+          <DialogHeader>
+            <DialogTitle>{editingTab ? "Edit Capability Tab" : "Create Capability Tab"}</DialogTitle>
+            <DialogDescription>
+              Configure the content for this capability showcase tab
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="tab-label">Tab Label *</Label>
+                <Input
+                  id="tab-label"
+                  value={tabFormData.tabLabel}
+                  onChange={(e) => setTabFormData({ ...tabFormData, tabLabel: e.target.value })}
+                  placeholder="e.g., Strategy"
+                  data-testid="input-tab-label"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tab-heading">Heading *</Label>
+                <Input
+                  id="tab-heading"
+                  value={tabFormData.heading}
+                  onChange={(e) => setTabFormData({ ...tabFormData, heading: e.target.value })}
+                  placeholder="e.g., Transform Strategy into Action"
+                  data-testid="input-tab-heading"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="tab-body">Body Copy * (Markdown supported)</Label>
+              <Textarea
+                id="tab-body"
+                value={tabFormData.bodyCopy}
+                onChange={(e) => setTabFormData({ ...tabFormData, bodyCopy: e.target.value })}
+                placeholder="Describe this capability..."
+                rows={4}
+                data-testid="input-tab-body"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="tab-primary-image">Primary Image URL</Label>
+                <Input
+                  id="tab-primary-image"
+                  value={tabFormData.primaryImageUrl}
+                  onChange={(e) => setTabFormData({ ...tabFormData, primaryImageUrl: e.target.value })}
+                  placeholder="https://..."
+                  data-testid="input-tab-primary-image"
+                />
+                <p className="text-xs text-muted-foreground">Main showcase image for this tab</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tab-secondary-image">Secondary Image URL</Label>
+                <Input
+                  id="tab-secondary-image"
+                  value={tabFormData.secondaryImageUrl}
+                  onChange={(e) => setTabFormData({ ...tabFormData, secondaryImageUrl: e.target.value })}
+                  placeholder="https://..."
+                  data-testid="input-tab-secondary-image"
+                />
+                <p className="text-xs text-muted-foreground">Optional secondary/detail image</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="tab-cta-text">CTA Button Text</Label>
+                <Input
+                  id="tab-cta-text"
+                  value={tabFormData.ctaText}
+                  onChange={(e) => setTabFormData({ ...tabFormData, ctaText: e.target.value })}
+                  placeholder="e.g., Learn More"
+                  data-testid="input-tab-cta-text"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="tab-cta-url">CTA Button URL</Label>
+                <Input
+                  id="tab-cta-url"
+                  value={tabFormData.ctaUrl}
+                  onChange={(e) => setTabFormData({ ...tabFormData, ctaUrl: e.target.value })}
+                  placeholder="/signup or https://..."
+                  data-testid="input-tab-cta-url"
+                />
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTabDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveTab}
+              disabled={isSavingTab || !tabFormData.tabLabel || !tabFormData.heading || !tabFormData.bodyCopy}
+              data-testid="button-save-tab"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {isSavingTab ? "Saving..." : editingTab ? "Update Tab" : "Create Tab"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }

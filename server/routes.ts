@@ -39,6 +39,7 @@ import {
 } from "./middleware/rbac";
 import { ROLES, PERMISSIONS, USER_TYPES, getAvailableRolesForUserType, hasPermission, Role } from "../shared/rbac";
 import { isPublicEmailDomain } from "../shared/publicDomains";
+import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 
 // Authentication middleware (basic - just checks session)
 function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -2484,6 +2485,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ error: "Failed to fetch tenant activity report" });
     }
   });
+
+  // Register object storage routes for file uploads
+  registerObjectStorageRoutes(app);
 
   const httpServer = createServer(app);
 
