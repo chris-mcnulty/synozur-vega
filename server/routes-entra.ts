@@ -1231,6 +1231,14 @@ router.get('/users/search', async (req: Request, res: Response) => {
       });
     }
     
+    // Handle insufficient privileges - remote tenant admin needs to grant consent
+    if (error.code === 'Authorization_RequestDenied' || error.message?.includes('Insufficient privileges')) {
+      return res.status(403).json({ 
+        error: 'Your organization\'s IT administrator needs to grant Vega permission to read user directory. Please contact your IT admin to grant admin consent for the Vega app in Microsoft Entra ID.',
+        code: 'admin_consent_required'
+      });
+    }
+    
     res.status(500).json({ error: 'Failed to search Azure AD users' });
   }
 });

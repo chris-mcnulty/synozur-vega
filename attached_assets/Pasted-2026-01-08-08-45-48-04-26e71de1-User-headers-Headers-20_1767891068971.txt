@@ -1,0 +1,72 @@
+2026-01-08 08:45:48.04
+26e71de1
+User
+headers: Headers {
+2026-01-08 08:45:48.04
+26e71de1
+User
+'transfer-encoding': 'chunked',
+2026-01-08 08:45:48.04
+26e71de1
+User
+at Function. (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphErrorHandler.js:91:48)
+2026-01-08 08:45:48.04
+26e71de1
+User
+statusCode: 403,
+2026-01-08 08:45:48.04
+26e71de1
+User
+requestId: '04dc09a4-2654-487b-8b59-5da0c3c0137d',
+2026-01-08 08:45:48.04
+26e71de1
+User
+[AzureAD] User search failed: GraphError: Insufficient privileges to complete the operation.
+2026-01-08 08:45:48.04
+26e71de1
+User
+at GraphErrorHandler.constructErrorFromResponse (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphErrorHandler.js:63:22)
+2026-01-08 08:45:48.04
+26e71de1
+User
+at GraphRequest. (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphRequest.js:315:84) {
+2026-01-08 08:45:48.04
+26e71de1
+User
+at Object.__awaiter (/home/runner/workspace/node_modules/tslib/tslib.js:166:16)
+2026-01-08 08:45:48.04
+26e71de1
+User
+at step (/home/runner/workspace/node_modules/tslib/tslib.js:196:27)
+2026-01-08 08:45:48.04
+26e71de1
+User
+at Object.next (/home/runner/workspace/node_modules/tslib/tslib.js:177:57)
+2026-01-08 08:45:48.04
+26e71de1
+User
+date: 2026-01-08T16:45:48.000Z,
+2026-01-08 08:45:48.04
+26e71de1
+User
+'x-ms-ags-diagnostic': '{"ServerInfo":{"DataCenter":"Central US","Slice":"E","Ring":"4","ScaleUnit":"001","RoleInstance":"DS2PEPF00005FFE"}}',
+2026-01-08 08:45:48.04
+26e71de1
+User
+at new GraphError (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphError.js:34:28)
+2026-01-08 08:45:48.04
+26e71de1
+User
+at GraphErrorHandler.getError (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphErrorHandler.js:87:24)
+2026-01-08 08:45:48.04
+26e71de1
+User
+at /home/runner/workspace/node_modules/tslib/tslib.js:170:75
+2026-01-08 08:45:48.04
+26e71de1
+User
+code: 'Authorization_RequestDenied',
+2026-01-08 08:45:48.04
+26e71de1
+User
+'content-type': 'application/json',
