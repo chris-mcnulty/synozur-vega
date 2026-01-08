@@ -2206,6 +2206,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get landing page settings (public - for display on homepage)
+  app.get("/api/landing-settings", async (req: Request, res: Response) => {
+    try {
+      const settings = await storage.getLandingPageSettings();
+      res.json(settings || { heroMediaType: 'image' });
+    } catch (error) {
+      console.error("Error fetching landing page settings:", error);
+      res.status(500).json({ error: "Failed to fetch landing page settings" });
+    }
+  });
+
+  // Update landing page settings (platform admin only)
+  app.patch("/api/admin/landing-settings", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const { heroMediaType } = req.body;
+      const settings = await storage.updateLandingPageSettings({
+        heroMediaType,
+        updatedBy: req.user!.id,
+      });
+      res.json(settings);
+    } catch (error) {
+      console.error("Error updating landing page settings:", error);
+      res.status(500).json({ error: "Failed to update landing page settings" });
+    }
+  });
+
   // Update tenant's service plan (platform admin only)
   app.patch("/api/admin/tenants/:id/plan", ...platformAdminOnly, async (req: Request, res: Response) => {
     try {
