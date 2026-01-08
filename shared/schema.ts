@@ -99,6 +99,29 @@ export const insertSystemBannerSchema = createInsertSchema(systemBanners).omit({
 export type InsertSystemBanner = z.infer<typeof insertSystemBannerSchema>;
 export type SystemBanner = typeof systemBanners.$inferSelect;
 
+// Landing page settings - controls landing page hero media and other settings
+export const HERO_MEDIA_TYPE = {
+  IMAGE: 'image',
+  VIDEO: 'video',
+} as const;
+
+export type HeroMediaType = typeof HERO_MEDIA_TYPE[keyof typeof HERO_MEDIA_TYPE];
+
+export const landingPageSettings = pgTable("landing_page_settings", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  heroMediaType: text("hero_media_type").notNull().default("image"), // 'image' or 'video'
+  updatedBy: varchar("updated_by"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertLandingPageSettingsSchema = createInsertSchema(landingPageSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertLandingPageSettings = z.infer<typeof insertLandingPageSettingsSchema>;
+export type LandingPageSettings = typeof landingPageSettings.$inferSelect;
+
 // ============================================
 // USERS
 // ============================================

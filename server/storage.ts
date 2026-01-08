@@ -33,7 +33,8 @@ import {
   servicePlans, type ServicePlan, type InsertServicePlan,
   blockedDomains, type BlockedDomain, type InsertBlockedDomain,
   pageVisits, type PageVisit, type InsertPageVisit,
-  systemBanners, type SystemBanner, type InsertSystemBanner, BANNER_STATUS
+  systemBanners, type SystemBanner, type InsertSystemBanner, BANNER_STATUS,
+  landingPageSettings, type LandingPageSettings, type InsertLandingPageSettings
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, inArray, gte, lte, count } from "drizzle-orm";
@@ -285,6 +286,10 @@ export interface IStorage {
   createBanner(banner: InsertSystemBanner): Promise<SystemBanner>;
   updateBanner(id: string, banner: Partial<InsertSystemBanner>): Promise<SystemBanner>;
   deleteBanner(id: string): Promise<void>;
+  
+  // Landing Page Settings
+  getLandingPageSettings(): Promise<LandingPageSettings | undefined>;
+  updateLandingPageSettings(settings: Partial<InsertLandingPageSettings>): Promise<LandingPageSettings>;
   
   // Page Visit Analytics
   recordPageVisit(visit: InsertPageVisit): Promise<PageVisit>;
@@ -2583,6 +2588,27 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBanner(id: string): Promise<void> {
     await db.delete(systemBanners).where(eq(systemBanners.id, id));
+  }
+
+  async getLandingPageSettings(): Promise<LandingPageSettings | undefined> {
+    const [settings] = await db.select().from(landingPageSettings).limit(1);
+    return settings || undefined;
+  }
+
+  async updateLandingPageSettings(settings: Partial<InsertLandingPageSettings>): Promise<LandingPageSettings> {
+    const existing = await this.getLandingPageSettings();
+    if (existing) {
+      const [updated] = await db.update(landingPageSettings)
+        .set({ ...settings, updatedAt: new Date() })
+        .where(eq(landingPageSettings.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(landingPageSettings)
+        .values({ heroMediaType: settings.heroMediaType || 'image', ...settings })
+        .returning();
+      return created;
+    }
   }
 
   async recordPageVisit(visit: InsertPageVisit): Promise<PageVisit> {
