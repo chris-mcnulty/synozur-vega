@@ -185,7 +185,7 @@ router.get('/callback', async (req: Request, res: Response) => {
     const client = getMsalClient();
     if (!client) {
       console.error(`[Entra Callback][${requestId}] MSAL client not available`);
-      return res.redirect('/auth?error=sso_not_configured');
+      return res.redirect('/login?error=sso_not_configured');
     }
 
     const { code, state, error, error_description } = req.query;
@@ -193,17 +193,17 @@ router.get('/callback', async (req: Request, res: Response) => {
     if (error) {
       console.error(`[Entra Callback][${requestId}] Microsoft returned error: ${error}`);
       console.error(`[Entra Callback][${requestId}] Error description: ${error_description}`);
-      return res.redirect(`/auth?error=${encodeURIComponent(error as string)}&error_description=${encodeURIComponent((error_description as string) || '')}`);
+      return res.redirect(`/login?error=${encodeURIComponent(error as string)}&error_description=${encodeURIComponent((error_description as string) || '')}`);
     }
 
     if (!code || typeof code !== 'string') {
       console.error(`[Entra Callback][${requestId}] Missing authorization code`);
-      return res.redirect('/auth?error=missing_auth_code');
+      return res.redirect('/login?error=missing_auth_code');
     }
 
     if (!state || typeof state !== 'string') {
       console.error(`[Entra Callback][${requestId}] Missing state parameter`);
-      return res.redirect('/auth?error=missing_state');
+      return res.redirect('/login?error=missing_state');
     }
 
     console.log(`[Entra Callback][${requestId}] Authorization code received, decoding state...`);
@@ -220,7 +220,7 @@ router.get('/callback', async (req: Request, res: Response) => {
       console.log(`[Entra Callback][${requestId}] State decoded successfully, tenantHint: ${tenantHint || 'none'}`);
     } catch (stateError: any) {
       console.error(`[Entra Callback][${requestId}] Failed to decode state:`, stateError?.message);
-      return res.redirect('/auth?error=invalid_state');
+      return res.redirect('/login?error=invalid_state');
     }
 
     console.log(`[Entra Callback][${requestId}] Exchanging code for tokens...`);
@@ -235,7 +235,7 @@ router.get('/callback', async (req: Request, res: Response) => {
 
     if (!tokenResponse || !tokenResponse.account) {
       console.error(`[Entra Callback][${requestId}] Token acquisition failed - no response or account`);
-      return res.redirect('/auth?error=token_acquisition_failed');
+      return res.redirect('/login?error=token_acquisition_failed');
     }
 
     console.log(`[Entra Callback][${requestId}] Token acquired successfully`);
@@ -251,7 +251,7 @@ router.get('/callback', async (req: Request, res: Response) => {
 
     if (!email) {
       console.error(`[Entra Callback][${requestId}] No email in token claims`);
-      return res.redirect('/auth?error=no_email_claim');
+      return res.redirect('/login?error=no_email_claim');
     }
 
     console.log(`[Entra Callback][${requestId}] Looking up user by email: ${email}`);
@@ -267,7 +267,7 @@ router.get('/callback', async (req: Request, res: Response) => {
       if (!matchingTenant) {
         console.log(`[Entra Callback][${requestId}] No matching Vega tenant for user ${email}`);
         console.log(`[Entra Callback][${requestId}] User cannot be auto-provisioned - organization not registered`);
-        return res.redirect('/auth?error=no_tenant_access&message=Your organization is not registered in Vega');
+        return res.redirect('/login?error=no_tenant_access&message=Your organization is not registered in Vega');
       }
 
       console.log(`[Entra Callback][${requestId}] Found matching tenant: ${matchingTenant.name} (${matchingTenant.id})`);
@@ -337,7 +337,7 @@ router.get('/callback', async (req: Request, res: Response) => {
     req.session.save((err) => {
       if (err) {
         console.error(`[Entra Callback][${requestId}] Session save error:`, err);
-        return res.redirect(`${getBaseUrl()}/auth?error=session_error`);
+        return res.redirect(`${getBaseUrl()}/login?error=session_error`);
       }
       console.log(`[Entra Callback][${requestId}] Login successful, redirecting to dashboard`);
       // Redirect to dashboard after successful SSO login (absolute URL)
@@ -347,7 +347,7 @@ router.get('/callback', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error(`[Entra Callback][${requestId}] Callback error:`, error);
     console.error(`[Entra Callback][${requestId}] Error stack:`, error?.stack);
-    res.redirect(`${getBaseUrl()}/auth?error=callback_failed`);
+    res.redirect(`${getBaseUrl()}/login?error=callback_failed`);
   }
 });
 
@@ -360,7 +360,7 @@ router.post('/logout', (req: Request, res: Response) => {
       return res.status(500).json({ error: 'Failed to logout' });
     }
     
-    const postLogoutRedirect = encodeURIComponent(`${getBaseUrl()}/auth`);
+    const postLogoutRedirect = encodeURIComponent(`${getBaseUrl()}/login`);
     const azureLogoutUrl = `https://login.microsoftonline.com/common/oauth2/v2.0/logout?post_logout_redirect_uri=${postLogoutRedirect}`;
     
     res.json({ logoutUrl: azureLogoutUrl });
