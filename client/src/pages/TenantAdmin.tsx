@@ -711,6 +711,9 @@ export default function TenantAdmin() {
   const [bulkImportTenantId, setBulkImportTenantId] = useState<string>("NONE");
   const [importResults, setImportResults] = useState<{ email: string; success: boolean; error?: string }[] | null>(null);
 
+  // User list filter state
+  const [userTenantFilter, setUserTenantFilter] = useState<string>("ALL");
+
   // Auth context
   const { user: currentUser } = useAuth();
 
@@ -1736,6 +1739,26 @@ export default function TenantAdmin() {
               </Button>
             </div>
           </div>
+          
+          {/* Tenant filter - only show if user can see multiple tenants */}
+          {tenants.length > 1 && (
+            <div className="flex items-center gap-2">
+              <Label htmlFor="user-tenant-filter" className="text-sm text-muted-foreground whitespace-nowrap">Filter by organization:</Label>
+              <Select value={userTenantFilter} onValueChange={setUserTenantFilter}>
+                <SelectTrigger id="user-tenant-filter" className="w-[250px]" data-testid="select-user-tenant-filter">
+                  <SelectValue placeholder="All organizations" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ALL">All organizations</SelectItem>
+                  <SelectItem value="NONE">No organization</SelectItem>
+                  {tenants.map((tenant) => (
+                    <SelectItem key={tenant.id} value={tenant.id}>{tenant.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          
           <Card>
             <CardContent className="pt-6">
               {usersLoading ? (
@@ -1744,8 +1767,8 @@ export default function TenantAdmin() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Email</TableHead>
                       <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Role</TableHead>
                       <TableHead>Organization</TableHead>
@@ -1753,10 +1776,21 @@ export default function TenantAdmin() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {users.map((user) => (
+                    {users
+                      .filter((user) => {
+                        if (userTenantFilter === "ALL") return true;
+                        if (userTenantFilter === "NONE") return !user.tenantId;
+                        return user.tenantId === userTenantFilter;
+                      })
+                      .sort((a, b) => {
+                        const nameA = (a.name || a.email || "").toLowerCase();
+                        const nameB = (b.name || b.email || "").toLowerCase();
+                        return nameA.localeCompare(nameB);
+                      })
+                      .map((user) => (
                       <TableRow key={user.id} data-testid={`user-row-${user.id}`}>
-                        <TableCell className="font-mono text-sm">{user.email}</TableCell>
                         <TableCell>{user.name || "-"}</TableCell>
+                        <TableCell className="font-mono text-sm">{user.email}</TableCell>
                         <TableCell>
                           {user.emailVerified ? (
                             <Badge variant="default" className="bg-green-600 hover:bg-green-700">
