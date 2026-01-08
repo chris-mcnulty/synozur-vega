@@ -1,0 +1,192 @@
+2026-01-08 11:46:35.59
+82baefe0
+User
+at async file:///home/runner/workspace/dist/index.js:11906:25 {
+2026-01-08 11:46:35.59
+82baefe0
+User
+constraint: 'users_email_key',
+2026-01-08 11:46:35.59
+82baefe0
+User
+detail: 'Key (email)=(michelle.boyd@synozur.com) already exists.',
+2026-01-08 11:46:35.59
+82baefe0
+User
+where: undefined,
+2026-01-08 11:46:35.59
+82baefe0
+User
+position: undefined,
+2026-01-08 11:46:35.59
+82baefe0
+User
+schema: 'public',
+2026-01-08 11:46:35.59
+82baefe0
+User
+column: undefined,
+2026-01-08 11:46:35.59
+82baefe0
+User
+routine: '_bt_check_unique'
+2026-01-08 11:46:35.59
+82baefe0
+User
+line: '666',
+2026-01-08 11:46:35.59
+82baefe0
+User
+hint: undefined,
+2026-01-08 11:46:35.59
+82baefe0
+User
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2026-01-08 11:46:35.59
+82baefe0
+User
+internalPosition: undefined,
+2026-01-08 11:46:35.59
+82baefe0
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-01-08 11:46:35.59
+82baefe0
+User
+file: 'nbtinsert.c',
+2026-01-08 11:46:35.59
+82baefe0
+User
+code: '23505',
+2026-01-08 11:46:35.59
+82baefe0
+User
+}
+2026-01-08 11:46:35.59
+82baefe0
+User
+table: 'users',
+2026-01-08 11:46:35.59
+82baefe0
+User
+[Entra Add User] Error: error: duplicate key value violates unique constraint "users_email_key"
+2026-01-08 11:46:35.59
+82baefe0
+User
+length: 217,
+2026-01-08 11:46:35.59
+82baefe0
+User
+internalQuery: undefined,
+2026-01-08 11:46:35.59
+82baefe0
+User
+severity: 'ERROR',
+2026-01-08 11:46:35.59
+82baefe0
+User
+dataType: undefined,
+2026-01-08 11:46:35.59
+82baefe0
+User
+at async DatabaseStorage.createUser (file:///home/runner/workspace/dist/index.js:1498:24)
+2026-01-08 11:46:35.59
+82baefe0
+User
+at async NeonPreparedQuery.execute (file:///home/runner/workspace/node_modules/drizzle-orm/neon-serverless/session.js:76:20)
+2026-01-08 11:46:48.04
+82baefe0
+User
+internalQuery: undefined,
+2026-01-08 11:46:48.04
+82baefe0
+User
+length: 217,
+2026-01-08 11:46:48.04
+82baefe0
+User
+constraint: 'users_email_key',
+2026-01-08 11:46:48.04
+82baefe0
+User
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2026-01-08 11:46:48.04
+82baefe0
+User
+internalPosition: undefined,
+2026-01-08 11:46:48.04
+82baefe0
+User
+where: undefined,
+2026-01-08 11:46:48.04
+82baefe0
+User
+at async DatabaseStorage.createUser (file:///home/runner/workspace/dist/index.js:1498:24)
+2026-01-08 11:46:48.04
+82baefe0
+User
+at async NeonPreparedQuery.execute (file:///home/runner/workspace/node_modules/drizzle-orm/neon-serverless/session.js:76:20)
+2026-01-08 11:46:48.04
+82baefe0
+User
+severity: 'ERROR',
+2026-01-08 11:46:48.04
+82baefe0
+User
+line: '666',
+2026-01-08 11:46:48.04
+82baefe0
+User
+at async file:///home/runner/workspace/dist/index.js:11906:25 {
+2026-01-08 11:46:48.04
+82baefe0
+User
+[Entra Add User] Error: error: duplicate key value violates unique constraint "users_email_key"
+2026-01-08 11:46:48.04
+82baefe0
+User
+code: '23505',
+2026-01-08 11:46:48.04
+82baefe0
+User
+hint: undefined,
+2026-01-08 11:46:48.04
+82baefe0
+User
+file: 'nbtinsert.c',
+2026-01-08 11:46:48.04
+82baefe0
+User
+}
+2026-01-08 11:46:48.04
+82baefe0
+User
+position: undefined,
+2026-01-08 11:46:48.04
+82baefe0
+User
+table: 'users',
+2026-01-08 11:46:48.04
+82baefe0
+User
+routine: '_bt_check_unique'
+2026-01-08 11:46:48.04
+82baefe0
+User
+detail: 'Key (email)=(michelle.boyd@synozur.com) already exists.',
+2026-01-08 11:46:48.04
+82baefe0
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-01-08 11:46:48.04
+82baefe0
+User
+column: undefined,
+2026-01-08 11:46:48.04
+82baefe0
+User
+schema: 'public',
+2026-01-08 11:46:48.04
+82baefe0
+User
+dataType: undefined,

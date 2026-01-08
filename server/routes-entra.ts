@@ -1317,6 +1317,9 @@ router.post('/users/add', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Tenant ID is required' });
     }
 
+    // Normalize email to lowercase for consistent comparison
+    const normalizedEmail = email.toLowerCase().trim();
+
     // Validate tenantId exists
     const tenant = await storage.getTenantById(tenantId);
     if (!tenant) {
@@ -1329,8 +1332,8 @@ router.post('/users/add', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Invalid role. Must be tenant_user or tenant_admin' });
     }
 
-    // Check if user already exists by email
-    const existingUser = await storage.getUserByEmail(email);
+    // Check if user already exists by email (case-insensitive)
+    const existingUser = await storage.getUserByEmail(normalizedEmail);
     
     if (existingUser) {
       // User exists - update their tenant association if needed
@@ -1368,7 +1371,7 @@ router.post('/users/add', async (req: Request, res: Response) => {
     const passwordHash = await bcrypt.hash(placeholderPassword, 10);
 
     const newUser = await storage.createUser({
-      email: email.toLowerCase(),
+      email: normalizedEmail,
       password: passwordHash, // Placeholder - SSO users authenticate via Microsoft
       role,
       tenantId,
@@ -1377,7 +1380,7 @@ router.post('/users/add', async (req: Request, res: Response) => {
       azureObjectId: azureObjectId || null,
     });
 
-    console.log(`[Entra Add User] Created new SSO user ${email} in tenant ${tenantId}`);
+    console.log(`[Entra Add User] Created new SSO user ${normalizedEmail} in tenant ${tenantId}`);
     
     res.json({ 
       success: true, 
@@ -1393,6 +1396,15 @@ router.post('/users/add', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('[Entra Add User] Error:', error);
+    
+    // Check for duplicate email constraint violation
+    if (error.code === '23505' && error.constraint === 'users_email_key') {
+      return res.status(409).json({ 
+        error: `A user with this email address already exists. You can find them in the Users list.`,
+        code: 'duplicate_user'
+      });
+    }
+    
     res.status(500).json({ error: 'Failed to add user from Azure AD' });
   }
 });
