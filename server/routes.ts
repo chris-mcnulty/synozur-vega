@@ -2232,6 +2232,131 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // ============================================
+  // CAPABILITY SHOWCASE SECTION
+  // ============================================
+
+  // Get capability section settings (public - for display on homepage)
+  app.get("/api/capability-section", async (req: Request, res: Response) => {
+    try {
+      const section = await storage.getCapabilitySection();
+      res.json(section || { enabled: false, headline: 'Explore Vega Capabilities', subHeadline: 'Discover how Vega transforms strategy into weekly action' });
+    } catch (error) {
+      console.error("Error fetching capability section:", error);
+      res.status(500).json({ error: "Failed to fetch capability section" });
+    }
+  });
+
+  // Update capability section settings (platform admin only)
+  app.patch("/api/admin/capability-section", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const { enabled, headline, subHeadline } = req.body;
+      const section = await storage.updateCapabilitySection({
+        enabled,
+        headline,
+        subHeadline,
+        updatedBy: req.user!.id,
+      });
+      res.json(section);
+    } catch (error) {
+      console.error("Error updating capability section:", error);
+      res.status(500).json({ error: "Failed to update capability section" });
+    }
+  });
+
+  // Get all capability tabs (public - for display on homepage)
+  app.get("/api/capability-tabs", async (req: Request, res: Response) => {
+    try {
+      const tabs = await storage.getCapabilityTabs();
+      res.json(tabs);
+    } catch (error) {
+      console.error("Error fetching capability tabs:", error);
+      res.status(500).json({ error: "Failed to fetch capability tabs" });
+    }
+  });
+
+  // Create capability tab (platform admin only)
+  app.post("/api/admin/capability-tabs", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const { tabLabel, heading, bodyCopy, primaryImageUrl, secondaryImageUrl, ctaText, ctaUrl, sortOrder } = req.body;
+      if (!tabLabel || !heading || !bodyCopy) {
+        return res.status(400).json({ error: "Tab label, heading, and body copy are required" });
+      }
+      const tab = await storage.createCapabilityTab({
+        tabLabel,
+        heading,
+        bodyCopy,
+        primaryImageUrl,
+        secondaryImageUrl,
+        ctaText,
+        ctaUrl,
+        sortOrder,
+      });
+      res.json(tab);
+    } catch (error) {
+      console.error("Error creating capability tab:", error);
+      res.status(500).json({ error: "Failed to create capability tab" });
+    }
+  });
+
+  // Update capability tab (platform admin only)
+  app.patch("/api/admin/capability-tabs/:id", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const existing = await storage.getCapabilityTabById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Capability tab not found" });
+      }
+      const { tabLabel, heading, bodyCopy, primaryImageUrl, secondaryImageUrl, ctaText, ctaUrl, sortOrder } = req.body;
+      const tab = await storage.updateCapabilityTab(id, {
+        tabLabel,
+        heading,
+        bodyCopy,
+        primaryImageUrl,
+        secondaryImageUrl,
+        ctaText,
+        ctaUrl,
+        sortOrder,
+      });
+      res.json(tab);
+    } catch (error) {
+      console.error("Error updating capability tab:", error);
+      res.status(500).json({ error: "Failed to update capability tab" });
+    }
+  });
+
+  // Delete capability tab (platform admin only)
+  app.delete("/api/admin/capability-tabs/:id", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const existing = await storage.getCapabilityTabById(id);
+      if (!existing) {
+        return res.status(404).json({ error: "Capability tab not found" });
+      }
+      await storage.deleteCapabilityTab(id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error("Error deleting capability tab:", error);
+      res.status(500).json({ error: "Failed to delete capability tab" });
+    }
+  });
+
+  // Reorder capability tabs (platform admin only)
+  app.post("/api/admin/capability-tabs/reorder", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const { tabOrders } = req.body;
+      if (!Array.isArray(tabOrders)) {
+        return res.status(400).json({ error: "tabOrders array is required" });
+      }
+      await storage.reorderCapabilityTabs(tabOrders);
+      const tabs = await storage.getCapabilityTabs();
+      res.json(tabs);
+    } catch (error) {
+      console.error("Error reordering capability tabs:", error);
+      res.status(500).json({ error: "Failed to reorder capability tabs" });
+    }
+  });
+
   // Update tenant's service plan (platform admin only)
   app.patch("/api/admin/tenants/:id/plan", ...platformAdminOnly, async (req: Request, res: Response) => {
     try {
