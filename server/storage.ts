@@ -34,7 +34,9 @@ import {
   blockedDomains, type BlockedDomain, type InsertBlockedDomain,
   pageVisits, type PageVisit, type InsertPageVisit,
   systemBanners, type SystemBanner, type InsertSystemBanner, BANNER_STATUS,
-  landingPageSettings, type LandingPageSettings, type InsertLandingPageSettings
+  landingPageSettings, type LandingPageSettings, type InsertLandingPageSettings,
+  capabilitySection, type CapabilitySection, type InsertCapabilitySection,
+  capabilityTabs, type CapabilityTab, type InsertCapabilityTab
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, inArray, gte, lte, count } from "drizzle-orm";
@@ -290,6 +292,16 @@ export interface IStorage {
   // Landing Page Settings
   getLandingPageSettings(): Promise<LandingPageSettings | undefined>;
   updateLandingPageSettings(settings: Partial<InsertLandingPageSettings>): Promise<LandingPageSettings>;
+  
+  // Capability Section (Tabbed Navigation)
+  getCapabilitySection(): Promise<CapabilitySection | undefined>;
+  updateCapabilitySection(settings: Partial<InsertCapabilitySection>): Promise<CapabilitySection>;
+  getCapabilityTabs(): Promise<CapabilityTab[]>;
+  getCapabilityTabById(id: string): Promise<CapabilityTab | undefined>;
+  createCapabilityTab(tab: InsertCapabilityTab): Promise<CapabilityTab>;
+  updateCapabilityTab(id: string, tab: Partial<InsertCapabilityTab>): Promise<CapabilityTab>;
+  deleteCapabilityTab(id: string): Promise<void>;
+  reorderCapabilityTabs(tabOrders: { id: string; sortOrder: number }[]): Promise<void>;
   
   // Page Visit Analytics
   recordPageVisit(visit: InsertPageVisit): Promise<PageVisit>;
@@ -2608,6 +2620,72 @@ export class DatabaseStorage implements IStorage {
         .values({ heroMediaType: settings.heroMediaType || 'image', ...settings })
         .returning();
       return created;
+    }
+  }
+
+  async getCapabilitySection(): Promise<CapabilitySection | undefined> {
+    const [settings] = await db.select().from(capabilitySection).limit(1);
+    return settings || undefined;
+  }
+
+  async updateCapabilitySection(settings: Partial<InsertCapabilitySection>): Promise<CapabilitySection> {
+    const existing = await this.getCapabilitySection();
+    if (existing) {
+      const [updated] = await db.update(capabilitySection)
+        .set({ ...settings, updatedAt: new Date() })
+        .where(eq(capabilitySection.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(capabilitySection)
+        .values({ 
+          headline: settings.headline || 'Explore Vega Capabilities',
+          subHeadline: settings.subHeadline || 'Discover how Vega transforms strategy into weekly action',
+          enabled: settings.enabled ?? false,
+          ...settings 
+        })
+        .returning();
+      return created;
+    }
+  }
+
+  async getCapabilityTabs(): Promise<CapabilityTab[]> {
+    return db.select().from(capabilityTabs).orderBy(capabilityTabs.sortOrder);
+  }
+
+  async getCapabilityTabById(id: string): Promise<CapabilityTab | undefined> {
+    const [tab] = await db.select().from(capabilityTabs).where(eq(capabilityTabs.id, id));
+    return tab || undefined;
+  }
+
+  async createCapabilityTab(tab: InsertCapabilityTab): Promise<CapabilityTab> {
+    const existingTabs = await this.getCapabilityTabs();
+    const maxSortOrder = existingTabs.length > 0 
+      ? Math.max(...existingTabs.map(t => t.sortOrder)) 
+      : -1;
+    const [created] = await db.insert(capabilityTabs)
+      .values({ ...tab, sortOrder: tab.sortOrder ?? maxSortOrder + 1 })
+      .returning();
+    return created;
+  }
+
+  async updateCapabilityTab(id: string, tab: Partial<InsertCapabilityTab>): Promise<CapabilityTab> {
+    const [updated] = await db.update(capabilityTabs)
+      .set({ ...tab, updatedAt: new Date() })
+      .where(eq(capabilityTabs.id, id))
+      .returning();
+    return updated;
+  }
+
+  async deleteCapabilityTab(id: string): Promise<void> {
+    await db.delete(capabilityTabs).where(eq(capabilityTabs.id, id));
+  }
+
+  async reorderCapabilityTabs(tabOrders: { id: string; sortOrder: number }[]): Promise<void> {
+    for (const { id, sortOrder } of tabOrders) {
+      await db.update(capabilityTabs)
+        .set({ sortOrder, updatedAt: new Date() })
+        .where(eq(capabilityTabs.id, id));
     }
   }
 

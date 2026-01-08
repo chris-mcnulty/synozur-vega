@@ -123,6 +123,50 @@ export type InsertLandingPageSettings = z.infer<typeof insertLandingPageSettings
 export type LandingPageSettings = typeof landingPageSettings.$inferSelect;
 
 // ============================================
+// CAPABILITY SECTION (TABBED NAVIGATION)
+// ============================================
+
+export const capabilitySection = pgTable("capability_section", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  enabled: boolean("enabled").notNull().default(false),
+  headline: text("headline").notNull().default("Explore Vega Capabilities"),
+  subHeadline: text("sub_headline").default("Discover how Vega transforms strategy into weekly action"),
+  updatedBy: varchar("updated_by"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCapabilitySectionSchema = createInsertSchema(capabilitySection).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertCapabilitySection = z.infer<typeof insertCapabilitySectionSchema>;
+export type CapabilitySection = typeof capabilitySection.$inferSelect;
+
+export const capabilityTabs = pgTable("capability_tabs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tabLabel: text("tab_label").notNull(),
+  heading: text("heading").notNull(),
+  bodyCopy: text("body_copy").notNull(),
+  primaryImageUrl: text("primary_image_url"),
+  secondaryImageUrl: text("secondary_image_url"),
+  ctaText: text("cta_text"),
+  ctaUrl: text("cta_url"),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertCapabilityTabSchema = createInsertSchema(capabilityTabs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertCapabilityTab = z.infer<typeof insertCapabilityTabSchema>;
+export type CapabilityTab = typeof capabilityTabs.$inferSelect;
+
+// ============================================
 // USERS
 // ============================================
 
