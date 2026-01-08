@@ -1192,7 +1192,7 @@ router.post('/users/add', async (req: Request, res: Response) => {
     }
 
     // Validate tenantId exists
-    const tenant = await storage.getTenant(tenantId);
+    const tenant = await storage.getTenantById(tenantId);
     if (!tenant) {
       return res.status(404).json({ error: 'Tenant not found' });
     }
@@ -1246,7 +1246,7 @@ router.post('/users/add', async (req: Request, res: Response) => {
       password: passwordHash, // Placeholder - SSO users authenticate via Microsoft
       role,
       tenantId,
-      isVerified: true, // SSO users are verified by Microsoft
+      emailVerified: true, // SSO users are verified by Microsoft
       authProvider: 'azure',
       azureObjectId: azureObjectId || null,
     });
@@ -1260,7 +1260,7 @@ router.post('/users/add', async (req: Request, res: Response) => {
         email: newUser.email,
         role: newUser.role,
         tenantId: newUser.tenantId,
-        isVerified: newUser.isVerified,
+        emailVerified: newUser.emailVerified,
         authProvider: newUser.authProvider,
       },
       message: 'User created successfully. They can sign in with Microsoft.'
