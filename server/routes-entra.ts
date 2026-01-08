@@ -1244,10 +1244,18 @@ router.get('/users/search', async (req: Request, res: Response) => {
     }
     
     // Handle insufficient privileges - remote tenant admin needs to grant consent
+    // For multi-tenant apps using client credentials flow, the remote tenant admin must:
+    // 1. Grant admin consent for the Vega app (App ID: 33479c45-f21f-4911-8189-0c7a53c6a9d7)
+    // 2. Specifically grant the "User.Read.All" Application permission (not just Delegated)
     if (error.code === 'Authorization_RequestDenied' || error.message?.includes('Insufficient privileges')) {
+      console.error('[Entra User Search] Authorization denied. Remote tenant admin must grant admin consent for User.Read.All APPLICATION permission.');
+      console.error('[Entra User Search] Vega App ID: 33479c45-f21f-4911-8189-0c7a53c6a9d7');
+      console.error('[Entra User Search] The admin consent URL should be: https://login.microsoftonline.com/{tenant-id}/adminconsent?client_id=33479c45-f21f-4911-8189-0c7a53c6a9d7');
+      
       return res.status(403).json({ 
-        error: 'Your organization\'s IT administrator needs to grant Vega permission to read user directory. Please contact your IT admin to grant admin consent for the Vega app in Microsoft Entra ID.',
-        code: 'admin_consent_required'
+        error: 'Your organization\'s IT administrator needs to grant Vega the "User.Read.All" Application permission (not just Delegated). Please have your IT admin visit: Microsoft Entra admin center → Enterprise applications → Find "Vega" app → Permissions → Grant admin consent. The Vega App ID is: 33479c45-f21f-4911-8189-0c7a53c6a9d7',
+        code: 'admin_consent_required',
+        appId: '33479c45-f21f-4911-8189-0c7a53c6a9d7'
       });
     }
     

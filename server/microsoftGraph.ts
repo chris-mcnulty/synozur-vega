@@ -67,7 +67,9 @@ async function getEntraAppAccessToken(overrideTenantId?: string): Promise<string
 
   console.log('[EntraApp] Acquiring new token via client credentials flow');
   console.log('[EntraApp] Using App ID:', clientId);
-  console.log('[EntraApp] Target Tenant:', tenantId.substring(0, 8) + '...');
+  console.log('[EntraApp] Vega App ID (expected):', '33479c45-f21f-4911-8189-0c7a53c6a9d7');
+  console.log('[EntraApp] Target Azure Tenant ID:', tenantId);
+  console.log('[EntraApp] Is remote tenant:', overrideTenantId ? 'YES' : 'NO (using env AZURE_TENANT_ID)');
   
   const credential = new ClientSecretCredential(tenantId, clientId, clientSecret);
   
