@@ -197,10 +197,13 @@ export const users = pgTable("users", {
   licenseType: text("license_type").default("read_write"), // 'read_write' or 'read_only'
   // User type distinguishes between client org users, consultants, and internal staff
   userType: text("user_type").default("client"), // 'client', 'consultant', or 'internal'
+  // Timestamp for tracking when user was created
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
+  createdAt: true,
 });
 
 export type InsertUser = z.infer<typeof insertUserSchema>;
