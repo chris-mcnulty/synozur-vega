@@ -345,13 +345,15 @@ router.get('/callback', async (req: Request, res: Response) => {
           console.error(`[Entra Callback][${requestId}] Failed to create HubSpot deal:`, hubspotError);
         }
       } else {
-        console.log(`[Entra Callback][${requestId}] Found matching tenant: ${matchingTenant.name} (${matchingTenant.id})`);
+        console.log(`[Entra Callback][${requestId}] Found matching tenant: ${matchingTenant.name} (${matchingTenant.id}), inviteOnly=${matchingTenant.inviteOnly}, azureTenantId=${matchingTenant.azureTenantId}`);
         
         // Check if tenant is invite-only - block new users from auto-joining
-        if (matchingTenant.inviteOnly) {
-          console.log(`[Entra Callback][${requestId}] Tenant ${matchingTenant.name} is invite-only, blocking auto-join for ${email}`);
+        if (matchingTenant.inviteOnly === true) {
+          console.log(`[Entra Callback][${requestId}] BLOCKING: Tenant ${matchingTenant.name} is invite-only, denying auto-join for ${email}`);
           const tenantNameEncoded = encodeURIComponent(matchingTenant.name);
           return res.redirect(`${getBaseUrl()}/login?error=invite_only&tenant_name=${tenantNameEncoded}`);
+        } else {
+          console.log(`[Entra Callback][${requestId}] Tenant allows auto-join (inviteOnly=${matchingTenant.inviteOnly}), proceeding with JIT provisioning`);
         }
       }
 
@@ -452,27 +454,37 @@ router.post('/logout', (req: Request, res: Response) => {
 
 async function findTenantByAzureTenantOrDomain(azureTenantId: string, emailDomain: string, userEmail: string) {
   const allTenants = await storage.getAllTenants();
+  console.log(`[findTenant] Searching for azureTenantId=${azureTenantId}, domain=${emailDomain}, totalTenants=${allTenants.length}`);
   
   // Azure tenant ID match takes priority (SSO is explicitly configured for this org)
   const azureMatch = allTenants.find(t => t.azureTenantId === azureTenantId);
-  if (azureMatch) return azureMatch;
+  if (azureMatch) {
+    console.log(`[findTenant] Found by Azure tenant ID: ${azureMatch.name} (id=${azureMatch.id}, inviteOnly=${azureMatch.inviteOnly})`);
+    return azureMatch;
+  }
+  console.log(`[findTenant] No Azure tenant ID match found`);
   
   // For public email domains (Gmail, Yahoo, etc.), skip domain matching
   // Users with public domains must be explicitly invited or create their own tenant
   if (isPublicEmailDomain(userEmail)) {
-    console.log(`[Entra SSO] Skipping domain match for public email: ${userEmail}`);
+    console.log(`[findTenant] Skipping domain match for public email: ${userEmail}`);
     return null;
   }
   
-  // Domain match only works for non-invite-only tenants
+  // Find any tenant that has this domain claimed
   const domainMatch = allTenants.find(t => {
-    // Skip invite-only tenants for domain-based auto-join
-    if (t.inviteOnly) return false;
     const domains = t.allowedDomains || [];
     return domains.includes(emailDomain.toLowerCase());
   });
-  if (domainMatch) return domainMatch;
   
+  if (domainMatch) {
+    console.log(`[findTenant] Domain match found: ${domainMatch.name} (id=${domainMatch.id}, inviteOnly=${domainMatch.inviteOnly})`);
+    // Return the tenant even if it's invite-only - the caller will check inviteOnly and block if needed
+    // This prevents users from creating duplicate tenants when their domain is already claimed
+    return domainMatch;
+  }
+  
+  console.log(`[findTenant] No matching tenant found`);
   return null;
 }
 
