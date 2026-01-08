@@ -1,0 +1,88 @@
+2026-01-08 11:35:16.20
+45a71c91
+User
+[EntraApp] Target Azure Tenant ID: e8ae3614-c17a-4336-904e-d141718c94f1
+2026-01-08 11:35:16.20
+45a71c91
+User
+[Entra User Search] Starting search...
+2026-01-08 11:35:16.20
+45a71c91
+User
+[EntraApp] Acquiring new token via client credentials flow
+2026-01-08 11:35:16.20
+45a71c91
+User
+[Entra User Search] Vega Tenant: Chrismcnulty (chrismcnulty.net)
+2026-01-08 11:35:16.20
+45a71c91
+User
+[Entra User Search] Is Synozur home tenant: NO
+2026-01-08 11:35:16.20
+45a71c91
+User
+[EntraApp] Using App ID: 33479c45-f21f-4911-8189-0c7a53c6a9d7
+2026-01-08 11:35:16.20
+45a71c91
+User
+[EntraApp] Vega App ID (expected): 33479c45-f21f-4911-8189-0c7a53c6a9d7
+2026-01-08 11:35:16.20
+45a71c91
+User
+[Entra User Search] Target Azure Tenant ID: e8ae3614-c17a-4336-904e-d141718c94f1
+2026-01-08 11:35:16.20
+45a71c91
+User
+[Entra User Search] WARNING: Targeting non-Synozur tenant - that tenant must grant admin consent separately!
+2026-01-08 11:35:16.20
+45a71c91
+User
+[EntraApp] Is remote tenant: YES
+2026-01-08 11:35:16.22
+45a71c91
+User
+[Entra User Search] WARNING: Targeting non-Synozur tenant - that tenant must grant admin consent separately!
+2026-01-08 11:35:16.22
+45a71c91
+User
+[Entra User Search] Is Synozur home tenant: NO
+2026-01-08 11:35:16.22
+45a71c91
+User
+[EntraApp] Using App ID: 33479c45-f21f-4911-8189-0c7a53c6a9d7
+2026-01-08 11:35:16.22
+45a71c91
+User
+[EntraApp] Target Azure Tenant ID: e8ae3614-c17a-4336-904e-d141718c94f1
+2026-01-08 11:35:16.22
+45a71c91
+User
+[EntraApp] Vega App ID (expected): 33479c45-f21f-4911-8189-0c7a53c6a9d7
+2026-01-08 11:35:16.22
+45a71c91
+User
+[Entra User Search] Target Azure Tenant ID: e8ae3614-c17a-4336-904e-d141718c94f1
+2026-01-08 11:35:16.22
+45a71c91
+User
+[Entra User Search] Starting search...
+2026-01-08 11:35:16.22
+45a71c91
+User
+[Entra User Search] Vega Tenant: Chrismcnulty (chrismcnulty.net)
+2026-01-08 11:35:16.22
+45a71c91
+User
+[EntraApp] Acquiring new token via client credentials flow
+2026-01-08 11:35:16.22
+45a71c91
+User
+[EntraApp] Is remote tenant: YES
+2026-01-08 11:35:16.45
+45a71c91
+User
+[EntraApp] Token acquired successfully
+2026-01-08 11:35:16.46
+45a71c91
+User
+[EntraApp] Token acquired successfully

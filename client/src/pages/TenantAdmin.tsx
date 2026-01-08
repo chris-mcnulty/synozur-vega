@@ -1581,11 +1581,16 @@ export default function TenantAdmin() {
   };
 
   const handleSelectEntraUser = (user: any) => {
+    // When selecting an Entra user, also set the tenantId to the current user's tenant
+    // This ensures the user is added to the correct organization
+    const targetTenantId = currentUser?.tenantId || userFormData.tenantId;
+    
     setUserFormData({
       ...userFormData,
       email: user.mail || user.userPrincipalName,
       name: user.displayName || "",
       azureObjectId: user.id || "", // Store Azure AD object ID for SSO users
+      tenantId: targetTenantId || "NONE", // Default to current user's tenant
     });
     setEntraSearchQuery("");
     setEntraSearchResults([]);
