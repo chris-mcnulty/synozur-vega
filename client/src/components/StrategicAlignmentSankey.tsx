@@ -323,6 +323,33 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
         links: validLinks.map((d) => ({ ...d })),
       });
 
+      // Post-process to enforce strict column alignment based on layer property
+      // This ensures Key Results and Big Rocks stay in their proper columns
+      const nodeWidth = 24;
+      const margin = 60;
+      const availableWidth = width - margin * 2 - nodeWidth;
+      const columnWidth = availableWidth / 4; // 5 layers = 4 gaps
+      
+      const layerXPositions: Record<number, number> = {
+        0: margin, // Goals
+        1: margin + columnWidth, // Strategies
+        2: margin + columnWidth * 2, // Objectives
+        3: margin + columnWidth * 3, // Key Results
+        4: margin + columnWidth * 4, // Big Rocks
+      };
+
+      // Override x positions to match our layer assignments
+      graph.nodes.forEach((node: any) => {
+        const targetX = layerXPositions[node.layer];
+        if (targetX !== undefined) {
+          node.x0 = targetX;
+          node.x1 = targetX + nodeWidth;
+        }
+      });
+
+      // Recalculate link paths after repositioning
+      // The links will automatically use the new node positions when rendered
+
       return graph;
     } catch (e) {
       console.error("Sankey generation error:", e);
