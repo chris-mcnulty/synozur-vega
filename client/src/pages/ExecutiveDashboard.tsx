@@ -351,14 +351,14 @@ export default function ExecutiveDashboard() {
       };
     }).filter(tm => tm.objectives > 0);
 
-    const companyLevelObjectives = objectivesWithProgress.filter(obj => obj.level === 'company');
+    const organizationLevelObjectives = objectivesWithProgress.filter(obj => obj.level === 'organization');
+    const teamLevelObjectives = objectivesWithProgress.filter(obj => obj.level === 'team');
     const departmentLevelObjectives = objectivesWithProgress.filter(obj => obj.level === 'department');
-    const individualLevelObjectives = objectivesWithProgress.filter(obj => obj.level === 'individual');
 
     const levelBreakdown = [
-      { name: 'Company', value: companyLevelObjectives.length, color: '#8b5cf6' },
-      { name: 'Department', value: departmentLevelObjectives.length, color: '#3b82f6' },
-      { name: 'Individual', value: individualLevelObjectives.length, color: '#10b981' },
+      { name: 'Organization', value: organizationLevelObjectives.length, color: '#8b5cf6' },
+      { name: 'Team', value: teamLevelObjectives.length, color: '#3b82f6' },
+      { name: 'Department', value: departmentLevelObjectives.length, color: '#10b981' },
     ].filter(l => l.value > 0);
 
     const statusBreakdown = [
