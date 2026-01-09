@@ -14,33 +14,45 @@ import { SynozurLogo } from "@/components/SynozurLogo";
 import { TenantProvider } from "@/contexts/TenantContext";
 import { VocabularyProvider } from "@/contexts/VocabularyContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { ErrorBoundary, RouteErrorBoundary, PageLoadingFallback, FullPageLoadingFallback } from "@/components/ErrorBoundary";
 import { Sparkles } from "lucide-react";
-import React, { useState } from "react";
+import React, { useState, Suspense, lazy } from "react";
 import { useLocation } from "wouter";
 
+// ============================================
+// EAGERLY LOADED PAGES (needed immediately)
+// ============================================
+// These are loaded in the main bundle for fast initial access
 import Login from "@/pages/Login";
 import Landing from "@/pages/Landing";
-import Dashboard from "@/pages/Dashboard";
-import ExecutiveDashboard from "@/pages/ExecutiveDashboard";
-import TeamDashboard from "@/pages/TeamDashboard";
-import Foundations from "@/pages/Foundations";
-import Strategy from "@/pages/Strategy";
-import PlanningEnhanced from "@/pages/PlanningEnhanced";
-import FocusRhythm from "@/pages/FocusRhythm";
-import MeetingDetail from "@/pages/MeetingDetail";
-import TenantAdmin from "@/pages/TenantAdmin";
-import SystemAdmin from "@/pages/SystemAdmin";
-import AIGroundingAdmin from "@/pages/AIGroundingAdmin";
-import Import from "@/pages/Import";
-import Reporting from "@/pages/Reporting";
-import Settings from "@/pages/Settings";
-import UserGuide from "@/pages/UserGuide";
 import VerifyEmail from "@/pages/VerifyEmail";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
-import Launchpad from "@/pages/Launchpad";
-import About from "@/pages/About";
 import NotFound from "@/pages/not-found";
+
+// ============================================
+// LAZY LOADED PAGES (code-split)
+// ============================================
+// These are loaded on-demand when the user navigates to them,
+// reducing the initial bundle size significantly
+
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const ExecutiveDashboard = lazy(() => import("@/pages/ExecutiveDashboard"));
+const TeamDashboard = lazy(() => import("@/pages/TeamDashboard"));
+const Foundations = lazy(() => import("@/pages/Foundations"));
+const Strategy = lazy(() => import("@/pages/Strategy"));
+const PlanningEnhanced = lazy(() => import("@/pages/PlanningEnhanced"));
+const FocusRhythm = lazy(() => import("@/pages/FocusRhythm"));
+const MeetingDetail = lazy(() => import("@/pages/MeetingDetail"));
+const TenantAdmin = lazy(() => import("@/pages/TenantAdmin"));
+const SystemAdmin = lazy(() => import("@/pages/SystemAdmin"));
+const AIGroundingAdmin = lazy(() => import("@/pages/AIGroundingAdmin"));
+const Import = lazy(() => import("@/pages/Import"));
+const Reporting = lazy(() => import("@/pages/Reporting"));
+const Settings = lazy(() => import("@/pages/Settings"));
+const UserGuide = lazy(() => import("@/pages/UserGuide"));
+const Launchpad = lazy(() => import("@/pages/Launchpad"));
+const About = lazy(() => import("@/pages/About"));
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -168,7 +180,10 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
         </header>
         <div className="flex flex-1 overflow-hidden bg-background">
           <main className="flex-1 overflow-auto p-8 bg-background">
-            {children}
+            {/* Route-level error boundary catches errors in lazy-loaded pages */}
+            <RouteErrorBoundary>
+              {children}
+            </RouteErrorBoundary>
           </main>
           {chatOpen && <AIChatPanel onClose={() => setChatOpen(false)} />}
         </div>
@@ -177,133 +192,120 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
   );
 }
 
+/**
+ * Wrapper for lazy-loaded protected routes
+ * Combines Suspense for code-splitting with protected route logic
+ */
+function LazyProtectedRoute({ children }: { children: React.ReactNode }) {
+  return (
+    <ProtectedRoute>
+      <ModuleLayout>
+        <Suspense fallback={<PageLoadingFallback />}>
+          {children}
+        </Suspense>
+      </ModuleLayout>
+    </ProtectedRoute>
+  );
+}
+
 function Router() {
   return (
     <Switch>
+      {/* Public routes - eagerly loaded */}
       <Route path="/" component={Landing} />
       <Route path="/login" component={Login} />
       <Route path="/verify-email" component={VerifyEmail} />
       <Route path="/forgot-password" component={ForgotPassword} />
       <Route path="/reset-password" component={ResetPassword} />
+
+      {/* Protected routes - lazy loaded with code splitting */}
       <Route path="/dashboard">
-        <ProtectedRoute>
-          <ModuleLayout>
-            <Dashboard />
-          </ModuleLayout>
-        </ProtectedRoute>
+        <LazyProtectedRoute>
+          <Dashboard />
+        </LazyProtectedRoute>
       </Route>
       <Route path="/executive">
-        <ProtectedRoute>
-          <ModuleLayout>
-            <ExecutiveDashboard />
-          </ModuleLayout>
-        </ProtectedRoute>
+        <LazyProtectedRoute>
+          <ExecutiveDashboard />
+        </LazyProtectedRoute>
       </Route>
       <Route path="/team">
-        <ProtectedRoute>
-          <ModuleLayout>
-            <TeamDashboard />
-          </ModuleLayout>
-        </ProtectedRoute>
+        <LazyProtectedRoute>
+          <TeamDashboard />
+        </LazyProtectedRoute>
       </Route>
       <Route path="/foundations">
-        <ProtectedRoute>
-          <ModuleLayout>
-            <Foundations />
-          </ModuleLayout>
-        </ProtectedRoute>
+        <LazyProtectedRoute>
+          <Foundations />
+        </LazyProtectedRoute>
       </Route>
       <Route path="/strategy">
-        <ProtectedRoute>
-          <ModuleLayout>
-            <Strategy />
-          </ModuleLayout>
-        </ProtectedRoute>
+        <LazyProtectedRoute>
+          <Strategy />
+        </LazyProtectedRoute>
       </Route>
       <Route path="/planning">
-        <ProtectedRoute>
-          <ModuleLayout>
-            <PlanningEnhanced />
-          </ModuleLayout>
-        </ProtectedRoute>
+        <LazyProtectedRoute>
+          <PlanningEnhanced />
+        </LazyProtectedRoute>
       </Route>
       <Route path="/focus-rhythm">
-        <ProtectedRoute>
-          <ModuleLayout>
-            <FocusRhythm />
-          </ModuleLayout>
-        </ProtectedRoute>
+        <LazyProtectedRoute>
+          <FocusRhythm />
+        </LazyProtectedRoute>
       </Route>
       <Route path="/focus-rhythm/:meetingId">
-        <ProtectedRoute>
-          <ModuleLayout>
-            <MeetingDetail />
-          </ModuleLayout>
-        </ProtectedRoute>
+        <LazyProtectedRoute>
+          <MeetingDetail />
+        </LazyProtectedRoute>
       </Route>
       <Route path="/tenant-admin">
-        <ProtectedRoute>
-          <ModuleLayout>
-            <TenantAdmin />
-          </ModuleLayout>
-        </ProtectedRoute>
+        <LazyProtectedRoute>
+          <TenantAdmin />
+        </LazyProtectedRoute>
       </Route>
       <Route path="/system-admin">
-        <ProtectedRoute>
-          <ModuleLayout>
-            <SystemAdmin />
-          </ModuleLayout>
-        </ProtectedRoute>
+        <LazyProtectedRoute>
+          <SystemAdmin />
+        </LazyProtectedRoute>
       </Route>
       <Route path="/import">
-        <ProtectedRoute>
-          <ModuleLayout>
-            <Import />
-          </ModuleLayout>
-        </ProtectedRoute>
+        <LazyProtectedRoute>
+          <Import />
+        </LazyProtectedRoute>
       </Route>
       <Route path="/launchpad">
-        <ProtectedRoute>
-          <ModuleLayout>
-            <Launchpad />
-          </ModuleLayout>
-        </ProtectedRoute>
+        <LazyProtectedRoute>
+          <Launchpad />
+        </LazyProtectedRoute>
       </Route>
       <Route path="/reporting">
-        <ProtectedRoute>
-          <ModuleLayout>
-            <Reporting />
-          </ModuleLayout>
-        </ProtectedRoute>
+        <LazyProtectedRoute>
+          <Reporting />
+        </LazyProtectedRoute>
       </Route>
       <Route path="/ai-grounding">
-        <ProtectedRoute>
-          <ModuleLayout>
-            <AIGroundingAdmin />
-          </ModuleLayout>
-        </ProtectedRoute>
+        <LazyProtectedRoute>
+          <AIGroundingAdmin />
+        </LazyProtectedRoute>
       </Route>
       <Route path="/settings">
-        <ProtectedRoute>
-          <ModuleLayout>
-            <Settings />
-          </ModuleLayout>
-        </ProtectedRoute>
+        <LazyProtectedRoute>
+          <Settings />
+        </LazyProtectedRoute>
       </Route>
       <Route path="/help">
-        <ProtectedRoute>
-          <ModuleLayout>
-            <UserGuide />
-          </ModuleLayout>
-        </ProtectedRoute>
+        <LazyProtectedRoute>
+          <UserGuide />
+        </LazyProtectedRoute>
       </Route>
       <Route path="/about">
-        <ProtectedRoute>
-          <ModuleLayout>
-            <About />
-          </ModuleLayout>
-        </ProtectedRoute>
+        <LazyProtectedRoute>
+          <About />
+        </LazyProtectedRoute>
       </Route>
+
+      {/* 404 - eagerly loaded */}
       <Route component={NotFound} />
     </Switch>
   );
@@ -316,22 +318,24 @@ function App() {
   };
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
-          <TenantProvider>
-            <VocabularyProvider>
-              <TooltipProvider>
-                <SidebarProvider style={style as React.CSSProperties}>
-                  <Router />
-                </SidebarProvider>
-                <Toaster />
-              </TooltipProvider>
-            </VocabularyProvider>
-          </TenantProvider>
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AuthProvider>
+            <TenantProvider>
+              <VocabularyProvider>
+                <TooltipProvider>
+                  <SidebarProvider style={style as React.CSSProperties}>
+                    <Router />
+                  </SidebarProvider>
+                  <Toaster />
+                </TooltipProvider>
+              </VocabularyProvider>
+            </TenantProvider>
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }
 
