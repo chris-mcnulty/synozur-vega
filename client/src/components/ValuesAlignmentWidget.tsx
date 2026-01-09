@@ -4,15 +4,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { TrendingUp, TrendingDown, Target, AlertCircle, ChevronDown, ChevronRight, Building2, Users, Layers, User } from "lucide-react";
+import { TrendingUp, TrendingDown, Target, ChevronDown, ChevronRight, Building2, Users, Layers } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTenant } from "@/contexts/TenantContext";
 
 type LevelBreakdown = {
   organization: number;
   team: number;
-  division: number;
-  individual: number;
+  department: number;
 };
 
 type ValueDistribution = {
@@ -31,6 +30,7 @@ type ValuesAnalytics = {
   totalObjectivesWithValues: number;
   totalStrategiesWithValues: number;
   aggregateLevelBreakdown: LevelBreakdown;
+  tenantId?: string; // For debugging
   filters: {
     quarter: number | null;
     year: number | null;
@@ -50,15 +50,13 @@ interface ValuesAlignmentWidgetProps {
 const levelIcons = {
   organization: Building2,
   team: Users,
-  division: Layers,
-  individual: User,
+  department: Layers,
 };
 
 const levelLabels = {
   organization: "Organization",
   team: "Team",
-  division: "Division",
-  individual: "Individual",
+  department: "Department",
 };
 
 export function ValuesAlignmentWidget({ quarter, year }: ValuesAlignmentWidgetProps) {
@@ -203,23 +201,25 @@ export function ValuesAlignmentWidget({ quarter, year }: ValuesAlignmentWidgetPr
         {totalLevelItems > 0 && (
           <div className="space-y-2">
             <div className="text-xs font-medium text-muted-foreground">Objectives by Level</div>
-            <div className="grid grid-cols-4 gap-2">
-              {(Object.entries(aggregateLevelBreakdown) as [keyof LevelBreakdown, number][]).map(([level, count]) => {
-                const Icon = levelIcons[level];
-                const percentage = totalLevelItems > 0 ? Math.round((count / totalLevelItems) * 100) : 0;
-                return (
-                  <div 
-                    key={level} 
-                    className="flex flex-col items-center p-2 rounded-md bg-secondary/50"
-                    data-testid={`level-breakdown-${level}`}
-                  >
-                    <Icon className="h-4 w-4 text-muted-foreground mb-1" />
-                    <span className="text-lg font-semibold">{count}</span>
-                    <span className="text-xs text-muted-foreground">{levelLabels[level]}</span>
-                    <span className="text-xs text-muted-foreground">({percentage}%)</span>
-                  </div>
-                );
-              })}
+            <div className="grid grid-cols-3 gap-2">
+              {(Object.entries(aggregateLevelBreakdown) as [string, number][])
+                .filter(([level]) => level in levelIcons)
+                .map(([level, count]) => {
+                  const Icon = levelIcons[level as keyof typeof levelIcons];
+                  const percentage = totalLevelItems > 0 ? Math.round((count / totalLevelItems) * 100) : 0;
+                  return (
+                    <div 
+                      key={level} 
+                      className="flex flex-col items-center p-2 rounded-md bg-secondary/50"
+                      data-testid={`level-breakdown-${level}`}
+                    >
+                      <Icon className="h-4 w-4 text-muted-foreground mb-1" />
+                      <span className="text-lg font-semibold">{count}</span>
+                      <span className="text-xs text-muted-foreground">{levelLabels[level as keyof typeof levelLabels]}</span>
+                      <span className="text-xs text-muted-foreground">({percentage}%)</span>
+                    </div>
+                  );
+                })}
             </div>
           </div>
         )}

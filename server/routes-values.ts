@@ -256,8 +256,14 @@ export function registerValueRoutes(app: Express) {
       }
 
       const valueTitle = decodeURIComponent(req.params.valueTitle);
-      // Use effective tenant from tenant switcher, fallback to user's default tenant
-      const tenantId = req.effectiveTenantId || user.tenantId;
+      // Use tenant from header (tenant switcher), fallback to user's default tenant
+      const headerTenantId = req.headers['x-tenant-id'] as string | undefined;
+      const tenantId = headerTenantId || user.tenantId;
+      
+      // Verify user has access to this tenant
+      if (headerTenantId && headerTenantId !== user.tenantId && !hasCrossTenantAccess(user.role)) {
+        return res.status(403).json({ error: "Access denied to this tenant" });
+      }
 
       const items = await storage.getItemsTaggedWithValue(tenantId, valueTitle);
       res.json(items);
@@ -280,8 +286,16 @@ export function registerValueRoutes(app: Express) {
         return res.status(401).json({ error: "Invalid session" });
       }
 
-      // Use effective tenant from tenant switcher, fallback to user's default tenant
-      const tenantId = req.effectiveTenantId || user.tenantId;
+      // Use tenant from header (tenant switcher), fallback to user's default tenant
+      // Note: This route doesn't use authWithTenant middleware, so we read header directly
+      const headerTenantId = req.headers['x-tenant-id'] as string | undefined;
+      const tenantId = headerTenantId || user.tenantId;
+      
+      // Verify user has access to this tenant
+      if (headerTenantId && headerTenantId !== user.tenantId && !hasCrossTenantAccess(user.role)) {
+        return res.status(403).json({ error: "Access denied to this tenant" });
+      }
+      
       const quarter = req.query.quarter ? parseInt(req.query.quarter as string) : undefined;
       const year = req.query.year ? parseInt(req.query.year as string) : undefined;
 
@@ -290,11 +304,11 @@ export function registerValueRoutes(app: Express) {
       const companyValues = foundation?.values || [];
 
       // Calculate distribution for each value with level breakdown
+      // Note: Database uses organization, team, department (not division/individual)
       type LevelBreakdown = {
         organization: number;
         team: number;
-        division: number;
-        individual: number;
+        department: number;
       };
 
       type ValueDistribution = {
@@ -327,8 +341,7 @@ export function registerValueRoutes(app: Express) {
           const levelBreakdown: LevelBreakdown = {
             organization: 0,
             team: 0,
-            division: 0,
-            individual: 0,
+            department: 0,
           };
 
           filteredObjectives.forEach((obj: any) => {
@@ -361,9 +374,11 @@ export function registerValueRoutes(app: Express) {
       const aggregateLevelBreakdown: LevelBreakdown = {
         organization: distribution.reduce((sum, d) => sum + d.levelBreakdown.organization, 0),
         team: distribution.reduce((sum, d) => sum + d.levelBreakdown.team, 0),
-        division: distribution.reduce((sum, d) => sum + d.levelBreakdown.division, 0),
-        individual: distribution.reduce((sum, d) => sum + d.levelBreakdown.individual, 0),
+        department: distribution.reduce((sum, d) => sum + d.levelBreakdown.department, 0),
       };
+      
+      // Log for debugging tenant context
+      console.log(`[Values Analytics] Tenant: ${tenantId}, Values: ${companyValues.length}`);
 
       res.json({
         distribution,
