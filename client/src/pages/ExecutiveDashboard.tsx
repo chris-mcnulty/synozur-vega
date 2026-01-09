@@ -865,7 +865,13 @@ export default function ExecutiveDashboard() {
             </Card>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {(metrics.atRiskObjectives.length > 0 || metrics.winningObjectives.length > 0) && (
+          <div className={cn(
+            "grid gap-4",
+            metrics.atRiskObjectives.length > 0 && metrics.winningObjectives.length > 0 
+              ? "grid-cols-1 lg:grid-cols-2" 
+              : "grid-cols-1"
+          )}>
             {metrics.atRiskObjectives.length > 0 && (
               <Card className="border-red-200 dark:border-red-900">
                 <CardHeader>
@@ -975,6 +981,7 @@ export default function ExecutiveDashboard() {
               </Card>
             )}
           </div>
+          )}
 
           {metrics.behindPaceCount > 0 && (
             <Card className="border-amber-200 dark:border-amber-800" data-testid="card-behind-pace-alerts">
