@@ -470,20 +470,8 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
         </div>
 
         <div className="overflow-x-auto border rounded-lg bg-muted/20">
-          <svg width={width} height={height + 40} className="min-w-[1000px]">
-            <g transform="translate(0, 30)">
-              {layerLabels.map((layer, idx) => (
-                <text
-                  key={idx}
-                  x={layer.x}
-                  y={-10}
-                  textAnchor="middle"
-                  className="fill-muted-foreground text-xs font-medium"
-                >
-                  {layer.label}
-                </text>
-              ))}
-
+          <svg width={width} height={height} className="min-w-[1000px]">
+            <g transform="translate(0, 0)">
               {sankeyData.links.map((link, idx) => {
                 const linkData = link as SankeyLink<SankeyNodeData, SankeyLinkData>;
                 const sourceNode = linkData.source as SankeyNode<SankeyNodeData, SankeyLinkData>;

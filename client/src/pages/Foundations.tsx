@@ -556,7 +556,7 @@ export default function Foundations() {
               )}
 
               {/* Edit Section - Secondary/Collapsible */}
-              <Collapsible>
+              <Collapsible onOpenChange={(open) => { if (open) setCustomMission(mission); }}>
                 <CollapsibleTrigger asChild>
                   <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground" data-testid="button-edit-mission-toggle">
                     <Pencil className="h-4 w-4 mr-2" />
@@ -633,7 +633,7 @@ export default function Foundations() {
               )}
 
               {/* Edit Section - Secondary/Collapsible */}
-              <Collapsible>
+              <Collapsible onOpenChange={(open) => { if (open) setCustomVision(vision); }}>
                 <CollapsibleTrigger asChild>
                   <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground" data-testid="button-edit-vision-toggle">
                     <Pencil className="h-4 w-4 mr-2" />
