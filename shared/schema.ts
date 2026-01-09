@@ -376,9 +376,18 @@ export const insertTenantSchema = createInsertSchema(tenants).omit({
   id: true,
 }).extend({
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex color (e.g., #3B82F6)").optional().nullable(),
+  // Allow any string for logo URLs - supports both full URLs and relative paths from object storage
   logoUrl: z.preprocess(
     (val) => (val === "" || val === null || val === undefined) ? null : val,
-    z.string().url("Logo URL must be a valid URL").nullable()
+    z.string().nullable()
+  ).optional(),
+  logoUrlDark: z.preprocess(
+    (val) => (val === "" || val === null || val === undefined) ? null : val,
+    z.string().nullable()
+  ).optional(),
+  faviconUrl: z.preprocess(
+    (val) => (val === "" || val === null || val === undefined) ? null : val,
+    z.string().nullable()
   ).optional(),
 });
 
