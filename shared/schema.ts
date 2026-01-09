@@ -1338,7 +1338,7 @@ export const groundingDocuments = pgTable("grounding_documents", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   
   // Tenant association (null = global/master document, value = tenant-specific)
-  tenantId: varchar("tenant_id").references(() => tenants.id),
+  tenantId: varchar("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }),
   
   // Document metadata
   title: text("title").notNull(),

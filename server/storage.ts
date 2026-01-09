@@ -461,6 +461,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteTenant(id: string): Promise<void> {
+    // Delete grounding documents first (manual cascade for existing data without cascade)
+    await db.delete(groundingDocuments).where(eq(groundingDocuments.tenantId, id));
+    // Now delete the tenant
     await db.delete(tenants).where(eq(tenants.id, id));
   }
 

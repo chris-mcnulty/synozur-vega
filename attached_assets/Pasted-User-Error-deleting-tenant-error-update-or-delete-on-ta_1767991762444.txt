@@ -1,0 +1,94 @@
+User
+Error deleting tenant: error: update or delete on table "tenants" violates foreign key constraint "grounding_documents_tenant_id_fkey" on table "grounding_documents"
+2026-01-09 12:48:37.08
+ef58e283
+User
+detail: 'Key (id)=(14c6c02b-e36e-4cf9-8933-616de4edfe30) is still referenced from table "grounding_documents".',
+2026-01-09 12:48:37.08
+ef58e283
+User
+internalPosition: undefined,
+2026-01-09 12:48:37.08
+ef58e283
+User
+dataType: undefined,
+2026-01-09 12:48:37.08
+ef58e283
+User
+at async file:///home/runner/workspace/dist/index.js:17043:7 {
+2026-01-09 12:48:37.08
+ef58e283
+User
+column: undefined,
+2026-01-09 12:48:37.08
+ef58e283
+User
+schema: 'public',
+2026-01-09 12:48:37.08
+ef58e283
+User
+constraint: 'grounding_documents_tenant_id_fkey',
+2026-01-09 12:48:37.08
+ef58e283
+User
+table: 'grounding_documents',
+2026-01-09 12:48:37.08
+ef58e283
+User
+internalQuery: undefined,
+2026-01-09 12:48:37.08
+ef58e283
+User
+at async DatabaseStorage.deleteTenant (file:///home/runner/workspace/dist/index.js:1555:9)
+2026-01-09 12:48:37.08
+ef58e283
+User
+}
+2026-01-09 12:48:37.08
+ef58e283
+User
+where: undefined,
+2026-01-09 12:48:37.08
+ef58e283
+User
+line: '2621',
+2026-01-09 12:48:37.08
+ef58e283
+User
+length: 372,
+2026-01-09 12:48:37.08
+ef58e283
+User
+file: 'ri_triggers.c',
+2026-01-09 12:48:37.08
+ef58e283
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2026-01-09 12:48:37.08
+ef58e283
+User
+hint: undefined,
+2026-01-09 12:48:37.08
+ef58e283
+User
+severity: 'ERROR',
+2026-01-09 12:48:37.08
+ef58e283
+User
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2026-01-09 12:48:37.08
+ef58e283
+User
+position: undefined,
+2026-01-09 12:48:37.08
+ef58e283
+User
+code: '23503',
+2026-01-09 12:48:37.08
+ef58e283
+User
+routine: 'ri_ReportViolation'
+2026-01-09 12:48:37.18
+ef58e283
+User
+8:48:37 PM [express] DELETE /api/tenants/14c6c02b-e36e-4cf9-8933-616de4edfe30 500 in 172ms :: {"erro…

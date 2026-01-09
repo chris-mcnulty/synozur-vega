@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { storage } from "./storage";
-import type { Foundation, Strategy, Objective, KeyResult, BigRock, Team } from "@shared/schema";
+import type { Foundation, Strategy, Objective, KeyResult, BigRock, Team, GroundingDocument } from "@shared/schema";
 
 const router = Router();
 
@@ -22,6 +22,7 @@ interface ExportFilters {
   includeObjectives?: boolean;
   includeBigRocks?: boolean;
   includeTeams?: boolean;
+  includeGroundingDocs?: boolean;
 }
 
 function getProgressEmoji(progress: number): string {
@@ -65,15 +66,17 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
       includeObjectives: req.query.includeObjectives !== "false",
       includeBigRocks: req.query.includeBigRocks !== "false",
       includeTeams: req.query.includeTeams !== "false",
+      includeGroundingDocs: req.query.includeGroundingDocs !== "false",
     };
 
-    const [foundation, strategies, objectives, keyResults, bigRocks, teams] = await Promise.all([
+    const [foundation, strategies, objectives, keyResults, bigRocks, teams, groundingDocs] = await Promise.all([
       filters.includeFoundations ? storage.getFoundationByTenantId(user.tenantId) : Promise.resolve(undefined),
       filters.includeStrategies ? storage.getStrategiesByTenantId(user.tenantId) : Promise.resolve([]),
       storage.getObjectivesByTenantId(user.tenantId, filters.quarter, filters.year),
       storage.getKeyResultsByTenantId(user.tenantId),
       filters.includeBigRocks ? storage.getBigRocksByTenantId(user.tenantId, filters.quarter, filters.year) : Promise.resolve([]),
       filters.includeTeams ? storage.getTeamsByTenantId(user.tenantId) : Promise.resolve([]),
+      filters.includeGroundingDocs ? storage.getGroundingDocumentsByTenantId(user.tenantId) : Promise.resolve([]),
     ]);
 
     let filteredObjectives = objectives;
@@ -278,6 +281,36 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
       markdown += `---\n\n`;
     }
 
+    if (filters.includeGroundingDocs && groundingDocs.length > 0) {
+      markdown += `## AI Grounding Documents\n\n`;
+      
+      // Group by category
+      const docsByCategory = groundingDocs.reduce((acc: Record<string, GroundingDocument[]>, doc: GroundingDocument) => {
+        const cat = doc.category || 'uncategorized';
+        if (!acc[cat]) acc[cat] = [];
+        acc[cat].push(doc);
+        return acc;
+      }, {});
+      
+      Object.entries(docsByCategory).forEach(([category, docs]) => {
+        markdown += `### ${category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}\n\n`;
+        docs.forEach((doc: GroundingDocument, index: number) => {
+          markdown += `${index + 1}. **${doc.title}**`;
+          if (doc.description) {
+            markdown += ` - ${doc.description}`;
+          }
+          markdown += `\n`;
+          if (doc.content) {
+            // Truncate very long content in markdown export
+            const preview = doc.content.length > 500 ? doc.content.substring(0, 500) + '...' : doc.content;
+            markdown += `   > ${preview.replace(/\n/g, '\n   > ')}\n\n`;
+          }
+        });
+      });
+      
+      markdown += `---\n\n`;
+    }
+
     const totalObjectives = filteredObjectives.length;
     const completedObjectives = filteredObjectives.filter((obj: Objective) => obj.status === "completed").length;
     const avgProgress = filteredObjectives.length > 0
@@ -320,6 +353,7 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
         })) : undefined,
         bigRocks: filters.includeBigRocks ? bigRocks : undefined,
         teams: filters.includeTeams ? teams : undefined,
+        groundingDocuments: filters.includeGroundingDocs ? groundingDocs : undefined,
         summary: {
           totalObjectives,
           completedObjectives,
