@@ -224,14 +224,20 @@ export function ValuesAlignmentWidget({ quarter, year }: ValuesAlignmentWidgetPr
           </div>
         )}
 
-        {/* Totals */}
-        <div className="flex items-center gap-4 text-xs text-muted-foreground">
-          <span data-testid="text-total-objectives">
-            {totalObjectivesWithValues} objectives tagged
-          </span>
-          <span data-testid="text-total-strategies">
-            {totalStrategiesWithValues} strategies tagged
-          </span>
+        {/* Totals - More Prominent */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-secondary/50 rounded-lg p-3 text-center">
+            <div className="text-2xl font-bold" data-testid="text-total-objectives">
+              {totalObjectivesWithValues}
+            </div>
+            <div className="text-xs text-muted-foreground">Objectives Tagged</div>
+          </div>
+          <div className="bg-secondary/50 rounded-lg p-3 text-center">
+            <div className="text-2xl font-bold" data-testid="text-total-strategies">
+              {totalStrategiesWithValues}
+            </div>
+            <div className="text-xs text-muted-foreground">Strategies Tagged</div>
+          </div>
         </div>
 
         {/* Value Distribution Bars with Drill-down */}
