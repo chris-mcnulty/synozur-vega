@@ -50,7 +50,11 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
       return res.status(403).json({ error: "No tenant access" });
     }
 
-    const tenant = await storage.getTenantById(user.tenantId);
+    // Use x-tenant-id header for tenant switching support (consultants/admins)
+    const headerTenantId = req.headers['x-tenant-id'] as string | undefined;
+    const effectiveTenantId = headerTenantId || user.tenantId;
+
+    const tenant = await storage.getTenantById(effectiveTenantId);
     if (!tenant) {
       return res.status(404).json({ error: "Tenant not found" });
     }
@@ -70,13 +74,13 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
     };
 
     const [foundation, strategies, objectives, keyResults, bigRocks, teams, groundingDocs] = await Promise.all([
-      filters.includeFoundations ? storage.getFoundationByTenantId(user.tenantId) : Promise.resolve(undefined),
-      filters.includeStrategies ? storage.getStrategiesByTenantId(user.tenantId) : Promise.resolve([]),
-      storage.getObjectivesByTenantId(user.tenantId, filters.quarter, filters.year),
-      storage.getKeyResultsByTenantId(user.tenantId),
-      filters.includeBigRocks ? storage.getBigRocksByTenantId(user.tenantId, filters.quarter, filters.year) : Promise.resolve([]),
-      filters.includeTeams ? storage.getTeamsByTenantId(user.tenantId) : Promise.resolve([]),
-      filters.includeGroundingDocs ? storage.getGroundingDocumentsByTenantId(user.tenantId) : Promise.resolve([]),
+      filters.includeFoundations ? storage.getFoundationByTenantId(effectiveTenantId) : Promise.resolve(undefined),
+      filters.includeStrategies ? storage.getStrategiesByTenantId(effectiveTenantId) : Promise.resolve([]),
+      storage.getObjectivesByTenantId(effectiveTenantId, filters.quarter, filters.year),
+      storage.getKeyResultsByTenantId(effectiveTenantId),
+      filters.includeBigRocks ? storage.getBigRocksByTenantId(effectiveTenantId, filters.quarter, filters.year) : Promise.resolve([]),
+      filters.includeTeams ? storage.getTeamsByTenantId(effectiveTenantId) : Promise.resolve([]),
+      filters.includeGroundingDocs ? storage.getGroundingDocumentsByTenantId(effectiveTenantId) : Promise.resolve([]),
     ]);
 
     let filteredObjectives = objectives;
