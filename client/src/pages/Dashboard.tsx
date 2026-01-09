@@ -30,6 +30,7 @@ import {
   ChevronDown,
   Loader2,
   AlertCircle,
+  Globe,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useTenant } from "@/contexts/TenantContext";
@@ -728,18 +729,21 @@ export default function Dashboard() {
               );
             }
             
-            // All teams view - group by team
+            // All teams view - group by team (with special handling for org-level objectives)
             const byTeam = new Map<string, Objective[]>();
             for (const obj of rootObjectives) {
-              const teamKey = obj.teamId || 'no-team';
+              // Organization-level objectives without a team should be grouped as 'organization'
+              const teamKey = obj.teamId || (obj.level === 'organization' ? 'organization' : 'no-team');
               if (!byTeam.has(teamKey)) {
                 byTeam.set(teamKey, []);
               }
               byTeam.get(teamKey)!.push(obj);
             }
             
-            // Sort teams alphabetically, put "no-team" last
+            // Sort teams alphabetically, put "organization" first and "no-team" last
             const sortedTeamKeys = Array.from(byTeam.keys()).sort((a, b) => {
+              if (a === 'organization') return -1;
+              if (b === 'organization') return 1;
               if (a === 'no-team') return 1;
               if (b === 'no-team') return -1;
               const nameA = teamMap.get(a) || a;
@@ -756,13 +760,19 @@ export default function Dashboard() {
               <div className="space-y-4">
                 {sortedTeamKeys.map(teamKey => {
                   const teamObjectives = byTeam.get(teamKey) || [];
-                  const teamName = teamKey === 'no-team' ? 'Unassigned' : (teamMap.get(teamKey) || 'Unknown Team');
+                  const teamName = teamKey === 'organization' ? 'Organization' : 
+                                   teamKey === 'no-team' ? 'Unassigned' : 
+                                   (teamMap.get(teamKey) || 'Unknown Team');
                   
                   return (
                     <Card key={teamKey}>
                       <CardHeader className="pb-2">
                         <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-muted-foreground" />
+                          {teamKey === 'organization' ? (
+                            <Globe className="h-4 w-4 text-muted-foreground" />
+                          ) : (
+                            <Building2 className="h-4 w-4 text-muted-foreground" />
+                          )}
                           <CardTitle className="text-base">{teamName}</CardTitle>
                           <Badge variant="secondary" className="ml-auto">
                             {teamObjectives.length} objective{teamObjectives.length !== 1 ? 's' : ''}
