@@ -151,6 +151,90 @@ PHASE 3: Advanced Features (February-March 2025)
 
 ## MEDIUM PRIORITY FEATURES
 
+### OKR Intelligence (AI Predictions & Pace Tracking)
+
+**Status:** Phase 1 In Progress  
+**Priority:** Medium-High  
+**First Premium Feature Candidate**
+
+**Overview:**
+Predictive trend analysis for OKRs that works from day one with sparse data. Designed to deliver immediate value without requiring years of historical data.
+
+**Phase 1: Pace & Velocity Calculations (IN PROGRESS)**
+- [x] Calculate pace status (on-track, ahead, behind) based on time elapsed vs progress
+- [ ] Velocity projection: "At current rate, you'll hit X% by end of period"
+- [ ] Display pace indicators on OKR cards/rows
+- [ ] Simple risk signals (no check-in for 14+ days, 0% progress after 30 days)
+
+**Phase 2: Trend Visualization**
+- Sparkline charts showing progress over time
+- Velocity trend (accelerating, steady, decelerating)
+- Confidence bands on projections
+
+**Phase 3: Smart Forecasting**
+- Pattern matching against OKR archetypes
+- Cohort comparison (anonymized cross-tenant benchmarks)
+- Anomaly detection for sudden stalls
+
+**Data Requirements:**
+- Check-in history with timestamps (already exists in checkIns table)
+- Start date, target date for objectives/KRs (exists)
+- Current progress values (exists)
+
+**Key Design Principle:** 
+Works with 2-3 data points. No ML required for Phase 1 - simple math delivers immediate value.
+
+---
+
+### Premium Feature Gating System
+
+**Status:** Design Complete, Implementation Pending  
+**Priority:** Medium  
+**Effort:** 2-3 weeks
+
+**Overview:**
+Feature entitlement system to gate premium features by service plan. First premium feature: OKR Intelligence.
+
+**Architecture:**
+```
+features table:
+- id, slug, displayName, description, isPremium, category
+
+service_plan_features table (join):
+- servicePlanId, featureId, mode: 'enabled' | 'upsell' | 'hidden'
+
+tenant_feature_overrides table:
+- For admin exceptions (demos, sales trials)
+```
+
+**Feature Modes:**
+| Mode | Behavior |
+|------|----------|
+| `enabled` | Full access |
+| `upsell` | Visible with 💎 indicator, click shows upgrade prompt |
+| `hidden` | Not shown at all |
+
+**Frontend Components:**
+- `useFeature(slug)` hook → returns status + requiredPlan
+- `<FeatureGate feature="...">` wrapper component
+- 💎 Premium badge on buttons/cards for upsell items
+- Upgrade modal with plan comparison
+
+**Backend Enforcement:**
+- Middleware/helper checking entitlements before premium operations
+- Returns 403 with upgrade metadata if blocked
+- Tenant-level overrides for demos/trials
+
+**Example Plan Mapping:**
+| Feature | Trial | Team | Unlimited |
+|---------|-------|------|-----------|
+| Basic OKRs | ✅ | ✅ | ✅ |
+| AI OKR Intelligence | 💎 upsell | ✅ | ✅ |
+
+**Dependencies:** OKR Intelligence Phase 1 should ship first to validate the premium model.
+
+---
+
 ### Key Result Weighting ✅ COMPLETE
 
 **Status:** Complete (December 31, 2025)  

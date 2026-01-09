@@ -1108,3 +1108,155 @@ okrRouter.post("/backfill-progress", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// ============================================
+// OKR INTELLIGENCE: Pace & Velocity Metrics
+// ============================================
+
+import { calculatePaceMetrics, formatPaceDescription, type PaceMetrics } from './okr-intelligence';
+
+// Get pace metrics for a specific objective
+okrRouter.get("/objectives/:id/pace", async (req, res) => {
+  try {
+    const objective = await storage.getObjectiveById(req.params.id);
+    if (!objective) {
+      return res.status(404).json({ error: "Objective not found" });
+    }
+    
+    // Get check-ins for this objective
+    const checkIns = await storage.getCheckInsByEntityId('objective', req.params.id);
+    
+    const metrics = calculatePaceMetrics({
+      progress: objective.progress || 0,
+      startDate: objective.startDate,
+      endDate: objective.endDate,
+      quarter: objective.quarter,
+      year: objective.year,
+      checkIns: checkIns.map(c => ({
+        asOfDate: c.asOfDate || c.createdAt!,
+        newProgress: c.newProgress || 0,
+        previousProgress: c.previousProgress || 0,
+      })),
+    });
+    
+    res.json({
+      objectiveId: req.params.id,
+      title: objective.title,
+      metrics,
+      description: formatPaceDescription(metrics),
+    });
+  } catch (error) {
+    console.error('[OKR Pace] Failed to get objective pace:', error);
+    res.status(500).json({ error: "Failed to calculate pace metrics" });
+  }
+});
+
+// Get pace metrics for a specific key result
+okrRouter.get("/key-results/:id/pace", async (req, res) => {
+  try {
+    const keyResult = await storage.getKeyResultById(req.params.id);
+    if (!keyResult) {
+      return res.status(404).json({ error: "Key Result not found" });
+    }
+    
+    // Get parent objective for date info
+    const objective = keyResult.objectiveId 
+      ? await storage.getObjectiveById(keyResult.objectiveId)
+      : null;
+    
+    // Get check-ins for this key result
+    const checkIns = await storage.getCheckInsByEntityId('key_result', req.params.id);
+    
+    const metrics = calculatePaceMetrics({
+      progress: keyResult.progress || 0,
+      startDate: objective?.startDate,
+      endDate: objective?.endDate,
+      quarter: objective?.quarter,
+      year: objective?.year,
+      checkIns: checkIns.map(c => ({
+        asOfDate: c.asOfDate || c.createdAt!,
+        newProgress: c.newProgress || 0,
+        previousProgress: c.previousProgress || 0,
+      })),
+      targetValue: keyResult.targetValue || 100,
+    });
+    
+    res.json({
+      keyResultId: req.params.id,
+      title: keyResult.title,
+      metrics,
+      description: formatPaceDescription(metrics),
+    });
+  } catch (error) {
+    console.error('[OKR Pace] Failed to get key result pace:', error);
+    res.status(500).json({ error: "Failed to calculate pace metrics" });
+  }
+});
+
+// Bulk endpoint: Get pace metrics for all objectives in current view
+okrRouter.get("/pace-metrics", async (req, res) => {
+  try {
+    const { tenantId, quarter, year } = req.query;
+    if (!tenantId) {
+      return res.status(400).json({ error: "tenantId is required" });
+    }
+    
+    // Get objectives filtered by quarter/year if provided
+    let objectives = await storage.getObjectivesByTenantId(tenantId);
+    
+    if (quarter && year) {
+      objectives = objectives.filter(obj => 
+        obj.quarter === parseInt(quarter as string) && 
+        obj.year === parseInt(year as string)
+      );
+    }
+    
+    const results: Array<{
+      objectiveId: string;
+      title: string;
+      metrics: PaceMetrics;
+      description: string;
+    }> = [];
+    
+    for (const objective of objectives) {
+      const checkIns = await storage.getCheckInsByEntityId('objective', objective.id);
+      
+      const metrics = calculatePaceMetrics({
+        progress: objective.progress || 0,
+        startDate: objective.startDate,
+        endDate: objective.endDate,
+        quarter: objective.quarter,
+        year: objective.year,
+        checkIns: checkIns.map(c => ({
+          asOfDate: c.asOfDate || c.createdAt!,
+          newProgress: c.newProgress || 0,
+          previousProgress: c.previousProgress || 0,
+        })),
+      });
+      
+      results.push({
+        objectiveId: objective.id,
+        title: objective.title,
+        metrics,
+        description: formatPaceDescription(metrics),
+      });
+    }
+    
+    // Summary stats
+    const summary = {
+      total: results.length,
+      ahead: results.filter(r => r.metrics.status === 'ahead').length,
+      onTrack: results.filter(r => r.metrics.status === 'on_track').length,
+      behind: results.filter(r => r.metrics.status === 'behind').length,
+      atRisk: results.filter(r => r.metrics.status === 'at_risk').length,
+      noData: results.filter(r => r.metrics.status === 'no_data').length,
+      attentionNeeded: results.filter(r => r.metrics.riskSignal === 'attention_needed').length,
+      stalled: results.filter(r => r.metrics.riskSignal === 'stalled').length,
+    };
+    
+    res.json({ objectives: results, summary });
+  } catch (error) {
+    console.error('[OKR Pace] Failed to get bulk pace metrics:', error);
+    res.status(500).json({ error: "Failed to calculate pace metrics" });
+  }
+});
