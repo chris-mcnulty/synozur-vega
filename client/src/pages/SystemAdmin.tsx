@@ -16,6 +16,7 @@ import type { SystemBanner, ServicePlan, BlockedDomain, CapabilitySection, Capab
 import { PlatformAIUsageWidget } from "@/components/AIUsageWidget";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
+import { ImageUpload } from "@/components/ImageUpload";
 import { format, subDays } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -2298,24 +2299,22 @@ function CapabilityShowcaseSettings() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="tab-primary-image">Primary Image URL</Label>
-                <Input
-                  id="tab-primary-image"
+                <Label>Primary Image</Label>
+                <ImageUpload
                   value={tabFormData.primaryImageUrl}
-                  onChange={(e) => setTabFormData({ ...tabFormData, primaryImageUrl: e.target.value })}
-                  placeholder="https://..."
-                  data-testid="input-tab-primary-image"
+                  onChange={(url) => setTabFormData({ ...tabFormData, primaryImageUrl: url })}
+                  placeholder="Upload or paste URL"
+                  testId="tab-primary-image"
                 />
                 <p className="text-xs text-muted-foreground">Main showcase image for this tab</p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="tab-secondary-image">Secondary Image URL</Label>
-                <Input
-                  id="tab-secondary-image"
+                <Label>Secondary Image</Label>
+                <ImageUpload
                   value={tabFormData.secondaryImageUrl}
-                  onChange={(e) => setTabFormData({ ...tabFormData, secondaryImageUrl: e.target.value })}
-                  placeholder="https://..."
-                  data-testid="input-tab-secondary-image"
+                  onChange={(url) => setTabFormData({ ...tabFormData, secondaryImageUrl: url })}
+                  placeholder="Upload or paste URL"
+                  testId="tab-secondary-image"
                 />
                 <p className="text-xs text-muted-foreground">Optional secondary/detail image</p>
               </div>

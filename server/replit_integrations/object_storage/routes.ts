@@ -1,5 +1,6 @@
 import type { Express } from "express";
-import { ObjectStorageService, ObjectNotFoundError } from "./objectStorage";
+import { ObjectStorageService, ObjectNotFoundError, objectStorageClient, parseObjectPath, signObjectURL } from "./objectStorage";
+import { randomUUID } from "crypto";
 
 /**
  * Register object storage routes for file uploads.
@@ -80,6 +81,77 @@ export function registerObjectStorageRoutes(app: Express): void {
         return res.status(404).json({ error: "Object not found" });
       }
       return res.status(500).json({ error: "Failed to serve object" });
+    }
+  });
+
+  /**
+   * Request a presigned URL for showcase image upload (public).
+   * Images are stored in the public directory and served publicly.
+   */
+  app.post("/api/uploads/showcase-image", async (req, res) => {
+    try {
+      const { name, size, contentType } = req.body;
+
+      if (!name) {
+        return res.status(400).json({ error: "Missing required field: name" });
+      }
+
+      if (!contentType?.startsWith("image/")) {
+        return res.status(400).json({ error: "Only image files are allowed" });
+      }
+
+      // Get the public search path and use it for showcase images
+      const publicPaths = objectStorageService.getPublicObjectSearchPaths();
+      if (publicPaths.length === 0) {
+        return res.status(500).json({ error: "Public storage not configured" });
+      }
+
+      // Generate a unique filename to prevent collisions
+      const ext = name.split(".").pop() || "png";
+      const uniqueId = randomUUID();
+      const objectName = `showcase/${uniqueId}.${ext}`;
+      const fullPath = `${publicPaths[0]}/${objectName}`;
+
+      const { bucketName, objectName: parsedObjectName } = parseObjectPath(fullPath);
+
+      // Sign URL for PUT method with 15 minute TTL
+      const uploadURL = await signObjectURL({
+        bucketName,
+        objectName: parsedObjectName,
+        method: "PUT",
+        ttlSec: 900,
+      });
+
+      // Construct the public URL for serving the image
+      const publicUrl = `/public-assets/${objectName}`;
+
+      res.json({
+        uploadURL,
+        publicUrl,
+        metadata: { name, size, contentType },
+      });
+    } catch (error) {
+      console.error("Error generating showcase upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  /**
+   * Serve public assets (showcase images, etc.)
+   */
+  app.get("/public-assets/:assetPath(*)", async (req, res) => {
+    try {
+      const assetPath = req.params.assetPath;
+      const objectFile = await objectStorageService.searchPublicObject(assetPath);
+      
+      if (!objectFile) {
+        return res.status(404).json({ error: "Asset not found" });
+      }
+
+      await objectStorageService.downloadObject(objectFile, res);
+    } catch (error) {
+      console.error("Error serving public asset:", error);
+      return res.status(500).json({ error: "Failed to serve asset" });
     }
   });
 }
