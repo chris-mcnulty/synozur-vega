@@ -69,6 +69,10 @@ export default function Foundations() {
   const [customVision, setCustomVision] = useState("");
   const [customGoal, setCustomGoal] = useState("");
   
+  // Collapsible state for Mission/Vision editing
+  const [missionEditOpen, setMissionEditOpen] = useState(false);
+  const [visionEditOpen, setVisionEditOpen] = useState(false);
+  
   // Value dialog state
   const [valueDialogOpen, setValueDialogOpen] = useState(false);
   const [editingValueIndex, setEditingValueIndex] = useState<number | null>(null);
@@ -556,7 +560,13 @@ export default function Foundations() {
               )}
 
               {/* Edit Section - Secondary/Collapsible */}
-              <Collapsible onOpenChange={(open) => { if (open) setCustomMission(mission); }}>
+              <Collapsible 
+                open={missionEditOpen} 
+                onOpenChange={(open) => { 
+                  if (open) setCustomMission(mission);
+                  setMissionEditOpen(open);
+                }}
+              >
                 <CollapsibleTrigger asChild>
                   <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground" data-testid="button-edit-mission-toggle">
                     <Pencil className="h-4 w-4 mr-2" />
@@ -574,24 +584,39 @@ export default function Foundations() {
                       data-testid="input-custom-mission"
                     />
                     <Button
-                      onClick={handleAddCustomMission}
+                      onClick={() => {
+                        handleAddCustomMission();
+                        setMissionEditOpen(false);
+                      }}
                       disabled={!customMission.trim()}
                       data-testid="button-add-mission"
                     >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Set
+                      <Save className="h-4 w-4 mr-2" />
+                      Save
                     </Button>
-                    {mission && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setMission("")}
-                        data-testid="button-clear-mission"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <Button
+                      variant="ghost"
+                      onClick={() => setMissionEditOpen(false)}
+                      data-testid="button-cancel-mission"
+                    >
+                      Cancel
+                    </Button>
                   </div>
+
+                  {mission && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        setMission("");
+                        setMissionEditOpen(false);
+                      }}
+                      data-testid="button-clear-mission"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Clear Mission
+                    </Button>
+                  )}
 
                   <div className="border-t pt-4">
                     <Label className="text-sm text-muted-foreground mb-2 block">Quick Suggestions</Label>
@@ -601,7 +626,10 @@ export default function Foundations() {
                           key={index}
                           variant={mission === suggestion ? "default" : "outline"}
                           className="cursor-pointer py-2 px-4 hover-elevate"
-                          onClick={() => handleAddSuggestion("mission", suggestion)}
+                          onClick={() => {
+                            handleAddSuggestion("mission", suggestion);
+                            setMissionEditOpen(false);
+                          }}
                           data-testid={`suggestion-mission-${index}`}
                         >
                           {suggestion}
@@ -633,7 +661,13 @@ export default function Foundations() {
               )}
 
               {/* Edit Section - Secondary/Collapsible */}
-              <Collapsible onOpenChange={(open) => { if (open) setCustomVision(vision); }}>
+              <Collapsible 
+                open={visionEditOpen} 
+                onOpenChange={(open) => { 
+                  if (open) setCustomVision(vision);
+                  setVisionEditOpen(open);
+                }}
+              >
                 <CollapsibleTrigger asChild>
                   <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground" data-testid="button-edit-vision-toggle">
                     <Pencil className="h-4 w-4 mr-2" />
@@ -651,24 +685,39 @@ export default function Foundations() {
                       data-testid="input-custom-vision"
                     />
                     <Button
-                      onClick={handleAddCustomVision}
+                      onClick={() => {
+                        handleAddCustomVision();
+                        setVisionEditOpen(false);
+                      }}
                       disabled={!customVision.trim()}
                       data-testid="button-add-vision"
                     >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Set
+                      <Save className="h-4 w-4 mr-2" />
+                      Save
                     </Button>
-                    {vision && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setVision("")}
-                        data-testid="button-clear-vision"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <Button
+                      variant="ghost"
+                      onClick={() => setVisionEditOpen(false)}
+                      data-testid="button-cancel-vision"
+                    >
+                      Cancel
+                    </Button>
                   </div>
+
+                  {vision && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        setVision("");
+                        setVisionEditOpen(false);
+                      }}
+                      data-testid="button-clear-vision"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Clear Vision
+                    </Button>
+                  )}
 
                   <div className="border-t pt-4">
                     <Label className="text-sm text-muted-foreground mb-2 block">Quick Suggestions</Label>
@@ -678,7 +727,10 @@ export default function Foundations() {
                           key={index}
                           variant={vision === suggestion ? "default" : "outline"}
                           className="cursor-pointer py-2 px-4 hover-elevate"
-                          onClick={() => handleAddSuggestion("vision", suggestion)}
+                          onClick={() => {
+                            handleAddSuggestion("vision", suggestion);
+                            setVisionEditOpen(false);
+                          }}
                           data-testid={`suggestion-vision-${index}`}
                         >
                           {suggestion}
