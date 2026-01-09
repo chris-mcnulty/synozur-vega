@@ -29,7 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, HelpCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, HelpCircle, Link, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type TenantBranding, vocabularyAlternatives, type VocabularyTerms } from "@shared/schema";
 import { useAuth } from "@/contexts/AuthContext";
@@ -699,6 +699,17 @@ export default function TenantAdmin() {
     faviconUrl: "",
     branding: {},
   });
+  // Track whether using URL or upload for each image type
+  const [brandingInputMode, setBrandingInputMode] = useState<{
+    logo: 'url' | 'upload';
+    logoDark: 'url' | 'upload';
+    favicon: 'url' | 'upload';
+  }>({
+    logo: 'url',
+    logoDark: 'url',
+    favicon: 'url',
+  });
+  const [uploadingImage, setUploadingImage] = useState<string | null>(null);
 
   const [entraSearchQuery, setEntraSearchQuery] = useState("");
   const [entraSearchResults, setEntraSearchResults] = useState<any[]>([]);
@@ -1514,7 +1525,80 @@ export default function TenantAdmin() {
       faviconUrl: t.faviconUrl || "",
       branding: t.branding || {},
     });
+    // Determine input mode based on existing values
+    setBrandingInputMode({
+      logo: t.logoUrl ? 'url' : 'url',
+      logoDark: t.logoUrlDark ? 'url' : 'url',
+      favicon: t.faviconUrl ? 'url' : 'url',
+    });
     setBrandingDialogOpen(true);
+  };
+
+  // Handle branding image file upload
+  const handleBrandingImageUpload = async (
+    file: File,
+    imageType: 'logo' | 'logoDark' | 'favicon'
+  ) => {
+    if (!selectedTenantForBranding) return;
+    
+    setUploadingImage(imageType);
+    
+    try {
+      // Request a presigned URL
+      const response = await fetch('/api/uploads/branding-image', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: file.name,
+          size: file.size,
+          contentType: file.type,
+          tenantId: selectedTenantForBranding.id,
+          imageType,
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to get upload URL');
+      }
+      
+      const { uploadURL, publicUrl } = await response.json();
+      
+      // Upload the file directly to the presigned URL
+      const uploadResponse = await fetch(uploadURL, {
+        method: 'PUT',
+        body: file,
+        headers: {
+          'Content-Type': file.type,
+        },
+      });
+      
+      if (!uploadResponse.ok) {
+        throw new Error('Failed to upload image');
+      }
+      
+      // Update the form data with the public URL
+      const fieldMap = {
+        logo: 'logoUrl',
+        logoDark: 'logoUrlDark',
+        favicon: 'faviconUrl',
+      } as const;
+      
+      setBrandingFormData(prev => ({
+        ...prev,
+        [fieldMap[imageType]]: publicUrl,
+      }));
+      
+      toast({ title: `${imageType === 'logo' ? 'Logo' : imageType === 'logoDark' ? 'Dark logo' : 'Favicon'} uploaded successfully` });
+    } catch (error: any) {
+      console.error('Upload error:', error);
+      toast({ 
+        title: 'Upload failed', 
+        description: error.message,
+        variant: 'destructive' 
+      });
+    } finally {
+      setUploadingImage(null);
+    }
   };
 
   const handleSaveBrandingSettings = async () => {
@@ -2976,48 +3060,216 @@ export default function TenantAdmin() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-6 py-4 max-h-[60vh] overflow-y-auto">
-            {/* Logo URLs Section */}
+            {/* Logo Section */}
             <div className="space-y-4">
-              <h4 className="font-medium text-sm">Logo URLs</h4>
+              <h4 className="font-medium text-sm">Logo Images</h4>
               <p className="text-xs text-muted-foreground">
-                Enter URLs to your organization's logo images. For best results, use PNG or SVG format with transparent backgrounds.
+                Upload images or provide URLs to your organization's logos. For best results, use PNG or SVG format with transparent backgrounds.
               </p>
               
+              {/* Primary Logo */}
               <div className="space-y-2">
-                <Label htmlFor="logo-url">Primary Logo (Light Background)</Label>
-                <Input
-                  id="logo-url"
-                  type="url"
-                  placeholder="https://example.com/logo.png"
-                  value={brandingFormData.logoUrl}
-                  onChange={(e) => setBrandingFormData({ ...brandingFormData, logoUrl: e.target.value })}
-                  data-testid="input-logo-url"
-                />
+                <div className="flex items-center justify-between">
+                  <Label>Primary Logo (Light Background)</Label>
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      variant={brandingInputMode.logo === 'upload' ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setBrandingInputMode(prev => ({ ...prev, logo: 'upload' }))}
+                    >
+                      <Upload className="h-3 w-3 mr-1" />
+                      Upload
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={brandingInputMode.logo === 'url' ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setBrandingInputMode(prev => ({ ...prev, logo: 'url' }))}
+                    >
+                      <Link className="h-3 w-3 mr-1" />
+                      URL
+                    </Button>
+                  </div>
+                </div>
+                {brandingInputMode.logo === 'url' ? (
+                  <Input
+                    id="logo-url"
+                    type="url"
+                    placeholder="https://example.com/logo.png"
+                    value={brandingFormData.logoUrl}
+                    onChange={(e) => setBrandingFormData({ ...brandingFormData, logoUrl: e.target.value })}
+                    data-testid="input-logo-url"
+                  />
+                ) : (
+                  <div className="flex gap-2">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleBrandingImageUpload(file, 'logo');
+                      }}
+                      disabled={uploadingImage === 'logo'}
+                      data-testid="input-logo-upload"
+                    />
+                    {uploadingImage === 'logo' && <Loader2 className="h-4 w-4 animate-spin" />}
+                  </div>
+                )}
+                {brandingFormData.logoUrl && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                    Logo set
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs text-destructive"
+                      onClick={() => setBrandingFormData(prev => ({ ...prev, logoUrl: '' }))}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                )}
               </div>
               
+              {/* Dark Mode Logo */}
               <div className="space-y-2">
-                <Label htmlFor="logo-url-dark">Dark Mode Logo (Dark Background)</Label>
-                <Input
-                  id="logo-url-dark"
-                  type="url"
-                  placeholder="https://example.com/logo-white.png"
-                  value={brandingFormData.logoUrlDark}
-                  onChange={(e) => setBrandingFormData({ ...brandingFormData, logoUrlDark: e.target.value })}
-                  data-testid="input-logo-url-dark"
-                />
+                <div className="flex items-center justify-between">
+                  <Label>Dark Mode Logo (Dark Background)</Label>
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      variant={brandingInputMode.logoDark === 'upload' ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setBrandingInputMode(prev => ({ ...prev, logoDark: 'upload' }))}
+                    >
+                      <Upload className="h-3 w-3 mr-1" />
+                      Upload
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={brandingInputMode.logoDark === 'url' ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setBrandingInputMode(prev => ({ ...prev, logoDark: 'url' }))}
+                    >
+                      <Link className="h-3 w-3 mr-1" />
+                      URL
+                    </Button>
+                  </div>
+                </div>
+                {brandingInputMode.logoDark === 'url' ? (
+                  <Input
+                    id="logo-url-dark"
+                    type="url"
+                    placeholder="https://example.com/logo-white.png"
+                    value={brandingFormData.logoUrlDark}
+                    onChange={(e) => setBrandingFormData({ ...brandingFormData, logoUrlDark: e.target.value })}
+                    data-testid="input-logo-url-dark"
+                  />
+                ) : (
+                  <div className="flex gap-2">
+                    <Input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleBrandingImageUpload(file, 'logoDark');
+                      }}
+                      disabled={uploadingImage === 'logoDark'}
+                      data-testid="input-logo-dark-upload"
+                    />
+                    {uploadingImage === 'logoDark' && <Loader2 className="h-4 w-4 animate-spin" />}
+                  </div>
+                )}
+                {brandingFormData.logoUrlDark && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                    Dark logo set
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs text-destructive"
+                      onClick={() => setBrandingFormData(prev => ({ ...prev, logoUrlDark: '' }))}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">Optional: Use a white or light-colored version for dark backgrounds</p>
               </div>
               
+              {/* Favicon */}
               <div className="space-y-2">
-                <Label htmlFor="favicon-url">Favicon URL</Label>
-                <Input
-                  id="favicon-url"
-                  type="url"
-                  placeholder="https://example.com/favicon.ico"
-                  value={brandingFormData.faviconUrl}
-                  onChange={(e) => setBrandingFormData({ ...brandingFormData, faviconUrl: e.target.value })}
-                  data-testid="input-favicon-url"
-                />
+                <div className="flex items-center justify-between">
+                  <Label>Favicon</Label>
+                  <div className="flex gap-1">
+                    <Button
+                      type="button"
+                      variant={brandingInputMode.favicon === 'upload' ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setBrandingInputMode(prev => ({ ...prev, favicon: 'upload' }))}
+                    >
+                      <Upload className="h-3 w-3 mr-1" />
+                      Upload
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={brandingInputMode.favicon === 'url' ? 'default' : 'outline'}
+                      size="sm"
+                      className="h-7 text-xs"
+                      onClick={() => setBrandingInputMode(prev => ({ ...prev, favicon: 'url' }))}
+                    >
+                      <Link className="h-3 w-3 mr-1" />
+                      URL
+                    </Button>
+                  </div>
+                </div>
+                {brandingInputMode.favicon === 'url' ? (
+                  <Input
+                    id="favicon-url"
+                    type="url"
+                    placeholder="https://example.com/favicon.ico"
+                    value={brandingFormData.faviconUrl}
+                    onChange={(e) => setBrandingFormData({ ...brandingFormData, faviconUrl: e.target.value })}
+                    data-testid="input-favicon-url"
+                  />
+                ) : (
+                  <div className="flex gap-2">
+                    <Input
+                      type="file"
+                      accept="image/*,.ico"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) handleBrandingImageUpload(file, 'favicon');
+                      }}
+                      disabled={uploadingImage === 'favicon'}
+                      data-testid="input-favicon-upload"
+                    />
+                    {uploadingImage === 'favicon' && <Loader2 className="h-4 w-4 animate-spin" />}
+                  </div>
+                )}
+                {brandingFormData.faviconUrl && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <CheckCircle2 className="h-3 w-3 text-green-500" />
+                    Favicon set
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 text-xs text-destructive"
+                      onClick={() => setBrandingFormData(prev => ({ ...prev, faviconUrl: '' }))}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground">Browser tab icon (16x16 or 32x32 pixels)</p>
               </div>
 

@@ -137,6 +137,66 @@ export function registerObjectStorageRoutes(app: Express): void {
   });
 
   /**
+   * Request a presigned URL for branding image upload (logos, favicons).
+   * Images are stored in the public directory and served publicly.
+   */
+  app.post("/api/uploads/branding-image", async (req, res) => {
+    try {
+      const { name, size, contentType, tenantId, imageType } = req.body;
+
+      if (!name) {
+        return res.status(400).json({ error: "Missing required field: name" });
+      }
+
+      if (!contentType?.startsWith("image/")) {
+        return res.status(400).json({ error: "Only image files are allowed" });
+      }
+
+      if (!tenantId) {
+        return res.status(400).json({ error: "Missing required field: tenantId" });
+      }
+
+      if (!imageType || !["logo", "logoDark", "favicon"].includes(imageType)) {
+        return res.status(400).json({ error: "imageType must be one of: logo, logoDark, favicon" });
+      }
+
+      // Get the public search path
+      const publicPaths = objectStorageService.getPublicObjectSearchPaths();
+      if (publicPaths.length === 0) {
+        return res.status(500).json({ error: "Public storage not configured" });
+      }
+
+      // Generate a unique filename based on tenant and image type
+      const ext = name.split(".").pop() || "png";
+      const uniqueId = randomUUID();
+      const objectName = `branding/${tenantId}/${imageType}-${uniqueId}.${ext}`;
+      const fullPath = `${publicPaths[0]}/${objectName}`;
+
+      const { bucketName, objectName: parsedObjectName } = parseObjectPath(fullPath);
+
+      // Sign URL for PUT method with 15 minute TTL
+      const uploadURL = await signObjectURL({
+        bucketName,
+        objectName: parsedObjectName,
+        method: "PUT",
+        ttlSec: 900,
+      });
+
+      // Construct the public URL for serving the image
+      const publicUrl = `/public-assets/${objectName}`;
+
+      res.json({
+        uploadURL,
+        publicUrl,
+        metadata: { name, size, contentType, tenantId, imageType },
+      });
+    } catch (error) {
+      console.error("Error generating branding upload URL:", error);
+      res.status(500).json({ error: "Failed to generate upload URL" });
+    }
+  });
+
+  /**
    * Serve public assets (showcase images, etc.)
    */
   app.get("/public-assets/:assetPath(*)", async (req, res) => {
