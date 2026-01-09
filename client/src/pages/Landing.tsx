@@ -117,7 +117,7 @@ export default function Landing() {
                   <img src={vegaLogo} alt="Vega Company OS" className="h-40 object-contain" />
                 </div>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Powered by The Synozur Alliance LLC
+                  Designed by former Microsoft Viva product leadership
                 </p>
                 <img 
                   src={microsoftPartnerBadgeBlack} 
