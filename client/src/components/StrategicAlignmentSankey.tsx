@@ -354,13 +354,41 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
     );
   }
 
-  const layerLabels = [
-    { label: t("goal", "plural"), x: 60 },
-    { label: t("strategy", "plural"), x: width * 0.25 },
-    { label: t("objective", "plural"), x: width * 0.5 },
-    { label: t("keyResult", "plural"), x: width * 0.75 },
-    { label: t("bigRock", "plural"), x: width - 60 },
-  ];
+  // Calculate layer positions from actual node positions after sankey layout
+  const layerLabels = useMemo(() => {
+    if (!sankeyData) {
+      return [
+        { label: t("goal", "plural"), x: 60 },
+        { label: t("strategy", "plural"), x: width * 0.25 },
+        { label: t("objective", "plural"), x: width * 0.5 },
+        { label: t("keyResult", "plural"), x: width * 0.75 },
+        { label: t("bigRock", "plural"), x: width - 60 },
+      ];
+    }
+    
+    // Group nodes by type and find the average x position for each layer
+    const layerTypes = ["goal", "strategy", "objective", "keyResult", "bigRock"] as const;
+    const layerPositions: { label: string; x: number }[] = [];
+    
+    layerTypes.forEach((type) => {
+      const nodesOfType = sankeyData.nodes.filter((n: any) => n.type === type);
+      if (nodesOfType.length > 0) {
+        const avgX = nodesOfType.reduce((sum: number, n: any) => sum + ((n.x0 || 0) + (n.x1 || 0)) / 2, 0) / nodesOfType.length;
+        const label = type === "keyResult" 
+          ? t("keyResult", "plural")
+          : type === "bigRock"
+            ? t("bigRock", "plural")
+            : type === "objective"
+              ? t("objective", "plural")
+              : type === "strategy"
+                ? t("strategy", "plural")
+                : t("goal", "plural");
+        layerPositions.push({ label, x: avgX });
+      }
+    });
+    
+    return layerPositions;
+  }, [sankeyData, t, width]);
 
   return (
     <Card>
