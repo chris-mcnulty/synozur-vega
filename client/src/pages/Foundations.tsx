@@ -849,39 +849,89 @@ export default function Foundations() {
               </Button>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="custom-goal">Add Goal</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="custom-goal"
-                    value={customGoal}
-                    onChange={(e) => setCustomGoal(e.target.value)}
-                    placeholder="Enter an annual goal..."
-                    onKeyPress={(e) => e.key === "Enter" && handleAddCustomGoal()}
-                    data-testid="input-custom-goal"
-                  />
-                  <Button
-                    onClick={handleAddCustomGoal}
-                    disabled={!customGoal.trim()}
-                    data-testid="button-add-goal"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add
-                  </Button>
-                </div>
-              </div>
-
-              {goals.length > 0 && (
-                <div className="space-y-2">
-                  {/* Clone All Goals Section */}
+              {/* Show existing goals first - prominently */}
+              {goals.length > 0 ? (
+                <div className="space-y-3">
+                  {/* Group goals by year */}
+                  {uniqueGoalYears.map((year) => {
+                    const yearGoals = goals.filter(g => (g.year || currentYear) === year);
+                    if (yearGoals.length === 0) return null;
+                    return (
+                      <div key={year} className="space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs font-medium">{year}</Badge>
+                          <span className="text-xs text-muted-foreground">({yearGoals.length} goals)</span>
+                        </div>
+                        {yearGoals.map((goal, idx) => {
+                          const originalIndex = goals.findIndex(g => g === goal);
+                          return (
+                            <div
+                              key={originalIndex}
+                              className="bg-secondary/30 border-l-4 border-primary/30 rounded-r-lg p-3 flex items-center justify-between gap-2"
+                              data-testid={`goal-item-${originalIndex}`}
+                            >
+                              <p className="text-sm flex-1">{goal.title}</p>
+                              <div className="flex items-center gap-1 opacity-60 hover:opacity-100 transition-opacity">
+                                <Select
+                                  value={goal.year?.toString() || currentYear.toString()}
+                                  onValueChange={(value) => handleUpdateGoalYear(originalIndex, parseInt(value))}
+                                >
+                                  <SelectTrigger className="w-16 h-7 text-xs" data-testid={`select-goal-year-${originalIndex}`}>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {availableYears.map((y) => (
+                                      <SelectItem key={y} value={y.toString()}>
+                                        {y}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                                <Select
+                                  onValueChange={(targetYear) => handleCloneGoal(goal, parseInt(targetYear))}
+                                >
+                                  <SelectTrigger className="w-7 h-7 p-0" data-testid={`button-clone-goal-${originalIndex}`}>
+                                    <Copy className="h-3 w-3 mx-auto" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="header" disabled className="font-medium text-xs">
+                                      Clone to year...
+                                    </SelectItem>
+                                    {availableYears
+                                      .filter(y => y !== goal.year)
+                                      .map((y) => (
+                                        <SelectItem key={y} value={y.toString()}>
+                                          {y}
+                                        </SelectItem>
+                                      ))}
+                                  </SelectContent>
+                                </Select>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7"
+                                  onClick={() => handleRemoveGoal(originalIndex)}
+                                  data-testid={`button-remove-goal-${originalIndex}`}
+                                >
+                                  <X className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
+                  
+                  {/* Clone All Goals Section - secondary */}
                   {uniqueGoalYears.length > 0 && (
-                    <div className="flex flex-wrap items-center gap-2 mb-4 p-3 bg-muted/50 rounded-lg">
-                      <span className="text-sm text-muted-foreground">Clone all goals from</span>
+                    <div className="flex flex-wrap items-center gap-2 p-3 bg-muted/30 rounded-lg text-muted-foreground">
+                      <span className="text-xs">Clone all goals from</span>
                       <Select
                         value={(cloneSourceYear ?? uniqueGoalYears[0])?.toString()}
                         onValueChange={(value) => setCloneSourceYear(parseInt(value))}
                       >
-                        <SelectTrigger className="w-24" data-testid="select-clone-source-year">
+                        <SelectTrigger className="w-20 h-7 text-xs" data-testid="select-clone-source-year">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -892,14 +942,14 @@ export default function Foundations() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <span className="text-sm text-muted-foreground">to</span>
+                      <span className="text-xs">to</span>
                       <Select
                         onValueChange={(targetYear) => {
                           const sourceYear = cloneSourceYear ?? uniqueGoalYears[0] ?? currentYear;
                           handleCloneAllGoals(sourceYear, parseInt(targetYear));
                         }}
                       >
-                        <SelectTrigger className="w-24" data-testid="select-clone-target-year">
+                        <SelectTrigger className="w-20 h-7 text-xs" data-testid="select-clone-target-year">
                           <SelectValue placeholder="Year" />
                         </SelectTrigger>
                         <SelectContent>
@@ -912,64 +962,43 @@ export default function Foundations() {
                       </Select>
                     </div>
                   )}
-                  
-                  {goals.map((goal, index) => (
-                    <div
-                      key={index}
-                      className="bg-muted rounded-lg p-3 flex items-center justify-between gap-2"
-                      data-testid={`goal-item-${index}`}
-                    >
-                      <div className="flex items-center gap-2 flex-1">
-                        <Select
-                          value={goal.year?.toString() || currentYear.toString()}
-                          onValueChange={(value) => handleUpdateGoalYear(index, parseInt(value))}
-                        >
-                          <SelectTrigger className="w-20 h-8" data-testid={`select-goal-year-${index}`}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {availableYears.map((year) => (
-                              <SelectItem key={year} value={year.toString()}>
-                                {year}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <p className="text-sm flex-1">{goal.title}</p>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Select
-                          onValueChange={(targetYear) => handleCloneGoal(goal, parseInt(targetYear))}
-                        >
-                          <SelectTrigger className="w-8 h-8 p-0" data-testid={`button-clone-goal-${index}`}>
-                            <Copy className="h-4 w-4 mx-auto" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="header" disabled className="font-medium text-xs">
-                              Clone to year...
-                            </SelectItem>
-                            {availableYears
-                              .filter(year => year !== goal.year)
-                              .map((year) => (
-                                <SelectItem key={year} value={year.toString()}>
-                                  {year}
-                                </SelectItem>
-                              ))}
-                          </SelectContent>
-                        </Select>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRemoveGoal(index)}
-                          data-testid={`button-remove-goal-${index}`}
-                        >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  <p className="text-sm">No annual goals defined yet</p>
+                  <p className="text-xs mt-1">Add goals below to track your key organizational objectives</p>
                 </div>
               )}
+
+              {/* Add Goal Section - secondary, collapsible style */}
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground" data-testid="button-add-goal-toggle">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Goal
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-4 pt-4">
+                  <div className="flex gap-2">
+                    <Input
+                      id="custom-goal"
+                      value={customGoal}
+                      onChange={(e) => setCustomGoal(e.target.value)}
+                      placeholder="Enter an annual goal..."
+                      onKeyPress={(e) => e.key === "Enter" && handleAddCustomGoal()}
+                      data-testid="input-custom-goal"
+                    />
+                    <Button
+                      onClick={handleAddCustomGoal}
+                      disabled={!customGoal.trim()}
+                      data-testid="button-add-goal"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add
+                    </Button>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
 
               <div className="border-t pt-4">
                 <Label className="text-sm text-muted-foreground mb-2 block">Quick Suggestions</Label>

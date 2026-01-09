@@ -55,10 +55,10 @@ const levelIcons = {
 };
 
 const levelLabels = {
-  organization: "Org",
+  organization: "Organization",
   team: "Team",
-  division: "Div",
-  individual: "Ind",
+  division: "Division",
+  individual: "Individual",
 };
 
 export function ValuesAlignmentWidget({ quarter, year }: ValuesAlignmentWidgetProps) {

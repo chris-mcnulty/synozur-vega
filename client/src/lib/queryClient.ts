@@ -143,8 +143,8 @@ export const getQueryFn: <T>(options: {
 
     const res = await fetch(url, {
       credentials: "include",
-      cache: "no-cache", // Disable HTTP caching to avoid 304 responses
       headers: getTenantHeader(),
+      cache: "no-cache", // Disable HTTP caching to avoid 304 responses
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
