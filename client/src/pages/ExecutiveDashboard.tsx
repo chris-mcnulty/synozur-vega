@@ -213,7 +213,13 @@ export default function ExecutiveDashboard() {
   });
 
   const { data: teams = [] } = useQuery<Team[]>({
-    queryKey: [`/api/okr/teams`],
+    queryKey: [`/api/okr/teams`, currentTenant?.id],
+    queryFn: async () => {
+      if (!currentTenant) return [];
+      const res = await fetch(`/api/okr/teams?tenantId=${currentTenant.id}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
     enabled: !!currentTenant?.id,
   });
 
