@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { TrendingUp, TrendingDown, Target, ChevronDown, ChevronRight, Building2, Users, Layers } from "lucide-react";
+import { TrendingUp, TrendingDown, Target, ChevronDown, ChevronRight, Building2, Users, Layers, FileText, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTenant } from "@/contexts/TenantContext";
 
@@ -41,6 +41,73 @@ type ValuesAnalytics = {
     averageUsage: number;
   };
 };
+
+type TaggedItems = {
+  objectives: Array<{ id: string; title: string; level?: string }>;
+  strategies: Array<{ id: string; title: string }>;
+};
+
+// Sub-component to fetch and display tagged items for an expanded value
+function ExpandedValueItems({ valueTitle }: { valueTitle: string }) {
+  const { currentTenant } = useTenant();
+  
+  const { data: items, isLoading } = useQuery<TaggedItems>({
+    queryKey: [`/api/values/${encodeURIComponent(valueTitle)}/tagged-items`, { tenantId: currentTenant?.id }],
+    enabled: !!currentTenant,
+  });
+
+  if (isLoading) {
+    return <div className="text-xs text-muted-foreground py-1">Loading...</div>;
+  }
+
+  if (!items || (items.objectives.length === 0 && items.strategies.length === 0)) {
+    return <div className="text-xs text-muted-foreground py-1">No items tagged</div>;
+  }
+
+  return (
+    <div className="space-y-2">
+      {items.objectives.length > 0 && (
+        <div className="space-y-1">
+          <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+            <Target className="h-3 w-3" />
+            Objectives
+          </div>
+          {items.objectives.map((obj) => (
+            <div 
+              key={obj.id} 
+              className="text-xs pl-4 py-0.5 text-foreground"
+              data-testid={`tagged-objective-${obj.id}`}
+            >
+              {obj.title}
+              {obj.level && (
+                <Badge variant="outline" className="ml-2 text-[10px] px-1 py-0">
+                  {obj.level}
+                </Badge>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {items.strategies.length > 0 && (
+        <div className="space-y-1">
+          <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+            <Lightbulb className="h-3 w-3" />
+            Strategies
+          </div>
+          {items.strategies.map((strat) => (
+            <div 
+              key={strat.id} 
+              className="text-xs pl-4 py-0.5 text-foreground"
+              data-testid={`tagged-strategy-${strat.id}`}
+            >
+              {strat.title}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface ValuesAlignmentWidgetProps {
   quarter?: number;
@@ -245,7 +312,7 @@ export function ValuesAlignmentWidget({ quarter, year }: ValuesAlignmentWidgetPr
           <div className="text-xs font-medium text-muted-foreground">Distribution by Value</div>
           {distribution.map((value) => {
             const isExpanded = expandedValues.has(value.valueTitle);
-            const hasBreakdown = Object.values(value.levelBreakdown).some(count => count > 0);
+            const hasItems = value.totalCount > 0;
             
             return (
               <Collapsible 
@@ -264,7 +331,7 @@ export function ValuesAlignmentWidget({ quarter, year }: ValuesAlignmentWidgetPr
                       data-testid={`button-expand-${value.valueTitle}`}
                     >
                       <div className="flex items-center gap-2 w-full">
-                        {hasBreakdown ? (
+                        {hasItems ? (
                           isExpanded ? (
                             <ChevronDown className="h-3 w-3 text-muted-foreground flex-shrink-0" />
                           ) : (
@@ -295,28 +362,11 @@ export function ValuesAlignmentWidget({ quarter, year }: ValuesAlignmentWidgetPr
                     />
                   </div>
 
-                  {/* Expanded Level Breakdown */}
+                  {/* Expanded: Show actual objectives and strategies */}
                   <CollapsibleContent>
-                    {hasBreakdown && (
-                      <div className="ml-5 mt-2 pl-2 border-l-2 border-muted space-y-1">
-                        {(Object.entries(value.levelBreakdown) as [keyof LevelBreakdown, number][])
-                          .filter(([_, count]) => count > 0)
-                          .map(([level, count]) => {
-                            const Icon = levelIcons[level];
-                            return (
-                              <div 
-                                key={level}
-                                className="flex items-center gap-2 text-xs text-muted-foreground"
-                                data-testid={`breakdown-${value.valueTitle}-${level}`}
-                              >
-                                <Icon className="h-3 w-3" />
-                                <span className="capitalize">{level}:</span>
-                                <span className="font-medium">{count}</span>
-                              </div>
-                            );
-                          })}
-                      </div>
-                    )}
+                    <div className="ml-5 mt-2 pl-2 border-l-2 border-muted">
+                      <ExpandedValueItems valueTitle={value.valueTitle} />
+                    </div>
                   </CollapsibleContent>
                 </div>
               </Collapsible>
