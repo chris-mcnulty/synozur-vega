@@ -100,6 +100,29 @@ function getStatusBadge(status: string) {
   return <Badge variant={config.variant}>{config.label}</Badge>;
 }
 
+type PaceStatus = 'ahead' | 'on_track' | 'behind' | 'at_risk' | 'no_data';
+
+function calculatePaceStatus(progress: number, quarter: number, year: number): PaceStatus {
+  const now = new Date();
+  const quarterStartMonth = (quarter - 1) * 3;
+  const startDate = new Date(year, quarterStartMonth, 1);
+  const endDate = new Date(year, quarterStartMonth + 3, 0);
+  
+  const totalDays = Math.max(1, Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
+  const elapsedDays = Math.max(0, Math.min(Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)), totalDays));
+  
+  const percentageThrough = (elapsedDays / totalDays) * 100;
+  const expectedProgress = percentageThrough;
+  const gap = progress - expectedProgress;
+  const gapThreshold = 10;
+  
+  if (progress === 0 && elapsedDays < 14) return 'no_data';
+  if (gap >= gapThreshold) return 'ahead';
+  if (gap <= -gapThreshold * 2) return 'at_risk';
+  if (gap <= -gapThreshold) return 'behind';
+  return 'on_track';
+}
+
 export default function ExecutiveDashboard() {
   const { currentTenant, isLoading: tenantLoading } = useTenant();
   const { t } = useVocabulary();
@@ -383,6 +406,22 @@ export default function ExecutiveDashboard() {
         }, 0) / objectivesWithProgress.length)
       : 0;
 
+    // Pace-based metrics - objectives falling behind based on time elapsed vs progress
+    const objectivesWithPace = objectivesWithProgress
+      .filter(obj => obj.quarter && obj.quarter > 0 && obj.year)
+      .map(obj => ({
+        ...obj,
+        paceStatus: calculatePaceStatus(obj.calculatedProgress, obj.quarter!, obj.year!),
+      }));
+    
+    const behindPaceObjectives = objectivesWithPace
+      .filter(obj => obj.paceStatus === 'behind' || obj.paceStatus === 'at_risk')
+      .sort((a, b) => {
+        if (a.paceStatus === 'at_risk' && b.paceStatus !== 'at_risk') return -1;
+        if (b.paceStatus === 'at_risk' && a.paceStatus !== 'at_risk') return 1;
+        return a.calculatedProgress - b.calculatedProgress;
+      });
+
     return {
       totalObjectives: objectives.length,
       totalKRs: allKRs.length,
@@ -408,6 +447,8 @@ export default function ExecutiveDashboard() {
       staleObjectivesCount: staleObjectives.length,
       staleObjectives: staleObjectives.slice(0, 5),
       avgDaysSinceCheckIn,
+      behindPaceObjectives: behindPaceObjectives.slice(0, 5),
+      behindPaceCount: behindPaceObjectives.length,
     };
   }, [objectives, keyResultsMap, teams, allCheckIns, bigRocks]);
 
@@ -866,6 +907,83 @@ export default function ExecutiveDashboard() {
               </Card>
             )}
           </div>
+
+          {metrics.behindPaceCount > 0 && (
+            <Card className="border-amber-200 dark:border-amber-800" data-testid="card-behind-pace-alerts">
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+                  <TrendingDown className="h-5 w-5" />
+                  Behind Pace
+                  <Badge variant="outline" className="ml-2 text-amber-600 border-amber-600">
+                    {metrics.behindPaceCount}
+                  </Badge>
+                </CardTitle>
+                <CardDescription>
+                  Objectives where progress is lagging behind the expected pace for this point in the quarter.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {metrics.behindPaceObjectives.map((obj) => {
+                    const team = teams.find(t => t.id === obj.teamId);
+                    const isAtRisk = obj.paceStatus === 'at_risk';
+                    return (
+                      <div 
+                        key={obj.id}
+                        className={cn(
+                          "flex items-center justify-between p-3 rounded-lg",
+                          isAtRisk 
+                            ? "bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800" 
+                            : "bg-amber-50 dark:bg-amber-950/30"
+                        )}
+                        data-testid={`item-behind-pace-${obj.id}`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium truncate">{obj.title}</p>
+                            {isAtRisk && (
+                              <Badge variant="destructive" className="text-xs">Critical</Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 mt-1">
+                            {team && <Badge variant="outline" className="text-xs">{team.name}</Badge>}
+                            <span className="text-xs text-muted-foreground">
+                              {obj.calculatedProgress}% vs expected ~{Math.round((dayOfQuarter / daysInQuarter) * 100)}%
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <p className={cn(
+                              "text-lg font-bold",
+                              isAtRisk ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
+                            )}>
+                              {obj.calculatedProgress}%
+                            </p>
+                          </div>
+                          <Link href="/planning">
+                            <Button size="sm" variant="outline" data-testid={`button-view-pace-${obj.id}`}>
+                              View
+                            </Button>
+                          </Link>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {metrics.behindPaceCount > 5 && (
+                    <p className="text-sm text-muted-foreground text-center pt-2">
+                      + {metrics.behindPaceCount - 5} more behind pace
+                    </p>
+                  )}
+                </div>
+                <div className="mt-4 pt-3 border-t">
+                  <p className="text-xs text-muted-foreground">
+                    <strong>How to act:</strong> These objectives need acceleration. Schedule check-ins with owners to identify blockers and reallocate resources if needed.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {metrics.staleObjectivesCount > 0 && (
             <Card className="border-amber-200 dark:border-amber-800">

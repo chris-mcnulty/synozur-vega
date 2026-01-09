@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -30,11 +30,16 @@ import {
   FileSpreadsheet,
   AlertCircle,
   Link2,
-  Copy
+  Copy,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  AlertTriangle,
+  Clock
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { format } from "date-fns";
+import { format, differenceInDays, endOfQuarter } from "date-fns";
 import { CircularProgress } from "./CircularProgress";
 
 interface KeyResult {
@@ -181,6 +186,65 @@ function getStatusLabel(status: string): string {
 function getQuarterLabel(quarter: number | null | undefined): string {
   if (quarter === 0 || quarter === null || quarter === undefined) return "Annual";
   return `Q${quarter}`;
+}
+
+type PaceStatus = 'ahead' | 'on_track' | 'behind' | 'at_risk' | 'no_data' | 'completed';
+
+function calculateSimplePace(progress: number, quarter: number, year: number): { status: PaceStatus; icon: typeof TrendingUp } {
+  const now = new Date();
+  const quarterStartMonth = (quarter - 1) * 3;
+  const startDate = new Date(year, quarterStartMonth, 1);
+  const endDate = endOfQuarter(startDate);
+  
+  const totalDays = Math.max(1, differenceInDays(endDate, startDate));
+  const elapsedDays = Math.max(0, Math.min(differenceInDays(now, startDate), totalDays));
+  const isPeriodEnded = differenceInDays(now, startDate) > totalDays;
+  
+  const percentageThrough = isPeriodEnded ? 100 : (elapsedDays / totalDays) * 100;
+  const expectedProgress = percentageThrough;
+  const gap = progress - expectedProgress;
+  const gapThreshold = 10;
+  
+  if (isPeriodEnded) {
+    if (progress >= 100) return { status: 'completed', icon: CheckCircle2 };
+    if (progress >= 70) return { status: 'on_track', icon: Minus };
+    return { status: 'behind', icon: TrendingDown };
+  }
+  
+  if (progress === 0 && elapsedDays < 14) return { status: 'no_data', icon: Clock };
+  if (gap >= gapThreshold) return { status: 'ahead', icon: TrendingUp };
+  if (gap <= -gapThreshold * 2) return { status: 'at_risk', icon: AlertTriangle };
+  if (gap <= -gapThreshold) return { status: 'behind', icon: TrendingDown };
+  return { status: 'on_track', icon: Minus };
+}
+
+function getPaceLabel(status: PaceStatus): string {
+  const labels: Record<PaceStatus, string> = {
+    ahead: 'Ahead',
+    on_track: 'On Pace',
+    behind: 'Behind',
+    at_risk: 'At Risk',
+    no_data: 'No Data',
+    completed: 'Done',
+  };
+  return labels[status];
+}
+
+function getPaceBadgeStyles(status: PaceStatus): string {
+  switch (status) {
+    case 'ahead':
+    case 'completed':
+      return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+    case 'on_track':
+      return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400';
+    case 'behind':
+      return 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400';
+    case 'at_risk':
+      return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+    case 'no_data':
+    default:
+      return 'bg-muted text-muted-foreground';
+  }
 }
 
 function calculateObjectiveProgress(keyResults: KeyResult[], childObjectives: HierarchyObjective[]): number {
@@ -463,6 +527,29 @@ function ObjectiveRow({
                   <span className="text-xs text-muted-foreground">
                     {calculatedProgress > 100 ? "100%+" : `${Math.round(calculatedProgress)}%`}
                   </span>
+                  {objective.quarter > 0 && (() => {
+                    const pace = calculateSimplePace(calculatedProgress, objective.quarter, objective.year);
+                    const PaceIcon = pace.icon;
+                    return (
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Badge 
+                              variant="outline" 
+                              className={cn("text-xs px-1.5 py-0", getPaceBadgeStyles(pace.status))}
+                              data-testid={`pace-badge-${objective.id}`}
+                            >
+                              <PaceIcon className="h-3 w-3 mr-0.5" />
+                              {getPaceLabel(pace.status)}
+                            </Badge>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p className="text-xs">Pace vs time elapsed in period</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    );
+                  })()}
                 </div>
               </div>
             );
