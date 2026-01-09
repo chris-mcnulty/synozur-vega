@@ -568,7 +568,8 @@ function ObjectiveRow({
                               >
                                 <PaceIcon className="h-3 w-3 mr-0.5" />
                                 {getPaceLabel(pace.status)}
-                                {!pace.isPeriodEnded && pace.projectedEndProgress > 0 && pace.status !== 'no_data' && (
+                                {!pace.isPeriodEnded && pace.projectedEndProgress > 0 && 
+                                 (pace.status === 'ahead' || pace.status === 'on_track') && (
                                   <span className="ml-1 opacity-75" data-testid={`pace-projection-${objective.id}`}>
                                     → {Math.round(pace.projectedEndProgress)}%
                                   </span>
@@ -584,7 +585,8 @@ function ObjectiveRow({
                                 <p className="text-muted-foreground">
                                   Expected: {Math.round(pace.expectedProgress)}% | Actual: {Math.round(calculatedProgress)}%
                                 </p>
-                                {!pace.isPeriodEnded && pace.projectedEndProgress > 0 && (
+                                {!pace.isPeriodEnded && pace.projectedEndProgress > 0 && 
+                                 (pace.status === 'ahead' || pace.status === 'on_track') && (
                                   <p className="font-medium">
                                     Projected end: {Math.round(pace.projectedEndProgress)}%
                                   </p>

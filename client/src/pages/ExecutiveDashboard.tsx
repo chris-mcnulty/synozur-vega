@@ -463,6 +463,7 @@ export default function ExecutiveDashboard() {
           ...obj,
           paceStatus: paceResult.status,
           projectedEndProgress: paceResult.projectedEndProgress,
+          expectedProgress: paceResult.expectedProgress,
           riskSignal: paceResult.riskSignal,
           daysSinceLastCheckIn,
           isPeriodEnded: paceResult.isPeriodEnded,
@@ -1017,7 +1018,7 @@ export default function ExecutiveDashboard() {
                             <span className="text-xs text-muted-foreground">
                               {obj.isPeriodEnded 
                                 ? `${obj.calculatedProgress}% achieved (period ended)`
-                                : `${obj.calculatedProgress}% now → projected ${obj.projectedEndProgress}% by end`}
+                                : `${obj.calculatedProgress}% progress (expected: ${obj.expectedProgress}%)`}
                             </span>
                           </div>
                         </div>
@@ -1031,7 +1032,7 @@ export default function ExecutiveDashboard() {
                             </p>
                             {!obj.isPeriodEnded && (
                               <p className="text-xs text-muted-foreground">
-                                → {obj.projectedEndProgress}%
+                                of {obj.expectedProgress}% expected
                               </p>
                             )}
                           </div>
