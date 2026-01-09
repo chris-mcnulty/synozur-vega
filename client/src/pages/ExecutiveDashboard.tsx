@@ -38,6 +38,7 @@ import {
   CalendarPlus,
   Eye,
   MessageSquare,
+  Circle,
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -504,6 +505,7 @@ export default function ExecutiveDashboard() {
       bigRocksCompleted,
       bigRocksTotal,
       bigRocksProgress,
+      bigRocksList: bigRocks.slice(0, 8), // Top 8 for display
       winningObjectives,
       recentlyCompletedBigRocks,
       trendData: sortedWeeks,
@@ -1280,41 +1282,56 @@ export default function ExecutiveDashboard() {
                   <CheckCircle2 className="h-5 w-5" />
                   Big Rocks Progress
                 </CardTitle>
-                <CardDescription>Key priorities completion status</CardDescription>
+                <CardDescription>
+                  {metrics.bigRocksCompleted} of {metrics.bigRocksTotal} key priorities completed ({metrics.bigRocksProgress}%)
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex items-center justify-center py-8">
-                  <div className="text-center">
-                    <div className="relative inline-flex items-center justify-center">
-                      <svg className="w-32 h-32 transform -rotate-90">
-                        <circle
-                          cx="64"
-                          cy="64"
-                          r="56"
-                          stroke="currentColor"
-                          strokeWidth="12"
-                          fill="none"
-                          className="text-muted"
-                        />
-                        <circle
-                          cx="64"
-                          cy="64"
-                          r="56"
-                          stroke="currentColor"
-                          strokeWidth="12"
-                          fill="none"
-                          strokeDasharray={`${metrics.bigRocksProgress * 3.52} 352`}
-                          className="text-primary"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                      <div className="absolute text-center">
-                        <p className="text-2xl font-bold">{metrics.bigRocksCompleted}/{metrics.bigRocksTotal}</p>
-                        <p className="text-xs text-muted-foreground">Completed</p>
+                {metrics.bigRocksList.length > 0 ? (
+                  <div className="space-y-2">
+                    {metrics.bigRocksList.map((br) => (
+                      <div 
+                        key={br.id}
+                        className={cn(
+                          "flex items-center gap-3 p-2 rounded-lg",
+                          br.status === 'completed' 
+                            ? "bg-green-50 dark:bg-green-950/30" 
+                            : "bg-muted/50"
+                        )}
+                        data-testid={`item-bigrock-${br.id}`}
+                      >
+                        {br.status === 'completed' ? (
+                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                        ) : br.status === 'in_progress' ? (
+                          <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin flex-shrink-0" />
+                        ) : (
+                          <Circle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        )}
+                        <span className={cn(
+                          "text-sm truncate flex-1",
+                          br.status === 'completed' && "line-through text-muted-foreground"
+                        )}>
+                          {br.title}
+                        </span>
+                        <Badge 
+                          variant={br.status === 'completed' ? 'secondary' : 'outline'} 
+                          className="text-xs flex-shrink-0"
+                        >
+                          {br.status === 'completed' ? 'Done' : br.status === 'in_progress' ? 'Active' : 'Pending'}
+                        </Badge>
                       </div>
-                    </div>
+                    ))}
+                    {metrics.bigRocksTotal > 8 && (
+                      <p className="text-xs text-muted-foreground text-center pt-2">
+                        + {metrics.bigRocksTotal - 8} more big rocks
+                      </p>
+                    )}
                   </div>
-                </div>
+                ) : (
+                  <div className="flex items-center justify-center py-8 text-muted-foreground">
+                    <p>No big rocks for this period</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </div>
