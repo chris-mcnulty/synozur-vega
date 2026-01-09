@@ -80,7 +80,7 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
       storage.getKeyResultsByTenantId(effectiveTenantId),
       filters.includeBigRocks ? storage.getBigRocksByTenantId(effectiveTenantId, filters.quarter, filters.year) : Promise.resolve([]),
       filters.includeTeams ? storage.getTeamsByTenantId(effectiveTenantId) : Promise.resolve([]),
-      filters.includeGroundingDocs ? storage.getGroundingDocumentsByTenantId(effectiveTenantId) : Promise.resolve([]),
+      filters.includeGroundingDocs ? storage.getTenantGroundingDocuments(effectiveTenantId) : Promise.resolve([]),
     ]);
 
     let filteredObjectives = objectives;
@@ -149,8 +149,12 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
       
       if (foundation.annualGoals && foundation.annualGoals.length > 0) {
         markdown += `### Annual Goals (${filters.year || new Date().getFullYear()})\n\n`;
-        foundation.annualGoals.forEach((goal: string, index: number) => {
-          markdown += `${index + 1}. ${goal}\n`;
+        foundation.annualGoals.forEach((goal, index: number) => {
+          markdown += `${index + 1}. **${goal.title}**`;
+          if (goal.description) {
+            markdown += ` - ${goal.description}`;
+          }
+          markdown += `\n`;
         });
         markdown += `\n`;
       }
@@ -296,7 +300,7 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
         return acc;
       }, {});
       
-      Object.entries(docsByCategory).forEach(([category, docs]) => {
+      Object.entries(docsByCategory).forEach(([category, docs]: [string, GroundingDocument[]]) => {
         markdown += `### ${category.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}\n\n`;
         docs.forEach((doc: GroundingDocument, index: number) => {
           markdown += `${index + 1}. **${doc.title}**`;

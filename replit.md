@@ -103,3 +103,10 @@ When adding new features or proposals, update BACKLOG.md rather than creating se
 - When editing a child objective, a weight slider appears to set its contribution to parent's progress
 - Progress propagates upward: when a child's progress changes, parent is recalculated
 - Helper function `calculateObjectiveRollupProgress()` in routes-okr.ts handles the calculation
+
+### COS Import/Export
+- Export and import routes use `x-tenant-id` header for tenant context (not user.tenantId or form body)
+- Frontend must include `x-tenant-id` header when calling export/import APIs
+- Export includes: foundations, strategies, objectives, key results, big rocks, teams, check-ins, grounding documents
+- Import runs teams first so objectives can reference mapped team IDs
+- Dashboard "Objectives by Team" groups organization-level objectives under "Organization" label with Globe icon

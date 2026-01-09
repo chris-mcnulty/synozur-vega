@@ -356,9 +356,8 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
             } else if (options.duplicateStrategy === 'replace') {
               await storage.updateTeam(existingMatch.id, {
                 description: team.description,
-                managerId: team.managerId,
+                leaderId: team.leaderId || team.managerId,
                 parentTeamId: team.parentTeamId ? idMap.get(team.parentTeamId) : null,
-                metadata: team.metadata,
               });
               idMap.set(team.id, existingMatch.id);
               results.teams.updated++;
@@ -367,9 +366,8 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
                 tenantId: targetTenantId,
                 name: team.name,
                 description: team.description,
-                managerId: team.managerId,
+                leaderId: team.leaderId || team.managerId,
                 parentTeamId: team.parentTeamId ? idMap.get(team.parentTeamId) : null,
-                metadata: team.metadata,
               });
               idMap.set(team.id, newTeam.id);
               results.teams.created++;
@@ -379,9 +377,8 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
               tenantId: targetTenantId,
               name: team.name,
               description: team.description,
-              managerId: team.managerId,
+              leaderId: team.leaderId || team.managerId,
               parentTeamId: team.parentTeamId ? idMap.get(team.parentTeamId) : null,
-              metadata: team.metadata,
             });
             idMap.set(team.id, newTeam.id);
             results.teams.created++;
