@@ -100,27 +100,68 @@ function getStatusBadge(status: string) {
   return <Badge variant={config.variant}>{config.label}</Badge>;
 }
 
-type PaceStatus = 'ahead' | 'on_track' | 'behind' | 'at_risk' | 'no_data';
+type PaceStatus = 'ahead' | 'on_track' | 'behind' | 'at_risk' | 'no_data' | 'completed';
+type RiskSignal = 'stalled' | 'attention_needed' | 'none';
 
-function calculatePaceStatus(progress: number, quarter: number, year: number): PaceStatus {
+interface PaceResult {
+  status: PaceStatus;
+  projectedEndProgress: number;
+  percentageThrough: number;
+  expectedProgress: number;
+  riskSignal: RiskSignal;
+  isPeriodEnded: boolean;
+}
+
+function calculatePaceWithProjection(progress: number, quarter: number, year: number, daysSinceLastCheckIn?: number | null): PaceResult {
   const now = new Date();
   const quarterStartMonth = (quarter - 1) * 3;
   const startDate = new Date(year, quarterStartMonth, 1);
   const endDate = new Date(year, quarterStartMonth + 3, 0);
   
   const totalDays = Math.max(1, Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
-  const elapsedDays = Math.max(0, Math.min(Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)), totalDays));
+  const rawElapsedDays = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  const elapsedDays = Math.max(0, Math.min(rawElapsedDays, totalDays));
+  const isPeriodEnded = rawElapsedDays > totalDays;
   
-  const percentageThrough = (elapsedDays / totalDays) * 100;
+  const percentageThrough = isPeriodEnded ? 100 : (elapsedDays / totalDays) * 100;
   const expectedProgress = percentageThrough;
   const gap = progress - expectedProgress;
   const gapThreshold = 10;
   
-  if (progress === 0 && elapsedDays < 14) return 'no_data';
-  if (gap >= gapThreshold) return 'ahead';
-  if (gap <= -gapThreshold * 2) return 'at_risk';
-  if (gap <= -gapThreshold) return 'behind';
-  return 'on_track';
+  let projectedEndProgress = progress;
+  if (!isPeriodEnded && percentageThrough > 0) {
+    projectedEndProgress = Math.min((progress / percentageThrough) * 100, 200);
+  }
+  
+  let riskSignal: RiskSignal = 'none';
+  if (daysSinceLastCheckIn !== null && daysSinceLastCheckIn !== undefined && daysSinceLastCheckIn >= 14) {
+    riskSignal = 'attention_needed';
+  } else if (elapsedDays >= 30 && progress === 0) {
+    riskSignal = 'stalled';
+  }
+  
+  let status: PaceStatus;
+  if (isPeriodEnded) {
+    if (progress >= 100) status = 'completed';
+    else if (progress >= 70) status = 'on_track';
+    else status = 'behind';
+  } else if (progress === 0 && elapsedDays < 14) {
+    status = 'no_data';
+  } else if (gap >= gapThreshold) {
+    status = 'ahead';
+  } else if (gap <= -gapThreshold * 2) {
+    status = 'at_risk';
+  } else if (gap <= -gapThreshold) {
+    status = 'behind';
+  } else {
+    status = 'on_track';
+  }
+  
+  return { status, projectedEndProgress: Math.round(projectedEndProgress), percentageThrough: Math.round(percentageThrough), expectedProgress: Math.round(expectedProgress), riskSignal, isPeriodEnded };
+}
+
+function calculatePaceStatus(progress: number, quarter: number, year: number): PaceStatus {
+  return calculatePaceWithProjection(progress, quarter, year).status;
 }
 
 export default function ExecutiveDashboard() {
@@ -409,10 +450,24 @@ export default function ExecutiveDashboard() {
     // Pace-based metrics - objectives falling behind based on time elapsed vs progress
     const objectivesWithPace = objectivesWithProgress
       .filter(obj => obj.quarter && obj.quarter > 0 && obj.year)
-      .map(obj => ({
-        ...obj,
-        paceStatus: calculatePaceStatus(obj.calculatedProgress, obj.quarter!, obj.year!),
-      }));
+      .map(obj => {
+        const lastCheckIn = allCheckIns
+          .filter(ci => ci.entityId === obj.id || 
+            (keyResultsMap[obj.id] || []).some(kr => kr.id === ci.entityId))
+          .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())[0];
+        const daysSinceLastCheckIn = lastCheckIn 
+          ? Math.floor((Date.now() - new Date(lastCheckIn.createdAt!).getTime()) / (1000 * 60 * 60 * 24))
+          : null;
+        const paceResult = calculatePaceWithProjection(obj.calculatedProgress, obj.quarter!, obj.year!, daysSinceLastCheckIn);
+        return {
+          ...obj,
+          paceStatus: paceResult.status,
+          projectedEndProgress: paceResult.projectedEndProgress,
+          riskSignal: paceResult.riskSignal,
+          daysSinceLastCheckIn,
+          isPeriodEnded: paceResult.isPeriodEnded,
+        };
+      });
     
     const behindPaceObjectives = objectivesWithPace
       .filter(obj => obj.paceStatus === 'behind' || obj.paceStatus === 'at_risk')
@@ -421,6 +476,10 @@ export default function ExecutiveDashboard() {
         if (b.paceStatus === 'at_risk' && a.paceStatus !== 'at_risk') return 1;
         return a.calculatedProgress - b.calculatedProgress;
       });
+    
+    // Count risk signals for overview
+    const stalledObjectivesCount = objectivesWithPace.filter(obj => obj.riskSignal === 'stalled').length;
+    const attentionNeededCount = objectivesWithPace.filter(obj => obj.riskSignal === 'attention_needed').length;
 
     return {
       totalObjectives: objectives.length,
@@ -449,6 +508,8 @@ export default function ExecutiveDashboard() {
       avgDaysSinceCheckIn,
       behindPaceObjectives: behindPaceObjectives.slice(0, 5),
       behindPaceCount: behindPaceObjectives.length,
+      stalledSignalCount: stalledObjectivesCount,
+      attentionNeededCount,
     };
   }, [objectives, keyResultsMap, teams, allCheckIns, bigRocks]);
 
@@ -944,11 +1005,19 @@ export default function ExecutiveDashboard() {
                             {isAtRisk && (
                               <Badge variant="destructive" className="text-xs">Critical</Badge>
                             )}
+                            {obj.riskSignal === 'stalled' && (
+                              <Badge variant="destructive" className="text-xs">Stalled</Badge>
+                            )}
+                            {obj.riskSignal === 'attention_needed' && (
+                              <Badge variant="secondary" className="text-xs text-amber-600">{obj.daysSinceLastCheckIn}d no check-in</Badge>
+                            )}
                           </div>
                           <div className="flex items-center gap-2 mt-1">
                             {team && <Badge variant="outline" className="text-xs">{team.name}</Badge>}
                             <span className="text-xs text-muted-foreground">
-                              {obj.calculatedProgress}% vs expected ~{Math.round((dayOfQuarter / daysInQuarter) * 100)}%
+                              {obj.isPeriodEnded 
+                                ? `${obj.calculatedProgress}% achieved (period ended)`
+                                : `${obj.calculatedProgress}% now → projected ${obj.projectedEndProgress}% by end`}
                             </span>
                           </div>
                         </div>
@@ -960,6 +1029,11 @@ export default function ExecutiveDashboard() {
                             )}>
                               {obj.calculatedProgress}%
                             </p>
+                            {!obj.isPeriodEnded && (
+                              <p className="text-xs text-muted-foreground">
+                                → {obj.projectedEndProgress}%
+                              </p>
+                            )}
                           </div>
                           <Link href="/planning">
                             <Button size="sm" variant="outline" data-testid={`button-view-pace-${obj.id}`}>

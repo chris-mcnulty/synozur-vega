@@ -189,8 +189,19 @@ function getQuarterLabel(quarter: number | null | undefined): string {
 }
 
 type PaceStatus = 'ahead' | 'on_track' | 'behind' | 'at_risk' | 'no_data' | 'completed';
+type RiskSignal = 'stalled' | 'attention_needed' | 'accelerating' | 'none';
 
-function calculateSimplePace(progress: number, quarter: number, year: number): { status: PaceStatus; icon: typeof TrendingUp } {
+interface PaceInfo {
+  status: PaceStatus;
+  icon: typeof TrendingUp;
+  projectedEndProgress: number;
+  riskSignal: RiskSignal;
+  percentageThrough: number;
+  expectedProgress: number;
+  isPeriodEnded: boolean;
+}
+
+function calculateSimplePace(progress: number, quarter: number, year: number, daysSinceLastCheckIn?: number | null): PaceInfo {
   const now = new Date();
   const quarterStartMonth = (quarter - 1) * 3;
   const startDate = new Date(year, quarterStartMonth, 1);
@@ -205,17 +216,29 @@ function calculateSimplePace(progress: number, quarter: number, year: number): {
   const gap = progress - expectedProgress;
   const gapThreshold = 10;
   
-  if (isPeriodEnded) {
-    if (progress >= 100) return { status: 'completed', icon: CheckCircle2 };
-    if (progress >= 70) return { status: 'on_track', icon: Minus };
-    return { status: 'behind', icon: TrendingDown };
+  let projectedEndProgress = progress;
+  if (!isPeriodEnded && percentageThrough > 0) {
+    projectedEndProgress = Math.min((progress / percentageThrough) * 100, 200);
   }
   
-  if (progress === 0 && elapsedDays < 14) return { status: 'no_data', icon: Clock };
-  if (gap >= gapThreshold) return { status: 'ahead', icon: TrendingUp };
-  if (gap <= -gapThreshold * 2) return { status: 'at_risk', icon: AlertTriangle };
-  if (gap <= -gapThreshold) return { status: 'behind', icon: TrendingDown };
-  return { status: 'on_track', icon: Minus };
+  let riskSignal: RiskSignal = 'none';
+  if (daysSinceLastCheckIn !== null && daysSinceLastCheckIn !== undefined && daysSinceLastCheckIn >= 14) {
+    riskSignal = 'attention_needed';
+  } else if (elapsedDays >= 30 && progress === 0) {
+    riskSignal = 'stalled';
+  }
+  
+  if (isPeriodEnded) {
+    if (progress >= 100) return { status: 'completed', icon: CheckCircle2, projectedEndProgress: progress, riskSignal, percentageThrough, expectedProgress, isPeriodEnded };
+    if (progress >= 70) return { status: 'on_track', icon: Minus, projectedEndProgress: progress, riskSignal, percentageThrough, expectedProgress, isPeriodEnded };
+    return { status: 'behind', icon: TrendingDown, projectedEndProgress: progress, riskSignal, percentageThrough, expectedProgress, isPeriodEnded };
+  }
+  
+  if (progress === 0 && elapsedDays < 14) return { status: 'no_data', icon: Clock, projectedEndProgress, riskSignal, percentageThrough, expectedProgress, isPeriodEnded };
+  if (gap >= gapThreshold) return { status: 'ahead', icon: TrendingUp, projectedEndProgress, riskSignal, percentageThrough, expectedProgress, isPeriodEnded };
+  if (gap <= -gapThreshold * 2) return { status: 'at_risk', icon: AlertTriangle, projectedEndProgress, riskSignal, percentageThrough, expectedProgress, isPeriodEnded };
+  if (gap <= -gapThreshold) return { status: 'behind', icon: TrendingDown, projectedEndProgress, riskSignal, percentageThrough, expectedProgress, isPeriodEnded };
+  return { status: 'on_track', icon: Minus, projectedEndProgress, riskSignal, percentageThrough, expectedProgress, isPeriodEnded };
 }
 
 function getPaceLabel(status: PaceStatus): string {
@@ -528,26 +551,79 @@ function ObjectiveRow({
                     {calculatedProgress > 100 ? "100%+" : `${Math.round(calculatedProgress)}%`}
                   </span>
                   {objective.quarter > 0 && (() => {
-                    const pace = calculateSimplePace(calculatedProgress, objective.quarter, objective.year);
+                    const daysSinceLastCheckIn = objective.lastUpdated 
+                      ? differenceInDays(new Date(), new Date(objective.lastUpdated))
+                      : null;
+                    const pace = calculateSimplePace(calculatedProgress, objective.quarter, objective.year, daysSinceLastCheckIn);
                     const PaceIcon = pace.icon;
                     return (
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <Badge 
-                              variant="outline" 
-                              className={cn("text-xs px-1.5 py-0", getPaceBadgeStyles(pace.status))}
-                              data-testid={`pace-badge-${objective.id}`}
-                            >
-                              <PaceIcon className="h-3 w-3 mr-0.5" />
-                              {getPaceLabel(pace.status)}
-                            </Badge>
-                          </TooltipTrigger>
-                          <TooltipContent>
-                            <p className="text-xs">Pace vs time elapsed in period</p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <div className="flex items-center gap-1">
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Badge 
+                                variant="outline" 
+                                className={cn("text-xs px-1.5 py-0", getPaceBadgeStyles(pace.status))}
+                                data-testid={`pace-badge-${objective.id}`}
+                              >
+                                <PaceIcon className="h-3 w-3 mr-0.5" />
+                                {getPaceLabel(pace.status)}
+                                {!pace.isPeriodEnded && pace.projectedEndProgress > 0 && pace.status !== 'no_data' && (
+                                  <span className="ml-1 opacity-75" data-testid={`pace-projection-${objective.id}`}>
+                                    → {Math.round(pace.projectedEndProgress)}%
+                                  </span>
+                                )}
+                              </Badge>
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <div className="space-y-1 text-xs">
+                                <p className="font-medium">{getPaceLabel(pace.status)}</p>
+                                <p className="text-muted-foreground">
+                                  {Math.round(pace.percentageThrough)}% through period
+                                </p>
+                                <p className="text-muted-foreground">
+                                  Expected: {Math.round(pace.expectedProgress)}% | Actual: {Math.round(calculatedProgress)}%
+                                </p>
+                                {!pace.isPeriodEnded && pace.projectedEndProgress > 0 && (
+                                  <p className="font-medium">
+                                    Projected end: {Math.round(pace.projectedEndProgress)}%
+                                  </p>
+                                )}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        {pace.riskSignal === 'stalled' && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="destructive" className="text-xs px-1.5 py-0" data-testid={`risk-stalled-${objective.id}`}>
+                                  <AlertTriangle className="h-3 w-3 mr-0.5" />
+                                  Stalled
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">No progress for 30+ days into period</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                        {pace.riskSignal === 'attention_needed' && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Badge variant="secondary" className="text-xs px-1.5 py-0 text-amber-600 dark:text-amber-400" data-testid={`risk-attention-${objective.id}`}>
+                                  <Clock className="h-3 w-3 mr-0.5" />
+                                  {daysSinceLastCheckIn}d
+                                </Badge>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">No check-in for {daysSinceLastCheckIn} days</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
                     );
                   })()}
                 </div>

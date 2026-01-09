@@ -198,19 +198,20 @@ user_dashboard_preferences table:
 
 ### OKR Intelligence (AI Predictions & Pace Tracking)
 
-**Status:** Phase 1 ~80% Complete  
+**Status:** Phase 1 Complete, Phase 2 Ready  
 **Priority:** Medium-High  
 **First Premium Feature Candidate**
 
 **Overview:**
 Predictive trend analysis for OKRs that works from day one with sparse data. Designed to deliver immediate value without requiring years of historical data.
 
-**Phase 1: Pace & Velocity Calculations (IN PROGRESS)**
+**Phase 1: Pace & Velocity Calculations (COMPLETE - January 9, 2026)**
 - [x] Calculate pace status (on-track, ahead, behind) based on time elapsed vs progress
 - [x] Display pace indicators on OKR cards/rows (PaceBadge component)
 - [x] Behind Pace alerts on Executive Dashboard with severity sorting
-- [ ] Velocity projection: "At current rate, you'll hit X% by end of period"
-- [ ] Simple risk signals (no check-in for 14+ days, 0% progress after 30 days)
+- [x] Velocity projection: Shows "→ X%" projected end progress in badges and dashboard
+- [x] Simple risk signals: Stalled (0% after 30 days), Attention Needed (14+ days no check-in)
+- [x] Risk signal badges displayed on objectives in both Outcomes module and Executive Dashboard
 
 **Phase 2: Trend Visualization**
 - Sparkline charts showing progress over time
