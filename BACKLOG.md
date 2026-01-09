@@ -1,6 +1,6 @@
 # Vega Platform Master Backlog
 
-**Last Updated:** January 7, 2026 (Tenant Snapshot & Recovery System designed)
+**Last Updated:** January 9, 2026 (Executive Dashboard Personalization added, OKR Intelligence Phase 1 pace badges complete)
 
 > **Note:** This is the single source of truth for all Vega feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference this document for backlog-related questions.
 
@@ -149,11 +149,56 @@ PHASE 3: Advanced Features (February-March 2025)
 
 ---
 
+### 5. Executive Dashboard Personalization
+
+**Status:** Not Started  
+**Priority:** High  
+**Effort:** 2-3 weeks
+
+**Overview:**
+Allow executives to customize their dashboard experience with layout preferences, threshold settings, and section visibility controls. Personalization settings are stored per-user and persist across sessions.
+
+**Core Features:**
+
+| Feature | Description |
+|---------|-------------|
+| **Section Visibility** | Show/hide individual dashboard cards (At-Risk, Behind Pace, Winning, Stale, etc.) |
+| **Layout Rearrangement** | Drag-and-drop to reorder sections based on personal priority |
+| **Threshold Configuration** | Customize thresholds: pace gap %, stale days cutoff, at-risk progress % |
+| **Count Limits** | Set how many items to display per section (top 3, 5, 10, all) |
+| **Default Filters** | Pre-select teams, quarters, or objective levels to focus on |
+
+**Implementation Approach:**
+```
+user_dashboard_preferences table:
+- userId (FK)
+- sectionOrder: string[] (ordered section slugs)
+- hiddenSections: string[] (sections to hide)
+- thresholds: JSON {paceGap: 10, staleDays: 14, atRiskProgress: 30}
+- itemCounts: JSON {atRisk: 5, behindPace: 5, winning: 5}
+- defaultFilters: JSON {teamIds: [], quarter: null}
+- createdAt, updatedAt
+```
+
+**UI Components:**
+- Settings gear icon in dashboard header → opens personalization panel
+- Drag handles on each card for reordering
+- Toggle switches for section visibility
+- Slider/input controls for thresholds and counts
+- "Reset to Defaults" button
+
+**API Endpoints:**
+- `GET /api/user/dashboard-preferences` - Fetch current preferences
+- `PATCH /api/user/dashboard-preferences` - Update preferences
+- `DELETE /api/user/dashboard-preferences` - Reset to defaults
+
+---
+
 ## MEDIUM PRIORITY FEATURES
 
 ### OKR Intelligence (AI Predictions & Pace Tracking)
 
-**Status:** Phase 1 In Progress  
+**Status:** Phase 1 ~80% Complete  
 **Priority:** Medium-High  
 **First Premium Feature Candidate**
 
@@ -162,8 +207,9 @@ Predictive trend analysis for OKRs that works from day one with sparse data. Des
 
 **Phase 1: Pace & Velocity Calculations (IN PROGRESS)**
 - [x] Calculate pace status (on-track, ahead, behind) based on time elapsed vs progress
+- [x] Display pace indicators on OKR cards/rows (PaceBadge component)
+- [x] Behind Pace alerts on Executive Dashboard with severity sorting
 - [ ] Velocity projection: "At current rate, you'll hit X% by end of period"
-- [ ] Display pace indicators on OKR cards/rows
 - [ ] Simple risk signals (no check-in for 14+ days, 0% progress after 30 days)
 
 **Phase 2: Trend Visualization**
