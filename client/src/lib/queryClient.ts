@@ -1,4 +1,78 @@
-import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { QueryClient, QueryFunction, QueryKey } from "@tanstack/react-query";
+
+// ============================================
+// STALE TIME CONSTANTS
+// ============================================
+// Different data types have different freshness requirements
+
+/** Data that changes frequently (OKR progress, check-ins, real-time status) */
+export const STALE_TIME_FREQUENT = 30 * 1000; // 30 seconds
+
+/** Data that changes occasionally (objectives, strategies, meetings) */
+export const STALE_TIME_STANDARD = 2 * 60 * 1000; // 2 minutes
+
+/** Data that rarely changes (tenant settings, user info, vocabulary) */
+export const STALE_TIME_LONG = 5 * 60 * 1000; // 5 minutes
+
+/** Static data that almost never changes (service plans, system config) */
+export const STALE_TIME_STATIC = 30 * 60 * 1000; // 30 minutes
+
+// ============================================
+// CACHE TIME (gcTime) CONSTANTS
+// ============================================
+// How long to keep data in cache after it becomes inactive
+
+/** Standard cache retention */
+export const CACHE_TIME_STANDARD = 10 * 60 * 1000; // 10 minutes
+
+/** Extended cache for expensive queries */
+export const CACHE_TIME_EXTENDED = 30 * 60 * 1000; // 30 minutes
+
+// ============================================
+// RETRY CONFIGURATION
+// ============================================
+
+/**
+ * Custom retry function with exponential backoff
+ * Retries on network errors and 5xx responses, but not on 4xx (client errors)
+ */
+function shouldRetry(failureCount: number, error: unknown): boolean {
+  // Max 3 retries
+  if (failureCount >= 3) return false;
+
+  // Check if it's a network error or server error (5xx)
+  if (error instanceof Error) {
+    const message = error.message;
+    
+    // Don't retry on client errors (4xx)
+    if (message.startsWith("400:") || 
+        message.startsWith("401:") || 
+        message.startsWith("403:") || 
+        message.startsWith("404:") ||
+        message.startsWith("422:")) {
+      return false;
+    }
+    
+    // Retry on server errors (5xx) and network errors
+    if (message.startsWith("5") || message.includes("fetch") || message.includes("network")) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Calculate retry delay with exponential backoff
+ * 1st retry: 1 second, 2nd: 2 seconds, 3rd: 4 seconds
+ */
+function getRetryDelay(attemptIndex: number): number {
+  return Math.min(1000 * Math.pow(2, attemptIndex), 10000);
+}
+
+// ============================================
+// HELPER FUNCTIONS
+// ============================================
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -81,17 +155,126 @@ export const getQueryFn: <T>(options: {
     return await res.json();
   };
 
+// ============================================
+// QUERY CLIENT CONFIGURATION
+// ============================================
+
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       queryFn: getQueryFn({ on401: "throw" }),
+      
+      // Data becomes stale after 2 minutes by default
+      // Individual queries can override this based on their data type
+      staleTime: STALE_TIME_STANDARD,
+      
+      // Keep inactive data in cache for 10 minutes
+      gcTime: CACHE_TIME_STANDARD,
+      
+      // Retry configuration with exponential backoff
+      retry: shouldRetry,
+      retryDelay: getRetryDelay,
+      
+      // Don't automatically refetch in background
+      // (avoids unnecessary API calls, users can manually refresh)
       refetchInterval: false,
       refetchOnWindowFocus: false,
-      staleTime: Infinity,
-      retry: false,
+      
+      // Do refetch on mount if data is stale
+      refetchOnMount: true,
+      
+      // Keep previous data while fetching new data (smoother UX)
+      placeholderData: (previousData: unknown) => previousData,
     },
     mutations: {
-      retry: false,
+      // Retry mutations once on failure (with same logic as queries)
+      retry: (failureCount, error) => {
+        if (failureCount >= 1) return false;
+        return shouldRetry(failureCount, error);
+      },
+      retryDelay: getRetryDelay,
     },
   },
 });
+
+// ============================================
+// CACHE INVALIDATION HELPERS
+// ============================================
+
+/**
+ * Invalidate all queries that start with the given prefix
+ * Useful after mutations that affect multiple related queries
+ * 
+ * Example: invalidateQueriesStartingWith('/api/objectives') will invalidate:
+ * - /api/objectives
+ * - /api/objectives/123
+ * - /api/objectives/hierarchy
+ */
+export function invalidateQueriesStartingWith(prefix: string): Promise<void> {
+  return queryClient.invalidateQueries({
+    predicate: (query) => {
+      const queryKey = query.queryKey;
+      if (Array.isArray(queryKey) && typeof queryKey[0] === 'string') {
+        return queryKey[0].startsWith(prefix);
+      }
+      return false;
+    },
+  });
+}
+
+/**
+ * Invalidate OKR-related queries
+ * Call this after creating, updating, or deleting objectives/key results/big rocks
+ */
+export async function invalidateOKRQueries(): Promise<void> {
+  await Promise.all([
+    invalidateQueriesStartingWith('/api/okr/objectives'),
+    invalidateQueriesStartingWith('/api/okr/key-results'),
+    invalidateQueriesStartingWith('/api/okr/big-rocks'),
+    invalidateQueriesStartingWith('/api/okr/check-ins'),
+    invalidateQueriesStartingWith('/api/okr/hierarchy'),
+  ]);
+}
+
+/**
+ * Invalidate strategy-related queries
+ */
+export async function invalidateStrategyQueries(): Promise<void> {
+  await invalidateQueriesStartingWith('/api/strategies');
+}
+
+/**
+ * Invalidate meeting-related queries
+ */
+export async function invalidateMeetingQueries(): Promise<void> {
+  await invalidateQueriesStartingWith('/api/meetings');
+}
+
+/**
+ * Invalidate tenant-related queries
+ */
+export async function invalidateTenantQueries(): Promise<void> {
+  await Promise.all([
+    invalidateQueriesStartingWith('/api/tenants'),
+    invalidateQueriesStartingWith('/api/users'),
+    invalidateQueriesStartingWith('/api/foundations'),
+  ]);
+}
+
+/**
+ * Reset all queries (useful after logout or tenant switch)
+ */
+export function resetAllQueries(): void {
+  queryClient.clear();
+}
+
+/**
+ * Prefetch a query to warm the cache
+ * Useful for prefetching data the user is likely to need
+ */
+export function prefetchQuery(queryKey: QueryKey, staleTime?: number): Promise<void> {
+  return queryClient.prefetchQuery({
+    queryKey,
+    staleTime: staleTime ?? STALE_TIME_STANDARD,
+  });
+}
