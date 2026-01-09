@@ -354,12 +354,13 @@ router.get("/strategic-alignment", requireAuth, async (req: Request, res: Respon
     const year = req.query.year ? parseInt(req.query.year as string) : undefined;
     const quarter = req.query.quarter ? parseInt(req.query.quarter as string) : undefined;
 
-    const [foundation, strategies, objectives, keyResults, bigRocks] = await Promise.all([
+    const [foundation, strategies, objectives, keyResults, bigRocks, teams] = await Promise.all([
       storage.getFoundationByTenantId(effectiveTenantId),
       storage.getStrategiesByTenantId(effectiveTenantId),
       storage.getObjectivesByTenantId(effectiveTenantId, quarter, year),
       storage.getKeyResultsByTenantId(effectiveTenantId),
       storage.getBigRocksByTenantId(effectiveTenantId, quarter, year),
+      storage.getTeamsByTenantId(effectiveTenantId),
     ]);
 
     const objectiveIds = new Set(objectives.map(o => o.id));
@@ -371,6 +372,7 @@ router.get("/strategic-alignment", requireAuth, async (req: Request, res: Respon
       objectives,
       keyResults: filteredKeyResults,
       bigRocks,
+      teams,
     });
   } catch (error) {
     console.error("Error fetching strategic alignment:", error);
