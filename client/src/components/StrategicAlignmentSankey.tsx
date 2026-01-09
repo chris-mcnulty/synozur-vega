@@ -195,6 +195,9 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
       }
     });
 
+    // For Big Rocks, we need to ensure they appear AFTER Key Results in the diagram.
+    // If a Big Rock links to an Objective but there are Key Results under that objective,
+    // we should route through a Key Result to maintain proper layering.
     bigRocks.forEach((rock) => {
       const nodeIdx = nodeList.length;
       nodeList.push({
@@ -207,14 +210,29 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
       });
 
       if (rock.keyResultId) {
+        // Big Rock links to a Key Result - this is the correct flow
         const krIdx = krIdMap.get(rock.keyResultId);
         if (krIdx !== undefined) {
           linkList.push({ source: krIdx, target: nodeIdx, value: 1, status: rock.status || undefined });
         }
       } else if (rock.objectiveId) {
-        const objIdx = objectiveIdMap.get(rock.objectiveId);
-        if (objIdx !== undefined) {
-          linkList.push({ source: objIdx, target: nodeIdx, value: 1, status: rock.status || undefined });
+        // Big Rock links directly to an Objective
+        // Check if this objective has any Key Results - if so, link through the first KR
+        // to ensure Big Rocks appear AFTER Key Results in the diagram
+        const objectiveKRs = keyResults.filter(kr => kr.objectiveId === rock.objectiveId);
+        if (objectiveKRs.length > 0) {
+          // Route through the first Key Result of this objective
+          const firstKRId = objectiveKRs[0].id;
+          const krIdx = krIdMap.get(firstKRId);
+          if (krIdx !== undefined) {
+            linkList.push({ source: krIdx, target: nodeIdx, value: 1, status: rock.status || undefined });
+          }
+        } else {
+          // No Key Results for this objective - link directly to objective
+          const objIdx = objectiveIdMap.get(rock.objectiveId);
+          if (objIdx !== undefined) {
+            linkList.push({ source: objIdx, target: nodeIdx, value: 1, status: rock.status || undefined });
+          }
         }
       }
     });
