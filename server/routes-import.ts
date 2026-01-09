@@ -316,7 +316,9 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
       return res.status(400).json({ error: 'Invalid .cos file format' });
     }
 
-    const targetTenantId = req.body.tenantId || user.tenantId;
+    // Use x-tenant-id header for tenant switching support (consultants/admins)
+    const headerTenantId = req.headers['x-tenant-id'] as string | undefined;
+    const targetTenantId = headerTenantId || user.tenantId;
     const results = {
       teams: { created: 0, updated: 0, skipped: 0, errors: 0 },
       foundations: { created: 0, updated: 0, skipped: 0, errors: 0 },

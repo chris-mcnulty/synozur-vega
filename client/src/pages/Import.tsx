@@ -144,9 +144,15 @@ export default function Import() {
   const handleCosExport = async () => {
     setCosExporting(true);
     try {
+      const headers: Record<string, string> = {};
+      if (currentTenant) {
+        headers['x-tenant-id'] = currentTenant.id;
+      }
+      
       const response = await fetch('/api/import/export-cos', {
         method: 'GET',
         credentials: 'include',
+        headers,
       });
 
       if (!response.ok) {
@@ -194,15 +200,17 @@ export default function Import() {
         duplicateStrategy: cosDuplicateStrategy,
         importCheckIns: cosImportCheckIns,
       }));
-      
+
+      const headers: Record<string, string> = {};
       if (currentTenant) {
-        formData.append('tenantId', currentTenant.id);
+        headers['x-tenant-id'] = currentTenant.id;
       }
 
       const response = await fetch('/api/import/import-cos', {
         method: 'POST',
         body: formData,
         credentials: 'include',
+        headers,
       });
 
       if (!response.ok) {
