@@ -11,7 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Eye, Edit, X, Plus, Save, Trash2, Loader2, Sparkles, AlertCircle, Copy } from "lucide-react";
+import { Eye, Edit, X, Plus, Save, Trash2, Loader2, Sparkles, AlertCircle, Copy, Pencil } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
@@ -543,58 +544,73 @@ export default function Foundations() {
               <CardDescription>What is your organization's fundamental purpose?</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="custom-mission">Current Mission</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="custom-mission"
-                    value={customMission}
-                    onChange={(e) => setCustomMission(e.target.value)}
-                    placeholder="Enter your mission statement..."
-                    onKeyPress={(e) => e.key === "Enter" && handleAddCustomMission()}
-                    data-testid="input-custom-mission"
-                  />
-                  <Button
-                    onClick={handleAddCustomMission}
-                    disabled={!customMission.trim()}
-                    data-testid="button-add-mission"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Set
-                  </Button>
+              {/* Current Mission - Prominent Display */}
+              {mission ? (
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-6">
+                  <p className="text-lg font-medium leading-relaxed" data-testid="text-current-mission">{mission}</p>
                 </div>
-              </div>
-
-              {mission && (
-                <div className="bg-muted rounded-lg p-4 flex items-start justify-between gap-2">
-                  <p className="text-sm flex-1">{mission}</p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setMission("")}
-                    data-testid="button-clear-mission"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+              ) : (
+                <div className="bg-muted/50 rounded-lg p-6 text-center">
+                  <p className="text-muted-foreground">No mission statement defined yet</p>
                 </div>
               )}
 
-              <div className="border-t pt-4">
-                <Label className="text-sm text-muted-foreground mb-2 block">Quick Suggestions</Label>
-                <div className="flex flex-wrap gap-2">
-                  {missionSuggestions.map((suggestion, index) => (
-                    <Badge
-                      key={index}
-                      variant={mission === suggestion ? "default" : "outline"}
-                      className="cursor-pointer py-2 px-4 hover-elevate"
-                      onClick={() => handleAddSuggestion("mission", suggestion)}
-                      data-testid={`suggestion-mission-${index}`}
+              {/* Edit Section - Secondary/Collapsible */}
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground" data-testid="button-edit-mission-toggle">
+                    <Pencil className="h-4 w-4 mr-2" />
+                    {mission ? "Edit Mission" : "Add Mission"}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-4 pt-4">
+                  <div className="flex gap-2">
+                    <Input
+                      id="custom-mission"
+                      value={customMission}
+                      onChange={(e) => setCustomMission(e.target.value)}
+                      placeholder="Enter your mission statement..."
+                      onKeyPress={(e) => e.key === "Enter" && handleAddCustomMission()}
+                      data-testid="input-custom-mission"
+                    />
+                    <Button
+                      onClick={handleAddCustomMission}
+                      disabled={!customMission.trim()}
+                      data-testid="button-add-mission"
                     >
-                      {suggestion}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Set
+                    </Button>
+                    {mission && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setMission("")}
+                        data-testid="button-clear-mission"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <Label className="text-sm text-muted-foreground mb-2 block">Quick Suggestions</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {missionSuggestions.map((suggestion, index) => (
+                        <Badge
+                          key={index}
+                          variant={mission === suggestion ? "default" : "outline"}
+                          className="cursor-pointer py-2 px-4 hover-elevate"
+                          onClick={() => handleAddSuggestion("mission", suggestion)}
+                          data-testid={`suggestion-mission-${index}`}
+                        >
+                          {suggestion}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </CardContent>
           </Card>
 
@@ -605,58 +621,73 @@ export default function Foundations() {
               <CardDescription>What future do you aspire to create?</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="custom-vision">Current Vision</Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="custom-vision"
-                    value={customVision}
-                    onChange={(e) => setCustomVision(e.target.value)}
-                    placeholder="Enter your vision statement..."
-                    onKeyPress={(e) => e.key === "Enter" && handleAddCustomVision()}
-                    data-testid="input-custom-vision"
-                  />
-                  <Button
-                    onClick={handleAddCustomVision}
-                    disabled={!customVision.trim()}
-                    data-testid="button-add-vision"
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Set
-                  </Button>
+              {/* Current Vision - Prominent Display */}
+              {vision ? (
+                <div className="bg-primary/5 border border-primary/20 rounded-lg p-6">
+                  <p className="text-lg font-medium leading-relaxed" data-testid="text-current-vision">{vision}</p>
                 </div>
-              </div>
-
-              {vision && (
-                <div className="bg-muted rounded-lg p-4 flex items-start justify-between gap-2">
-                  <p className="text-sm flex-1">{vision}</p>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setVision("")}
-                    data-testid="button-clear-vision"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+              ) : (
+                <div className="bg-muted/50 rounded-lg p-6 text-center">
+                  <p className="text-muted-foreground">No vision statement defined yet</p>
                 </div>
               )}
 
-              <div className="border-t pt-4">
-                <Label className="text-sm text-muted-foreground mb-2 block">Quick Suggestions</Label>
-                <div className="flex flex-wrap gap-2">
-                  {visionSuggestions.map((suggestion, index) => (
-                    <Badge
-                      key={index}
-                      variant={vision === suggestion ? "default" : "outline"}
-                      className="cursor-pointer py-2 px-4 hover-elevate"
-                      onClick={() => handleAddSuggestion("vision", suggestion)}
-                      data-testid={`suggestion-vision-${index}`}
+              {/* Edit Section - Secondary/Collapsible */}
+              <Collapsible>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground" data-testid="button-edit-vision-toggle">
+                    <Pencil className="h-4 w-4 mr-2" />
+                    {vision ? "Edit Vision" : "Add Vision"}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-4 pt-4">
+                  <div className="flex gap-2">
+                    <Input
+                      id="custom-vision"
+                      value={customVision}
+                      onChange={(e) => setCustomVision(e.target.value)}
+                      placeholder="Enter your vision statement..."
+                      onKeyPress={(e) => e.key === "Enter" && handleAddCustomVision()}
+                      data-testid="input-custom-vision"
+                    />
+                    <Button
+                      onClick={handleAddCustomVision}
+                      disabled={!customVision.trim()}
+                      data-testid="button-add-vision"
                     >
-                      {suggestion}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Set
+                    </Button>
+                    {vision && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setVision("")}
+                        data-testid="button-clear-vision"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="border-t pt-4">
+                    <Label className="text-sm text-muted-foreground mb-2 block">Quick Suggestions</Label>
+                    <div className="flex flex-wrap gap-2">
+                      {visionSuggestions.map((suggestion, index) => (
+                        <Badge
+                          key={index}
+                          variant={vision === suggestion ? "default" : "outline"}
+                          className="cursor-pointer py-2 px-4 hover-elevate"
+                          onClick={() => handleAddSuggestion("vision", suggestion)}
+                          data-testid={`suggestion-vision-${index}`}
+                        >
+                          {suggestion}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </CardContent>
           </Card>
 
