@@ -65,16 +65,21 @@ export function ValuesAlignmentWidget({ quarter, year }: ValuesAlignmentWidgetPr
   const [expandedValues, setExpandedValues] = useState<Set<string>>(new Set());
   const { currentTenant } = useTenant();
 
-  // Build query key with filters - use object format for query params
+  // Build query params for filtering
   const queryParamsObj: Record<string, string> = {};
   if (quarter !== undefined) queryParamsObj.quarter = quarter.toString();
   if (year !== undefined) queryParamsObj.year = year.toString();
 
+  // Build URL with query params if any
+  const baseUrl = '/api/values/analytics/distribution';
+  const queryString = Object.keys(queryParamsObj).length > 0 
+    ? `?${new URLSearchParams(queryParamsObj).toString()}`
+    : '';
+  const url = `${baseUrl}${queryString}`;
+
   // Include tenant ID in query key so cache is invalidated when tenant switches
   const { data: analytics, isLoading, error } = useQuery<ValuesAnalytics>({
-    queryKey: Object.keys(queryParamsObj).length > 0 
-      ? ['/api/values/analytics/distribution', currentTenant?.id, queryParamsObj]
-      : ['/api/values/analytics/distribution', currentTenant?.id],
+    queryKey: [url, { tenantId: currentTenant?.id }],
     retry: 1,
     enabled: !!currentTenant,
   });
