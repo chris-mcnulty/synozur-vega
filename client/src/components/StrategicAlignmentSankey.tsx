@@ -133,11 +133,17 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
       if (linkedGoals.length === 0 && goals.length > 0) {
         linkList.push({ source: 0, target: nodeIdx, value: 1 });
       } else {
-        linkedGoals.forEach((goalId: string) => {
-          const goalIdx = parseInt(goalId);
-          const sourceIdx = goalIdMap.get(`goal-${goalIdx}`);
-          if (sourceIdx !== undefined) {
-            linkList.push({ source: sourceIdx, target: nodeIdx, value: 1 });
+        linkedGoals.forEach((linkedGoalTitle: string) => {
+          // Find the goal index by matching the title
+          const goalIndex = goals.findIndex((goal: any) => {
+            const goalTitle = typeof goal === "string" ? goal : (goal.title || goal.goal || "");
+            return goalTitle === linkedGoalTitle;
+          });
+          if (goalIndex !== -1) {
+            const sourceIdx = goalIdMap.get(`goal-${goalIndex}`);
+            if (sourceIdx !== undefined) {
+              linkList.push({ source: sourceIdx, target: nodeIdx, value: 1 });
+            }
           }
         });
       }
