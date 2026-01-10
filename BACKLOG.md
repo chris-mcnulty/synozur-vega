@@ -374,8 +374,6 @@ Expose BACKLOG.md and CHANGELOG.md dynamically within the application UI so user
 - ✅ Linked from BACKLOG.md
 
 **Remaining:**
-
-**Remaining:**
 1. **Backlog Viewer**: Read and render BACKLOG.md as formatted HTML in an admin-accessible page
 2. **Changelog Page**: Display CHANGELOG.md for users (version history, release notes)
 3. **Access Control**: 
