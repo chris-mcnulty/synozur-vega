@@ -33,6 +33,7 @@ export default function Import() {
   const [cosImportResult, setCosImportResult] = useState<any>(null);
   const [cosDuplicateStrategy, setCosDuplicateStrategy] = useState<'skip' | 'replace' | 'create'>('skip');
   const [cosImportCheckIns, setCosImportCheckIns] = useState(true);
+  const [cosClearBeforeImport, setCosClearBeforeImport] = useState(false);
   const cosFileInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch import history
@@ -201,6 +202,7 @@ export default function Import() {
       formData.append('options', JSON.stringify({
         duplicateStrategy: cosDuplicateStrategy,
         importCheckIns: cosImportCheckIns,
+        clearBeforeImport: cosClearBeforeImport,
       }));
 
       const headers: Record<string, string> = {};
@@ -352,6 +354,27 @@ export default function Import() {
                     Include check-in history
                   </Label>
                 </div>
+                
+                <div className="flex items-center space-x-2 pt-4">
+                  <Checkbox
+                    id="cos-clear-before-import"
+                    checked={cosClearBeforeImport}
+                    onCheckedChange={(checked) => setCosClearBeforeImport(checked as boolean)}
+                    disabled={cosImporting}
+                    data-testid="checkbox-cos-clear-before-import"
+                  />
+                  <Label htmlFor="cos-clear-before-import" className="cursor-pointer">
+                    Clear existing data before import
+                  </Label>
+                </div>
+                {cosClearBeforeImport && (
+                  <Alert variant="destructive" className="mt-2">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      This will delete all existing objectives, key results, big rocks, strategies, and AI grounding documents before importing. Teams and foundation will be updated, not deleted.
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
 
               <Button

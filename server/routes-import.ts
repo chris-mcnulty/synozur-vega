@@ -269,6 +269,7 @@ const cosUpload = multer({
 const cosImportOptionsSchema = z.object({
   duplicateStrategy: z.enum(['skip', 'replace', 'create']).default('skip'),
   importCheckIns: z.boolean().default(true),
+  clearBeforeImport: z.boolean().default(false),
 });
 
 /**
@@ -341,6 +342,60 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
 
     // Map old IDs to new IDs for relationships
     const idMap = new Map<string, string>();
+
+    // Clear existing data if requested
+    if (options.clearBeforeImport) {
+      console.log('[COS Import] Clearing existing data for tenant:', targetTenantId);
+      
+      // Get all existing data to delete
+      const [existingObjectives, existingBigRocks, existingStrategies, existingGroundingDocs] = await Promise.all([
+        storage.getObjectivesByTenantId(targetTenantId),
+        storage.getBigRocksByTenantId(targetTenantId),
+        storage.getStrategiesByTenantId(targetTenantId),
+        storage.getTenantGroundingDocuments(targetTenantId),
+      ]);
+      
+      // Delete in order: objectives (which cascade to key results and check-ins), big rocks, strategies, grounding docs
+      // Note: We don't delete teams or foundation as they are structural and can be updated
+      for (const obj of existingObjectives) {
+        try {
+          await storage.deleteObjective(obj.id);
+        } catch (err) {
+          console.error('Error deleting objective:', obj.id, err);
+        }
+      }
+      
+      for (const br of existingBigRocks) {
+        try {
+          await storage.deleteBigRock(br.id);
+        } catch (err) {
+          console.error('Error deleting big rock:', br.id, err);
+        }
+      }
+      
+      for (const strategy of existingStrategies) {
+        try {
+          await storage.deleteStrategy(strategy.id);
+        } catch (err) {
+          console.error('Error deleting strategy:', strategy.id, err);
+        }
+      }
+      
+      for (const doc of existingGroundingDocs) {
+        try {
+          await storage.deleteGroundingDocument(doc.id);
+        } catch (err) {
+          console.error('Error deleting grounding document:', doc.id, err);
+        }
+      }
+      
+      console.log('[COS Import] Cleared existing data:', {
+        objectives: existingObjectives.length,
+        bigRocks: existingBigRocks.length,
+        strategies: existingStrategies.length,
+        groundingDocs: existingGroundingDocs.length,
+      });
+    }
 
     // Pre-fetch existing data for efficiency (avoid repeated lookups in loops)
     const [existingFoundation, existingStrategies, existingObjectives, existingBigRocks, existingGroundingDocs, existingTeams] = await Promise.all([
