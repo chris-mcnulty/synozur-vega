@@ -374,10 +374,13 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTenantByDomain(domain: string): Promise<Tenant | undefined> {
-    const allTenants = await db.select().from(tenants);
-    const tenant = allTenants.find(t => 
-      t.allowedDomains && Array.isArray(t.allowedDomains) && t.allowedDomains.includes(domain)
-    );
+    // PERFORMANCE: Use JSONB containment operator with GIN index instead of
+    // fetching all tenants and filtering in memory
+    // The @> operator checks if allowed_domains JSONB array contains the domain
+    const [tenant] = await db
+      .select()
+      .from(tenants)
+      .where(sql`${tenants.allowedDomains} @> ${JSON.stringify([domain])}::jsonb`);
     return tenant || undefined;
   }
 
@@ -1672,17 +1675,17 @@ export class DatabaseStorage implements IStorage {
         eq(strategyValues.valueTitle, valueTitle)
       ));
 
-    // Fetch full objects
-    const objectivesList = objectiveIds.length > 0 
-      ? await db.select().from(objectives).where(
-          or(...objectiveIds.map(({ id }) => eq(objectives.id, id)))
-        )
+    // PERFORMANCE: Use inArray() instead of multiple or(eq()) for better query performance
+    const objectiveIdList = objectiveIds.map(({ id }) => id);
+    const strategyIdList = strategyIds.map(({ id }) => id);
+
+    // Fetch full objects using inArray for efficient IN clause
+    const objectivesList = objectiveIdList.length > 0 
+      ? await db.select().from(objectives).where(inArray(objectives.id, objectiveIdList))
       : [];
 
-    const strategiesList = strategyIds.length > 0
-      ? await db.select().from(strategies).where(
-          or(...strategyIds.map(({ id }) => eq(strategies.id, id)))
-        )
+    const strategiesList = strategyIdList.length > 0
+      ? await db.select().from(strategies).where(inArray(strategies.id, strategyIdList))
       : [];
 
     return {
