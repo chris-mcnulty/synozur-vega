@@ -15,15 +15,19 @@ Preferred communication style: Simple, everyday language.
 - **UI/UX Decisions**: Mimics Orion.synozur.com's aesthetic, emphasizing whitespace, card-based layouts, and subtle animations.
 - **Key Features**:
     - **Company OS Dashboard**: Real-time overview of Foundations, Strategies, Quarterly OKRs, Big Rocks, and upcoming meetings.
+    - **Executive Dashboard**: Advanced analytics dashboard with strategic insights, progress visualizations, trend analysis, and performance metrics. Includes pace tracking, velocity projections, and at-risk item identification.
+    - **Team Dashboard (Team Mode)**: Simplified interface for teams focusing on weekly execution, with streamlined views of Key Results and Big Rocks relevant to the selected team. Features quick check-ins and team-scoped filtering.
     - **Foundations Module**: Manages mission, vision, values, and annual goals with AI suggestions.
     - **Strategy Module**: Facilitates strategy management with AI drafting and goal alignment.
-    - **Outcomes Module**: Enhanced OKR system with hierarchical objectives, Key Results, and "big rocks."
+    - **Outcomes Module**: Enhanced OKR system with hierarchical objectives, Key Results, and "big rocks." Displayed as "Outcomes" in navigation but internally uses Planning routes.
     - **Focus Rhythm**: Full meeting management with OKR alignment, templates, auto-generated agendas, and search.
+    - **Reporting Module**: Generate professional reports with PDF and PowerPoint (PPTX) export, snapshot comparisons, and customizable branding. Supports OKR progress reports, strategic reviews, and dashboard summaries.
+    - **OKR Intelligence**: Pace and velocity tracking with predictive projections. Calculates on-track/ahead/behind status based on time elapsed vs progress. Displays pace indicators throughout the application and "Behind Pace" alerts on Executive Dashboard with severity sorting.
     - **Tenant Admin**: Manages organization, M365 integration status, tenant/user CRUD, and allowed email domains.
+    - **System Admin**: Platform-wide administration including vocabulary defaults, AI usage monitoring, service plans, blocked domains, tenant management, and system-wide announcements. Accessible only to Vega Admins and Global Admins.
     - **Launchpad**: AI-powered document analysis for extracting and creating foundational company elements.
     - **OKR Cloning**: Allows cloning of objectives with various scope options and target quarter/year selection.
     - **OKR Period Close-Out**: When checking in on objectives/KRs from a past period, prompts user to either continue working in a new period (opens clone dialog) or close with a mandatory closing note. Uses Pacific Time for period detection. Period-ended uses amber styling, target-exceeded uses green.
-    - **Team Mode**: A simplified interface for teams, focusing on weekly execution, KRs, and Big Rocks relevant to the team.
 
 ### Backend
 - **Server**: Express.js with Node.js, providing a RESTful API.
@@ -57,6 +61,7 @@ Preferred communication style: Simple, everyday language.
 - **UI Component Library**: shadcn/ui (built on Radix UI primitives).
 - **Database**: Neon PostgreSQL.
 - **Transactional Email**: SendGrid (via Replit connector).
+- **HubSpot CRM Integration**: Automated deal creation in HubSpot for new tenant signups using OAuth via Replit connector. Tracks tenant name, email, domain, plan name, and signup date.
 - **OpenAPI Specification**: Full OpenAPI 3.0 spec for M365 Copilot Agent integration available at `/openapi.yaml` (YAML) and `/openapi.json` (JSON). Documents all major endpoints: authentication, OKRs, strategies, foundations, meetings, teams, AI, and reporting.
 - **M365 Copilot Agent**: Declarative agent manifest (v1.6), API plugin manifest, and Teams app manifest available in `/public/copilot-agent/`. Includes response formatting utilities in `server/copilot-response-formatter.ts`. See `public/copilot-agent/README.md` for deployment instructions.
 
@@ -95,6 +100,14 @@ When adding new features or proposals, update BACKLOG.md rather than creating se
 - **Database Field Mapping**: Annual goals stored in `foundations.annualGoals` (not `goals`)
 - **Brand Color**: #810FFB (used for announcement banner default background)
 - **Mobile Design**: Gradient text only on desktop (md:), solid purple-400 on mobile
+
+### OKR Intelligence & Pace Tracking
+- **Pace Calculation**: Compares time elapsed in period vs progress achieved to determine on-track/ahead/behind status
+- **Velocity Projection**: Projects end-of-period progress based on current velocity, displayed as "→ X%" in pace badges
+- **PaceBadge Component**: Displays pace indicators throughout application (Outcomes, Executive Dashboard, Team Dashboard)
+- **Behind Pace Alerts**: Executive Dashboard shows "Behind Pace" section with severity sorting based on gap percentage
+- **Risk Signal Badges**: Displayed on objectives in both Outcomes module and Executive Dashboard
+- **Implemented in**: `client/src/lib/fiscal-utils.ts` (calculations) and `client/src/components/PaceBadge.tsx` (display)
 
 ### Period Close-Out Logic
 - Check `isPeriodEnded()` BEFORE `isTargetExceeded()`
