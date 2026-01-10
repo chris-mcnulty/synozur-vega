@@ -408,15 +408,26 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
     if (importData.data.foundations && importData.data.foundations.length > 0) {
       // Take the first foundation from import (there should only be one per tenant)
       const foundationData = importData.data.foundations[0];
+      
+      // Check if existing foundation is essentially empty (no mission, vision, or values)
+      const isExistingFoundationEmpty = existingFoundation && 
+        !existingFoundation.mission && 
+        !existingFoundation.vision && 
+        (!existingFoundation.values || existingFoundation.values.length === 0);
+      
       console.log('[COS Import] Importing foundation:', { 
         id: foundationData.id, 
         mission: foundationData.mission?.substring(0, 50),
         existingFoundation: !!existingFoundation,
+        isExistingFoundationEmpty,
         duplicateStrategy: options.duplicateStrategy 
       });
       try {
+        // Treat empty foundation as non-existent (always replace)
+        const shouldSkip = existingFoundation && !isExistingFoundationEmpty && options.duplicateStrategy === 'skip';
+        
         if (existingFoundation) {
-          if (options.duplicateStrategy === 'skip') {
+          if (shouldSkip) {
             idMap.set(foundationData.id, existingFoundation.id);
             results.foundations.skipped++;
           } else {
