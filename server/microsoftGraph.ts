@@ -256,6 +256,8 @@ async function getUserGraphClient(userId: string): Promise<Client | null> {
 // ==================== Replit Connector Functions ====================
 
 async function getAccessToken(connectorType: ConnectorType = 'outlook'): Promise<string> {
+  console.log(`[Connector] getAccessToken called for: ${connectorType}`);
+  
   const hostname = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY 
     ? 'repl ' + process.env.REPL_IDENTITY 
@@ -263,8 +265,11 @@ async function getAccessToken(connectorType: ConnectorType = 'outlook'): Promise
     ? 'depl ' + process.env.WEB_REPL_RENEWAL 
     : null;
 
+  console.log(`[Connector] Environment check - hostname: ${hostname ? 'present' : 'MISSING'}, token type: ${process.env.REPL_IDENTITY ? 'REPL_IDENTITY' : process.env.WEB_REPL_RENEWAL ? 'WEB_REPL_RENEWAL' : 'NONE'}`);
+
   if (!xReplitToken) {
-    throw new Error('X_REPLIT_TOKEN not found for repl/depl');
+    console.log(`[Connector] ERROR: No connector token available`);
+    throw new Error('Connector authentication not available in this environment');
   }
 
   // Get cached settings for this connector type
@@ -280,19 +285,25 @@ async function getAccessToken(connectorType: ConnectorType = 'outlook'): Promise
   // Check if cached token is still valid
   if (connectionSettings && connectionSettings.settings?.expires_at && 
       new Date(connectionSettings.settings.expires_at).getTime() > Date.now()) {
+    console.log(`[Connector] Using cached token for ${connectorType}, expires: ${connectionSettings.settings.expires_at}`);
     return connectionSettings.settings.access_token;
   }
 
   // Fetch fresh token
-  connectionSettings = await fetch(
-    `https://${hostname}/api/v2/connection?include_secrets=true&connector_names=${connectorType}`,
-    {
-      headers: {
-        'Accept': 'application/json',
-        'X_REPLIT_TOKEN': xReplitToken
-      }
+  console.log(`[Connector] Fetching fresh token for ${connectorType} from connector API...`);
+  const fetchUrl = `https://${hostname}/api/v2/connection?include_secrets=true&connector_names=${connectorType}`;
+  
+  const response = await fetch(fetchUrl, {
+    headers: {
+      'Accept': 'application/json',
+      'X_REPLIT_TOKEN': xReplitToken
     }
-  ).then(res => res.json()).then(data => data.items?.[0]);
+  });
+  
+  const responseData = await response.json();
+  console.log(`[Connector] API response status: ${response.status}, items count: ${responseData.items?.length || 0}`);
+  
+  connectionSettings = responseData.items?.[0];
 
   const accessToken = connectionSettings?.settings?.access_token || 
                       connectionSettings?.settings?.oauth?.credentials?.access_token;
@@ -304,8 +315,14 @@ async function getAccessToken(connectorType: ConnectorType = 'outlook'): Promise
       'sharepoint': 'SharePoint',
     };
     const serviceName = serviceNames[connectorType] || connectorType;
+    console.log(`[Connector] ERROR: ${serviceName} not connected - connectionSettings: ${!!connectionSettings}, accessToken: ${!!accessToken}`);
+    if (connectionSettings) {
+      console.log(`[Connector] Settings structure: ${JSON.stringify(Object.keys(connectionSettings.settings || {}))}`);
+    }
     throw new Error(`${serviceName} connection unavailable. Your Microsoft 365 session may have expired - please sign out and sign back in, or contact your administrator to verify the integration is properly configured.`);
   }
+  
+  console.log(`[Connector] Successfully obtained token for ${connectorType}`);
 
   // Cache the settings
   if (connectorType === 'outlook') {
@@ -320,18 +337,36 @@ async function getAccessToken(connectorType: ConnectorType = 'outlook'): Promise
 }
 
 async function getMicrosoftClient(connectorType: ConnectorType = 'outlook', userId?: string): Promise<Client> {
+  console.log(`[Graph] getMicrosoftClient called for ${connectorType}, userId: ${userId || 'none'}`);
+  
   // If userId is provided, try user's delegated token first (for multi-tenant access)
   if (userId) {
+    console.log(`[Graph] Attempting user delegated token for ${connectorType}...`);
     const userClient = await getUserGraphClient(userId);
     if (userClient) {
-      console.log(`[Graph] Using user delegated token for ${connectorType}`);
+      console.log(`[Graph] SUCCESS: Using user delegated token for ${connectorType}`);
       return userClient;
     }
-    console.log(`[Graph] No user token found, falling back to connector for ${connectorType}`);
+    console.log(`[Graph] User token not available, trying Entra app fallback for ${connectorType}`);
   }
   
+  // Try Entra app credentials as second priority (for tenant-level access)
+  if (hasEntraAppCredentials()) {
+    try {
+      console.log(`[Graph] Attempting Entra app credentials for ${connectorType}...`);
+      const entraClient = await getEntraAppGraphClient();
+      console.log(`[Graph] SUCCESS: Using Entra app credentials for ${connectorType}`);
+      return entraClient;
+    } catch (error: any) {
+      console.log(`[Graph] Entra app failed for ${connectorType}: ${error.message}`);
+    }
+  }
+  
+  // Fall back to connector
+  console.log(`[Graph] Falling back to connector for ${connectorType}...`);
   const accessToken = await getAccessToken(connectorType);
 
+  console.log(`[Graph] SUCCESS: Using connector for ${connectorType}`);
   return Client.initWithMiddleware({
     authProvider: {
       getAccessToken: async () => accessToken
@@ -842,39 +877,57 @@ export interface SharePointListItem {
 }
 
 export async function checkSharePointConnection(userId?: string): Promise<boolean> {
-  console.log(`[SharePoint] checkSharePointConnection called with userId: ${userId}`);
+  console.log(`[SharePoint] ========== checkSharePointConnection START ==========`);
+  console.log(`[SharePoint] userId: ${userId || 'not provided'}`);
   
   // First priority: Check if user has a delegated token (for multi-tenant SSO)
   if (userId) {
     try {
-      console.log(`[SharePoint] Checking for user delegated token...`);
+      console.log(`[SharePoint] Step 1: Checking for user delegated token...`);
       const userClient = await getUserGraphClient(userId);
       if (userClient) {
-        console.log('[SharePoint] User delegated token available for SharePoint access');
+        console.log('[SharePoint] SUCCESS: User delegated token available for SharePoint access');
+        console.log(`[SharePoint] ========== checkSharePointConnection END (user token) ==========`);
         return true;
       }
-      console.log('[SharePoint] getUserGraphClient returned null');
+      console.log('[SharePoint] Step 1 FAILED: getUserGraphClient returned null (no token or expired)');
     } catch (error: any) {
-      console.log('[SharePoint] User token check failed:', error.message);
+      console.log('[SharePoint] Step 1 FAILED: User token check error:', error.message);
     }
+  } else {
+    console.log('[SharePoint] Step 1 SKIPPED: No userId provided');
   }
   
   // Second: Check if Entra app is available (has proper SharePoint permissions)
+  console.log(`[SharePoint] Step 2: Checking Entra app credentials...`);
+  console.log(`[SharePoint] AZURE_CLIENT_ID: ${process.env.AZURE_CLIENT_ID ? 'present (' + process.env.AZURE_CLIENT_ID.substring(0, 8) + '...)' : 'MISSING'}`);
+  console.log(`[SharePoint] AZURE_CLIENT_SECRET: ${process.env.AZURE_CLIENT_SECRET ? 'present' : 'MISSING'}`);
+  console.log(`[SharePoint] AZURE_TENANT_ID: ${process.env.AZURE_TENANT_ID ? 'present (' + process.env.AZURE_TENANT_ID.substring(0, 8) + '...)' : 'MISSING'}`);
+  
   if (hasEntraAppCredentials()) {
     try {
+      console.log('[SharePoint] Step 2: Attempting to acquire Entra app token...');
       await getEntraAppAccessToken();
-      console.log('[SharePoint] Entra app credentials available for SharePoint access');
+      console.log('[SharePoint] SUCCESS: Entra app credentials available for SharePoint access');
+      console.log(`[SharePoint] ========== checkSharePointConnection END (Entra app) ==========`);
       return true;
-    } catch (error) {
-      console.log('[SharePoint] Entra app token failed, trying Replit connector');
+    } catch (error: any) {
+      console.log('[SharePoint] Step 2 FAILED: Entra app token acquisition failed:', error.message);
     }
+  } else {
+    console.log('[SharePoint] Step 2 SKIPPED: Entra app credentials not fully configured');
   }
   
-  // Fall back to Replit connector
+  // Fall back to connector
+  console.log('[SharePoint] Step 3: Trying connector fallback...');
   try {
     await getAccessToken('sharepoint');
+    console.log('[SharePoint] SUCCESS: Connector available for SharePoint access');
+    console.log(`[SharePoint] ========== checkSharePointConnection END (connector) ==========`);
     return true;
-  } catch (error) {
+  } catch (error: any) {
+    console.log('[SharePoint] Step 3 FAILED: Connector not available:', error.message);
+    console.log(`[SharePoint] ========== checkSharePointConnection END (ALL FAILED) ==========`);
     return false;
   }
 }

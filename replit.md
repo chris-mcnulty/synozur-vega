@@ -83,6 +83,12 @@ When adding new features or proposals, update BACKLOG.md rather than creating se
 - **Cannot debug production auth issues from dev**: Production logs and database must be obtained separately to debug authentication issues.
 - **Azure AD SSO is configured in production**: The Entra app registration points to production URLs.
 
+### Microsoft 365 Connection Debugging
+- Comprehensive logging added to `microsoftGraph.ts` with `[SharePoint]`, `[Graph]`, `[Connector]`, `[EntraApp]` prefixes.
+- Connection check flow: 1) User delegated token → 2) Entra app credentials → 3) Connector fallback.
+- Look for `========== checkSharePointConnection START ==========` in logs to trace connection issues.
+- Error messages use proper capitalization: "SharePoint", "OneDrive", "Outlook".
+
 ### Key Implementation Patterns
 - **Pacific Time Requirement**: All date/time operations use America/Los_Angeles timezone to prevent misdating
 - **React Hooks Rule**: All hooks must be called unconditionally BEFORE any early returns or conditional rendering
