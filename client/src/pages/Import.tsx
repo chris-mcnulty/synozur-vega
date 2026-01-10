@@ -161,12 +161,14 @@ export default function Import() {
 
       const data = await response.json();
       
-      // Create download
+      // Create download with tenant name and date
       const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `company-os-export-${new Date().toISOString().split('T')[0]}.cos`;
+      const tenantSlug = currentTenant?.name?.replace(/[^a-zA-Z0-9]/g, '_') || 'company';
+      const dateStr = new Date().toISOString().split('T')[0];
+      a.download = `${tenantSlug}_COS_${dateStr}.cos`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
