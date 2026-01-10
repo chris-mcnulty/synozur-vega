@@ -298,8 +298,13 @@ async function getAccessToken(connectorType: ConnectorType = 'outlook'): Promise
                       connectionSettings?.settings?.oauth?.credentials?.access_token;
 
   if (!connectionSettings || !accessToken) {
-    const serviceName = connectorType.charAt(0).toUpperCase() + connectorType.slice(1);
-    throw new Error(`${serviceName} not connected. Please connect your Microsoft account in Settings → Integrations.`);
+    const serviceNames: Record<ConnectorType, string> = {
+      'outlook': 'Outlook',
+      'onedrive': 'OneDrive', 
+      'sharepoint': 'SharePoint',
+    };
+    const serviceName = serviceNames[connectorType] || connectorType;
+    throw new Error(`${serviceName} connection unavailable. Your Microsoft 365 session may have expired - please sign out and sign back in, or contact your administrator to verify the integration is properly configured.`);
   }
 
   // Cache the settings
