@@ -1,8 +1,10 @@
 # Vega Platform Master Backlog
 
-**Last Updated:** January 9, 2026 (Executive Dashboard Personalization added, OKR Intelligence Phase 1 pace badges complete)
+**Last Updated:** January 10, 2026 (CHANGELOG.md created to track completed features and deployment history)
 
 > **Note:** This is the single source of truth for all Vega feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference this document for backlog-related questions.
+
+> **See Also:** [CHANGELOG.md](./CHANGELOG.md) - For a comprehensive history of completed features, deployments, and releases.
 
 ---
 
@@ -359,16 +361,21 @@ Interactive visual graph showing how values, goals, strategies, objectives, KRs,
 
 ### Dynamic Backlog & Changelog Viewer
 
-**Status:** Not Started  
+**Status:** Partially Complete (CHANGELOG.md created)  
 **Priority:** Low-Medium  
 **Effort:** 1-2 days
 
 **Description:**
-Expose BACKLOG.md and a changelog file dynamically within the application UI so users and administrators can view upcoming features, known issues, and recent changes without leaving the app.
+Expose BACKLOG.md and CHANGELOG.md dynamically within the application UI so users and administrators can view upcoming features, known issues, and recent changes without leaving the app.
 
-**Features:**
+**What's Done:**
+- ✅ CHANGELOG.md created (January 10, 2026)
+- ✅ Comprehensive feature history documented
+- ✅ Linked from BACKLOG.md
+
+**Remaining:**
 1. **Backlog Viewer**: Read and render BACKLOG.md as formatted HTML in an admin-accessible page
-2. **Changelog Page**: Maintain a CHANGELOG.md and display it for users (version history, release notes)
+2. **Changelog Page**: Display CHANGELOG.md for users (version history, release notes)
 3. **Access Control**: 
    - Full backlog visible to admins/consultants
    - Condensed "What's New" / release notes visible to all users
