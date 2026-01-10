@@ -38,7 +38,8 @@ import {
   Pencil,
   Scale,
   Lock,
-  Edit2
+  Edit2,
+  Trash2
 } from "lucide-react";
 import { format, startOfYear, endOfYear, startOfQuarter, endOfQuarter, differenceInDays, addMonths } from "date-fns";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
@@ -210,6 +211,29 @@ export function OKRDetailPane({
       toast({ title: "Error", description: error.message || "Failed to update check-in", variant: "destructive" });
     },
   });
+
+  // Mutation for deleting check-ins
+  const deleteCheckInMutation = useMutation({
+    mutationFn: async (checkInId: string) => {
+      const res = await apiRequest("DELETE", `/api/okr/check-ins/${checkInId}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      toast({ title: "Check-in deleted", description: "The check-in has been removed." });
+      queryClient.invalidateQueries({ queryKey: ["/api/okr/check-ins", entity?.id, entityType] });
+      queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/okr/key-results"] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete check-in", variant: "destructive" });
+    },
+  });
+
+  const handleDeleteCheckIn = (checkIn: CheckIn) => {
+    if (confirm("Are you sure you want to delete this check-in? This action cannot be undone.")) {
+      deleteCheckInMutation.mutate(checkIn.id);
+    }
+  };
 
   const handleEditCheckIn = (checkIn: CheckIn) => {
     setEditFormData({
@@ -710,6 +734,18 @@ export function OKRDetailPane({
                                     title="Edit check-in"
                                   >
                                     <Edit2 className="h-3 w-3" />
+                                  </Button>
+                                )}
+                                {(checkIn.userId === permissions.user?.id || permissions.isAdmin || permissions.isPlatformAdmin) && (
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 text-destructive hover:text-destructive"
+                                    onClick={() => handleDeleteCheckIn(checkIn)}
+                                    data-testid={`button-delete-checkin-${checkIn.id}`}
+                                    title="Delete check-in"
+                                  >
+                                    <Trash2 className="h-3 w-3" />
                                   </Button>
                                 )}
                               </div>

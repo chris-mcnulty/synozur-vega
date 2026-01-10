@@ -150,6 +150,7 @@ export interface IStorage {
   getCheckInById(id: string): Promise<CheckIn | undefined>;
   createCheckIn(checkIn: InsertCheckIn): Promise<CheckIn>;
   updateCheckIn(id: string, data: Partial<CheckIn>): Promise<CheckIn>;
+  deleteCheckIn(id: string): Promise<void>;
   getLatestCheckIn(entityType: string, entityId: string): Promise<CheckIn | undefined>;
   
   // Value tagging methods
@@ -1424,6 +1425,10 @@ export class DatabaseStorage implements IStorage {
       .where(eq(checkIns.id, id))
       .returning();
     return checkIn;
+  }
+
+  async deleteCheckIn(id: string): Promise<void> {
+    await db.delete(checkIns).where(eq(checkIns.id, id));
   }
 
   async getLatestCheckIn(entityType: string, entityId: string): Promise<CheckIn | undefined> {

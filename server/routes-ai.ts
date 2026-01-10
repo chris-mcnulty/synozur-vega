@@ -1003,11 +1003,34 @@ CRITICAL: Output ONLY the rewritten note text. No explanations, no quotes, no pr
         displayProgress = input.newProgress || context.progress || 0;
       }
       
+      // Calculate expected progress based on period timing
+      let expectedProgress: number | null = null;
+      let paceStatus: string = "";
+      if (context.quarter && context.year) {
+        const periodStart = new Date(context.year, (context.quarter - 1) * 3, 1);
+        const periodEnd = new Date(context.year, context.quarter * 3, 0);
+        const totalDays = Math.max(1, (periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
+        const daysElapsed = Math.max(0, (now.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24));
+        expectedProgress = Math.round((daysElapsed / totalDays) * 100);
+        
+        // Determine pace status
+        const progressDiff = displayProgress - expectedProgress;
+        if (progressDiff >= 10) {
+          paceStatus = "ahead of pace";
+        } else if (progressDiff >= -10) {
+          paceStatus = "on pace";
+        } else if (progressDiff >= -25) {
+          paceStatus = "slightly behind pace";
+        } else {
+          paceStatus = "behind pace";
+        }
+      }
+      
       userPrompt = `Context:
 - Key Result: ${context.krTitle || "Unknown"}
 - Target: ${context.targetValue || 100} ${context.unit || ""}
 - Current Value: ${input.newValue !== undefined ? input.newValue : context.currentValue || 0} ${context.unit || ""}
-- Progress: ${displayProgress}%
+- Progress: ${displayProgress}%${expectedProgress !== null ? ` (expected at this point in the period: ${expectedProgress}%)` : ""}${paceStatus ? `\n- Pace: ${paceStatus}` : ""}
 ${context.objectiveTitle ? `- Objective: ${context.objectiveTitle}` : ""}
 
 Original note to rewrite:

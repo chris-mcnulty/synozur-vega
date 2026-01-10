@@ -961,6 +961,101 @@ okrRouter.patch("/check-ins/:id", async (req, res) => {
   }
 });
 
+// Delete a check-in
+okrRouter.delete("/check-ins/:id", async (req, res) => {
+  try {
+    const user = (req as any).user;
+    const checkIn = await storage.getCheckInById(req.params.id);
+    
+    if (!checkIn) {
+      return res.status(404).json({ error: "Check-in not found" });
+    }
+    
+    // Check if user has permission to delete (must be creator or have admin role)
+    const canDelete = checkIn.userId === user?.id || 
+      ['admin', 'vega_consultant', 'vega_admin', 'global_admin'].includes(user?.role);
+    
+    if (!canDelete) {
+      return res.status(403).json({ error: "You don't have permission to delete this check-in" });
+    }
+    
+    await storage.deleteCheckIn(req.params.id);
+    
+    // After deleting, update the entity to reflect the most recent remaining check-in
+    const { entityType, entityId } = checkIn;
+    const latestCheckIn = await storage.getLatestCheckIn(entityType, entityId);
+    
+    if (entityType === "objective") {
+      if (latestCheckIn) {
+        await storage.updateObjective(entityId, {
+          progress: latestCheckIn.newProgress,
+          lastCheckInAt: latestCheckIn.createdAt,
+          lastCheckInNote: latestCheckIn.note || undefined,
+          status: latestCheckIn.newStatus || undefined,
+        });
+      } else {
+        // No remaining check-ins - restore to previous state, defaulting to 0 if unknown
+        await storage.updateObjective(entityId, {
+          progress: checkIn.previousProgress ?? 0,
+          lastCheckInAt: null,
+          lastCheckInNote: null,
+        });
+      }
+    } else if (entityType === "key_result") {
+      const keyResult = await storage.getKeyResultById(entityId);
+      if (keyResult) {
+        if (latestCheckIn) {
+          await storage.updateKeyResult(entityId, {
+            currentValue: latestCheckIn.newValue,
+            progress: latestCheckIn.newProgress,
+            lastCheckInAt: latestCheckIn.createdAt,
+            lastCheckInNote: latestCheckIn.note || undefined,
+            status: latestCheckIn.newStatus || undefined,
+          });
+        } else {
+          // No remaining check-ins - restore to previous state, using initialValue as fallback
+          await storage.updateKeyResult(entityId, {
+            currentValue: checkIn.previousValue ?? keyResult.initialValue ?? keyResult.startValue ?? 0,
+            progress: checkIn.previousProgress ?? 0,
+            lastCheckInAt: null,
+            lastCheckInNote: null,
+          });
+        }
+        
+        // Recalculate parent objective's progress
+        if (keyResult.objectiveId) {
+          const objective = await storage.getObjectiveById(keyResult.objectiveId);
+          if (objective && objective.progressMode === 'rollup') {
+            const newProgress = await calculateObjectiveRollupProgress(keyResult.objectiveId);
+            await storage.updateObjective(keyResult.objectiveId, { progress: newProgress });
+          }
+        }
+      }
+    } else if (entityType === "big_rock") {
+      if (latestCheckIn) {
+        await storage.updateBigRock(entityId, {
+          completionPercentage: latestCheckIn.newProgress,
+          status: latestCheckIn.newStatus || undefined,
+          lastCheckInAt: latestCheckIn.createdAt,
+          lastCheckInNote: latestCheckIn.note || undefined,
+        });
+      } else {
+        // No remaining check-ins - restore to previous state, defaulting to 0 if unknown
+        await storage.updateBigRock(entityId, {
+          completionPercentage: checkIn.previousProgress ?? 0,
+          lastCheckInAt: null,
+          lastCheckInNote: null,
+        });
+      }
+    }
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Failed to delete check-in:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Calculate progress with weighted contributions
 okrRouter.get("/objectives/:id/calculate-progress", async (req, res) => {
   try {

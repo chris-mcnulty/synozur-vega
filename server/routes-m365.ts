@@ -1032,6 +1032,43 @@ router.post('/key-results/:id/sync-excel', async (req: Request, res: Response) =
     
     const updatedKR = await storage.updateKeyResult(id, updateData);
     
+    // Create a check-in record if value changed and sync was successful
+    if (updateCurrentValue !== false && excelLastSyncValue !== null && !excelSyncError) {
+      const previousValue = keyResult.currentValue ?? keyResult.initialValue ?? 0;
+      const valueChanged = excelLastSyncValue !== previousValue;
+      
+      if (valueChanged) {
+        const initial = keyResult.initialValue ?? 0;
+        const target = keyResult.targetValue ?? 100;
+        const range = target - initial;
+        const newProgress = range !== 0 
+          ? Math.min(100, Math.max(0, ((excelLastSyncValue - initial) / range) * 100))
+          : 0;
+        const previousProgress = range !== 0 
+          ? Math.min(100, Math.max(0, ((previousValue - initial) / range) * 100))
+          : 0;
+        
+        try {
+          await storage.createCheckIn({
+            tenantId: keyResult.tenantId,
+            entityType: 'key_result',
+            entityId: id,
+            previousValue: previousValue,
+            newValue: excelLastSyncValue,
+            previousProgress: previousProgress,
+            newProgress: newProgress,
+            note: `Auto-synced from Excel: ${keyResult.excelFileName || 'linked file'}`,
+            userId: user.id,
+            userEmail: user.email,
+            asOfDate: new Date() as any,
+          });
+          console.log(`[Excel] Created check-in for KR ${id}: ${previousValue} → ${excelLastSyncValue}`);
+        } catch (checkInErr) {
+          console.error('[Excel] Failed to create check-in:', checkInErr);
+        }
+      }
+    }
+    
     res.json({
       success: !excelSyncError,
       keyResult: updatedKR,
