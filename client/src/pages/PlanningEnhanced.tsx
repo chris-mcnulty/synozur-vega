@@ -2284,6 +2284,10 @@ export default function PlanningEnhanced() {
                     setCloneObjective(obj as any);
                     setCloneDialogOpen(true);
                   }}
+                  onEditExcelLink={(kr) => {
+                    setSelectedKeyResult(kr as any);
+                    setExcelPickerOpen(true);
+                  }}
                 />
               )}
             </div>

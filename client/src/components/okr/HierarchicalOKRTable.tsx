@@ -122,6 +122,7 @@ interface HierarchicalOKRTableProps {
   onReopenKeyResult?: (keyResultId: string) => void;
   onCloneObjective?: (objective: HierarchyObjective) => void;
   onManageWeights?: (objectiveId: string) => void;
+  onEditExcelLink?: (keyResult: KeyResult) => void;
 }
 
 function getStatusColor(status: string): string {
@@ -395,6 +396,7 @@ function ObjectiveRow({
   onReopenKeyResult,
   onCloneObjective,
   onManageWeights,
+  onEditExcelLink,
 }: { 
   objective: HierarchyObjective; 
   depth?: number;
@@ -416,6 +418,7 @@ function ObjectiveRow({
   onReopenKeyResult?: (keyResultId: string) => void;
   onCloneObjective?: (objective: HierarchyObjective) => void;
   onManageWeights?: (objectiveId: string) => void;
+  onEditExcelLink?: (keyResult: KeyResult) => void;
 }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
@@ -790,6 +793,7 @@ function ObjectiveRow({
               onDeleteKeyResult={onDeleteKeyResult}
               onCloseKeyResult={onCloseKeyResult}
               onReopenKeyResult={onReopenKeyResult}
+              onEditExcelLink={onEditExcelLink}
             />
           ))}
 
@@ -816,6 +820,7 @@ function ObjectiveRow({
               onManageWeights={onManageWeights}
               onCloseKeyResult={onCloseKeyResult}
               onReopenKeyResult={onReopenKeyResult}
+              onEditExcelLink={onEditExcelLink}
             />
           ))}
           
@@ -843,6 +848,7 @@ function ObjectiveRow({
               onManageWeights={onManageWeights}
               onCloseKeyResult={onCloseKeyResult}
               onReopenKeyResult={onReopenKeyResult}
+              onEditExcelLink={onEditExcelLink}
             />
           ))}
         </>
@@ -861,6 +867,7 @@ function KeyResultRow({
   onDeleteKeyResult,
   onCloseKeyResult,
   onReopenKeyResult,
+  onEditExcelLink,
 }: {
   keyResult: KeyResult;
   parentObjective: HierarchyObjective;
@@ -871,6 +878,7 @@ function KeyResultRow({
   onDeleteKeyResult?: (keyResultId: string) => void;
   onCloseKeyResult?: (keyResultId: string) => void;
   onReopenKeyResult?: (keyResultId: string) => void;
+  onEditExcelLink?: (keyResult: KeyResult) => void;
 }) {
   const [isHovered, setIsHovered] = useState(false);
   const permissions = usePermissions();
@@ -931,12 +939,16 @@ function KeyResultRow({
                   <Badge 
                     variant="outline" 
                     className={cn(
-                      "text-[10px] px-1.5 py-0 h-4 flex-shrink-0",
+                      "text-[10px] px-1.5 py-0 h-4 flex-shrink-0 cursor-pointer hover:opacity-80",
                       keyResult.excelSyncError 
                         ? "border-red-400 text-red-600 dark:text-red-400" 
                         : "border-green-400 text-green-600 dark:text-green-400"
                     )}
                     data-testid={`badge-excel-${keyResult.id}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditExcelLink?.(keyResult);
+                    }}
                   >
                     {keyResult.excelSyncError ? (
                       <AlertCircle className="h-2.5 w-2.5 mr-0.5" />
@@ -960,6 +972,7 @@ function KeyResultRow({
                     {keyResult.excelSyncError && (
                       <p className="text-red-500 mt-1">{keyResult.excelSyncError}</p>
                     )}
+                    <p className="text-primary mt-1">Click to edit link</p>
                   </div>
                 </TooltipContent>
               </Tooltip>
@@ -1129,6 +1142,7 @@ export function HierarchicalOKRTable({
   onReopenKeyResult,
   onCloneObjective,
   onManageWeights,
+  onEditExcelLink,
 }: HierarchicalOKRTableProps) {
   if (objectives.length === 0) {
     return (
@@ -1178,6 +1192,7 @@ export function HierarchicalOKRTable({
               onCloseKeyResult={onCloseKeyResult}
               onReopenKeyResult={onReopenKeyResult}
               onManageWeights={onManageWeights}
+              onEditExcelLink={onEditExcelLink}
             />
           ))}
         </TableBody>
