@@ -156,15 +156,18 @@ type Team = {
 
 function TeamManagementSection({ 
   tenants,
-  users
+  users,
+  selectedTenantId,
 }: { 
   tenants: Tenant[];
   users: User[];
+  selectedTenantId: string;
 }) {
   const { toast } = useToast();
-  const [selectedTenantId, setSelectedTenantId] = useState<string>(tenants[0]?.id || "");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [teamToDelete, setTeamToDelete] = useState<Team | null>(null);
   const [editingTeam, setEditingTeam] = useState<Team | null>(null);
   const [newTeamName, setNewTeamName] = useState("");
   const [newTeamDescription, setNewTeamDescription] = useState("");
@@ -268,21 +271,7 @@ function TeamManagementSection({
           </p>
         </div>
         <div className="flex items-center gap-2">
-          {tenants.length > 1 && (
-            <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
-              <SelectTrigger className="w-48" data-testid="select-team-tenant">
-                <SelectValue placeholder="Select organization" />
-              </SelectTrigger>
-              <SelectContent>
-                {tenants.map(tenant => (
-                  <SelectItem key={tenant.id} value={tenant.id}>
-                    {tenant.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-team">
+          <Button onClick={() => setIsCreateDialogOpen(true)} disabled={!selectedTenantId} data-testid="button-create-team">
             <Plus className="h-4 w-4 mr-2" />
             Add Team
           </Button>
@@ -291,7 +280,12 @@ function TeamManagementSection({
 
       <Card>
         <CardContent className="pt-6">
-          {isLoading ? (
+          {!selectedTenantId ? (
+            <div className="text-center py-8">
+              <Users className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+              <p className="text-muted-foreground">Select an organization above to view teams</p>
+            </div>
+          ) : isLoading ? (
             <p className="text-muted-foreground">Loading teams...</p>
           ) : teams.length === 0 ? (
             <div className="text-center py-8">
@@ -344,9 +338,8 @@ function TeamManagementSection({
                           variant="ghost"
                           size="icon"
                           onClick={() => {
-                            if (confirm(`Are you sure you want to delete team "${team.name}"?`)) {
-                              deleteTeamMutation.mutate(team.id);
-                            }
+                            setTeamToDelete(team);
+                            setIsDeleteDialogOpen(true);
                           }}
                           title="Delete team"
                           data-testid={`button-delete-team-${team.id}`}
@@ -497,6 +490,37 @@ function TeamManagementSection({
               data-testid="button-confirm-edit-team"
             >
               {updateTeamMutation.isPending ? "Saving..." : "Save Changes"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Team Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Team</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete the team "{teamToDelete?.name}"? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={() => {
+                if (teamToDelete) {
+                  deleteTeamMutation.mutate(teamToDelete.id);
+                  setIsDeleteDialogOpen(false);
+                  setTeamToDelete(null);
+                }
+              }}
+              disabled={deleteTeamMutation.isPending}
+              data-testid="button-confirm-delete-team"
+            >
+              {deleteTeamMutation.isPending ? "Deleting..." : "Delete Team"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1957,7 +1981,7 @@ export default function TenantAdmin() {
           </Card>
 
           {/* Team Management Section */}
-          <TeamManagementSection tenants={tenants} users={users} />
+          <TeamManagementSection tenants={tenants} users={users} selectedTenantId={userTenantFilter === "ALL" || userTenantFilter === "NONE" ? "" : userTenantFilter} />
         </TabsContent>
 
         {/* Integrations Tab */}
