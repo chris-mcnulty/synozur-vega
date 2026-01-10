@@ -352,7 +352,10 @@ export function ExcelFilePicker({
         description: data.syncError || `Value synced: ${data.syncedValue}`,
         variant: data.syncError ? 'destructive' : 'default',
       });
+      // Invalidate all relevant queries to refresh the screen
       queryClient.invalidateQueries({ queryKey: ['/api/key-results'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/okr/objectives'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/okr/key-results'] });
       onSuccess?.();
       onOpenChange(false);
     },
@@ -695,7 +698,7 @@ export function ExcelFilePicker({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-2xl">
+      <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
             {step === 'browse' ? 'Select Excel File' : 'Configure Excel Link'}
