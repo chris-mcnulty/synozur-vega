@@ -200,7 +200,7 @@ and this project follows semantic versioning principles.
 
 ### High Priority
 
-1. **M365 Copilot Agent Completion** (January 2025)
+1. **M365 Copilot Agent Completion** (January 2026)
    - OAuth setup in Copilot Studio
    - Testing in M365 dev tenant
    - Client deployment + refinement
