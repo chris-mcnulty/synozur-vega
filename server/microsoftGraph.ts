@@ -299,7 +299,7 @@ async function getAccessToken(connectorType: ConnectorType = 'outlook'): Promise
 
   if (!connectionSettings || !accessToken) {
     const serviceName = connectorType.charAt(0).toUpperCase() + connectorType.slice(1);
-    throw new Error(`${serviceName} not connected. Please connect your Microsoft account in Replit.`);
+    throw new Error(`${serviceName} not connected. Please connect your Microsoft account in Settings → Integrations.`);
   }
 
   // Cache the settings

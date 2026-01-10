@@ -160,7 +160,7 @@ router.post('/meetings/:id/sync', async (req: Request, res: Response) => {
     
     const connected = await checkOutlookConnection();
     if (!connected) {
-      return res.status(401).json({ error: 'Outlook not connected. Please connect your Microsoft account.' });
+      return res.status(401).json({ error: 'Outlook not connected. Please connect your Microsoft account in Settings → Integrations.' });
     }
     
     const meeting = await storage.getMeetingById(id);
@@ -273,7 +273,7 @@ router.post('/meetings/:id/send-summary', async (req: Request, res: Response) =>
     
     const connected = await checkOutlookConnection();
     if (!connected) {
-      return res.status(401).json({ error: 'Outlook not connected. Please connect your Microsoft account.' });
+      return res.status(401).json({ error: 'Outlook not connected. Please connect your Microsoft account in Settings → Integrations.' });
     }
     
     const meeting = await storage.getMeetingById(id);
