@@ -683,6 +683,27 @@ export default function Login() {
                 </form>
               </TabsContent>
             </Tabs>
+            
+            <p className="text-xs text-muted-foreground text-center mt-4 pt-4 border-t">
+              By logging in or creating an account, you agree to the Synozur{" "}
+              <a 
+                href="https://synozur.com/privacy-policy" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Privacy Policy
+              </a>{" "}
+              and{" "}
+              <a 
+                href="https://synozur.com/terms-of-service" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary hover:underline"
+              >
+                Terms of Service
+              </a>.
+            </p>
           </CardContent>
         </Card>
         
