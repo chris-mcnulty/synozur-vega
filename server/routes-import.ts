@@ -319,6 +319,15 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
     // Use x-tenant-id header for tenant switching support (consultants/admins)
     const headerTenantId = req.headers['x-tenant-id'] as string | undefined;
     const targetTenantId = headerTenantId || user.tenantId;
+    
+    console.log('[COS Import] Starting import:', {
+      targetTenantId,
+      headerTenantId,
+      userTenantId: user.tenantId,
+      duplicateStrategy: options.duplicateStrategy,
+      dataKeys: Object.keys(importData.data || {}),
+    });
+    
     const results = {
       teams: { created: 0, updated: 0, skipped: 0, errors: 0 },
       foundations: { created: 0, updated: 0, skipped: 0, errors: 0 },
@@ -391,9 +400,20 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
     }
 
     // Import foundations (only one per tenant, uses upsert)
+    console.log('[COS Import] Foundations in import data:', {
+      hasFoundations: !!importData.data.foundations,
+      foundationsLength: importData.data.foundations?.length || 0,
+      foundationKeys: importData.data.foundations?.[0] ? Object.keys(importData.data.foundations[0]) : [],
+    });
     if (importData.data.foundations && importData.data.foundations.length > 0) {
       // Take the first foundation from import (there should only be one per tenant)
       const foundationData = importData.data.foundations[0];
+      console.log('[COS Import] Importing foundation:', { 
+        id: foundationData.id, 
+        mission: foundationData.mission?.substring(0, 50),
+        existingFoundation: !!existingFoundation,
+        duplicateStrategy: options.duplicateStrategy 
+      });
       try {
         if (existingFoundation) {
           if (options.duplicateStrategy === 'skip') {
@@ -437,10 +457,13 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
           idMap.set(foundationData.id, created.id);
           results.foundations.created++;
         }
+        console.log('[COS Import] Foundation import result:', results.foundations);
       } catch (err) {
         console.error('Error importing foundation:', err);
         results.foundations.errors++;
       }
+    } else {
+      console.log('[COS Import] No foundations to import in file');
     }
 
     // Import strategies
