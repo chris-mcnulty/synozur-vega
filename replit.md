@@ -24,7 +24,7 @@ Preferred communication style: Simple, everyday language.
     - **Reporting Module**: Generate professional reports with PDF and PowerPoint (PPTX) export, snapshot comparisons, and customizable branding. Supports OKR progress reports, strategic reviews, and dashboard summaries.
     - **OKR Intelligence**: Pace and velocity tracking with predictive projections. Calculates on-track/ahead/behind status based on time elapsed vs progress. Displays pace indicators throughout the application and "Behind Pace" alerts on Executive Dashboard with severity sorting.
     - **Tenant Admin**: Manages organization, M365 integration status, tenant/user CRUD, and allowed email domains.
-    - **System Admin**: Platform-wide administration including vocabulary defaults, AI usage monitoring, service plans, blocked domains, and tenant management. Accessible only to Vega Admins and Global Admins.
+    - **System Admin**: Platform-wide administration including vocabulary defaults, AI usage monitoring, service plans, blocked domains, tenant management, and system-wide announcements. Accessible only to Vega Admins and Global Admins.
     - **Launchpad**: AI-powered document analysis for extracting and creating foundational company elements.
     - **OKR Cloning**: Allows cloning of objectives with various scope options and target quarter/year selection.
     - **OKR Period Close-Out**: When checking in on objectives/KRs from a past period, prompts user to either continue working in a new period (opens clone dialog) or close with a mandatory closing note. Uses Pacific Time for period detection. Period-ended uses amber styling, target-exceeded uses green.
