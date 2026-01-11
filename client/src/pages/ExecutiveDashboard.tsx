@@ -175,6 +175,12 @@ export default function ExecutiveDashboard() {
   
   const currentQuarter = quarters.find((q) => q.id === selectedQuarter);
 
+  // Helper to get headers with tenant ID for all API calls
+  const getHeaders = () => ({
+    'Content-Type': 'application/json',
+    ...(currentTenant?.id && { 'x-tenant-id': currentTenant.id }),
+  });
+
   const { data: objectives = [], isLoading: loadingObjectives } = useQuery<Objective[]>({
     queryKey: ["/api/okr/objectives", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year],
     queryFn: async () => {
@@ -184,7 +190,10 @@ export default function ExecutiveDashboard() {
         ...(currentQuarter?.quarter && { quarter: String(currentQuarter.quarter) }),
         ...(currentQuarter?.year && { year: String(currentQuarter.year) }),
       });
-      const res = await fetch(`/api/okr/objectives?${params}`);
+      const res = await fetch(`/api/okr/objectives?${params}`, {
+        credentials: 'include',
+        headers: getHeaders(),
+      });
       if (!res.ok) throw new Error('Failed to fetch objectives');
       return res.json();
     },
@@ -199,7 +208,10 @@ export default function ExecutiveDashboard() {
       await Promise.all(
         objectives.map(async (obj) => {
           try {
-            const res = await fetch(`/api/okr/objectives/${obj.id}/key-results`);
+            const res = await fetch(`/api/okr/objectives/${obj.id}/key-results`, {
+              credentials: 'include',
+              headers: getHeaders(),
+            });
             if (res.ok) {
               results[obj.id] = await res.json();
             }
@@ -217,7 +229,10 @@ export default function ExecutiveDashboard() {
     queryKey: [`/api/okr/teams`, currentTenant?.id],
     queryFn: async () => {
       if (!currentTenant) return [];
-      const res = await fetch(`/api/okr/teams?tenantId=${currentTenant.id}`);
+      const res = await fetch(`/api/okr/teams?tenantId=${currentTenant.id}`, {
+        credentials: 'include',
+        headers: getHeaders(),
+      });
       if (!res.ok) return [];
       return res.json();
     },
@@ -233,7 +248,10 @@ export default function ExecutiveDashboard() {
         ...(currentQuarter?.quarter && { quarter: String(currentQuarter.quarter) }),
         ...(currentQuarter?.year && { year: String(currentQuarter.year) }),
       });
-      const res = await fetch(`/api/okr/big-rocks?${params}`);
+      const res = await fetch(`/api/okr/big-rocks?${params}`, {
+        credentials: 'include',
+        headers: getHeaders(),
+      });
       if (!res.ok) throw new Error('Failed to fetch big rocks');
       return res.json();
     },
@@ -244,7 +262,10 @@ export default function ExecutiveDashboard() {
     queryKey: ["/api/okr/check-ins/all", currentTenant?.id],
     queryFn: async () => {
       if (!currentTenant) return [];
-      const res = await fetch(`/api/okr/check-ins?entityType=all&entityId=all`);
+      const res = await fetch(`/api/okr/check-ins?entityType=all&entityId=all`, {
+        credentials: 'include',
+        headers: getHeaders(),
+      });
       if (!res.ok) return [];
       return res.json();
     },

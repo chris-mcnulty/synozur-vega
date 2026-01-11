@@ -5,6 +5,7 @@ import { z } from "zod";
 import { generateReportPDF } from "./pdf-service";
 import { generateReportPPTX, SlideOptions, DEFAULT_SLIDE_OPTIONS } from "./pptx-service";
 import { generatePeriodSummary } from "./ai";
+import { requireValidatedTenant, getValidatedTenantId } from "./middleware/validateTenant";
 
 const router = Router();
 
@@ -29,16 +30,9 @@ function requireAuth(req: Request, res: Response, next: Function) {
 // ============================================
 
 // Get snapshots for a tenant
-router.get("/snapshots", requireAuth, async (req: Request, res: Response) => {
+router.get("/snapshots", requireValidatedTenant, async (req: Request, res: Response) => {
   try {
-    const user = await storage.getUser(req.session.userId!);
-    if (!user?.tenantId) {
-      return res.status(403).json({ error: "No tenant access" });
-    }
-    
-    // Use x-tenant-id header for tenant switching support (consultants/admins)
-    const headerTenantId = req.headers['x-tenant-id'] as string | undefined;
-    const tenantId = headerTenantId || user.tenantId;
+    const tenantId = req.effectiveTenantId!;
     
     const year = req.query.year ? parseInt(req.query.year as string) : undefined;
     const quarter = req.query.quarter ? parseInt(req.query.quarter as string) : undefined;
@@ -66,16 +60,9 @@ router.get("/snapshots/:id", requireAuth, async (req: Request, res: Response) =>
 });
 
 // Create snapshot (capture current state)
-router.post("/snapshots", requireAuth, async (req: Request, res: Response) => {
+router.post("/snapshots", requireValidatedTenant, async (req: Request, res: Response) => {
   try {
-    const user = await storage.getUser(req.session.userId!);
-    if (!user?.tenantId) {
-      return res.status(403).json({ error: "No tenant access" });
-    }
-    
-    // Use x-tenant-id header for tenant switching support (consultants/admins)
-    const headerTenantId = req.headers['x-tenant-id'] as string | undefined;
-    const tenantId = headerTenantId || user.tenantId;
+    const tenantId = req.effectiveTenantId!;
     
     // Get current OKR data to snapshot
     const [objectives, bigRocks] = await Promise.all([
@@ -241,16 +228,9 @@ router.delete("/templates/:id", requireAuth, async (req: Request, res: Response)
 // ============================================
 
 // Get generated reports
-router.get("/reports", requireAuth, async (req: Request, res: Response) => {
+router.get("/reports", requireValidatedTenant, async (req: Request, res: Response) => {
   try {
-    const user = await storage.getUser(req.session.userId!);
-    if (!user?.tenantId) {
-      return res.status(403).json({ error: "No tenant access" });
-    }
-    
-    // Use x-tenant-id header for tenant switching support (consultants/admins)
-    const headerTenantId = req.headers['x-tenant-id'] as string | undefined;
-    const tenantId = headerTenantId || user.tenantId;
+    const tenantId = req.effectiveTenantId!;
     
     const year = req.query.year ? parseInt(req.query.year as string) : undefined;
     const reportType = req.query.reportType as string | undefined;
@@ -278,16 +258,10 @@ router.get("/reports/:id", requireAuth, async (req: Request, res: Response) => {
 });
 
 // Generate a new report
-router.post("/reports/generate", requireAuth, async (req: Request, res: Response) => {
+router.post("/reports/generate", requireValidatedTenant, async (req: Request, res: Response) => {
   try {
-    const user = await storage.getUser(req.session.userId!);
-    if (!user?.tenantId) {
-      return res.status(403).json({ error: "No tenant access" });
-    }
-    
-    // Use x-tenant-id header for tenant switching support (consultants/admins)
-    const headerTenantId = req.headers['x-tenant-id'] as string | undefined;
-    const tenantId = headerTenantId || user.tenantId;
+    const tenantId = req.effectiveTenantId!;
+    const user = req.user;
     
     const { templateId, snapshotId, periodType, periodStart, periodEnd, quarter, year, title, description } = req.body;
     
@@ -554,16 +528,9 @@ router.get("/reports/:id/pptx", requireAuth, async (req: Request, res: Response)
 // ============================================
 
 // Get current OKR summary for dashboard/reports
-router.get("/summary", requireAuth, async (req: Request, res: Response) => {
+router.get("/summary", requireValidatedTenant, async (req: Request, res: Response) => {
   try {
-    const user = await storage.getUser(req.session.userId!);
-    if (!user?.tenantId) {
-      return res.status(403).json({ error: "No tenant access" });
-    }
-    
-    // Use x-tenant-id header for tenant switching support (consultants/admins)
-    const headerTenantId = req.headers['x-tenant-id'] as string | undefined;
-    const tenantId = headerTenantId || user.tenantId;
+    const tenantId = req.effectiveTenantId!;
     
     const quarter = req.query.quarter ? parseInt(req.query.quarter as string) : undefined;
     const year = req.query.year ? parseInt(req.query.year as string) : new Date().getFullYear();
