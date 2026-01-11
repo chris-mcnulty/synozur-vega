@@ -62,7 +62,7 @@ export function formatObjectivesForCopilot(objectives: any[]): {
     atRisk: objectives.filter(o => o.status === 'at_risk' || (o.progress < 40 && o.progress > 0)).length,
     completed: objectives.filter(o => o.status === 'completed' || o.progress >= 100).length,
     averageProgress: objectives.length > 0 
-      ? Math.round(objectives.reduce((sum, o) => sum + (o.progress || 0), 0) / objectives.length)
+      ? Math.round(objectives.reduce((sum, o) => sum + Math.min(o.progress || 0, 100), 0) / objectives.length)
       : 0
   };
 
@@ -102,7 +102,7 @@ export function formatKeyResultsForCopilot(keyResults: any[]): {
   const metrics = {
     total: keyResults.length,
     averageProgress: keyResults.length > 0
-      ? Math.round(keyResults.reduce((sum, kr) => sum + (kr.progress || 0), 0) / keyResults.length)
+      ? Math.round(keyResults.reduce((sum, kr) => sum + Math.min(kr.progress || 0, 100), 0) / keyResults.length)
       : 0,
     completed: keyResults.filter(kr => kr.progress >= 100).length
   };

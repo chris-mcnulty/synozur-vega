@@ -542,9 +542,9 @@ export async function executeGetStats(
     m.date && new Date(m.date) >= weekStart
   ).length;
   
-  // Overall progress (average of objective progress)
+  // Overall progress (average of objective progress, capped at 100% each to avoid inflated averages)
   const overallProgress = objectives.length > 0
-    ? Math.round(objectives.reduce((sum, o) => sum + (o.progress || 0), 0) / objectives.length)
+    ? Math.round(objectives.reduce((sum, o) => sum + Math.min(o.progress || 0, 100), 0) / objectives.length)
     : 0;
   
   return {

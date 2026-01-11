@@ -8,6 +8,14 @@ import { generatePeriodSummary } from "./ai";
 
 const router = Router();
 
+/**
+ * Normalize progress to a maximum of 100% to avoid inflated averages
+ * Any value above 100 is capped at 100
+ */
+function normalizeProgress(progress: number): number {
+  return Math.min(progress, 100);
+}
+
 // Middleware to check authentication
 function requireAuth(req: Request, res: Response, next: Function) {
   if (!req.session?.userId) {
@@ -80,11 +88,11 @@ router.post("/snapshots", requireAuth, async (req: Request, res: Response) => {
       objectives.map(obj => storage.getKeyResultsByObjectiveId(obj.id))
     ).then(results => results.flat());
     
-    // Calculate metrics
+    // Calculate metrics (normalize progress to max 100% to avoid inflated averages)
     const completedObjectives = objectives.filter(o => (o.progress || 0) >= 100).length;
     const completedKeyResults = keyResults.filter(kr => (kr.progress || 0) >= 100).length;
     const overallProgress = objectives.length > 0
-      ? Math.round(objectives.reduce((sum, o) => sum + (o.progress || 0), 0) / objectives.length)
+      ? Math.round(objectives.reduce((sum, o) => sum + normalizeProgress(o.progress || 0), 0) / objectives.length)
       : 0;
     
     const snapshotData = {
@@ -326,22 +334,23 @@ router.post("/reports/generate", requireAuth, async (req: Request, res: Response
       const completedObjectives = objectives.filter(o => (o.progress || 0) >= 100).length;
       const completedKeyResults = keyResults.filter(kr => (kr.progress || 0) >= 100).length;
       const completedBigRocks = bigRocks.filter(br => br.status === 'completed').length;
+      // Normalize progress to max 100% to avoid inflated averages
       const averageProgress = objectives.length > 0
-        ? Math.round(objectives.reduce((sum, o) => sum + (o.progress || 0), 0) / objectives.length)
+        ? Math.round(objectives.reduce((sum, o) => sum + normalizeProgress(o.progress || 0), 0) / objectives.length)
         : 0;
       
-      // Calculate status counts
-      const onTrackCount = objectives.filter(o => (o.progress || 0) >= 70).length;
-      const atRiskCount = objectives.filter(o => (o.progress || 0) >= 40 && (o.progress || 0) < 70).length;
-      const behindCount = objectives.filter(o => (o.progress || 0) < 40).length;
+      // Calculate status counts (use normalized progress for consistency)
+      const onTrackCount = objectives.filter(o => normalizeProgress(o.progress || 0) >= 70).length;
+      const atRiskCount = objectives.filter(o => normalizeProgress(o.progress || 0) >= 40 && normalizeProgress(o.progress || 0) < 70).length;
+      const behindCount = objectives.filter(o => normalizeProgress(o.progress || 0) < 40).length;
       
-      // Calculate progress by level
+      // Calculate progress by level (normalize each objective's progress)
       const levelGroups = new Map<string, { count: number; totalProgress: number }>();
       objectives.forEach(obj => {
         const level = obj.level || 'team';
         const group = levelGroups.get(level) || { count: 0, totalProgress: 0 };
         group.count++;
-        group.totalProgress += (obj.progress || 0);
+        group.totalProgress += normalizeProgress(obj.progress || 0);
         levelGroups.set(level, group);
       });
       const progressByLevel = Array.from(levelGroups.entries()).map(([level, data]) => ({
@@ -571,15 +580,16 @@ router.get("/summary", requireAuth, async (req: Request, res: Response) => {
     const completedObjectives = objectives.filter(o => (o.progress || 0) >= 100).length;
     const completedKeyResults = keyResults.filter(kr => (kr.progress || 0) >= 100).length;
     const completedBigRocks = bigRocks.filter(br => br.status === 'completed').length;
+    // Normalize progress to max 100% to avoid inflated averages
     const averageProgress = objectives.length > 0
-      ? Math.round(objectives.reduce((sum, o) => sum + (o.progress || 0), 0) / objectives.length)
+      ? Math.round(objectives.reduce((sum, o) => sum + normalizeProgress(o.progress || 0), 0) / objectives.length)
       : 0;
     
-    // Group by status
+    // Group by status (use normalized progress for consistency)
     const objectivesByStatus = {
-      onTrack: objectives.filter(o => (o.progress || 0) >= 70).length,
-      atRisk: objectives.filter(o => (o.progress || 0) >= 40 && (o.progress || 0) < 70).length,
-      behind: objectives.filter(o => (o.progress || 0) < 40).length,
+      onTrack: objectives.filter(o => normalizeProgress(o.progress || 0) >= 70).length,
+      atRisk: objectives.filter(o => normalizeProgress(o.progress || 0) >= 40 && normalizeProgress(o.progress || 0) < 70).length,
+      behind: objectives.filter(o => normalizeProgress(o.progress || 0) < 40).length,
     };
     
     res.json({

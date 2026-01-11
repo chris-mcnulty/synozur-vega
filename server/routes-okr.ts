@@ -110,8 +110,17 @@ async function detectCircularAlignment(
 }
 
 /**
+ * Normalize progress to a maximum of 100% to avoid inflated averages
+ * Any value above 100 is capped at 100
+ */
+function normalizeProgress(progress: number): number {
+  return Math.min(progress, 100);
+}
+
+/**
  * Calculate weighted rollup progress for an objective from both KRs and child objectives
  * Returns the new progress value (0-100)
+ * Note: Individual progress values are capped at 100% before weighting to avoid inflated averages
  */
 async function calculateObjectiveRollupProgress(objectiveId: string): Promise<number> {
   // Get all Key Results for this objective
@@ -128,11 +137,13 @@ async function calculateObjectiveRollupProgress(objectiveId: string): Promise<nu
   let totalWeight = 0;
   let weightedProgress = 0;
   
-  // Add KRs to the calculation
+  // Add KRs to the calculation (normalize each to max 100%)
   for (const kr of keyResults) {
     const weight = kr.weight || 25;
     totalWeight += weight;
-    weightedProgress += (kr.progress || 0) * weight;
+    // Cap individual KR progress at 100% before weighting
+    const cappedProgress = normalizeProgress(kr.progress || 0);
+    weightedProgress += cappedProgress * weight;
   }
   
   // Add child objectives to the calculation (use their weight if set, otherwise distribute remaining)
@@ -141,11 +152,15 @@ async function calculateObjectiveRollupProgress(objectiveId: string): Promise<nu
     // If no weight is set, they don't participate in rollup (backwards compatible)
     if (child.weight !== null && child.weight !== undefined) {
       totalWeight += child.weight;
-      weightedProgress += (child.progress || 0) * child.weight;
+      // Cap individual child objective progress at 100% before weighting
+      const cappedProgress = normalizeProgress(child.progress || 0);
+      weightedProgress += cappedProgress * child.weight;
     }
   }
   
-  return totalWeight > 0 ? Math.round(weightedProgress / totalWeight) : 0;
+  // Final result is also capped at 100%
+  const result = totalWeight > 0 ? Math.round(weightedProgress / totalWeight) : 0;
+  return Math.min(result, 100);
 }
 
 // Teams
