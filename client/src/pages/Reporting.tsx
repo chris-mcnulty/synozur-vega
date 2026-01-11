@@ -51,10 +51,11 @@ import {
   GitCompare,
   MessageSquare
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addWeeks, subWeeks } from "date-fns";
 
 const currentYear = new Date().getFullYear();
 const getCurrentQuarter = () => Math.ceil((new Date().getMonth() + 1) / 3);
+const getCurrentMonth = () => new Date().getMonth() + 1;
 
 const generateQuarterOptions = () => {
   const options = [];
@@ -71,7 +72,55 @@ const generateQuarterOptions = () => {
   return options;
 };
 
+const generateWeekOptions = () => {
+  const options = [];
+  const today = new Date();
+  for (let i = 0; i < 12; i++) {
+    const weekStart = startOfWeek(subWeeks(today, i), { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(subWeeks(today, i), { weekStartsOn: 1 });
+    options.push({
+      value: `${format(weekStart, 'yyyy-MM-dd')}`,
+      label: `${format(weekStart, 'MMM d')} - ${format(weekEnd, 'MMM d, yyyy')}`,
+      start: weekStart,
+      end: weekEnd,
+    });
+  }
+  return options;
+};
+
+const generateMonthOptions = () => {
+  const options = [];
+  for (let year = currentYear; year >= currentYear - 1; year--) {
+    for (let m = 12; m >= 1; m--) {
+      if (year === currentYear && m > getCurrentMonth()) continue;
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      options.push({
+        value: `${year}-${m}`,
+        label: `${monthNames[m - 1]} ${year}`,
+        year,
+        month: m,
+      });
+    }
+  }
+  return options;
+};
+
+const generateYearOptions = () => {
+  const options = [];
+  for (let year = currentYear; year >= currentYear - 3; year--) {
+    options.push({
+      value: `${year}`,
+      label: `${year}`,
+      year,
+    });
+  }
+  return options;
+};
+
 const quarterOptions = generateQuarterOptions();
+const weekOptions = generateWeekOptions();
+const monthOptions = generateMonthOptions();
+const yearOptions = generateYearOptions();
 
 type Snapshot = {
   id: string;
@@ -139,6 +188,10 @@ export default function Reporting() {
   const [selectedSnapshot, setSelectedSnapshot] = useState<Snapshot | null>(null);
   const [selectedReport, setSelectedReport] = useState<ReportInstance | null>(null);
   const [pptxReportId, setPptxReportId] = useState<string | null>(null);
+  const [reportPeriodType, setReportPeriodType] = useState<string>("quarter");
+  const [selectedWeek, setSelectedWeek] = useState(weekOptions[0]?.value || "");
+  const [selectedMonth, setSelectedMonth] = useState(monthOptions[0]?.value || "");
+  const [selectedReportYear, setSelectedReportYear] = useState(`${currentYear}`);
   const [slideOptions, setSlideOptions] = useState({
     executiveScorecard: true,
     teamPerformance: true,
@@ -217,15 +270,61 @@ export default function Reporting() {
     },
   });
 
+  // Calculate date range based on period type
+  const calculateDateRange = (periodType: string): { start: Date; end: Date; quarter?: number; year: number } => {
+    switch (periodType) {
+      case 'week': {
+        const weekOption = weekOptions.find(w => w.value === selectedWeek);
+        if (weekOption) {
+          return { start: weekOption.start, end: weekOption.end, year: weekOption.start.getFullYear() };
+        }
+        const today = new Date();
+        return { 
+          start: startOfWeek(today, { weekStartsOn: 1 }), 
+          end: endOfWeek(today, { weekStartsOn: 1 }),
+          year: today.getFullYear()
+        };
+      }
+      case 'month': {
+        const monthOption = monthOptions.find(m => m.value === selectedMonth);
+        if (monthOption) {
+          const start = new Date(monthOption.year, monthOption.month - 1, 1);
+          const end = endOfMonth(start);
+          return { start, end, year: monthOption.year };
+        }
+        const today = new Date();
+        return { start: startOfMonth(today), end: endOfMonth(today), year: today.getFullYear() };
+      }
+      case 'year': {
+        const yr = parseInt(selectedReportYear) || currentYear;
+        return { 
+          start: new Date(yr, 0, 1), 
+          end: new Date(yr, 11, 31),
+          year: yr
+        };
+      }
+      case 'quarter':
+      default: {
+        return { 
+          start: new Date(year, (quarter - 1) * 3, 1), 
+          end: new Date(year, quarter * 3, 0),
+          quarter,
+          year
+        };
+      }
+    }
+  };
+
   // Generate report mutation
   const generateReportMutation = useMutation({
-    mutationFn: async (data: { snapshotId?: string; periodType: string; quarter: number; year: number; title: string }) => {
-      const periodStart = new Date(data.year, (data.quarter - 1) * 3, 1);
-      const periodEnd = new Date(data.year, data.quarter * 3, 0);
+    mutationFn: async (data: { snapshotId?: string; periodType: string; title: string }) => {
+      const dateRange = calculateDateRange(data.periodType);
       const res = await apiRequest('POST', '/api/reporting/reports/generate', {
         ...data,
-        periodStart: periodStart.toISOString(),
-        periodEnd: periodEnd.toISOString(),
+        periodStart: dateRange.start.toISOString(),
+        periodEnd: dateRange.end.toISOString(),
+        quarter: dateRange.quarter || null,
+        year: dateRange.year,
       });
       return res.json();
     },
@@ -790,26 +889,14 @@ export default function Reporting() {
               generateReportMutation.mutate({
                 title: formData.get('title') as string,
                 snapshotId: snapshotIdValue && snapshotIdValue !== 'current' ? snapshotIdValue : undefined,
-                periodType: formData.get('periodType') as string || 'quarter',
-                quarter,
-                year,
+                periodType: reportPeriodType,
               });
             }}
           >
             <div className="space-y-4">
               <div>
-                <Label htmlFor="reportTitle">Report Title</Label>
-                <Input
-                  id="reportTitle"
-                  name="title"
-                  defaultValue={`Q${quarter} ${year} Progress Report`}
-                  required
-                  data-testid="input-report-title"
-                />
-              </div>
-              <div>
                 <Label htmlFor="periodType">Report Type</Label>
-                <Select name="periodType" defaultValue="quarter">
+                <Select value={reportPeriodType} onValueChange={setReportPeriodType}>
                   <SelectTrigger data-testid="select-period-type">
                     <SelectValue />
                   </SelectTrigger>
@@ -821,6 +908,97 @@ export default function Reporting() {
                   </SelectContent>
                 </Select>
               </div>
+              
+              {/* Dynamic date selector based on period type */}
+              {reportPeriodType === 'week' && (
+                <div>
+                  <Label>Select Week</Label>
+                  <Select value={selectedWeek} onValueChange={setSelectedWeek}>
+                    <SelectTrigger data-testid="select-week">
+                      <SelectValue placeholder="Select week" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {weekOptions.map((w) => (
+                        <SelectItem key={w.value} value={w.value}>
+                          {w.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              
+              {reportPeriodType === 'month' && (
+                <div>
+                  <Label>Select Month</Label>
+                  <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+                    <SelectTrigger data-testid="select-month">
+                      <SelectValue placeholder="Select month" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {monthOptions.map((m) => (
+                        <SelectItem key={m.value} value={m.value}>
+                          {m.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              
+              {reportPeriodType === 'quarter' && (
+                <div>
+                  <Label>Select Quarter</Label>
+                  <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
+                    <SelectTrigger data-testid="select-report-quarter">
+                      <SelectValue placeholder="Select quarter" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {quarterOptions.map((q) => (
+                        <SelectItem key={q.value} value={q.value}>
+                          {q.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              
+              {reportPeriodType === 'year' && (
+                <div>
+                  <Label>Select Year</Label>
+                  <Select value={selectedReportYear} onValueChange={setSelectedReportYear}>
+                    <SelectTrigger data-testid="select-report-year">
+                      <SelectValue placeholder="Select year" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {yearOptions.map((y) => (
+                        <SelectItem key={y.value} value={y.value}>
+                          {y.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
+              <div>
+                <Label htmlFor="reportTitle">Report Title</Label>
+                <Input
+                  id="reportTitle"
+                  name="title"
+                  defaultValue={
+                    reportPeriodType === 'week' ? `Weekly Status Report` :
+                    reportPeriodType === 'month' ? `Monthly Progress Report` :
+                    reportPeriodType === 'year' ? `${selectedReportYear} Annual Review` :
+                    `Q${quarter} ${year} Progress Report`
+                  }
+                  key={`${reportPeriodType}-${selectedWeek}-${selectedMonth}-${selectedQuarter}-${selectedReportYear}`}
+                  required
+                  data-testid="input-report-title"
+                />
+              </div>
+              
               {snapshots.length > 0 && (
                 <div>
                   <Label htmlFor="snapshotId">Use Snapshot (optional)</Label>
