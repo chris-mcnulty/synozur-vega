@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useTenant } from "@/contexts/TenantContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -126,6 +127,8 @@ type ReportSummary = {
 
 export default function Reporting() {
   const { toast } = useToast();
+  const { currentTenant } = useTenant();
+  const currentTenantId = currentTenant?.id;
   const [activeTab, setActiveTab] = useState("overview");
   const [selectedQuarter, setSelectedQuarter] = useState(`${currentYear}-Q${getCurrentQuarter()}`);
   const [createSnapshotOpen, setCreateSnapshotOpen] = useState(false);
@@ -151,15 +154,14 @@ export default function Reporting() {
   const quarter = parsedQuarter?.quarter || getCurrentQuarter();
   const year = parsedQuarter?.year || currentYear;
 
-  // Helper to get tenant header for API calls
+  // Helper to get tenant header for API calls - use context tenant
   const getTenantHeader = (): Record<string, string> => {
-    const tenantId = localStorage.getItem("currentTenantId");
-    return tenantId ? { "x-tenant-id": tenantId } : {};
+    return currentTenantId ? { "x-tenant-id": currentTenantId } : {};
   };
 
   // Fetch current summary
   const { data: summary, isLoading: summaryLoading } = useQuery<ReportSummary>({
-    queryKey: ['/api/reporting/summary', String(quarter), String(year)],
+    queryKey: ['/api/reporting/summary', currentTenantId, String(quarter), String(year)],
     queryFn: async () => {
       const res = await fetch(`/api/reporting/summary?quarter=${quarter}&year=${year}`, { 
         credentials: 'include',
@@ -168,11 +170,12 @@ export default function Reporting() {
       if (!res.ok) throw new Error('Failed to fetch summary');
       return res.json();
     },
+    enabled: !!currentTenantId,
   });
 
   // Fetch snapshots
   const { data: snapshots = [], isLoading: snapshotsLoading } = useQuery<Snapshot[]>({
-    queryKey: ['/api/reporting/snapshots', String(year)],
+    queryKey: ['/api/reporting/snapshots', currentTenantId, String(year)],
     queryFn: async () => {
       const res = await fetch(`/api/reporting/snapshots?year=${year}`, { 
         credentials: 'include',
@@ -181,11 +184,12 @@ export default function Reporting() {
       if (!res.ok) throw new Error('Failed to fetch snapshots');
       return res.json();
     },
+    enabled: !!currentTenantId,
   });
 
   // Fetch generated reports
   const { data: reports = [], isLoading: reportsLoading } = useQuery<ReportInstance[]>({
-    queryKey: ['/api/reporting/reports', String(year)],
+    queryKey: ['/api/reporting/reports', currentTenantId, String(year)],
     queryFn: async () => {
       const res = await fetch(`/api/reporting/reports?year=${year}`, { 
         credentials: 'include',
@@ -194,6 +198,7 @@ export default function Reporting() {
       if (!res.ok) throw new Error('Failed to fetch reports');
       return res.json();
     },
+    enabled: !!currentTenantId,
   });
 
   // Create snapshot mutation
@@ -204,7 +209,7 @@ export default function Reporting() {
     },
     onSuccess: () => {
       toast({ title: "Snapshot created", description: "Current state has been captured successfully." });
-      queryClient.invalidateQueries({ queryKey: ['/api/reporting/snapshots', String(year)] });
+      queryClient.invalidateQueries({ queryKey: ['/api/reporting/snapshots', currentTenantId, String(year)] });
       setCreateSnapshotOpen(false);
     },
     onError: (error: any) => {
@@ -226,7 +231,7 @@ export default function Reporting() {
     },
     onSuccess: () => {
       toast({ title: "Report generated", description: "Your report has been created successfully." });
-      queryClient.invalidateQueries({ queryKey: ['/api/reporting/reports', String(year)] });
+      queryClient.invalidateQueries({ queryKey: ['/api/reporting/reports', currentTenantId, String(year)] });
       setGenerateReportOpen(false);
     },
     onError: (error: any) => {
@@ -241,7 +246,7 @@ export default function Reporting() {
     },
     onSuccess: () => {
       toast({ title: "Snapshot deleted" });
-      queryClient.invalidateQueries({ queryKey: ['/api/reporting/snapshots', String(year)] });
+      queryClient.invalidateQueries({ queryKey: ['/api/reporting/snapshots', currentTenantId, String(year)] });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to delete snapshot", variant: "destructive" });
@@ -255,7 +260,7 @@ export default function Reporting() {
     },
     onSuccess: () => {
       toast({ title: "Report deleted" });
-      queryClient.invalidateQueries({ queryKey: ['/api/reporting/reports', String(year)] });
+      queryClient.invalidateQueries({ queryKey: ['/api/reporting/reports', currentTenantId, String(year)] });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to delete report", variant: "destructive" });
