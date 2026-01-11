@@ -413,11 +413,8 @@ router.get("/reports/:id/pdf", requireAuth, async (req: Request, res: Response) 
       return res.status(404).json({ error: "Report not found" });
     }
 
-    if (report.tenantId !== user.tenantId) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    const tenant = await storage.getTenantById(user.tenantId);
+    // Use the report's tenant for branding (the report stores the correct tenantId)
+    const tenant = await storage.getTenantById(report.tenantId);
     if (!tenant) {
       return res.status(404).json({ error: "Tenant not found" });
     }
@@ -459,11 +456,8 @@ router.get("/reports/:id/pptx", requireAuth, async (req: Request, res: Response)
       return res.status(404).json({ error: "Report not found" });
     }
 
-    if (report.tenantId !== user.tenantId) {
-      return res.status(403).json({ error: "Access denied" });
-    }
-
-    const tenant = await storage.getTenantById(user.tenantId);
+    // Use the report's tenant for branding (the report stores the correct tenantId)
+    const tenant = await storage.getTenantById(report.tenantId);
     if (!tenant) {
       return res.status(404).json({ error: "Tenant not found" });
     }
