@@ -1263,12 +1263,24 @@ export const reportInstances = pgTable("report_instances", {
       completedKeyResults: number;
       totalBigRocks: number;
       completedBigRocks: number;
+      onTrackCount?: number;
+      atRiskCount?: number;
+      behindCount?: number;
+      progressByLevel?: { level: string; avgProgress: number; count: number }[];
     };
     objectives?: any[];
     keyResults?: any[];
     bigRocks?: any[];
+    teams?: any[];
+    checkIns?: any[];
     achievements?: string[];
     challenges?: string[];
+    aiSummary?: {
+      headline: string;
+      keyThemes: string[];
+      guidance: string;
+      generatedAt: string;
+    };
   }>(),
   
   // Delivery tracking
