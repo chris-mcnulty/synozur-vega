@@ -27,10 +27,14 @@ router.get("/snapshots", requireAuth, async (req: Request, res: Response) => {
       return res.status(403).json({ error: "No tenant access" });
     }
     
+    // Use x-tenant-id header for tenant switching support (consultants/admins)
+    const headerTenantId = req.headers['x-tenant-id'] as string | undefined;
+    const tenantId = headerTenantId || user.tenantId;
+    
     const year = req.query.year ? parseInt(req.query.year as string) : undefined;
     const quarter = req.query.quarter ? parseInt(req.query.quarter as string) : undefined;
     
-    const snapshots = await storage.getReviewSnapshotsByTenantId(user.tenantId, year, quarter);
+    const snapshots = await storage.getReviewSnapshotsByTenantId(tenantId, year, quarter);
     res.json(snapshots);
   } catch (error) {
     console.error("Error fetching snapshots:", error);
@@ -60,10 +64,14 @@ router.post("/snapshots", requireAuth, async (req: Request, res: Response) => {
       return res.status(403).json({ error: "No tenant access" });
     }
     
+    // Use x-tenant-id header for tenant switching support (consultants/admins)
+    const headerTenantId = req.headers['x-tenant-id'] as string | undefined;
+    const tenantId = headerTenantId || user.tenantId;
+    
     // Get current OKR data to snapshot
     const [objectives, bigRocks] = await Promise.all([
-      storage.getObjectivesByTenantId(user.tenantId, req.body.quarter, req.body.year),
-      storage.getBigRocksByTenantId(user.tenantId, req.body.quarter, req.body.year),
+      storage.getObjectivesByTenantId(tenantId, req.body.quarter, req.body.year),
+      storage.getBigRocksByTenantId(tenantId, req.body.quarter, req.body.year),
     ]);
     
     // Get key results for all objectives
@@ -79,7 +87,7 @@ router.post("/snapshots", requireAuth, async (req: Request, res: Response) => {
       : 0;
     
     const snapshotData = {
-      tenantId: user.tenantId,
+      tenantId: tenantId,
       title: req.body.title || `${req.body.reviewType} Review - Q${req.body.quarter} ${req.body.year}`,
       description: req.body.description,
       reviewType: req.body.reviewType || 'quarterly',
@@ -231,10 +239,14 @@ router.get("/reports", requireAuth, async (req: Request, res: Response) => {
       return res.status(403).json({ error: "No tenant access" });
     }
     
+    // Use x-tenant-id header for tenant switching support (consultants/admins)
+    const headerTenantId = req.headers['x-tenant-id'] as string | undefined;
+    const tenantId = headerTenantId || user.tenantId;
+    
     const year = req.query.year ? parseInt(req.query.year as string) : undefined;
     const reportType = req.query.reportType as string | undefined;
     
-    const reports = await storage.getReportInstances(user.tenantId, year, reportType);
+    const reports = await storage.getReportInstances(tenantId, year, reportType);
     res.json(reports);
   } catch (error) {
     console.error("Error fetching reports:", error);
@@ -264,6 +276,10 @@ router.post("/reports/generate", requireAuth, async (req: Request, res: Response
       return res.status(403).json({ error: "No tenant access" });
     }
     
+    // Use x-tenant-id header for tenant switching support (consultants/admins)
+    const headerTenantId = req.headers['x-tenant-id'] as string | undefined;
+    const tenantId = headerTenantId || user.tenantId;
+    
     const { templateId, snapshotId, periodType, periodStart, periodEnd, quarter, year, title, description } = req.body;
     
     // Get snapshot data if provided, otherwise capture current state
@@ -290,11 +306,11 @@ router.post("/reports/generate", requireAuth, async (req: Request, res: Response
         };
       }
     } else {
-      // Capture current state
+      // Capture current state using header tenant ID
       const [objectives, bigRocks, teams] = await Promise.all([
-        storage.getObjectivesByTenantId(user.tenantId, quarter, year),
-        storage.getBigRocksByTenantId(user.tenantId, quarter, year),
-        storage.getTeamsByTenantId(user.tenantId),
+        storage.getObjectivesByTenantId(tenantId, quarter, year),
+        storage.getBigRocksByTenantId(tenantId, quarter, year),
+        storage.getTeamsByTenantId(tenantId),
       ]);
       
       const keyResults = await Promise.all(
@@ -356,7 +372,7 @@ router.post("/reports/generate", requireAuth, async (req: Request, res: Response
     }
     
     const instanceData = {
-      tenantId: user.tenantId,
+      tenantId: tenantId,
       templateId,
       snapshotId,
       title: title || `${periodType} Report - ${quarter ? `Q${quarter} ` : ''}${year}`,
@@ -510,12 +526,16 @@ router.get("/summary", requireAuth, async (req: Request, res: Response) => {
       return res.status(403).json({ error: "No tenant access" });
     }
     
+    // Use x-tenant-id header for tenant switching support (consultants/admins)
+    const headerTenantId = req.headers['x-tenant-id'] as string | undefined;
+    const tenantId = headerTenantId || user.tenantId;
+    
     const quarter = req.query.quarter ? parseInt(req.query.quarter as string) : undefined;
     const year = req.query.year ? parseInt(req.query.year as string) : new Date().getFullYear();
     
     const [objectives, bigRocks] = await Promise.all([
-      storage.getObjectivesByTenantId(user.tenantId, quarter, year),
-      storage.getBigRocksByTenantId(user.tenantId, quarter, year),
+      storage.getObjectivesByTenantId(tenantId, quarter, year),
+      storage.getBigRocksByTenantId(tenantId, quarter, year),
     ]);
     
     const keyResults = await Promise.all(
