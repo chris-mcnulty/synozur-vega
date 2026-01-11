@@ -497,9 +497,10 @@ router.get("/reports/:id/pptx", requireAuth, async (req: Request, res: Response)
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.setHeader('Content-Length', pptxBuffer.length);
     res.send(pptxBuffer);
-  } catch (error) {
-    console.error("Error generating PPTX:", error);
-    res.status(500).json({ error: "Failed to generate PPTX" });
+  } catch (error: any) {
+    console.error("Error generating PPTX:", error?.message || error);
+    console.error("PPTX Error stack:", error?.stack);
+    res.status(500).json({ error: "Failed to generate PPTX", details: error?.message });
   }
 });
 
