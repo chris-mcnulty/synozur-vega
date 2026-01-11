@@ -65,8 +65,24 @@ Preferred communication style: Simple, everyday language.
 - **OpenAPI Specification**: Full OpenAPI 3.0 spec for M365 Copilot Agent integration available at `/openapi.yaml` (YAML) and `/openapi.json` (JSON). Documents all major endpoints: authentication, OKRs, strategies, foundations, meetings, teams, AI, and reporting.
 - **M365 Copilot Agent**: Declarative agent manifest (v1.6), API plugin manifest, and Teams app manifest available in `/public/copilot-agent/`. Includes response formatting utilities in `server/copilot-response-formatter.ts`. See `public/copilot-agent/README.md` for deployment instructions.
 
-## Backlog & Feature Tracking
+## Documentation & Change Tracking
 
+### CHANGELOG.md (User-Facing)
+**CHANGELOG.md** is the user-friendly changelog that documents all updates visible to end users. It uses plain language and is linked from the About page in the application.
+
+**When to update CHANGELOG.md:**
+- After completing any user-visible feature or improvement
+- After fixing bugs that users may have encountered
+- After performance improvements that affect user experience
+- After security updates
+
+**Format guidelines:**
+- Group entries by date (most recent first)
+- Use categories: New Features, Improvements, Bug Fixes, Performance, Security
+- Write in plain language users can understand (avoid technical jargon)
+- Include the date in format: "January 11, 2026"
+
+### BACKLOG.md (Developer-Facing)
 **BACKLOG.md** is the single source of truth for all feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference BACKLOG.md for:
 - Priority sequence and status of features
 - UX enhancement proposals and implementation status
@@ -74,7 +90,18 @@ Preferred communication style: Simple, everyday language.
 - Technical architecture decisions (ADRs)
 - Completed features and their implementation notes
 
-When adding new features or proposals, update BACKLOG.md rather than creating separate documentation files.
+**When to update BACKLOG.md:**
+- When adding new feature proposals
+- When changing feature status (in progress, complete, etc.)
+- When discovering new bugs or issues
+- When making architectural decisions
+- Update "Last Updated" date at the top when making changes
+
+### Keeping Documentation Current
+After completing any development work:
+1. Update CHANGELOG.md with user-visible changes
+2. Update BACKLOG.md feature status if applicable
+3. Update replit.md if architecture or patterns change
 
 ## Development Notes
 

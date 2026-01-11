@@ -53,6 +53,8 @@ const Settings = lazy(() => import("@/pages/Settings"));
 const UserGuide = lazy(() => import("@/pages/UserGuide"));
 const Launchpad = lazy(() => import("@/pages/Launchpad"));
 const About = lazy(() => import("@/pages/About"));
+const Changelog = lazy(() => import("@/pages/Changelog"));
+const Roadmap = lazy(() => import("@/pages/Roadmap"));
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -302,6 +304,16 @@ function Router() {
       <Route path="/about">
         <LazyProtectedRoute>
           <About />
+        </LazyProtectedRoute>
+      </Route>
+      <Route path="/changelog">
+        <LazyProtectedRoute>
+          <Changelog />
+        </LazyProtectedRoute>
+      </Route>
+      <Route path="/roadmap">
+        <LazyProtectedRoute>
+          <Roadmap />
         </LazyProtectedRoute>
       </Route>
 
