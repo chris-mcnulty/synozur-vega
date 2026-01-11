@@ -106,7 +106,7 @@ router.post("/snapshots", requireValidatedTenant, async (req: Request, res: Resp
       keyResultsCompleted: completedKeyResults,
       keyResultsTotal: keyResults.length,
       status: 'draft',
-      createdBy: user.id,
+      createdBy: req.user?.id,
     };
     
     const validated = insertReviewSnapshotSchema.parse(snapshotData);
@@ -395,7 +395,7 @@ router.post("/reports/generate", requireValidatedTenant, async (req: Request, re
       status: 'completed',
       generatedAt: new Date(),
       reportData,
-      createdBy: user.id,
+      createdBy: req.user?.id,
     };
     
     const validated = insertReportInstanceSchema.parse(instanceData);
