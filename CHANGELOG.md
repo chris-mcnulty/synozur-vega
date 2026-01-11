@@ -10,9 +10,19 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 
 ### January 11, 2026
 
+**New Features**
+- **AI Period Summary in Reports**: GPT-5 generates executive headlines, key themes (max 4), and strategic guidance for your reports
+- **Dynamic Date Selection for Reports**: Choose the exact period for your report with appropriate selectors:
+  - Weekly reports: Pick from the last 12 weeks
+  - Monthly reports: Select any month
+  - Quarterly reports: Choose quarter and year
+  - Annual reports: Select year
+
 **Improvements**
 - Added privacy policy and terms of service links to login page
 - Updated social sharing preview image with proper Vega branding
+- Reports now use correct date windows (7 days for weekly, 30 days for monthly, etc.) instead of always using quarterly ranges
+- AI Period Summary slide added to PowerPoint exports with branded styling
 
 **Performance**
 - Added database performance indexes for faster loading of OKRs, check-ins, and meetings

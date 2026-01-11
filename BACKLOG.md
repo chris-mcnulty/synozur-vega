@@ -1,6 +1,6 @@
 # Vega Platform Master Backlog
 
-**Last Updated:** January 11, 2026 (User Lookup for Item Assignment added)
+**Last Updated:** January 11, 2026 (Enhanced Reporting with AI Period Summary and dynamic date selectors)
 
 > **Note:** This is the single source of truth for all Vega feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference this document for backlog-related questions.
 
@@ -34,7 +34,7 @@
 | **M365 Copilot Agent** | ~60% | OpenAPI spec ✅, Declarative manifest ✅, API plugin ✅, OAuth setup pending |
 | **AI-Powered Assistance** | ~40% | 7 AI tools implemented. Q&A chat with function calling works. |
 | **AI Usage Reporting** | ✅ Complete | Full implementation with Tenant + Platform admin UI |
-| **Enhanced Reporting** | ✅ ~80% | PDF + PPTX export complete. Snapshot comparison remaining. |
+| **Enhanced Reporting** | ✅ ~95% | PDF + PPTX export complete. AI Period Summary, dynamic date selectors. Snapshot comparison remaining. |
 | **Export/Import** | ✅ Complete | |
 | **Customizable Branding** | ✅ Complete | Full UI with dark mode logo support |
 | **Custom Vocabulary** | ✅ Complete | VocabularyContext + system/tenant overrides |
@@ -2164,9 +2164,24 @@ All date/time operations use America/Los_Angeles timezone.
 
 ## COMPLETED FEATURES
 
-### Enhanced PowerPoint Reports ✅ (January 11, 2026)
+### Enhanced Reporting System ✅ (January 11, 2026)
 
-Complete rewrite of PPTX report generation with:
+Complete reporting system with PDF and PowerPoint exports:
+
+**Report Types & Dynamic Date Selection:**
+- **Weekly Status**: Select from last 12 weeks with week picker
+- **Monthly Report**: Month and year picker
+- **Quarterly Business Review**: Quarter and year selection
+- **Annual Review**: Year picker
+- Correct date windows applied (7 days for weekly, 30 days for monthly, 90 days for quarterly, 365 days for annual)
+
+**AI Period Summary (GPT-5 Powered):**
+- Executive headline summarizing period performance
+- Key themes (max 4) extracted from check-ins and progress
+- Strategic guidance and recommendations
+- Included as branded slide in PPTX exports
+
+**PowerPoint (PPTX) Export Features:**
 - **Executive Scorecard**: KPI cards, status donut chart, progress by level bar chart
 - **Team Performance**: Bar chart comparing team progress, top/bottom performer highlights
 - **Objectives Overview**: Detailed table with owners and status
@@ -2175,6 +2190,7 @@ Complete rewrite of PPTX report generation with:
 - **Big Rocks Kanban**: Status-grouped columns with donut chart summary
 - **Period Comparison**: Side-by-side snapshot vs current with delta callouts
 - **Check-in Highlights**: Recent check-in notes with context
+- **AI Period Summary**: AI-generated insights with branded styling (purple theme, rounded cards)
 - **Configurable Slides**: Users can select which slides to include via checkboxes in a dialog
 
 ---

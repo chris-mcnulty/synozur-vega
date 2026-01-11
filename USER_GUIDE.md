@@ -2,7 +2,7 @@
 
 **Welcome to Vega - The Synozur Alliance Company Operating System**
 
-Version 1.3 | Last Updated: January 3, 2026
+Version 1.4 | Last Updated: January 11, 2026
 
 ---
 
@@ -18,10 +18,11 @@ Version 1.3 | Last Updated: January 3, 2026
 8. [AI Assistant](#ai-assistant)
 9. [Microsoft 365 Integration](#microsoft-365-integration)
 10. [Import & Export](#import--export)
-11. [Launchpad (AI Kickstart Wizard)](#launchpad-ai-kickstart-wizard)
-12. [Settings & Administration](#settings--administration)
-13. [Best Practices](#best-practices)
-14. [Troubleshooting](#troubleshooting)
+11. [Reporting](#reporting)
+12. [Launchpad (AI Kickstart Wizard)](#launchpad-ai-kickstart-wizard)
+13. [Settings & Administration](#settings--administration)
+14. [Best Practices](#best-practices)
+15. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -984,6 +985,101 @@ Export your entire Company OS for backup, migration, or analysis.
 - **Migration**: Move data between environments
 - **Templates**: Export a well-structured Company OS to reuse
 - **Analysis**: Extract data for custom reporting
+
+---
+
+## Reporting
+
+**Added January 11, 2026**
+
+The Reporting module allows you to capture snapshots of your Company OS state, generate professional reports, and export them as PDF or PowerPoint presentations.
+
+### Accessing Reporting
+
+Click **"Reporting"** in the left sidebar under the "Review & Learn" section.
+
+### Report Types
+
+Vega supports four report types, each with appropriate date range selection:
+
+| Report Type | Description | Date Selection |
+|-------------|-------------|----------------|
+| **Weekly Status** | Quick progress update for the week | Pick from last 12 weeks |
+| **Monthly Report** | Detailed monthly progress summary | Select month and year |
+| **Quarterly Business Review** | Comprehensive QBR with trends | Select quarter and year |
+| **Annual Review** | Full year strategic review | Select year |
+
+### Generating a Report
+
+1. Click **"Generate Report"** button
+2. Select the **Report Type** (Weekly, Monthly, Quarterly, Annual)
+3. Select the **Time Period** using the appropriate date picker:
+   - Weekly: Choose a week from the dropdown
+   - Monthly: Select month and year
+   - Quarterly: Select quarter and year
+   - Annual: Select year
+4. Enter a **Report Title** (auto-generated based on period)
+5. Optionally select a **Snapshot** to compare against
+6. Click **"Generate Report"**
+
+### Report Contents
+
+Generated reports include:
+
+- **Executive Summary**: Overall progress and key metrics
+- **Objectives by Status**: Breakdown of on-track, at-risk, and behind items
+- **Key Results Progress**: Detailed progress on measurable outcomes
+- **Big Rocks Status**: Major initiative progress
+- **Team Performance**: Per-team progress comparison
+- **Check-in Highlights**: Recent updates and commentary
+- **AI Period Summary**: AI-generated insights including:
+  - Executive headline
+  - Key themes (max 4)
+  - Strategic guidance
+
+### Exporting Reports
+
+**PDF Export:**
+1. View any generated report
+2. Click the **PDF** button
+3. Your report downloads with professional formatting
+
+**PowerPoint Export:**
+1. View any generated report
+2. Click the **PowerPoint** button
+3. Choose which slides to include:
+   - Executive Scorecard (KPIs, status charts)
+   - Team Performance (comparison charts)
+   - Objectives Overview (detailed table)
+   - Key Results Progress (bar charts)
+   - At-Risk Items (items below 40%)
+   - Big Rocks Kanban (status columns)
+   - Period Comparison (if snapshot selected)
+   - Check-in Highlights (recent notes)
+   - AI Period Summary (AI insights)
+4. Click **"Download PPTX"**
+
+### Snapshots
+
+Snapshots capture a point-in-time view of your Company OS for comparison:
+
+**Creating a Snapshot:**
+1. Click **"Create Snapshot"**
+2. Enter a title and description
+3. Select the review type (Weekly, Monthly, Quarterly, Annual)
+4. Click **"Create Snapshot"**
+
+**Using Snapshots:**
+- Compare current state against historical snapshots
+- Track progress over time
+- Include period comparison in PowerPoint exports
+
+### Best Practices
+
+- **Weekly**: Create snapshots before team meetings for status updates
+- **Monthly**: Generate monthly reports for leadership reviews
+- **Quarterly**: Use QBR reports for board presentations
+- **Annual**: Create comprehensive annual reviews with AI insights
 
 ---
 
