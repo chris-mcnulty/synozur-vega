@@ -1,6 +1,6 @@
 # Vega Platform Master Backlog
 
-**Last Updated:** January 9, 2026 (Executive Dashboard Personalization added, OKR Intelligence Phase 1 pace badges complete)
+**Last Updated:** January 11, 2026 (User Lookup for Item Assignment added)
 
 > **Note:** This is the single source of truth for all Vega feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference this document for backlog-related questions.
 
@@ -561,6 +561,45 @@ Multi-step wizard: Objective → Key Results → Big Rocks → Review
 **Priority:** Medium
 
 Standardized multi-select time period picker allowing selection of multiple quarters/years simultaneously. Reference: Viva Goals time period selector.
+
+---
+
+### User Lookup for Item Assignment
+
+**Status:** Not Started  
+**Priority:** High  
+**Effort:** 1 week  
+**Added:** January 11, 2026
+
+**Description:**
+Replace manual email entry with a searchable user picker when assigning owners to OKRs and other items. Users can search by name or email against the current tenant's user directory.
+
+**Scope - Phase 1:**
+- Objectives: Owner assignment
+- Key Results: Owner assignment
+
+**Future Phases:**
+- Big Rocks: Owner assignment
+- Meetings: Facilitator and attendee selection
+- Teams: Member management
+
+**Features:**
+1. **Searchable Dropdown:** Type-ahead search filtering users by name or email
+2. **User Display:** Show avatar, name, and email in dropdown options
+3. **Tenant Scoped:** Only shows users within the current tenant
+4. **Fallback to Email:** Option to manually enter email if user not found (for inviting new users)
+5. **Recent Selections:** Show recently assigned users at top for quick access
+
+**Technical Approach:**
+- API endpoint: `GET /api/users/search?q=<query>&tenantId=<id>`
+- Frontend: Reusable `UserPicker` component using Combobox pattern
+- Integration with existing user table and tenant filtering
+
+**Business Value:**
+- Reduces typos in email entry
+- Faster assignment workflow
+- Better discoverability of team members
+- Consistent user experience across the platform
 
 ---
 
