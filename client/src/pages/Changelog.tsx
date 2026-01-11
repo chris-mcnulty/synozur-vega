@@ -39,6 +39,11 @@ const changelog: ChangelogEntry[] = [
     items: [
       {
         category: "feature",
+        title: "AI Check-in Rewrite",
+        description: "Use AI to improve your check-in notes with multiple modes: full rewrite, improve clarity, or make concise"
+      },
+      {
+        category: "feature",
         title: "Delete Check-in",
         description: "You can now delete check-ins you've created. When deleted, progress reverts to the previous check-in's values"
       },
