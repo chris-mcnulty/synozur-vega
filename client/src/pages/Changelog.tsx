@@ -20,7 +20,7 @@ const changelog: ChangelogEntry[] = [
       {
         category: "feature",
         title: "Enhanced PowerPoint Reports",
-        description: "Rich data visualizations with charts, team comparisons, at-risk items, and check-in highlights. Choose which slides to include."
+        description: "Rich data visualizations with charts, team comparisons, at-risk items, and check-in highlights. Choose which slides to include. Uses Avenir Next LT Pro font with Vega branding on title and closing slides."
       },
       {
         category: "improvement",

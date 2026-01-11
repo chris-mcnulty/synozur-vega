@@ -73,6 +73,14 @@ export async function generateReportPPTX(data: ReportData): Promise<Buffer> {
   pptx.subject = `OKR Report - ${report.title}`;
   pptx.company = tenant.name;
   pptx.layout = 'LAYOUT_16x9';
+  
+  pptx.defineSlideMaster({
+    title: 'VEGA_MASTER',
+    background: { color: 'FFFFFF' },
+    objects: [],
+  });
+  
+  const defaultFont = 'Avenir Next LT Pro';
 
   const content = report.reportData as any;
   const objectives = content?.objectives || [];
@@ -81,7 +89,7 @@ export async function generateReportPPTX(data: ReportData): Promise<Buffer> {
   const teams = content?.teams || [];
   const checkIns = content?.checkIns || [];
 
-  await addTitleSlide(pptx, tenant, report, branding, primaryColor);
+  await addTitleSlide(pptx, tenant, report, branding, primaryColor, defaultFont);
 
   if (options.executiveScorecard && content?.summary) {
     addExecutiveScorecardSlide(pptx, content.summary, primaryColor);
@@ -119,7 +127,7 @@ export async function generateReportPPTX(data: ReportData): Promise<Buffer> {
     addCheckInHighlightsSlide(pptx, checkIns, keyResults, primaryColor);
   }
 
-  addClosingSlide(pptx, tenant, branding, secondaryColor);
+  addClosingSlide(pptx, tenant, branding, secondaryColor, defaultFont);
 
   const output = await pptx.write({ outputType: 'nodebuffer' });
   return output as Buffer;
@@ -130,7 +138,8 @@ async function addTitleSlide(
   tenant: Tenant,
   report: ReportInstance,
   branding: any,
-  primaryColor: string
+  primaryColor: string,
+  fontFace: string
 ) {
   const titleSlide = pptx.addSlide();
   titleSlide.addShape(pptx.ShapeType.rect, {
@@ -154,21 +163,21 @@ async function addTitleSlide(
   titleSlide.addText(tenant.name, {
     x: 0.5, y: 1.8, w: 9.5, h: 0.8,
     fontSize: 36, color: 'FFFFFF', bold: true,
-    align: 'center'
+    align: 'center', fontFace
   });
   
   if (branding.tagline) {
     titleSlide.addText(branding.tagline, {
       x: 0.5, y: 2.5, w: 9.5, h: 0.4,
       fontSize: 16, color: 'FFFFFF', italic: true,
-      align: 'center'
+      align: 'center', fontFace
     });
   }
   
   titleSlide.addText(report.title, {
     x: 0.5, y: 3.3, w: 9.5, h: 0.6,
     fontSize: 28, color: 'FFFFFF',
-    align: 'center'
+    align: 'center', fontFace
   });
   
   const periodStart = new Date(report.periodStart).toLocaleDateString();
@@ -176,13 +185,24 @@ async function addTitleSlide(
   titleSlide.addText(`${periodStart} - ${periodEnd}`, {
     x: 0.5, y: 4.1, w: 9.5, h: 0.4,
     fontSize: 14, color: 'FFFFFF',
-    align: 'center'
+    align: 'center', fontFace
   });
   
   titleSlide.addText(`Generated: ${new Date(report.generatedAt || new Date()).toLocaleDateString()}`, {
-    x: 0.5, y: 4.7, w: 9.5, h: 0.3,
+    x: 0.5, y: 4.5, w: 9.5, h: 0.3,
     fontSize: 11, color: 'FFFFFF',
-    align: 'center'
+    align: 'center', fontFace
+  });
+  
+  titleSlide.addShape(pptx.ShapeType.line, {
+    x: 2, y: 4.95, w: 6.5, h: 0,
+    line: { color: 'FFFFFF', width: 0.5, transparency: 50 }
+  });
+  
+  titleSlide.addText('Powered by Vega  |  vega.synozur.com  |  synozur.com', {
+    x: 0.5, y: 5.05, w: 9.5, h: 0.25,
+    fontSize: 9, color: 'FFFFFF',
+    align: 'center', fontFace, italic: true
   });
 }
 
@@ -792,7 +812,7 @@ function addCheckInHighlightsSlide(pptx: PptxGenJS, checkIns: any[], keyResults:
   });
 }
 
-function addClosingSlide(pptx: PptxGenJS, tenant: Tenant, branding: any, secondaryColor: string) {
+function addClosingSlide(pptx: PptxGenJS, tenant: Tenant, branding: any, secondaryColor: string, fontFace: string) {
   const closingSlide = pptx.addSlide();
   closingSlide.addShape(pptx.ShapeType.rect, {
     x: 0, y: 0, w: '100%', h: '100%',
@@ -800,21 +820,37 @@ function addClosingSlide(pptx: PptxGenJS, tenant: Tenant, branding: any, seconda
   });
   
   closingSlide.addText('Thank You', {
-    x: 0.5, y: 2, w: 9.5, h: 0.8,
+    x: 0.5, y: 1.8, w: 9.5, h: 0.8,
     fontSize: 36, color: 'FFFFFF', bold: true,
-    align: 'center'
+    align: 'center', fontFace
   });
   
   closingSlide.addText(branding.reportFooterText || `${tenant.name} - Confidential`, {
-    x: 0.5, y: 3, w: 9.5, h: 0.4,
+    x: 0.5, y: 2.7, w: 9.5, h: 0.4,
     fontSize: 14, color: 'FFFFFF',
-    align: 'center'
+    align: 'center', fontFace
+  });
+  
+  closingSlide.addShape(pptx.ShapeType.line, {
+    x: 2.5, y: 4.3, w: 5.5, h: 0,
+    line: { color: 'FFFFFF', width: 0.5, transparency: 50 }
   });
   
   closingSlide.addText('Generated with Vega', {
-    x: 0.5, y: 4.5, w: 9.5, h: 0.3,
+    x: 0.5, y: 4.45, w: 9.5, h: 0.3,
+    fontSize: 11, color: 'FFFFFF', bold: true,
+    align: 'center', fontFace
+  });
+  
+  closingSlide.addText('vega.synozur.com', {
+    x: 0.5, y: 4.75, w: 9.5, h: 0.25,
     fontSize: 10, color: 'FFFFFF',
-    align: 'center',
-    italic: true
+    align: 'center', fontFace
+  });
+  
+  closingSlide.addText('synozur.com', {
+    x: 0.5, y: 5.0, w: 9.5, h: 0.25,
+    fontSize: 10, color: 'FFFFFF',
+    align: 'center', fontFace
   });
 }
