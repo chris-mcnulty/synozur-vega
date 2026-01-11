@@ -94,8 +94,8 @@ const changelog: ChangelogEntry[] = [
     items: [
       {
         category: "feature",
-        title: "Version 1.0 Production Release",
-        description: "Full Company OS capabilities: OKR management, Strategy tools, Focus Rhythm, Microsoft 365 integration, AI-powered features, and enterprise multi-tenancy"
+        title: "Public Beta Launch",
+        description: "Company OS capabilities: OKR management, Strategy tools, Focus Rhythm, Microsoft 365 integration, AI-powered features, and multi-tenancy"
       }
     ]
   }
