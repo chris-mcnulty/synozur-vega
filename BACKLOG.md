@@ -2164,6 +2164,21 @@ All date/time operations use America/Los_Angeles timezone.
 
 ## COMPLETED FEATURES
 
+### Enhanced PowerPoint Reports ✅ (January 11, 2026)
+
+Complete rewrite of PPTX report generation with:
+- **Executive Scorecard**: KPI cards, status donut chart, progress by level bar chart
+- **Team Performance**: Bar chart comparing team progress, top/bottom performer highlights
+- **Objectives Overview**: Detailed table with owners and status
+- **Key Results Progress**: Bar chart with current vs target values
+- **At-Risk Items**: Dedicated slide for items below 40% progress
+- **Big Rocks Kanban**: Status-grouped columns with donut chart summary
+- **Period Comparison**: Side-by-side snapshot vs current with delta callouts
+- **Check-in Highlights**: Recent check-in notes with context
+- **Configurable Slides**: Users can select which slides to include via checkboxes in a dialog
+
+---
+
 ### AI Check-in Note Rewriter ✅ (January 2026)
 
 AI-powered check-in note improvement with multiple rewrite modes:

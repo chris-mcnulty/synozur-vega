@@ -18,6 +18,11 @@ const changelog: ChangelogEntry[] = [
     date: "January 11, 2026",
     items: [
       {
+        category: "feature",
+        title: "Enhanced PowerPoint Reports",
+        description: "Rich data visualizations with charts, team comparisons, at-risk items, and check-in highlights. Choose which slides to include."
+      },
+      {
         category: "improvement",
         title: "Privacy & Terms links on login",
         description: "Added links to privacy policy and terms of service on the login page"

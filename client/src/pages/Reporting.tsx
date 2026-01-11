@@ -25,6 +25,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { 
   Camera, 
   FileText, 
@@ -40,7 +41,14 @@ import {
   Eye,
   RefreshCw,
   Clock,
-  Presentation
+  Presentation,
+  Settings2,
+  Users,
+  BarChart3,
+  AlertCircle,
+  Layers,
+  GitCompare,
+  MessageSquare
 } from "lucide-react";
 import { format } from "date-fns";
 
@@ -124,8 +132,20 @@ export default function Reporting() {
   const [generateReportOpen, setGenerateReportOpen] = useState(false);
   const [viewSnapshotOpen, setViewSnapshotOpen] = useState(false);
   const [viewReportOpen, setViewReportOpen] = useState(false);
+  const [pptxDialogOpen, setPptxDialogOpen] = useState(false);
   const [selectedSnapshot, setSelectedSnapshot] = useState<Snapshot | null>(null);
   const [selectedReport, setSelectedReport] = useState<ReportInstance | null>(null);
+  const [pptxReportId, setPptxReportId] = useState<string | null>(null);
+  const [slideOptions, setSlideOptions] = useState({
+    executiveScorecard: true,
+    teamPerformance: true,
+    objectivesDeepDive: true,
+    keyResultsTrend: true,
+    atRiskItems: true,
+    bigRocksKanban: true,
+    periodComparison: false,
+    checkInHighlights: true,
+  });
   
   const parsedQuarter = quarterOptions.find(q => q.value === selectedQuarter);
   const quarter = parsedQuarter?.quarter || getCurrentQuarter();
@@ -628,7 +648,8 @@ export default function Reporting() {
                           variant="ghost"
                           size="icon"
                           onClick={() => {
-                            window.open(`/api/reporting/reports/${report.id}/pptx`, '_blank');
+                            setPptxReportId(report.id);
+                            setPptxDialogOpen(true);
                           }}
                           data-testid={`button-download-pptx-${report.id}`}
                           title="Download PowerPoint"
@@ -890,6 +911,173 @@ export default function Reporting() {
         </DialogContent>
       </Dialog>
 
+      {/* PPTX Slide Selection Dialog */}
+      <Dialog open={pptxDialogOpen} onOpenChange={setPptxDialogOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Presentation className="h-5 w-5" />
+              PowerPoint Export Options
+            </DialogTitle>
+            <DialogDescription>
+              Select which slides to include in your presentation. Title and closing slides are always included.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="grid gap-3">
+              <div className="flex items-center space-x-3 p-3 rounded-lg bg-muted/50">
+                <Checkbox
+                  id="executiveScorecard"
+                  checked={slideOptions.executiveScorecard}
+                  onCheckedChange={(checked) => setSlideOptions(prev => ({ ...prev, executiveScorecard: !!checked }))}
+                  data-testid="checkbox-executive-scorecard"
+                />
+                <div className="flex-1">
+                  <Label htmlFor="executiveScorecard" className="flex items-center gap-2 cursor-pointer font-medium">
+                    <BarChart3 className="h-4 w-4 text-primary" />
+                    Executive Scorecard
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">KPI cards, status donut chart, progress by level</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3 p-3 rounded-lg bg-muted/50">
+                <Checkbox
+                  id="teamPerformance"
+                  checked={slideOptions.teamPerformance}
+                  onCheckedChange={(checked) => setSlideOptions(prev => ({ ...prev, teamPerformance: !!checked }))}
+                  data-testid="checkbox-team-performance"
+                />
+                <div className="flex-1">
+                  <Label htmlFor="teamPerformance" className="flex items-center gap-2 cursor-pointer font-medium">
+                    <Users className="h-4 w-4 text-blue-600" />
+                    Team Performance
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">Bar chart comparing team progress, top/bottom performers</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3 p-3 rounded-lg bg-muted/50">
+                <Checkbox
+                  id="objectivesDeepDive"
+                  checked={slideOptions.objectivesDeepDive}
+                  onCheckedChange={(checked) => setSlideOptions(prev => ({ ...prev, objectivesDeepDive: !!checked }))}
+                  data-testid="checkbox-objectives-deep-dive"
+                />
+                <div className="flex-1">
+                  <Label htmlFor="objectivesDeepDive" className="flex items-center gap-2 cursor-pointer font-medium">
+                    <Target className="h-4 w-4 text-green-600" />
+                    Objectives Overview
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">Detailed table of all objectives with progress and owners</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3 p-3 rounded-lg bg-muted/50">
+                <Checkbox
+                  id="keyResultsTrend"
+                  checked={slideOptions.keyResultsTrend}
+                  onCheckedChange={(checked) => setSlideOptions(prev => ({ ...prev, keyResultsTrend: !!checked }))}
+                  data-testid="checkbox-key-results-trend"
+                />
+                <div className="flex-1">
+                  <Label htmlFor="keyResultsTrend" className="flex items-center gap-2 cursor-pointer font-medium">
+                    <TrendingUp className="h-4 w-4 text-purple-600" />
+                    Key Results Progress
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">Bar chart and table showing KR progress</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3 p-3 rounded-lg bg-muted/50">
+                <Checkbox
+                  id="atRiskItems"
+                  checked={slideOptions.atRiskItems}
+                  onCheckedChange={(checked) => setSlideOptions(prev => ({ ...prev, atRiskItems: !!checked }))}
+                  data-testid="checkbox-at-risk-items"
+                />
+                <div className="flex-1">
+                  <Label htmlFor="atRiskItems" className="flex items-center gap-2 cursor-pointer font-medium">
+                    <AlertCircle className="h-4 w-4 text-red-600" />
+                    At-Risk Items
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">Objectives and KRs below 40% progress</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3 p-3 rounded-lg bg-muted/50">
+                <Checkbox
+                  id="bigRocksKanban"
+                  checked={slideOptions.bigRocksKanban}
+                  onCheckedChange={(checked) => setSlideOptions(prev => ({ ...prev, bigRocksKanban: !!checked }))}
+                  data-testid="checkbox-big-rocks-kanban"
+                />
+                <div className="flex-1">
+                  <Label htmlFor="bigRocksKanban" className="flex items-center gap-2 cursor-pointer font-medium">
+                    <Layers className="h-4 w-4 text-orange-600" />
+                    Initiatives (Big Rocks)
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">Kanban-style view by status with donut chart</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3 p-3 rounded-lg bg-muted/50">
+                <Checkbox
+                  id="periodComparison"
+                  checked={slideOptions.periodComparison}
+                  onCheckedChange={(checked) => setSlideOptions(prev => ({ ...prev, periodComparison: !!checked }))}
+                  data-testid="checkbox-period-comparison"
+                />
+                <div className="flex-1">
+                  <Label htmlFor="periodComparison" className="flex items-center gap-2 cursor-pointer font-medium">
+                    <GitCompare className="h-4 w-4 text-cyan-600" />
+                    Period Comparison
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">Compare current vs. snapshot (requires linked snapshot)</p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-3 p-3 rounded-lg bg-muted/50">
+                <Checkbox
+                  id="checkInHighlights"
+                  checked={slideOptions.checkInHighlights}
+                  onCheckedChange={(checked) => setSlideOptions(prev => ({ ...prev, checkInHighlights: !!checked }))}
+                  data-testid="checkbox-check-in-highlights"
+                />
+                <div className="flex-1">
+                  <Label htmlFor="checkInHighlights" className="flex items-center gap-2 cursor-pointer font-medium">
+                    <MessageSquare className="h-4 w-4 text-teal-600" />
+                    Check-in Highlights
+                  </Label>
+                  <p className="text-xs text-muted-foreground mt-0.5">Recent check-in notes with context</p>
+                </div>
+              </div>
+            </div>
+          </div>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setPptxDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (pptxReportId) {
+                  const params = new URLSearchParams();
+                  Object.entries(slideOptions).forEach(([key, value]) => {
+                    params.set(key, String(value));
+                  });
+                  window.open(`/api/reporting/reports/${pptxReportId}/pptx?${params.toString()}`, '_blank');
+                  setPptxDialogOpen(false);
+                }
+              }}
+              data-testid="button-generate-pptx"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Generate Presentation
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* View Report Dialog */}
       <Dialog open={viewReportOpen} onOpenChange={setViewReportOpen}>
         <DialogContent className="sm:max-w-3xl max-h-[80vh] overflow-y-auto">
@@ -976,7 +1164,9 @@ export default function Reporting() {
                 <Button
                   variant="outline"
                   onClick={() => {
-                    window.open(`/api/reporting/reports/${selectedReport.id}/pptx`, '_blank');
+                    setPptxReportId(selectedReport.id);
+                    setViewReportOpen(false);
+                    setPptxDialogOpen(true);
                   }}
                   data-testid="button-download-report-pptx"
                 >

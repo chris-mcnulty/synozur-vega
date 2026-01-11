@@ -3,7 +3,7 @@ import { storage } from "./storage";
 import { insertReviewSnapshotSchema, insertReportTemplateSchema, insertReportInstanceSchema } from "@shared/schema";
 import { z } from "zod";
 import { generateReportPDF } from "./pdf-service";
-import { generateReportPPTX } from "./pptx-service";
+import { generateReportPPTX, SlideOptions, DEFAULT_SLIDE_OPTIONS } from "./pptx-service";
 
 const router = Router();
 
@@ -291,13 +291,19 @@ router.post("/reports/generate", requireAuth, async (req: Request, res: Response
       }
     } else {
       // Capture current state
-      const [objectives, bigRocks] = await Promise.all([
+      const [objectives, bigRocks, teams] = await Promise.all([
         storage.getObjectivesByTenantId(user.tenantId, quarter, year),
         storage.getBigRocksByTenantId(user.tenantId, quarter, year),
+        storage.getTeamsByTenantId(user.tenantId),
       ]);
       
       const keyResults = await Promise.all(
         objectives.map(obj => storage.getKeyResultsByObjectiveId(obj.id))
+      ).then(results => results.flat());
+      
+      // Fetch check-ins for all key results
+      const checkIns = await Promise.all(
+        keyResults.map(kr => storage.getCheckInsByEntityId('key_result', kr.id))
       ).then(results => results.flat());
       
       const completedObjectives = objectives.filter(o => (o.progress || 0) >= 100).length;
@@ -306,6 +312,26 @@ router.post("/reports/generate", requireAuth, async (req: Request, res: Response
       const averageProgress = objectives.length > 0
         ? Math.round(objectives.reduce((sum, o) => sum + (o.progress || 0), 0) / objectives.length)
         : 0;
+      
+      // Calculate status counts
+      const onTrackCount = objectives.filter(o => (o.progress || 0) >= 70).length;
+      const atRiskCount = objectives.filter(o => (o.progress || 0) >= 40 && (o.progress || 0) < 70).length;
+      const behindCount = objectives.filter(o => (o.progress || 0) < 40).length;
+      
+      // Calculate progress by level
+      const levelGroups = new Map<string, { count: number; totalProgress: number }>();
+      objectives.forEach(obj => {
+        const level = obj.level || 'team';
+        const group = levelGroups.get(level) || { count: 0, totalProgress: 0 };
+        group.count++;
+        group.totalProgress += (obj.progress || 0);
+        levelGroups.set(level, group);
+      });
+      const progressByLevel = Array.from(levelGroups.entries()).map(([level, data]) => ({
+        level,
+        avgProgress: Math.round(data.totalProgress / data.count),
+        count: data.count,
+      }));
       
       reportData = {
         summary: {
@@ -316,10 +342,16 @@ router.post("/reports/generate", requireAuth, async (req: Request, res: Response
           completedKeyResults,
           totalBigRocks: bigRocks.length,
           completedBigRocks,
+          onTrackCount,
+          atRiskCount,
+          behindCount,
+          progressByLevel,
         },
         objectives,
         keyResults,
         bigRocks,
+        teams,
+        checkIns,
       };
     }
     
@@ -442,10 +474,21 @@ router.get("/reports/:id/pptx", requireAuth, async (req: Request, res: Response)
       snapshot = await storage.getReviewSnapshotById(report.snapshotId);
     }
 
+    const slideOptions: Partial<SlideOptions> = {};
+    if (req.query.executiveScorecard !== undefined) slideOptions.executiveScorecard = req.query.executiveScorecard === 'true';
+    if (req.query.teamPerformance !== undefined) slideOptions.teamPerformance = req.query.teamPerformance === 'true';
+    if (req.query.objectivesDeepDive !== undefined) slideOptions.objectivesDeepDive = req.query.objectivesDeepDive === 'true';
+    if (req.query.keyResultsTrend !== undefined) slideOptions.keyResultsTrend = req.query.keyResultsTrend === 'true';
+    if (req.query.atRiskItems !== undefined) slideOptions.atRiskItems = req.query.atRiskItems === 'true';
+    if (req.query.bigRocksKanban !== undefined) slideOptions.bigRocksKanban = req.query.bigRocksKanban === 'true';
+    if (req.query.periodComparison !== undefined) slideOptions.periodComparison = req.query.periodComparison === 'true';
+    if (req.query.checkInHighlights !== undefined) slideOptions.checkInHighlights = req.query.checkInHighlights === 'true';
+
     const pptxBuffer = await generateReportPPTX({
       report,
       snapshot: snapshot || undefined,
       tenant,
+      slideOptions,
     });
 
     const filename = `${report.title.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pptx`;
