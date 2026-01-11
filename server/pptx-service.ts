@@ -11,6 +11,7 @@ export interface SlideOptions {
   bigRocksKanban: boolean;
   periodComparison: boolean;
   checkInHighlights: boolean;
+  aiPeriodSummary: boolean;
 }
 
 export const DEFAULT_SLIDE_OPTIONS: SlideOptions = {
@@ -22,6 +23,7 @@ export const DEFAULT_SLIDE_OPTIONS: SlideOptions = {
   bigRocksKanban: true,
   periodComparison: false,
   checkInHighlights: true,
+  aiPeriodSummary: true,
 };
 
 interface ReportData {
@@ -126,6 +128,10 @@ export async function generateReportPPTX(data: ReportData): Promise<Buffer> {
 
   if (options.checkInHighlights && checkIns.length > 0) {
     addCheckInHighlightsSlide(pptx, checkIns, keyResults, primaryColor);
+  }
+
+  if (options.aiPeriodSummary && content?.aiSummary) {
+    addAiPeriodSummarySlide(pptx, content.aiSummary, report, primaryColor);
   }
 
   addClosingSlide(pptx, tenant, branding, secondaryColor, defaultFont);
@@ -811,6 +817,79 @@ function addCheckInHighlightsSlide(pptx: PptxGenJS, checkIns: any[], keyResults:
       fontSize: 10, color: '374151'
     });
   });
+}
+
+function addAiPeriodSummarySlide(
+  pptx: PptxGenJS, 
+  aiSummary: { headline: string; keyThemes: string[]; guidance: string; generatedAt?: string },
+  report: ReportInstance,
+  primaryColor: string
+) {
+  const slide = pptx.addSlide();
+  
+  slide.addText('AI Executive Insights', {
+    x: 0.4, y: 0.2, w: 9.5, h: 0.5,
+    fontSize: 24, color: primaryColor, bold: true
+  });
+  
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x: 0.4, y: 0.85, w: 9.5, h: 1.0,
+    fill: { color: primaryColor },
+    line: { color: primaryColor, width: 0 }
+  });
+  
+  slide.addText(aiSummary.headline || 'Period summary available in report', {
+    x: 0.6, y: 1.0, w: 9.1, h: 0.7,
+    fontSize: 16, color: 'FFFFFF', bold: true,
+    valign: 'middle'
+  });
+  
+  slide.addText('Key Themes', {
+    x: 0.4, y: 2.1, w: 4, h: 0.35,
+    fontSize: 14, color: '374151', bold: true
+  });
+  
+  const themes = aiSummary.keyThemes || [];
+  themes.slice(0, 4).forEach((theme, index) => {
+    const yPos = 2.5 + (index * 0.45);
+    
+    slide.addShape(pptx.ShapeType.roundRect, {
+      x: 0.4, y: yPos, w: 4.5, h: 0.38,
+      fill: { color: 'F3E8FF' },
+      line: { color: 'E9D5FF', width: 1 }
+    });
+    
+    slide.addText(`${index + 1}. ${theme}`, {
+      x: 0.55, y: yPos + 0.05, w: 4.2, h: 0.28,
+      fontSize: 11, color: primaryColor
+    });
+  });
+  
+  slide.addText('Strategic Guidance', {
+    x: 5.3, y: 2.1, w: 4.5, h: 0.35,
+    fontSize: 14, color: '374151', bold: true
+  });
+  
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x: 5.3, y: 2.5, w: 4.6, h: 2.3,
+    fill: { color: 'F8FAFC' },
+    line: { color: 'E2E8F0', width: 1 }
+  });
+  
+  slide.addText(aiSummary.guidance || 'Review the detailed metrics in this report for actionable insights.', {
+    x: 5.5, y: 2.65, w: 4.2, h: 2.0,
+    fontSize: 11, color: '374151',
+    valign: 'top'
+  });
+  
+  if (aiSummary.generatedAt) {
+    const generatedDate = new Date(aiSummary.generatedAt).toLocaleDateString();
+    slide.addText(`AI insights generated: ${generatedDate}`, {
+      x: 0.4, y: 5.1, w: 9.5, h: 0.25,
+      fontSize: 9, color: '9CA3AF', italic: true,
+      align: 'right'
+    });
+  }
 }
 
 function addClosingSlide(pptx: PptxGenJS, tenant: Tenant, branding: any, secondaryColor: string, fontFace: string) {

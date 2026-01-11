@@ -4,6 +4,7 @@ import { insertReviewSnapshotSchema, insertReportTemplateSchema, insertReportIns
 import { z } from "zod";
 import { generateReportPDF } from "./pdf-service";
 import { generateReportPPTX, SlideOptions, DEFAULT_SLIDE_OPTIONS } from "./pptx-service";
+import { generatePeriodSummary } from "./ai";
 
 const router = Router();
 
@@ -349,25 +350,50 @@ router.post("/reports/generate", requireAuth, async (req: Request, res: Response
         count: data.count,
       }));
       
+      const summaryData = {
+        totalObjectives: objectives.length,
+        completedObjectives,
+        averageProgress,
+        totalKeyResults: keyResults.length,
+        completedKeyResults,
+        totalBigRocks: bigRocks.length,
+        completedBigRocks,
+        onTrackCount,
+        atRiskCount,
+        behindCount,
+        progressByLevel,
+      };
+      
+      let aiSummary = null;
+      try {
+        aiSummary = await generatePeriodSummary({
+          tenantId,
+          periodType,
+          quarter,
+          year,
+          objectives: objectives.map(o => ({ title: o.title, progress: o.progress || 0, level: o.level || undefined })),
+          keyResults: keyResults.map(kr => ({ title: kr.title, progress: kr.progress || 0 })),
+          bigRocks: bigRocks.map(br => ({ title: br.title, status: br.status })),
+          checkIns: checkIns.map(ci => ({ 
+            note: ci.note || undefined, 
+            achievements: ci.achievements || undefined, 
+            challenges: ci.challenges || undefined, 
+            createdAt: ci.createdAt 
+          })),
+          summary: summaryData,
+        });
+      } catch (aiError) {
+        console.error("AI summary generation failed:", aiError);
+      }
+      
       reportData = {
-        summary: {
-          totalObjectives: objectives.length,
-          completedObjectives,
-          averageProgress,
-          totalKeyResults: keyResults.length,
-          completedKeyResults,
-          totalBigRocks: bigRocks.length,
-          completedBigRocks,
-          onTrackCount,
-          atRiskCount,
-          behindCount,
-          progressByLevel,
-        },
+        summary: summaryData,
         objectives,
         keyResults,
         bigRocks,
         teams,
         checkIns,
+        aiSummary,
       };
     }
     

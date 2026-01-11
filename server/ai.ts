@@ -1308,3 +1308,119 @@ JSON format:
   };
 }
 
+// Generate AI Period Summary for reports
+export interface PeriodSummaryInput {
+  tenantId: string;
+  periodType: string;
+  quarter?: number;
+  year: number;
+  objectives: { title: string; progress: number; level?: string }[];
+  keyResults: { title: string; progress: number; objectiveTitle?: string }[];
+  bigRocks: { title: string; status: string }[];
+  checkIns: { note?: string; achievements?: string; challenges?: string; createdAt: Date | string }[];
+  summary: {
+    totalObjectives: number;
+    completedObjectives: number;
+    averageProgress: number;
+    totalKeyResults: number;
+    completedKeyResults: number;
+    onTrackCount?: number;
+    atRiskCount?: number;
+    behindCount?: number;
+  };
+}
+
+export interface PeriodSummaryResult {
+  headline: string;
+  keyThemes: string[];
+  guidance: string;
+  generatedAt: string;
+}
+
+export async function generatePeriodSummary(input: PeriodSummaryInput): Promise<PeriodSummaryResult> {
+  const { tenantId, periodType, quarter, year, objectives, keyResults, bigRocks, checkIns, summary } = input;
+  
+  const periodLabel = quarter ? `Q${quarter} ${year}` : `${year}`;
+  
+  const objectivesSummary = objectives.slice(0, 10).map(o => 
+    `- ${o.title}: ${o.progress}% (${o.level || 'team'})`
+  ).join('\n');
+  
+  const atRiskItems = [
+    ...objectives.filter(o => o.progress < 40).map(o => `Objective: ${o.title} (${o.progress}%)`),
+    ...keyResults.filter(kr => kr.progress < 40).slice(0, 5).map(kr => `Key Result: ${kr.title} (${kr.progress}%)`)
+  ].slice(0, 5);
+  
+  const recentAchievements = checkIns
+    .filter(ci => ci.achievements)
+    .slice(0, 5)
+    .map(ci => ci.achievements)
+    .join('; ');
+    
+  const recentChallenges = checkIns
+    .filter(ci => ci.challenges)
+    .slice(0, 5)
+    .map(ci => ci.challenges)
+    .join('; ');
+
+  const systemPrompt = `You are an executive advisor analyzing OKR progress for a leadership report.
+Generate a concise executive summary that provides strategic insights and actionable guidance.
+Respond ONLY with valid JSON in this exact format:
+{
+  "headline": "One compelling sentence summarizing overall period performance",
+  "keyThemes": ["Theme 1 (max 8 words)", "Theme 2", "Theme 3"],
+  "guidance": "2-3 sentences of strategic guidance for the next period, focusing on priorities and areas needing attention"
+}`;
+
+  const userPrompt = `Analyze OKR performance for ${periodLabel}:
+
+SUMMARY METRICS:
+- Objectives: ${summary.completedObjectives}/${summary.totalObjectives} completed
+- Key Results: ${summary.completedKeyResults}/${summary.totalKeyResults} completed  
+- Average Progress: ${summary.averageProgress}%
+- On Track: ${summary.onTrackCount || 0} | At Risk: ${summary.atRiskCount || 0} | Behind: ${summary.behindCount || 0}
+
+TOP OBJECTIVES:
+${objectivesSummary || 'No objectives defined'}
+
+AT-RISK ITEMS:
+${atRiskItems.length > 0 ? atRiskItems.join('\n') : 'None identified'}
+
+RECENT ACHIEVEMENTS:
+${recentAchievements || 'No achievements recorded'}
+
+RECENT CHALLENGES:
+${recentChallenges || 'No challenges recorded'}
+
+INITIATIVES:
+- Total: ${bigRocks.length}
+- Completed: ${bigRocks.filter(br => br.status === 'completed').length}
+- In Progress: ${bigRocks.filter(br => br.status === 'in_progress').length}`;
+
+  try {
+    const response = await getSimpleCompletion(
+      systemPrompt,
+      userPrompt,
+      { tenantId, maxTokens: 400 },
+      AI_FEATURES.SUGGESTIONS
+    );
+    
+    const parsed = JSON.parse(response);
+    
+    return {
+      headline: parsed.headline || 'Period summary unavailable',
+      keyThemes: Array.isArray(parsed.keyThemes) ? parsed.keyThemes.slice(0, 4) : [],
+      guidance: parsed.guidance || '',
+      generatedAt: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error('[AI Service] Failed to generate period summary:', error);
+    return {
+      headline: `${periodLabel} Progress: ${summary.averageProgress}% average completion`,
+      keyThemes: ['Performance data available', 'Review objectives for details'],
+      guidance: 'AI summary generation encountered an issue. Please review the detailed metrics in this report for a complete picture of progress.',
+      generatedAt: new Date().toISOString(),
+    };
+  }
+}
+
