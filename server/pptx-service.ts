@@ -1,4 +1,5 @@
-import PptxGenJS from 'pptxgenjs';
+import PptxGenJSModule from 'pptxgenjs';
+const PptxGenJS = (PptxGenJSModule as any).default || PptxGenJSModule;
 import { Tenant, ReportInstance, ReviewSnapshot } from '@shared/schema';
 
 export interface SlideOptions {
