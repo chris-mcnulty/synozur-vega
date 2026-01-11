@@ -81,8 +81,7 @@ export async function generateReportPPTX(data: ReportData): Promise<Buffer> {
     objects: [],
   });
   
-  // Use Calibri as primary (universal), with Avenir Next LT Pro as preferred when available
-  const defaultFont = 'Calibri';
+  const defaultFont = 'Avenir Next LT Pro';
 
   const content = report.reportData as any;
   const objectives = content?.objectives || [];
