@@ -69,6 +69,10 @@ export default function Login() {
   const { login, signup } = useAuth();
   const [, setLocation] = useLocation();
   const { toast } = useToast();
+  
+  // Read mode query param - signup mode defaults to signup tab
+  const urlParams = new URLSearchParams(window.location.search);
+  const isSignupMode = urlParams.get('mode') === 'signup';
 
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
@@ -457,16 +461,35 @@ export default function Login() {
 
         <Card className="backdrop-blur-md bg-background/95 border-white/20">
           <CardContent className="pt-6">
+            {/* Welcome header */}
+            <div className="text-center mb-5">
+              <h2 className="text-lg font-semibold mb-1">
+                {isSignupMode ? "New to Vega? You can start right away." : "Welcome back"}
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                {isSignupMode 
+                  ? "Create an account or use Microsoft Entra SSO — no credit card required."
+                  : "Sign in to continue — no credit card required."}
+              </p>
+            </div>
+            
             <Button
               type="button"
               size="lg"
-              className="w-full mb-4"
+              className="w-full mb-2"
               onClick={handleMicrosoftLogin}
               data-testid="button-sso-login"
             >
               <img src={microsoftLogo} alt="Microsoft" className="mr-2 h-5 w-5" />
-              Continue with Microsoft
+              {isSignupMode ? "Sign up with Microsoft" : "Continue with Microsoft"}
             </Button>
+            
+            {/* Entra reassurance microcopy */}
+            <p className="text-xs text-muted-foreground text-center mb-4">
+              Uses your existing Microsoft identity. No credit card required.
+              <br />
+              <span className="text-muted-foreground/70">No tenant changes or device management needed.</span>
+            </p>
             
             <div className="relative my-4">
               <div className="absolute inset-0 flex items-center">
@@ -479,10 +502,10 @@ export default function Login() {
               </div>
             </div>
 
-            <Tabs defaultValue="login" className="w-full">
+            <Tabs defaultValue={isSignupMode ? "signup" : "login"} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-4">
-                <TabsTrigger value="login" data-testid="tab-email-login">Login</TabsTrigger>
-                <TabsTrigger value="signup" data-testid="tab-signup">Sign Up</TabsTrigger>
+                <TabsTrigger value="login" data-testid="tab-email-login">Log in</TabsTrigger>
+                <TabsTrigger value="signup" data-testid="tab-signup">Create account</TabsTrigger>
               </TabsList>
 
               <TabsContent value="login" className="mt-0">
@@ -675,10 +698,10 @@ export default function Login() {
                     disabled={isSubmittingSignup}
                     data-testid="button-signup"
                   >
-                    {isSubmittingSignup ? "Creating account..." : "Create Account"}
+                    {isSubmittingSignup ? "Creating account..." : "Create free account"}
                   </Button>
                   <p className="text-xs text-muted-foreground text-center">
-                    Your email domain must match an allowed organization
+                    No credit card required. Your email domain must match an allowed organization.
                   </p>
                 </form>
               </TabsContent>

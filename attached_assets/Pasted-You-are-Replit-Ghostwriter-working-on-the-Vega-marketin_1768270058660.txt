@@ -1,0 +1,124 @@
+You are Replit Ghostwriter working on the Vega marketing + auth UI.
+
+Goal
+Make it unmistakably clear that a visitor can start using Vega immediately via:
+1) email/password account creation OR
+2) Microsoft Entra SSO
+…and that there is NO purchase and NO credit card required.
+
+Constraints
+- Do not change core styling system; match existing Vega site look/feel.
+- Keep changes minimal, high impact, and mobile responsive.
+- If existing components exist for Buttons, Alerts, Cards, etc., reuse them.
+- Do not add new external dependencies unless absolutely necessary.
+
+Pages to update
+A) Homepage: https://vega.synozur.com
+B) Login page: https://vega.synozur.com/login
+
+========================================================
+A) HOMEPAGE UPDATES (vega.synozur.com)
+========================================================
+
+1) Primary CTA labeling and placement (above the fold)
+- Ensure the top hero section has a primary CTA button labeled exactly:
+  "Get started now"
+- Add a secondary CTA button next to it labeled exactly:
+  "Log in"
+- If there is currently only one CTA, keep it but relabel to "Get started now" and add "Log in" as secondary.
+
+2) Add an explicit trust statement directly under the CTAs (above the fold)
+Insert this copy under the CTA buttons, styled as small/secondary text but clearly readable:
+
+"Start using Vega today — no purchase, no credit card, and no sales call required.
+Create an account or sign in with Microsoft Entra SSO."
+
+Formatting notes:
+- Two lines on desktop, can stack on mobile.
+- Emphasize "no purchase, no credit card" with either bold or higher contrast, but keep on-brand.
+
+3) Add a simple “How access works” block below the hero (next section)
+Create a compact 3-step horizontal (desktop) / vertical (mobile) block with heading:
+
+Heading: "How access works"
+
+Steps (exact text):
+1) "Create a free account or use Microsoft Entra SSO"
+2) "Start with your own workspace instantly"
+
+Design:
+- Use small icons if existing icon system is available; otherwise simple numbered circles.
+- Keep it tight; max width aligned with other sections.
+
+4) Add a small note near any pricing/enterprise language (if present)
+If the homepage mentions enterprise, sales, pricing, or “contact us”, add a one-liner near that area:
+
+"Vega is free to explore."
+
+Only add this if there is an appropriate existing section; do not create a pricing section.
+
+5) CTA routing
+- "Get started now" should navigate to /login with a query param that indicates signup intent, e.g.:
+  /login?mode=signup
+- "Log in" navigates to /login (no params).
+
+========================================================
+B) LOGIN PAGE UPDATES (/login)
+========================================================
+
+1) Add a “New to Vega?” header above auth controls
+Above the sign-in / SSO buttons, add:
+
+Header: "New to Vega? You can start right away."
+Subtext (exact):
+"Create an account or use Microsoft Entra SSO — no credit card required."
+
+2) Support both modes: signup vs login
+- Read query param mode:
+  - mode=signup should default the UI to “Create account” framing
+  - otherwise default to “Log in” framing
+- If the page already has both options, just ensure the copy and default state changes correctly.
+
+3) Label the email flow explicitly
+Wherever email/password is offered, ensure it is labeled for signup when in signup mode:
+- Button text (signup mode): "Create free account"
+- Button text (login mode): "Log in"
+
+If there are separate tabs, label them:
+- "Create account"
+- "Log in"
+
+4) Add Entra reassurance microcopy directly under the Entra button
+Under the “Sign in with Microsoft” / “Entra” button, add small text:
+
+"Uses your existing Microsoft identity. No tenant changes or device management required."
+
+5) Keep “no credit card” visible near both auth methods
+Ensure the phrase "no credit card required" appears near both:
+- email signup
+- Entra SSO
+
+========================================================
+ACCEPTANCE CRITERIA
+========================================================
+
+Homepage
+- Above the fold shows:
+  - "Get started now" primary CTA
+  - "Log in" secondary CTA
+  - Trust statement including "no purchase" and "no credit card"
+- A “How access works” section appears immediately below the hero
+- Clicking "Get started now" routes to /login?mode=signup
+
+Login page
+- Shows "New to Vega? You can start right away." above auth controls
+- Shows "no credit card required" prominently
+- Entra button has the reassurance line below it
+- /login?mode=signup defaults to signup framing and uses "Create free account"
+
+Deliverables
+- Implement changes in the existing codebase.
+- Provide the file paths changed and a brief summary of what you modified.
+- Ensure responsive behavior and no layout regressions.
+
+Proceed to implement now.

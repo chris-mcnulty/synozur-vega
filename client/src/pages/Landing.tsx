@@ -92,10 +92,15 @@ export default function Landing() {
             </div>
             
             {/* CTA + Theme - Right */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 md:gap-3">
+              <Link href="/login?mode=signup">
+                <Button size="sm" data-testid="button-nav-get-started">
+                  Get started
+                </Button>
+              </Link>
               <Link href="/login">
-                <Button size="sm" data-testid="button-nav-cta">
-                  Sign up / Login
+                <Button size="sm" variant="outline" data-testid="button-nav-login" className={isScrolled ? '' : 'dark:border-white/30 dark:text-white dark:hover:bg-white/10'}>
+                  Log in
                 </Button>
               </Link>
               <ThemeToggle />

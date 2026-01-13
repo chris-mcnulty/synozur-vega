@@ -92,13 +92,13 @@ const securityBullets = [
 function CTAButton({ className = "" }: { className?: string }) {
   return (
     <div className={`text-center ${className}`}>
-      <Link href="/login">
+      <Link href="/login?mode=signup">
         <Button size="lg" className="text-base px-8" data-testid="button-cta-inline">
-          Start a free trial
+          Get started now
           <ArrowRight className="ml-2 h-5 w-5" />
         </Button>
       </Link>
-      <p className="text-sm text-muted-foreground mt-2">No credit card. Be set up in minutes.</p>
+      <p className="text-sm text-muted-foreground mt-2">No credit card required. Be set up in minutes.</p>
     </div>
   );
 }
@@ -169,20 +169,43 @@ export function LandingHero() {
             </p>
             
             <div className="flex flex-col sm:flex-row justify-center gap-4 mb-4">
-              <Link href="/login">
+              <Link href="/login?mode=signup">
                 <Button
                   size="lg"
                   className="text-base px-8 shadow-xl w-full sm:w-auto"
-                  data-testid="button-start-trial"
+                  data-testid="button-get-started"
                 >
-                  Start a free trial
+                  Get started now
                   <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </Link>
+              <Link href="/login">
+                <Button
+                  size="lg"
+                  variant="outline"
+                  className="text-base px-8 bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 shadow-xl w-full sm:w-auto"
+                  data-testid="button-login"
+                >
+                  Log in
+                </Button>
+              </Link>
+            </div>
+            
+            {/* Trust statement */}
+            <div className="text-center mb-6">
+              <p className="text-sm text-white/90 leading-relaxed">
+                Start using Vega today — <span className="font-semibold text-white">no purchase</span>, <span className="font-semibold text-white">no credit card</span>, and no sales call required.
+              </p>
+              <p className="text-sm text-white/70 mt-1">
+                Create an account or sign in with Microsoft Entra SSO.
+              </p>
+            </div>
+            
+            <div className="text-center mb-6">
               <Button
-                size="lg"
-                variant="outline"
-                className="text-base px-8 bg-white/10 backdrop-blur-sm border-white/30 text-white hover:bg-white/20 shadow-xl w-full sm:w-auto"
+                size="sm"
+                variant="ghost"
+                className="text-white/70 hover:text-white hover:bg-white/10"
                 data-testid="button-watch-demo"
                 onClick={() => document.getElementById('screenshot-section')?.scrollIntoView({ behavior: 'smooth' })}
               >
@@ -190,9 +213,6 @@ export function LandingHero() {
                 Watch 2-minute walkthrough
               </Button>
             </div>
-            <p className="text-sm text-white/70 mb-8">
-              No credit card. Be set up in minutes.
-            </p>
             
             {/* Trust Strip */}
             <div className="flex flex-wrap justify-center gap-3 md:gap-6">
@@ -206,6 +226,30 @@ export function LandingHero() {
                   <span className="text-white text-sm font-medium">{badge.label}</span>
                 </div>
               ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How Access Works Section */}
+      <section className="py-10 md:py-14 bg-muted/50 border-b">
+        <div className="max-w-3xl mx-auto px-6">
+          <h2 className="text-xl md:text-2xl font-semibold text-center mb-6">How access works</h2>
+          <div className="flex flex-col md:flex-row justify-center items-center gap-4 md:gap-8">
+            <div className="flex items-center gap-3 bg-background rounded-lg px-5 py-3 shadow-sm border" data-testid="access-step-1">
+              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold text-sm">
+                1
+              </div>
+              <span className="text-sm md:text-base">Create a free account or use Microsoft Entra SSO</span>
+            </div>
+            <div className="hidden md:block text-muted-foreground">
+              <ArrowRight className="h-5 w-5" />
+            </div>
+            <div className="flex items-center gap-3 bg-background rounded-lg px-5 py-3 shadow-sm border" data-testid="access-step-2">
+              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold text-sm">
+                2
+              </div>
+              <span className="text-sm md:text-base">Start with your own workspace instantly</span>
             </div>
           </div>
         </div>
@@ -277,12 +321,13 @@ export function LandingHero() {
           </div>
           
           <div className="text-center">
-            <Link href="/login">
+            <Link href="/login?mode=signup">
               <Button size="lg" className="text-base px-8" data-testid="button-cta-first15">
-                Start free—no credit card
+                Get started now
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
+            <p className="text-sm text-white/70 mt-2">No credit card required</p>
           </div>
         </div>
       </section>
@@ -444,13 +489,13 @@ export function LandingHero() {
           </div>
           
           <div className="text-center mt-10">
-            <Link href="/login">
+            <Link href="/login?mode=signup">
               <Button size="lg" variant="secondary" className="text-base px-8" data-testid="button-cta-modules">
-                Start a free trial
+                Get started now
                 <ArrowRight className="ml-2 h-5 w-5" />
               </Button>
             </Link>
-            <p className="text-sm text-white/70 mt-2">No credit card. Be set up in minutes.</p>
+            <p className="text-sm text-white/70 mt-2">No credit card required. Be set up in minutes.</p>
           </div>
         </div>
       </section>
@@ -521,14 +566,14 @@ export function LandingHero() {
           <p className="text-xl mb-8 opacity-90">
             Join leaders who align, execute, and adapt—every week.
           </p>
-          <Link href="/login">
+          <Link href="/login?mode=signup">
             <Button size="lg" variant="secondary" className="text-base px-8" data-testid="button-cta-final">
-              Start a free trial
+              Get started now
               <ArrowRight className="ml-2 h-5 w-5" />
             </Button>
           </Link>
           <p className="text-sm mt-4 opacity-70">
-            No credit card. Be set up in minutes.
+            No credit card required. Be set up in minutes.
           </p>
         </div>
       </section>
