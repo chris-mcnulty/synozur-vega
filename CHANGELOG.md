@@ -8,6 +8,16 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 
 ## January 2026
 
+### January 13, 2026
+
+**New Features**
+- **Clone Big Rocks**: You can now clone Big Rocks to different quarters or years, similar to cloning objectives. Options include keeping the original owner and linked OKRs
+
+**Improvements**
+- Annual view in Outcomes now shows all Big Rocks for the year (both quarterly and annual), not just annual-only items
+
+---
+
 ### January 11, 2026
 
 **New Features**
