@@ -6,6 +6,10 @@ Vega is a responsive web application serving as a comprehensive Company Operatin
 ## User Preferences
 Preferred communication style: Simple, everyday language.
 
+**Related Synozur Applications:**
+- **Vega** - This codebase. Company Operating System for OKRs, strategy, AI-powered check-ins, multi-tenancy with RBAC.
+- **Constellation (SCDP)** - Separate application for managing estimates, projects, time tracking, expenses, billing, and invoices. Not in this codebase.
+
 ## System Architecture
 
 ### Frontend
