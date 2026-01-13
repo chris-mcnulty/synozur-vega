@@ -271,21 +271,46 @@ router.post("/reports/generate", requireValidatedTenant, async (req: Request, re
     if (snapshotId) {
       const snapshot = await storage.getReviewSnapshotById(snapshotId);
       if (snapshot) {
+        const snapshotObjectives = (snapshot.objectivesSnapshot as any[]) || [];
+        const snapshotKeyResults = (snapshot.keyResultsSnapshot as any[]) || [];
+        const snapshotBigRocks = (snapshot.bigRocksSnapshot as any[]) || [];
+        
+        const summaryData = {
+          totalObjectives: snapshot.objectivesTotal || 0,
+          completedObjectives: snapshot.objectivesCompleted || 0,
+          averageProgress: snapshot.overallProgress || 0,
+          totalKeyResults: snapshot.keyResultsTotal || 0,
+          completedKeyResults: snapshot.keyResultsCompleted || 0,
+          totalBigRocks: snapshotBigRocks.length || 0,
+          completedBigRocks: snapshotBigRocks.filter((br: any) => br.status === 'completed').length || 0,
+        };
+        
+        // Generate AI summary for snapshot-based reports too
+        let aiSummary = null;
+        try {
+          aiSummary = await generatePeriodSummary({
+            tenantId,
+            periodType,
+            quarter,
+            year,
+            objectives: snapshotObjectives.map((o: any) => ({ title: o.title, progress: o.progress || 0, level: o.level || undefined })),
+            keyResults: snapshotKeyResults.map((kr: any) => ({ title: kr.title, progress: kr.progress || 0 })),
+            bigRocks: snapshotBigRocks.map((br: any) => ({ title: br.title, status: br.status })),
+            checkIns: [],
+            summary: summaryData,
+          });
+        } catch (aiError) {
+          console.error("AI summary generation failed for snapshot:", aiError);
+        }
+        
         reportData = {
-          summary: {
-            totalObjectives: snapshot.objectivesTotal || 0,
-            completedObjectives: snapshot.objectivesCompleted || 0,
-            averageProgress: snapshot.overallProgress || 0,
-            totalKeyResults: snapshot.keyResultsTotal || 0,
-            completedKeyResults: snapshot.keyResultsCompleted || 0,
-            totalBigRocks: (snapshot.bigRocksSnapshot as any[])?.length || 0,
-            completedBigRocks: (snapshot.bigRocksSnapshot as any[])?.filter((br: any) => br.status === 'completed').length || 0,
-          },
+          summary: summaryData,
           objectives: snapshot.objectivesSnapshot,
           keyResults: snapshot.keyResultsSnapshot,
           bigRocks: snapshot.bigRocksSnapshot,
           achievements: snapshot.keyAchievements,
           challenges: snapshot.challenges,
+          aiSummary,
         };
       }
     } else {

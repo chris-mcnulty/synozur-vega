@@ -16,6 +16,9 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 **Improvements**
 - Annual view in Outcomes now shows all Big Rocks for the year (both quarterly and annual), not just annual-only items
 
+**Bug Fixes**
+- AI Executive Insights slide now appears in PowerPoint reports generated from snapshots (previously only appeared for current state reports)
+
 ---
 
 ### January 11, 2026
