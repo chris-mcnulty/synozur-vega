@@ -231,30 +231,6 @@ export function LandingHero() {
         </div>
       </section>
 
-      {/* How Access Works Section */}
-      <section className="py-10 md:py-14 bg-muted/50 border-b">
-        <div className="max-w-3xl mx-auto px-6">
-          <h2 className="text-xl md:text-2xl font-semibold text-center mb-6">How access works</h2>
-          <div className="flex flex-col md:flex-row justify-center items-center gap-4 md:gap-8">
-            <div className="flex items-center gap-3 bg-background rounded-lg px-5 py-3 shadow-sm border" data-testid="access-step-1">
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold text-sm">
-                1
-              </div>
-              <span className="text-sm md:text-base">Create a free account or use Microsoft Entra SSO</span>
-            </div>
-            <div className="hidden md:block text-muted-foreground">
-              <ArrowRight className="h-5 w-5" />
-            </div>
-            <div className="flex items-center gap-3 bg-background rounded-lg px-5 py-3 shadow-sm border" data-testid="access-step-2">
-              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold text-sm">
-                2
-              </div>
-              <span className="text-sm md:text-base">Start with your own workspace instantly</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Company OS Credibility Blurb */}
       <section className="py-10 md:py-14 bg-background border-b">
         <div className="max-w-3xl mx-auto px-6 text-center">
@@ -328,6 +304,30 @@ export function LandingHero() {
               </Button>
             </Link>
             <p className="text-sm text-white/70 mt-2">No credit card required</p>
+          </div>
+        </div>
+      </section>
+
+      {/* How Access Works Section */}
+      <section className="py-10 md:py-14 bg-muted/50 border-b">
+        <div className="max-w-3xl mx-auto px-6">
+          <h2 className="text-xl md:text-2xl font-semibold text-center mb-6">How access works</h2>
+          <div className="flex flex-col md:flex-row justify-center items-center gap-4 md:gap-8">
+            <div className="flex items-center gap-3 bg-background rounded-lg px-5 py-3 shadow-sm border" data-testid="access-step-1">
+              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold text-sm">
+                1
+              </div>
+              <span className="text-sm md:text-base">Create a free account or use Microsoft Entra SSO</span>
+            </div>
+            <div className="hidden md:block text-muted-foreground">
+              <ArrowRight className="h-5 w-5" />
+            </div>
+            <div className="flex items-center gap-3 bg-background rounded-lg px-5 py-3 shadow-sm border" data-testid="access-step-2">
+              <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold text-sm">
+                2
+              </div>
+              <span className="text-sm md:text-base">Start with your own workspace instantly</span>
+            </div>
           </div>
         </div>
       </section>
