@@ -1,6 +1,6 @@
 # Vega Platform Master Backlog
 
-**Last Updated:** January 11, 2026 (Enhanced Reporting with AI Period Summary and dynamic date selectors)
+**Last Updated:** January 13, 2026 (Added Consulting Partner Mode Features to medium priority)
 
 > **Note:** This is the single source of truth for all Vega feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference this document for backlog-related questions.
 
@@ -195,6 +195,42 @@ user_dashboard_preferences table:
 ---
 
 ## MEDIUM PRIORITY FEATURES
+
+### Consulting Partner Mode Features
+
+**Status:** Not Started  
+**Priority:** Medium  
+
+**Overview:**
+Design and implement differentiated features for "Consulting Partner" mode vs "Self-Service" mode. The mode toggle UI infrastructure exists but is currently hidden until features are implemented.
+
+**Proposed Feature Differentiation:**
+
+**Self-Service Mode (Default):**
+- Organizations manage their own strategy, OKRs, and check-ins directly
+- Standard dashboard views and reporting
+- AI assistance for drafting and suggestions
+
+**Consulting Partner Mode:**
+- Multi-tenant oversight dashboard for consultants managing multiple clients
+- Automation cards for common consulting workflows
+- Different default reporting scopes (cross-client views)
+- Consultant-specific templates and playbooks
+- Client health scoring and engagement metrics
+- Bulk operations across client tenants
+
+**Technical Considerations:**
+- Mode stored in TenantContext and persisted to localStorage
+- ConsultingModeToggle component ready (currently hidden)
+- May require consultant-specific role permissions
+- Consider whether mode is per-user or per-tenant setting
+
+**Next Steps:**
+1. User research: What do consulting partners actually need?
+2. Design feature specifications for top 3-5 consultant features
+3. Implement incrementally, unhiding toggle when first feature ships
+
+---
 
 ### OKR Intelligence (AI Predictions & Pace Tracking)
 
