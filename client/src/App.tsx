@@ -161,8 +161,8 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
         <header className="flex items-center justify-between p-4 border-b gap-4">
           <div className="flex items-center gap-4">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <div className="flex items-center gap-3">
-              <SynozurLogo variant="mark" className="h-8 w-8" />
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <SynozurLogo variant="mark" className="h-8 w-8 flex-shrink-0" />
               <span className="font-bold text-lg hidden md:block">Vega</span>
             </div>
           </div>

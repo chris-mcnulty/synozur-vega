@@ -152,16 +152,16 @@ export function AppSidebar() {
   return (
     <Sidebar>
       <SidebarHeader className="p-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-shrink-0">
           {showTenantLogo ? (
             <img 
               src={tenantLogo} 
               alt={currentTenant?.name || "Organization"} 
-              className="h-8 w-auto max-w-[120px] object-contain"
+              className="h-8 w-auto max-w-[120px] object-contain flex-shrink-0"
               onError={() => setLogoError(true)}
             />
           ) : (
-            <SynozurLogo variant="mark" className="h-8 w-8" />
+            <SynozurLogo variant="mark" className="h-8 w-8 flex-shrink-0" />
           )}
           <span className="font-bold text-lg">Vega</span>
         </div>
