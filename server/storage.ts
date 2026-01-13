@@ -121,6 +121,7 @@ export interface IStorage {
   
   getBigRocksByTenantId(tenantId: string, quarter?: number, year?: number): Promise<BigRock[]>;
   getBigRockById(id: string): Promise<BigRock | undefined>;
+  getBigRockByIdForTenant(id: string, tenantId: string): Promise<BigRock | undefined>;
   getBigRocksByObjectiveId(objectiveId: string): Promise<BigRock[]>;
   getBigRocksByKeyResultId(keyResultId: string): Promise<BigRock[]>;
   createBigRock(bigRock: InsertBigRock): Promise<BigRock>;
@@ -1072,21 +1073,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBigRocksByTenantId(tenantId: string, quarter?: number, year?: number): Promise<BigRock[]> {
-    // If quarter is 0, fetch only annual big rocks (quarter IS NULL or 0)
-    if (quarter === 0 && year !== undefined) {
+    // If quarter is 0 or undefined (annual view), fetch ALL big rocks for that year
+    // This includes quarterly (Q1-Q4) AND annual big rocks
+    if ((quarter === 0 || quarter === undefined) && year !== undefined) {
       return await db.select().from(bigRocks).where(
         and(
           eq(bigRocks.tenantId, tenantId),
-          eq(bigRocks.year, year),
-          or(
-            isNull(bigRocks.quarter),
-            eq(bigRocks.quarter, 0)
-          )
+          eq(bigRocks.year, year)
         )
       );
     }
     
-    // If quarter and year provided, include both quarterly AND annual big rocks (treat both null and 0 as annual)
+    // If quarter and year provided (quarterly view), include both that quarter's AND annual big rocks
     if (quarter !== undefined && quarter > 0 && year !== undefined) {
       return await db.select().from(bigRocks).where(
         and(
@@ -1117,6 +1115,16 @@ export class DatabaseStorage implements IStorage {
 
   async getBigRockById(id: string): Promise<BigRock | undefined> {
     const [bigRock] = await db.select().from(bigRocks).where(eq(bigRocks.id, id));
+    return bigRock || undefined;
+  }
+
+  async getBigRockByIdForTenant(id: string, tenantId: string): Promise<BigRock | undefined> {
+    const [bigRock] = await db.select().from(bigRocks).where(
+      and(
+        eq(bigRocks.id, id),
+        eq(bigRocks.tenantId, tenantId)
+      )
+    );
     return bigRock || undefined;
   }
 

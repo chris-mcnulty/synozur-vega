@@ -38,7 +38,9 @@ import { cn } from "@/lib/utils";
 import type { Foundation, CompanyValue } from "@shared/schema";
 import { ProgressSummaryDialog } from "@/components/ProgressSummaryDialog";
 import { CloneObjectiveDialog } from "@/components/okr/CloneObjectiveDialog";
+import { CloneBigRockDialog } from "@/components/okr/CloneBigRockDialog";
 import { OKRQualityScore } from "@/components/okr/OKRQualityScore";
+import { Copy } from "lucide-react";
 
 interface Objective {
   id: string;
@@ -388,6 +390,8 @@ export default function PlanningEnhanced() {
   const [alignmentTargetObjective, setAlignmentTargetObjective] = useState<string | null>(null);
   const [cloneDialogOpen, setCloneDialogOpen] = useState(false);
   const [cloneObjective, setCloneObjective] = useState<Objective | null>(null);
+  const [cloneBigRockDialogOpen, setCloneBigRockDialogOpen] = useState(false);
+  const [cloneBigRock, setCloneBigRock] = useState<BigRock | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ type: "objective" | "keyResult" | "bigRock"; id: string; title: string } | null>(null);
   const [savedSummary, setSavedSummary] = useState<{ content: string; dateRange: string } | null>(null);
@@ -2301,6 +2305,10 @@ export default function PlanningEnhanced() {
               onCreateBigRock={handleCreateBigRock}
               onEditBigRock={handleEditBigRock}
               onDeleteBigRock={handleDeleteBigRock}
+              onCloneBigRock={(rock: BigRock) => {
+                setCloneBigRock(rock);
+                setCloneBigRockDialogOpen(true);
+              }}
               onCheckIn={handleBigRockCheckIn}
               onViewHistory={handleBigRockViewHistory}
             />
@@ -4162,6 +4170,16 @@ export default function PlanningEnhanced() {
           currentYear={year}
         />
 
+        {/* Clone Big Rock Dialog */}
+        <CloneBigRockDialog
+          open={cloneBigRockDialogOpen}
+          onOpenChange={setCloneBigRockDialogOpen}
+          bigRock={cloneBigRock}
+          tenantId={currentTenant?.id || ""}
+          currentQuarter={quarter || getCurrentQuarter()}
+          currentYear={year}
+        />
+
         {/* Save to Meeting Dialog */}
         <Dialog open={saveToMeetingDialogOpen} onOpenChange={setSaveToMeetingDialogOpen}>
           <DialogContent className="max-w-lg">
@@ -4617,7 +4635,7 @@ export default function PlanningEnhanced() {
 }
 
 // Big Rocks Section Component
-function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, onEditBigRock, onDeleteBigRock, onCheckIn, onViewHistory }: any) {
+function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, onEditBigRock, onDeleteBigRock, onCloneBigRock, onCheckIn, onViewHistory }: any) {
   const getObjectiveTitle = (objId: string) => {
     const obj = objectives.find((o: Objective) => o.id === objId);
     return obj?.title || "Unknown Objective";
@@ -4742,6 +4760,15 @@ function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, on
                       data-testid={`button-edit-bigrock-${rock.id}`}
                     >
                       <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => onCloneBigRock(rock)}
+                      title="Clone to another quarter"
+                      data-testid={`button-clone-bigrock-${rock.id}`}
+                    >
+                      <Copy className="h-4 w-4" />
                     </Button>
                     <Button
                       size="icon"

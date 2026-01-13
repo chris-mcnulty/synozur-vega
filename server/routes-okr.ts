@@ -10,6 +10,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import { hasPermission, PERMISSIONS, Role } from "@shared/rbac";
+import { requireValidatedTenant } from "./middleware/validateTenant";
 
 /**
  * Check if the current user can modify a specific OKR
@@ -644,6 +645,54 @@ okrRouter.delete("/big-rocks/:id", async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+okrRouter.post("/big-rocks/:id/clone", requireValidatedTenant, async (req, res) => {
+  try {
+    const { targetQuarter, targetYear, keepOriginalOwner, newOwnerId, keepLinkedOKR } = req.body;
+    
+    // requireValidatedTenant ensures req.user and req.effectiveTenantId are set
+    const tenantId = req.effectiveTenantId!;
+    const user = req.user!;
+    
+    // Use tenant-scoped lookup to prevent cross-tenant enumeration
+    const originalBigRock = await storage.getBigRockByIdForTenant(req.params.id, tenantId);
+    if (!originalBigRock) {
+      return res.status(404).json({ error: "Big Rock not found" });
+    }
+    
+    // RBAC: Check if user can modify (and thus clone) this big rock
+    if (!canUserModifyOKR(req, originalBigRock.ownerId, originalBigRock.createdBy, originalBigRock.ownerEmail)) {
+      return res.status(403).json({ 
+        error: "Access denied",
+        message: "You can only clone Big Rocks you own or created. Contact an admin for help."
+      });
+    }
+    
+    const clonedBigRock = await storage.createBigRock({
+      tenantId: tenantId,
+      title: originalBigRock.title,
+      description: originalBigRock.description,
+      quarter: targetQuarter,
+      year: targetYear,
+      status: "not_started",
+      progress: 0,
+      ownerId: keepOriginalOwner ? originalBigRock.ownerId : (newOwnerId || user.id),
+      ownerEmail: keepOriginalOwner ? originalBigRock.ownerEmail : null,
+      objectiveId: keepLinkedOKR ? originalBigRock.objectiveId : null,
+      keyResultId: keepLinkedOKR ? originalBigRock.keyResultId : null,
+      linkedStrategies: originalBigRock.linkedStrategies,
+      dueDate: null,
+      tasks: null,
+      blockedBy: null,
+      createdBy: user.id,
+    });
+    
+    res.json(clonedBigRock);
+  } catch (error) {
+    console.error('[Big Rock Clone] Error:', error);
+    res.status(500).json({ error: (error as Error).message });
   }
 });
 
