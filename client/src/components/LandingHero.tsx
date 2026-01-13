@@ -308,6 +308,9 @@ export function LandingHero() {
         </div>
       </section>
 
+      {/* Capability Showcase Section - dynamically rendered if enabled */}
+      <CapabilityShowcase />
+
       {/* How Access Works Section */}
       <section className="py-10 md:py-14 bg-muted/50 border-b">
         <div className="max-w-3xl mx-auto px-6">
@@ -331,9 +334,6 @@ export function LandingHero() {
           </div>
         </div>
       </section>
-
-      {/* Capability Showcase Section - dynamically rendered if enabled */}
-      <CapabilityShowcase />
 
       {/* Outcomes Section */}
       <section className="py-16 md:py-24 bg-background">
