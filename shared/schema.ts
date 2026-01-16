@@ -1695,6 +1695,89 @@ export const insertAiUsageSummarySchema = createInsertSchema(aiUsageSummaries).o
 export type InsertAiUsageSummary = z.infer<typeof insertAiUsageSummarySchema>;
 export type AiUsageSummary = typeof aiUsageSummaries.$inferSelect;
 
+// ========== AI CONFIGURATION ==========
+// Platform-level AI provider configuration for admin-controlled model switching
+
+export type AzureOpenAIConfig = {
+  endpoint: string;           // e.g., https://your-resource.openai.azure.com
+  deploymentName: string;     // Your model deployment name
+  apiVersion: string;         // e.g., 2024-06-01
+  authType: 'api_key' | 'azure_ad';
+  // API key is stored as secret, not in this config
+};
+
+export type OpenAIConfig = {
+  organizationId?: string;    // Optional org ID
+  // API key is stored as secret, not in this config
+};
+
+export type AnthropicConfig = {
+  // API key is stored as secret, not in this config
+  // No additional config needed
+};
+
+export type AIProviderConfig = {
+  azure_openai?: AzureOpenAIConfig;
+  openai?: OpenAIConfig;
+  anthropic?: AnthropicConfig;
+};
+
+// Available models per provider
+export const AI_MODELS = {
+  replit_ai: ['gpt-5', 'gpt-4o', 'gpt-4o-mini'],
+  azure_openai: ['gpt-5', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4'],
+  openai: ['gpt-5', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4'],
+  anthropic: ['claude-3.5-opus', 'claude-3.5-sonnet', 'claude-3.5-haiku', 'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
+} as const;
+
+// Model display names and descriptions
+export const AI_MODEL_INFO: Record<string, { name: string; description: string; costTier: 'low' | 'medium' | 'high' }> = {
+  'gpt-5': { name: 'GPT-5', description: 'Most capable OpenAI model', costTier: 'high' },
+  'gpt-4o': { name: 'GPT-4o', description: 'Fast, multimodal model', costTier: 'medium' },
+  'gpt-4o-mini': { name: 'GPT-4o Mini', description: 'Cost-effective for simple tasks', costTier: 'low' },
+  'gpt-4-turbo': { name: 'GPT-4 Turbo', description: 'Enhanced GPT-4 with vision', costTier: 'medium' },
+  'gpt-4': { name: 'GPT-4', description: 'Original GPT-4 model', costTier: 'medium' },
+  'claude-3.5-opus': { name: 'Claude 3.5 Opus', description: 'Most capable Anthropic model', costTier: 'high' },
+  'claude-3.5-sonnet': { name: 'Claude 3.5 Sonnet', description: 'Balanced performance', costTier: 'medium' },
+  'claude-3.5-haiku': { name: 'Claude 3.5 Haiku', description: 'Fast and cost-effective', costTier: 'low' },
+  'claude-3-opus': { name: 'Claude 3 Opus', description: 'Previous generation, powerful', costTier: 'high' },
+  'claude-3-sonnet': { name: 'Claude 3 Sonnet', description: 'Previous generation, balanced', costTier: 'medium' },
+  'claude-3-haiku': { name: 'Claude 3 Haiku', description: 'Previous generation, fast', costTier: 'low' },
+};
+
+export const aiConfiguration = pgTable("ai_configuration", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Active provider and model
+  activeProvider: text("active_provider").notNull().default('replit_ai'),
+  activeModel: text("active_model").notNull().default('gpt-5'),
+  
+  // Provider-specific configuration (non-secret settings)
+  providerConfig: jsonb("provider_config").$type<AIProviderConfig>(),
+  
+  // Feature flags
+  enableStreaming: boolean("enable_streaming").default(true),
+  enableFunctionCalling: boolean("enable_function_calling").default(true),
+  
+  // Rate limiting / cost controls
+  maxTokensPerRequest: integer("max_tokens_per_request").default(4000),
+  monthlyTokenBudget: integer("monthly_token_budget"),  // null = unlimited
+  
+  // Audit trail
+  updatedBy: varchar("updated_by").references(() => users.id),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAiConfigurationSchema = createInsertSchema(aiConfiguration).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertAiConfiguration = z.infer<typeof insertAiConfigurationSchema>;
+export type AiConfiguration = typeof aiConfiguration.$inferSelect;
+
 // Launchpad Sessions - AI-powered document-to-Company OS generator
 export type LaunchpadProposal = {
   mission?: string | null;
