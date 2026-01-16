@@ -1,12 +1,39 @@
 import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 import { storage } from "./storage";
-import type { GroundingDocument, Foundation, Strategy, Objective, InsertAiUsageLog } from "@shared/schema";
-import { AI_PROVIDERS, AI_FEATURES, type AIFeature } from "@shared/schema";
+import type { GroundingDocument, Foundation, Strategy, Objective, InsertAiUsageLog, AiConfiguration, AIProviderConfig } from "@shared/schema";
+import { AI_PROVIDERS, AI_FEATURES, type AIFeature, type AIProvider } from "@shared/schema";
 import { AI_TOOLS, executeTool, formatToolResult } from "./ai-tools";
 
-// the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-const MODEL = "gpt-5";
-const CURRENT_PROVIDER = AI_PROVIDERS.REPLIT;
+// Default configuration (used when no config exists in database)
+const DEFAULT_MODEL = "gpt-5";
+const DEFAULT_PROVIDER = AI_PROVIDERS.REPLIT;
+
+// Cache for AI configuration to avoid constant DB lookups
+let cachedConfig: AiConfiguration | null = null;
+let configCacheTime = 0;
+const CONFIG_CACHE_TTL = 60000; // 1 minute cache
+
+// Get current AI configuration from database with caching
+async function getActiveConfig(): Promise<{ provider: AIProvider; model: string; config: AiConfiguration | undefined }> {
+  const now = Date.now();
+  if (!cachedConfig || now - configCacheTime > CONFIG_CACHE_TTL) {
+    cachedConfig = (await storage.getAiConfiguration()) || null;
+    configCacheTime = now;
+  }
+  
+  return {
+    provider: (cachedConfig?.activeProvider as AIProvider) || DEFAULT_PROVIDER,
+    model: cachedConfig?.activeModel || DEFAULT_MODEL,
+    config: cachedConfig || undefined
+  };
+}
+
+// Clear config cache (call after updates)
+export function clearAiConfigCache(): void {
+  cachedConfig = null;
+  configCacheTime = 0;
+}
 
 // Cost per 1K tokens in microdollars (1 cent = 10000 microdollars)
 // Pricing estimates based on public pricing as of late 2025
@@ -43,8 +70,10 @@ async function logAiUsage(params: {
   provider?: string;
 }): Promise<void> {
   try {
-    const actualModel = params.model || MODEL;
-    const actualProvider = params.provider || CURRENT_PROVIDER;
+    // Get active config for defaults
+    const activeConfig = await getActiveConfig();
+    const actualModel = params.model || activeConfig.model;
+    const actualProvider = params.provider || activeConfig.provider;
     
     const totalTokens = params.promptTokens + params.completionTokens;
     const costs = COST_PER_1K_TOKENS[actualModel] || COST_PER_1K_TOKENS.default;

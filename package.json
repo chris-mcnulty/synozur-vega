@@ -11,6 +11,7 @@
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
     "@azure/identity": "^4.13.0",
     "@azure/msal-node": "^3.8.4",
     "@google-cloud/storage": "^7.18.0",

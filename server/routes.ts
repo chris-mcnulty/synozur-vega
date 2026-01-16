@@ -2164,6 +2164,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // ============================================
+  // AI CONFIGURATION (Vega Admin only)
+  // ============================================
+
+  // Get current AI configuration
+  app.get("/api/admin/ai-config", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const config = await storage.getAiConfiguration();
+      // Return default values if no configuration exists
+      res.json(config || {
+        activeProvider: 'replit_ai',
+        activeModel: 'gpt-5',
+        enableStreaming: true,
+        enableFunctionCalling: true,
+        maxTokensPerRequest: 4000,
+        monthlyTokenBudget: null,
+        providerConfig: null
+      });
+    } catch (error) {
+      console.error("Error fetching AI configuration:", error);
+      res.status(500).json({ error: "Failed to fetch AI configuration" });
+    }
+  });
+
+  // Update AI configuration
+  app.patch("/api/admin/ai-config", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const { 
+        activeProvider, 
+        activeModel, 
+        providerConfig,
+        enableStreaming,
+        enableFunctionCalling,
+        maxTokensPerRequest,
+        monthlyTokenBudget
+      } = req.body;
+      
+      const config = await storage.updateAiConfiguration({
+        activeProvider,
+        activeModel,
+        providerConfig,
+        enableStreaming,
+        enableFunctionCalling,
+        maxTokensPerRequest,
+        monthlyTokenBudget
+      }, req.user!.id);
+      
+      // Clear the AI config cache so changes take effect immediately
+      const { clearAiConfigCache } = await import('./ai');
+      clearAiConfigCache();
+      
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating AI configuration:", error);
+      res.status(500).json({ error: "Failed to update AI configuration" });
+    }
+  });
+
+  // Get available AI providers and models
+  app.get("/api/admin/ai-config/options", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const { AI_MODELS, AI_MODEL_INFO, AI_PROVIDERS } = await import('@shared/schema');
+      res.json({
+        providers: Object.entries(AI_PROVIDERS).map(([key, value]) => ({
+          id: value,
+          name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
+        })),
+        models: AI_MODELS,
+        modelInfo: AI_MODEL_INFO
+      });
+    } catch (error) {
+      console.error("Error fetching AI options:", error);
+      res.status(500).json({ error: "Failed to fetch AI options" });
+    }
+  });
+
+  // ============================================
   // SYSTEM BANNERS (Vega Admin only)
   // ============================================
 
