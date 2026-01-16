@@ -2,6 +2,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useQuery } from "@tanstack/react-query";
 import {
   Info,
   Mail,
@@ -19,9 +21,17 @@ import {
 import vegaLogo from "@assets/VegaTight_1766605018223.png";
 
 const VERSION_MAJOR = 1;
-const VERSION_RELEASE_DATE = "2026-01-16";
+
+interface BuildInfo {
+  buildTime: string;
+  environment: string;
+}
 
 export default function About() {
+  const { data: buildInfo, isLoading } = useQuery<BuildInfo>({
+    queryKey: ['/api/build-info'],
+  });
+
   const formatVersionNumber = (major: number, dateStr: string) => {
     const date = new Date(dateStr);
     const year = date.getFullYear();
@@ -30,9 +40,10 @@ export default function About() {
     return `${major}.${year}.${month}.${day}`;
   };
 
-  const versionNumber = formatVersionNumber(VERSION_MAJOR, VERSION_RELEASE_DATE);
+  const releaseDate = buildInfo?.buildTime || new Date().toISOString();
+  const versionNumber = formatVersionNumber(VERSION_MAJOR, releaseDate);
   const isProductionRelease = VERSION_MAJOR > 0;
-  const environment = import.meta.env.PROD ? 'Production' : 'Development';
+  const environment = buildInfo?.environment === 'production' ? 'Production' : 'Development';
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
@@ -184,7 +195,7 @@ export default function About() {
 
               <div className="text-center p-4 bg-muted/30 rounded-lg">
                 <div className="text-2xl font-bold text-primary">
-                  {new Date(VERSION_RELEASE_DATE).toLocaleDateString()}
+                  {isLoading ? <Skeleton className="h-8 w-32 mx-auto" /> : new Date(releaseDate).toLocaleDateString()}
                 </div>
                 <div className="text-sm text-muted-foreground">Release Date</div>
               </div>

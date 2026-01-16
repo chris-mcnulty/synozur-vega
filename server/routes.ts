@@ -88,7 +88,18 @@ async function requireTenantAccessOrPlatformAdmin(req: Request, res: Response, n
 // Admin middleware that works for platform admins without tenant context
 const adminWithOptionalTenant = [requireAuth, loadCurrentUser, requireTenantAccessOrPlatformAdmin, rbac.tenantAdmin];
 
+// Capture server startup time (equals deployment time in production)
+const SERVER_START_TIME = new Date().toISOString();
+
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Build info endpoint for version display
+  app.get("/api/build-info", (req, res) => {
+    res.json({
+      buildTime: SERVER_START_TIME,
+      environment: process.env.NODE_ENV || 'development'
+    });
+  });
+
   // User Guide route - serve the markdown file
   app.get("/api/user-guide", async (req, res) => {
     try {
