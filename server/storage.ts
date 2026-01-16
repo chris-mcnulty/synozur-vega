@@ -26,6 +26,7 @@ import {
   systemVocabulary, type SystemVocabulary, type VocabularyTerms, defaultVocabulary,
   aiUsageLogs, type AiUsageLog, type InsertAiUsageLog,
   aiUsageSummaries, type AiUsageSummary,
+  aiConfiguration, type AiConfiguration, type InsertAiConfiguration,
   reviewSnapshots, type ReviewSnapshot, type InsertReviewSnapshot,
   reportTemplates, type ReportTemplate, type InsertReportTemplate,
   reportInstances, type ReportInstance, type InsertReportInstance,
@@ -241,6 +242,10 @@ export interface IStorage {
     byFeature: Record<string, { requests: number; tokens: number; cost: number }>;
     byProvider: Record<string, { requests: number; tokens: number; cost: number }>;
   }>;
+  
+  // AI Configuration methods
+  getAiConfiguration(): Promise<AiConfiguration | undefined>;
+  updateAiConfiguration(config: Partial<InsertAiConfiguration>, updatedBy: string): Promise<AiConfiguration>;
   
   // Review Snapshots methods
   getReviewSnapshotsByTenantId(tenantId: string, year?: number, quarter?: number): Promise<ReviewSnapshot[]>;
@@ -2323,6 +2328,40 @@ export class DatabaseStorage implements IStorage {
       byFeature,
       byProvider
     };
+  }
+
+  // AI Configuration methods
+  async getAiConfiguration(): Promise<AiConfiguration | undefined> {
+    // There's only one platform-wide AI configuration
+    const [config] = await db.select().from(aiConfiguration).limit(1);
+    return config;
+  }
+
+  async updateAiConfiguration(config: Partial<InsertAiConfiguration>, updatedBy: string): Promise<AiConfiguration> {
+    // Check if configuration exists
+    const existing = await this.getAiConfiguration();
+    
+    if (existing) {
+      // Update existing
+      const [updated] = await db.update(aiConfiguration)
+        .set({ 
+          ...config, 
+          updatedBy,
+          updatedAt: new Date() 
+        })
+        .where(eq(aiConfiguration.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      // Create new
+      const [created] = await db.insert(aiConfiguration)
+        .values({ 
+          ...config as InsertAiConfiguration,
+          updatedBy 
+        })
+        .returning();
+      return created;
+    }
   }
 
   // Review Snapshots methods
