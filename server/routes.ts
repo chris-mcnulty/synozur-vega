@@ -2227,13 +2227,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { AI_MODELS, AI_MODEL_INFO, AI_PROVIDERS } = await import('@shared/schema');
       // Flatten all models into a single array (removing duplicates)
       const allModels = [...new Set(Object.values(AI_MODELS).flat())];
+      
+      // Check provider readiness (only return boolean status, not secret details)
+      const providerStatus: Record<string, boolean> = {
+        replit_ai: true, // Always available via Replit integration
+        openai: !!process.env.OPENAI_API_KEY,
+        azure_openai: !!(process.env.AZURE_OPENAI_ENDPOINT && process.env.AZURE_OPENAI_API_KEY),
+        anthropic: !!process.env.ANTHROPIC_API_KEY,
+      };
+      
       res.json({
         providers: Object.entries(AI_PROVIDERS).map(([key, value]) => ({
           id: value,
           name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
         })),
         models: allModels,
-        modelInfo: AI_MODEL_INFO
+        modelInfo: AI_MODEL_INFO,
+        providerStatus, // Simple boolean: is provider ready to use?
       });
     } catch (error) {
       console.error("Error fetching AI options:", error);

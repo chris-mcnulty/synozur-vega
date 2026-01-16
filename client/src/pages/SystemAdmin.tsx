@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { Shield, BookOpen, Save, RotateCcw, Activity, BarChart3, Globe, Monitor, Smartphone, Tablet, Bot, Download, Users, Building2, Check, X, Megaphone, ExternalLink, Info, CreditCard, Ban, Plus, Pencil, Eye, Home, UserPlus, RefreshCw, Calendar, Film, Layers, Trash2, GripVertical, ImagePlus, Upload } from "lucide-react";
+import { Shield, BookOpen, Save, RotateCcw, Activity, BarChart3, Globe, Monitor, Smartphone, Tablet, Bot, Download, Users, Building2, Check, X, Megaphone, ExternalLink, Info, CreditCard, Ban, Plus, Pencil, Eye, Home, UserPlus, RefreshCw, Calendar, Film, Layers, Trash2, GripVertical, ImagePlus, Upload, Key, AlertCircle } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, Legend } from "recharts";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
@@ -203,6 +203,7 @@ type AIOptions = {
   providers: { id: string; name: string }[];
   models: string[];
   modelInfo: Record<string, ModelInfo>;
+  providerStatus: Record<string, boolean>;
 };
 
 function AIConfigPanel() {
@@ -494,6 +495,59 @@ function AIConfigPanel() {
 
       <Card>
         <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Key className="h-5 w-5" />
+            Provider API Status
+          </CardTitle>
+          <CardDescription>
+            Shows which AI providers have their API credentials configured
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {options?.providers?.map((provider) => {
+              const isConfigured = options.providerStatus?.[provider.id] ?? false;
+              const isSelected = formData.activeProvider === provider.id;
+              return (
+                <div 
+                  key={provider.id}
+                  className={`flex items-center justify-between p-3 rounded-lg border ${
+                    isSelected ? 'border-primary bg-primary/5' : 'border-border'
+                  }`}
+                  data-testid={`provider-status-${provider.id}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium">{provider.name}</span>
+                    {isSelected && (
+                      <Badge variant="outline" className="text-xs">Active</Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isConfigured ? (
+                      <Badge variant="default" className="bg-green-600 hover:bg-green-700">
+                        <Check className="h-3 w-3 mr-1" />
+                        Ready
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="text-muted-foreground">
+                        <AlertCircle className="h-3 w-3 mr-1" />
+                        Not Configured
+                      </Badge>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <p className="text-xs text-muted-foreground mt-4">
+            To configure a provider, add the required API key(s) to your environment secrets. 
+            Replit AI is always available through the built-in integration.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
           <CardTitle className="text-lg">About AI Configuration</CardTitle>
           <CardDescription>
             Understanding AI provider settings and their impact
@@ -514,6 +568,15 @@ function AIConfigPanel() {
             <strong>Provider Options:</strong> Replit AI (default), Azure OpenAI, OpenAI, and Anthropic are supported.
             Each provider requires its own API credentials configured in the environment.
           </p>
+          <div className="bg-muted/50 rounded-lg p-3 mt-2">
+            <p className="font-medium text-foreground mb-2">Required Secrets by Provider:</p>
+            <ul className="space-y-1 text-xs">
+              <li><strong>Replit AI:</strong> No additional configuration needed</li>
+              <li><strong>OpenAI:</strong> OPENAI_API_KEY</li>
+              <li><strong>Azure OpenAI:</strong> AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_KEY</li>
+              <li><strong>Anthropic:</strong> ANTHROPIC_API_KEY</li>
+            </ul>
+          </div>
           <p>
             <strong>Cost Considerations:</strong> Different models have different pricing. 
             GPT-5 offers the best quality but highest cost. GPT-4o provides a good balance of quality and cost.
