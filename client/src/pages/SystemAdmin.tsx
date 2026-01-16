@@ -180,6 +180,351 @@ const VOCABULARY_OPTIONS: Record<keyof VocabularyTerms, VocabularyTerm[]> = {
   ],
 };
 
+type AIConfig = {
+  id?: string;
+  activeProvider: string;
+  activeModel: string;
+  enableStreaming: boolean;
+  enableFunctionCalling: boolean;
+  maxTokensPerRequest: number | null;
+  monthlyTokenBudget: number | null;
+  providerConfig: Record<string, unknown> | null;
+};
+
+type ModelInfo = {
+  name: string;
+  providers: string[];  // List of providers that support this model
+  contextWindow: number;
+  costPer1kPrompt: number;  // dollars per 1K tokens
+  costPer1kCompletion: number;  // dollars per 1K tokens
+};
+
+type AIOptions = {
+  providers: { id: string; name: string }[];
+  models: string[];
+  modelInfo: Record<string, ModelInfo>;
+};
+
+function AIConfigPanel() {
+  const { toast } = useToast();
+  
+  const { data: config, isLoading: configLoading } = useQuery<AIConfig>({
+    queryKey: ["/api/admin/ai-config"],
+  });
+
+  const { data: options, isLoading: optionsLoading } = useQuery<AIOptions>({
+    queryKey: ["/api/admin/ai-config/options"],
+  });
+
+  const [formData, setFormData] = useState<AIConfig>({
+    activeProvider: 'replit_ai',
+    activeModel: 'gpt-5',
+    enableStreaming: true,
+    enableFunctionCalling: true,
+    maxTokensPerRequest: 4000,
+    monthlyTokenBudget: null,
+    providerConfig: null,
+  });
+
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    if (config) {
+      setFormData({
+        activeProvider: config.activeProvider || 'replit_ai',
+        activeModel: config.activeModel || 'gpt-5',
+        enableStreaming: config.enableStreaming ?? true,
+        enableFunctionCalling: config.enableFunctionCalling ?? true,
+        maxTokensPerRequest: config.maxTokensPerRequest || 4000,
+        monthlyTokenBudget: config.monthlyTokenBudget || null,
+        providerConfig: config.providerConfig || null,
+      });
+      setHasChanges(false);
+    }
+  }, [config]);
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: Partial<AIConfig>) => {
+      const res = await apiRequest("PATCH", "/api/admin/ai-config", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/ai-config"] });
+      setHasChanges(false);
+      toast({
+        title: "AI Configuration Updated",
+        description: "The AI provider settings have been saved. Changes take effect immediately.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update AI configuration",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSave = () => {
+    updateMutation.mutate(formData);
+  };
+
+  const handleReset = () => {
+    if (config) {
+      setFormData({
+        activeProvider: config.activeProvider || 'replit_ai',
+        activeModel: config.activeModel || 'gpt-5',
+        enableStreaming: config.enableStreaming ?? true,
+        enableFunctionCalling: config.enableFunctionCalling ?? true,
+        maxTokensPerRequest: config.maxTokensPerRequest || 4000,
+        monthlyTokenBudget: config.monthlyTokenBudget || null,
+        providerConfig: config.providerConfig || null,
+      });
+      setHasChanges(false);
+    }
+  };
+
+  const updateField = <K extends keyof AIConfig>(field: K, value: AIConfig[K]) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    setHasChanges(true);
+  };
+
+  const selectedModelInfo = options?.modelInfo?.[formData.activeModel];
+  const modelsForProvider = options?.models?.filter(model => {
+    const info = options.modelInfo?.[model];
+    return info?.providers?.includes(formData.activeProvider);
+  }) || [];
+
+  if (configLoading || optionsLoading) {
+    return (
+      <div className="flex justify-center items-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <CardTitle className="text-lg flex items-center gap-2">
+                <Bot className="h-5 w-5" />
+                AI Provider Configuration
+              </CardTitle>
+              <CardDescription className="text-sm">
+                Configure which AI provider and model the platform uses for all AI features.
+                Changes take effect immediately across all tenants.
+              </CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={handleReset}
+                disabled={!hasChanges}
+                data-testid="button-reset-ai-config"
+              >
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reset
+              </Button>
+              <Button 
+                size="sm"
+                onClick={handleSave}
+                disabled={!hasChanges || updateMutation.isPending}
+                data-testid="button-save-ai-config"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {updateMutation.isPending ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>AI Provider</Label>
+              <Select
+                value={formData.activeProvider}
+                onValueChange={(value) => {
+                  updateField('activeProvider', value);
+                  const firstModelForProvider = options?.models?.find(model => {
+                    const info = options.modelInfo?.[model];
+                    return info?.providers?.includes(value);
+                  });
+                  if (firstModelForProvider) {
+                    updateField('activeModel', firstModelForProvider);
+                  }
+                }}
+              >
+                <SelectTrigger data-testid="select-ai-provider">
+                  <SelectValue placeholder="Select provider" />
+                </SelectTrigger>
+                <SelectContent>
+                  {options?.providers?.map((provider) => (
+                    <SelectItem key={provider.id} value={provider.id}>
+                      {provider.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Select the AI service provider for all AI features
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Model</Label>
+              <Select
+                value={formData.activeModel}
+                onValueChange={(value) => updateField('activeModel', value)}
+              >
+                <SelectTrigger data-testid="select-ai-model">
+                  <SelectValue placeholder="Select model" />
+                </SelectTrigger>
+                <SelectContent>
+                  {modelsForProvider.length > 0 ? (
+                    modelsForProvider.map((model) => (
+                      <SelectItem key={model} value={model}>
+                        {options?.modelInfo?.[model]?.name || model}
+                      </SelectItem>
+                    ))
+                  ) : (
+                    options?.models?.map((model) => (
+                      <SelectItem key={model} value={model}>
+                        {options?.modelInfo?.[model]?.name || model}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Select the specific AI model to use
+              </p>
+            </div>
+          </div>
+
+          {selectedModelInfo && (
+            <Card className="bg-muted/50">
+              <CardContent className="pt-4">
+                <h4 className="font-medium mb-3">Model Details</h4>
+                <div className="grid gap-3 text-sm md:grid-cols-3">
+                  <div>
+                    <span className="text-muted-foreground">Context Window:</span>
+                    <span className="ml-2 font-medium">{(selectedModelInfo.contextWindow / 1000).toLocaleString()}K tokens</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Input Cost:</span>
+                    <span className="ml-2 font-medium">${selectedModelInfo.costPer1kPrompt.toFixed(5)}/1K tokens</span>
+                  </div>
+                  <div>
+                    <span className="text-muted-foreground">Output Cost:</span>
+                    <span className="ml-2 font-medium">${selectedModelInfo.costPer1kCompletion.toFixed(5)}/1K tokens</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          <div className="border-t pt-4">
+            <h4 className="font-medium mb-4">Advanced Settings</h4>
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Enable Streaming</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Stream AI responses for better user experience
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.enableStreaming}
+                  onCheckedChange={(checked) => updateField('enableStreaming', checked)}
+                  data-testid="switch-enable-streaming"
+                />
+              </div>
+
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label>Enable Function Calling</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Allow AI to use structured tool calls
+                  </p>
+                </div>
+                <Switch
+                  checked={formData.enableFunctionCalling}
+                  onCheckedChange={(checked) => updateField('enableFunctionCalling', checked)}
+                  data-testid="switch-enable-function-calling"
+                />
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label>Max Tokens per Request</Label>
+                  <Input
+                    type="number"
+                    value={formData.maxTokensPerRequest || ''}
+                    onChange={(e) => updateField('maxTokensPerRequest', e.target.value ? parseInt(e.target.value) : null)}
+                    placeholder="4000"
+                    data-testid="input-max-tokens"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Maximum tokens allowed per AI request
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Monthly Token Budget</Label>
+                  <Input
+                    type="number"
+                    value={formData.monthlyTokenBudget || ''}
+                    onChange={(e) => updateField('monthlyTokenBudget', e.target.value ? parseInt(e.target.value) : null)}
+                    placeholder="No limit"
+                    data-testid="input-monthly-budget"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Platform-wide monthly token limit (optional)
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">About AI Configuration</CardTitle>
+          <CardDescription>
+            Understanding AI provider settings and their impact
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm text-muted-foreground">
+          <p>
+            The AI Configuration panel allows platform administrators to control which AI service 
+            powers all AI features in Vega, including:
+          </p>
+          <ul className="list-disc list-inside space-y-1">
+            <li>OKR drafting and suggestions</li>
+            <li>Check-in assistance and analysis</li>
+            <li>Document extraction in Launchpad</li>
+            <li>Big Rock recommendations</li>
+          </ul>
+          <p>
+            <strong>Provider Options:</strong> Replit AI (default), Azure OpenAI, OpenAI, and Anthropic are supported.
+            Each provider requires its own API credentials configured in the environment.
+          </p>
+          <p>
+            <strong>Cost Considerations:</strong> Different models have different pricing. 
+            GPT-5 offers the best quality but highest cost. GPT-4o provides a good balance of quality and cost.
+            Claude models are competitive alternatives with strong reasoning capabilities.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 export default function SystemAdmin() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -534,6 +879,10 @@ export default function SystemAdmin() {
               <Activity className="h-4 w-4 shrink-0" />
               <span className="text-xs sm:text-sm">AI Usage</span>
             </TabsTrigger>
+            <TabsTrigger value="ai-config" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-ai-config">
+              <Bot className="h-4 w-4 shrink-0" />
+              <span className="text-xs sm:text-sm">AI Config</span>
+            </TabsTrigger>
             <TabsTrigger value="plans" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-plans">
               <CreditCard className="h-4 w-4 shrink-0" />
               <span className="text-xs sm:text-sm">Plans</span>
@@ -664,6 +1013,10 @@ export default function SystemAdmin() {
               </p>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="ai-config" className="space-y-4">
+          <AIConfigPanel />
         </TabsContent>
 
         <TabsContent value="plans" className="space-y-4">

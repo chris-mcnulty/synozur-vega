@@ -1,14 +1,10 @@
 # Vega - AI-Augmented Company OS Platform
 
 ## Overview
-Vega is a responsive web application serving as a comprehensive Company Operating System (Company OS). Its purpose is to align organizational strategy with execution using AI-powered modules for foundational elements, strategy development, and focus rhythm management. The platform supports consultant-led and self-service approaches, integrates with Microsoft 365, and maintains a consistent UI/UX with Orion.synozur.com for brand continuity, aiming to provide a holistic solution for managing and implementing strategic objectives.
+Vega is a responsive web application designed as a comprehensive Company Operating System (Company OS). Its primary goal is to synchronize organizational strategy with execution through AI-powered modules that manage foundational elements, strategy development, and focus rhythm. The platform supports both consultant-led and self-service models, integrates with Microsoft 365, and maintains a consistent UI/UX with Orion.synozur.com for brand continuity. It aims to provide a holistic solution for managing and implementing strategic objectives.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
-
-**Related Synozur Applications:**
-- **Vega** - This codebase. Company Operating System for OKRs, strategy, AI-powered check-ins, multi-tenancy with RBAC.
-- **Constellation (SCDP)** - Separate application for managing estimates, projects, time tracking, expenses, billing, and invoices. Not in this codebase.
 
 ## System Architecture
 
@@ -18,145 +14,33 @@ Preferred communication style: Simple, everyday language.
 - **Styling**: TailwindCSS, Avenir Next LT Pro font, CSS variables for design tokens, and responsive design.
 - **UI/UX Decisions**: Mimics Orion.synozur.com's aesthetic, emphasizing whitespace, card-based layouts, and subtle animations.
 - **Key Features**:
-    - **Company OS Dashboard**: Real-time overview of Foundations, Strategies, Quarterly OKRs, Big Rocks, and upcoming meetings.
-    - **Executive Dashboard**: Advanced analytics dashboard with strategic insights, progress visualizations, trend analysis, and performance metrics. Includes pace tracking, velocity projections, and at-risk item identification.
-    - **Team Dashboard (Team Mode)**: Simplified interface for teams focusing on weekly execution, with streamlined views of Key Results and Big Rocks relevant to the selected team. Features quick check-ins and team-scoped filtering.
-    - **Foundations Module**: Manages mission, vision, values, and annual goals with AI suggestions.
-    - **Strategy Module**: Facilitates strategy management with AI drafting and goal alignment.
-    - **Outcomes Module**: Enhanced OKR system with hierarchical objectives, Key Results, and "big rocks." Displayed as "Outcomes" in navigation but internally uses Planning routes.
-    - **Focus Rhythm**: Full meeting management with OKR alignment, templates, auto-generated agendas, and search.
-    - **Reporting Module**: Generate professional reports with PDF and PowerPoint (PPTX) export, snapshot comparisons, and customizable branding. Supports OKR progress reports, strategic reviews, and dashboard summaries.
-    - **OKR Intelligence**: Pace and velocity tracking with predictive projections. Calculates on-track/ahead/behind status based on time elapsed vs progress. Displays pace indicators throughout the application and "Behind Pace" alerts on Executive Dashboard with severity sorting.
-    - **Tenant Admin**: Manages organization, M365 integration status, tenant/user CRUD, and allowed email domains.
-    - **System Admin**: Platform-wide administration including vocabulary defaults, AI usage monitoring, service plans, blocked domains, tenant management, and system-wide announcements. Accessible only to Vega Admins and Global Admins.
-    - **Launchpad**: AI-powered document analysis for extracting and creating foundational company elements.
-    - **OKR Cloning**: Allows cloning of objectives with various scope options and target quarter/year selection.
-    - **OKR Period Close-Out**: When checking in on objectives/KRs from a past period, prompts user to either continue working in a new period (opens clone dialog) or close with a mandatory closing note. Uses Pacific Time for period detection. Period-ended uses amber styling, target-exceeded uses green.
+    - **Dashboards**: Company OS Dashboard, Executive Dashboard (advanced analytics, pace tracking, velocity projections), and Team Dashboard (simplified, weekly execution focus).
+    - **Core Modules**: Foundations (mission, vision, values, annual goals with AI), Strategy (AI drafting, goal alignment), Outcomes (hierarchical OKRs, "big rocks"), Focus Rhythm (meeting management), Reporting (PDF/PPTX export, customizable branding).
+    - **AI & Intelligence**: OKR Intelligence for pace and velocity tracking, predictive projections, and "Behind Pace" alerts. Launchpad for AI-powered document analysis.
+    - **Administration**: Tenant Admin (org, M365 integration, user management, allowed domains), System Admin (platform-wide AI config, service plans, announcements).
+    - **OKR Workflow**: Cloning, Period Close-Out with mandatory notes, Mixed Child Rollup Progress Calculation.
+    - **Vocabulary Module**: Customizable terminology with system defaults and tenant overrides.
+    - **Public Domain Handling (Invite-Only Mode)**: Prevents domain squatting for public email domains by enforcing invite-only tenants.
 
 ### Backend
 - **Server**: Express.js with Node.js, providing a RESTful API.
-- **Data Storage**: PostgreSQL with Drizzle ORM, using UUIDs for primary keys.
+- **Data Storage**: PostgreSQL with Drizzle ORM, using UUIDs.
 - **System Design Choices**:
-    - `IStorage` interface for CRUD operations, implemented by `DatabaseStorage`.
-    - Session-based authentication with Express sessions, `connect-pg-simple`, bcryptjs for password hashing, and SendGrid for email verification.
-    - **Microsoft Entra ID SSO**: Multi-tenant MSAL-based Azure AD authentication with PKCE flow, just-in-time user provisioning, and tenant mapping. Includes SSO policy enforcement and user-friendly error handling.
-    - Multi-tenancy with data isolation per tenant, managed via `TenantContext` and `TenantSwitcher`.
-    - Full RBAC enforcement with 6 defined roles: `tenant_user`, `tenant_admin`, `admin`, `global_admin`, `vega_consultant`, `vega_admin`.
-    - **Fine-Grained OKR Permissions**: UPDATE_OWN_OKR vs UPDATE_ANY_OKR ownership checks. Server-side `canUserModifyOKR()` verifies ownerId, createdBy, or ownerEmail. Frontend `usePermissions()` hook with `canModifyOKR()` and `canModifyByEmail()` methods control Edit/Delete button visibility.
-    - **Vocabulary Module**: Customizable terminology for core objects, with system-level defaults and tenant-level overrides.
-    - **Public Domain Handling (Invite-Only Mode)**: Users signing up with public email domains (Gmail, Yahoo, Outlook, etc.) create personal invite-only tenants without claiming the public domain. This prevents domain squatting and ensures users from public domains can only join existing organizations via explicit invitation. Configurable in Tenant Admin via "Invite Only Mode" toggle.
-
-### Development & Tools
-- **Development Server**: Vite for client, esbuild for server, with HMR.
-- **Type Safety**: TypeScript.
-- **Form Management**: React Hook Form with Zod schemas.
-- **Date Handling**: `date-fns`.
+    - `IStorage` interface for CRUD operations.
+    - Session-based authentication with Express sessions, `connect-pg-simple`, bcryptjs, and SendGrid for email verification.
+    - **Microsoft Entra ID SSO**: Multi-tenant MSAL-based Azure AD authentication with PKCE, JIT user provisioning, and tenant mapping.
+    - Multi-tenancy with data isolation using `TenantContext` and `TenantSwitcher`.
+    - Full RBAC enforcement with 6 defined roles (`tenant_user`, `tenant_admin`, `admin`, `global_admin`, `vega_consultant`, `vega_admin`).
+    - Fine-grained OKR permissions (UPDATE_OWN_OKR vs UPDATE_ANY_OKR) with server-side checks and frontend `usePermissions()` hook.
+    - All date/time operations use America/Los_Angeles timezone.
 
 ## External Dependencies
 
-- **Microsoft 365 Integration**: Microsoft Graph Client for integration with Excel, Outlook Calendar, and Microsoft Planner using OAuth.
-    - **Planner Integration**: Full Microsoft Planner integration with per-user OAuth consent, supporting bidirectional sync of plans, buckets, and tasks, linkable to OKRs and Big Rocks. OAuth tokens are encrypted at rest.
-    - **Outlook Calendar Integration**: Per-user OAuth consent flow for accessing Outlook Calendar events.
-    - **Excel Data Binding**: Support for linking Key Results to OneDrive/SharePoint Excel files with cell reference binding.
-- **AI Services**: GPT-5 integration via Replit AI Integrations (OpenAI-compatible API) for streaming chat, OKR, and Big Rock suggestions. AI context is enhanced via a Grounding Documents system:
-    - **Grounding Document Categories**: INSTRUCTIONAL (methodology, best_practices, terminology, examples) - included in system prompt for inference mode to guide AI behavior. CONTEXTUAL (background_context, company_os) - included in user prompt as organizational context.
-    - **Launchpad Modes**: Extraction mode (for structured OKR documents) uses verbatim extraction without instructional guidance. Inference mode (for narrative documents) uses instructional guidance to generate proposals.
-    - AI usage is tracked for provider/model switching and cost analysis.
+- **Microsoft 365 Integration**: Microsoft Graph Client for integration with Excel, Outlook Calendar, and Microsoft Planner via OAuth. Supports bidirectional sync for Planner, event access for Outlook, and Excel data binding for Key Results.
+- **AI Services**: Dynamic AI provider configuration supporting Replit AI (default), Azure OpenAI, OpenAI, and Anthropic. Admins can switch providers/models (GPT-5, GPT-4o, Claude 3.5 Opus/Sonnet/Haiku) at runtime. Includes grounding documents for AI behavior and context, and tracks AI usage for cost analysis.
 - **UI Component Library**: shadcn/ui (built on Radix UI primitives).
 - **Database**: Neon PostgreSQL.
-- **Transactional Email**: SendGrid (via Replit connector).
-- **HubSpot CRM Integration**: Automated deal creation in HubSpot for new tenant signups using OAuth via Replit connector. Tracks tenant name, email, domain, plan name, and signup date.
-- **OpenAPI Specification**: Full OpenAPI 3.0 spec for M365 Copilot Agent integration available at `/openapi.yaml` (YAML) and `/openapi.json` (JSON). Documents all major endpoints: authentication, OKRs, strategies, foundations, meetings, teams, AI, and reporting.
-- **M365 Copilot Agent**: Declarative agent manifest (v1.6), API plugin manifest, and Teams app manifest available in `/public/copilot-agent/`. Includes response formatting utilities in `server/copilot-response-formatter.ts`. See `public/copilot-agent/README.md` for deployment instructions.
-
-## Documentation & Change Tracking
-
-### CHANGELOG.md (User-Facing)
-**CHANGELOG.md** is the user-friendly changelog that documents all updates visible to end users. It uses plain language and is linked from the About page in the application.
-
-**When to update CHANGELOG.md:**
-- After completing any user-visible feature or improvement
-- After fixing bugs that users may have encountered
-- After performance improvements that affect user experience
-- After security updates
-
-**Format guidelines:**
-- Group entries by date (most recent first)
-- Use categories: New Features, Improvements, Bug Fixes, Performance, Security
-- Write in plain language users can understand (avoid technical jargon)
-- Include the date in format: "January 11, 2026"
-
-### BACKLOG.md (Developer-Facing)
-**BACKLOG.md** is the single source of truth for all feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference BACKLOG.md for:
-- Priority sequence and status of features
-- UX enhancement proposals and implementation status
-- Known issues and bugs
-- Technical architecture decisions (ADRs)
-- Completed features and their implementation notes
-
-**When to update BACKLOG.md:**
-- When adding new feature proposals
-- When changing feature status (in progress, complete, etc.)
-- When discovering new bugs or issues
-- When making architectural decisions
-- Update "Last Updated" date at the top when making changes
-
-### Keeping Documentation Current
-After completing any development work:
-1. Update CHANGELOG.md with user-visible changes
-2. Update BACKLOG.md feature status if applicable
-3. Update replit.md if architecture or patterns change
-
-## Development Notes
-
-### Azure App Registrations
-- **Vega App ID**: `33479c45-f21f-4911-8189-0c7a53c6a9d7` (main Vega application - needs `User.Read.All` for Entra user search)
-- **M365 Copilot Agent App ID**: `6aeac29a-cb76-405b-b0c6-df4a1a368f62` (declarative agent for Teams/Copilot)
-- **M365 Enterprise Token Store Client**: `ab3be6b7-f5df-413d-ac2d-abf1e3fd9c0b`
-
-### Important: Production vs Development Environments
-- **Production database is separate**: Users login to production (vega.synozur.com) where SSO is configured. The development database has no information about production user accounts, tenants, or SSO configurations.
-- **Cannot debug production auth issues from dev**: Production logs and database must be obtained separately to debug authentication issues.
-- **Azure AD SSO is configured in production**: The Entra app registration points to production URLs.
-
-### Microsoft 365 Connection Debugging
-- Comprehensive logging added to `microsoftGraph.ts` with `[SharePoint]`, `[Graph]`, `[Connector]`, `[EntraApp]` prefixes.
-- Connection check flow: 1) User delegated token → 2) Entra app credentials → 3) Connector fallback.
-- Look for `========== checkSharePointConnection START ==========` in logs to trace connection issues.
-- Error messages use proper capitalization: "SharePoint", "OneDrive", "Outlook".
-
-### Key Implementation Patterns
-- **Pacific Time Requirement**: All date/time operations use America/Los_Angeles timezone to prevent misdating
-- **React Hooks Rule**: All hooks must be called unconditionally BEFORE any early returns or conditional rendering
-- **Database Field Mapping**: Annual goals stored in `foundations.annualGoals` (not `goals`)
-- **Brand Color**: #810FFB (used for announcement banner default background)
-- **Mobile Design**: Gradient text only on desktop (md:), solid purple-400 on mobile
-
-### OKR Intelligence & Pace Tracking
-- **Pace Calculation**: Compares time elapsed in period vs progress achieved to determine on-track/ahead/behind status
-- **Velocity Projection**: Projects end-of-period progress based on current velocity, displayed as "→ X%" in pace badges
-- **PaceBadge Component**: Displays pace indicators throughout application (Outcomes, Executive Dashboard, Team Dashboard)
-- **Behind Pace Alerts**: Executive Dashboard shows "Behind Pace" section with severity sorting based on gap percentage
-- **Risk Signal Badges**: Displayed on objectives in both Outcomes module and Executive Dashboard
-- **Implemented in**: `client/src/lib/fiscal-utils.ts` (calculations) and `client/src/components/PaceBadge.tsx` (display)
-
-### Period Close-Out Logic
-- Check `isPeriodEnded()` BEFORE `isTargetExceeded()`
-- Period-ended uses amber styling, target-exceeded uses green
-- Closing notes are mandatory when choosing not to continue in next period
-
-### Mixed Child Rollup Progress Calculation
-- Objectives in rollup mode calculate progress from BOTH Key Results AND child objectives
-- Key Results always participate (using their weight, default 25% if unset)
-- Child objectives only participate if they have a weight explicitly set (weight > 0)
-- Child objectives with no weight (null) are excluded from parent rollup (backwards compatible)
-- When editing a child objective, a weight slider appears to set its contribution to parent's progress
-- Progress propagates upward: when a child's progress changes, parent is recalculated
-- Helper function `calculateObjectiveRollupProgress()` in routes-okr.ts handles the calculation
-
-### COS Import/Export
-- Export and import routes use `x-tenant-id` header for tenant context (not user.tenantId or form body)
-- Frontend must include `x-tenant-id` header when calling export/import APIs
-- Export includes: foundations, strategies, objectives, key results, big rocks, teams, check-ins, grounding documents
-- Import runs teams first so objectives can reference mapped team IDs
-- Dashboard "Objectives by Team" groups organization-level objectives under "Organization" label with Globe icon
+- **Transactional Email**: SendGrid.
+- **HubSpot CRM Integration**: Automated deal creation for new tenant signups.
+- **OpenAPI Specification**: Full OpenAPI 3.0 spec available at `/openapi.yaml` and `/openapi.json` for M365 Copilot Agent integration.
+- **M365 Copilot Agent**: Declarative agent manifest, API plugin manifest, and Teams app manifest available in `/public/copilot-agent/`.

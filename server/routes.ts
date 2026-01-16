@@ -2225,12 +2225,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/ai-config/options", ...platformAdminOnly, async (req: Request, res: Response) => {
     try {
       const { AI_MODELS, AI_MODEL_INFO, AI_PROVIDERS } = await import('@shared/schema');
+      // Flatten all models into a single array (removing duplicates)
+      const allModels = [...new Set(Object.values(AI_MODELS).flat())];
       res.json({
         providers: Object.entries(AI_PROVIDERS).map(([key, value]) => ({
           id: value,
           name: key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
         })),
-        models: AI_MODELS,
+        models: allModels,
         modelInfo: AI_MODEL_INFO
       });
     } catch (error) {

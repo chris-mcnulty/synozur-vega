@@ -1730,19 +1730,28 @@ export const AI_MODELS = {
   anthropic: ['claude-3.5-opus', 'claude-3.5-sonnet', 'claude-3.5-haiku', 'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
 } as const;
 
-// Model display names and descriptions
-export const AI_MODEL_INFO: Record<string, { name: string; description: string; costTier: 'low' | 'medium' | 'high' }> = {
-  'gpt-5': { name: 'GPT-5', description: 'Most capable OpenAI model', costTier: 'high' },
-  'gpt-4o': { name: 'GPT-4o', description: 'Fast, multimodal model', costTier: 'medium' },
-  'gpt-4o-mini': { name: 'GPT-4o Mini', description: 'Cost-effective for simple tasks', costTier: 'low' },
-  'gpt-4-turbo': { name: 'GPT-4 Turbo', description: 'Enhanced GPT-4 with vision', costTier: 'medium' },
-  'gpt-4': { name: 'GPT-4', description: 'Original GPT-4 model', costTier: 'medium' },
-  'claude-3.5-opus': { name: 'Claude 3.5 Opus', description: 'Most capable Anthropic model', costTier: 'high' },
-  'claude-3.5-sonnet': { name: 'Claude 3.5 Sonnet', description: 'Balanced performance', costTier: 'medium' },
-  'claude-3.5-haiku': { name: 'Claude 3.5 Haiku', description: 'Fast and cost-effective', costTier: 'low' },
-  'claude-3-opus': { name: 'Claude 3 Opus', description: 'Previous generation, powerful', costTier: 'high' },
-  'claude-3-sonnet': { name: 'Claude 3 Sonnet', description: 'Previous generation, balanced', costTier: 'medium' },
-  'claude-3-haiku': { name: 'Claude 3 Haiku', description: 'Previous generation, fast', costTier: 'low' },
+// Model display names, pricing, and specifications
+// Costs are in dollars per 1M tokens (e.g., 5.00 = $5 per million tokens)
+export const AI_MODEL_INFO: Record<string, { 
+  name: string; 
+  description: string; 
+  costTier: 'low' | 'medium' | 'high';
+  providers: string[];  // List of providers that support this model
+  contextWindow: number;
+  costPer1kPrompt: number;  // dollars per 1K tokens
+  costPer1kCompletion: number;  // dollars per 1K tokens
+}> = {
+  'gpt-5': { name: 'GPT-5', description: 'Most capable OpenAI model', costTier: 'high', providers: ['replit_ai', 'openai', 'azure_openai'], contextWindow: 128000, costPer1kPrompt: 0.005, costPer1kCompletion: 0.015 },
+  'gpt-4o': { name: 'GPT-4o', description: 'Fast, multimodal model', costTier: 'medium', providers: ['replit_ai', 'openai', 'azure_openai'], contextWindow: 128000, costPer1kPrompt: 0.0025, costPer1kCompletion: 0.01 },
+  'gpt-4o-mini': { name: 'GPT-4o Mini', description: 'Cost-effective for simple tasks', costTier: 'low', providers: ['replit_ai', 'openai', 'azure_openai'], contextWindow: 128000, costPer1kPrompt: 0.00015, costPer1kCompletion: 0.0006 },
+  'gpt-4-turbo': { name: 'GPT-4 Turbo', description: 'Enhanced GPT-4 with vision', costTier: 'medium', providers: ['openai', 'azure_openai'], contextWindow: 128000, costPer1kPrompt: 0.01, costPer1kCompletion: 0.03 },
+  'gpt-4': { name: 'GPT-4', description: 'Original GPT-4 model', costTier: 'medium', providers: ['openai', 'azure_openai'], contextWindow: 8192, costPer1kPrompt: 0.03, costPer1kCompletion: 0.06 },
+  'claude-3.5-opus': { name: 'Claude 3.5 Opus', description: 'Most capable Anthropic model', costTier: 'high', providers: ['anthropic'], contextWindow: 200000, costPer1kPrompt: 0.015, costPer1kCompletion: 0.075 },
+  'claude-3.5-sonnet': { name: 'Claude 3.5 Sonnet', description: 'Balanced performance', costTier: 'medium', providers: ['anthropic'], contextWindow: 200000, costPer1kPrompt: 0.003, costPer1kCompletion: 0.015 },
+  'claude-3.5-haiku': { name: 'Claude 3.5 Haiku', description: 'Fast and cost-effective', costTier: 'low', providers: ['anthropic'], contextWindow: 200000, costPer1kPrompt: 0.001, costPer1kCompletion: 0.005 },
+  'claude-3-opus': { name: 'Claude 3 Opus', description: 'Previous generation, powerful', costTier: 'high', providers: ['anthropic'], contextWindow: 200000, costPer1kPrompt: 0.015, costPer1kCompletion: 0.075 },
+  'claude-3-sonnet': { name: 'Claude 3 Sonnet', description: 'Previous generation, balanced', costTier: 'medium', providers: ['anthropic'], contextWindow: 200000, costPer1kPrompt: 0.003, costPer1kCompletion: 0.015 },
+  'claude-3-haiku': { name: 'Claude 3 Haiku', description: 'Previous generation, fast', costTier: 'low', providers: ['anthropic'], contextWindow: 200000, costPer1kPrompt: 0.00025, costPer1kCompletion: 0.00125 },
 };
 
 export const aiConfiguration = pgTable("ai_configuration", {
