@@ -19,7 +19,7 @@ import {
 import vegaLogo from "@assets/VegaTight_1766605018223.png";
 
 const VERSION_MAJOR = 1;
-const VERSION_RELEASE_DATE = "2025-12-15";
+const VERSION_RELEASE_DATE = "2026-01-16";
 
 export default function About() {
   const formatVersionNumber = (major: number, dateStr: string) => {
