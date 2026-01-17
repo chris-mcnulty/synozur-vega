@@ -50,5 +50,8 @@ Preferred communication style: Simple, everyday language.
     - Scope-based permissions: `read:okrs`, `write:okrs`, `read:big_rocks`, `write:big_rocks`, `read:strategies`, `read:foundations`, `read:teams`, `read:meetings`
     - 9 read-only tools for accessing OKRs, Big Rocks, Strategies, Mission, Vision, Values, Annual Goals, Teams, and Meetings
     - 3 write tools: `update_kr_progress`, `add_check_in_note`, `update_big_rock_status`
+    - IP allowlisting with CIDR notation support
+    - Key rotation with configurable grace periods
+    - Rate limiting (60 req/min per tenant, 10 token exchanges/min per IP)
     - Full audit logging of all tool invocations
-    - UI for key management in Tenant Admin → Integrations tab with visual warning for write permissions
+    - UI for key management in Tenant Admin → Integrations tab with IP restrictions, rotation, and visual warning for write permissions

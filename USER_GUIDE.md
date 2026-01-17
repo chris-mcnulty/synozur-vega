@@ -794,6 +794,166 @@ Behind the scenes, the AI uses specialized tools:
 
 ---
 
+## MCP Server (AI Assistant Integration)
+
+Vega includes a Model Context Protocol (MCP) server that allows external AI assistants like Claude Desktop, Cursor, and other MCP-compatible tools to access your organization's data securely.
+
+### What is MCP?
+
+MCP (Model Context Protocol) is an open standard that enables AI assistants to connect to external data sources. With Vega's MCP server, you can use AI tools outside of Vega to query your OKRs, strategies, and other Company OS data.
+
+### Setting Up MCP Access
+
+#### Step 1: Create an API Key
+
+1. Go to **Tenant Admin** (gear icon in sidebar)
+2. Navigate to the **Integrations** tab
+3. Find the **MCP API Keys** section
+4. Click **"Create API Key"**
+5. Enter a descriptive name (e.g., "Claude Desktop", "Cursor AI")
+6. Select permissions:
+   - **Read permissions**: Access to view OKRs, strategies, meetings, etc.
+   - **Write permissions**: Ability to update progress and add notes (use with caution)
+7. Set an expiration period (recommended: 90 days for security)
+8. Click **"Create Key"**
+9. **Copy the API key immediately** - it won't be shown again
+
+#### Step 2: Configure Your AI Assistant
+
+**For Claude Desktop:**
+
+Add to your Claude Desktop configuration file (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "vega": {
+      "url": "https://your-vega-instance.replit.app/mcp",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY"
+      }
+    }
+  }
+}
+```
+
+**For Cursor:**
+
+1. Open Cursor Settings
+2. Navigate to MCP Servers
+3. Add a new server with:
+   - Name: Vega
+   - URL: `https://your-vega-instance.replit.app/mcp`
+   - Authentication: Bearer token with your API key
+
+**For Other MCP Clients:**
+
+Use the token exchange flow:
+1. POST to `/mcp/token` with your API key in the Authorization header
+2. Receive a short-lived JWT token (1 hour)
+3. Use that JWT for subsequent MCP requests
+
+### Available MCP Tools
+
+Once connected, your AI assistant can use these tools:
+
+**Read Operations:**
+- `get_okrs` - Retrieve OKRs, optionally filtered by quarter/year
+- `get_big_rocks` - Get Big Rocks (initiatives)
+- `get_strategies` - List all strategies
+- `get_mission` - Get organization mission statement
+- `get_vision` - Get organization vision
+- `get_values` - Get core values
+- `get_annual_goals` - Get annual goals
+- `get_teams` - List all teams
+- `get_meetings` - Get Focus Rhythm meetings
+
+**Write Operations (requires write permissions):**
+- `update_kr_progress` - Update Key Result progress
+- `add_check_in_note` - Add a check-in note to an objective
+- `update_big_rock_status` - Update Big Rock status
+
+### Example AI Conversations
+
+With Claude Desktop connected to Vega:
+
+```
+You: What are our Q1 2026 objectives?
+
+Claude: Let me check your Vega data...
+[Uses get_okrs tool]
+I found 8 objectives for Q1 2026:
+1. Expand market presence in APAC region (65% complete)
+2. Launch mobile app MVP (40% complete)
+...
+
+You: Update the "Launch mobile app" KR for "Complete beta testing" to 75%
+
+Claude: I'll update that Key Result for you.
+[Uses update_kr_progress tool]
+Done! I've updated "Complete beta testing" to 75% progress.
+```
+
+### Managing API Keys
+
+#### View Active Keys
+
+In Tenant Admin → Integrations → MCP API Keys, you can see:
+- Key name and prefix
+- Assigned permissions
+- IP restrictions (if configured)
+- Status (Active, Rotating, or Expired)
+- Creation date
+
+#### IP Restrictions
+
+For enhanced security, you can restrict API keys to specific IP addresses:
+
+1. Click the **Settings icon** next to a key
+2. Enter allowed IP addresses (one per line)
+3. Supports individual IPv4 addresses (e.g., `192.168.1.100`) or CIDR ranges (e.g., `10.0.0.0/24`)
+4. Leave empty to allow access from any IP
+5. Click **Save Changes**
+
+**Note:** IP allowlisting currently supports IPv4 addresses only.
+
+#### Key Rotation
+
+Rotate keys periodically for security:
+
+1. Click the **Refresh icon** next to a key
+2. Select a grace period (how long the old key remains valid)
+3. Click **Rotate Key**
+4. Copy the new key immediately
+5. Update your AI assistant configuration
+6. The old key will continue working during the grace period
+
+#### Revoking Keys
+
+To revoke a compromised or unused key:
+1. Click the **Trash icon** next to the key
+2. Confirm revocation
+3. The key stops working immediately
+
+### Security Best Practices
+
+1. **Use minimal permissions**: Only grant write access if truly needed
+2. **Set expiration dates**: Don't create keys that never expire
+3. **Use IP restrictions**: Limit access to known networks when possible
+4. **Rotate regularly**: Change keys every 90 days
+5. **Monitor usage**: Check key usage in the admin panel
+6. **Revoke unused keys**: Remove keys for tools you no longer use
+
+### Rate Limits
+
+The MCP server enforces rate limits to ensure fair usage:
+- **60 requests per minute** per tenant
+- **10 token exchanges per minute** per IP address
+
+If you exceed limits, requests will return HTTP 429 with retry information.
+
+---
+
 ## Microsoft 365 Integration
 
 Vega integrates with Microsoft 365 to sync data and enhance your workflow.

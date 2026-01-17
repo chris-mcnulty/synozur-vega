@@ -8,6 +8,23 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 
 ## January 2026
 
+### January 17, 2026
+
+**New Features**
+- **MCP Server (Model Context Protocol)**: Connect external AI assistants like Claude Desktop and Cursor to your Vega data
+  - 12 MCP tools: 9 read operations (OKRs, Big Rocks, Strategies, Mission, Vision, Values, Annual Goals, Teams, Meetings) and 3 write operations (update KR progress, add check-in notes, update Big Rock status)
+  - Secure API key authentication with bcrypt hashing and short-lived JWT tokens
+  - Scope-based permissions for granular access control
+  - IP allowlisting with CIDR notation support
+  - Key rotation with configurable grace periods
+  - Rate limiting (60 requests/minute per tenant)
+
+**Improvements**
+- Admin-only access for MCP API key management (create, update, rotate, revoke)
+- Full audit logging for all MCP tool invocations
+
+---
+
 ### January 13, 2026
 
 **New Features**

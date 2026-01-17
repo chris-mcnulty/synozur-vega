@@ -1,6 +1,6 @@
 # Vega Platform Master Backlog
 
-**Last Updated:** January 13, 2026 (Added Consulting Partner Mode Features to medium priority)
+**Last Updated:** January 17, 2026 (Added MCP Server to completed features, MCP enhancements to backlog)
 
 > **Note:** This is the single source of truth for all Vega feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference this document for backlog-related questions.
 
@@ -470,6 +470,20 @@ Generate a comprehensive single-document view of an organization's Company OS, e
 ---
 
 ## LOWER PRIORITY / FUTURE FEATURES
+
+### MCP Server Enhancements
+
+**Status:** Backlog  
+**Priority:** Low
+
+Optional enhancements for the MCP server:
+
+1. **Connection Testing UI**: Button in Tenant Admin to test that an API key works correctly before copying
+2. **Usage Analytics Dashboard**: Dedicated dashboard showing tool usage per key, success/error rates, popular tools
+3. **Key Usage Quotas**: Per-key call limits beyond tenant-wide rate limits (e.g., max 1000 calls/day per key)
+4. **Additional MCP Tools**: Add more tools as needed (e.g., create OKRs, create Big Rocks, update strategy status)
+
+---
 
 ### Advanced AI Features
 
@@ -2199,6 +2213,37 @@ All date/time operations use America/Los_Angeles timezone.
 ---
 
 ## COMPLETED FEATURES
+
+### MCP Server (Model Context Protocol) ✅ (January 17, 2026)
+
+Secure MCP server for external AI assistant integration:
+
+**Core Features:**
+- 12 MCP tools: 9 read operations (get_okrs, get_big_rocks, get_strategies, get_mission, get_vision, get_values, get_annual_goals, get_teams, get_meetings) and 3 write operations (update_kr_progress, add_check_in_note, update_big_rock_status)
+- Token exchange endpoint (`POST /mcp/token`) for API key → short-lived JWT conversion
+- Main MCP server endpoint with streaming support
+- Server info endpoint (`GET /mcp/info`) listing available tools and scopes
+
+**Security Features:**
+- API key authentication with bcrypt hashing
+- Short-lived JWT tokens (1-hour expiry)
+- 8 scope-based permissions (read:okrs, write:okrs, read:big_rocks, write:big_rocks, read:strategies, read:foundations, read:teams, read:meetings)
+- IP allowlisting with CIDR notation support
+- Key rotation with configurable grace periods
+- Rate limiting (60 req/min per tenant, 10 token exchanges/min per IP)
+- Admin-only access for all key management operations
+
+**Admin UI:**
+- Key management (create, view, revoke) in Tenant Admin → Integrations
+- IP restrictions editing dialog
+- Key rotation dialog with grace period selection
+- Status badges (Active, Rotating, Expired)
+
+**Audit & Logging:**
+- Full audit logging for all MCP tool invocations
+- Usage tracking per API key
+
+---
 
 ### Enhanced Reporting System ✅ (January 11, 2026)
 
