@@ -374,3 +374,42 @@ export function canModifyAnyOKR(req: Request): boolean {
   if (!req.user) return false;
   return hasPermission(req.user.role as Role, PERMISSIONS.UPDATE_ANY_OKR);
 }
+
+/**
+ * Middleware to enforce read-write license for content modification operations.
+ * Read-only users cannot create, update, or delete:
+ * - Mission, Purpose, Values, Goals
+ * - Strategies
+ * - OKRs (Objectives, Key Results)
+ * - Big Rocks
+ * 
+ * Admins are never read-only (they always have read-write access).
+ */
+export async function requireReadWriteLicense(req: Request, res: Response, next: NextFunction) {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: 'Authentication required' });
+    }
+
+    // Admins and consultants always have read-write access
+    const adminRoles = ['tenant_admin', 'admin', 'global_admin', 'vega_admin', 'vega_consultant'];
+    if (adminRoles.includes(req.user.role)) {
+      return next();
+    }
+
+    // Check if user has read-only license
+    const isReadOnly = await storage.isUserReadOnly(req.user.id);
+    
+    if (isReadOnly) {
+      return res.status(403).json({ 
+        error: 'Read-only access',
+        message: 'Your license does not permit creating or modifying content. Please contact your administrator to upgrade to a read-write license.'
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error('Error checking license type:', error);
+    return res.status(500).json({ error: 'Internal server error' });
+  }
+}

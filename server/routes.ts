@@ -35,7 +35,8 @@ import {
   requirePermission,
   rbac,
   canModifyAnyOKR,
-  isResourceOwner
+  isResourceOwner,
+  requireReadWriteLicense
 } from "./middleware/rbac";
 import { ROLES, PERMISSIONS, USER_TYPES, getAvailableRolesForUserType, hasPermission, Role } from "../shared/rbac";
 import { isPublicEmailDomain } from "../shared/publicDomains";
@@ -896,6 +897,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get license quota for a tenant (tenant admins can view their own, platform admins can view any)
+  app.get("/api/tenants/:id/license-quota", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      
+      // Tenant admins can only view their own tenant
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      
+      if (!canAccessAny && id !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      
+      const quota = await storage.getTenantLicenseQuota(id);
+      const counts = await storage.getTenantLicenseCounts(id);
+      
+      res.json({
+        ...quota,
+        adminCount: counts.adminCount,
+        totalUsers: counts.totalUsers
+      });
+    } catch (error) {
+      console.error("Error fetching license quota:", error);
+      res.status(500).json({ error: "Failed to fetch license quota" });
+    }
+  });
+
   // Vocabulary endpoints
   // Get effective vocabulary for current tenant (any authenticated user)
   // Note: Uses auth-only since vocabulary is needed before tenant context is established
@@ -1092,6 +1120,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ error: "Cannot create users in other tenants" });
       }
       
+      // License quota enforcement for new users
+      const licenseType = (validatedData as any).licenseType || 'read_write';
+      const adminRolesForLicense = ['tenant_admin', 'admin'];
+      const isAdmin = adminRolesForLicense.includes(role);
+      const needsReadWriteLicense = licenseType === 'read_write' || isAdmin;
+      
+      if (needsReadWriteLicense && validatedData.tenantId) {
+        const canAssign = await storage.canAssignReadWriteLicense(validatedData.tenantId);
+        if (!canAssign) {
+          const quota = await storage.getTenantLicenseQuota(validatedData.tenantId);
+          return res.status(403).json({ 
+            error: "License quota exceeded",
+            message: `Your organization has reached its limit of ${quota.maxReadWriteUsers} read-write licenses. Please upgrade your plan or create this user with a read-only license.`,
+            quota: {
+              maxReadWriteUsers: quota.maxReadWriteUsers,
+              currentReadWrite: quota.currentReadWrite,
+              availableReadWrite: quota.availableReadWrite
+            }
+          });
+        }
+      }
+      
       const user = await storage.createUser(validatedData);
       
       // Send welcome email if requested
@@ -1187,6 +1237,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Prevent non-platform admins from moving users to other tenants
       if (!canAccessAny && validatedData.tenantId && validatedData.tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Cannot move users to other tenants" });
+      }
+      
+      // License quota enforcement: check if changing to read-write license or admin role
+      const currentLicenseType = targetUser.licenseType || 'read_write';
+      const newLicenseType = (validatedData as any).licenseType ?? currentLicenseType;
+      const isCurrentlyReadOnly = currentLicenseType === 'read_only';
+      const isChangingToReadWrite = newLicenseType === 'read_write' && isCurrentlyReadOnly;
+      
+      // Admin roles always consume read-write licenses
+      const adminRolesForLicense = ['tenant_admin', 'admin'];
+      const currentIsAdmin = adminRolesForLicense.includes(targetUser.role);
+      const newIsAdmin = adminRolesForLicense.includes(newRole);
+      const isBecomingAdmin = newIsAdmin && !currentIsAdmin;
+      
+      // Check quota if user is gaining read-write access (either by license change or becoming admin)
+      if ((isChangingToReadWrite || isBecomingAdmin) && targetUser.tenantId) {
+        const canAssign = await storage.canAssignReadWriteLicense(targetUser.tenantId);
+        if (!canAssign) {
+          const quota = await storage.getTenantLicenseQuota(targetUser.tenantId);
+          return res.status(403).json({ 
+            error: "License quota exceeded",
+            message: `Your organization has reached its limit of ${quota.maxReadWriteUsers} read-write licenses. Please contact your administrator to add more licenses or downgrade another user to read-only.`,
+            quota: {
+              maxReadWriteUsers: quota.maxReadWriteUsers,
+              currentReadWrite: quota.currentReadWrite,
+              availableReadWrite: quota.availableReadWrite
+            }
+          });
+        }
       }
       
       const user = await storage.updateUser(id, validatedData);
@@ -1585,7 +1664,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/okrs", ...authWithTenant, async (req: Request, res: Response) => {
+  app.post("/api/okrs", ...authWithTenant, requireReadWriteLicense, async (req: Request, res: Response) => {
     try {
       const validatedData = insertOkrSchema.parse(req.body);
       
@@ -1605,7 +1684,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/okrs/:id", ...authWithTenant, async (req: Request, res: Response) => {
+  app.patch("/api/okrs/:id", ...authWithTenant, requireReadWriteLicense, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
       const validatedData = insertOkrSchema.partial().parse(req.body);

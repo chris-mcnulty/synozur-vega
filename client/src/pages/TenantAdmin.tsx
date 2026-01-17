@@ -1014,6 +1014,7 @@ export default function TenantAdmin() {
     sendWelcomeEmail: false,
     userType: "client" as "client" | "consultant" | "internal",
     azureObjectId: "" as string, // For Entra/SSO users
+    licenseType: "read_write" as "read_write" | "read_only",
   });
 
   const [ssoDialogOpen, setSsoDialogOpen] = useState(false);
@@ -1120,6 +1121,29 @@ export default function TenantAdmin() {
     queryKey: ["/api/consultants"],
   });
 
+  // License quota query - fetches for the current tenant context
+  const { data: licenseQuota } = useQuery<{
+    maxReadWriteUsers: number | null;
+    maxReadOnlyUsers: number | null;
+    currentReadWrite: number;
+    currentReadOnly: number;
+    availableReadWrite: number | null;
+    availableReadOnly: number | null;
+    adminCount: number;
+    totalUsers: number;
+  }>({
+    queryKey: ["/api/tenants", currentUser?.tenantId, "license-quota"],
+    queryFn: async () => {
+      if (!currentUser?.tenantId) return null;
+      const res = await fetch(`/api/tenants/${currentUser.tenantId}/license-quota`, {
+        credentials: 'include'
+      });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!currentUser?.tenantId,
+  });
+
   const createTenantMutation = useMutation({
     mutationFn: (data: { name: string; color: string; logoUrl?: string }) =>
       apiRequest("POST", "/api/tenants", data),
@@ -1188,35 +1212,39 @@ export default function TenantAdmin() {
   });
 
   const createUserMutation = useMutation({
-    mutationFn: (data: { email: string; password: string; name?: string; role: string; tenantId?: string | null; sendWelcomeEmail?: boolean }) =>
+    mutationFn: (data: { email: string; password: string; name?: string; role: string; tenantId?: string | null; sendWelcomeEmail?: boolean; licenseType?: string }) =>
       apiRequest("POST", "/api/users", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tenants", currentUser?.tenantId, "license-quota"] });
       setUserDialogOpen(false);
-      setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false, userType: "client", azureObjectId: "" });
+      setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false, userType: "client", azureObjectId: "", licenseType: "read_write" });
       toast({ title: "User created successfully" });
     },
-    onError: () => {
+    onError: (error: any) => {
+      const message = error?.message || "Failed to create user";
       toast({ 
-        title: "Failed to create user", 
+        title: message,
         variant: "destructive" 
       });
     },
   });
 
   const updateUserMutation = useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { email?: string; password?: string; name?: string; role?: string; tenantId?: string | null } }) =>
+    mutationFn: ({ id, data }: { id: string; data: { email?: string; password?: string; name?: string; role?: string; tenantId?: string | null; licenseType?: string } }) =>
       apiRequest("PATCH", `/api/users/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/tenants", currentUser?.tenantId, "license-quota"] });
       setUserDialogOpen(false);
       setEditingUser(null);
-      setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false, userType: "client", azureObjectId: "" });
+      setUserFormData({ email: "", password: "", name: "", role: "user", tenantId: "NONE", sendWelcomeEmail: false, userType: "client", azureObjectId: "", licenseType: "read_write" });
       toast({ title: "User updated successfully" });
     },
-    onError: () => {
+    onError: (error: any) => {
+      const message = error?.message || "Failed to update user";
       toast({ 
-        title: "Failed to update user", 
+        title: message, 
         variant: "destructive" 
       });
     },
@@ -1692,6 +1720,7 @@ export default function TenantAdmin() {
       sendWelcomeEmail: false,
       userType: ((user as any).userType || "client") as "client" | "consultant" | "internal",
       azureObjectId: "", // Reset for edit mode
+      licenseType: ((user as any).licenseType || "read_write") as "read_write" | "read_only",
     });
     setUserDialogOpen(true);
   };
@@ -1759,6 +1788,7 @@ export default function TenantAdmin() {
       role: userFormData.role,
       tenantId: tenantId,
       userType: userFormData.userType,
+      licenseType: userFormData.licenseType,
       ...(userFormData.password && { password: userFormData.password }),
     };
 
@@ -2203,6 +2233,50 @@ export default function TenantAdmin() {
               </Button>
             </div>
           </div>
+
+          {/* License Quota Display */}
+          {licenseQuota && licenseQuota.maxReadWriteUsers !== null && (
+            <Card data-testid="card-license-quota">
+              <CardContent className="pt-4">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-5 w-5 text-primary" />
+                    <span className="font-medium">License Usage</span>
+                  </div>
+                  <div className="flex flex-wrap gap-4 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">Read-Write:</span>
+                      <Badge variant={licenseQuota.availableReadWrite === 0 ? "destructive" : "secondary"}>
+                        {licenseQuota.currentReadWrite} / {licenseQuota.maxReadWriteUsers}
+                      </Badge>
+                      {licenseQuota.availableReadWrite !== null && licenseQuota.availableReadWrite > 0 && (
+                        <span className="text-muted-foreground">({licenseQuota.availableReadWrite} available)</span>
+                      )}
+                      {licenseQuota.availableReadWrite === 0 && (
+                        <span className="text-destructive text-xs flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Limit reached
+                        </span>
+                      )}
+                    </div>
+                    {licenseQuota.maxReadOnlyUsers !== null && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-muted-foreground">Read-Only:</span>
+                        <Badge variant="secondary">
+                          {licenseQuota.currentReadOnly} / {licenseQuota.maxReadOnlyUsers}
+                        </Badge>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <span className="text-muted-foreground">Total Users:</span>
+                      <span className="font-medium">{licenseQuota.totalUsers}</span>
+                      <span className="text-muted-foreground text-xs">({licenseQuota.adminCount} admins)</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
           
           {/* Tenant filter - only show if user can see multiple tenants */}
           {tenants.length > 1 && (
@@ -2235,6 +2309,7 @@ export default function TenantAdmin() {
                       <TableHead>Email</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Role</TableHead>
+                      <TableHead>License</TableHead>
                       <TableHead>Organization</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -2270,6 +2345,16 @@ export default function TenantAdmin() {
                         </TableCell>
                         <TableCell>
                           <Badge variant="outline">{user.role}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          {/* Admins always have read-write access */}
+                          {['tenant_admin', 'admin', 'global_admin', 'vega_admin', 'vega_consultant'].includes(user.role) ? (
+                            <Badge variant="default" className="bg-primary">Read-Write</Badge>
+                          ) : (user as any).licenseType === 'read_only' ? (
+                            <Badge variant="secondary">Read-Only</Badge>
+                          ) : (
+                            <Badge variant="default" className="bg-primary">Read-Write</Badge>
+                          )}
                         </TableCell>
                         <TableCell>{getTenantName(user.tenantId)}</TableCell>
                         <TableCell className="text-right">
@@ -3083,6 +3168,29 @@ export default function TenantAdmin() {
             ) : (
               <input type="hidden" value="client" />
             )}
+
+            {/* License Type - Controls read/write vs read-only access */}
+            <div className="space-y-2">
+              <Label htmlFor="license-type">License Type</Label>
+              <Select
+                value={userFormData.licenseType}
+                onValueChange={(value: "read_write" | "read_only") => 
+                  setUserFormData({ ...userFormData, licenseType: value })
+                }
+              >
+                <SelectTrigger data-testid="select-license-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="z-[60]">
+                  <SelectItem value="read_write">Read/Write - Full access</SelectItem>
+                  <SelectItem value="read_only">Read Only - View access only</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {userFormData.licenseType === "read_write" && "User can view and modify content (consumes a read/write license)"}
+                {userFormData.licenseType === "read_only" && "User can only view content, no edit permissions"}
+              </p>
+            </div>
 
             <div className="space-y-2">
               <Label htmlFor="user-role">Role</Label>

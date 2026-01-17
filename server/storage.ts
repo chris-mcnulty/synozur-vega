@@ -290,6 +290,24 @@ export interface IStorage {
   cancelTenantPlan(tenantId: string, reason: string, cancelledBy: string): Promise<Tenant>;
   getTenantsWithExpiringPlans(daysUntilExpiry: number): Promise<Tenant[]>;
   
+  // License Quota Management
+  getTenantLicenseCounts(tenantId: string): Promise<{
+    readWriteCount: number;
+    readOnlyCount: number;
+    adminCount: number;
+    totalUsers: number;
+  }>;
+  getTenantLicenseQuota(tenantId: string): Promise<{
+    maxReadWriteUsers: number | null;
+    maxReadOnlyUsers: number | null;
+    currentReadWrite: number;
+    currentReadOnly: number;
+    availableReadWrite: number | null;
+    availableReadOnly: number | null;
+  }>;
+  canAssignReadWriteLicense(tenantId: string): Promise<boolean>;
+  isUserReadOnly(userId: string): Promise<boolean>;
+  
   // System Banners methods
   getActiveBanner(): Promise<SystemBanner | undefined>;
   getAllBanners(): Promise<SystemBanner[]>;
@@ -2629,6 +2647,100 @@ export class DatabaseStorage implements IStorage {
           sql`${tenants.planExpiresAt} <= ${endOfDay}`
         )
       );
+  }
+
+  async getTenantLicenseCounts(tenantId: string): Promise<{
+    readWriteCount: number;
+    readOnlyCount: number;
+    adminCount: number;
+    totalUsers: number;
+  }> {
+    const tenantUsers = await db.select().from(users).where(eq(users.tenantId, tenantId));
+    
+    let readWriteCount = 0;
+    let readOnlyCount = 0;
+    let adminCount = 0;
+    
+    for (const user of tenantUsers) {
+      // Admins count against read-write quota
+      if (user.role === 'tenant_admin' || user.role === 'admin') {
+        adminCount++;
+        readWriteCount++; // Admins always have read-write access
+      } else if (user.licenseType === 'read_only') {
+        readOnlyCount++;
+      } else {
+        // Default to read-write for non-admin users
+        readWriteCount++;
+      }
+    }
+    
+    return {
+      readWriteCount,
+      readOnlyCount,
+      adminCount,
+      totalUsers: tenantUsers.length,
+    };
+  }
+
+  async getTenantLicenseQuota(tenantId: string): Promise<{
+    maxReadWriteUsers: number | null;
+    maxReadOnlyUsers: number | null;
+    currentReadWrite: number;
+    currentReadOnly: number;
+    availableReadWrite: number | null;
+    availableReadOnly: number | null;
+  }> {
+    const tenant = await this.getTenantById(tenantId);
+    if (!tenant) {
+      throw new Error('Tenant not found');
+    }
+    
+    // Get the service plan
+    let plan: ServicePlan | undefined;
+    if (tenant.servicePlanId) {
+      plan = await this.getServicePlanById(tenant.servicePlanId);
+    }
+    
+    const counts = await this.getTenantLicenseCounts(tenantId);
+    
+    const maxReadWriteUsers = plan?.maxReadWriteUsers ?? null;
+    const maxReadOnlyUsers = plan?.maxReadOnlyUsers ?? null;
+    
+    return {
+      maxReadWriteUsers,
+      maxReadOnlyUsers,
+      currentReadWrite: counts.readWriteCount,
+      currentReadOnly: counts.readOnlyCount,
+      availableReadWrite: maxReadWriteUsers !== null 
+        ? Math.max(0, maxReadWriteUsers - counts.readWriteCount) 
+        : null,
+      availableReadOnly: maxReadOnlyUsers !== null 
+        ? Math.max(0, maxReadOnlyUsers - counts.readOnlyCount) 
+        : null,
+    };
+  }
+
+  async canAssignReadWriteLicense(tenantId: string): Promise<boolean> {
+    const quota = await this.getTenantLicenseQuota(tenantId);
+    // If no limit (null), always allow
+    if (quota.availableReadWrite === null) {
+      return true;
+    }
+    // Check if there's at least 1 available slot
+    return quota.availableReadWrite > 0;
+  }
+
+  async isUserReadOnly(userId: string): Promise<boolean> {
+    const user = await this.getUser(userId);
+    if (!user) {
+      throw new Error('User not found');
+    }
+    // Admins are never read-only
+    if (user.role === 'tenant_admin' || user.role === 'admin' || user.role === 'global_admin' || 
+        user.role === 'vega_admin' || user.role === 'vega_consultant') {
+      return false;
+    }
+    return user.licenseType === 'read_only';
   }
 
   async getActiveBanner(): Promise<SystemBanner | undefined> {

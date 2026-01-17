@@ -1,4 +1,4 @@
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
 import { 
   insertObjectiveSchema, 
@@ -11,6 +11,7 @@ import {
 import { z } from "zod";
 import { hasPermission, PERMISSIONS, Role } from "@shared/rbac";
 import { requireValidatedTenant } from "./middleware/validateTenant";
+import { requireReadWriteLicense } from "./middleware/rbac";
 
 /**
  * Check if the current user can modify a specific OKR
@@ -50,6 +51,15 @@ function canUserDeleteOKR(req: Request): boolean {
 }
 
 export const okrRouter = Router();
+
+// Apply read-write license check for all mutating operations (POST, PATCH, DELETE)
+okrRouter.use((req: Request, res: Response, next: NextFunction) => {
+  const writeMethods = ['POST', 'PATCH', 'PUT', 'DELETE'];
+  if (writeMethods.includes(req.method)) {
+    return requireReadWriteLicense(req, res, next);
+  }
+  next();
+});
 
 // Helper function to detect circular dependencies in objective alignment
 async function detectCircularAlignment(
