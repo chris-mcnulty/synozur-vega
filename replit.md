@@ -47,7 +47,8 @@ Preferred communication style: Simple, everyday language.
 - **MCP (Model Context Protocol) Server**: Standardized AI assistant integration at `/mcp` endpoint. Supports Claude Desktop, Cursor, and other MCP-compatible AI tools. Features:
     - JWT-based authentication with 1-hour token expiry
     - API key management via `/api/mcp/keys` with bcrypt hashing
-    - Scope-based permissions: `read:okrs`, `read:big_rocks`, `read:strategies`, `read:foundations`, `read:teams`, `read:meetings`
+    - Scope-based permissions: `read:okrs`, `write:okrs`, `read:big_rocks`, `write:big_rocks`, `read:strategies`, `read:foundations`, `read:teams`, `read:meetings`
     - 9 read-only tools for accessing OKRs, Big Rocks, Strategies, Mission, Vision, Values, Annual Goals, Teams, and Meetings
+    - 3 write tools: `update_kr_progress`, `add_check_in_note`, `update_big_rock_status`
     - Full audit logging of all tool invocations
-    - UI for key management in Tenant Admin → Integrations tab
+    - UI for key management in Tenant Admin → Integrations tab with visual warning for write permissions
