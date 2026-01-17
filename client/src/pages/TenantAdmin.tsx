@@ -29,7 +29,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2, AlertCircle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, HelpCircle, Link, Loader2 } from "lucide-react";
+import { CheckCircle2, AlertCircle, AlertTriangle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, HelpCircle, Link, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type TenantBranding, vocabularyAlternatives, type VocabularyTerms } from "@shared/schema";
 import { useAuth } from "@/contexts/AuthContext";
@@ -423,7 +423,8 @@ function McpApiKeysSection() {
               <div className="space-y-2">
                 <Label>Permissions</Label>
                 <div className="grid grid-cols-1 gap-2 border rounded-lg p-3">
-                  {scopes.map((scope) => (
+                  {/* Read permissions */}
+                  {scopes.filter(s => s.id.startsWith('read:')).map((scope) => (
                     <div key={scope.id} className="flex items-center space-x-2">
                       <Checkbox
                         id={`scope-${scope.id}`}
@@ -439,6 +440,34 @@ function McpApiKeysSection() {
                       </label>
                     </div>
                   ))}
+                  
+                  {/* Write permissions with warning */}
+                  {scopes.filter(s => s.id.startsWith('write:')).length > 0 && (
+                    <>
+                      <div className="border-t pt-2 mt-2">
+                        <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 mb-2">
+                          <AlertTriangle className="h-3 w-3" />
+                          Write permissions allow AI assistants to modify data
+                        </p>
+                      </div>
+                      {scopes.filter(s => s.id.startsWith('write:')).map((scope) => (
+                        <div key={scope.id} className="flex items-center space-x-2">
+                          <Checkbox
+                            id={`scope-${scope.id}`}
+                            checked={selectedScopes.includes(scope.id)}
+                            onCheckedChange={() => toggleScope(scope.id)}
+                            data-testid={`checkbox-scope-${scope.id}`}
+                          />
+                          <label 
+                            htmlFor={`scope-${scope.id}`}
+                            className="text-sm font-medium leading-none cursor-pointer flex-1 text-amber-600 dark:text-amber-400"
+                          >
+                            {scope.description}
+                          </label>
+                        </div>
+                      ))}
+                    </>
+                  )}
                 </div>
               </div>
 
