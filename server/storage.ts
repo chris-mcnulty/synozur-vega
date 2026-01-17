@@ -37,7 +37,9 @@ import {
   systemBanners, type SystemBanner, type InsertSystemBanner, BANNER_STATUS,
   landingPageSettings, type LandingPageSettings, type InsertLandingPageSettings,
   capabilitySection, type CapabilitySection, type InsertCapabilitySection,
-  capabilityTabs, type CapabilityTab, type InsertCapabilityTab
+  capabilityTabs, type CapabilityTab, type InsertCapabilityTab,
+  mcpApiKeys, type McpApiKey, type InsertMcpApiKey,
+  mcpAuditLogs, type McpAuditLog, type InsertMcpAuditLog
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, inArray, gte, lte, count } from "drizzle-orm";
@@ -353,6 +355,19 @@ export interface IStorage {
       inactiveTrialTenants: number;
     };
   }>;
+  
+  // MCP API Keys methods
+  getMcpApiKeysByTenantId(tenantId: string): Promise<McpApiKey[]>;
+  getMcpApiKeysByUserId(userId: string): Promise<McpApiKey[]>;
+  getMcpApiKeyById(id: string): Promise<McpApiKey | undefined>;
+  getMcpApiKeyByHash(keyHash: string): Promise<McpApiKey | undefined>;
+  createMcpApiKey(key: InsertMcpApiKey): Promise<McpApiKey>;
+  revokeMcpApiKey(id: string, revokedBy: string): Promise<void>;
+  updateMcpApiKeyLastUsed(id: string): Promise<void>;
+  
+  // MCP Audit Logs methods
+  createMcpAuditLog(log: InsertMcpAuditLog): Promise<McpAuditLog>;
+  getMcpAuditLogs(tenantId: string, limit?: number): Promise<McpAuditLog[]>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3040,6 +3055,69 @@ export class DatabaseStorage implements IStorage {
         inactiveTrialTenants,
       },
     };
+  }
+
+  // ============================================
+  // MCP API Keys methods
+  // ============================================
+
+  async getMcpApiKeysByTenantId(tenantId: string): Promise<McpApiKey[]> {
+    return await db.select().from(mcpApiKeys)
+      .where(eq(mcpApiKeys.tenantId, tenantId))
+      .orderBy(desc(mcpApiKeys.createdAt));
+  }
+
+  async getMcpApiKeysByUserId(userId: string): Promise<McpApiKey[]> {
+    return await db.select().from(mcpApiKeys)
+      .where(eq(mcpApiKeys.userId, userId))
+      .orderBy(desc(mcpApiKeys.createdAt));
+  }
+
+  async getMcpApiKeyById(id: string): Promise<McpApiKey | undefined> {
+    const [key] = await db.select().from(mcpApiKeys).where(eq(mcpApiKeys.id, id));
+    return key || undefined;
+  }
+
+  async getMcpApiKeyByHash(keyHash: string): Promise<McpApiKey | undefined> {
+    const [key] = await db.select().from(mcpApiKeys).where(eq(mcpApiKeys.keyHash, keyHash));
+    return key || undefined;
+  }
+
+  async createMcpApiKey(key: InsertMcpApiKey): Promise<McpApiKey> {
+    const [created] = await db.insert(mcpApiKeys).values(key).returning();
+    return created;
+  }
+
+  async revokeMcpApiKey(id: string, revokedBy: string): Promise<void> {
+    await db.update(mcpApiKeys)
+      .set({ 
+        status: 'revoked', 
+        revokedAt: new Date(), 
+        revokedBy 
+      })
+      .where(eq(mcpApiKeys.id, id));
+  }
+
+  async updateMcpApiKeyLastUsed(id: string): Promise<void> {
+    await db.update(mcpApiKeys)
+      .set({ lastUsedAt: new Date() })
+      .where(eq(mcpApiKeys.id, id));
+  }
+
+  // ============================================
+  // MCP Audit Logs methods
+  // ============================================
+
+  async createMcpAuditLog(log: InsertMcpAuditLog): Promise<McpAuditLog> {
+    const [created] = await db.insert(mcpAuditLogs).values(log).returning();
+    return created;
+  }
+
+  async getMcpAuditLogs(tenantId: string, limit: number = 100): Promise<McpAuditLog[]> {
+    return await db.select().from(mcpAuditLogs)
+      .where(eq(mcpAuditLogs.tenantId, tenantId))
+      .orderBy(desc(mcpAuditLogs.createdAt))
+      .limit(limit);
   }
 }
 

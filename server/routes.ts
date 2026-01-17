@@ -40,6 +40,23 @@ import {
 import { ROLES, PERMISSIONS, USER_TYPES, getAvailableRolesForUserType, hasPermission, Role } from "../shared/rbac";
 import { isPublicEmailDomain } from "../shared/publicDomains";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
+import { mcpRouter, createApiKeyForUser } from "./mcp";
+import { MCP_SCOPES } from "@shared/schema";
+
+// Helper function for MCP scope descriptions
+function getScropeDescription(scope: string): string {
+  const descriptions: Record<string, string> = {
+    'read:okrs': 'Read objectives and key results',
+    'write:okrs': 'Create and update objectives and key results',
+    'read:big_rocks': 'Read big rocks (major initiatives)',
+    'write:big_rocks': 'Create and update big rocks',
+    'read:strategies': 'Read strategies',
+    'read:foundations': 'Read mission, vision, values, and annual goals',
+    'read:teams': 'Read teams',
+    'read:meetings': 'Read Focus Rhythm meetings',
+  };
+  return descriptions[scope] || scope;
+}
 
 // Authentication middleware (basic - just checks session)
 function requireAuth(req: Request, res: Response, next: NextFunction) {
@@ -170,6 +187,104 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Error reading API plugin:", error);
       res.status(500).json({ error: "Failed to load API plugin" });
     }
+  });
+
+  // ============================================
+  // MCP (Model Context Protocol) Server
+  // ============================================
+  
+  // Mount the MCP server router
+  app.use("/mcp", mcpRouter);
+
+  // MCP API Key Management (authenticated users can manage their own keys)
+  app.get("/api/mcp/keys", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const keys = await storage.getMcpApiKeysByUserId(req.user!.id);
+      // Return keys without the hash (security)
+      const safeKeys = keys.map(({ keyHash, ...rest }) => rest);
+      res.json(safeKeys);
+    } catch (error) {
+      console.error("Error fetching MCP keys:", error);
+      res.status(500).json({ error: "Failed to fetch MCP keys" });
+    }
+  });
+
+  app.post("/api/mcp/keys", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const { name, scopes, expiresInDays } = req.body;
+      
+      if (!name || typeof name !== 'string' || name.trim().length === 0) {
+        return res.status(400).json({ error: "Key name is required" });
+      }
+
+      if (!scopes || !Array.isArray(scopes) || scopes.length === 0) {
+        return res.status(400).json({ error: "At least one scope is required" });
+      }
+
+      // Validate scopes
+      const validScopes = Object.values(MCP_SCOPES);
+      for (const scope of scopes) {
+        if (!validScopes.includes(scope)) {
+          return res.status(400).json({ error: `Invalid scope: ${scope}` });
+        }
+      }
+
+      const expiresAt = expiresInDays 
+        ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
+        : undefined;
+
+      const result = await createApiKeyForUser(
+        req.user!.id,
+        req.effectiveTenantId!,
+        name.trim(),
+        scopes,
+        expiresAt
+      );
+
+      // Return the full API key only once (it won't be stored/retrievable again)
+      res.status(201).json({
+        id: result.id,
+        apiKey: result.apiKey,
+        prefix: result.prefix,
+        message: "Save this API key now. It won't be shown again.",
+      });
+    } catch (error) {
+      console.error("Error creating MCP key:", error);
+      res.status(500).json({ error: "Failed to create MCP key" });
+    }
+  });
+
+  app.delete("/api/mcp/keys/:keyId", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const { keyId } = req.params;
+      
+      const key = await storage.getMcpApiKeyById(keyId);
+      if (!key) {
+        return res.status(404).json({ error: "Key not found" });
+      }
+
+      // Users can only revoke their own keys
+      if (key.userId !== req.user!.id) {
+        return res.status(403).json({ error: "Permission denied" });
+      }
+
+      await storage.revokeMcpApiKey(keyId, req.user!.id);
+      res.json({ message: "Key revoked successfully" });
+    } catch (error) {
+      console.error("Error revoking MCP key:", error);
+      res.status(500).json({ error: "Failed to revoke MCP key" });
+    }
+  });
+
+  // Get available MCP scopes
+  app.get("/api/mcp/scopes", ...authWithTenant, async (_req: Request, res: Response) => {
+    res.json({
+      scopes: Object.entries(MCP_SCOPES).map(([key, value]) => ({
+        id: value,
+        name: key.replace(/_/g, ' ').toLowerCase(),
+        description: getScropeDescription(value),
+      })),
+    });
   });
 
   // Authentication routes
