@@ -5,6 +5,7 @@ import { validateApiKey, generateShortLivedToken, getAuthContext, generateApiKey
 import { storage } from '../storage';
 import { MCP_SCOPES } from '@shared/schema';
 import { checkMcpRateLimit, checkTokenExchangeRateLimit, getRateLimitHeaders } from './rateLimiter';
+import { mcpTools } from './tools';
 
 function getClientIp(req: Request): string {
   const forwarded = req.headers['x-forwarded-for'];
@@ -119,7 +120,7 @@ router.get('/info', (_req: Request, res: Response) => {
     version: '1.0.0',
     description: 'MCP server for accessing Vega Company OS data',
     capabilities: {
-      tools: Object.keys(require('./tools').mcpTools),
+      tools: Object.keys(mcpTools),
     },
     scopes: Object.values(MCP_SCOPES),
   });
