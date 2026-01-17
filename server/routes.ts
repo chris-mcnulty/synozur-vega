@@ -197,8 +197,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Mount the MCP server router
   app.use("/mcp", mcpRouter);
 
-  // MCP API Key Management (authenticated users can manage their own keys)
-  app.get("/api/mcp/keys", ...authWithTenant, async (req: Request, res: Response) => {
+  // MCP API Key Management (admin only - keys provide API access to tenant data)
+  app.get("/api/mcp/keys", ...adminOnly, async (req: Request, res: Response) => {
     try {
       const keys = await storage.getMcpApiKeysByUserId(req.user!.id);
       // Return keys without the hash (security)
@@ -210,7 +210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/mcp/keys", ...authWithTenant, async (req: Request, res: Response) => {
+  app.post("/api/mcp/keys", ...adminOnly, async (req: Request, res: Response) => {
     try {
       const { name, scopes, expiresInDays } = req.body;
       
@@ -255,7 +255,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/mcp/keys/:keyId", ...authWithTenant, async (req: Request, res: Response) => {
+  app.delete("/api/mcp/keys/:keyId", ...adminOnly, async (req: Request, res: Response) => {
     try {
       const { keyId } = req.params;
       
@@ -277,8 +277,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get available MCP scopes
-  app.get("/api/mcp/scopes", ...authWithTenant, async (_req: Request, res: Response) => {
+  // Get available MCP scopes (admin only)
+  app.get("/api/mcp/scopes", ...adminOnly, async (_req: Request, res: Response) => {
     res.json({
       scopes: Object.entries(MCP_SCOPES).map(([key, value]) => ({
         id: value,
