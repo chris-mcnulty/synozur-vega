@@ -44,3 +44,10 @@ Preferred communication style: Simple, everyday language.
 - **HubSpot CRM Integration**: Automated deal creation for new tenant signups.
 - **OpenAPI Specification**: Full OpenAPI 3.0 spec available at `/openapi.yaml` and `/openapi.json` for M365 Copilot Agent integration.
 - **M365 Copilot Agent**: Declarative agent manifest, API plugin manifest, and Teams app manifest available in `/public/copilot-agent/`.
+- **MCP (Model Context Protocol) Server**: Standardized AI assistant integration at `/mcp` endpoint. Supports Claude Desktop, Cursor, and other MCP-compatible AI tools. Features:
+    - JWT-based authentication with 1-hour token expiry
+    - API key management via `/api/mcp/keys` with bcrypt hashing
+    - Scope-based permissions: `read:okrs`, `read:big_rocks`, `read:strategies`, `read:foundations`, `read:teams`, `read:meetings`
+    - 9 read-only tools for accessing OKRs, Big Rocks, Strategies, Mission, Vision, Values, Annual Goals, Teams, and Meetings
+    - Full audit logging of all tool invocations
+    - UI for key management in Tenant Admin → Integrations tab
