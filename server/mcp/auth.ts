@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import { storage } from '../storage';
 import type { McpApiKey, User, Tenant } from '@shared/schema';
+import { isIpAllowed, normalizeClientIp } from './ipValidator';
 
 function getMcpJwtSecret(): string {
   const secret = process.env.MCP_JWT_SECRET || process.env.SESSION_SECRET;
@@ -37,9 +38,14 @@ export function generateApiKey(): { key: string; hash: string; prefix: string } 
   return { key, hash, prefix };
 }
 
-export async function validateApiKey(providedKey: string): Promise<McpApiKey | null> {
+export interface ValidateApiKeyResult {
+  apiKey: McpApiKey | null;
+  error?: 'invalid_key' | 'revoked' | 'expired' | 'ip_not_allowed';
+}
+
+export async function validateApiKey(providedKey: string, clientIp?: string): Promise<ValidateApiKeyResult> {
   if (!providedKey.startsWith(KEY_PREFIX)) {
-    return null;
+    return { apiKey: null, error: 'invalid_key' };
   }
 
   const allKeys = await getAllActiveApiKeys();
@@ -47,17 +53,25 @@ export async function validateApiKey(providedKey: string): Promise<McpApiKey | n
   for (const apiKey of allKeys) {
     if (bcrypt.compareSync(providedKey, apiKey.keyHash)) {
       if (apiKey.status !== 'active') {
-        return null;
+        return { apiKey: null, error: 'revoked' };
       }
       if (apiKey.expiresAt && new Date(apiKey.expiresAt) < new Date()) {
-        return null;
+        return { apiKey: null, error: 'expired' };
       }
+      
+      if (clientIp && apiKey.allowedIps && apiKey.allowedIps.length > 0) {
+        const normalizedIp = normalizeClientIp(clientIp);
+        if (!isIpAllowed(normalizedIp, apiKey.allowedIps)) {
+          return { apiKey: null, error: 'ip_not_allowed' };
+        }
+      }
+      
       await storage.updateMcpApiKeyLastUsed(apiKey.id);
-      return apiKey;
+      return { apiKey };
     }
   }
   
-  return null;
+  return { apiKey: null, error: 'invalid_key' };
 }
 
 async function getAllActiveApiKeys(): Promise<McpApiKey[]> {

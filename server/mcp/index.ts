@@ -4,30 +4,59 @@ import { createMcpServer } from './server';
 import { validateApiKey, generateShortLivedToken, getAuthContext, generateApiKey } from './auth';
 import { storage } from '../storage';
 import { MCP_SCOPES } from '@shared/schema';
+import { checkMcpRateLimit, checkTokenExchangeRateLimit, getRateLimitHeaders } from './rateLimiter';
+
+function getClientIp(req: Request): string {
+  const forwarded = req.headers['x-forwarded-for'];
+  if (typeof forwarded === 'string') {
+    return forwarded.split(',')[0].trim();
+  }
+  return req.socket.remoteAddress || 'unknown';
+}
 
 const router = Router();
 
 router.post('/token', async (req: Request, res: Response) => {
   try {
+    const clientIp = getClientIp(req);
+    
+    const rateLimitResult = checkTokenExchangeRateLimit(clientIp);
+    const headers = getRateLimitHeaders(rateLimitResult);
+    Object.entries(headers).forEach(([key, value]) => res.setHeader(key, value));
+    
+    if (!rateLimitResult.allowed) {
+      return res.status(429).json({ 
+        error: 'Rate limit exceeded. Please try again later.',
+        retry_after: Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000),
+      });
+    }
+    
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {
       return res.status(401).json({ error: 'Missing or invalid Authorization header' });
     }
 
     const apiKeyValue = authHeader.substring(7);
-    const apiKey = await validateApiKey(apiKeyValue);
+    const result = await validateApiKey(apiKeyValue, clientIp);
 
-    if (!apiKey) {
-      return res.status(401).json({ error: 'Invalid API key' });
+    if (!result.apiKey) {
+      const errorMessages: Record<string, { status: number; message: string }> = {
+        'invalid_key': { status: 401, message: 'Invalid API key' },
+        'revoked': { status: 401, message: 'API key has been revoked' },
+        'expired': { status: 401, message: 'API key has expired' },
+        'ip_not_allowed': { status: 403, message: 'Access denied: IP address not in allowlist' },
+      };
+      const err = errorMessages[result.error || 'invalid_key'];
+      return res.status(err.status).json({ error: err.message });
     }
 
-    const token = generateShortLivedToken(apiKey);
+    const token = generateShortLivedToken(result.apiKey);
     
     res.json({
       access_token: token,
       token_type: 'Bearer',
       expires_in: 3600,
-      scope: apiKey.scopes.join(' '),
+      scope: result.apiKey.scopes.join(' '),
     });
   } catch (error) {
     console.error('[MCP] Token exchange error:', error);
@@ -51,6 +80,17 @@ router.all('/', async (req: Request, res: Response) => {
     if (!context) {
       return res.status(401).json({ 
         error: 'Invalid or expired token. Use POST /mcp/token with your API key to obtain a short-lived access token.' 
+      });
+    }
+
+    const rateLimitResult = checkMcpRateLimit(context.tenant.id);
+    const headers = getRateLimitHeaders(rateLimitResult);
+    Object.entries(headers).forEach(([key, value]) => res.setHeader(key, value));
+    
+    if (!rateLimitResult.allowed) {
+      return res.status(429).json({ 
+        error: 'Rate limit exceeded. Please try again later.',
+        retry_after: Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000),
       });
     }
 

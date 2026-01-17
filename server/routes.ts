@@ -277,6 +277,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update MCP API key (IP allowlist, name, scopes)
+  app.patch("/api/mcp/keys/:keyId", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { keyId } = req.params;
+      const { name, allowedIps, scopes } = req.body;
+      
+      const key = await storage.getMcpApiKeyById(keyId);
+      if (!key) {
+        return res.status(404).json({ error: "Key not found" });
+      }
+
+      if (key.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Permission denied" });
+      }
+
+      const updates: any = {};
+      if (name !== undefined) updates.name = name.trim();
+      if (allowedIps !== undefined) {
+        if (!Array.isArray(allowedIps)) {
+          return res.status(400).json({ error: "allowedIps must be an array" });
+        }
+        updates.allowedIps = allowedIps.length > 0 ? allowedIps : null;
+      }
+      if (scopes !== undefined) {
+        if (!Array.isArray(scopes) || scopes.length === 0) {
+          return res.status(400).json({ error: "At least one scope is required" });
+        }
+        const validScopes = Object.values(MCP_SCOPES);
+        for (const scope of scopes) {
+          if (!validScopes.includes(scope)) {
+            return res.status(400).json({ error: `Invalid scope: ${scope}` });
+          }
+        }
+        updates.scopes = scopes;
+      }
+
+      const updated = await storage.updateMcpApiKey(keyId, updates);
+      const { keyHash, ...safeKey } = updated;
+      res.json(safeKey);
+    } catch (error) {
+      console.error("Error updating MCP key:", error);
+      res.status(500).json({ error: "Failed to update MCP key" });
+    }
+  });
+
+  // Rotate MCP API key (creates new key, marks old for deprecation with grace period)
+  app.post("/api/mcp/keys/:keyId/rotate", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { keyId } = req.params;
+      const { gracePeriodHours = 24 } = req.body;
+      
+      const oldKey = await storage.getMcpApiKeyById(keyId);
+      if (!oldKey) {
+        return res.status(404).json({ error: "Key not found" });
+      }
+
+      if (oldKey.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Permission denied" });
+      }
+
+      if (oldKey.status !== 'active') {
+        return res.status(400).json({ error: "Can only rotate active keys" });
+      }
+
+      const gracePeriodEnds = new Date(Date.now() + gracePeriodHours * 60 * 60 * 1000);
+
+      // Create new key with same settings as old key
+      const newKey = await createApiKeyForUser(
+        req.user!.id,
+        req.effectiveTenantId!,
+        `${oldKey.name} (rotated)`,
+        oldKey.scopes,
+        oldKey.expiresAt || undefined
+      );
+
+      // If old key had IP restrictions, update new key with same restrictions
+      if (oldKey.allowedIps && oldKey.allowedIps.length > 0) {
+        await storage.updateMcpApiKey(newKey.id, { allowedIps: oldKey.allowedIps });
+      }
+
+      // Mark old key for deprecation after grace period
+      await storage.markKeyForRotation(keyId, gracePeriodEnds);
+
+      res.status(201).json({
+        newKey: {
+          id: newKey.id,
+          apiKey: newKey.apiKey,
+          prefix: newKey.prefix,
+        },
+        oldKeyId: keyId,
+        gracePeriodEnds: gracePeriodEnds.toISOString(),
+        message: `New key created. Old key will continue working until ${gracePeriodEnds.toISOString()}. Save the new API key now - it won't be shown again.`,
+      });
+    } catch (error) {
+      console.error("Error rotating MCP key:", error);
+      res.status(500).json({ error: "Failed to rotate MCP key" });
+    }
+  });
+
   // Get available MCP scopes (admin only)
   app.get("/api/mcp/scopes", ...adminOnly, async (_req: Request, res: Response) => {
     res.json({

@@ -29,7 +29,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CheckCircle2, AlertCircle, AlertTriangle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, HelpCircle, Link, Loader2 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { CheckCircle2, AlertCircle, AlertTriangle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, HelpCircle, Link, Loader2, RefreshCw } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type TenantBranding, vocabularyAlternatives, type VocabularyTerms } from "@shared/schema";
 import { useAuth } from "@/contexts/AuthContext";
@@ -159,13 +160,14 @@ type McpApiKey = {
   userId: string;
   tenantId: string;
   name: string;
-  prefix: string;
+  keyPrefix: string;
   scopes: string[];
+  allowedIps: string[] | null;
   expiresAt: string | null;
   revokedAt: string | null;
   revokedBy: string | null;
   lastUsedAt: string | null;
-  usageCount: number;
+  rotationGracePeriodEnds: string | null;
   createdAt: string;
 };
 
@@ -175,6 +177,29 @@ type McpScope = {
   description: string;
 };
 
+function isValidIpOrCidr(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  
+  const ipv4Pattern = /^(\d{1,3}\.){3}\d{1,3}$/;
+  const cidrPattern = /^(\d{1,3}\.){3}\d{1,3}\/\d{1,2}$/;
+  
+  if (cidrPattern.test(trimmed)) {
+    const [ip, prefix] = trimmed.split('/');
+    const prefixNum = parseInt(prefix, 10);
+    if (prefixNum < 0 || prefixNum > 32) return false;
+    const parts = ip.split('.').map(p => parseInt(p, 10));
+    return parts.every(p => p >= 0 && p <= 255);
+  }
+  
+  if (ipv4Pattern.test(trimmed)) {
+    const parts = trimmed.split('.').map(p => parseInt(p, 10));
+    return parts.every(p => p >= 0 && p <= 255);
+  }
+  
+  return false;
+}
+
 function McpApiKeysSection() {
   const { toast } = useToast();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -182,6 +207,16 @@ function McpApiKeysSection() {
   const [selectedScopes, setSelectedScopes] = useState<string[]>([]);
   const [expiresInDays, setExpiresInDays] = useState<string>("90");
   const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null);
+  
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingKey, setEditingKey] = useState<McpApiKey | null>(null);
+  const [editAllowedIps, setEditAllowedIps] = useState("");
+  const [ipValidationError, setIpValidationError] = useState<string | null>(null);
+  
+  const [isRotateDialogOpen, setIsRotateDialogOpen] = useState(false);
+  const [rotatingKey, setRotatingKey] = useState<McpApiKey | null>(null);
+  const [rotatedNewKey, setRotatedNewKey] = useState<string | null>(null);
+  const [gracePeriodHours, setGracePeriodHours] = useState("24");
 
   const { data: keys = [], isLoading: keysLoading } = useQuery<McpApiKey[]>({
     queryKey: ["/api/mcp/keys"],
@@ -225,6 +260,44 @@ function McpApiKeysSection() {
     onError: (error: any) => {
       toast({ 
         title: "Failed to revoke API key", 
+        description: error.message || "Unknown error",
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const updateKeyMutation = useMutation({
+    mutationFn: async ({ keyId, allowedIps }: { keyId: string; allowedIps: string[] }) => {
+      return await apiRequest("PATCH", `/api/mcp/keys/${keyId}`, { allowedIps });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/mcp/keys"] });
+      setIsEditDialogOpen(false);
+      setEditingKey(null);
+      toast({ title: "API key updated" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to update API key", 
+        description: error.message || "Unknown error",
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const rotateKeyMutation = useMutation({
+    mutationFn: async ({ keyId, gracePeriodHours }: { keyId: string; gracePeriodHours: number }) => {
+      return await apiRequest("POST", `/api/mcp/keys/${keyId}/rotate`, { gracePeriodHours });
+    },
+    onSuccess: async (response) => {
+      const data = await response.json();
+      setRotatedNewKey(data.newKey.apiKey);
+      queryClient.invalidateQueries({ queryKey: ["/api/mcp/keys"] });
+      toast({ title: "API key rotated successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to rotate API key", 
         description: error.message || "Unknown error",
         variant: "destructive" 
       });
@@ -291,9 +364,9 @@ function McpApiKeysSection() {
                   <TableHead>Name</TableHead>
                   <TableHead>Key Prefix</TableHead>
                   <TableHead>Permissions</TableHead>
+                  <TableHead>IP Restrictions</TableHead>
                   <TableHead>Created</TableHead>
-                  <TableHead>Expires</TableHead>
-                  <TableHead>Usage</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -301,7 +374,7 @@ function McpApiKeysSection() {
                 {activeKeys.map((key) => (
                   <TableRow key={key.id} data-testid={`mcp-key-row-${key.id}`}>
                     <TableCell className="font-medium">{key.name}</TableCell>
-                    <TableCell className="font-mono text-sm">{key.prefix}...</TableCell>
+                    <TableCell className="font-mono text-sm">{key.keyPrefix}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
                         {key.scopes.slice(0, 2).map((scope) => (
@@ -316,34 +389,75 @@ function McpApiKeysSection() {
                         )}
                       </div>
                     </TableCell>
+                    <TableCell className="text-sm">
+                      {key.allowedIps && key.allowedIps.length > 0 ? (
+                        <Badge variant="outline" className="text-xs">
+                          {key.allowedIps.length} IP{key.allowedIps.length > 1 ? 's' : ''}
+                        </Badge>
+                      ) : (
+                        <span className="text-muted-foreground">Any</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-sm text-muted-foreground">
                       {new Date(key.createdAt).toLocaleDateString()}
                     </TableCell>
                     <TableCell className="text-sm">
-                      {key.expiresAt ? (
-                        <span className={new Date(key.expiresAt) < new Date() ? 'text-destructive' : ''}>
-                          {new Date(key.expiresAt).toLocaleDateString()}
-                        </span>
+                      {key.rotationGracePeriodEnds ? (
+                        <Badge variant="secondary" className="text-xs">
+                          Rotating
+                        </Badge>
+                      ) : key.expiresAt && new Date(key.expiresAt) < new Date() ? (
+                        <Badge variant="destructive" className="text-xs">
+                          Expired
+                        </Badge>
                       ) : (
-                        <span className="text-muted-foreground">Never</span>
+                        <Badge variant="default" className="text-xs">
+                          Active
+                        </Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {key.usageCount} calls
-                    </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => {
-                          if (confirm('Revoke this API key? This cannot be undone.')) {
-                            revokeKeyMutation.mutate(key.id);
-                          }
-                        }}
-                        data-testid={`button-revoke-key-${key.id}`}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <div className="flex justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setEditingKey(key);
+                            setEditAllowedIps(key.allowedIps?.join('\n') || '');
+                            setIsEditDialogOpen(true);
+                          }}
+                          title="Edit IP restrictions"
+                          data-testid={`button-edit-key-${key.id}`}
+                        >
+                          <Settings className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            setRotatingKey(key);
+                            setRotatedNewKey(null);
+                            setIsRotateDialogOpen(true);
+                          }}
+                          title="Rotate key"
+                          data-testid={`button-rotate-key-${key.id}`}
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            if (confirm('Revoke this API key? This cannot be undone.')) {
+                              revokeKeyMutation.mutate(key.id);
+                            }
+                          }}
+                          title="Revoke key"
+                          data-testid={`button-revoke-key-${key.id}`}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -371,12 +485,12 @@ function McpApiKeysSection() {
 
           {newlyCreatedKey ? (
             <div className="space-y-4 py-4">
-              <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
+              <div className="bg-card border rounded-lg p-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  <span className="font-medium text-green-800 dark:text-green-200">API Key Created</span>
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                  <span className="font-medium">API Key Created</span>
                 </div>
-                <p className="text-sm text-green-700 dark:text-green-300 mb-3">
+                <p className="text-sm text-muted-foreground mb-3">
                   Copy this key now. It won't be shown again.
                 </p>
                 <div className="flex gap-2">
@@ -445,7 +559,7 @@ function McpApiKeysSection() {
                   {scopes.filter(s => s.id.startsWith('write:')).length > 0 && (
                     <>
                       <div className="border-t pt-2 mt-2">
-                        <p className="text-xs text-amber-600 dark:text-amber-400 flex items-center gap-1 mb-2">
+                        <p className="text-xs text-destructive flex items-center gap-1 mb-2">
                           <AlertTriangle className="h-3 w-3" />
                           Write permissions allow AI assistants to modify data
                         </p>
@@ -460,7 +574,7 @@ function McpApiKeysSection() {
                           />
                           <label 
                             htmlFor={`scope-${scope.id}`}
-                            className="text-sm font-medium leading-none cursor-pointer flex-1 text-amber-600 dark:text-amber-400"
+                            className="text-sm font-medium leading-none cursor-pointer flex-1 text-destructive"
                           >
                             {scope.description}
                           </label>
@@ -500,6 +614,196 @@ function McpApiKeysSection() {
                     <Loader2 className="h-4 w-4 animate-spin mr-2" />
                   ) : null}
                   Create Key
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+        setIsEditDialogOpen(open);
+        if (!open) {
+          setEditingKey(null);
+          setEditAllowedIps("");
+          setIpValidationError(null);
+        }
+      }}>
+        <DialogContent data-testid="dialog-edit-mcp-key">
+          <DialogHeader>
+            <DialogTitle>Edit IP Restrictions</DialogTitle>
+            <DialogDescription>
+              Restrict this API key to specific IP addresses or CIDR ranges for enhanced security
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="allowed-ips">Allowed IP Addresses</Label>
+              <Textarea
+                id="allowed-ips"
+                placeholder="Enter IP addresses or CIDR ranges, one per line&#10;e.g., 192.168.1.1&#10;     10.0.0.0/24"
+                value={editAllowedIps}
+                onChange={(e) => {
+                  setEditAllowedIps(e.target.value);
+                  setIpValidationError(null);
+                }}
+                rows={5}
+                className={`font-mono text-sm ${ipValidationError ? 'border-destructive' : ''}`}
+                data-testid="input-allowed-ips"
+              />
+              {ipValidationError ? (
+                <p className="text-xs text-destructive">{ipValidationError}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Leave empty to allow access from any IP address. Supports individual IPs and CIDR notation.
+                </p>
+              )}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => {
+                  if (!editingKey) return;
+                  const ips = editAllowedIps
+                    .split('\n')
+                    .map(ip => ip.trim())
+                    .filter(ip => ip.length > 0);
+                  
+                  if (ips.length > 0) {
+                    const invalidIps = ips.filter(ip => !isValidIpOrCidr(ip));
+                    if (invalidIps.length > 0) {
+                      setIpValidationError(`Invalid IP address or CIDR: ${invalidIps[0]}`);
+                      return;
+                    }
+                  }
+                  
+                  updateKeyMutation.mutate({ keyId: editingKey.id, allowedIps: ips });
+                }}
+                disabled={updateKeyMutation.isPending}
+                data-testid="button-save-ip-restrictions"
+              >
+                {updateKeyMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : null}
+                Save Changes
+              </Button>
+            </DialogFooter>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={isRotateDialogOpen} onOpenChange={(open) => {
+        setIsRotateDialogOpen(open);
+        if (!open) {
+          setRotatingKey(null);
+          setRotatedNewKey(null);
+          setGracePeriodHours("24");
+        }
+      }}>
+        <DialogContent data-testid="dialog-rotate-mcp-key">
+          <DialogHeader>
+            <DialogTitle>Rotate API Key</DialogTitle>
+            <DialogDescription>
+              Generate a new API key while keeping the old key active during a grace period
+            </DialogDescription>
+          </DialogHeader>
+
+          {rotatedNewKey ? (
+            <div className="space-y-4 py-4">
+              <div className="bg-card border rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
+                  <span className="font-medium">New Key Created</span>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Copy this new key now. The old key will remain active for {gracePeriodHours} hours.
+                </p>
+                <div className="flex gap-2">
+                  <Input 
+                    value={rotatedNewKey} 
+                    readOnly 
+                    className="font-mono text-sm"
+                    data-testid="input-rotated-api-key"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(rotatedNewKey);
+                      toast({ title: "Copied to clipboard" });
+                    }}
+                    data-testid="button-copy-rotated-key"
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={() => {
+                  setIsRotateDialogOpen(false);
+                  setRotatedNewKey(null);
+                }}>
+                  Done
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4 py-4">
+              <div className="bg-muted border rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <AlertTriangle className="h-5 w-5 text-muted-foreground" />
+                  <span className="font-medium">Key Rotation</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  This will create a new key with the same permissions. The old key "{rotatingKey?.name}" will remain active during the grace period to allow for a seamless transition.
+                </p>
+              </div>
+              
+              <div className="space-y-2">
+                <Label htmlFor="grace-period">Grace Period</Label>
+                <Select value={gracePeriodHours} onValueChange={setGracePeriodHours}>
+                  <SelectTrigger data-testid="select-grace-period">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">1 hour</SelectItem>
+                    <SelectItem value="6">6 hours</SelectItem>
+                    <SelectItem value="24">24 hours</SelectItem>
+                    <SelectItem value="48">48 hours</SelectItem>
+                    <SelectItem value="72">72 hours (3 days)</SelectItem>
+                    <SelectItem value="168">168 hours (1 week)</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  How long the old key will continue to work after rotation
+                </p>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsRotateDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={() => {
+                    if (!rotatingKey) return;
+                    const hours = parseInt(gracePeriodHours, 10);
+                    if (isNaN(hours) || hours <= 0) {
+                      toast({ title: "Please select a valid grace period", variant: "destructive" });
+                      return;
+                    }
+                    rotateKeyMutation.mutate({ 
+                      keyId: rotatingKey.id, 
+                      gracePeriodHours: hours
+                    });
+                  }}
+                  disabled={rotateKeyMutation.isPending || !gracePeriodHours}
+                  data-testid="button-confirm-rotate-key"
+                >
+                  {rotateKeyMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : null}
+                  Rotate Key
                 </Button>
               </DialogFooter>
             </div>

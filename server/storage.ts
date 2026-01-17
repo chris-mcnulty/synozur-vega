@@ -382,6 +382,8 @@ export interface IStorage {
   createMcpApiKey(key: InsertMcpApiKey): Promise<McpApiKey>;
   revokeMcpApiKey(id: string, revokedBy: string): Promise<void>;
   updateMcpApiKeyLastUsed(id: string): Promise<void>;
+  updateMcpApiKey(id: string, updates: Partial<Pick<McpApiKey, 'allowedIps' | 'name' | 'scopes'>>): Promise<McpApiKey>;
+  markKeyForRotation(keyId: string, gracePeriodEnds: Date): Promise<void>;
   
   // MCP Audit Logs methods
   createMcpAuditLog(log: InsertMcpAuditLog): Promise<McpAuditLog>;
@@ -3214,6 +3216,20 @@ export class DatabaseStorage implements IStorage {
     await db.update(mcpApiKeys)
       .set({ lastUsedAt: new Date() })
       .where(eq(mcpApiKeys.id, id));
+  }
+
+  async updateMcpApiKey(id: string, updates: Partial<Pick<McpApiKey, 'allowedIps' | 'name' | 'scopes'>>): Promise<McpApiKey> {
+    const [updated] = await db.update(mcpApiKeys)
+      .set(updates)
+      .where(eq(mcpApiKeys.id, id))
+      .returning();
+    return updated;
+  }
+
+  async markKeyForRotation(keyId: string, gracePeriodEnds: Date): Promise<void> {
+    await db.update(mcpApiKeys)
+      .set({ rotationGracePeriodEnds: gracePeriodEnds })
+      .where(eq(mcpApiKeys.id, keyId));
   }
 
   // ============================================

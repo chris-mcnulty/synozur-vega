@@ -1905,11 +1905,14 @@ export const mcpApiKeys = pgTable("mcp_api_keys", {
   keyPrefix: text("key_prefix").notNull(),
   scopes: text("scopes").array().notNull(),
   status: text("status").notNull().default("active"),
+  allowedIps: text("allowed_ips").array(), // Optional IP allowlist (CIDR notation supported)
   expiresAt: timestamp("expires_at"),
   lastUsedAt: timestamp("last_used_at"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   revokedAt: timestamp("revoked_at"),
   revokedBy: varchar("revoked_by"),
+  rotatedFromId: varchar("rotated_from_id"), // For key rotation: links to the key this was rotated from
+  rotationGracePeriodEnds: timestamp("rotation_grace_period_ends"), // When the old key stops working
 });
 
 export const insertMcpApiKeySchema = createInsertSchema(mcpApiKeys).omit({
