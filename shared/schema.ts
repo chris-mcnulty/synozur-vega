@@ -1870,3 +1870,79 @@ export const insertLaunchpadSessionSchema = createInsertSchema(launchpadSessions
 
 export type InsertLaunchpadSession = z.infer<typeof insertLaunchpadSessionSchema>;
 export type LaunchpadSession = typeof launchpadSessions.$inferSelect;
+
+// ============================================
+// MCP (Model Context Protocol) API Keys
+// ============================================
+
+export const MCP_KEY_STATUS = {
+  ACTIVE: 'active',
+  REVOKED: 'revoked',
+  EXPIRED: 'expired',
+} as const;
+
+export type McpKeyStatus = typeof MCP_KEY_STATUS[keyof typeof MCP_KEY_STATUS];
+
+export const MCP_SCOPES = {
+  READ_OKRS: 'read:okrs',
+  WRITE_OKRS: 'write:okrs',
+  READ_BIG_ROCKS: 'read:big_rocks',
+  WRITE_BIG_ROCKS: 'write:big_rocks',
+  READ_STRATEGIES: 'read:strategies',
+  READ_FOUNDATIONS: 'read:foundations',
+  READ_TEAMS: 'read:teams',
+  READ_MEETINGS: 'read:meetings',
+} as const;
+
+export type McpScope = typeof MCP_SCOPES[keyof typeof MCP_SCOPES];
+
+export const mcpApiKeys = pgTable("mcp_api_keys", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  name: text("name").notNull(),
+  keyHash: text("key_hash").notNull(),
+  keyPrefix: text("key_prefix").notNull(),
+  scopes: text("scopes").array().notNull(),
+  status: text("status").notNull().default("active"),
+  expiresAt: timestamp("expires_at"),
+  lastUsedAt: timestamp("last_used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  revokedAt: timestamp("revoked_at"),
+  revokedBy: varchar("revoked_by"),
+});
+
+export const insertMcpApiKeySchema = createInsertSchema(mcpApiKeys).omit({
+  id: true,
+  createdAt: true,
+  lastUsedAt: true,
+  revokedAt: true,
+  revokedBy: true,
+});
+
+export type InsertMcpApiKey = z.infer<typeof insertMcpApiKeySchema>;
+export type McpApiKey = typeof mcpApiKeys.$inferSelect;
+
+// MCP Audit Logs - tracks all MCP tool invocations
+export const mcpAuditLogs = pgTable("mcp_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  apiKeyId: varchar("api_key_id").references(() => mcpApiKeys.id, { onDelete: 'set null' }),
+  toolName: text("tool_name").notNull(),
+  toolParams: jsonb("tool_params"),
+  success: boolean("success").notNull(),
+  errorMessage: text("error_message"),
+  durationMs: integer("duration_ms"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertMcpAuditLogSchema = createInsertSchema(mcpAuditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertMcpAuditLog = z.infer<typeof insertMcpAuditLogSchema>;
+export type McpAuditLog = typeof mcpAuditLogs.$inferSelect;
