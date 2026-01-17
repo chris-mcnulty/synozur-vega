@@ -154,6 +154,333 @@ type Team = {
   createdAt: Date | null;
 };
 
+type McpApiKey = {
+  id: string;
+  userId: string;
+  tenantId: string;
+  name: string;
+  prefix: string;
+  scopes: string[];
+  expiresAt: string | null;
+  revokedAt: string | null;
+  revokedBy: string | null;
+  lastUsedAt: string | null;
+  usageCount: number;
+  createdAt: string;
+};
+
+type McpScope = {
+  id: string;
+  name: string;
+  description: string;
+};
+
+function McpApiKeysSection() {
+  const { toast } = useToast();
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newKeyName, setNewKeyName] = useState("");
+  const [selectedScopes, setSelectedScopes] = useState<string[]>([]);
+  const [expiresInDays, setExpiresInDays] = useState<string>("90");
+  const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null);
+
+  const { data: keys = [], isLoading: keysLoading } = useQuery<McpApiKey[]>({
+    queryKey: ["/api/mcp/keys"],
+  });
+
+  const { data: scopesData } = useQuery<{ scopes: McpScope[] }>({
+    queryKey: ["/api/mcp/scopes"],
+  });
+
+  const scopes = scopesData?.scopes || [];
+
+  const createKeyMutation = useMutation({
+    mutationFn: async (data: { name: string; scopes: string[]; expiresInDays?: number }) => {
+      return await apiRequest("POST", "/api/mcp/keys", data);
+    },
+    onSuccess: async (response) => {
+      const data = await response.json();
+      setNewlyCreatedKey(data.apiKey);
+      queryClient.invalidateQueries({ queryKey: ["/api/mcp/keys"] });
+      setNewKeyName("");
+      setSelectedScopes([]);
+      toast({ title: "API key created successfully" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to create API key", 
+        description: error.message || "Unknown error",
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const revokeKeyMutation = useMutation({
+    mutationFn: async (keyId: string) => {
+      return await apiRequest("DELETE", `/api/mcp/keys/${keyId}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/mcp/keys"] });
+      toast({ title: "API key revoked" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to revoke API key", 
+        description: error.message || "Unknown error",
+        variant: "destructive" 
+      });
+    },
+  });
+
+  const handleCreateKey = () => {
+    if (!newKeyName.trim()) {
+      toast({ title: "Please enter a key name", variant: "destructive" });
+      return;
+    }
+    if (selectedScopes.length === 0) {
+      toast({ title: "Please select at least one permission", variant: "destructive" });
+      return;
+    }
+    createKeyMutation.mutate({
+      name: newKeyName.trim(),
+      scopes: selectedScopes,
+      expiresInDays: expiresInDays ? parseInt(expiresInDays) : undefined,
+    });
+  };
+
+  const toggleScope = (scopeId: string) => {
+    setSelectedScopes(prev => 
+      prev.includes(scopeId) 
+        ? prev.filter(s => s !== scopeId)
+        : [...prev, scopeId]
+    );
+  };
+
+  const activeKeys = keys.filter(k => !k.revokedAt);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-lg font-medium">MCP API Keys</h3>
+          <p className="text-sm text-muted-foreground">
+            Manage API keys for AI assistant integrations using Model Context Protocol
+          </p>
+        </div>
+        <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-mcp-key">
+          <Plus className="h-4 w-4 mr-2" />
+          Create API Key
+        </Button>
+      </div>
+
+      <Card>
+        <CardContent className="pt-6">
+          {keysLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : activeKeys.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Shield className="h-12 w-12 mx-auto mb-3 opacity-50" />
+              <p>No API keys created yet</p>
+              <p className="text-sm mt-1">Create an API key to enable AI assistant access to your Vega data</p>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Key Prefix</TableHead>
+                  <TableHead>Permissions</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Expires</TableHead>
+                  <TableHead>Usage</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {activeKeys.map((key) => (
+                  <TableRow key={key.id} data-testid={`mcp-key-row-${key.id}`}>
+                    <TableCell className="font-medium">{key.name}</TableCell>
+                    <TableCell className="font-mono text-sm">{key.prefix}...</TableCell>
+                    <TableCell>
+                      <div className="flex flex-wrap gap-1">
+                        {key.scopes.slice(0, 2).map((scope) => (
+                          <Badge key={scope} variant="secondary" className="text-xs">
+                            {scope.replace('read:', 'R:').replace('write:', 'W:')}
+                          </Badge>
+                        ))}
+                        {key.scopes.length > 2 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{key.scopes.length - 2}
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {new Date(key.createdAt).toLocaleDateString()}
+                    </TableCell>
+                    <TableCell className="text-sm">
+                      {key.expiresAt ? (
+                        <span className={new Date(key.expiresAt) < new Date() ? 'text-destructive' : ''}>
+                          {new Date(key.expiresAt).toLocaleDateString()}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Never</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      {key.usageCount} calls
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          if (confirm('Revoke this API key? This cannot be undone.')) {
+                            revokeKeyMutation.mutate(key.id);
+                          }
+                        }}
+                        data-testid={`button-revoke-key-${key.id}`}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
+
+      <Dialog open={isCreateDialogOpen} onOpenChange={(open) => {
+        setIsCreateDialogOpen(open);
+        if (!open) {
+          setNewlyCreatedKey(null);
+          setNewKeyName("");
+          setSelectedScopes([]);
+        }
+      }}>
+        <DialogContent data-testid="dialog-create-mcp-key">
+          <DialogHeader>
+            <DialogTitle>Create MCP API Key</DialogTitle>
+            <DialogDescription>
+              Create an API key to allow AI assistants to access your Vega data via Model Context Protocol
+            </DialogDescription>
+          </DialogHeader>
+
+          {newlyCreatedKey ? (
+            <div className="space-y-4 py-4">
+              <div className="bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  <span className="font-medium text-green-800 dark:text-green-200">API Key Created</span>
+                </div>
+                <p className="text-sm text-green-700 dark:text-green-300 mb-3">
+                  Copy this key now. It won't be shown again.
+                </p>
+                <div className="flex gap-2">
+                  <Input 
+                    value={newlyCreatedKey} 
+                    readOnly 
+                    className="font-mono text-sm"
+                    data-testid="input-new-api-key"
+                  />
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      navigator.clipboard.writeText(newlyCreatedKey);
+                      toast({ title: "Copied to clipboard" });
+                    }}
+                    data-testid="button-copy-api-key"
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button onClick={() => {
+                  setIsCreateDialogOpen(false);
+                  setNewlyCreatedKey(null);
+                }}>
+                  Done
+                </Button>
+              </DialogFooter>
+            </div>
+          ) : (
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="key-name">Key Name</Label>
+                <Input
+                  id="key-name"
+                  placeholder="e.g., Claude Desktop, Cursor AI"
+                  value={newKeyName}
+                  onChange={(e) => setNewKeyName(e.target.value)}
+                  data-testid="input-mcp-key-name"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Permissions</Label>
+                <div className="grid grid-cols-1 gap-2 border rounded-lg p-3">
+                  {scopes.map((scope) => (
+                    <div key={scope.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`scope-${scope.id}`}
+                        checked={selectedScopes.includes(scope.id)}
+                        onCheckedChange={() => toggleScope(scope.id)}
+                        data-testid={`checkbox-scope-${scope.id}`}
+                      />
+                      <label 
+                        htmlFor={`scope-${scope.id}`}
+                        className="text-sm font-medium leading-none cursor-pointer flex-1"
+                      >
+                        {scope.description}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="expires">Expires In</Label>
+                <Select value={expiresInDays} onValueChange={setExpiresInDays}>
+                  <SelectTrigger data-testid="select-key-expiry">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="30">30 days</SelectItem>
+                    <SelectItem value="90">90 days</SelectItem>
+                    <SelectItem value="180">180 days</SelectItem>
+                    <SelectItem value="365">1 year</SelectItem>
+                    <SelectItem value="">Never</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={handleCreateKey}
+                  disabled={createKeyMutation.isPending}
+                  data-testid="button-confirm-create-key"
+                >
+                  {createKeyMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : null}
+                  Create Key
+                </Button>
+              </DialogFooter>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 function TeamManagementSection({ 
   tenants,
   users,
@@ -2136,6 +2463,17 @@ export default function TenantAdmin() {
               </Card>
             ))}
           </div>
+        </div>
+
+        {/* MCP API Keys Section */}
+        <div>
+          <div className="mb-4">
+            <h2 className="text-lg md:text-xl font-semibold">AI Assistant Integration</h2>
+            <p className="text-sm text-muted-foreground">
+              Connect AI assistants like Claude, Cursor, or other MCP-compatible tools to access your Vega data
+            </p>
+          </div>
+          <McpApiKeysSection />
         </div>
       </TabsContent>
     </Tabs>
