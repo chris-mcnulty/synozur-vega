@@ -142,12 +142,76 @@ PHASE 3: Advanced Features (February-March 2025)
 - AI usage tracking for cost analysis
 
 **Remaining Work:**
-- Meeting prep AI with context retrieval (summarize linked OKRs before meetings)
-- Predictive analytics (forecast OKR completion based on velocity trends)
-- Better AI tool chaining (combine multiple queries intelligently)
+
+#### 4a. Meeting Prep AI
+**Effort:** 1 week | **Priority:** High
+
+Automatically generate meeting preparation summaries by analyzing linked OKRs before Focus Rhythm meetings.
+
+| Feature | Description |
+|---------|-------------|
+| **Pre-Meeting Summary** | Auto-generate bullet points for linked OKRs: progress, blockers, velocity |
+| **Talking Points** | Suggest discussion items based on at-risk or stale items |
+| **Historical Context** | Include recent check-in notes for each linked OKR |
+| **One-Click Generate** | "Prepare for Meeting" button in meeting detail page |
+
+**Implementation:**
+- New AI tool: `generateMeetingPrep(meetingId)` 
+- Fetches linked OKRs, recent check-ins, pace status
+- Returns structured markdown summary
+- UI: Add "AI Prep" button to meeting detail page header
+
+---
+
+#### 4b. Predictive Analytics (OKR Completion Forecast)
+**Effort:** 2 weeks | **Priority:** High
+
+Forecast OKR completion probability based on historical velocity and time remaining.
+
+| Feature | Description |
+|---------|-------------|
+| **Completion Probability** | "75% likely to hit target" based on current trajectory |
+| **Projected End Value** | "At current pace, will reach 82% by quarter end" |
+| **Risk Signals** | Flag objectives with <50% completion probability |
+| **Trend Indicators** | Accelerating, steady, or decelerating progress |
+
+**Algorithm (Simple - No ML Required):**
+```
+velocity = (currentProgress - startProgress) / daysSinceStart
+daysRemaining = endDate - today
+projectedProgress = currentProgress + (velocity * daysRemaining)
+completionProbability = min(100, projectedProgress / targetProgress * 100)
+```
+
+**Implementation:**
+- Add `calculateCompletionForecast()` helper in `server/lib/okr-intelligence.ts`
+- Extend existing pace calculation logic
+- New dashboard card: "Forecast Summary" showing completion projections
+- Add forecast column to OKR tables (optional toggle)
+
+---
+
+#### 4c. Better AI Tool Chaining
+**Effort:** 1 week | **Priority:** Medium
+
+Enable the AI to combine multiple tool calls intelligently to answer complex questions.
+
+| Query Type | Current Behavior | Improved Behavior |
+|------------|------------------|-------------------|
+| "Which teams are behind and why?" | Returns list of behind items only | Chains: get behind items → get check-ins → summarize blockers |
+| "Compare Q3 vs Q4 progress" | Fails or gives generic answer | Chains: get Q3 OKRs → get Q4 OKRs → calculate delta |
+| "What should I focus on this week?" | Lists all items randomly | Chains: get at-risk → get behind pace → prioritize by impact |
+
+**Implementation:**
+- Enhance system prompt with multi-step reasoning instructions
+- Add composite tools: `analyzeTeamHealth()`, `comparePeriods()`, `prioritizeActions()`
+- Use GPT-4's native function chaining capabilities
+- Track multi-step queries in AI usage logs
+
+---
 
 **Removed from Scope:**
-- ~~Vector database for semantic search~~ - Overkill for structured OKR data; PostgreSQL full-text search sufficient
+- ~~Vector database for semantic search~~ - Overkill for structured OKR data; PostgreSQL full-text search sufficient. Moved to "Future - Only If Needed"
 
 ---
 
@@ -2556,7 +2620,10 @@ For future features requiring database changes:
 - `@xyflow/react` - For mind map/strategy visualization
 - `cmdk` - Already installed for command palette
 - `recharts` - Already installed for progress charts
-- `pgvector` - For semantic search (extension to enable)
+
+### Future - Only If Needed
+
+- `pgvector` - Semantic search extension. **Not recommended** for Vega's structured OKR data. PostgreSQL full-text search is sufficient for keyword search. Only consider if document corpus exceeds 10,000+ unstructured files.
 
 ---
 
