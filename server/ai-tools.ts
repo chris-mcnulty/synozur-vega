@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { storage } from "./storage";
-import type { Objective, KeyResult, BigRock, Meeting, User, Strategy, Foundation } from "@shared/schema";
+import type { Objective, KeyResult, BigRock, Meeting, User, Strategy, Foundation, CheckIn } from "@shared/schema";
 
 // Tool parameter schemas for validation
 export const listObjectivesParams = z.object({
@@ -51,6 +51,28 @@ export const analyzeObjectiveGapsParams = z.object({
 });
 
 export const getFoundationContextParams = z.object({});
+
+// Phase 3 AI Tools - Meeting Prep, Predictive Analytics, Tool Chaining
+export const generateMeetingPrepParams = z.object({
+  meetingId: z.string().describe("The ID of the meeting to prepare for"),
+});
+
+export const analyzeTeamHealthParams = z.object({
+  teamId: z.string().optional().describe("Optional team ID to filter by"),
+  quarter: z.number().min(1).max(4).optional().describe("Quarter (1-4)"),
+  year: z.number().optional().describe("Year (e.g., 2026)"),
+});
+
+export const comparePeriodsParams = z.object({
+  fromQuarter: z.number().min(1).max(4).describe("Starting quarter (1-4)"),
+  fromYear: z.number().describe("Starting year"),
+  toQuarter: z.number().min(1).max(4).describe("Ending quarter (1-4)"),
+  toYear: z.number().describe("Ending year"),
+});
+
+export const prioritizeActionsParams = z.object({
+  limit: z.number().min(1).max(10).optional().default(5).describe("Maximum number of priority items to return"),
+});
 
 // OpenAI function definitions for tool calling
 export const AI_TOOLS: Array<{
@@ -191,6 +213,66 @@ export const AI_TOOLS: Array<{
       },
     },
   },
+  // Phase 3: Meeting Prep, Predictive Analytics, and Composite Tools
+  {
+    type: "function",
+    function: {
+      name: "generateMeetingPrep",
+      description: "Generate a comprehensive meeting preparation summary with linked OKRs, their status, recent check-ins, and suggested talking points. Use this when the user asks to prepare for a meeting, wants a meeting briefing, or needs to understand what to discuss in an upcoming meeting.",
+      parameters: {
+        type: "object",
+        properties: {
+          meetingId: { type: "string", description: "The ID of the meeting to prepare for" },
+        },
+        required: ["meetingId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "analyzeTeamHealth",
+      description: "Analyze team health by examining OKR progress, identifying blockers, and summarizing recent check-in notes. Use this when the user asks about team performance, why a team is behind, what blockers exist, or for a team health overview.",
+      parameters: {
+        type: "object",
+        properties: {
+          teamId: { type: "string", description: "Optional team ID to filter by" },
+          quarter: { type: "number", description: "Quarter (1-4)" },
+          year: { type: "number", description: "Year (e.g., 2026)" },
+        },
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "comparePeriods",
+      description: "Compare OKR progress between two quarters, showing improvements, declines, and overall trends. Use this when the user asks to compare quarters, see progress over time, or understand period-over-period changes.",
+      parameters: {
+        type: "object",
+        properties: {
+          fromQuarter: { type: "number", description: "Starting quarter (1-4)" },
+          fromYear: { type: "number", description: "Starting year" },
+          toQuarter: { type: "number", description: "Ending quarter (1-4)" },
+          toYear: { type: "number", description: "Ending year" },
+        },
+        required: ["fromQuarter", "fromYear", "toQuarter", "toYear"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "prioritizeActions",
+      description: "Get a prioritized list of items needing attention based on impact, urgency, and risk. Use this when the user asks what to focus on, what's most important this week, or needs help prioritizing work.",
+      parameters: {
+        type: "object",
+        properties: {
+          limit: { type: "number", description: "Maximum number of priority items (default 5, max 10)" },
+        },
+      },
+    },
+  },
 ];
 
 // Result types for AI tool responses
@@ -292,6 +374,86 @@ export interface FoundationContext {
   values: Array<{ title: string; description: string | null }>;
   goals: Array<{ id: string; title: string; description: string | null; category: string | null }>;
   strategies: Array<{ id: string; title: string; description: string | null }>;
+}
+
+// Phase 3: Meeting Prep, Predictive Analytics, and Composite Tool Types
+export interface MeetingPrepSummary {
+  meetingTitle: string;
+  meetingType: string | null;
+  meetingDate: string | null;
+  linkedOkrs: Array<{
+    id: string;
+    title: string;
+    type: 'objective' | 'keyResult' | 'bigRock';
+    progress: number;
+    status: string | null;
+    paceStatus: string;
+    projectedProgress: number;
+    recentCheckIns: Array<{
+      date: string;
+      note: string;
+      progressChange: number;
+    }>;
+    needsDiscussion: boolean;
+    discussionReason: string | null;
+  }>;
+  suggestedTalkingPoints: string[];
+  atRiskCount: number;
+  behindPaceCount: number;
+}
+
+export interface TeamHealthAnalysis {
+  teamName: string | null;
+  teamId: string | null;
+  overallHealth: 'healthy' | 'attention_needed' | 'at_risk';
+  healthScore: number;
+  objectiveCount: number;
+  averageProgress: number;
+  atRiskItems: Array<{
+    id: string;
+    title: string;
+    type: string;
+    progress: number;
+    reason: string;
+  }>;
+  recentBlockers: string[];
+  completionForecast: {
+    onTrackCount: number;
+    atRiskCount: number;
+    projectedCompletionRate: number;
+  };
+}
+
+export interface PeriodComparison {
+  fromPeriod: { quarter: number; year: number };
+  toPeriod: { quarter: number; year: number };
+  objectiveComparison: {
+    fromCount: number;
+    toCount: number;
+    fromAvgProgress: number;
+    toAvgProgress: number;
+    progressDelta: number;
+  };
+  statusBreakdown: {
+    improved: number;
+    declined: number;
+    stable: number;
+  };
+  completionRateChange: number;
+  topImprovements: Array<{ title: string; progressGain: number }>;
+  topDeclines: Array<{ title: string; progressLoss: number }>;
+}
+
+export interface PrioritizedAction {
+  rank: number;
+  id: string;
+  title: string;
+  type: 'objective' | 'keyResult' | 'bigRock';
+  urgency: 'critical' | 'high' | 'medium';
+  reason: string;
+  progress: number;
+  daysUntilDeadline: number | null;
+  suggestedAction: string;
 }
 
 // Helper to compute status from progress
@@ -746,6 +908,492 @@ export async function executeGetFoundationContext(
   };
 }
 
+// Phase 3: Meeting Prep AI
+export async function executeGenerateMeetingPrep(
+  tenantId: string,
+  params: z.infer<typeof generateMeetingPrepParams>
+): Promise<MeetingPrepSummary> {
+  const { meetingId } = params;
+  
+  const meeting = await storage.getMeetingById(meetingId);
+  if (!meeting || meeting.tenantId !== tenantId) {
+    throw new Error("Meeting not found");
+  }
+  
+  const linkedObjectiveIds = (meeting.linkedObjectiveIds || []) as string[];
+  const linkedKeyResultIds = (meeting.linkedKeyResultIds || []) as string[];
+  const linkedBigRockIds = (meeting.linkedBigRockIds || []) as string[];
+  
+  const objectives = await storage.getObjectivesByTenantId(tenantId);
+  const keyResults = await storage.getKeyResultsByTenantId(tenantId);
+  const bigRocks = await storage.getBigRocksByTenantId(tenantId);
+  
+  // Get check-ins for all objectives
+  const checkIns: CheckIn[] = [];
+  for (const obj of objectives) {
+    const objCheckIns = await storage.getCheckInsByEntityId('objective', obj.id);
+    checkIns.push(...objCheckIns);
+  }
+  for (const kr of keyResults) {
+    const krCheckIns = await storage.getCheckInsByEntityId('key_result', kr.id);
+    checkIns.push(...krCheckIns);
+  }
+  
+  const linkedOkrs: MeetingPrepSummary['linkedOkrs'] = [];
+  let atRiskCount = 0;
+  let behindPaceCount = 0;
+  const suggestedTalkingPoints: string[] = [];
+  
+  // Process linked objectives
+  for (const objId of linkedObjectiveIds) {
+    const obj = objectives.find(o => o.id === objId);
+    if (!obj) continue;
+    
+    const objCheckIns = checkIns
+      .filter(c => c.entityType === 'objective' && c.entityId === objId)
+      .sort((a, b) => new Date(b.asOfDate || b.createdAt).getTime() - new Date(a.asOfDate || a.createdAt).getTime())
+      .slice(0, 3);
+    
+    const { calculatePaceMetrics } = await import('./okr-intelligence');
+    const paceMetrics = calculatePaceMetrics({
+      progress: obj.progress ?? 0,
+      quarter: obj.quarter,
+      year: obj.year,
+      checkIns: objCheckIns.map(c => ({
+        asOfDate: new Date(c.asOfDate || c.createdAt),
+        newProgress: c.newProgress ?? 0,
+        previousProgress: c.previousProgress ?? 0,
+      })),
+    });
+    
+    const isAtRisk = obj.status === 'at_risk' || paceMetrics.status === 'at_risk';
+    const isBehind = obj.status === 'behind' || paceMetrics.status === 'behind';
+    
+    if (isAtRisk) atRiskCount++;
+    if (isBehind) behindPaceCount++;
+    
+    let discussionReason: string | null = null;
+    if (isAtRisk) discussionReason = "At risk - needs immediate attention";
+    else if (isBehind) discussionReason = "Behind pace - may need resource adjustment";
+    else if (paceMetrics.riskSignal === 'stalled') discussionReason = "Stalled - no progress recorded";
+    else if (paceMetrics.riskSignal === 'attention_needed') discussionReason = `No check-in for ${paceMetrics.daysSinceLastCheckIn} days`;
+    
+    linkedOkrs.push({
+      id: obj.id,
+      title: obj.title,
+      type: 'objective',
+      progress: obj.progress ?? 0,
+      status: obj.status,
+      paceStatus: paceMetrics.status,
+      projectedProgress: paceMetrics.projectedEndProgress,
+      recentCheckIns: objCheckIns.map(c => ({
+        date: new Date(c.asOfDate || c.createdAt).toLocaleDateString(),
+        note: c.notes || '',
+        progressChange: (c.newProgress ?? 0) - (c.previousProgress ?? 0),
+      })),
+      needsDiscussion: !!discussionReason,
+      discussionReason,
+    });
+    
+    if (discussionReason) {
+      suggestedTalkingPoints.push(`${obj.title}: ${discussionReason}`);
+    }
+  }
+  
+  // Process linked key results
+  for (const krId of linkedKeyResultIds) {
+    const kr = keyResults.find(k => k.id === krId);
+    if (!kr) continue;
+    
+    const krCheckIns = checkIns
+      .filter(c => c.entityType === 'key_result' && c.entityId === krId)
+      .sort((a, b) => new Date(b.asOfDate || b.createdAt).getTime() - new Date(a.asOfDate || a.createdAt).getTime())
+      .slice(0, 3);
+    
+    const isAtRisk = kr.status === 'at_risk';
+    const isBehind = kr.status === 'behind';
+    
+    if (isAtRisk) atRiskCount++;
+    if (isBehind) behindPaceCount++;
+    
+    let discussionReason: string | null = null;
+    if (isAtRisk) discussionReason = "At risk";
+    else if (isBehind) discussionReason = "Behind target";
+    
+    linkedOkrs.push({
+      id: kr.id,
+      title: kr.title,
+      type: 'keyResult',
+      progress: kr.progress ?? 0,
+      status: kr.status,
+      paceStatus: isAtRisk ? 'at_risk' : isBehind ? 'behind' : 'on_track',
+      projectedProgress: kr.progress ?? 0,
+      recentCheckIns: krCheckIns.map(c => ({
+        date: new Date(c.asOfDate || c.createdAt).toLocaleDateString(),
+        note: c.notes || '',
+        progressChange: (c.newProgress ?? 0) - (c.previousProgress ?? 0),
+      })),
+      needsDiscussion: !!discussionReason,
+      discussionReason,
+    });
+  }
+  
+  // Process linked big rocks
+  for (const brId of linkedBigRockIds) {
+    const br = bigRocks.find(b => b.id === brId);
+    if (!br) continue;
+    
+    const isBlocked = br.status === 'blocked';
+    if (isBlocked) atRiskCount++;
+    
+    let discussionReason: string | null = null;
+    if (isBlocked) discussionReason = "Blocked - needs resolution";
+    
+    linkedOkrs.push({
+      id: br.id,
+      title: br.title,
+      type: 'bigRock',
+      progress: br.completionPercentage ?? 0,
+      status: br.status,
+      paceStatus: isBlocked ? 'at_risk' : 'on_track',
+      projectedProgress: br.completionPercentage ?? 0,
+      recentCheckIns: [],
+      needsDiscussion: !!discussionReason,
+      discussionReason,
+    });
+    
+    if (discussionReason) {
+      suggestedTalkingPoints.push(`${br.title}: ${discussionReason}`);
+    }
+  }
+  
+  // Add summary talking point if there are issues
+  if (atRiskCount > 0 || behindPaceCount > 0) {
+    suggestedTalkingPoints.unshift(`Summary: ${atRiskCount} at-risk items, ${behindPaceCount} behind pace`);
+  }
+  
+  return {
+    meetingTitle: meeting.title,
+    meetingType: meeting.meetingType,
+    meetingDate: meeting.date ? new Date(meeting.date).toLocaleDateString() : null,
+    linkedOkrs,
+    suggestedTalkingPoints,
+    atRiskCount,
+    behindPaceCount,
+  };
+}
+
+// Phase 3: Team Health Analysis
+export async function executeAnalyzeTeamHealth(
+  tenantId: string,
+  params: z.infer<typeof analyzeTeamHealthParams>
+): Promise<TeamHealthAnalysis> {
+  const { teamId, quarter, year } = params;
+  
+  const teams = await storage.getTeamsByTenantId(tenantId);
+  const team = teamId ? teams.find(t => t.id === teamId) : null;
+  
+  let objectives = await storage.getObjectivesByTenantId(tenantId, quarter, year);
+  
+  // Filter by team if specified
+  if (teamId) {
+    objectives = objectives.filter(o => o.teamId === teamId);
+  }
+  
+  // Get check-ins for all objectives
+  const checkIns: CheckIn[] = [];
+  for (const obj of objectives) {
+    const objCheckIns = await storage.getCheckInsByEntityId('objective', obj.id);
+    checkIns.push(...objCheckIns);
+  }
+  
+  const totalProgress = objectives.reduce((sum, o) => sum + (o.progress ?? 0), 0);
+  const averageProgress = objectives.length > 0 ? Math.round(totalProgress / objectives.length) : 0;
+  
+  const atRiskItems: TeamHealthAnalysis['atRiskItems'] = [];
+  const recentBlockers: string[] = [];
+  let onTrackCount = 0;
+  let atRiskCount = 0;
+  
+  for (const obj of objectives) {
+    const objCheckIns = checkIns
+      .filter(c => c.entityType === 'objective' && c.entityId === obj.id)
+      .sort((a, b) => new Date(b.asOfDate || b.createdAt).getTime() - new Date(a.asOfDate || a.createdAt).getTime());
+    
+    const { calculatePaceMetrics } = await import('./okr-intelligence');
+    const paceMetrics = calculatePaceMetrics({
+      progress: obj.progress ?? 0,
+      quarter: obj.quarter,
+      year: obj.year,
+      checkIns: objCheckIns.map(c => ({
+        asOfDate: new Date(c.asOfDate || c.createdAt),
+        newProgress: c.newProgress ?? 0,
+        previousProgress: c.previousProgress ?? 0,
+      })),
+    });
+    
+    if (paceMetrics.status === 'at_risk' || paceMetrics.status === 'behind') {
+      atRiskCount++;
+      let reason = paceMetrics.status === 'at_risk' ? 'At risk' : 'Behind pace';
+      if (paceMetrics.riskSignal === 'stalled') reason = 'Stalled - no recent progress';
+      
+      atRiskItems.push({
+        id: obj.id,
+        title: obj.title,
+        type: 'objective',
+        progress: obj.progress ?? 0,
+        reason,
+      });
+      
+      // Extract blockers from recent check-ins
+      const recentNotes = objCheckIns.slice(0, 2);
+      for (const checkIn of recentNotes) {
+        if (checkIn.notes && (
+          checkIn.notes.toLowerCase().includes('block') ||
+          checkIn.notes.toLowerCase().includes('issue') ||
+          checkIn.notes.toLowerCase().includes('delay') ||
+          checkIn.notes.toLowerCase().includes('stuck')
+        )) {
+          recentBlockers.push(`${obj.title}: ${checkIn.notes.slice(0, 100)}...`);
+        }
+      }
+    } else if (paceMetrics.status === 'on_track' || paceMetrics.status === 'ahead') {
+      onTrackCount++;
+    }
+  }
+  
+  const projectedCompletionRate = objectives.length > 0 
+    ? Math.round((onTrackCount / objectives.length) * 100) 
+    : 100;
+  
+  let healthScore = 100;
+  if (atRiskCount > 0) healthScore -= atRiskCount * 15;
+  if (averageProgress < 50) healthScore -= 20;
+  healthScore = Math.max(0, Math.min(100, healthScore));
+  
+  let overallHealth: TeamHealthAnalysis['overallHealth'] = 'healthy';
+  if (healthScore < 50) overallHealth = 'at_risk';
+  else if (healthScore < 75) overallHealth = 'attention_needed';
+  
+  return {
+    teamName: team?.name || null,
+    teamId: teamId || null,
+    overallHealth,
+    healthScore,
+    objectiveCount: objectives.length,
+    averageProgress,
+    atRiskItems: atRiskItems.slice(0, 5),
+    recentBlockers: recentBlockers.slice(0, 3),
+    completionForecast: {
+      onTrackCount,
+      atRiskCount,
+      projectedCompletionRate,
+    },
+  };
+}
+
+// Phase 3: Period Comparison
+export async function executeComparePeriods(
+  tenantId: string,
+  params: z.infer<typeof comparePeriodsParams>
+): Promise<PeriodComparison> {
+  const { fromQuarter, fromYear, toQuarter, toYear } = params;
+  
+  const fromObjectives = await storage.getObjectivesByTenantId(tenantId, fromQuarter, fromYear);
+  const toObjectives = await storage.getObjectivesByTenantId(tenantId, toQuarter, toYear);
+  
+  const fromAvgProgress = fromObjectives.length > 0
+    ? Math.round(fromObjectives.reduce((sum, o) => sum + (o.progress ?? 0), 0) / fromObjectives.length)
+    : 0;
+  
+  const toAvgProgress = toObjectives.length > 0
+    ? Math.round(toObjectives.reduce((sum, o) => sum + (o.progress ?? 0), 0) / toObjectives.length)
+    : 0;
+  
+  const progressDelta = toAvgProgress - fromAvgProgress;
+  
+  // Calculate completion rates
+  const fromCompleted = fromObjectives.filter(o => o.status === 'completed' || (o.progress ?? 0) >= 100).length;
+  const toCompleted = toObjectives.filter(o => o.status === 'completed' || (o.progress ?? 0) >= 100).length;
+  
+  const fromCompletionRate = fromObjectives.length > 0 ? (fromCompleted / fromObjectives.length) * 100 : 0;
+  const toCompletionRate = toObjectives.length > 0 ? (toCompleted / toObjectives.length) * 100 : 0;
+  const completionRateChange = Math.round(toCompletionRate - fromCompletionRate);
+  
+  // Find objectives that exist in both periods (by title match)
+  const fromTitlesMap: Map<string, typeof fromObjectives[0]> = new Map();
+  for (const o of fromObjectives) {
+    fromTitlesMap.set(o.title.toLowerCase(), o);
+  }
+  
+  let improved = 0;
+  let declined = 0;
+  let stable = 0;
+  const improvements: Array<{ title: string; progressGain: number }> = [];
+  const declines: Array<{ title: string; progressLoss: number }> = [];
+  
+  for (const toObj of toObjectives) {
+    const title = toObj.title.toLowerCase();
+    const fromObj = fromTitlesMap.get(title);
+    if (fromObj) {
+      const delta = (toObj.progress ?? 0) - (fromObj.progress ?? 0);
+      if (delta > 10) {
+        improved++;
+        improvements.push({ title: toObj.title, progressGain: delta });
+      } else if (delta < -10) {
+        declined++;
+        declines.push({ title: toObj.title, progressLoss: Math.abs(delta) });
+      } else {
+        stable++;
+      }
+    }
+  }
+  
+  return {
+    fromPeriod: { quarter: fromQuarter, year: fromYear },
+    toPeriod: { quarter: toQuarter, year: toYear },
+    objectiveComparison: {
+      fromCount: fromObjectives.length,
+      toCount: toObjectives.length,
+      fromAvgProgress,
+      toAvgProgress,
+      progressDelta,
+    },
+    statusBreakdown: { improved, declined, stable },
+    completionRateChange,
+    topImprovements: improvements.sort((a, b) => b.progressGain - a.progressGain).slice(0, 3),
+    topDeclines: declines.sort((a, b) => b.progressLoss - a.progressLoss).slice(0, 3),
+  };
+}
+
+// Phase 3: Prioritize Actions
+export async function executePrioritizeActions(
+  tenantId: string,
+  params: z.infer<typeof prioritizeActionsParams>
+): Promise<PrioritizedAction[]> {
+  const { limit = 5 } = params;
+  const now = new Date();
+  const currentQuarter = Math.ceil((now.getMonth() + 1) / 3);
+  const currentYear = now.getFullYear();
+  
+  const objectives = await storage.getObjectivesByTenantId(tenantId, currentQuarter, currentYear);
+  const bigRocks = await storage.getBigRocksByTenantId(tenantId, currentQuarter, currentYear);
+  
+  const prioritizedItems: Array<PrioritizedAction & { score: number }> = [];
+  
+  // Score objectives
+  for (const obj of objectives) {
+    const objCheckIns = await storage.getCheckInsByEntityId('objective', obj.id);
+    
+    const { calculatePaceMetrics } = await import('./okr-intelligence');
+    const paceMetrics = calculatePaceMetrics({
+      progress: obj.progress ?? 0,
+      quarter: obj.quarter,
+      year: obj.year,
+      checkIns: objCheckIns.map(c => ({
+        asOfDate: new Date(c.asOfDate || c.createdAt),
+        newProgress: c.newProgress ?? 0,
+        previousProgress: c.previousProgress ?? 0,
+      })),
+    });
+    
+    let score = 0;
+    let urgency: PrioritizedAction['urgency'] = 'medium';
+    let reason = '';
+    let suggestedAction = '';
+    
+    if (paceMetrics.status === 'at_risk') {
+      score += 100;
+      urgency = 'critical';
+      reason = 'At risk - requires immediate action';
+      suggestedAction = 'Schedule urgent review meeting and identify blockers';
+    } else if (paceMetrics.status === 'behind') {
+      score += 70;
+      urgency = 'high';
+      reason = 'Behind pace - needs attention';
+      suggestedAction = 'Review resource allocation and adjust timeline if needed';
+    } else if (paceMetrics.riskSignal === 'stalled') {
+      score += 80;
+      urgency = 'high';
+      reason = 'Stalled - no recent progress';
+      suggestedAction = 'Check in with owner to understand blockers';
+    } else if (paceMetrics.riskSignal === 'attention_needed') {
+      score += 50;
+      urgency = 'medium';
+      reason = `No check-in for ${paceMetrics.daysSinceLastCheckIn} days`;
+      suggestedAction = 'Request status update from owner';
+    }
+    
+    // Boost score for higher-level objectives
+    if (obj.level === 'organization') score += 20;
+    else if (obj.level === 'division') score += 10;
+    
+    // Boost score for low progress
+    if ((obj.progress ?? 0) < 25) score += 15;
+    
+    if (score > 0) {
+      prioritizedItems.push({
+        rank: 0,
+        id: obj.id,
+        title: obj.title,
+        type: 'objective',
+        urgency,
+        reason,
+        progress: obj.progress ?? 0,
+        daysUntilDeadline: null,
+        suggestedAction,
+        score,
+      });
+    }
+  }
+  
+  // Score big rocks
+  for (const br of bigRocks) {
+    let score = 0;
+    let urgency: PrioritizedAction['urgency'] = 'medium';
+    let reason = '';
+    let suggestedAction = '';
+    
+    if (br.status === 'blocked') {
+      score += 90;
+      urgency = 'critical';
+      reason = 'Blocked - needs resolution';
+      suggestedAction = 'Identify and remove blockers';
+    } else if (br.status === 'not_started' && (br.completionPercentage ?? 0) === 0) {
+      score += 40;
+      urgency = 'medium';
+      reason = 'Not started - may need kickoff';
+      suggestedAction = 'Confirm priority and assign resources';
+    }
+    
+    if (score > 0) {
+      prioritizedItems.push({
+        rank: 0,
+        id: br.id,
+        title: br.title,
+        type: 'bigRock',
+        urgency,
+        reason,
+        progress: br.completionPercentage ?? 0,
+        daysUntilDeadline: null,
+        suggestedAction,
+        score,
+      });
+    }
+  }
+  
+  // Sort by score and assign ranks
+  const sorted = prioritizedItems
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((item, index) => {
+      const { score, ...rest } = item;
+      return { ...rest, rank: index + 1 };
+    });
+  
+  return sorted;
+}
+
 // Main tool executor
 export async function executeTool(
   toolName: string,
@@ -772,6 +1420,15 @@ export async function executeTool(
       return executeAnalyzeObjectiveGaps(tenantId, analyzeObjectiveGapsParams.parse(args));
     case "getFoundationContext":
       return executeGetFoundationContext(tenantId, getFoundationContextParams.parse(args));
+    // Phase 3 tools
+    case "generateMeetingPrep":
+      return executeGenerateMeetingPrep(tenantId, generateMeetingPrepParams.parse(args));
+    case "analyzeTeamHealth":
+      return executeAnalyzeTeamHealth(tenantId, analyzeTeamHealthParams.parse(args));
+    case "comparePeriods":
+      return executeComparePeriods(tenantId, comparePeriodsParams.parse(args));
+    case "prioritizeActions":
+      return executePrioritizeActions(tenantId, prioritizeActionsParams.parse(args));
     default:
       throw new Error(`Unknown tool: ${toolName}`);
   }
@@ -924,6 +1581,128 @@ export function formatToolResult(toolName: string, result: any): string {
         context.strategies.forEach(s => {
           parts.push(`- **${s.title}**`);
         });
+      }
+      
+      return parts.join("\n");
+    }
+    // Phase 3: Meeting Prep, Team Health, Period Comparison, and Priority Actions formatters
+    case "generateMeetingPrep": {
+      const prep = result as MeetingPrepSummary;
+      const parts: string[] = [];
+      
+      parts.push(`**Meeting Prep: ${prep.meetingTitle}**`);
+      if (prep.meetingDate) parts.push(`Date: ${prep.meetingDate}`);
+      if (prep.meetingType) parts.push(`Type: ${prep.meetingType}`);
+      
+      if (prep.atRiskCount > 0 || prep.behindPaceCount > 0) {
+        parts.push(`\n**Summary:** ${prep.atRiskCount} at-risk items, ${prep.behindPaceCount} behind pace`);
+      }
+      
+      if (prep.linkedOkrs.length > 0) {
+        parts.push(`\n**Linked Items (${prep.linkedOkrs.length}):**`);
+        for (const okr of prep.linkedOkrs) {
+          const paceIcon = okr.paceStatus === 'at_risk' ? '🔴' : okr.paceStatus === 'behind' ? '🟡' : '🟢';
+          parts.push(`- ${paceIcon} **${okr.title}** (${okr.type}, ${okr.progress}%${okr.needsDiscussion ? ' - NEEDS DISCUSSION' : ''})`);
+          if (okr.discussionReason) {
+            parts.push(`  Reason: ${okr.discussionReason}`);
+          }
+          if (okr.recentCheckIns.length > 0) {
+            const latestCheckIn = okr.recentCheckIns[0];
+            parts.push(`  Last check-in: ${latestCheckIn.date} (+${latestCheckIn.progressChange}%)`);
+          }
+        }
+      }
+      
+      if (prep.suggestedTalkingPoints.length > 0) {
+        parts.push(`\n**Suggested Talking Points:**`);
+        prep.suggestedTalkingPoints.forEach((point, i) => {
+          parts.push(`${i + 1}. ${point}`);
+        });
+      }
+      
+      return parts.join("\n");
+    }
+    case "analyzeTeamHealth": {
+      const health = result as TeamHealthAnalysis;
+      const parts: string[] = [];
+      
+      const healthIcon = health.overallHealth === 'healthy' ? '🟢' : health.overallHealth === 'attention_needed' ? '🟡' : '🔴';
+      parts.push(`**Team Health Analysis** ${healthIcon}`);
+      if (health.teamName) parts.push(`Team: ${health.teamName}`);
+      parts.push(`Health Score: ${health.healthScore}/100 (${health.overallHealth.replace('_', ' ')})`);
+      parts.push(`Objectives: ${health.objectiveCount} | Average Progress: ${health.averageProgress}%`);
+      
+      parts.push(`\n**Completion Forecast:**`);
+      parts.push(`- On track: ${health.completionForecast.onTrackCount}`);
+      parts.push(`- At risk: ${health.completionForecast.atRiskCount}`);
+      parts.push(`- Projected completion rate: ${health.completionForecast.projectedCompletionRate}%`);
+      
+      if (health.atRiskItems.length > 0) {
+        parts.push(`\n**Items Needing Attention (${health.atRiskItems.length}):**`);
+        health.atRiskItems.forEach(item => {
+          parts.push(`- **${item.title}** (${item.progress}%): ${item.reason}`);
+        });
+      }
+      
+      if (health.recentBlockers.length > 0) {
+        parts.push(`\n**Recent Blockers:**`);
+        health.recentBlockers.forEach(blocker => {
+          parts.push(`- ${blocker}`);
+        });
+      }
+      
+      return parts.join("\n");
+    }
+    case "comparePeriods": {
+      const comparison = result as PeriodComparison;
+      const parts: string[] = [];
+      
+      const trend = comparison.objectiveComparison.progressDelta >= 0 ? '📈' : '📉';
+      parts.push(`**Period Comparison** ${trend}`);
+      parts.push(`Q${comparison.fromPeriod.quarter} ${comparison.fromPeriod.year} → Q${comparison.toPeriod.quarter} ${comparison.toPeriod.year}`);
+      
+      parts.push(`\n**Progress:**`);
+      parts.push(`- From: ${comparison.objectiveComparison.fromAvgProgress}% avg (${comparison.objectiveComparison.fromCount} objectives)`);
+      parts.push(`- To: ${comparison.objectiveComparison.toAvgProgress}% avg (${comparison.objectiveComparison.toCount} objectives)`);
+      parts.push(`- Change: ${comparison.objectiveComparison.progressDelta >= 0 ? '+' : ''}${comparison.objectiveComparison.progressDelta}%`);
+      
+      parts.push(`\n**Status Changes:**`);
+      parts.push(`- Improved: ${comparison.statusBreakdown.improved}`);
+      parts.push(`- Declined: ${comparison.statusBreakdown.declined}`);
+      parts.push(`- Stable: ${comparison.statusBreakdown.stable}`);
+      parts.push(`- Completion rate change: ${comparison.completionRateChange >= 0 ? '+' : ''}${comparison.completionRateChange}%`);
+      
+      if (comparison.topImprovements.length > 0) {
+        parts.push(`\n**Top Improvements:**`);
+        comparison.topImprovements.forEach(item => {
+          parts.push(`- ${item.title}: +${item.progressGain}%`);
+        });
+      }
+      
+      if (comparison.topDeclines.length > 0) {
+        parts.push(`\n**Top Declines:**`);
+        comparison.topDeclines.forEach(item => {
+          parts.push(`- ${item.title}: -${item.progressLoss}%`);
+        });
+      }
+      
+      return parts.join("\n");
+    }
+    case "prioritizeActions": {
+      const actions = result as PrioritizedAction[];
+      if (actions.length === 0) {
+        return "No priority actions found. All items appear to be on track!";
+      }
+      
+      const parts: string[] = [];
+      parts.push(`**Priority Actions (${actions.length}):**`);
+      
+      for (const action of actions) {
+        const urgencyIcon = action.urgency === 'critical' ? '🔴' : action.urgency === 'high' ? '🟠' : '🟡';
+        parts.push(`\n${action.rank}. ${urgencyIcon} **${action.title}** (${action.type})`);
+        parts.push(`   Progress: ${action.progress}% | Urgency: ${action.urgency}`);
+        parts.push(`   Reason: ${action.reason}`);
+        parts.push(`   Suggested: ${action.suggestedAction}`);
       }
       
       return parts.join("\n");

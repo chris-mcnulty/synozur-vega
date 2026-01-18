@@ -214,6 +214,42 @@ export default function MeetingDetail() {
   const [newActionItem, setNewActionItem] = useState("");
   const [newRisk, setNewRisk] = useState("");
   const [newAttendee, setNewAttendee] = useState("");
+  const [showAiPrep, setShowAiPrep] = useState(false);
+
+  interface MeetingPrepSummary {
+    meetingTitle: string;
+    meetingType: string | null;
+    meetingDate: string | null;
+    linkedOkrs: Array<{
+      id: string;
+      title: string;
+      type: 'objective' | 'keyResult' | 'bigRock';
+      progress: number;
+      status: string | null;
+      paceStatus: string;
+      projectedProgress: number;
+      recentCheckIns: Array<{
+        date: string;
+        note: string;
+        progressChange: number;
+      }>;
+      needsDiscussion: boolean;
+      discussionReason: string | null;
+    }>;
+    suggestedTalkingPoints: string[];
+    atRiskCount: number;
+    behindPaceCount: number;
+  }
+
+  const { data: meetingPrep, isLoading: prepLoading, refetch: refetchPrep } = useQuery<MeetingPrepSummary>({
+    queryKey: ['/api/meetings', meetingId, 'prep'],
+    queryFn: async () => {
+      const res = await fetch(`/api/meetings/${meetingId}/prep`);
+      if (!res.ok) throw new Error('Failed to fetch meeting prep');
+      return res.json();
+    },
+    enabled: showAiPrep && !!meetingId,
+  });
 
   const { data: meeting, isLoading: meetingLoading } = useQuery<Meeting>({
     queryKey: ['/api/meeting', meetingId],
@@ -399,6 +435,14 @@ export default function MeetingDetail() {
             </div>
           </div>
           <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowAiPrep(!showAiPrep)}
+              data-testid="button-ai-prep"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              {showAiPrep ? "Hide AI Prep" : "AI Prep"}
+            </Button>
             <Button variant="outline" onClick={handleCopyLink} data-testid="button-copy-link">
               <ExternalLink className="w-4 h-4 mr-2" />
               Copy Link
@@ -409,6 +453,112 @@ export default function MeetingDetail() {
             </Button>
           </div>
         </div>
+
+        {showAiPrep && (
+          <Card className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border-purple-200 dark:border-purple-800">
+            <CardHeader className="pb-2">
+              <div className="flex items-center justify-between">
+                <CardTitle className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-purple-600" />
+                  AI Meeting Prep
+                </CardTitle>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  onClick={() => refetchPrep()}
+                  disabled={prepLoading}
+                  data-testid="button-refresh-prep"
+                >
+                  {prepLoading ? "Loading..." : "Refresh"}
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {prepLoading ? (
+                <div className="animate-pulse space-y-3">
+                  <div className="h-4 bg-muted rounded w-3/4"></div>
+                  <div className="h-4 bg-muted rounded w-1/2"></div>
+                  <div className="h-4 bg-muted rounded w-2/3"></div>
+                </div>
+              ) : meetingPrep ? (
+                <div className="space-y-4">
+                  {(meetingPrep.atRiskCount > 0 || meetingPrep.behindPaceCount > 0) && (
+                    <div className="flex items-center gap-4 p-3 rounded-lg bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700">
+                      <AlertTriangle className="w-5 h-5 text-amber-600" />
+                      <span className="text-sm font-medium">
+                        {meetingPrep.atRiskCount} at-risk items, {meetingPrep.behindPaceCount} behind pace
+                      </span>
+                    </div>
+                  )}
+                  
+                  {meetingPrep.suggestedTalkingPoints.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-purple-600" />
+                        Suggested Talking Points
+                      </h4>
+                      <ul className="space-y-1">
+                        {meetingPrep.suggestedTalkingPoints.map((point, i) => (
+                          <li key={i} className="text-sm flex items-start gap-2">
+                            <span className="text-muted-foreground">{i + 1}.</span>
+                            <span>{point}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  
+                  {meetingPrep.linkedOkrs.length > 0 && (
+                    <div>
+                      <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                        <Target className="w-4 h-4 text-purple-600" />
+                        Linked Items Status ({meetingPrep.linkedOkrs.length})
+                      </h4>
+                      <div className="space-y-2">
+                        {meetingPrep.linkedOkrs.map((okr) => (
+                          <div 
+                            key={okr.id} 
+                            className={`p-2 rounded-lg text-sm ${
+                              okr.needsDiscussion 
+                                ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800' 
+                                : 'bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0">
+                                <Badge variant={okr.paceStatus === 'at_risk' ? 'destructive' : okr.paceStatus === 'behind' ? 'secondary' : 'default'}>
+                                  {okr.progress}%
+                                </Badge>
+                                <span className="font-medium truncate">{okr.title}</span>
+                              </div>
+                              <Badge variant="outline" className="shrink-0">
+                                {okr.type === 'keyResult' ? 'KR' : okr.type === 'bigRock' ? 'BR' : 'Obj'}
+                              </Badge>
+                            </div>
+                            {okr.discussionReason && (
+                              <p className="text-xs text-red-600 dark:text-red-400 mt-1 flex items-center gap-1">
+                                <AlertTriangle className="w-3 h-3" />
+                                {okr.discussionReason}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {meetingPrep.linkedOkrs.length === 0 && meetingPrep.suggestedTalkingPoints.length === 0 && (
+                    <p className="text-muted-foreground text-sm text-center py-4">
+                      No linked items. Add objectives, key results, or big rocks to get AI-powered meeting prep.
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="text-muted-foreground text-sm">Click Refresh to generate meeting prep.</p>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-6">

@@ -2186,6 +2186,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Meeting Prep AI endpoint
+  app.get("/api/meetings/:id/prep", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const tenantId = req.effectiveTenantId;
+      
+      if (!tenantId) {
+        return res.status(400).json({ error: "Tenant context required" });
+      }
+      
+      // Import and execute the meeting prep tool
+      const { executeGenerateMeetingPrep, generateMeetingPrepParams } = await import('./ai-tools');
+      
+      const result = await executeGenerateMeetingPrep(tenantId, generateMeetingPrepParams.parse({ meetingId: id }));
+      res.json(result);
+    } catch (error: any) {
+      console.error("Error generating meeting prep:", error);
+      if (error.message === "Meeting not found") {
+        return res.status(404).json({ error: "Meeting not found" });
+      }
+      res.status(500).json({ error: "Failed to generate meeting prep" });
+    }
+  });
+
   // Consultant Access Grant endpoints
   // Get all consultants with access to a specific tenant
   app.get("/api/consultant-access/tenant/:tenantId", ...adminOnly, async (req: Request, res: Response) => {

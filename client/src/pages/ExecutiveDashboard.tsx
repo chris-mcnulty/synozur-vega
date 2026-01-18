@@ -510,6 +510,21 @@ export default function ExecutiveDashboard() {
     const stalledObjectivesCount = objectivesWithPace.filter(obj => obj.riskSignal === 'stalled').length;
     const attentionNeededCount = objectivesWithPace.filter(obj => obj.riskSignal === 'attention_needed').length;
 
+    // Pace distribution for forecast card
+    const paceDistribution = {
+      ahead: objectivesWithPace.filter(obj => obj.paceStatus === 'ahead').length,
+      onTrack: objectivesWithPace.filter(obj => obj.paceStatus === 'on_track').length,
+      behind: objectivesWithPace.filter(obj => obj.paceStatus === 'behind').length,
+      atRisk: objectivesWithPace.filter(obj => obj.paceStatus === 'at_risk').length,
+      noData: objectivesWithPace.filter(obj => obj.paceStatus === 'no_data').length,
+      completed: objectivesWithPace.filter(obj => obj.paceStatus === 'completed').length,
+    };
+    
+    // Average projected progress at end of quarter
+    const avgProjectedProgress = objectivesWithPace.length > 0
+      ? Math.round(objectivesWithPace.reduce((sum, obj) => sum + Math.min(obj.projectedEndProgress, 100), 0) / objectivesWithPace.length)
+      : 0;
+
     return {
       totalObjectives: objectives.length,
       totalKRs: allKRs.length,
@@ -540,8 +555,14 @@ export default function ExecutiveDashboard() {
       behindPaceCount: behindPaceObjectives.length,
       stalledSignalCount: stalledObjectivesCount,
       attentionNeededCount,
+      paceDistribution,
+      avgProjectedProgress,
     };
   }, [objectives, keyResultsMap, teams, allCheckIns, bigRocks]);
+  
+  // Extract pace distribution for easier access in JSX
+  const paceDistribution = metrics?.paceDistribution || { ahead: 0, onTrack: 0, behind: 0, atRisk: 0, noData: 0, completed: 0 };
+  const avgProjectedProgress = metrics?.avgProjectedProgress || 0;
 
   if (tenantLoading) {
     return (
@@ -812,6 +833,80 @@ export default function ExecutiveDashboard() {
               </HoverCardContent>
             </HoverCard>
           </div>
+
+          <Card className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border-purple-200 dark:border-purple-800">
+            <CardHeader className="pb-2">
+              <CardTitle className="flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-purple-600" />
+                Predictive Forecast
+              </CardTitle>
+              <CardDescription>AI-powered completion projections based on current velocity</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingUp className="h-4 w-4 text-green-600" />
+                    <span className="text-sm font-medium text-muted-foreground">On Track to Complete</span>
+                  </div>
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid="text-forecast-on-track">
+                    {paceDistribution.ahead + paceDistribution.onTrack}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {metrics.totalObjectives > 0 
+                      ? `${Math.round(((paceDistribution.ahead + paceDistribution.onTrack) / metrics.totalObjectives) * 100)}% of objectives`
+                      : 'No objectives'}
+                  </p>
+                </div>
+                
+                <div className="p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-2 mb-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
+                    <span className="text-sm font-medium text-muted-foreground">May Miss Target</span>
+                  </div>
+                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400" data-testid="text-forecast-behind">
+                    {paceDistribution.behind}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Behind pace but recoverable
+                  </p>
+                </div>
+                
+                <div className="p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center gap-2 mb-2">
+                    <TrendingDown className="h-4 w-4 text-red-600" />
+                    <span className="text-sm font-medium text-muted-foreground">Projected Completion</span>
+                  </div>
+                  <p className="text-2xl font-bold" data-testid="text-forecast-projected">
+                    {avgProjectedProgress}%
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Based on current velocity
+                  </p>
+                </div>
+              </div>
+              
+              {paceDistribution.atRisk > 0 && (
+                <div className="mt-4 p-3 rounded-lg bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 flex items-center gap-3">
+                  <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
+                  <div className="flex-1">
+                    <span className="text-sm font-medium text-red-700 dark:text-red-400">
+                      {paceDistribution.atRisk} objective{paceDistribution.atRisk > 1 ? 's' : ''} at critical risk
+                    </span>
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
+                      Unlikely to meet targets without intervention
+                    </p>
+                  </div>
+                  <Link href="/planning">
+                    <Button size="sm" variant="outline" className="shrink-0 border-red-300 dark:border-red-700">
+                      <Eye className="h-4 w-4 mr-1" />
+                      Review
+                    </Button>
+                  </Link>
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <Card className="lg:col-span-2">
