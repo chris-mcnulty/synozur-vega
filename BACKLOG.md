@@ -1,6 +1,6 @@
 # Vega Platform Master Backlog
 
-**Last Updated:** January 17, 2026 (Added MCP Server to completed features, MCP enhancements to backlog)
+**Last Updated:** January 18, 2026 (Added Power BI Connector Framework, updated AI-Powered Assistance scope)
 
 > **Note:** This is the single source of truth for all Vega feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference this document for backlog-related questions.
 
@@ -142,10 +142,12 @@ PHASE 3: Advanced Features (February-March 2025)
 - AI usage tracking for cost analysis
 
 **Remaining Work:**
-- Vector database for semantic search (pgvector)
-- AI-powered search across OKRs
-- Meeting prep AI with context retrieval
-- Predictive analytics
+- Meeting prep AI with context retrieval (summarize linked OKRs before meetings)
+- Predictive analytics (forecast OKR completion based on velocity trends)
+- Better AI tool chaining (combine multiple queries intelligently)
+
+**Removed from Scope:**
+- ~~Vector database for semantic search~~ - Overkill for structured OKR data; PostgreSQL full-text search sufficient
 
 ---
 
@@ -229,6 +231,195 @@ Design and implement differentiated features for "Consulting Partner" mode vs "S
 1. User research: What do consulting partners actually need?
 2. Design feature specifications for top 3-5 consultant features
 3. Implement incrementally, unhiding toggle when first feature ships
+
+---
+
+### Power BI Connector Framework
+
+**Status:** Not Started  
+**Priority:** Medium  
+**Effort:** 3-4 weeks
+
+**Overview:**
+Automatic OKR data sync to Power BI for real-time dashboards and executive reporting. Uses Power BI Push Datasets API to push OKR data on a schedule or triggered by updates.
+
+**Use Cases:**
+1. **Executive BI Dashboards** - Embed OKR progress in existing Power BI reports
+2. **Cross-System Analytics** - Combine OKR data with sales, HR, finance metrics
+3. **Historical Trend Analysis** - Store OKR snapshots for quarter-over-quarter comparisons
+4. **Custom Visualizations** - Power BI's visualization capabilities exceed Vega's built-in charts
+
+**Architecture:**
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                     VEGA POWER BI CONNECTOR                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────┐    ┌──────────────────┐    ┌───────────────┐ │
+│  │ Sync Config  │───▶│ Data Transformer │───▶│ Power BI API  │ │
+│  │ (Tenant UI)  │    │   (Server)       │    │   (Push)      │ │
+│  └──────────────┘    └──────────────────┘    └───────────────┘ │
+│        │                     │                      │          │
+│        ▼                     ▼                      ▼          │
+│  ┌──────────────┐    ┌──────────────────┐    ┌───────────────┐ │
+│  │ Schedule     │    │ OKR Snapshot     │    │ Push Dataset  │ │
+│  │ (Cron/Event) │    │ Generation       │    │ (Power BI)    │ │
+│  └──────────────┘    └──────────────────┘    └───────────────┘ │
+│                                                                  │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+**Phase 1: Core Connector (2 weeks)**
+
+| Component | Description |
+|-----------|-------------|
+| **Azure AD Setup** | Reuse existing M365 integration credentials (service principal) |
+| **Power BI Service** | `server/integrations/powerbi.ts` with authentication + push methods |
+| **Dataset Schema** | Define OKR dataset structure (Objectives, KeyResults, Teams, Progress) |
+| **Admin UI** | Tenant Admin → Integrations → Power BI section |
+
+**Power BI Push Dataset Schema:**
+```json
+{
+  "name": "VegaOKRData",
+  "defaultMode": "Push",
+  "tables": [
+    {
+      "name": "Objectives",
+      "columns": [
+        { "name": "ObjectiveId", "dataType": "String" },
+        { "name": "Title", "dataType": "String" },
+        { "name": "Progress", "dataType": "Double" },
+        { "name": "Status", "dataType": "String" },
+        { "name": "OwnerId", "dataType": "String" },
+        { "name": "OwnerName", "dataType": "String" },
+        { "name": "TeamId", "dataType": "String" },
+        { "name": "TeamName", "dataType": "String" },
+        { "name": "Quarter", "dataType": "Int64" },
+        { "name": "Year", "dataType": "Int64" },
+        { "name": "Level", "dataType": "String" },
+        { "name": "PaceStatus", "dataType": "String" },
+        { "name": "VelocityProjection", "dataType": "Double" },
+        { "name": "SyncTimestamp", "dataType": "DateTime" }
+      ]
+    },
+    {
+      "name": "KeyResults",
+      "columns": [
+        { "name": "KeyResultId", "dataType": "String" },
+        { "name": "ObjectiveId", "dataType": "String" },
+        { "name": "Title", "dataType": "String" },
+        { "name": "CurrentValue", "dataType": "Double" },
+        { "name": "TargetValue", "dataType": "Double" },
+        { "name": "Progress", "dataType": "Double" },
+        { "name": "Unit", "dataType": "String" },
+        { "name": "SyncTimestamp", "dataType": "DateTime" }
+      ]
+    },
+    {
+      "name": "ProgressHistory",
+      "columns": [
+        { "name": "ObjectiveId", "dataType": "String" },
+        { "name": "Progress", "dataType": "Double" },
+        { "name": "RecordedAt", "dataType": "DateTime" }
+      ]
+    }
+  ]
+}
+```
+
+**Phase 2: Sync Configuration (1 week)**
+
+| Feature | Description |
+|---------|-------------|
+| **Sync Frequency** | Hourly, Daily, Weekly, or On-Demand |
+| **Data Scope** | All OKRs, or filter by quarter/team/level |
+| **Workspace Selection** | Choose Power BI workspace for dataset |
+| **Manual Trigger** | "Sync Now" button in admin UI |
+| **Sync History** | Log of past syncs with row counts and errors |
+
+**Phase 3: Event-Driven Sync (1 week)**
+
+| Trigger | Action |
+|---------|--------|
+| OKR Progress Update | Push updated row to Power BI |
+| New Objective Created | Add row to dataset |
+| Check-in Submitted | Update progress + add to history |
+| Quarter Close-Out | Push final snapshot with "closed" status |
+
+**API Endpoints:**
+```
+POST   /api/integrations/powerbi/connect    - Initiate OAuth flow
+GET    /api/integrations/powerbi/status     - Connection status + last sync
+POST   /api/integrations/powerbi/sync       - Trigger manual sync
+GET    /api/integrations/powerbi/history    - Sync history log
+DELETE /api/integrations/powerbi/disconnect - Remove connection
+PATCH  /api/integrations/powerbi/config     - Update sync settings
+```
+
+**Database Schema:**
+```sql
+powerbi_connections:
+  id UUID PRIMARY KEY
+  tenantId UUID REFERENCES tenants
+  workspaceId TEXT           -- Power BI workspace ID
+  datasetId TEXT             -- Created push dataset ID
+  syncFrequency TEXT         -- 'hourly' | 'daily' | 'weekly' | 'manual'
+  scopeFilter JSONB          -- { quarters: [], teams: [], levels: [] }
+  lastSyncAt TIMESTAMP
+  lastSyncStatus TEXT        -- 'success' | 'partial' | 'failed'
+  lastSyncRowCount INTEGER
+  createdAt TIMESTAMP
+  updatedAt TIMESTAMP
+
+powerbi_sync_logs:
+  id UUID PRIMARY KEY
+  connectionId UUID REFERENCES powerbi_connections
+  syncType TEXT              -- 'scheduled' | 'manual' | 'event'
+  status TEXT
+  objectivesCount INTEGER
+  keyResultsCount INTEGER
+  errorMessage TEXT
+  durationMs INTEGER
+  createdAt TIMESTAMP
+```
+
+**Authentication:**
+- Leverages existing Azure AD service principal from M365 integration
+- Required scope: `https://analysis.windows.net/powerbi/api/.default`
+- No additional user OAuth needed if using service principal
+
+**Rate Limits (Power BI API):**
+- 10,000 rows per POST request
+- 1,000,000 rows per hour per dataset
+- Vega batch logic handles large tenants automatically
+
+**UI in Tenant Admin:**
+```
+Integrations Tab
+├── Microsoft 365 (existing)
+├── HubSpot CRM (existing)
+├── MCP API Keys (existing)
+└── Power BI [NEW]
+    ├── Connection Status: Connected / Not Connected
+    ├── Workspace: [Selected Workspace Name]
+    ├── Dataset: VegaOKRData (created automatically)
+    ├── Sync Frequency: [Dropdown]
+    ├── Data Scope: [Multi-select filters]
+    ├── Last Sync: Jan 17, 2026 at 3:00 PM (245 objectives, 892 KRs)
+    ├── [Sync Now] button
+    └── [View Sync History] link
+```
+
+**Dependencies:**
+- Existing M365 Azure AD credentials (already implemented)
+- `@azure/identity` package (already installed)
+
+**Business Value:**
+- Enterprise customers already using Power BI can integrate OKR data without manual exports
+- Reduces need for custom reporting features in Vega
+- Enables IT teams to build custom dashboards without API development
 
 ---
 
