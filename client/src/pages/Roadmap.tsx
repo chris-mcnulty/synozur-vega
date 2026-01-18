@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, CheckCircle2, Clock, Sparkles, Target, Users, BarChart3, Puzzle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock, Sparkles, Target, Users, BarChart3, Puzzle, Database } from "lucide-react";
 import { Link } from "wouter";
 
 interface RoadmapItem {
@@ -91,6 +91,12 @@ const roadmap: RoadmapPhase[] = [
         description: "Track and visualize dependencies between team objectives",
         status: "planned",
         icon: Users
+      },
+      {
+        title: "Power BI Data Pull",
+        description: "Link Key Results to Power BI measures for automatic progress updates from your BI dashboards",
+        status: "planned",
+        icon: Database
       }
     ]
   }
