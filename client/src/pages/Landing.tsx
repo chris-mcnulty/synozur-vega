@@ -10,8 +10,8 @@ import microsoftPartnerBadgeWhite from "@assets/MSFT-CAPP-PREFERRED-White_176764
 import microsoftPartnerBadgeBlack from "@assets/MSFT-CAPP-PREFERRED-BlackColor_1767641891731.png";
 import vegaLogo from "@assets/VegaTight_1766605018223.png";
 import synozurMark from "@assets/SynozurMark_color1400_1766606244412.png";
-import synozurLogoColor from "@assets/SynozurLogo_color_1400_1767401266278.png";
-import synozurLogoWhite from "@assets/SynozurLogo_white 1400_1763228452349.png";
+import synozurLogoColor from "@assets/SA-Logo-Horizontal-color_1768839624375.png";
+import synozurLogoWhite from "@assets/SA-Logo-Horizontal-white_1768839624376.png";
 
 export default function Landing() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -119,16 +119,15 @@ export default function Landing() {
         <section className="py-16 bg-muted/30 border-t">
           <div className="max-w-4xl mx-auto px-6">
             <div className="text-center mb-8">
-              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">From the makers of</p>
               <img 
                 src={synozurLogoColor} 
-                alt="Synozur - The Transformation Company" 
-                className="h-12 object-contain mx-auto block dark:hidden"
+                alt="Synozur Alliance - The Transformation Company" 
+                className="h-16 object-contain mx-auto block dark:hidden"
               />
               <img 
                 src={synozurLogoWhite} 
-                alt="Synozur - The Transformation Company" 
-                className="h-12 object-contain mx-auto hidden dark:block"
+                alt="Synozur Alliance - The Transformation Company" 
+                className="h-16 object-contain mx-auto hidden dark:block"
               />
             </div>
             <div className="text-center space-y-4">
