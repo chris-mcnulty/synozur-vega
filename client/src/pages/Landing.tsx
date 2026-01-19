@@ -10,6 +10,8 @@ import microsoftPartnerBadgeWhite from "@assets/MSFT-CAPP-PREFERRED-White_176764
 import microsoftPartnerBadgeBlack from "@assets/MSFT-CAPP-PREFERRED-BlackColor_1767641891731.png";
 import vegaLogo from "@assets/VegaTight_1766605018223.png";
 import synozurMark from "@assets/SynozurMark_color1400_1766606244412.png";
+import synozurLogoColor from "@assets/SynozurLogo_color_1400_1767401266278.png";
+import synozurLogoWhite from "@assets/SynozurLogo_white 1400_1763228452349.png";
 
 export default function Landing() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -112,6 +114,47 @@ export default function Landing() {
       {/* Main Content - account for header + potential banner */}
       <div className="pt-16">
         <LandingHero />
+
+        {/* From Synozur Section */}
+        <section className="py-16 bg-muted/30 border-t">
+          <div className="max-w-4xl mx-auto px-6">
+            <div className="text-center mb-8">
+              <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-4">From the makers of</p>
+              <img 
+                src={synozurLogoColor} 
+                alt="Synozur - The Transformation Company" 
+                className="h-12 object-contain mx-auto block dark:hidden"
+              />
+              <img 
+                src={synozurLogoWhite} 
+                alt="Synozur - The Transformation Company" 
+                className="h-12 object-contain mx-auto hidden dark:block"
+              />
+            </div>
+            <div className="text-center space-y-4">
+              <p className="text-lg text-foreground font-medium">
+                Synozur – the transformation company – is proud to be a woman-owned advisory firm focused on transforming business for clients, making the desirable achievable.
+              </p>
+              <p className="text-muted-foreground leading-relaxed">
+                Synozur helps clients reimagine how they do business today and evolve to succeed. Our empathetic approach is tailored to your unique journey, navigating the complexities of transformation and strategy with ease. We drive strategic leadership, culture change and design for business, technology, experiences, and market development.
+              </p>
+              <p className="text-muted-foreground leading-relaxed">
+                Our consultants have decades of experience delivering global strategic advisory services that elevate you to achieve breakthrough innovation.
+              </p>
+              <div className="pt-4">
+                <a 
+                  href="https://www.synozur.com" 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-primary hover:underline font-medium"
+                >
+                  Learn more about Synozur
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* Footer */}
         <footer className="py-12 bg-background border-t">
