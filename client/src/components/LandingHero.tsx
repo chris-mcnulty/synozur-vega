@@ -230,16 +230,13 @@ export function LandingHero() {
           </div>
         </div>
       </section>
-
       {/* Company OS Credibility Blurb */}
       <section className="py-10 md:py-14 bg-background border-b">
         <div className="max-w-3xl mx-auto px-6 text-center">
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
             Built on our proven Company Operating System™
           </p>
-          <p className="text-base md:text-lg text-foreground/90 leading-relaxed mb-4">
-            Vega is built on the Company Operating System™ created by Synozur and shaped by decades of strategy consulting work. It reflects how real leadership teams align strategy, planning, and execution—refined through hands-on work with dozens of organizations, from growing mid-market companies to complex global enterprises.
-          </p>
+          <p className="text-base md:text-lg text-foreground/90 leading-relaxed mb-4">Vega is built on the Company Operating System™ created by Synozur with former Microsoft product leadership, and shaped by decades of strategy consulting. It reflects how real leadership teams align strategy, planning, and execution—refined through hands-on work with dozens of organizations, from growing mid-market companies to complex global enterprises.</p>
           <p className="text-sm text-muted-foreground">
             See how this approach has been applied in practice:{" "}
             <a 
@@ -262,7 +259,6 @@ export function LandingHero() {
           </p>
         </div>
       </section>
-
       {/* First 15 Minutes Section */}
       <section 
         className="relative py-16 md:py-24"
@@ -307,10 +303,8 @@ export function LandingHero() {
           </div>
         </div>
       </section>
-
       {/* Capability Showcase Section - dynamically rendered if enabled */}
       <CapabilityShowcase />
-
       {/* How Access Works Section */}
       <section className="py-10 md:py-14 bg-muted/50 border-b">
         <div className="max-w-3xl mx-auto px-6">
@@ -334,7 +328,6 @@ export function LandingHero() {
           </div>
         </div>
       </section>
-
       {/* Outcomes Section */}
       <section className="py-16 md:py-24 bg-background">
         <div className="max-w-6xl mx-auto px-6">
@@ -360,7 +353,6 @@ export function LandingHero() {
           <CTAButton className="mt-10" />
         </div>
       </section>
-
       {/* How Vega is Different */}
       <section id="features" className="py-16 md:py-24 bg-muted/30">
         <div className="max-w-6xl mx-auto px-6">
@@ -384,7 +376,6 @@ export function LandingHero() {
           </div>
         </div>
       </section>
-
       {/* Who It's For / Not For */}
       <section className="py-16 md:py-24 bg-background">
         <div className="max-w-5xl mx-auto px-6">
@@ -431,7 +422,6 @@ export function LandingHero() {
           <CTAButton className="mt-10" />
         </div>
       </section>
-
       {/* Modules Overview */}
       <section 
         id="modules" 
@@ -499,7 +489,6 @@ export function LandingHero() {
           </div>
         </div>
       </section>
-
       {/* Security Section */}
       <section id="security" className="py-16 md:py-24 bg-card">
         <div className="max-w-4xl mx-auto px-6">
@@ -522,7 +511,6 @@ export function LandingHero() {
           </div>
         </div>
       </section>
-
       {/* Screenshot/Video Section */}
       <section id="screenshot-section" className="relative bg-background py-12 md:py-20 px-4 md:px-6">
         <div className="max-w-6xl mx-auto">
@@ -558,7 +546,6 @@ export function LandingHero() {
           </div>
         </div>
       </section>
-
       {/* Final CTA Band */}
       <section className="py-16 md:py-20 bg-primary text-primary-foreground">
         <div className="max-w-4xl mx-auto px-6 text-center">
