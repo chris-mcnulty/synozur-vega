@@ -132,7 +132,7 @@ export default function Landing() {
             </div>
             <div className="text-center space-y-4">
               <p className="text-lg text-foreground font-medium">
-                Synozur – the transformation company – is proud to be a woman-owned advisory firm focused on transforming business for clients, making the desirable achievable.
+                Synozur – the transformation company – is proud to be a woman-owned advisory firm focused on transforming business for clients, making the desirable achievable. Built on our proven Company Operating System™, Vega was designed by former Microsoft Viva Goals product leadership.
               </p>
               <p className="text-muted-foreground leading-relaxed">
                 Synozur helps clients reimagine how they do business today and evolve to succeed. Our empathetic approach is tailored to your unique journey, navigating the complexities of transformation and strategy with ease. We drive strategic leadership, culture change and design for business, technology, experiences, and market development.
@@ -140,11 +140,6 @@ export default function Landing() {
               <p className="text-muted-foreground leading-relaxed">
                 Our consultants have decades of experience delivering global strategic advisory services that elevate you to achieve breakthrough innovation.
               </p>
-              <div className="pt-2 pb-2">
-                <Badge variant="secondary" className="text-sm">
-                  Vega is built by former Microsoft Viva Goals product leadership
-                </Badge>
-              </div>
               <div className="pt-4">
                 <a 
                   href="https://www.synozur.com" 
