@@ -141,6 +141,11 @@ export default function Landing() {
               <p className="text-muted-foreground leading-relaxed">
                 Our consultants have decades of experience delivering global strategic advisory services that elevate you to achieve breakthrough innovation.
               </p>
+              <div className="pt-2 pb-2">
+                <Badge variant="secondary" className="text-sm">
+                  Vega is built by former Microsoft Viva Goals product leadership
+                </Badge>
+              </div>
               <div className="pt-4">
                 <a 
                   href="https://www.synozur.com" 
