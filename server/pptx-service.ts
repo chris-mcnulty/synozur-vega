@@ -2,6 +2,10 @@ import PptxGenJSModule from 'pptxgenjs';
 const PptxGenJS = (PptxGenJSModule as any).default || PptxGenJSModule;
 import { Tenant, ReportInstance, ReviewSnapshot } from '@shared/schema';
 
+// Type aliases for PptxGenJS to avoid namespace issues
+type PptxInstance = InstanceType<typeof PptxGenJSModule>;
+type TableRow = any[];
+
 export interface SlideOptions {
   executiveScorecard: boolean;
   teamPerformance: boolean;
@@ -141,7 +145,7 @@ export async function generateReportPPTX(data: ReportData): Promise<Buffer> {
 }
 
 async function addTitleSlide(
-  pptx: PptxGenJS,
+  pptx: PptxInstance,
   tenant: Tenant,
   report: ReportInstance,
   branding: any,
@@ -213,7 +217,7 @@ async function addTitleSlide(
   });
 }
 
-function addExecutiveScorecardSlide(pptx: PptxGenJS, summary: any, primaryColor: string) {
+function addExecutiveScorecardSlide(pptx: PptxInstance, summary: any, primaryColor: string) {
   const slide = pptx.addSlide();
   
   slide.addText('Executive Scorecard', {
@@ -332,7 +336,7 @@ function addExecutiveScorecardSlide(pptx: PptxGenJS, summary: any, primaryColor:
   }
 }
 
-function addTeamPerformanceSlide(pptx: PptxGenJS, objectives: any[], teams: any[], primaryColor: string) {
+function addTeamPerformanceSlide(pptx: PptxInstance, objectives: any[], teams: any[], primaryColor: string) {
   const slide = pptx.addSlide();
   
   slide.addText('Team Performance Comparison', {
@@ -382,7 +386,7 @@ function addTeamPerformanceSlide(pptx: PptxGenJS, objectives: any[], teams: any[
       dataLabelFontSize: 10,
     });
     
-    const tableData: PptxGenJS.TableRow[] = [
+    const tableData: TableRow[] = [
       [
         { text: 'Team', options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'left' } },
         { text: 'Objectives', options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'center' } },
@@ -436,7 +440,7 @@ function addTeamPerformanceSlide(pptx: PptxGenJS, objectives: any[], teams: any[
   }
 }
 
-function addObjectivesDeepDiveSlides(pptx: PptxGenJS, objectives: any[], keyResults: any[], primaryColor: string) {
+function addObjectivesDeepDiveSlides(pptx: PptxInstance, objectives: any[], keyResults: any[], primaryColor: string) {
   const slide = pptx.addSlide();
   
   slide.addText('Objectives Overview', {
@@ -446,7 +450,7 @@ function addObjectivesDeepDiveSlides(pptx: PptxGenJS, objectives: any[], keyResu
   
   const sortedObjectives = [...objectives].sort((a, b) => (b.progress || 0) - (a.progress || 0));
   
-  const tableData: PptxGenJS.TableRow[] = [
+  const tableData: TableRow[] = [
     [
       { text: 'Objective', options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'left' } },
       { text: 'Owner', options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'left' } },
@@ -482,7 +486,7 @@ function addObjectivesDeepDiveSlides(pptx: PptxGenJS, objectives: any[], keyResu
   }
 }
 
-function addKeyResultsTrendSlide(pptx: PptxGenJS, keyResults: any[], checkIns: any[], primaryColor: string) {
+function addKeyResultsTrendSlide(pptx: PptxInstance, keyResults: any[], checkIns: any[], primaryColor: string) {
   const slide = pptx.addSlide();
   
   slide.addText('Key Results Progress', {
@@ -510,7 +514,7 @@ function addKeyResultsTrendSlide(pptx: PptxGenJS, keyResults: any[], checkIns: a
       dataLabelFontSize: 9,
     });
     
-    const tableData: PptxGenJS.TableRow[] = [
+    const tableData: TableRow[] = [
       [
         { text: 'Key Result', options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'left' } },
         { text: 'Current', options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'center' } },
@@ -546,7 +550,7 @@ function addKeyResultsTrendSlide(pptx: PptxGenJS, keyResults: any[], checkIns: a
   }
 }
 
-function addAtRiskSlide(pptx: PptxGenJS, atRiskObjectives: any[], atRiskKRs: any[], primaryColor: string) {
+function addAtRiskSlide(pptx: PptxInstance, atRiskObjectives: any[], atRiskKRs: any[], primaryColor: string) {
   const slide = pptx.addSlide();
   
   slide.addText('Items Requiring Attention', {
@@ -570,7 +574,7 @@ function addAtRiskSlide(pptx: PptxGenJS, atRiskObjectives: any[], atRiskKRs: any
       fontSize: 14, color: '374151', bold: true
     });
     
-    const objTableData: PptxGenJS.TableRow[] = [
+    const objTableData: TableRow[] = [
       [
         { text: 'Objective', options: { bold: true, fill: { color: 'EF4444' }, color: 'FFFFFF', align: 'left' } },
         { text: '%', options: { bold: true, fill: { color: 'EF4444' }, color: 'FFFFFF', align: 'center' } },
@@ -598,7 +602,7 @@ function addAtRiskSlide(pptx: PptxGenJS, atRiskObjectives: any[], atRiskKRs: any
       fontSize: 14, color: '374151', bold: true
     });
     
-    const krTableData: PptxGenJS.TableRow[] = [
+    const krTableData: TableRow[] = [
       [
         { text: 'Key Result', options: { bold: true, fill: { color: 'EF4444' }, color: 'FFFFFF', align: 'left' } },
         { text: '%', options: { bold: true, fill: { color: 'EF4444' }, color: 'FFFFFF', align: 'center' } },
@@ -621,7 +625,7 @@ function addAtRiskSlide(pptx: PptxGenJS, atRiskObjectives: any[], atRiskKRs: any
   }
 }
 
-function addBigRocksKanbanSlide(pptx: PptxGenJS, bigRocks: any[], primaryColor: string) {
+function addBigRocksKanbanSlide(pptx: PptxInstance, bigRocks: any[], primaryColor: string) {
   const slide = pptx.addSlide();
   
   slide.addText('Initiatives (Big Rocks)', {
@@ -699,7 +703,7 @@ function addBigRocksKanbanSlide(pptx: PptxGenJS, bigRocks: any[], primaryColor: 
   });
 }
 
-function addPeriodComparisonSlide(pptx: PptxGenJS, currentSummary: any, snapshot: ReviewSnapshot, primaryColor: string) {
+function addPeriodComparisonSlide(pptx: PptxInstance, currentSummary: any, snapshot: ReviewSnapshot, primaryColor: string) {
   const slide = pptx.addSlide();
   
   slide.addText('Period Comparison', {
@@ -774,7 +778,7 @@ function addPeriodComparisonSlide(pptx: PptxGenJS, currentSummary: any, snapshot
   });
 }
 
-function addCheckInHighlightsSlide(pptx: PptxGenJS, checkIns: any[], keyResults: any[], primaryColor: string) {
+function addCheckInHighlightsSlide(pptx: PptxInstance, checkIns: any[], keyResults: any[], primaryColor: string) {
   const slide = pptx.addSlide();
   
   slide.addText('Recent Check-in Highlights', {
@@ -820,7 +824,7 @@ function addCheckInHighlightsSlide(pptx: PptxGenJS, checkIns: any[], keyResults:
 }
 
 function addAiPeriodSummarySlide(
-  pptx: PptxGenJS, 
+  pptx: PptxInstance, 
   aiSummary: { headline: string; keyThemes: string[]; guidance: string; generatedAt?: string },
   report: ReportInstance,
   primaryColor: string
@@ -892,7 +896,7 @@ function addAiPeriodSummarySlide(
   }
 }
 
-function addClosingSlide(pptx: PptxGenJS, tenant: Tenant, branding: any, secondaryColor: string, fontFace: string) {
+function addClosingSlide(pptx: PptxInstance, tenant: Tenant, branding: any, secondaryColor: string, fontFace: string) {
   const closingSlide = pptx.addSlide();
   closingSlide.addShape(pptx.ShapeType.rect, {
     x: 0, y: 0, w: '100%', h: '100%',
