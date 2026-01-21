@@ -207,6 +207,10 @@ export async function getChatCompletion(
 ): Promise<string> {
   const { tenantId, maxTokens = 4096 } = options;
   const startTime = Date.now();
+  
+  // Get active model from config
+  const activeConfig = await getActiveConfig();
+  const activeModel = activeConfig.model;
 
   // Build system prompt with grounding documents
   const systemPrompt = await buildSystemPrompt(tenantId);
@@ -222,7 +226,7 @@ export async function getChatCompletion(
 
   try {
     const response = await openai.chat.completions.create({
-      model: MODEL,
+      model: activeModel,
       messages: fullMessages,
       max_completion_tokens: maxTokens,
     });
@@ -275,6 +279,10 @@ export async function getSimpleCompletion(
 ): Promise<string> {
   const { tenantId, maxTokens = 500 } = options;
   const startTime = Date.now();
+  
+  // Get active model from config
+  const activeConfig = await getActiveConfig();
+  const activeModel = activeConfig.model;
 
   const fullMessages: OpenAI.ChatCompletionMessageParam[] = [
     { role: "system", content: systemPrompt },
@@ -282,11 +290,11 @@ export async function getSimpleCompletion(
   ];
 
   try {
-    console.log("[getSimpleCompletion] Calling OpenAI with model:", MODEL);
+    console.log("[getSimpleCompletion] Calling OpenAI with model:", activeModel);
     console.log("[getSimpleCompletion] Message count:", fullMessages.length, "maxTokens:", maxTokens);
     
     const response = await openai.chat.completions.create({
-      model: MODEL,
+      model: activeModel,
       messages: fullMessages,
       max_completion_tokens: maxTokens,
     });
@@ -341,6 +349,10 @@ export async function* streamChatCompletion(
   const { tenantId, maxTokens = 4096 } = options;
   const startTime = Date.now();
   console.log("[AI Service] streamChatCompletion called, tenantId:", tenantId);
+  
+  // Get active model from config
+  const activeConfig = await getActiveConfig();
+  const activeModel = activeConfig.model;
 
   // Build system prompt with grounding documents
   const systemPrompt = await buildSystemPrompt(tenantId);
@@ -362,12 +374,12 @@ export async function* streamChatCompletion(
   );
 
   try {
-    console.log("[AI Service] Calling OpenAI API with model:", MODEL);
+    console.log("[AI Service] Calling OpenAI API with model:", activeModel);
     console.log("[AI Service] Base URL:", process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ? "configured" : "NOT SET");
     console.log("[AI Service] API Key:", process.env.AI_INTEGRATIONS_OPENAI_API_KEY ? "configured" : "NOT SET");
     
     const stream = await openai.chat.completions.create({
-      model: MODEL,
+      model: activeModel,
       messages: fullMessages,
       max_completion_tokens: maxTokens,
       stream: true,
@@ -438,6 +450,10 @@ export async function* streamChatWithTools(
   let totalPromptTokens = 0;
   let totalCompletionTokens = 0;
   console.log("[AI Service] streamChatWithTools called, tenantId:", tenantId, "enableTools:", enableTools);
+  
+  // Get active model from config
+  const activeConfig = await getActiveConfig();
+  const activeModel = activeConfig.model;
 
   // Build system prompt with grounding documents and user role
   let systemPrompt = await buildSystemPrompt(tenantId);
@@ -481,7 +497,7 @@ When presenting tool results, synthesize the data into a clear, readable respons
     if (!enableTools || !tenantId) {
       // Fall back to regular streaming without tools
       const stream = await openai.chat.completions.create({
-        model: MODEL,
+        model: activeModel,
         messages: fullMessages,
         max_completion_tokens: maxTokens,
         stream: true,
@@ -511,7 +527,7 @@ When presenting tool results, synthesize the data into a clear, readable respons
     // First call with tools - non-streaming to handle tool calls
     console.log("[AI Service] Making initial call with tools");
     const initialResponse = await openai.chat.completions.create({
-      model: MODEL,
+      model: activeModel,
       messages: fullMessages,
       max_completion_tokens: maxTokens,
       tools: AI_TOOLS,
@@ -566,7 +582,7 @@ When presenting tool results, synthesize the data into a clear, readable respons
       // Now stream the final response with tool results
       console.log("[AI Service] Streaming final response with tool results");
       const finalStream = await openai.chat.completions.create({
-        model: MODEL,
+        model: activeModel,
         messages: [...fullMessages, ...toolResults],
         max_completion_tokens: maxTokens,
         stream: true,
@@ -1431,7 +1447,7 @@ INITIATIVES:
       systemPrompt,
       userPrompt,
       { tenantId, maxTokens: 400 },
-      AI_FEATURES.SUGGESTIONS
+      AI_FEATURES.OTHER
     );
     
     const parsed = JSON.parse(response);
