@@ -658,6 +658,186 @@ okrRouter.delete("/big-rocks/:id", async (req, res) => {
   }
 });
 
+// ============ Big Rock Tasks ============
+
+// Get all tasks for a big rock
+okrRouter.get("/big-rocks/:bigRockId/tasks", async (req, res) => {
+  try {
+    const tasks = await storage.getBigRockTasksByBigRockId(req.params.bigRockId);
+    res.json(tasks);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create a task for a big rock
+okrRouter.post("/big-rocks/:bigRockId/tasks", requireValidatedTenant, async (req, res) => {
+  try {
+    const tenantId = req.effectiveTenantId!;
+    const user = req.user!;
+    
+    // Verify big rock exists and belongs to tenant
+    const bigRock = await storage.getBigRockByIdForTenant(req.params.bigRockId, tenantId);
+    if (!bigRock) {
+      return res.status(404).json({ error: "Big Rock not found" });
+    }
+    
+    // RBAC: Check if user can modify this big rock (they can add tasks)
+    if (!canUserModifyOKR(req, bigRock.ownerId, bigRock.createdBy, bigRock.ownerEmail)) {
+      return res.status(403).json({ 
+        error: "Access denied",
+        message: "You can only add tasks to Big Rocks you own or created."
+      });
+    }
+    
+    const task = await storage.createBigRockTask({
+      tenantId,
+      bigRockId: req.params.bigRockId,
+      title: req.body.title,
+      description: req.body.description || null,
+      status: req.body.status || 'open',
+      assigneeId: req.body.assigneeId || null,
+      assigneeEmail: req.body.assigneeEmail || null,
+      dueDate: req.body.dueDate ? new Date(req.body.dueDate) : null,
+      createdById: user.id,
+    });
+    
+    res.json(task);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update a task
+okrRouter.patch("/big-rocks/:bigRockId/tasks/:taskId", requireValidatedTenant, async (req, res) => {
+  try {
+    const tenantId = req.effectiveTenantId!;
+    const user = req.user!;
+    
+    // Verify task exists
+    const existingTask = await storage.getBigRockTaskById(req.params.taskId);
+    if (!existingTask || existingTask.bigRockId !== req.params.bigRockId) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+    
+    // Verify big rock exists and belongs to tenant
+    const bigRock = await storage.getBigRockByIdForTenant(req.params.bigRockId, tenantId);
+    if (!bigRock) {
+      return res.status(404).json({ error: "Big Rock not found" });
+    }
+    
+    // RBAC: Allow big rock owner, task assignee, or admins to update
+    const isOwner = canUserModifyOKR(req, bigRock.ownerId, bigRock.createdBy, bigRock.ownerEmail);
+    const isAssignee = existingTask.assigneeId === user.id || existingTask.assigneeEmail === user.email;
+    
+    if (!isOwner && !isAssignee) {
+      return res.status(403).json({ 
+        error: "Access denied",
+        message: "You can only update tasks you are assigned to or Big Rocks you own."
+      });
+    }
+    
+    const updateData: any = {};
+    if (req.body.title !== undefined) updateData.title = req.body.title;
+    if (req.body.description !== undefined) updateData.description = req.body.description;
+    if (req.body.status !== undefined) updateData.status = req.body.status;
+    if (req.body.assigneeId !== undefined) updateData.assigneeId = req.body.assigneeId;
+    if (req.body.assigneeEmail !== undefined) updateData.assigneeEmail = req.body.assigneeEmail;
+    if (req.body.dueDate !== undefined) updateData.dueDate = req.body.dueDate ? new Date(req.body.dueDate) : null;
+    
+    const task = await storage.updateBigRockTask(req.params.taskId, updateData);
+    res.json(task);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Delete a task
+okrRouter.delete("/big-rocks/:bigRockId/tasks/:taskId", requireValidatedTenant, async (req, res) => {
+  try {
+    const tenantId = req.effectiveTenantId!;
+    
+    // Verify task exists
+    const existingTask = await storage.getBigRockTaskById(req.params.taskId);
+    if (!existingTask || existingTask.bigRockId !== req.params.bigRockId) {
+      return res.status(404).json({ error: "Task not found" });
+    }
+    
+    // Verify big rock exists and belongs to tenant
+    const bigRock = await storage.getBigRockByIdForTenant(req.params.bigRockId, tenantId);
+    if (!bigRock) {
+      return res.status(404).json({ error: "Big Rock not found" });
+    }
+    
+    // RBAC: Only big rock owner/creator or admins can delete tasks
+    if (!canUserModifyOKR(req, bigRock.ownerId, bigRock.createdBy, bigRock.ownerEmail)) {
+      return res.status(403).json({ 
+        error: "Access denied",
+        message: "You can only delete tasks from Big Rocks you own."
+      });
+    }
+    
+    await storage.deleteBigRockTask(req.params.taskId);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Reorder tasks
+okrRouter.post("/big-rocks/:bigRockId/tasks/reorder", requireValidatedTenant, async (req, res) => {
+  try {
+    const tenantId = req.effectiveTenantId!;
+    const { taskIds } = req.body;
+    
+    if (!Array.isArray(taskIds)) {
+      return res.status(400).json({ error: "taskIds must be an array" });
+    }
+    
+    // Verify big rock exists and belongs to tenant
+    const bigRock = await storage.getBigRockByIdForTenant(req.params.bigRockId, tenantId);
+    if (!bigRock) {
+      return res.status(404).json({ error: "Big Rock not found" });
+    }
+    
+    // RBAC: Only big rock owner/creator can reorder
+    if (!canUserModifyOKR(req, bigRock.ownerId, bigRock.createdBy, bigRock.ownerEmail)) {
+      return res.status(403).json({ 
+        error: "Access denied",
+        message: "You can only reorder tasks in Big Rocks you own."
+      });
+    }
+    
+    await storage.reorderBigRockTasks(req.params.bigRockId, taskIds);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Get task counts for multiple big rocks (for badges)
+okrRouter.post("/big-rocks/task-counts", async (req, res) => {
+  try {
+    const { bigRockIds } = req.body;
+    
+    if (!Array.isArray(bigRockIds)) {
+      return res.status(400).json({ error: "bigRockIds must be an array" });
+    }
+    
+    const counts = await storage.getBigRockTaskCountsByBigRockIds(bigRockIds);
+    
+    // Convert Map to object for JSON serialization
+    const result: Record<string, { total: number; completed: number }> = {};
+    counts.forEach((value, key) => {
+      result[key] = value;
+    });
+    
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 okrRouter.post("/big-rocks/:id/clone", requireValidatedTenant, async (req, res) => {
   try {
     const { targetQuarter, targetYear, keepOriginalOwner, newOwnerId, keepLinkedOKR } = req.body;

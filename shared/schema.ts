@@ -924,6 +924,50 @@ export const bigRocks = pgTable("big_rocks", {
   uniqueTenantBigRock: unique().on(table.tenantId, table.title, table.quarter, table.year),
 }));
 
+// Big Rock Tasks - individual tasks within a Big Rock
+export const bigRockTaskStatusEnum = ['open', 'in_progress', 'completed'] as const;
+export type BigRockTaskStatus = typeof bigRockTaskStatusEnum[number];
+
+export const bigRockTasks = pgTable("big_rock_tasks", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  bigRockId: varchar("big_rock_id").notNull().references(() => bigRocks.id, { onDelete: 'cascade' }),
+  
+  title: text("title").notNull(),
+  description: text("description"),
+  
+  // Status: open -> in_progress -> completed
+  status: text("status").notNull().default('open'),
+  
+  // Assignment
+  assigneeId: varchar("assignee_id").references(() => users.id),
+  assigneeEmail: text("assignee_email"),
+  
+  // Timeline
+  dueDate: timestamp("due_date"),
+  completedAt: timestamp("completed_at"),
+  
+  // Ordering
+  sortOrder: integer("sort_order").default(0),
+  
+  // Planner sync (for future integration)
+  plannerTaskId: text("planner_task_id"),
+  
+  // Metadata
+  createdById: varchar("created_by_id").references(() => users.id),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertBigRockTaskSchema = createInsertSchema(bigRockTasks).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export type InsertBigRockTask = z.infer<typeof insertBigRockTaskSchema>;
+export type BigRockTask = typeof bigRockTasks.$inferSelect;
+
 export const checkIns = pgTable("check_ins", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),

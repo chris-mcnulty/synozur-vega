@@ -9,6 +9,7 @@ import {
   objectives, type Objective, type InsertObjective,
   keyResults, type KeyResult, type InsertKeyResult,
   bigRocks, type BigRock, type InsertBigRock,
+  bigRockTasks, type BigRockTask, type InsertBigRockTask,
   checkIns, type CheckIn, type InsertCheckIn,
   teams, type Team, type InsertTeam,
   objectiveValues,
@@ -130,6 +131,15 @@ export interface IStorage {
   createBigRock(bigRock: InsertBigRock): Promise<BigRock>;
   updateBigRock(id: string, bigRock: Partial<InsertBigRock>): Promise<BigRock>;
   deleteBigRock(id: string): Promise<void>;
+  
+  // Big Rock Task methods
+  getBigRockTasksByBigRockId(bigRockId: string): Promise<BigRockTask[]>;
+  getBigRockTaskById(id: string): Promise<BigRockTask | undefined>;
+  createBigRockTask(task: InsertBigRockTask): Promise<BigRockTask>;
+  updateBigRockTask(id: string, task: Partial<InsertBigRockTask>): Promise<BigRockTask>;
+  deleteBigRockTask(id: string): Promise<void>;
+  reorderBigRockTasks(bigRockId: string, taskIds: string[]): Promise<void>;
+  getBigRockTaskCountsByBigRockIds(bigRockIds: string[]): Promise<Map<string, { total: number; completed: number }>>;
   
   // Objective-BigRock linking methods
   linkObjectiveToBigRock(objectiveId: string, bigRockId: string, tenantId: string): Promise<void>;
@@ -1204,6 +1214,105 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBigRock(id: string): Promise<void> {
     await db.delete(bigRocks).where(eq(bigRocks.id, id));
+  }
+
+  // Big Rock Task methods
+  async getBigRockTasksByBigRockId(bigRockId: string): Promise<BigRockTask[]> {
+    return await db
+      .select()
+      .from(bigRockTasks)
+      .where(eq(bigRockTasks.bigRockId, bigRockId))
+      .orderBy(bigRockTasks.sortOrder, bigRockTasks.createdAt);
+  }
+
+  async getBigRockTaskById(id: string): Promise<BigRockTask | undefined> {
+    const [task] = await db.select().from(bigRockTasks).where(eq(bigRockTasks.id, id));
+    return task;
+  }
+
+  async createBigRockTask(insertTask: InsertBigRockTask): Promise<BigRockTask> {
+    // Get the max sortOrder for tasks in this big rock
+    const existingTasks = await db
+      .select({ sortOrder: bigRockTasks.sortOrder })
+      .from(bigRockTasks)
+      .where(eq(bigRockTasks.bigRockId, insertTask.bigRockId))
+      .orderBy(desc(bigRockTasks.sortOrder))
+      .limit(1);
+    
+    const nextSortOrder = existingTasks.length > 0 ? (existingTasks[0].sortOrder || 0) + 1 : 0;
+    
+    const [task] = await db
+      .insert(bigRockTasks)
+      .values({
+        ...insertTask,
+        sortOrder: insertTask.sortOrder ?? nextSortOrder,
+      })
+      .returning();
+    return task;
+  }
+
+  async updateBigRockTask(id: string, updateData: Partial<InsertBigRockTask>): Promise<BigRockTask> {
+    // If status is being set to completed, set completedAt
+    const updates: any = {
+      ...updateData,
+      updatedAt: new Date(),
+    };
+    
+    if (updateData.status === 'completed' && !updateData.completedAt) {
+      updates.completedAt = new Date();
+    } else if (updateData.status && updateData.status !== 'completed') {
+      updates.completedAt = null;
+    }
+    
+    const [task] = await db
+      .update(bigRockTasks)
+      .set(updates)
+      .where(eq(bigRockTasks.id, id))
+      .returning();
+    return task;
+  }
+
+  async deleteBigRockTask(id: string): Promise<void> {
+    await db.delete(bigRockTasks).where(eq(bigRockTasks.id, id));
+  }
+
+  async reorderBigRockTasks(bigRockId: string, taskIds: string[]): Promise<void> {
+    // Update sortOrder based on the position in the array
+    for (let i = 0; i < taskIds.length; i++) {
+      await db
+        .update(bigRockTasks)
+        .set({ sortOrder: i, updatedAt: new Date() })
+        .where(and(eq(bigRockTasks.id, taskIds[i]), eq(bigRockTasks.bigRockId, bigRockId)));
+    }
+  }
+
+  async getBigRockTaskCountsByBigRockIds(bigRockIds: string[]): Promise<Map<string, { total: number; completed: number }>> {
+    if (bigRockIds.length === 0) return new Map();
+    
+    const tasks = await db
+      .select({
+        bigRockId: bigRockTasks.bigRockId,
+        status: bigRockTasks.status,
+      })
+      .from(bigRockTasks)
+      .where(inArray(bigRockTasks.bigRockId, bigRockIds));
+    
+    const counts = new Map<string, { total: number; completed: number }>();
+    
+    for (const bigRockId of bigRockIds) {
+      counts.set(bigRockId, { total: 0, completed: 0 });
+    }
+    
+    for (const task of tasks) {
+      const current = counts.get(task.bigRockId) || { total: 0, completed: 0 };
+      current.total++;
+      if (task.status === 'completed') {
+        current.completed++;
+      }
+      counts.set(task.bigRockId, current);
+    }
+    
+    return counts;
   }
 
   async linkObjectiveToBigRock(objectiveId: string, bigRockId: string, tenantId: string): Promise<void> {
