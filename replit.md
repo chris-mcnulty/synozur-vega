@@ -55,3 +55,39 @@ Preferred communication style: Simple, everyday language.
     - Rate limiting (60 req/min per tenant, 10 token exchanges/min per IP)
     - Full audit logging of all tool invocations
     - UI for key management in Tenant Admin → Integrations tab with IP restrictions, rotation, and visual warning for write permissions
+
+## Related Synozur Products
+
+### Constellation (Synozur Consulting Delivery Platform - SCDP)
+- **Repository**: https://github.com/chris-mcnulty/synozur-scdp
+- **Purpose**: Comprehensive platform managing the entire lifecycle of consulting projects - estimation, resource allocation, time tracking, expense management, and automated invoice generation.
+- **Relevant Patterns for Vega**:
+    - **Microsoft Planner Integration**: Full bidirectional sync with Planner tasks, uses app-only auth with client credentials flow
+    - **Team/Channel Creation Pattern**: Uses Microsoft Graph API for:
+        - `createTeam()`: Creates Teams from templates or standard, supports async 202 response handling with polling
+        - `createChannel()`: Creates channels with standard/private/shared membership types
+        - `createPlannerTab()`: Pins Planner tabs to channels using the `com.microsoft.teamspace.tab.planner` app ID
+        - `addTeamMember()`: Adds members with owner/member roles
+    - **Graph Client Setup**: Uses `@microsoft/microsoft-graph-client` with client credentials token cached with expiry
+    - **Azure App Permissions Required**: Team.Create, Group.Create, Channel.Create, TeamsTab.Create, Tasks.ReadWrite, Group.Read.All
+    - **Multi-tenant Pattern**: UUID-based tenant IDs, tenant-scoped data isolation, same pattern as Vega
+- **Reference**: Use Constellation's `server/services/planner-service.ts` and `planner-graph-client.ts` as patterns for implementing Big Rock → Planner sync in Vega
+
+## Planned Features
+
+### Big Rock Tasks with Planner Sync (Design Only - Not Yet Built)
+- **Data Model**:
+    - `bigRockTasks` table: id, bigRockId, title, description, status (Open, In Progress, Completed), assigneeId, dueDate, plannerTaskId, sortOrder
+    - `bigRockPlannerMappings` table: id, bigRockId, tenantId, teamId, channelId, planId, bucketId, lastSyncedAt
+- **Status Flow**: Open → In Progress → Completed (finite state machine)
+- **Bidirectional Sync**: 
+    - Vega → Planner: Create/update Planner tasks when Big Rock tasks change
+    - Planner → Vega: Poll or webhook-triggered sync to reflect Planner changes back to Vega
+    - Status mapping: Open=0%, In Progress=50%, Completed=100%
+- **Constellation Pattern Implementation**:
+    - When mapping a Big Rock to Planner, offer option to create new Team + Channel or select existing
+    - Use `createTeam()` with standard template, add OKR owner as team owner
+    - Create dedicated channel for the Big Rock
+    - Create Planner plan associated with the group (Team)
+    - Pin Planner tab to the channel using `createPlannerTab()`
+    - Store mapping in `bigRockPlannerMappings` for ongoing sync
