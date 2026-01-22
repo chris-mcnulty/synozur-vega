@@ -73,17 +73,41 @@ Preferred communication style: Simple, everyday language.
     - **Multi-tenant Pattern**: UUID-based tenant IDs, tenant-scoped data isolation, same pattern as Vega
 - **Reference**: Use Constellation's `server/services/planner-service.ts` and `planner-graph-client.ts` as patterns for implementing Big Rock → Planner sync in Vega
 
+## Big Rock Tasks Feature (Implemented)
+
+### Data Model
+- `bigRockTasks` table: id, bigRockId, title, description, status (open, in_progress, completed), assigneeId, assigneeEmail, dueDate, sortOrder, plannerTaskId, createdAt, completedAt
+
+### Status Flow
+- Open → In Progress → Completed (cycles back to Open)
+- Status mapping for future Planner sync: Open=0%, In Progress=50%, Completed=100%
+- completedAt timestamp automatically set when status changes to completed
+
+### RBAC Permissions
+- Big Rock owners can add/delete tasks and update any task
+- Task assignees (by email) can update their own tasks
+- Status toggle is disabled for non-owners/non-assignees
+
+### API Routes
+- GET `/api/okr/big-rocks/:bigRockId/tasks` - List tasks for a Big Rock
+- POST `/api/okr/big-rocks/:bigRockId/tasks` - Create task (owner only)
+- PATCH `/api/okr/big-rocks/:bigRockId/tasks/:taskId` - Update task (owner or assignee)
+- DELETE `/api/okr/big-rocks/:bigRockId/tasks/:taskId` - Delete task (owner only)
+- POST `/api/okr/big-rocks/task-counts` - Get task counts for multiple Big Rocks
+
+### UI Components
+- `BigRockTasks` component in `client/src/components/okr/BigRockTasks.tsx`
+- Integrated into Big Rock edit dialog in `PlanningEnhanced.tsx`
+- Task count badges (completed/total) displayed on Big Rock cards
+
 ## Planned Features
 
-### Big Rock Tasks with Planner Sync (Design Only - Not Yet Built)
-- **Data Model**:
-    - `bigRockTasks` table: id, bigRockId, title, description, status (Open, In Progress, Completed), assigneeId, dueDate, plannerTaskId, sortOrder
+### Planner Sync for Big Rock Tasks (Design Only - Not Yet Built)
+- **Additional Data Model**:
     - `bigRockPlannerMappings` table: id, bigRockId, tenantId, teamId, channelId, planId, bucketId, lastSyncedAt
-- **Status Flow**: Open → In Progress → Completed (finite state machine)
 - **Bidirectional Sync**: 
     - Vega → Planner: Create/update Planner tasks when Big Rock tasks change
     - Planner → Vega: Poll or webhook-triggered sync to reflect Planner changes back to Vega
-    - Status mapping: Open=0%, In Progress=50%, Completed=100%
 - **Constellation Pattern Implementation**:
     - When mapping a Big Rock to Planner, offer option to create new Team + Channel or select existing
     - Use `createTeam()` with standard template, add OKR owner as team owner
