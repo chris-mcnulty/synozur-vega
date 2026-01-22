@@ -40,6 +40,7 @@ import { ProgressSummaryDialog } from "@/components/ProgressSummaryDialog";
 import { CloneObjectiveDialog } from "@/components/okr/CloneObjectiveDialog";
 import { CloneBigRockDialog } from "@/components/okr/CloneBigRockDialog";
 import { OKRQualityScore } from "@/components/okr/OKRQualityScore";
+import { BigRockTasks } from "@/components/okr/BigRockTasks";
 import { Copy } from "lucide-react";
 
 interface Objective {
@@ -2924,7 +2925,7 @@ export default function PlanningEnhanced() {
           }
           setBigRockDialogOpen(open);
         }}>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{selectedBigRock ? "Edit" : bigRockForm.objectiveId || bigRockForm.keyResultId ? "Link or Create" : "Create"} Big Rock (Initiative)</DialogTitle>
               <DialogDescription>
@@ -3117,6 +3118,16 @@ export default function PlanningEnhanced() {
                       ))
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Tasks section - only shown when editing an existing Big Rock */}
+            {selectedBigRock && (
+              <div className="pt-4 border-t">
+                <BigRockTasks 
+                  bigRockId={selectedBigRock.id}
+                  canModify={permissions.canModifyOKR(selectedBigRock.ownerId, selectedBigRock.createdBy) || permissions.canModifyByEmail(selectedBigRock.ownerEmail)}
+                />
               </div>
             )}
 
