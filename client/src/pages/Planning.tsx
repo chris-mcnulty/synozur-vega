@@ -37,6 +37,8 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Okr, Kpi, BigRock, Foundation, Strategy } from "@shared/schema";
 import { useTenant } from "@/contexts/TenantContext";
 import { getCurrentQuarter } from "@/lib/quarters";
+import { BigRockTasks } from "@/components/okr/BigRockTasks";
+import { usePermissions } from "@/hooks/use-permissions";
 
 const availablePeople = [
   "Sarah Chen",
@@ -1162,6 +1164,7 @@ function RocksSection({
 }) {
   const { toast } = useToast();
   const { currentTenant } = useTenant();
+  const permissions = usePermissions();
   const tenantId = currentTenant!.id;
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -1177,6 +1180,18 @@ function RocksSection({
   // Use actual data from foundation and strategies
   const availableGoals = foundation?.annualGoals || [];
   const availableStrategies = strategies.map(s => ({ id: s.id, title: s.title }));
+  
+  // Fetch task counts for all rocks
+  const rockIds = rocks.map(r => r.id);
+  const { data: taskCounts = {} } = useQuery<Record<string, { total: number; completed: number }>>({
+    queryKey: ['/api/okr/big-rocks/task-counts', rockIds],
+    queryFn: async () => {
+      if (rockIds.length === 0) return {};
+      const res = await apiRequest('POST', '/api/okr/big-rocks/task-counts', { bigRockIds: rockIds });
+      return res.json();
+    },
+    enabled: rockIds.length > 0,
+  });
   
   // Helper function to get strategy title by ID
   const getStrategyTitle = (strategyId: string): string => {
@@ -1397,6 +1412,12 @@ function RocksSection({
                       <Badge variant={getStatusBadgeVariant(rock.status || "not-started")}>
                         {rock.status || "not-started"}
                       </Badge>
+                      {taskCounts[rock.id] && taskCounts[rock.id].total > 0 && (
+                        <Badge variant="outline" className="text-xs" data-testid={`badge-task-count-${rock.id}`}>
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          {taskCounts[rock.id].completed}/{taskCounts[rock.id].total} tasks
+                        </Badge>
+                      )}
                     </div>
                     <CardTitle className="text-xl">{rock.title}</CardTitle>
                     {rock.ownerEmail && (
@@ -1526,6 +1547,15 @@ function RocksSection({
                 )}
               </div>
             </div>
+
+            {selectedRock && (
+              <div className="pt-4 border-t">
+                <BigRockTasks 
+                  bigRockId={selectedRock.id}
+                  canModify={permissions.canModifyOKR(selectedRock.ownerId, selectedRock.createdBy) || permissions.canModifyByEmail(selectedRock.ownerEmail)}
+                />
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => { setEditDialogOpen(false); setSelectedRock(null); }}>
