@@ -2,27 +2,89 @@
 
 **Welcome to Vega - The Synozur Alliance Company Operating System**
 
-Version 1.4 | Last Updated: January 11, 2026
+Version 1.5 | Last Updated: January 22, 2026
 
 ---
 
 ## Table of Contents
 
-1. [Introduction](#introduction)
-2. [Getting Started](#getting-started)
-3. [Dashboard Overview](#dashboard-overview)
-4. [Foundations Module](#foundations-module)
-5. [Strategy Module](#strategy-module)
-6. [Planning (OKRs)](#planning-okrs)
-7. [Focus Rhythm](#focus-rhythm)
-8. [AI Assistant](#ai-assistant)
-9. [Microsoft 365 Integration](#microsoft-365-integration)
-10. [Import & Export](#import--export)
-11. [Reporting](#reporting)
-12. [Launchpad (AI Kickstart Wizard)](#launchpad-ai-kickstart-wizard)
-13. [Settings & Administration](#settings--administration)
-14. [Best Practices](#best-practices)
-15. [Troubleshooting](#troubleshooting)
+1. [Feature Overview](#feature-overview)
+2. [Introduction](#introduction)
+3. [Getting Started](#getting-started)
+4. [Dashboard Overview](#dashboard-overview)
+5. [Foundations Module](#foundations-module)
+6. [Strategy Module](#strategy-module)
+7. [Planning (OKRs)](#planning-okrs)
+8. [Focus Rhythm](#focus-rhythm)
+9. [AI Assistant](#ai-assistant)
+10. [Microsoft 365 Integration](#microsoft-365-integration)
+11. [Import & Export](#import--export)
+12. [Reporting](#reporting)
+13. [Launchpad (AI Kickstart Wizard)](#launchpad-ai-kickstart-wizard)
+14. [Settings & Administration](#settings--administration)
+15. [Best Practices](#best-practices)
+16. [Troubleshooting](#troubleshooting)
+
+---
+
+## Feature Overview
+
+Vega is a comprehensive Company Operating System with the following capabilities organized by category:
+
+### Strategy & Planning
+- **Mission, Vision & Values** - Define and communicate your organization's core identity
+- **Annual Goals** - Set high-level yearly targets with progress tracking
+- **Strategic Initiatives** - Create and manage strategic priorities with owner assignment and timeline
+- **OKRs (Objectives & Key Results)** - Full OKR framework with 4 hierarchy levels (Organization, Team, Division, Individual)
+- **Big Rocks** - Major quarterly initiatives linked to objectives and strategies
+- **Big Rock Tasks** - Break down Big Rocks into actionable tasks with status tracking (New in v1.5)
+- **OKR Cloning** - Clone objectives across teams or roll over to new periods
+- **Mixed Child Rollup** - Flexible progress calculation from Key Results and child objectives
+
+### Execution & Tracking
+- **Key Result Check-ins** - Regular progress updates with notes and status indicators
+- **Pace & Velocity Tracking** - AI-powered analysis of progress trends and projections
+- **Behind Pace Alerts** - Automatic detection of at-risk objectives and key results
+- **Task Status Workflow** - Three-state task tracking (Open, In Progress, Completed)
+- **Due Date Management** - Set and track deadlines for Big Rocks and tasks
+- **Progress Visualization** - Progress bars, status indicators, and trend analysis
+
+### Meetings & Rhythm
+- **Focus Rhythm** - Meeting management with four cadences (Weekly, Monthly, Quarterly, Annual)
+- **Meeting Templates** - Pre-built agendas for each meeting type
+- **OKR-Linked Meetings** - Connect objectives and key results to meeting agendas
+- **Meeting Notes** - Capture decisions, action items, and follow-ups
+
+### AI & Intelligence
+- **AI Chat Assistant** - Context-aware AI for strategy and OKR guidance
+- **OKR Intelligence** - Predictive analytics for pace and velocity
+- **Launchpad Wizard** - AI-powered setup for new organizations using uploaded documents
+- **Dynamic AI Providers** - Support for multiple AI models (GPT-5, GPT-4o, Claude, Replit AI)
+- **AI Grounding Documents** - Customize AI behavior with company context
+
+### Integrations
+- **Microsoft SSO** - Single Sign-On with Azure AD / Entra ID
+- **Microsoft Planner** - Bidirectional task sync (coming soon for Big Rock Tasks)
+- **Outlook Calendar** - Meeting and event integration
+- **Excel Data Binding** - Connect Key Results to Excel data sources
+- **OneDrive & SharePoint** - Document storage and access
+- **MCP Server** - AI assistant integration for Claude Desktop, Cursor, and other tools
+- **M365 Copilot Agent** - OpenAPI-based Copilot integration
+- **HubSpot CRM** - Automated deal creation for new signups
+
+### Reporting & Export
+- **PDF Export** - Professional reports with customizable branding
+- **PowerPoint Export** - Presentation-ready slides for strategy reviews
+- **OKR Quality Scores** - Automated scoring for objective quality
+- **Dashboard Views** - Executive, Team, and Company OS dashboards
+
+### Administration
+- **Multi-Tenancy** - Isolated organizations with data security
+- **Role-Based Access Control** - Six roles with fine-grained permissions
+- **User Management** - Invite, manage, and assign team members
+- **Custom Vocabulary** - Customize terminology (e.g., "Initiatives" vs "Big Rocks")
+- **Allowed Email Domains** - Control signup access by email domain
+- **Service Plans** - Manage subscription tiers and features
 
 ---
 
@@ -503,6 +565,49 @@ Big Rocks are significant projects or initiatives that drive Key Results forward
 - Update status and completion percentage regularly
 - Add notes for progress updates
 - Mark as Completed when done
+
+### Big Rock Tasks (New in v1.5)
+
+Big Rock Tasks allow you to break down Big Rocks into smaller, actionable tasks with assignees and due dates.
+
+**To Add Tasks to a Big Rock:**
+
+1. Navigate to the Planning module
+2. Click on the **Big Rocks** tab
+3. Click the **edit icon** (pencil) on a Big Rock card
+4. Scroll down to the **Tasks** section
+5. Click **"Add"** to create a new task
+6. Fill in the task details:
+   - **Title**: Name of the task (required)
+   - **Description**: Additional details (optional)
+   - **Assignee**: Team member responsible for the task
+   - **Due Date**: When the task should be completed
+7. Click **"Create"**
+
+**Task Status Workflow:**
+
+Tasks follow a simple three-state workflow:
+- **Open** (gray circle icon): Task not yet started
+- **In Progress** (blue clock icon): Work is underway
+- **Completed** (green checkmark): Task finished
+
+Click the status icon to cycle through statuses: Open → In Progress → Completed → Open
+
+**Task Permissions:**
+- **Big Rock Owners** can add, edit, and delete any task
+- **Task Assignees** can update their own tasks (including status)
+- Non-owners and non-assignees see read-only status
+
+**Task Count Badges:**
+
+Big Rock cards display a task count badge showing completed/total tasks (e.g., "2/5 tasks"). This gives you a quick overview of execution progress without opening the Big Rock.
+
+**Best Practices for Tasks:**
+- Keep tasks specific and actionable
+- Assign clear owners for accountability
+- Set realistic due dates
+- Update task status regularly during check-ins
+- Use task completion to drive Big Rock progress
 
 ### Objective Progress and Status
 
