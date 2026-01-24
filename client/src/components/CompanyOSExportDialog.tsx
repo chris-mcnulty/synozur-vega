@@ -28,6 +28,7 @@ interface ExportOptions {
   includeObjectives: boolean;
   includeBigRocks: boolean;
   includeTeams: boolean;
+  includeMeetings: boolean;
   quarter?: number;
   year?: number;
   teamId?: string;
@@ -47,6 +48,7 @@ export function CompanyOSExportDialog({ trigger }: CompanyOSExportDialogProps) {
     includeObjectives: true,
     includeBigRocks: true,
     includeTeams: true,
+    includeMeetings: false,
     format: "markdown",
   });
 
@@ -79,6 +81,7 @@ export function CompanyOSExportDialog({ trigger }: CompanyOSExportDialogProps) {
       params.append("includeObjectives", String(options.includeObjectives));
       params.append("includeBigRocks", String(options.includeBigRocks));
       params.append("includeTeams", String(options.includeTeams));
+      params.append("includeMeetings", String(options.includeMeetings));
       params.append("format", options.format);
       
       if (options.quarter) params.append("quarter", String(options.quarter));
@@ -221,6 +224,17 @@ export function CompanyOSExportDialog({ trigger }: CompanyOSExportDialogProps) {
                   data-testid="checkbox-teams"
                 />
                 <Label htmlFor="teams" className="text-sm">Teams</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="meetings"
+                  checked={options.includeMeetings}
+                  onCheckedChange={(checked) =>
+                    setOptions(prev => ({ ...prev, includeMeetings: !!checked }))
+                  }
+                  data-testid="checkbox-meetings"
+                />
+                <Label htmlFor="meetings" className="text-sm">Focus Rhythm</Label>
               </div>
             </div>
           </div>

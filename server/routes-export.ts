@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { storage } from "./storage";
-import type { Foundation, Strategy, Objective, KeyResult, BigRock, Team, GroundingDocument } from "@shared/schema";
+import type { Foundation, Strategy, Objective, KeyResult, BigRock, Team, GroundingDocument, Meeting } from "@shared/schema";
 
 const router = Router();
 
@@ -23,6 +23,7 @@ interface ExportFilters {
   includeBigRocks?: boolean;
   includeTeams?: boolean;
   includeGroundingDocs?: boolean;
+  includeMeetings?: boolean;
 }
 
 function getProgressEmoji(progress: number): string {
@@ -71,9 +72,10 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
       includeBigRocks: req.query.includeBigRocks !== "false",
       includeTeams: req.query.includeTeams !== "false",
       includeGroundingDocs: req.query.includeGroundingDocs !== "false",
+      includeMeetings: req.query.includeMeetings === "true",
     };
 
-    const [foundation, strategies, objectives, keyResults, bigRocks, teams, groundingDocs] = await Promise.all([
+    const [foundation, strategies, objectives, keyResults, bigRocks, teams, groundingDocs, meetings] = await Promise.all([
       filters.includeFoundations ? storage.getFoundationByTenantId(effectiveTenantId) : Promise.resolve(undefined),
       filters.includeStrategies ? storage.getStrategiesByTenantId(effectiveTenantId) : Promise.resolve([]),
       storage.getObjectivesByTenantId(effectiveTenantId, filters.quarter, filters.year),
@@ -81,6 +83,7 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
       filters.includeBigRocks ? storage.getBigRocksByTenantId(effectiveTenantId, filters.quarter, filters.year) : Promise.resolve([]),
       filters.includeTeams ? storage.getTeamsByTenantId(effectiveTenantId) : Promise.resolve([]),
       filters.includeGroundingDocs ? storage.getTenantGroundingDocuments(effectiveTenantId) : Promise.resolve([]),
+      filters.includeMeetings ? storage.getMeetingsByTenantId(effectiveTenantId) : Promise.resolve([]),
     ]);
 
     let filteredObjectives = objectives;
@@ -319,6 +322,56 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
       markdown += `---\n\n`;
     }
 
+    if (filters.includeMeetings && meetings.length > 0) {
+      markdown += `## Focus Rhythm - Meeting Schedule\n\n`;
+      
+      // Group meetings by type/cadence
+      const meetingsByType: Record<string, Meeting[]> = {};
+      meetings.forEach((meeting: Meeting) => {
+        const type = meeting.meetingType || 'other';
+        if (!meetingsByType[type]) meetingsByType[type] = [];
+        meetingsByType[type].push(meeting);
+      });
+      
+      // Define cadence order for display
+      const cadenceOrder = ['weekly', 'monthly', 'quarterly', 'annual', 'other'];
+      const orderedTypes = Object.keys(meetingsByType).sort((a, b) => {
+        const aIndex = cadenceOrder.indexOf(a);
+        const bIndex = cadenceOrder.indexOf(b);
+        return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
+      });
+      
+      orderedTypes.forEach(type => {
+        const typeMeetings = meetingsByType[type];
+        const displayType = type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ');
+        markdown += `### ${displayType} Meetings\n\n`;
+        
+        typeMeetings.forEach((meeting: Meeting, index: number) => {
+          markdown += `${index + 1}. **${meeting.title}**\n`;
+          if (meeting.date) {
+            const meetingDate = new Date(meeting.date);
+            markdown += `   - Date: ${meetingDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\n`;
+          }
+          if (meeting.facilitator) {
+            markdown += `   - Facilitator: ${meeting.facilitator}\n`;
+          }
+          if (meeting.isRecurring) {
+            markdown += `   - Recurring: ${meeting.recurrencePattern || 'Yes'}\n`;
+          }
+          const agenda = meeting.agenda as string[] | null;
+          if (agenda && agenda.length > 0) {
+            markdown += `   - Agenda:\n`;
+            agenda.forEach((item: string) => {
+              markdown += `     - ${item}\n`;
+            });
+          }
+          markdown += `\n`;
+        });
+      });
+      
+      markdown += `---\n\n`;
+    }
+
     const totalObjectives = filteredObjectives.length;
     const completedObjectives = filteredObjectives.filter((obj: Objective) => obj.status === "completed").length;
     const avgProgress = filteredObjectives.length > 0
@@ -362,6 +415,7 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
         bigRocks: filters.includeBigRocks ? bigRocks : undefined,
         teams: filters.includeTeams ? teams : undefined,
         groundingDocuments: filters.includeGroundingDocs ? groundingDocs : undefined,
+        meetings: filters.includeMeetings ? meetings : undefined,
         summary: {
           totalObjectives,
           completedObjectives,
