@@ -100,9 +100,17 @@ Preferred communication style: Simple, everyday language.
 - Integrated into Big Rock edit dialog in `PlanningEnhanced.tsx`
 - Task count badges (completed/total) displayed on Big Rock cards
 
-## Planned Features
+## Roadmap & Backlog
 
-### Planner Sync for Big Rock Tasks (Design Only - Not Yet Built)
+### Priority 1: Microsoft Planner Integration for Big Rock Tasks
+**Status**: Design Complete - Ready to Build
+
+Publishing Big Rock tasks to Microsoft Planner with three options:
+1. Attach to existing Teams channel with Planner
+2. Create new channel in existing Team
+3. Create new Team + Channel + Planner plan
+
+**Implementation Details**:
 - **Additional Data Model**:
     - `bigRockPlannerMappings` table: id, bigRockId, tenantId, teamId, channelId, planId, bucketId, lastSyncedAt
 - **Bidirectional Sync**: 
@@ -115,3 +123,10 @@ Preferred communication style: Simple, everyday language.
     - Create Planner plan associated with the group (Team)
     - Pin Planner tab to the channel using `createPlannerTab()`
     - Store mapping in `bigRockPlannerMappings` for ongoing sync
+- **Reference**: Use Constellation's `server/services/planner-service.ts` and `planner-graph-client.ts` as patterns
+
+### Priority 2: Future Backlog Items
+- Enhanced AI-powered OKR recommendations
+- Additional M365 integrations (SharePoint document linking)
+- Advanced reporting and analytics dashboards
+- Mobile-responsive improvements
