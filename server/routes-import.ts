@@ -118,20 +118,19 @@ router.post('/viva-goals', upload.single('file'), async (req: Request, res: Resp
 
 /**
  * GET /api/import/history
- * Get import history for current tenant
+ * Get import history for current tenant (respects tenant switching via x-tenant-id header)
  */
 router.get('/history', async (req: Request, res: Response) => {
   try {
-    if (!req.session.userId) {
-      return res.status(401).json({ error: 'Authentication required' });
+    // Use effectiveTenantId which respects tenant switching for admins/consultants
+    // This is set by requireTenantAccess middleware from x-tenant-id header
+    const tenantId = req.effectiveTenantId;
+    
+    if (!tenantId) {
+      return res.status(403).json({ error: 'No tenant context available' });
     }
 
-    const user = await storage.getUser(req.session.userId);
-    if (!user || !user.tenantId) {
-      return res.status(403).json({ error: 'User must belong to a tenant' });
-    }
-
-    const history = await storage.getImportHistory(user.tenantId);
+    const history = await storage.getImportHistory(tenantId);
     res.json(history);
 
   } catch (error) {
