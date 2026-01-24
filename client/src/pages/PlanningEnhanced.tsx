@@ -31,7 +31,7 @@ import { OKRDetailPane } from "@/components/okr/OKRDetailPane";
 import { ProgressSummaryBar } from "@/components/okr/ProgressSummaryBar";
 import { MilestoneEditor, type PhasedTargets } from "@/components/okr/MilestoneEditor";
 import { MilestoneTimeline } from "@/components/okr/MilestoneTimeline";
-import { TrendingUp, Target, Activity, AlertCircle, AlertTriangle, CheckCircle, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink, Calendar, X, Filter } from "lucide-react";
+import { TrendingUp, Target, Activity, AlertCircle, AlertTriangle, CheckCircle, CheckSquare, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink, Calendar, X, Filter } from "lucide-react";
 import { ExcelFilePicker } from "@/components/ExcelFilePicker";
 import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
 import { cn } from "@/lib/utils";
@@ -4647,6 +4647,25 @@ export default function PlanningEnhanced() {
 
 // Big Rocks Section Component
 function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, onEditBigRock, onDeleteBigRock, onCloneBigRock, onCheckIn, onViewHistory }: any) {
+  // Fetch task counts for all Big Rocks
+  const bigRockIds = bigRocks.map((rock: BigRock) => rock.id);
+  const bigRockIdsKey = bigRockIds.sort().join(','); // Stable key for cache
+  const { data: taskCounts } = useQuery<Record<string, { total: number; completed: number }>>({
+    queryKey: ['/api/okr/big-rocks/task-counts', bigRockIdsKey],
+    queryFn: async () => {
+      if (bigRockIds.length === 0) return {};
+      const res = await fetch('/api/okr/big-rocks/task-counts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bigRockIds }),
+        credentials: 'include'
+      });
+      if (!res.ok) return {};
+      return res.json();
+    },
+    enabled: bigRockIds.length > 0,
+  });
+
   const getObjectiveTitle = (objId: string) => {
     const obj = objectives.find((o: Objective) => o.id === objId);
     return obj?.title || "Unknown Objective";
@@ -4823,12 +4842,24 @@ function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, on
                     />
                   </div>
                   <div className="flex items-center justify-between">
-                    <Badge
-                      variant={getStatusBadgeVariant(effectiveStatus)}
-                      data-testid={`badge-status-${rock.id}`}
-                    >
-                      {effectiveStatus.replace("_", " ")}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                      <Badge
+                        variant={getStatusBadgeVariant(effectiveStatus)}
+                        data-testid={`badge-status-${rock.id}`}
+                      >
+                        {effectiveStatus.replace("_", " ")}
+                      </Badge>
+                      {taskCounts?.[rock.id] && taskCounts[rock.id].total > 0 && (
+                        <Badge 
+                          variant="outline" 
+                          className="text-xs"
+                          data-testid={`badge-tasks-${rock.id}`}
+                        >
+                          <CheckSquare className="h-3 w-3 mr-1" />
+                          {taskCounts[rock.id].completed}/{taskCounts[rock.id].total} tasks
+                        </Badge>
+                      )}
+                    </div>
                     {rock.lastCheckInAt && (
                       <span className="text-xs text-muted-foreground">
                         Last check-in: {formatDate(rock.lastCheckInAt)}

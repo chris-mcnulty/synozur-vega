@@ -90,6 +90,7 @@ export function BigRockTasks({ bigRockId, canModify }: BigRockTasksProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks/${bigRockId}/tasks`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/okr/big-rocks/task-counts'] });
       setCreateDialogOpen(false);
       resetForm();
       toast({ title: 'Task created', description: 'The task has been added.' });
@@ -128,6 +129,7 @@ export function BigRockTasks({ bigRockId, canModify }: BigRockTasksProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks/${bigRockId}/tasks`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/okr/big-rocks/task-counts'] });
       setDeleteDialogOpen(false);
       setSelectedTask(null);
       toast({ title: 'Task deleted', description: 'The task has been removed.' });
@@ -144,6 +146,7 @@ export function BigRockTasks({ bigRockId, canModify }: BigRockTasksProps) {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks/${bigRockId}/tasks`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/okr/big-rocks/task-counts'] });
     },
     onError: (error: any) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
