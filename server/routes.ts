@@ -1123,6 +1123,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get tenant members for user selection (any authenticated user in the tenant)
+  // Returns minimal user info for assignment dropdowns (id, email, displayName)
+  app.get("/api/tenant-members", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.effectiveTenantId;
+      if (!tenantId) {
+        return res.status(403).json({ error: "No tenant context available" });
+      }
+
+      const users = await storage.getAllUsers(tenantId);
+      // Return minimal info for assignment purposes (no passwords, no sensitive data)
+      const members = users.map(user => ({
+        id: user.id,
+        email: user.email,
+        displayName: user.name || user.email.split('@')[0],
+        role: user.role,
+      }));
+      res.json(members);
+    } catch (error) {
+      console.error("Error fetching tenant members:", error);
+      res.status(500).json({ error: "Failed to fetch tenant members" });
+    }
+  });
+
   // User CRUD endpoints (tenant admin can manage users in their tenant)
   app.get("/api/users", ...adminWithOptionalTenant, async (req: Request, res: Response) => {
     try {

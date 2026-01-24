@@ -36,6 +36,7 @@ import {
 import { format } from "date-fns";
 import type { BigRockTask } from "@shared/schema";
 import { useAuth } from "@/contexts/AuthContext";
+import { UserPicker } from "@/components/UserPicker";
 
 interface BigRockTasksProps {
   bigRockId: string;
@@ -342,14 +343,11 @@ export function BigRockTasks({ bigRockId, canModify }: BigRockTasksProps) {
               </div>
             </div>
             <div>
-              <Label htmlFor="taskAssignee">Assignee Email</Label>
-              <Input
-                id="taskAssignee"
-                type="email"
-                placeholder="assignee@company.com"
+              <Label htmlFor="taskAssignee">Assignee</Label>
+              <UserPicker
                 value={formData.assigneeEmail}
-                onChange={(e) => setFormData({ ...formData, assigneeEmail: e.target.value })}
-                data-testid="input-task-assignee"
+                onChange={(email) => setFormData({ ...formData, assigneeEmail: email })}
+                placeholder="Select assignee..."
               />
             </div>
           </div>
@@ -421,14 +419,11 @@ export function BigRockTasks({ bigRockId, canModify }: BigRockTasksProps) {
               </div>
             </div>
             <div>
-              <Label htmlFor="editTaskAssignee">Assignee Email</Label>
-              <Input
-                id="editTaskAssignee"
-                type="email"
-                placeholder="assignee@company.com"
+              <Label htmlFor="editTaskAssignee">Assignee</Label>
+              <UserPicker
                 value={formData.assigneeEmail}
-                onChange={(e) => setFormData({ ...formData, assigneeEmail: e.target.value })}
-                data-testid="input-edit-task-assignee"
+                onChange={(email) => setFormData({ ...formData, assigneeEmail: email })}
+                placeholder="Select assignee..."
               />
             </div>
           </div>
