@@ -153,9 +153,12 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
       if (foundation.annualGoals && foundation.annualGoals.length > 0) {
         markdown += `### Annual Goals (${filters.year || new Date().getFullYear()})\n\n`;
         foundation.annualGoals.forEach((goal, index: number) => {
-          markdown += `${index + 1}. **${goal.title}**`;
-          if (goal.description) {
-            markdown += ` - ${goal.description}`;
+          // Handle both string goals and object goals with title property
+          const goalTitle = typeof goal === 'string' ? goal : (goal.title || 'Untitled Goal');
+          const goalDescription = typeof goal === 'object' ? goal.description : undefined;
+          markdown += `${index + 1}. **${goalTitle}**`;
+          if (goalDescription) {
+            markdown += ` - ${goalDescription}`;
           }
           markdown += `\n`;
         });
@@ -186,7 +189,7 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
     if (filters.includeObjectives && filteredObjectives.length > 0) {
       markdown += `## Objectives & Key Results\n\n`;
       
-      const companyObjectives = filteredObjectives.filter((obj: Objective) => obj.level === "company");
+      const companyObjectives = filteredObjectives.filter((obj: Objective) => obj.level === "company" || obj.level === "organization");
       const departmentObjectives = filteredObjectives.filter((obj: Objective) => obj.level === "department");
       const teamObjectives = filteredObjectives.filter((obj: Objective) => obj.level === "team");
       const individualObjectives = filteredObjectives.filter((obj: Objective) => obj.level === "individual");
