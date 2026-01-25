@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Download, FileText, Loader2 } from "lucide-react";
 import type { Team } from "@shared/schema";
+import { useTenant } from "@/contexts/TenantContext";
 
 interface ExportOptions {
   includeFoundations: boolean;
@@ -40,6 +41,7 @@ interface CompanyOSExportDialogProps {
 }
 
 export function CompanyOSExportDialog({ trigger }: CompanyOSExportDialogProps) {
+  const { currentTenant } = useTenant();
   const [open, setOpen] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [options, setOptions] = useState<ExportOptions>({
@@ -88,7 +90,12 @@ export function CompanyOSExportDialog({ trigger }: CompanyOSExportDialogProps) {
       if (options.year) params.append("year", String(options.year));
       if (options.teamId) params.append("teamId", options.teamId);
 
-      const response = await fetch(`/api/export/company-os?${params.toString()}`);
+      const headers: Record<string, string> = {};
+      if (currentTenant?.id) {
+        headers['x-tenant-id'] = currentTenant.id;
+      }
+      
+      const response = await fetch(`/api/export/company-os?${params.toString()}`, { headers });
       
       if (!response.ok) {
         throw new Error("Export failed");
