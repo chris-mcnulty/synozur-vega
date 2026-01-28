@@ -125,7 +125,60 @@ Publishing Big Rock tasks to Microsoft Planner with three options:
     - Store mapping in `bigRockPlannerMappings` for ongoing sync
 - **Reference**: Use Constellation's `server/services/planner-service.ts` and `planner-graph-client.ts` as patterns
 
-### Priority 2: Future Backlog Items
+### Priority 2: Ambitions & Annual Goals Realignment
+**Status**: Design Complete - Ready to Build
+
+Restructure Foundations and Outcomes modules to add long-term strategic targets (Ambitions) and promote Annual Goals to full OKR workflow.
+
+**Conceptual Changes**:
+- **Foundations Module** (identity & long-term direction): Mission, Vision, Values, **Ambitions** (NEW)
+- **Outcomes Module** (execution & tracking): **Annual Goals** (MOVED), Quarterly OKRs, Big Rocks
+
+**Ambitions Design**:
+- 3-5 year strategic targets (north stars)
+- Permanent records - can be "closed" (achieved/sunset) but never deleted
+- No progress tracking - aspirational targets only
+- Linked to Values for alignment visibility
+- Schema: title, description, targetYear, linkedValues (array), status (active/closed), closedAt
+
+**Annual Goals Migration**:
+- Promote from JSONB field in foundations to full Objectives with `quarter: 0`
+- Enables Key Results, progress tracking, owner assignment
+- Creates alignment cascade: Ambition → Annual Goal → Quarterly OKR → Big Rock
+
+**Implementation Tasks**:
+1. Add `Ambition` type and `ambitions` JSONB field to foundations table
+2. Build Ambitions UI in Foundations page (add/edit, value tags, close functionality)
+3. Create migration utility: Convert existing JSONB annual goals to objectives with quarter=0
+4. Update Planning/Outcomes page: Add Annual Goals section for quarter=0 objectives
+5. Remove Annual Goals from Foundations UI (replace with Ambitions)
+6. Update Company OS exports: Include Ambitions with linked values
+7. Update MCP tools: Add get_ambitions, update getFoundations response
+
+**Reports Integration**:
+- Ambitions appear in Foundations section of exports
+- Hierarchy view: Ambitions (3-5 yr) → Annual Goals (1 yr) → Quarterly OKRs → Big Rocks
+- Value alignment shown for each Ambition
+
+### Priority 3: M365 Copilot Studio + MCP Integration
+**Status**: Design In Progress
+
+Enable Vega data access through M365 Copilot via Copilot Studio → MCP Server pattern.
+
+**Architecture**:
+- Copilot Studio connects to Vega MCP server using tenant API key
+- Copilot Studio passes user identity claims to MCP
+- Vega validates user exists in tenant, applies user-level permissions
+- Published agent available in M365 Copilot for all tenant users
+
+**Implementation Tasks**:
+1. Update MCP auth to accept API key directly (remove JWT token exchange complexity)
+2. Parse user identity claims from Copilot Studio request headers
+3. Cross-reference user email against tenant membership
+4. Filter MCP tool responses based on user permissions
+5. Update User Guide with Copilot Studio setup instructions
+
+### Priority 4: Future Backlog Items
 - Enhanced AI-powered OKR recommendations
 - Additional M365 integrations (SharePoint document linking)
 - Advanced reporting and analytics dashboards
