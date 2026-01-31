@@ -2,7 +2,7 @@
 
 **Welcome to Vega - The Synozur Alliance Company Operating System**
 
-Version 1.5 | Last Updated: January 22, 2026
+Version 1.6 | Last Updated: January 31, 2026
 
 ---
 
@@ -1744,7 +1744,7 @@ System Administration is accessible only to Vega Admins and Global Admins. This 
 
 Click **"System"** in the left sidebar (only visible to platform admins).
 
-#### System Admin Tabs (Updated Jan 3, 2026)
+#### System Admin Tabs (Updated Jan 31, 2026)
 
 1. **Vocabulary**: Set system-wide default terminology
 2. **AI Usage**: Monitor platform-wide AI token consumption and costs
@@ -1753,6 +1753,7 @@ Click **"System"** in the left sidebar (only visible to platform admins).
 5. **Tenants**: View tenant activity, assign service plans
 6. **Traffic**: Website traffic analytics
 7. **Announcements**: System-wide announcement banners
+8. **Scheduled Jobs**: Monitor and control background system jobs
 
 #### AI Usage Reporting (Platform-wide)
 
@@ -1794,6 +1795,48 @@ View and manage service plans for each organization:
 - See current plan status (Active, Expired, Days Left)
 - Assign or change plans
 - Set expiration dates
+
+#### Scheduled Jobs Dashboard (Added Jan 31, 2026)
+
+Monitor and manage all background jobs running on the platform. This dashboard provides visibility into system tasks that run automatically.
+
+**Accessing Scheduled Jobs:**
+Navigate to System Admin → Scheduled Jobs tab.
+
+**Jobs List Tab:**
+View all registered background jobs with:
+- **Job Name**: Display name and technical identifier
+- **Status**: Active (running on schedule) or Paused
+- **Schedule**: How often the job runs (e.g., "Every hour", "Every 5 minutes")
+- **Category**: Job type (notification, sync, maintenance, system)
+- **Last Run**: When the job last executed
+- **Next Run**: When the job will run next
+
+**Run History Tab:**
+View execution history for all jobs:
+- **Status Indicators**: Success (green), Failed (red), Running (blue)
+- **Execution Time**: When the job started and completed
+- **Summary**: Brief description of what happened
+- **Trigger**: How the job was started (scheduled, manual, startup)
+
+**Job Controls (Vega Admin Only):**
+Platform admins with vega_admin role can control jobs:
+- **Run Now**: Manually trigger a job immediately
+- **Pause**: Stop a job from running on its schedule
+- **Resume**: Restart a paused job
+
+**Currently Registered Jobs:**
+- **Expiration Reminders**: Runs hourly to check for expiring items and send notification emails
+- **Reminder Cache Reset**: Runs every 5 minutes for cache maintenance
+
+**Job Failure Notifications:**
+When any background job fails, all platform admins (vega_admin users) receive an email alert with:
+- Job name and description
+- Error message and technical details
+- Timestamp of failure
+
+**Permission Note:**
+Tenant admins can view the Scheduled Jobs dashboard but cannot control jobs (Run/Pause/Resume buttons are hidden). Only vega_admin users have job control permissions.
 
 #### 7. Enhanced Reporting with PDF/PPTX Export (Added Dec 20, 2025)
 

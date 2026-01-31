@@ -33,6 +33,7 @@ Preferred communication style: Simple, everyday language.
     - Full RBAC enforcement with 6 defined roles (`tenant_user`, `tenant_admin`, `admin`, `global_admin`, `vega_consultant`, `vega_admin`).
     - Fine-grained OKR permissions (UPDATE_OWN_OKR vs UPDATE_ANY_OKR) with server-side checks and frontend `usePermissions()` hook.
     - All date/time operations use America/Los_Angeles timezone.
+    - **Job Scheduler Service**: Central service for managing background jobs with registration, execution logging, pause/resume functionality, and failure email notifications to vega_admin users.
 
 ## External Dependencies
 
@@ -55,6 +56,7 @@ Preferred communication style: Simple, everyday language.
     - Rate limiting (60 req/min per tenant, 10 token exchanges/min per IP)
     - Full audit logging of all tool invocations
     - UI for key management in Tenant Admin → Integrations tab with IP restrictions, rotation, and visual warning for write permissions
+- **Job Scheduler**: Platform-wide background job management accessible via System Admin → Scheduled Jobs. Features job registration, execution history, manual triggers, pause/resume controls (vega_admin only), and failure email notifications. Currently runs 2 system jobs: expiration-reminders (hourly) and reminder-cache-reset (5 min).
 
 ## Related Synozur Products
 

@@ -8,6 +8,23 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 
 ## January 2026
 
+### January 31, 2026
+
+**New Features**
+- **Job Scheduler Dashboard**: View and manage all scheduled background jobs from the System Admin page
+  - Jobs list showing status (Active/Paused), schedule, category, and last/next run times
+  - Run history with status indicators (Success/Failed/Running) and execution details
+  - Manual job controls: Run Now, Pause, Resume (vega_admin only)
+  - View-only access for tenant_admin users
+  - Automatic email notifications to all platform admins when jobs fail
+  - Two system jobs configured: Expiration Reminders (hourly) and Reminder Cache Reset (5 minutes)
+
+**Improvements**
+- System Admin now includes a "Scheduled Jobs" tab for job monitoring
+- Job failure alerts include detailed error information and stack traces
+
+---
+
 ### January 17, 2026
 
 **New Features**

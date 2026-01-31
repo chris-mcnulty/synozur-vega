@@ -1,6 +1,6 @@
 # Vega Platform Master Backlog
 
-**Last Updated:** January 18, 2026 (Corrected Power BI integration to pull data FROM Power BI into Vega OKRs, added Predictive Forecast card to Executive Dashboard)
+**Last Updated:** January 31, 2026 (Added Job Scheduler Dashboard to Completed Features)
 
 > **Note:** This is the single source of truth for all Vega feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference this document for backlog-related questions.
 
@@ -2613,6 +2613,40 @@ VocabularyContext with system-level defaults and tenant-level overrides for cust
 ### Organized Navigation ✅ (December 30, 2025)
 
 Collapsible sidebar sections organized by purpose (Execute, Plan & Align, Review & Learn, Manage, Platform, Personal).
+
+---
+
+### Job Scheduler Dashboard ✅ (January 31, 2026)
+
+Platform-wide job monitoring and management for background tasks:
+
+**Database Schema:**
+- `scheduled_jobs` table: id, name, displayName, description, schedule, category, status, tenantId, lastRunAt, nextRunAt, createdAt
+- `job_runs` table: id, jobId, status, trigger, summary, details, error, stackTrace, startedAt, completedAt
+
+**JobScheduler Service:**
+- Central service for registering, scheduling, and executing background jobs
+- Supports multiple job categories: notification, sync, maintenance, system
+- Automatic interval-based execution with configurable schedules
+- Pause/resume functionality with persistent state
+- Failure notification emails to all vega_admin users via SendGrid
+
+**System Jobs Registered:**
+- `expiration-reminders`: Hourly check for expiring items and email notifications
+- `reminder-cache-reset`: 5-minute cache maintenance
+
+**Admin UI (System Admin → Scheduled Jobs):**
+- Jobs List tab: View all registered jobs with status, schedule, category, last/next run times
+- Run History tab: View execution history with status indicators (success/failed/running)
+- Job controls: Run Now, Pause, Resume buttons (vega_admin only)
+- Tenant Admin users have view-only access
+
+**API Routes:**
+- GET `/api/jobs` - List all scheduled jobs
+- GET `/api/jobs/runs/recent` - Get recent job runs
+- POST `/api/jobs/:jobId/run` - Manually trigger job (vega_admin only)
+- POST `/api/jobs/:jobId/pause` - Pause job (vega_admin only)
+- POST `/api/jobs/:jobId/resume` - Resume job (vega_admin only)
 
 ---
 
