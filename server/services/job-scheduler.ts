@@ -1,5 +1,6 @@
 import { storage } from "../storage";
 import { JOB_STATUS, JOB_RUN_STATUS, type InsertScheduledJob, type ScheduledJob, type JobRun } from "@shared/schema";
+import { sendJobFailureNotificationEmail } from "../email";
 
 type JobFunction = () => Promise<{ summary: string; details?: any }>;
 
@@ -160,6 +161,9 @@ class JobScheduler {
         error.stack
       );
 
+      // Send failure notification emails to all vega admins
+      await this.sendFailureNotifications(job, error.message, error.stack);
+
       return completedRun;
     }
   }
@@ -208,6 +212,36 @@ class JobScheduler {
           await this.runJob(name, 'startup');
         }, 5000);
       }
+    }
+  }
+
+  private async sendFailureNotifications(job: ScheduledJob, errorMessage: string, errorStack: string | null): Promise<void> {
+    try {
+      const adminUsers = await storage.getVegaAdminUsers();
+      
+      if (adminUsers.length === 0) {
+        console.log('[JobScheduler] No admin users found to notify about job failure');
+        return;
+      }
+
+      console.log(`[JobScheduler] Sending failure notifications to ${adminUsers.length} admin(s)`);
+      
+      for (const admin of adminUsers) {
+        try {
+          await sendJobFailureNotificationEmail(
+            admin.email,
+            job.name,
+            job.displayName,
+            errorMessage,
+            errorStack,
+            new Date()
+          );
+        } catch (emailError) {
+          console.error(`[JobScheduler] Failed to send notification to ${admin.email}:`, emailError);
+        }
+      }
+    } catch (error) {
+      console.error('[JobScheduler] Failed to send failure notifications:', error);
     }
   }
 }

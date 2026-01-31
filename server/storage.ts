@@ -401,6 +401,9 @@ export interface IStorage {
   createMcpAuditLog(log: InsertMcpAuditLog): Promise<McpAuditLog>;
   getMcpAuditLogs(tenantId: string, limit?: number): Promise<McpAuditLog[]>;
   
+  // Admin users methods
+  getVegaAdminUsers(): Promise<User[]>;
+  
   // Scheduled Jobs methods
   getScheduledJobs(tenantId?: string | null): Promise<ScheduledJob[]>;
   getScheduledJobById(id: string): Promise<ScheduledJob | undefined>;
@@ -3375,6 +3378,16 @@ export class DatabaseStorage implements IStorage {
       .where(eq(mcpAuditLogs.tenantId, tenantId))
       .orderBy(desc(mcpAuditLogs.createdAt))
       .limit(limit);
+  }
+
+  // ============================================
+  // Admin users methods
+  // ============================================
+
+  async getVegaAdminUsers(): Promise<User[]> {
+    return await db.select().from(users)
+      .where(eq(users.role, 'vega_admin'))
+      .orderBy(users.email);
   }
 
   // ============================================

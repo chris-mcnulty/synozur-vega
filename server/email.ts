@@ -598,6 +598,118 @@ export async function sendPlanExpirationReminderEmail(
   await client.send(msg);
 }
 
+// Send job failure notification email to admins
+export async function sendJobFailureNotificationEmail(
+  to: string,
+  jobName: string,
+  jobDisplayName: string,
+  errorMessage: string,
+  errorStack: string | null,
+  failedAt: Date
+) {
+  const { client, fromEmail } = await getUncachableSendGridClient();
+  
+  const adminUrl = `${APP_URL}/system-admin`;
+  const failedAtStr = failedAt.toISOString().replace('T', ' ').split('.')[0] + ' UTC';
+  
+  const msg = {
+    to,
+    from: fromEmail,
+    subject: `[Alert] Scheduled Job Failed: ${jobDisplayName}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        </head>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a; color: #ffffff;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #0a0a0a;">
+            <tr>
+              <td style="padding: 40px 20px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 12px; border: 1px solid #dc2626;">
+                  <tr>
+                    <td style="padding: 40px 40px 20px; text-align: center;">
+                      <h1 style="margin: 0; font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #810FFB 0%, #E60CB3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Vega</h1>
+                      <p style="margin: 10px 0 0; font-size: 14px; color: #999999;">System Alert</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 40px;">
+                      <div style="background: rgba(220, 38, 38, 0.1); border: 1px solid #dc2626; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                        <h2 style="margin: 0 0 10px; font-size: 20px; font-weight: 600; color: #dc2626;">
+                          Scheduled Job Failed
+                        </h2>
+                        <p style="margin: 0; font-size: 14px; color: #cccccc;">
+                          A background job encountered an error and failed to complete.
+                        </p>
+                      </div>
+                      
+                      <div style="background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                        <h3 style="margin: 0 0 15px; font-size: 16px; color: #ffffff;">Job Details</h3>
+                        <table style="width: 100%; border-collapse: collapse;">
+                          <tr>
+                            <td style="padding: 8px 0; font-size: 14px; color: #999999; width: 120px;">Job Name:</td>
+                            <td style="padding: 8px 0; font-size: 14px; color: #ffffff; font-weight: 500;">${jobDisplayName}</td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 8px 0; font-size: 14px; color: #999999;">Job ID:</td>
+                            <td style="padding: 8px 0; font-size: 14px; color: #cccccc; font-family: monospace;">${jobName}</td>
+                          </tr>
+                          <tr>
+                            <td style="padding: 8px 0; font-size: 14px; color: #999999;">Failed At:</td>
+                            <td style="padding: 8px 0; font-size: 14px; color: #cccccc;">${failedAtStr}</td>
+                          </tr>
+                        </table>
+                      </div>
+                      
+                      <div style="background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                        <h3 style="margin: 0 0 15px; font-size: 16px; color: #dc2626;">Error Message</h3>
+                        <p style="margin: 0; font-size: 14px; color: #ffffff; font-family: monospace; word-break: break-word; white-space: pre-wrap;">${errorMessage}</p>
+                      </div>
+                      
+                      ${errorStack ? `
+                      <details style="margin: 20px 0;">
+                        <summary style="cursor: pointer; font-size: 14px; color: #999999; margin-bottom: 10px;">View Stack Trace</summary>
+                        <div style="background: #0a0a0a; border: 1px solid #2a2a2a; border-radius: 8px; padding: 15px; overflow-x: auto;">
+                          <pre style="margin: 0; font-size: 12px; color: #999999; white-space: pre-wrap; word-break: break-word;">${errorStack}</pre>
+                        </div>
+                      </details>
+                      ` : ''}
+                      
+                      <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 30px 0;">
+                        <tr>
+                          <td style="border-radius: 8px; background: linear-gradient(135deg, #810FFB 0%, #E60CB3 100%);">
+                            <a href="${adminUrl}" target="_blank" style="display: inline-block; padding: 16px 40px; font-size: 16px; font-weight: 600; color: #ffffff; text-decoration: none; border-radius: 8px;">
+                              View Job Dashboard
+                            </a>
+                          </td>
+                        </tr>
+                      </table>
+                      
+                      <p style="margin: 20px 0 0; font-size: 14px; color: #999999;">
+                        This is an automated system alert. Please investigate the issue at your earliest convenience.
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 30px 40px; border-top: 1px solid #2a2a2a; text-align: center;">
+                      <p style="margin: 0; font-size: 12px; color: #666666;">© ${new Date().getFullYear()} Synozur Alliance LLC. All rights reserved.</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `,
+    text: `SCHEDULED JOB FAILED\n\nJob Name: ${jobDisplayName}\nJob ID: ${jobName}\nFailed At: ${failedAtStr}\n\nError Message:\n${errorMessage}\n\n${errorStack ? `Stack Trace:\n${errorStack}\n\n` : ''}View the job dashboard: ${adminUrl}\n\nThis is an automated system alert. Please investigate the issue at your earliest convenience.`
+  };
+  
+  await client.send(msg);
+}
+
 // Hash a token for secure storage (similar to password hashing)
 export function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
