@@ -1993,3 +1993,78 @@ export const insertMcpAuditLogSchema = createInsertSchema(mcpAuditLogs).omit({
 
 export type InsertMcpAuditLog = z.infer<typeof insertMcpAuditLogSchema>;
 export type McpAuditLog = typeof mcpAuditLogs.$inferSelect;
+
+// ============================================
+// SCHEDULED JOBS - Background Job Management
+// ============================================
+
+export const JOB_STATUS = {
+  ACTIVE: 'active',
+  PAUSED: 'paused',
+  DISABLED: 'disabled',
+} as const;
+
+export type JobStatus = typeof JOB_STATUS[keyof typeof JOB_STATUS];
+
+export const JOB_RUN_STATUS = {
+  RUNNING: 'running',
+  SUCCESS: 'success',
+  FAILED: 'failed',
+  SKIPPED: 'skipped',
+} as const;
+
+export type JobRunStatus = typeof JOB_RUN_STATUS[keyof typeof JOB_RUN_STATUS];
+
+// Registered scheduled jobs
+export const scheduledJobs = pgTable("scheduled_jobs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull().unique(), // Unique identifier (e.g., 'expiration-reminders')
+  displayName: text("display_name").notNull(), // Human-readable name
+  description: text("description"), // What this job does
+  category: text("category").notNull().default("system"), // 'system', 'sync', 'notification', 'maintenance'
+  scheduleExpression: text("schedule_expression").notNull(), // e.g., "every 1 hour", "daily at midnight"
+  intervalMs: integer("interval_ms"), // Interval in milliseconds (for setInterval-based jobs)
+  status: text("status").notNull().default("active"), // 'active', 'paused', 'disabled'
+  tenantId: varchar("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }), // null = global job
+  lastRunAt: timestamp("last_run_at"),
+  nextRunAt: timestamp("next_run_at"),
+  config: jsonb("config"), // Job-specific configuration
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const insertScheduledJobSchema = createInsertSchema(scheduledJobs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  lastRunAt: true,
+});
+
+export type InsertScheduledJob = z.infer<typeof insertScheduledJobSchema>;
+export type ScheduledJob = typeof scheduledJobs.$inferSelect;
+
+// Job execution history
+export const jobRuns = pgTable("job_runs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  jobId: varchar("job_id").notNull().references(() => scheduledJobs.id, { onDelete: 'cascade' }),
+  jobName: text("job_name").notNull(), // Denormalized for easier querying
+  status: text("status").notNull(), // 'running', 'success', 'failed', 'skipped'
+  startedAt: timestamp("started_at").defaultNow().notNull(),
+  completedAt: timestamp("completed_at"),
+  durationMs: integer("duration_ms"),
+  triggeredBy: text("triggered_by").notNull().default("schedule"), // 'schedule', 'manual', 'startup'
+  triggeredByUserId: varchar("triggered_by_user_id").references(() => users.id, { onDelete: 'set null' }),
+  summary: text("summary"), // Brief summary of what was done (e.g., "Sent 3 expiration reminders")
+  details: jsonb("details"), // Detailed execution data
+  errorMessage: text("error_message"),
+  errorStack: text("error_stack"),
+});
+
+export const insertJobRunSchema = createInsertSchema(jobRuns).omit({
+  id: true,
+  completedAt: true,
+  durationMs: true,
+});
+
+export type InsertJobRun = z.infer<typeof insertJobRunSchema>;
+export type JobRun = typeof jobRuns.$inferSelect;

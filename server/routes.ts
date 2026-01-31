@@ -2422,6 +2422,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const exportRouter = await import("./routes-export");
   app.use("/api/export", ...authWithTenant, exportRouter.default);
 
+  // Import and use Jobs routes (Scheduled Jobs management)
+  const { jobsRouter } = await import("./routes-jobs");
+  app.use("/api/jobs", ...authWithTenant, jobsRouter);
+
   // ============================================
   // PLATFORM ADMIN ROUTES - Service Plans & Blocked Domains
   // ============================================
@@ -2973,87 +2977,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ==================== Scheduled Jobs ====================
   
-  // Send trial expiration reminder emails
-  // Runs once per day (check every hour, but only send once per day per tenant)
+  const { jobScheduler } = await import('./services/job-scheduler');
+  
+  // In-memory deduplication for reminders (clears daily)
   const sentReminders = new Map<string, Set<number>>(); // tenantId -> Set of daysRemaining already sent
   
-  async function checkAndSendExpirationReminders() {
-    const reminderDays = [7, 3, 1]; // Days before expiration to send reminders
-    
-    for (const days of reminderDays) {
-      try {
-        const expiringTenants = await storage.getTenantsWithExpiringPlans(days);
-        
-        for (const tenant of expiringTenants) {
-          // Skip if we already sent this reminder today
-          const sentForTenant = sentReminders.get(tenant.id) || new Set();
-          if (sentForTenant.has(days)) {
-            continue;
-          }
+  // Register expiration reminders job
+  await jobScheduler.registerJob(
+    'expiration-reminders',
+    'Plan Expiration Reminders',
+    'Sends email reminders to tenant admins before their plan expires (7, 3, 1 days before)',
+    'notification',
+    'Every 1 hour',
+    3600000, // 1 hour
+    async () => {
+      const reminderDays = [7, 3, 1];
+      let totalSent = 0;
+      const details: any[] = [];
+      
+      for (const days of reminderDays) {
+        try {
+          const expiringTenants = await storage.getTenantsWithExpiringPlans(days);
           
-          // Get the service plan details
-          const plan = tenant.servicePlanId 
-            ? await storage.getServicePlanById(tenant.servicePlanId)
-            : null;
-          
-          // Get tenant admin(s) to send emails to
-          const tenantUsers = await storage.getAllUsers(tenant.id);
-          const admins = tenantUsers.filter((u: { role: string }) => u.role === 'tenant_admin');
-          
-          if (admins.length === 0) {
-            console.log(`[Expiration Reminder] No admins found for tenant ${tenant.name}, skipping`);
-            continue;
-          }
-          
-          const expirationDate = tenant.planExpiresAt || new Date();
-          const planName = plan?.displayName || 'Trial';
-          
-          for (const admin of admins) {
-            try {
-              await sendPlanExpirationReminderEmail(
-                admin.email,
-                admin.name || admin.email,
-                tenant.name,
-                planName,
-                days,
-                expirationDate
-              );
-              console.log(`[Expiration Reminder] Sent ${days}-day reminder to ${admin.email} for tenant ${tenant.name}`);
-            } catch (emailError) {
-              console.error(`[Expiration Reminder] Failed to send to ${admin.email}:`, emailError);
+          for (const tenant of expiringTenants) {
+            const sentForTenant = sentReminders.get(tenant.id) || new Set();
+            if (sentForTenant.has(days)) {
+              continue;
             }
+            
+            const plan = tenant.servicePlanId 
+              ? await storage.getServicePlanById(tenant.servicePlanId)
+              : null;
+            
+            const tenantUsers = await storage.getAllUsers(tenant.id);
+            const admins = tenantUsers.filter((u: { role: string }) => u.role === 'tenant_admin');
+            
+            if (admins.length === 0) {
+              continue;
+            }
+            
+            const expirationDate = tenant.planExpiresAt || new Date();
+            const planName = plan?.displayName || 'Trial';
+            
+            for (const admin of admins) {
+              try {
+                await sendPlanExpirationReminderEmail(
+                  admin.email,
+                  admin.name || admin.email,
+                  tenant.name,
+                  planName,
+                  days,
+                  expirationDate
+                );
+                totalSent++;
+                details.push({ tenant: tenant.name, admin: admin.email, days });
+              } catch (emailError) {
+                console.error(`[Expiration Reminder] Failed to send to ${admin.email}:`, emailError);
+              }
+            }
+            
+            sentForTenant.add(days);
+            sentReminders.set(tenant.id, sentForTenant);
           }
-          
-          // Mark as sent
-          sentForTenant.add(days);
-          sentReminders.set(tenant.id, sentForTenant);
+        } catch (error) {
+          console.error(`[Expiration Reminder] Error checking ${days}-day expirations:`, error);
         }
-      } catch (error) {
-        console.error(`[Expiration Reminder] Error checking ${days}-day expirations:`, error);
       }
+      
+      return { 
+        summary: totalSent > 0 ? `Sent ${totalSent} expiration reminders` : 'No reminders needed',
+        details: { emailsSent: totalSent, reminders: details }
+      };
     }
-  }
+  );
   
-  // Run immediately on startup (after a short delay to let things initialize)
+  // Register reminder cache reset job  
+  await jobScheduler.registerJob(
+    'reminder-cache-reset',
+    'Daily Reminder Cache Reset',
+    'Clears the sent reminders cache at midnight Pacific time to allow fresh reminders the next day',
+    'maintenance',
+    'Every 5 minutes (checks for midnight)',
+    300000, // 5 minutes
+    async () => {
+      const now = new Date();
+      const pacificTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+      if (pacificTime.getHours() === 0 && pacificTime.getMinutes() < 5) {
+        const cacheSize = sentReminders.size;
+        sentReminders.clear();
+        return { summary: `Cleared reminder cache (${cacheSize} entries)` };
+      }
+      return { summary: 'Not midnight yet, skipping cache reset' };
+    }
+  );
+  
+  // Initialize job scheduler and run startup jobs
+  await jobScheduler.initialize();
   setTimeout(() => {
-    console.log('[Expiration Reminder] Running initial expiration check...');
-    checkAndSendExpirationReminders();
-  }, 10000); // 10 seconds after startup
-  
-  // Run every hour (3600000 ms) - the deduplication ensures we don't spam
-  setInterval(() => {
-    checkAndSendExpirationReminders();
-  }, 3600000);
-  
-  // Clear sent reminders daily at midnight (Pacific time)
-  setInterval(() => {
-    const now = new Date();
-    const pacificTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-    if (pacificTime.getHours() === 0 && pacificTime.getMinutes() < 5) {
-      console.log('[Expiration Reminder] Clearing daily reminder cache');
-      sentReminders.clear();
-    }
-  }, 300000); // Check every 5 minutes
+    jobScheduler.runJob('expiration-reminders', 'startup');
+  }, 10000);
 
   const httpServer = createServer(app);
 

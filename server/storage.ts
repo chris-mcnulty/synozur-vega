@@ -40,7 +40,9 @@ import {
   capabilitySection, type CapabilitySection, type InsertCapabilitySection,
   capabilityTabs, type CapabilityTab, type InsertCapabilityTab,
   mcpApiKeys, type McpApiKey, type InsertMcpApiKey,
-  mcpAuditLogs, type McpAuditLog, type InsertMcpAuditLog
+  mcpAuditLogs, type McpAuditLog, type InsertMcpAuditLog,
+  scheduledJobs, type ScheduledJob, type InsertScheduledJob,
+  jobRuns, type JobRun, type InsertJobRun, JOB_STATUS, JOB_RUN_STATUS
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, inArray, gte, lte, count } from "drizzle-orm";
@@ -398,6 +400,24 @@ export interface IStorage {
   // MCP Audit Logs methods
   createMcpAuditLog(log: InsertMcpAuditLog): Promise<McpAuditLog>;
   getMcpAuditLogs(tenantId: string, limit?: number): Promise<McpAuditLog[]>;
+  
+  // Scheduled Jobs methods
+  getScheduledJobs(tenantId?: string | null): Promise<ScheduledJob[]>;
+  getScheduledJobById(id: string): Promise<ScheduledJob | undefined>;
+  getScheduledJobByName(name: string): Promise<ScheduledJob | undefined>;
+  createScheduledJob(job: InsertScheduledJob): Promise<ScheduledJob>;
+  updateScheduledJob(id: string, updates: Partial<InsertScheduledJob>): Promise<ScheduledJob>;
+  updateScheduledJobStatus(id: string, status: string): Promise<void>;
+  updateScheduledJobLastRun(id: string, lastRunAt: Date, nextRunAt?: Date): Promise<void>;
+  deleteScheduledJob(id: string): Promise<void>;
+  
+  // Job Runs methods
+  getJobRuns(jobId?: string, limit?: number): Promise<JobRun[]>;
+  getJobRunById(id: string): Promise<JobRun | undefined>;
+  getRecentJobRuns(limit?: number): Promise<JobRun[]>;
+  createJobRun(run: InsertJobRun): Promise<JobRun>;
+  updateJobRun(id: string, updates: Partial<JobRun>): Promise<JobRun>;
+  completeJobRun(id: string, status: string, summary?: string, details?: any, errorMessage?: string, errorStack?: string): Promise<JobRun>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -3355,6 +3375,133 @@ export class DatabaseStorage implements IStorage {
       .where(eq(mcpAuditLogs.tenantId, tenantId))
       .orderBy(desc(mcpAuditLogs.createdAt))
       .limit(limit);
+  }
+
+  // ============================================
+  // Scheduled Jobs methods
+  // ============================================
+
+  async getScheduledJobs(tenantId?: string | null): Promise<ScheduledJob[]> {
+    if (tenantId === null) {
+      return await db.select().from(scheduledJobs)
+        .where(isNull(scheduledJobs.tenantId))
+        .orderBy(scheduledJobs.category, scheduledJobs.displayName);
+    } else if (tenantId) {
+      return await db.select().from(scheduledJobs)
+        .where(or(
+          eq(scheduledJobs.tenantId, tenantId),
+          isNull(scheduledJobs.tenantId)
+        ))
+        .orderBy(scheduledJobs.category, scheduledJobs.displayName);
+    }
+    return await db.select().from(scheduledJobs)
+      .orderBy(scheduledJobs.category, scheduledJobs.displayName);
+  }
+
+  async getScheduledJobById(id: string): Promise<ScheduledJob | undefined> {
+    const [job] = await db.select().from(scheduledJobs).where(eq(scheduledJobs.id, id));
+    return job || undefined;
+  }
+
+  async getScheduledJobByName(name: string): Promise<ScheduledJob | undefined> {
+    const [job] = await db.select().from(scheduledJobs).where(eq(scheduledJobs.name, name));
+    return job || undefined;
+  }
+
+  async createScheduledJob(job: InsertScheduledJob): Promise<ScheduledJob> {
+    const [created] = await db.insert(scheduledJobs).values(job).returning();
+    return created;
+  }
+
+  async updateScheduledJob(id: string, updates: Partial<InsertScheduledJob>): Promise<ScheduledJob> {
+    const [updated] = await db.update(scheduledJobs)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(scheduledJobs.id, id))
+      .returning();
+    return updated;
+  }
+
+  async updateScheduledJobStatus(id: string, status: string): Promise<void> {
+    await db.update(scheduledJobs)
+      .set({ status, updatedAt: new Date() })
+      .where(eq(scheduledJobs.id, id));
+  }
+
+  async updateScheduledJobLastRun(id: string, lastRunAt: Date, nextRunAt?: Date): Promise<void> {
+    await db.update(scheduledJobs)
+      .set({ lastRunAt, nextRunAt, updatedAt: new Date() })
+      .where(eq(scheduledJobs.id, id));
+  }
+
+  async deleteScheduledJob(id: string): Promise<void> {
+    await db.delete(scheduledJobs).where(eq(scheduledJobs.id, id));
+  }
+
+  // ============================================
+  // Job Runs methods
+  // ============================================
+
+  async getJobRuns(jobId?: string, limit: number = 50): Promise<JobRun[]> {
+    if (jobId) {
+      return await db.select().from(jobRuns)
+        .where(eq(jobRuns.jobId, jobId))
+        .orderBy(desc(jobRuns.startedAt))
+        .limit(limit);
+    }
+    return await db.select().from(jobRuns)
+      .orderBy(desc(jobRuns.startedAt))
+      .limit(limit);
+  }
+
+  async getJobRunById(id: string): Promise<JobRun | undefined> {
+    const [run] = await db.select().from(jobRuns).where(eq(jobRuns.id, id));
+    return run || undefined;
+  }
+
+  async getRecentJobRuns(limit: number = 100): Promise<JobRun[]> {
+    return await db.select().from(jobRuns)
+      .orderBy(desc(jobRuns.startedAt))
+      .limit(limit);
+  }
+
+  async createJobRun(run: InsertJobRun): Promise<JobRun> {
+    const [created] = await db.insert(jobRuns).values(run).returning();
+    return created;
+  }
+
+  async updateJobRun(id: string, updates: Partial<JobRun>): Promise<JobRun> {
+    const [updated] = await db.update(jobRuns)
+      .set(updates)
+      .where(eq(jobRuns.id, id))
+      .returning();
+    return updated;
+  }
+
+  async completeJobRun(
+    id: string, 
+    status: string, 
+    summary?: string, 
+    details?: any, 
+    errorMessage?: string, 
+    errorStack?: string
+  ): Promise<JobRun> {
+    const run = await this.getJobRunById(id);
+    const now = new Date();
+    const durationMs = run ? now.getTime() - new Date(run.startedAt).getTime() : 0;
+    
+    const [updated] = await db.update(jobRuns)
+      .set({ 
+        status, 
+        completedAt: now, 
+        durationMs,
+        summary,
+        details,
+        errorMessage,
+        errorStack
+      })
+      .where(eq(jobRuns.id, id))
+      .returning();
+    return updated;
   }
 }
 

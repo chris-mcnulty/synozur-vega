@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import type { SystemBanner, ServicePlan, BlockedDomain, CapabilitySection, CapabilityTab } from "@shared/schema";
 import { PlatformAIUsageWidget } from "@/components/AIUsageWidget";
+import { ScheduledJobsManager } from "@/components/ScheduledJobsManager";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ImageUpload } from "@/components/ImageUpload";
@@ -966,6 +967,10 @@ export default function SystemAdmin() {
               <Megaphone className="h-4 w-4 shrink-0" />
               <span className="text-xs sm:text-sm">Announce</span>
             </TabsTrigger>
+            <TabsTrigger value="jobs" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-jobs">
+              <Calendar className="h-4 w-4 shrink-0" />
+              <span className="text-xs sm:text-sm">Jobs</span>
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -1856,6 +1861,10 @@ export default function SystemAdmin() {
           <AnnouncementManager />
           <LandingHeroSettings />
           <CapabilityShowcaseSettings />
+        </TabsContent>
+
+        <TabsContent value="jobs" className="space-y-4">
+          <ScheduledJobsManager />
         </TabsContent>
       </Tabs>
 
