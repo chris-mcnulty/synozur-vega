@@ -486,11 +486,13 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
             results.foundations.skipped++;
           } else {
             // For 'replace' or 'create', upsert the foundation
+            // Note: ambitions is optional for backward compatibility with older export files
             const updated = await storage.upsertFoundation({
               tenantId: targetTenantId,
               mission: foundationData.mission,
               vision: foundationData.vision,
               values: foundationData.values,
+              ambitions: foundationData.ambitions, // Optional - may be undefined in older exports
               annualGoals: foundationData.annualGoals,
               fiscalYearStartMonth: foundationData.fiscalYearStartMonth,
               tagline: foundationData.tagline,
@@ -505,11 +507,13 @@ router.post('/import-cos', cosUpload.single('file'), async (req: Request, res: R
           }
         } else {
           // No existing foundation, create new
+          // Note: ambitions is optional for backward compatibility with older export files
           const created = await storage.upsertFoundation({
             tenantId: targetTenantId,
             mission: foundationData.mission,
             vision: foundationData.vision,
             values: foundationData.values,
+            ambitions: foundationData.ambitions, // Optional - may be undefined in older exports
             annualGoals: foundationData.annualGoals,
             fiscalYearStartMonth: foundationData.fiscalYearStartMonth,
             tagline: foundationData.tagline,

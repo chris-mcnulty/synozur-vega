@@ -150,15 +150,46 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
         markdown += `\n`;
       }
       
+      // Ambitions (3-5 year strategic targets)
+      const ambitions = foundation.ambitions as Array<{ id?: string; title?: string; description?: string; targetYear?: number; status?: string; linkedValueTitles?: string[] }> | null;
+      if (ambitions && ambitions.length > 0) {
+        const activeAmbitions = ambitions.filter(a => a.status === 'active');
+        if (activeAmbitions.length > 0) {
+          markdown += `### Ambitions (Long-Term Strategic Targets)\n\n`;
+          activeAmbitions.forEach((ambition, index) => {
+            markdown += `${index + 1}. **${ambition.title || 'Untitled Ambition'}**`;
+            if (ambition.targetYear) {
+              markdown += ` (Target: ${ambition.targetYear})`;
+            }
+            if (ambition.description) {
+              markdown += `\n   ${ambition.description}`;
+            }
+            if (ambition.linkedValueTitles && ambition.linkedValueTitles.length > 0) {
+              markdown += `\n   *Values: ${ambition.linkedValueTitles.join(', ')}*`;
+            }
+            markdown += `\n`;
+          });
+          markdown += `\n`;
+        }
+      }
+
       if (foundation.annualGoals && foundation.annualGoals.length > 0) {
         markdown += `### Annual Goals (${filters.year || new Date().getFullYear()})\n\n`;
         foundation.annualGoals.forEach((goal, index: number) => {
           // Handle both string goals and object goals with title property
           const goalTitle = typeof goal === 'string' ? goal : (goal.title || 'Untitled Goal');
           const goalDescription = typeof goal === 'object' ? goal.description : undefined;
+          const linkedAmbitionId = typeof goal === 'object' ? goal.linkedAmbitionId : undefined;
           markdown += `${index + 1}. **${goalTitle}**`;
           if (goalDescription) {
             markdown += ` - ${goalDescription}`;
+          }
+          // Show linked ambition if present
+          if (linkedAmbitionId && ambitions) {
+            const linkedAmbition = ambitions.find(a => a.id === linkedAmbitionId);
+            if (linkedAmbition) {
+              markdown += ` *(Links to: ${linkedAmbition.title})*`;
+            }
           }
           markdown += `\n`;
         });
