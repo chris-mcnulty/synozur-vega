@@ -56,7 +56,7 @@ Preferred communication style: Simple, everyday language.
     - Rate limiting (60 req/min per tenant, 10 token exchanges/min per IP)
     - Full audit logging of all tool invocations
     - UI for key management in Tenant Admin → Integrations tab with IP restrictions, rotation, and visual warning for write permissions
-- **Job Scheduler**: Platform-wide background job management accessible via System Admin → Scheduled Jobs. Features job registration, execution history, manual triggers, pause/resume controls, schedule editing (vega_admin only), and failure email notifications. Currently runs 2 system jobs: expiration-reminders (daily) and reminder-cache-reset (daily). Supports schedule presets from every minute to daily intervals.
+- **Job Scheduler**: Platform-wide background job management accessible via System Admin → Scheduled Jobs. Features job registration, execution history, manual triggers, pause/resume controls, schedule editing (vega_admin only), kill stuck runs (with confirmation), and failure email notifications. Currently runs 2 system jobs: expiration-reminders (daily) and reminder-cache-reset (daily). Supports schedule presets from every minute to daily intervals. Kill functionality marks stuck runs as KILLED and records killedByUserId and killedAt. Aligned with Constellation patterns including resultSummary JSONB field for structured execution results.
 
 ## Related Synozur Products
 
