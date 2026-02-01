@@ -194,7 +194,7 @@ class JobScheduler {
 
     // Update in database
     const updatedJob = await storage.updateScheduledJob(registeredJob.job.id, {
-      schedule: scheduleExpression,
+      scheduleExpression: scheduleExpression,
       intervalMs: intervalMs,
     });
 
@@ -202,7 +202,6 @@ class JobScheduler {
 
     // Update in memory
     registeredJob.job = updatedJob;
-    registeredJob.intervalMs = intervalMs;
 
     // Restart interval with new timing if job is active
     if (registeredJob.job.status === JOB_STATUS.ACTIVE) {
@@ -232,13 +231,38 @@ class JobScheduler {
 
   async runStartupJobs(): Promise<void> {
     console.log('[JobScheduler] Running startup jobs...');
-    for (const [name, registeredJob] of this.jobs) {
+    const entries = Array.from(this.jobs.entries());
+    for (const [name, registeredJob] of entries) {
       if (registeredJob.job.status === JOB_STATUS.ACTIVE) {
         setTimeout(async () => {
           await this.runJob(name, 'startup');
         }, 5000);
       }
     }
+  }
+
+  async killStuckRun(runId: string, killedByUserId: string): Promise<JobRun | null> {
+    const run = await storage.getJobRunById(runId);
+    if (!run) {
+      console.error(`[JobScheduler] Run not found: ${runId}`);
+      return null;
+    }
+
+    if (run.status !== JOB_RUN_STATUS.RUNNING) {
+      console.log(`[JobScheduler] Run ${runId} is not in running state, cannot kill`);
+      return null;
+    }
+
+    console.log(`[JobScheduler] Killing stuck run: ${runId} (job: ${run.jobName})`);
+    
+    const killedRun = await storage.killJobRun(runId, killedByUserId);
+    
+    console.log(`[JobScheduler] Successfully killed run: ${runId}`);
+    return killedRun;
+  }
+
+  async getStuckRuns(thresholdMinutes: number = 30): Promise<JobRun[]> {
+    return await storage.getStuckJobRuns(thresholdMinutes);
   }
 
   private async sendFailureNotifications(job: ScheduledJob, errorMessage: string, errorStack: string | null): Promise<void> {

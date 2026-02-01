@@ -2011,6 +2011,7 @@ export const JOB_RUN_STATUS = {
   SUCCESS: 'success',
   FAILED: 'failed',
   SKIPPED: 'skipped',
+  KILLED: 'killed',
 } as const;
 
 export type JobRunStatus = typeof JOB_RUN_STATUS[keyof typeof JOB_RUN_STATUS];
@@ -2048,13 +2049,16 @@ export const jobRuns = pgTable("job_runs", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   jobId: varchar("job_id").notNull().references(() => scheduledJobs.id, { onDelete: 'cascade' }),
   jobName: text("job_name").notNull(), // Denormalized for easier querying
-  status: text("status").notNull(), // 'running', 'success', 'failed', 'skipped'
+  status: text("status").notNull(), // 'running', 'success', 'failed', 'skipped', 'killed'
   startedAt: timestamp("started_at").defaultNow().notNull(),
   completedAt: timestamp("completed_at"),
   durationMs: integer("duration_ms"),
   triggeredBy: text("triggered_by").notNull().default("schedule"), // 'schedule', 'manual', 'startup'
   triggeredByUserId: varchar("triggered_by_user_id").references(() => users.id, { onDelete: 'set null' }),
+  killedByUserId: varchar("killed_by_user_id").references(() => users.id, { onDelete: 'set null' }),
+  killedAt: timestamp("killed_at"),
   summary: text("summary"), // Brief summary of what was done (e.g., "Sent 3 expiration reminders")
+  resultSummary: jsonb("result_summary"), // Structured result data (aligned with Constellation pattern)
   details: jsonb("details"), // Detailed execution data
   errorMessage: text("error_message"),
   errorStack: text("error_stack"),
