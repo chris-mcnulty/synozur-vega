@@ -423,10 +423,24 @@ export type CompanyValue = {
   description: string;
 };
 
+export type Ambition = {
+  id: string;
+  title: string;
+  description?: string;
+  targetYear: number;
+  linkedValueTitles?: string[];
+  ownerId?: string;
+  status: 'active' | 'closed';
+  closedAt?: string;
+  closedNote?: string;
+  createdAt: string;
+};
+
 export type AnnualGoal = {
   title: string;
   year: number;
   description?: string;
+  linkedAmbitionId?: string;
 };
 
 export const foundations = pgTable("foundations", {
@@ -435,6 +449,7 @@ export const foundations = pgTable("foundations", {
   mission: text("mission"),
   vision: text("vision"),
   values: jsonb("values").$type<CompanyValue[]>(),
+  ambitions: jsonb("ambitions").$type<Ambition[]>(),
   annualGoals: jsonb("annual_goals").$type<AnnualGoal[]>(),
   fiscalYearStartMonth: integer("fiscal_year_start_month"),
   tagline: text("tagline"),

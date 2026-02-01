@@ -16,48 +16,48 @@ Publishing Big Rock tasks to Microsoft Planner with three options:
 ---
 
 ## Priority 2: Ambitions Module
-**Status**: Design In Progress
+**Status**: ✅ IMPLEMENTED (v1.6)
 
 Add 3-5 year strategic targets (Ambitions) as a new layer above Annual Goals in Foundations.
 
-**Decisions Made**:
-- Optional explicit linking from Annual Goals to Ambitions
-- Optional closing note when closing an Ambition
-- Optional owner (organization-wide by default)
-- Single target year (e.g., 2028)
-- Soft limit with warning if >5 active Ambitions
+**Implemented Features**:
+- ✅ `ambitions` JSONB field added to foundations table
+- ✅ Ambitions UI in Foundations page with add/edit/close/reopen
+- ✅ Active/Closed filtering via Tabs component
+- ✅ Value linking (multi-select from org values)
+- ✅ Target year selection (3-10 years from current)
+- ✅ Soft limit warning at >5 active ambitions
+- ✅ Annual Goals can link to parent Ambitions
+- ✅ MCP tools: `get_ambitions` and enhanced `get_annual_goals` with `includeAmbitions`
+- ✅ OpenAPI spec updated with Ambition/AnnualGoal schemas
+- ✅ User Guide updated with Ambitions documentation
+- ✅ replit.md updated with Ambitions module documentation
 
-**Ambition Type**:
+**Data Model**:
 ```
-{
+Ambition {
   id: string (UUID)
   title: string
   description?: string
   targetYear: number
   linkedValueTitles?: string[]
-  ownerId?: string
   status: 'active' | 'closed'
   closedAt?: Date
   closedNote?: string
+  createdAt: Date
 }
-```
 
-**Updated AnnualGoal Type**:
-```
-{
+AnnualGoal {
   title: string
   year: number
   description?: string
-  linkedAmbitionId?: string  // NEW - optional link to parent Ambition
+  linkedAmbitionId?: string  // optional link to parent Ambition
 }
 ```
 
-**Implementation Tasks**:
-1. Add `ambitions` JSONB field to foundations table
-2. Update AnnualGoal type with linkedAmbitionId
-3. Build Ambitions UI in Foundations page
-4. Update Company OS chart to show Ambitions layer
-5. Update exports/MCP to include Ambitions
+**Remaining Work**:
+- Company OS Dashboard chart update to show Ambitions layer (future enhancement)
+- PDF report inclusion of Ambitions (future enhancement)
 
 ---
 

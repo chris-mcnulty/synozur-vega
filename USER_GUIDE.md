@@ -33,7 +33,8 @@ Vega is a comprehensive Company Operating System with the following capabilities
 
 ### Strategy & Planning
 - **Mission, Vision & Values** - Define and communicate your organization's core identity
-- **Annual Goals** - Set high-level yearly targets with progress tracking
+- **Ambitions** - 3-5 year strategic targets that bridge vision and annual goals (New in v1.6)
+- **Annual Goals** - Set high-level yearly targets with optional ambition linking
 - **Strategic Initiatives** - Create and manage strategic priorities with owner assignment and timeline
 - **OKRs (Objectives & Key Results)** - Full OKR framework with 4 hierarchy levels (Organization, Team, Division, Individual)
 - **Big Rocks** - Major quarterly initiatives linked to objectives and strategies
@@ -297,12 +298,46 @@ Core principles that guide decision-making and culture.
 Values can be tagged on:
 - Objectives
 - Strategies
+- Ambitions
 
 This creates transparency about which values drive your work.
+
+#### Ambitions (Long-Term Strategic Targets)
+
+Ambitions are 3-5 year strategic targets that bridge the gap between your vision and annual goals. They represent major transformational outcomes your organization aspires to achieve.
+
+**Structure:**
+- **Title**: Clear, outcome-focused statement (e.g., "Become market leader in enterprise segment")
+- **Description**: Detailed context about what success looks like
+- **Target Year**: When you aim to achieve this (typically 3-5 years out)
+- **Linked Values**: Which organizational values this ambition supports
+
+**Managing Ambitions:**
+- **Add**: Create new ambitions with the "Add Ambition" button
+- **Edit**: Update title, description, target year, or linked values
+- **Close**: Mark as closed when achieved or no longer relevant (includes optional closing note)
+- **Reopen**: Closed ambitions can be reopened if needed
+
+**Soft Limit:** The platform recommends keeping 3-5 active ambitions to maintain strategic focus. A warning appears if you have more than 5 active ambitions.
+
+**How Ambitions Connect:**
+- Annual Goals can optionally link to a parent Ambition
+- This creates strategic alignment from long-term vision → ambitions → annual goals → OKRs
+
+**Examples:**
+- "Expand to 10 international markets by 2028"
+- "Achieve $100M ARR milestone"
+- "Build industry-leading AI-powered platform"
 
 #### Annual Goals
 
 High-level goals for the current fiscal year.
+
+**Structure:**
+- **Title**: Clear, measurable goal statement
+- **Year**: The fiscal year this goal applies to
+- **Description**: Additional context (optional)
+- **Linked Ambition**: Optional link to a parent long-term Ambition
 
 **Examples:**
 - "Achieve $10M in annual recurring revenue"
@@ -310,6 +345,7 @@ High-level goals for the current fiscal year.
 - "Reach 95% customer satisfaction score"
 
 **How Annual Goals Connect:**
+- Annual goals can optionally link to a parent Ambition (3-5 year target)
 - Strategies link to annual goals
 - Objectives can link to annual goals
 - Provides line-of-sight from execution to yearly targets

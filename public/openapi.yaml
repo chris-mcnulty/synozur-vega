@@ -1567,10 +1567,15 @@ components:
                 type: string
               description:
                 type: string
+        ambitions:
+          type: array
+          description: Long-term strategic targets (3-5 years)
+          items:
+            $ref: '#/components/schemas/Ambition'
         annualGoals:
           type: array
           items:
-            type: string
+            $ref: '#/components/schemas/AnnualGoal'
         tagline:
           type: string
         companySummary:
@@ -1579,6 +1584,48 @@ components:
           type: integer
           minimum: 1
           maximum: 12
+
+    Ambition:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+        targetYear:
+          type: integer
+        linkedValueTitles:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [active, closed]
+        closedAt:
+          type: string
+          format: date-time
+        closedNote:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    AnnualGoal:
+      type: object
+      properties:
+        title:
+          type: string
+        year:
+          type: integer
+        description:
+          type: string
+        linkedAmbitionId:
+          type: string
+          format: uuid
+          description: Optional link to a parent Ambition
 
     CreateFoundation:
       type: object
@@ -1600,10 +1647,14 @@ components:
                 type: string
               description:
                 type: string
+        ambitions:
+          type: array
+          items:
+            $ref: '#/components/schemas/Ambition'
         annualGoals:
           type: array
           items:
-            type: string
+            $ref: '#/components/schemas/AnnualGoal'
         tagline:
           type: string
         companySummary:

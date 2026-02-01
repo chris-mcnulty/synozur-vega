@@ -15,7 +15,8 @@ Preferred communication style: Simple, everyday language.
 - **UI/UX Decisions**: Mimics Orion.synozur.com's aesthetic, emphasizing whitespace, card-based layouts, and subtle animations.
 - **Key Features**:
     - **Dashboards**: Company OS Dashboard, Executive Dashboard (advanced analytics, pace tracking, velocity projections), and Team Dashboard (simplified, weekly execution focus).
-    - **Core Modules**: Foundations (mission, vision, values, annual goals with AI), Strategy (AI drafting, goal alignment), Outcomes (hierarchical OKRs, "big rocks"), Focus Rhythm (meeting management), Reporting (PDF/PPTX export, customizable branding).
+    - **Core Modules**: Foundations (mission, vision, values, ambitions, annual goals with AI), Strategy (AI drafting, goal alignment), Outcomes (hierarchical OKRs, "big rocks"), Focus Rhythm (meeting management), Reporting (PDF/PPTX export, customizable branding).
+    - **Ambitions Module**: Long-term strategic targets (3-5 years) bridging vision and annual goals. Features: add/edit/close/reopen, value linking, target year selection, active/closed filtering, soft limit warning at >5 active. Annual Goals can optionally link to parent Ambitions.
     - **AI & Intelligence**: OKR Intelligence for pace and velocity tracking, predictive projections, and "Behind Pace" alerts. Launchpad for AI-powered document analysis.
     - **Administration**: Tenant Admin (org, M365 integration, user management, allowed domains), System Admin (platform-wide AI config, service plans, announcements).
     - **OKR Workflow**: Cloning, Period Close-Out with mandatory notes, Mixed Child Rollup Progress Calculation.
@@ -49,7 +50,7 @@ Preferred communication style: Simple, everyday language.
     - JWT-based authentication with 1-hour token expiry
     - API key management via `/api/mcp/keys` with bcrypt hashing
     - Scope-based permissions: `read:okrs`, `write:okrs`, `read:big_rocks`, `write:big_rocks`, `read:strategies`, `read:foundations`, `read:teams`, `read:meetings`
-    - 9 read-only tools for accessing OKRs, Big Rocks, Strategies, Mission, Vision, Values, Annual Goals, Teams, and Meetings
+    - 10 read-only tools for accessing OKRs, Big Rocks, Strategies, Mission, Vision, Values, Annual Goals, Ambitions, Teams, and Meetings
     - 3 write tools: `update_kr_progress`, `add_check_in_note`, `update_big_rock_status`
     - IP allowlisting with CIDR notation support
     - Key rotation with configurable grace periods

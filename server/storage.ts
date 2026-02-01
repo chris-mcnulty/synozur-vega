@@ -563,6 +563,7 @@ export class DatabaseStorage implements IStorage {
           mission: insertFoundation.mission,
           vision: insertFoundation.vision,
           values: insertFoundation.values ? [...insertFoundation.values] : null,
+          ambitions: insertFoundation.ambitions ? [...insertFoundation.ambitions] : null,
           annualGoals: insertFoundation.annualGoals ? [...insertFoundation.annualGoals] : null,
           fiscalYearStartMonth: insertFoundation.fiscalYearStartMonth,
           tagline: insertFoundation.tagline,
@@ -581,6 +582,7 @@ export class DatabaseStorage implements IStorage {
         .values({
           ...insertFoundation,
           values: insertFoundation.values ? [...insertFoundation.values] : null,
+          ambitions: insertFoundation.ambitions ? [...insertFoundation.ambitions] : null,
           annualGoals: insertFoundation.annualGoals ? [...insertFoundation.annualGoals] : null,
         })
         .returning();

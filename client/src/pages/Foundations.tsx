@@ -20,7 +20,8 @@ import { ValueDetailView } from "@/components/ValueDetailView";
 import { AIGoalsSuggestionDialog } from "@/components/AIGoalsSuggestionDialog";
 import { ValuesAlignmentWidget } from "@/components/ValuesAlignmentWidget";
 import { getCurrentQuarter } from "@/lib/fiscal-utils";
-import type { Foundation, CompanyValue, AnnualGoal } from "@shared/schema";
+import type { Foundation, CompanyValue, AnnualGoal, Ambition } from "@shared/schema";
+import { Target, Calendar, CheckCircle2, XCircle } from "lucide-react";
 
 // Suggested options for quick selection
 const missionSuggestions = [
@@ -92,8 +93,22 @@ export default function Foundations() {
   const [mission, setMission] = useState<string>("");
   const [vision, setVision] = useState<string>("");
   const [values, setValues] = useState<CompanyValue[]>([]);
+  const [ambitions, setAmbitions] = useState<Ambition[]>([]);
   const [goals, setGoals] = useState<AnnualGoal[]>([]);
   const currentYear = new Date().getFullYear();
+  
+  // Ambition dialog state
+  const [ambitionDialogOpen, setAmbitionDialogOpen] = useState(false);
+  const [editingAmbitionId, setEditingAmbitionId] = useState<string | null>(null);
+  const [ambitionTitle, setAmbitionTitle] = useState("");
+  const [ambitionDescription, setAmbitionDescription] = useState("");
+  const [ambitionTargetYear, setAmbitionTargetYear] = useState(currentYear + 3);
+  const [ambitionLinkedValues, setAmbitionLinkedValues] = useState<string[]>([]);
+  
+  // Close ambition dialog state
+  const [closeAmbitionDialogOpen, setCloseAmbitionDialogOpen] = useState(false);
+  const [closingAmbitionId, setClosingAmbitionId] = useState<string | null>(null);
+  const [closeAmbitionNote, setCloseAmbitionNote] = useState("");
   
   // New organizational identity fields
   const [tagline, setTagline] = useState<string>("");
@@ -127,6 +142,9 @@ export default function Foundations() {
       });
       setValues(migratedValues);
       
+      // Initialize ambitions
+      setAmbitions(foundation.ambitions || []);
+      
       // Migrate legacy string goals to new AnnualGoal format
       // Backfill missing years: string goals get currentYear - 1 (assumed to be last year's goals)
       // Goals with year=0, null, or undefined also get backfilled
@@ -155,6 +173,7 @@ export default function Foundations() {
       setMission("");
       setVision("");
       setValues([]);
+      setAmbitions([]);
       setGoals([]);
       setTagline("");
       setCompanySummary("");
@@ -176,6 +195,7 @@ export default function Foundations() {
         mission,
         vision,
         values,
+        ambitions,
         annualGoals: goals,
         tagline,
         companySummary,
@@ -329,6 +349,13 @@ export default function Foundations() {
     setGoals(updatedGoals);
   };
 
+  // Update the linked ambition of a specific goal
+  const handleUpdateGoalAmbition = (index: number, ambitionId: string | undefined) => {
+    const updatedGoals = [...goals];
+    updatedGoals[index] = { ...updatedGoals[index], linkedAmbitionId: ambitionId };
+    setGoals(updatedGoals);
+  };
+
   // Clone a single goal to a target year
   const handleCloneGoal = (goal: AnnualGoal, targetYear: number) => {
     // Check if a goal with the same title already exists for the target year
@@ -395,10 +422,148 @@ export default function Foundations() {
   const standardYears = [currentYear + 1, currentYear, currentYear - 1, currentYear - 2, currentYear - 3];
   const availableYears = [...new Set([...yearsFromGoals, ...standardYears])].sort((a, b) => b - a);
 
+  // Generate available target years for ambitions (3-10 years out)
+  const ambitionYears = Array.from({ length: 8 }, (_, i) => currentYear + 3 + i);
+
+  // Ambition handlers
+  const handleOpenAmbitionDialog = (ambitionId: string | null = null) => {
+    if (ambitionId) {
+      const ambition = ambitions.find(a => a.id === ambitionId);
+      if (ambition) {
+        setEditingAmbitionId(ambitionId);
+        setAmbitionTitle(ambition.title);
+        setAmbitionDescription(ambition.description || "");
+        setAmbitionTargetYear(ambition.targetYear);
+        setAmbitionLinkedValues(ambition.linkedValueTitles || []);
+      }
+    } else {
+      setEditingAmbitionId(null);
+      setAmbitionTitle("");
+      setAmbitionDescription("");
+      setAmbitionTargetYear(currentYear + 3);
+      setAmbitionLinkedValues([]);
+    }
+    setAmbitionDialogOpen(true);
+  };
+
+  const handleSaveAmbition = () => {
+    if (!ambitionTitle.trim()) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Ambition title is required",
+      });
+      return;
+    }
+
+    if (editingAmbitionId) {
+      // Update existing ambition
+      const updatedAmbitions = ambitions.map(a => 
+        a.id === editingAmbitionId 
+          ? { 
+              ...a, 
+              title: ambitionTitle.trim(), 
+              description: ambitionDescription.trim() || undefined,
+              targetYear: ambitionTargetYear,
+              linkedValueTitles: ambitionLinkedValues.length > 0 ? ambitionLinkedValues : undefined,
+            } 
+          : a
+      );
+      setAmbitions(updatedAmbitions);
+    } else {
+      // Add new ambition
+      const newAmbition: Ambition = {
+        id: crypto.randomUUID(),
+        title: ambitionTitle.trim(),
+        description: ambitionDescription.trim() || undefined,
+        targetYear: ambitionTargetYear,
+        linkedValueTitles: ambitionLinkedValues.length > 0 ? ambitionLinkedValues : undefined,
+        status: 'active',
+        createdAt: new Date().toISOString(),
+      };
+      
+      // Show warning if >5 active ambitions
+      const activeCount = ambitions.filter(a => a.status === 'active').length;
+      if (activeCount >= 5) {
+        toast({
+          title: "Note",
+          description: "You have more than 5 active ambitions. Consider focusing on fewer strategic targets.",
+        });
+      }
+      
+      setAmbitions([...ambitions, newAmbition]);
+    }
+
+    setAmbitionDialogOpen(false);
+    setAmbitionTitle("");
+    setAmbitionDescription("");
+    setAmbitionLinkedValues([]);
+  };
+
+  const handleOpenCloseAmbitionDialog = (ambitionId: string) => {
+    setClosingAmbitionId(ambitionId);
+    setCloseAmbitionNote("");
+    setCloseAmbitionDialogOpen(true);
+  };
+
+  const handleCloseAmbition = () => {
+    if (!closingAmbitionId) return;
+    
+    const updatedAmbitions = ambitions.map(a => 
+      a.id === closingAmbitionId 
+        ? { 
+            ...a, 
+            status: 'closed' as const,
+            closedAt: new Date().toISOString(),
+            closedNote: closeAmbitionNote.trim() || undefined,
+          } 
+        : a
+    );
+    setAmbitions(updatedAmbitions);
+    setCloseAmbitionDialogOpen(false);
+    setClosingAmbitionId(null);
+    setCloseAmbitionNote("");
+    toast({
+      title: "Ambition Closed",
+      description: "The ambition has been marked as closed",
+    });
+  };
+
+  const handleReopenAmbition = (ambitionId: string) => {
+    const updatedAmbitions = ambitions.map(a => 
+      a.id === ambitionId 
+        ? { 
+            ...a, 
+            status: 'active' as const,
+            closedAt: undefined,
+            closedNote: undefined,
+          } 
+        : a
+    );
+    setAmbitions(updatedAmbitions);
+    toast({
+      title: "Ambition Reopened",
+      description: "The ambition has been marked as active",
+    });
+  };
+
+  const handleToggleAmbitionValue = (valueTitle: string) => {
+    if (ambitionLinkedValues.includes(valueTitle)) {
+      setAmbitionLinkedValues(ambitionLinkedValues.filter(v => v !== valueTitle));
+    } else {
+      setAmbitionLinkedValues([...ambitionLinkedValues, valueTitle]);
+    }
+  };
+
+  // Filter ambitions by status
+  const activeAmbitions = ambitions.filter(a => a.status === 'active');
+  const closedAmbitions = ambitions.filter(a => a.status === 'closed');
+
   const handleClearAll = () => {
     setMission("");
     setVision("");
     setValues([]);
+    setAmbitions([]);
     setGoals([]);
     setTagline("");
     setCompanySummary("");
@@ -831,6 +996,149 @@ export default function Foundations() {
           {/* Values Alignment Widget */}
           <ValuesAlignmentWidget />
 
+          {/* Ambitions Section - Long-term Strategic Targets */}
+          <Card data-testid="card-ambitions">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Target className="h-5 w-5" />
+                Ambitions
+              </CardTitle>
+              <CardDescription>
+                3-5 year strategic targets that define your long-term aspirations
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Button 
+                onClick={() => handleOpenAmbitionDialog()} 
+                variant="outline"
+                className="w-full"
+                data-testid="button-add-ambition"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Add New Ambition
+              </Button>
+
+              {ambitions.length > 0 ? (
+                <Tabs defaultValue="active" className="w-full">
+                  <TabsList className="grid w-full grid-cols-2" data-testid="tabs-ambitions-filter">
+                    <TabsTrigger value="active" data-testid="tab-ambitions-active">
+                      Active ({activeAmbitions.length})
+                    </TabsTrigger>
+                    <TabsTrigger value="closed" data-testid="tab-ambitions-closed">
+                      Closed ({closedAmbitions.length})
+                    </TabsTrigger>
+                  </TabsList>
+                  
+                  <TabsContent value="active" className="space-y-3 mt-4">
+                    {activeAmbitions.length > 0 ? (
+                      activeAmbitions.map((ambition) => (
+                        <div
+                          key={ambition.id}
+                          className="bg-primary/5 border border-primary/20 rounded-lg p-4"
+                          data-testid={`ambition-item-${ambition.id}`}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium">{ambition.title}</span>
+                                <Badge variant="outline" className="text-xs">
+                                  <Calendar className="h-3 w-3 mr-1" />
+                                  {ambition.targetYear}
+                                </Badge>
+                              </div>
+                              {ambition.description && (
+                                <p className="text-sm text-muted-foreground">{ambition.description}</p>
+                              )}
+                              {ambition.linkedValueTitles && ambition.linkedValueTitles.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-2">
+                                  {ambition.linkedValueTitles.map((valueTitle, idx) => (
+                                    <Badge key={idx} variant="secondary" className="text-xs">
+                                      {valueTitle}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex gap-1">
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => handleOpenAmbitionDialog(ambition.id)}
+                                data-testid={`button-edit-ambition-${ambition.id}`}
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="icon"
+                                variant="ghost"
+                                onClick={() => handleOpenCloseAmbitionDialog(ambition.id)}
+                                data-testid={`button-close-ambition-${ambition.id}`}
+                                title="Close ambition"
+                              >
+                                <CheckCircle2 className="h-3 w-3 text-green-600" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground">
+                        <p className="text-sm">No active ambitions</p>
+                        <p className="text-xs mt-1">Add a new ambition or reopen a closed one</p>
+                      </div>
+                    )}
+                  </TabsContent>
+                  
+                  <TabsContent value="closed" className="space-y-3 mt-4">
+                    {closedAmbitions.length > 0 ? (
+                      closedAmbitions.map((ambition) => (
+                        <div
+                          key={ambition.id}
+                          className="bg-muted/50 border rounded-lg p-4 opacity-70"
+                          data-testid={`ambition-closed-${ambition.id}`}
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 space-y-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-medium line-through">{ambition.title}</span>
+                                <Badge variant="outline" className="text-xs">
+                                  {ambition.targetYear}
+                                </Badge>
+                                <Badge variant="secondary" className="text-xs">Closed</Badge>
+                              </div>
+                              {ambition.closedNote && (
+                                <p className="text-sm text-muted-foreground italic">"{ambition.closedNote}"</p>
+                              )}
+                            </div>
+                            <Button
+                              size="icon"
+                              variant="ghost"
+                              onClick={() => handleReopenAmbition(ambition.id)}
+                              data-testid={`button-reopen-ambition-${ambition.id}`}
+                              title="Reopen ambition"
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground">
+                        <p className="text-sm">No closed ambitions</p>
+                      </div>
+                    )}
+                  </TabsContent>
+                </Tabs>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  <Target className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No ambitions defined yet</p>
+                  <p className="text-xs mt-1">Add 3-5 year strategic targets to guide your organization</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Goals Section */}
           <Card data-testid="card-goals">
             <CardHeader className="flex flex-row items-start justify-between gap-2">
@@ -867,26 +1175,27 @@ export default function Foundations() {
                           return (
                             <div
                               key={originalIndex}
-                              className="bg-secondary/30 border-l-4 border-primary/30 rounded-r-lg p-3 flex items-center justify-between gap-2"
+                              className="bg-secondary/30 border-l-4 border-primary/30 rounded-r-lg p-3 space-y-2"
                               data-testid={`goal-item-${originalIndex}`}
                             >
-                              <p className="text-sm flex-1">{goal.title}</p>
-                              <div className="flex items-center gap-1 opacity-60 hover:opacity-100 transition-opacity">
-                                <Select
-                                  value={goal.year?.toString() || currentYear.toString()}
-                                  onValueChange={(value) => handleUpdateGoalYear(originalIndex, parseInt(value))}
-                                >
-                                  <SelectTrigger className="w-16 h-7 text-xs" data-testid={`select-goal-year-${originalIndex}`}>
-                                    <SelectValue />
-                                  </SelectTrigger>
-                                  <SelectContent>
-                                    {availableYears.map((y) => (
-                                      <SelectItem key={y} value={y.toString()}>
-                                        {y}
-                                      </SelectItem>
-                                    ))}
-                                  </SelectContent>
-                                </Select>
+                              <div className="flex items-center justify-between gap-2">
+                                <p className="text-sm flex-1">{goal.title}</p>
+                                <div className="flex items-center gap-1 opacity-60 hover:opacity-100 transition-opacity">
+                                  <Select
+                                    value={goal.year?.toString() || currentYear.toString()}
+                                    onValueChange={(value) => handleUpdateGoalYear(originalIndex, parseInt(value))}
+                                  >
+                                    <SelectTrigger className="w-16 h-7 text-xs" data-testid={`select-goal-year-${originalIndex}`}>
+                                      <SelectValue />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {availableYears.map((y) => (
+                                        <SelectItem key={y} value={y.toString()}>
+                                          {y}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
                                 <Select
                                   onValueChange={(targetYear) => handleCloneGoal(goal, parseInt(targetYear))}
                                 >
@@ -906,16 +1215,40 @@ export default function Foundations() {
                                       ))}
                                   </SelectContent>
                                 </Select>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7"
-                                  onClick={() => handleRemoveGoal(originalIndex)}
-                                  data-testid={`button-remove-goal-${originalIndex}`}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    onClick={() => handleRemoveGoal(originalIndex)}
+                                    data-testid={`button-remove-goal-${originalIndex}`}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
                               </div>
+                              {/* Ambition link row */}
+                              {activeAmbitions.length > 0 && (
+                                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                  <Target className="h-3 w-3" />
+                                  <span>Links to:</span>
+                                  <Select
+                                    value={goal.linkedAmbitionId || "none"}
+                                    onValueChange={(value) => handleUpdateGoalAmbition(originalIndex, value === "none" ? undefined : value)}
+                                  >
+                                    <SelectTrigger className="h-6 text-xs w-auto min-w-[120px]" data-testid={`select-goal-ambition-${originalIndex}`}>
+                                      <SelectValue placeholder="No ambition linked" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="none">No ambition linked</SelectItem>
+                                      {activeAmbitions.map((ambition) => (
+                                        <SelectItem key={ambition.id} value={ambition.id}>
+                                          {ambition.title} ({ambition.targetYear})
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -1108,6 +1441,132 @@ export default function Foundations() {
           }
         }}
       />
+
+      {/* Ambition Add/Edit Dialog */}
+      <Dialog open={ambitionDialogOpen} onOpenChange={setAmbitionDialogOpen}>
+        <DialogContent data-testid="dialog-ambition">
+          <DialogHeader>
+            <DialogTitle>{editingAmbitionId ? "Edit Ambition" : "Add New Ambition"}</DialogTitle>
+            <DialogDescription>
+              Define a long-term strategic target for your organization
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="ambition-title">Title</Label>
+              <Input
+                id="ambition-title"
+                value={ambitionTitle}
+                onChange={(e) => setAmbitionTitle(e.target.value)}
+                placeholder="e.g., Become market leader in our sector"
+                data-testid="input-ambition-title"
+              />
+            </div>
+            <div>
+              <Label htmlFor="ambition-description">Description (optional)</Label>
+              <Textarea
+                id="ambition-description"
+                value={ambitionDescription}
+                onChange={(e) => setAmbitionDescription(e.target.value)}
+                placeholder="Describe what achieving this ambition means..."
+                rows={3}
+                data-testid="input-ambition-description"
+              />
+            </div>
+            <div>
+              <Label htmlFor="ambition-target-year">Target Year</Label>
+              <Select
+                value={ambitionTargetYear.toString()}
+                onValueChange={(value) => setAmbitionTargetYear(parseInt(value))}
+              >
+                <SelectTrigger data-testid="select-ambition-target-year">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {ambitionYears.map((year) => (
+                    <SelectItem key={year} value={year.toString()}>
+                      {year}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            {values.length > 0 && (
+              <div>
+                <Label>Linked Values (optional)</Label>
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {values.map((value, index) => (
+                    <Badge
+                      key={index}
+                      variant={ambitionLinkedValues.includes(value.title) ? "default" : "outline"}
+                      className="cursor-pointer hover-elevate"
+                      onClick={() => handleToggleAmbitionValue(value.title)}
+                      data-testid={`badge-ambition-value-${index}`}
+                    >
+                      {value.title}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setAmbitionDialogOpen(false)}
+              data-testid="button-cancel-ambition"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveAmbition}
+              data-testid="button-save-ambition"
+            >
+              {editingAmbitionId ? "Update" : "Add"} Ambition
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Close Ambition Dialog */}
+      <Dialog open={closeAmbitionDialogOpen} onOpenChange={setCloseAmbitionDialogOpen}>
+        <DialogContent data-testid="dialog-close-ambition">
+          <DialogHeader>
+            <DialogTitle>Close Ambition</DialogTitle>
+            <DialogDescription>
+              Mark this ambition as closed. You can optionally add a closing note.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="close-ambition-note">Closing Note (optional)</Label>
+              <Textarea
+                id="close-ambition-note"
+                value={closeAmbitionNote}
+                onChange={(e) => setCloseAmbitionNote(e.target.value)}
+                placeholder="e.g., Achieved ahead of schedule, Superseded by new strategy..."
+                rows={3}
+                data-testid="input-close-ambition-note"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setCloseAmbitionDialogOpen(false)}
+              data-testid="button-cancel-close-ambition"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCloseAmbition}
+              data-testid="button-confirm-close-ambition"
+            >
+              Close Ambition
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

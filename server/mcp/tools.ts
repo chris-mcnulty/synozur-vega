@@ -153,26 +153,70 @@ export const mcpTools = {
   },
 
   get_annual_goals: {
-    description: 'Get the organization annual goals.',
+    description: 'Get the organization annual goals. Optionally includes linked ambition details.',
     inputSchema: z.object({
       year: z.number().optional().describe('Filter by year'),
+      includeAmbitions: z.boolean().optional().describe('Include linked ambition details'),
     }),
     requiredScope: MCP_SCOPES.READ_FOUNDATIONS,
-    execute: async (params: { year?: number }, context: McpAuthContext): Promise<McpToolResult> => {
+    execute: async (params: { year?: number; includeAmbitions?: boolean }, context: McpAuthContext): Promise<McpToolResult> => {
       if (!hasScope(context, MCP_SCOPES.READ_FOUNDATIONS)) {
         return error('Permission denied: read:foundations scope required');
       }
 
       const foundation = await storage.getFoundationByTenantId(context.tenant.id);
-      let goals = (foundation?.annualGoals as Array<{ year?: number }>) || [];
+      let goals = (foundation?.annualGoals as Array<{ year?: number; linkedAmbitionId?: string }>) || [];
+      const ambitions = (foundation?.ambitions as Array<{ id: string; title: string; targetYear: number; status: string }>) || [];
 
       if (params.year) {
         goals = goals.filter((g) => g.year === params.year);
       }
 
+      // Optionally resolve linked ambitions
+      const goalsWithAmbitions = params.includeAmbitions 
+        ? goals.map((g) => ({
+            ...g,
+            linkedAmbition: g.linkedAmbitionId 
+              ? ambitions.find((a) => a.id === g.linkedAmbitionId) || null
+              : null,
+          }))
+        : goals;
+
       return success({
-        count: goals.length,
-        annualGoals: goals,
+        count: goalsWithAmbitions.length,
+        annualGoals: goalsWithAmbitions,
+      });
+    },
+  },
+
+  get_ambitions: {
+    description: 'Get the organization long-term ambitions (3-5 year strategic targets).',
+    inputSchema: z.object({
+      status: z.enum(['active', 'closed', 'all']).optional().describe('Filter by status (default: all)'),
+      targetYear: z.number().optional().describe('Filter by target year'),
+    }),
+    requiredScope: MCP_SCOPES.READ_FOUNDATIONS,
+    execute: async (params: { status?: 'active' | 'closed' | 'all'; targetYear?: number }, context: McpAuthContext): Promise<McpToolResult> => {
+      if (!hasScope(context, MCP_SCOPES.READ_FOUNDATIONS)) {
+        return error('Permission denied: read:foundations scope required');
+      }
+
+      const foundation = await storage.getFoundationByTenantId(context.tenant.id);
+      let ambitions = (foundation?.ambitions as Array<{ id: string; title: string; description?: string; targetYear: number; status: string; linkedValueTitles?: string[]; closedAt?: string; closedNote?: string }>) || [];
+
+      // Filter by status
+      if (params.status && params.status !== 'all') {
+        ambitions = ambitions.filter((a) => a.status === params.status);
+      }
+
+      // Filter by target year
+      if (params.targetYear) {
+        ambitions = ambitions.filter((a) => a.targetYear === params.targetYear);
+      }
+
+      return success({
+        count: ambitions.length,
+        ambitions,
       });
     },
   },
