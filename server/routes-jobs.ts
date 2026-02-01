@@ -226,4 +226,50 @@ router.get("/runs/:runId", async (req: Request, res: Response) => {
   }
 });
 
+router.post("/runs/:runId/kill", async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || user.role !== 'vega_admin') {
+      return res.status(403).json({ error: "Only Vega admins can kill job runs" });
+    }
+    
+    const run = await storage.getJobRunById(req.params.runId);
+    if (!run) {
+      return res.status(404).json({ error: "Run not found" });
+    }
+    
+    if (run.status !== 'running') {
+      return res.status(400).json({ error: "Can only kill runs that are currently running" });
+    }
+    
+    const killedRun = await jobScheduler.killStuckRun(req.params.runId, user.id);
+    
+    if (!killedRun) {
+      return res.status(400).json({ error: "Failed to kill run" });
+    }
+    
+    res.json(killedRun);
+  } catch (error: any) {
+    console.error("[Jobs API] Error killing run:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+router.get("/runs/stuck", async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || user.role !== 'vega_admin') {
+      return res.status(403).json({ error: "Only Vega admins can view stuck runs" });
+    }
+    
+    const thresholdMinutes = req.query.threshold ? parseInt(req.query.threshold as string) : 30;
+    const stuckRuns = await jobScheduler.getStuckRuns(thresholdMinutes);
+    
+    res.json(stuckRuns);
+  } catch (error: any) {
+    console.error("[Jobs API] Error fetching stuck runs:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export const jobsRouter = router;

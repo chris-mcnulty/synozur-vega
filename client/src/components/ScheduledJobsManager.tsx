@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
-import { Play, Pause, RefreshCw, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronUp, Loader2, Settings2 } from "lucide-react";
+import { Play, Pause, RefreshCw, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronUp, Loader2, Settings2, Skull } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   Dialog,
@@ -66,7 +66,10 @@ type JobRun = {
   durationMs: number | null;
   triggeredBy: string;
   triggeredByUserId: string | null;
+  killedByUserId: string | null;
+  killedAt: string | null;
   summary: string | null;
+  resultSummary: any;
   details: any;
   errorMessage: string | null;
   errorStack: string | null;
@@ -95,6 +98,8 @@ function RunStatusBadge({ status }: { status: string }) {
       return <Badge className="bg-red-500/20 text-red-600 border-red-500/30"><XCircle className="h-3 w-3 mr-1" />Failed</Badge>;
     case 'skipped':
       return <Badge className="bg-gray-500/20 text-gray-600 border-gray-500/30">Skipped</Badge>;
+    case 'killed':
+      return <Badge className="bg-orange-500/20 text-orange-600 border-orange-500/30"><Skull className="h-3 w-3 mr-1" />Killed</Badge>;
     default:
       return <Badge variant="outline">{status}</Badge>;
   }
@@ -277,6 +282,8 @@ export function ScheduledJobsManager() {
   const [runningJobId, setRunningJobId] = useState<string | null>(null);
   const [editingJob, setEditingJob] = useState<ScheduledJob | null>(null);
   const [selectedSchedule, setSelectedSchedule] = useState<string>('');
+  const [killingRunId, setKillingRunId] = useState<string | null>(null);
+  const [confirmKillRun, setConfirmKillRun] = useState<JobRun | null>(null);
 
   // Only vega_admin can control jobs (run/pause/resume)
   const canControlJobs = user?.role === 'vega_admin';
@@ -347,6 +354,34 @@ export function ScheduledJobsManager() {
       toast({ title: "Failed to update schedule", description: error.message, variant: "destructive" });
     },
   });
+
+  const killRunMutation = useMutation({
+    mutationFn: async (runId: string) => {
+      setKillingRunId(runId);
+      return await apiRequest('POST', `/api/jobs/runs/${runId}/kill`);
+    },
+    onSuccess: (data, runId) => {
+      toast({ title: "Run killed", description: "The stuck job run has been terminated." });
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs/runs/recent'] });
+      setKillingRunId(null);
+      setConfirmKillRun(null);
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to kill run", description: error.message, variant: "destructive" });
+      setKillingRunId(null);
+    },
+  });
+
+  const handleKillRun = (run: JobRun) => {
+    setConfirmKillRun(run);
+  };
+
+  const confirmKillRunAction = () => {
+    if (confirmKillRun) {
+      killRunMutation.mutate(confirmKillRun.id);
+    }
+  };
 
   const handleEditSchedule = (job: ScheduledJob) => {
     setEditingJob(job);
@@ -485,6 +520,7 @@ export function ScheduledJobsManager() {
                     <TableHead>Duration</TableHead>
                     <TableHead>Triggered By</TableHead>
                     <TableHead>Summary</TableHead>
+                    {canControlJobs && <TableHead>Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -506,11 +542,32 @@ export function ScheduledJobsManager() {
                           </div>
                         )}
                       </TableCell>
+                      {canControlJobs && (
+                        <TableCell>
+                          {run.status === 'running' && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleKillRun(run)}
+                              disabled={killingRunId === run.id}
+                              title="Kill stuck run"
+                              className="text-red-600 hover:text-red-700 hover:bg-red-100"
+                              data-testid={`kill-run-${run.id}`}
+                            >
+                              {killingRunId === run.id ? (
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                              ) : (
+                                <Skull className="h-4 w-4" />
+                              )}
+                            </Button>
+                          )}
+                        </TableCell>
+                      )}
                     </TableRow>
                   ))}
                   {recentRuns.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                      <TableCell colSpan={canControlJobs ? 7 : 6} className="text-center text-muted-foreground py-8">
                         No job runs recorded yet
                       </TableCell>
                     </TableRow>
@@ -568,6 +625,57 @@ export function ScheduledJobsManager() {
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</>
               ) : (
                 'Save Schedule'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!confirmKillRun} onOpenChange={(open) => !open && setConfirmKillRun(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-600">
+              <Skull className="h-5 w-5" />
+              Kill Stuck Job Run
+            </DialogTitle>
+            <DialogDescription>
+              Are you sure you want to kill this stuck job run? This will mark the run as terminated and cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {confirmKillRun && (
+            <div className="py-4 space-y-2">
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Job:</span>
+                <span className="font-medium">{confirmKillRun.jobName}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Started:</span>
+                <span>{format(new Date(confirmKillRun.startedAt), 'MMM d, h:mm:ss a')}</span>
+              </div>
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Running for:</span>
+                <span className="text-orange-600 font-medium">
+                  {formatDistanceToNow(new Date(confirmKillRun.startedAt))}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setConfirmKillRun(null)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive"
+              onClick={confirmKillRunAction}
+              disabled={killRunMutation.isPending}
+              data-testid="button-confirm-kill"
+            >
+              {killRunMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Killing...</>
+              ) : (
+                <><Skull className="h-4 w-4 mr-2" /> Kill Run</>
               )}
             </Button>
           </DialogFooter>

@@ -3496,7 +3496,8 @@ export class DatabaseStorage implements IStorage {
     summary?: string, 
     details?: any, 
     errorMessage?: string, 
-    errorStack?: string
+    errorStack?: string,
+    resultSummary?: any
   ): Promise<JobRun> {
     const run = await this.getJobRunById(id);
     const now = new Date();
@@ -3510,11 +3511,44 @@ export class DatabaseStorage implements IStorage {
         summary,
         details,
         errorMessage,
-        errorStack
+        errorStack,
+        resultSummary
       })
       .where(eq(jobRuns.id, id))
       .returning();
     return updated;
+  }
+
+  async killJobRun(id: string, killedByUserId: string): Promise<JobRun> {
+    const run = await this.getJobRunById(id);
+    const now = new Date();
+    const durationMs = run ? now.getTime() - new Date(run.startedAt).getTime() : 0;
+    
+    const [updated] = await db.update(jobRuns)
+      .set({ 
+        status: JOB_RUN_STATUS.KILLED,
+        completedAt: now, 
+        durationMs,
+        killedByUserId,
+        killedAt: now,
+        summary: 'Job run was manually killed by admin'
+      })
+      .where(eq(jobRuns.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getStuckJobRuns(thresholdMinutes: number = 30): Promise<JobRun[]> {
+    const threshold = new Date(Date.now() - thresholdMinutes * 60 * 1000);
+    
+    return await db.select().from(jobRuns)
+      .where(
+        and(
+          eq(jobRuns.status, JOB_RUN_STATUS.RUNNING),
+          lte(jobRuns.startedAt, threshold)
+        )
+      )
+      .orderBy(desc(jobRuns.startedAt));
   }
 }
 
