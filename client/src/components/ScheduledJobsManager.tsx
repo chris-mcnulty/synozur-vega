@@ -6,8 +6,24 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
-import { Play, Pause, RefreshCw, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { Play, Pause, RefreshCw, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronUp, Loader2, Settings2 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -106,11 +122,25 @@ function formatDuration(ms: number | null): string {
   return `${(ms / 60000).toFixed(1)}m`;
 }
 
-function JobRow({ job, onRun, onPause, onResume, isRunning, canControlJobs }: { 
+const SCHEDULE_PRESETS = [
+  { label: 'Every minute', value: 'every-minute', schedule: 'Every minute', intervalMs: 60000 },
+  { label: 'Every 5 minutes', value: 'every-5-min', schedule: 'Every 5 minutes', intervalMs: 300000 },
+  { label: 'Every 15 minutes', value: 'every-15-min', schedule: 'Every 15 minutes', intervalMs: 900000 },
+  { label: 'Every 30 minutes', value: 'every-30-min', schedule: 'Every 30 minutes', intervalMs: 1800000 },
+  { label: 'Hourly', value: 'hourly', schedule: 'Hourly', intervalMs: 3600000 },
+  { label: 'Every 2 hours', value: 'every-2-hours', schedule: 'Every 2 hours', intervalMs: 7200000 },
+  { label: 'Every 4 hours', value: 'every-4-hours', schedule: 'Every 4 hours', intervalMs: 14400000 },
+  { label: 'Every 6 hours', value: 'every-6-hours', schedule: 'Every 6 hours', intervalMs: 21600000 },
+  { label: 'Every 12 hours', value: 'every-12-hours', schedule: 'Every 12 hours', intervalMs: 43200000 },
+  { label: 'Daily', value: 'daily', schedule: 'Daily', intervalMs: 86400000 },
+];
+
+function JobRow({ job, onRun, onPause, onResume, onEdit, isRunning, canControlJobs }: { 
   job: ScheduledJob; 
   onRun: () => void;
   onPause: () => void;
   onResume: () => void;
+  onEdit: () => void;
   isRunning: boolean;
   canControlJobs: boolean;
 }) {
@@ -149,6 +179,15 @@ function JobRow({ job, onRun, onPause, onResume, isRunning, canControlJobs }: {
         <TableCell>
           {canControlJobs ? (
             <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onEdit}
+                title="Edit schedule"
+                data-testid={`edit-job-${job.name}`}
+              >
+                <Settings2 className="h-4 w-4" />
+              </Button>
               <Button
                 variant="ghost"
                 size="icon"
@@ -236,6 +275,8 @@ export function ScheduledJobsManager() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [runningJobId, setRunningJobId] = useState<string | null>(null);
+  const [editingJob, setEditingJob] = useState<ScheduledJob | null>(null);
+  const [selectedSchedule, setSelectedSchedule] = useState<string>('');
 
   // Only vega_admin can control jobs (run/pause/resume)
   const canControlJobs = user?.role === 'vega_admin';
@@ -291,6 +332,39 @@ export function ScheduledJobsManager() {
       toast({ title: "Failed to resume job", description: error.message, variant: "destructive" });
     },
   });
+
+  const updateScheduleMutation = useMutation({
+    mutationFn: async ({ jobId, schedule, intervalMs }: { jobId: string; schedule: string; intervalMs: number }) => {
+      return await apiRequest('PATCH', `/api/jobs/${jobId}`, { schedule, intervalMs });
+    },
+    onSuccess: () => {
+      toast({ title: "Schedule updated", description: "The job schedule has been updated." });
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
+      setEditingJob(null);
+      setSelectedSchedule('');
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to update schedule", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const handleEditSchedule = (job: ScheduledJob) => {
+    setEditingJob(job);
+    // Find matching preset or default to daily
+    const preset = SCHEDULE_PRESETS.find(p => p.intervalMs === job.intervalMs);
+    setSelectedSchedule(preset?.value || 'daily');
+  };
+
+  const handleSaveSchedule = () => {
+    if (!editingJob || !selectedSchedule) return;
+    const preset = SCHEDULE_PRESETS.find(p => p.value === selectedSchedule);
+    if (!preset) return;
+    updateScheduleMutation.mutate({
+      jobId: editingJob.id,
+      schedule: preset.schedule,
+      intervalMs: preset.intervalMs,
+    });
+  };
 
   const successfulRuns = recentRuns.filter(r => r.status === 'success').length;
   const failedRuns = recentRuns.filter(r => r.status === 'failed').length;
@@ -372,6 +446,7 @@ export function ScheduledJobsManager() {
                       onRun={() => runJobMutation.mutate(job.id)}
                       onPause={() => pauseJobMutation.mutate(job.id)}
                       onResume={() => resumeJobMutation.mutate(job.id)}
+                      onEdit={() => handleEditSchedule(job)}
                       isRunning={runningJobId === job.id}
                       canControlJobs={canControlJobs}
                     />
@@ -446,6 +521,58 @@ export function ScheduledJobsManager() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Dialog open={!!editingJob} onOpenChange={(open) => !open && setEditingJob(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Job Schedule</DialogTitle>
+            <DialogDescription>
+              Change how often "{editingJob?.displayName}" runs.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="schedule">Schedule Frequency</Label>
+              <Select value={selectedSchedule} onValueChange={setSelectedSchedule}>
+                <SelectTrigger id="schedule" data-testid="select-schedule">
+                  <SelectValue placeholder="Select a schedule" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SCHEDULE_PRESETS.map((preset) => (
+                    <SelectItem key={preset.value} value={preset.value}>
+                      {preset.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            {selectedSchedule && (
+              <p className="text-sm text-muted-foreground">
+                This job will run {SCHEDULE_PRESETS.find(p => p.value === selectedSchedule)?.label.toLowerCase()}.
+              </p>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEditingJob(null)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSaveSchedule}
+              disabled={updateScheduleMutation.isPending}
+              data-testid="button-save-schedule"
+            >
+              {updateScheduleMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</>
+              ) : (
+                'Save Schedule'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -2982,14 +2982,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // In-memory deduplication for reminders (clears daily)
   const sentReminders = new Map<string, Set<number>>(); // tenantId -> Set of daysRemaining already sent
   
-  // Register expiration reminders job
+  // Register expiration reminders job - runs once daily at 8 AM Pacific
   await jobScheduler.registerJob(
     'expiration-reminders',
     'Plan Expiration Reminders',
     'Sends email reminders to tenant admins before their plan expires (7, 3, 1 days before)',
     'notification',
-    'Every 1 hour',
-    3600000, // 1 hour
+    'Daily',
+    86400000, // 24 hours
     async () => {
       const reminderDays = [7, 3, 1];
       let totalSent = 0;
@@ -3051,23 +3051,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
   
-  // Register reminder cache reset job  
+  // Register reminder cache reset job - runs once daily at midnight Pacific  
   await jobScheduler.registerJob(
     'reminder-cache-reset',
     'Daily Reminder Cache Reset',
-    'Clears the sent reminders cache at midnight Pacific time to allow fresh reminders the next day',
+    'Clears the sent reminders cache daily to allow fresh reminders the next day',
     'maintenance',
-    'Every 5 minutes (checks for midnight)',
-    300000, // 5 minutes
+    'Daily',
+    86400000, // 24 hours
     async () => {
-      const now = new Date();
-      const pacificTime = new Date(now.toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
-      if (pacificTime.getHours() === 0 && pacificTime.getMinutes() < 5) {
-        const cacheSize = sentReminders.size;
-        sentReminders.clear();
-        return { summary: `Cleared reminder cache (${cacheSize} entries)` };
-      }
-      return { summary: 'Not midnight yet, skipping cache reset' };
+      const cacheSize = sentReminders.size;
+      sentReminders.clear();
+      return { summary: cacheSize > 0 ? `Cleared reminder cache (${cacheSize} entries)` : 'Cache already empty' };
     }
   );
   

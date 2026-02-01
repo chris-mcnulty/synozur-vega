@@ -99,6 +99,38 @@ router.get("/:jobId/runs", async (req: Request, res: Response) => {
   }
 });
 
+// Update job schedule (vega_admin only)
+router.patch("/:jobId", async (req: Request, res: Response) => {
+  try {
+    const user = (req as any).user;
+    if (!user || user.role !== 'vega_admin') {
+      return res.status(403).json({ error: "Only Vega admins can update job schedules" });
+    }
+    
+    const job = await storage.getScheduledJobById(req.params.jobId);
+    if (!job) {
+      return res.status(404).json({ error: "Job not found" });
+    }
+    
+    const { schedule, intervalMs } = req.body;
+    
+    if (!schedule || !intervalMs || typeof intervalMs !== 'number' || intervalMs < 60000) {
+      return res.status(400).json({ error: "Invalid schedule. Provide schedule (string) and intervalMs (number >= 60000)" });
+    }
+    
+    const updatedJob = await jobScheduler.updateSchedule(job.name, schedule, intervalMs);
+    
+    if (!updatedJob) {
+      return res.status(400).json({ error: "Failed to update schedule - job may not be registered" });
+    }
+    
+    res.json(updatedJob);
+  } catch (error: any) {
+    console.error("[Jobs API] Error updating job schedule:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 router.post("/:jobId/run", async (req: Request, res: Response) => {
   try {
     const user = (req as any).user;

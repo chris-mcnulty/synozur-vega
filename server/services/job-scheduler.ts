@@ -188,6 +188,32 @@ class JobScheduler {
     console.log(`[JobScheduler] Resumed job: ${name}`);
   }
 
+  async updateSchedule(name: string, scheduleExpression: string, intervalMs: number): Promise<ScheduledJob | null> {
+    const registeredJob = this.jobs.get(name);
+    if (!registeredJob) return null;
+
+    // Update in database
+    const updatedJob = await storage.updateScheduledJob(registeredJob.job.id, {
+      schedule: scheduleExpression,
+      intervalMs: intervalMs,
+    });
+
+    if (!updatedJob) return null;
+
+    // Update in memory
+    registeredJob.job = updatedJob;
+    registeredJob.intervalMs = intervalMs;
+
+    // Restart interval with new timing if job is active
+    if (registeredJob.job.status === JOB_STATUS.ACTIVE) {
+      this.stopJobInterval(name);
+      this.startJobInterval(name);
+    }
+
+    console.log(`[JobScheduler] Updated schedule for ${name}: ${scheduleExpression} (${intervalMs}ms)`);
+    return updatedJob;
+  }
+
   async getJobs(): Promise<ScheduledJob[]> {
     return await storage.getScheduledJobs();
   }
