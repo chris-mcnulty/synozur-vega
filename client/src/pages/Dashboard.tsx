@@ -43,7 +43,7 @@ import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { CompanyOSExportDialog } from "@/components/CompanyOSExportDialog";
 import { StrategicAlignmentSankey } from "@/components/StrategicAlignmentSankey";
 import { WelcomeDialog } from "@/components/WelcomeDialog";
-import { FileDown } from "lucide-react";
+import { FileDown, Flag } from "lucide-react";
 
 type Quarter = {
   id: string;
@@ -461,57 +461,32 @@ export default function Dashboard() {
                     return <p className="text-base text-muted-foreground">No active ambitions defined</p>;
                   })()}
                 </div>
-                <Separator className="my-4" />
-                <div className="space-y-3">
-                  <h3 className="font-semibold">Annual {t('goal', 'plural')} ({currentQuarter?.year})</h3>
-                  {foundations?.annualGoals && foundations.annualGoals.length > 0 ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      {foundations.annualGoals.map((goal: any, idx) => {
-                        const title = typeof goal === "string" ? goal : goal.title;
-                        const year = typeof goal === "string" ? currentQuarter?.year : goal.year;
-                        return (
-                          <div key={idx} className="flex items-start gap-2 text-base">
-                            <Target className="h-4 w-4 text-primary mt-1 flex-shrink-0" />
-                            <span className="text-muted-foreground">{title}</span>
-                            {year && year !== currentQuarter?.year && (
-                              <Badge variant="outline" className="text-xs">{year}</Badge>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <p className="text-base text-muted-foreground">Not yet defined</p>
-                  )}
-                </div>
               </>
             )}
           </CardContent>
         </Card>
       </div>
 
-
-      {/* Strategies and Planning Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Strategies Section */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-primary" />
-              <h2 className="text-xl font-semibold">{t('strategy', 'plural')}</h2>
-            </div>
-            <Link href="/strategy">
-              <Button variant="ghost" size="sm" className="gap-2" data-testid="link-strategy">
-                View Details
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </Link>
+      {/* ==================== STRATEGIES BLOCK ==================== */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-semibold">{t('strategy', 'plural')}</h2>
           </div>
-          <Card>
-            <CardContent className="pt-6 space-y-4">
-              {strategies.length > 0 ? (
-                strategies.map((strategy) => (
-                  <div key={strategy.id} className="space-y-2">
+          <Link href="/strategy">
+            <Button variant="ghost" size="sm" className="gap-2" data-testid="link-strategy">
+              View Details
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+        <Card>
+          <CardContent className="pt-6 space-y-4">
+            {strategies.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {strategies.map((strategy) => (
+                  <div key={strategy.id} className="space-y-2 p-3 rounded-lg bg-muted/30">
                     <div className="flex items-start justify-between gap-4">
                       <div className="flex-1">
                         <h3 className="font-medium text-base">{strategy.title}</h3>
@@ -542,24 +517,73 @@ export default function Dashboard() {
                     {strategy.description && (
                       <ExpandableText 
                         text={strategy.description} 
-                        maxLines={4}
+                        maxLines={2}
                         className="text-sm text-muted-foreground"
                       />
                     )}
                   </div>
-                ))
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  No strategies defined yet
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                No strategies defined yet
+              </p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
-        {/* Quarterly Rocks */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
+      {/* ==================== OUTCOMES BLOCK ==================== */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Target className="h-5 w-5 text-primary" />
+            <h2 className="text-xl font-semibold">Outcomes</h2>
+          </div>
+          <Link href="/planning">
+            <Button variant="ghost" size="sm" className="gap-2" data-testid="link-outcomes">
+              View Planning
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </Link>
+        </div>
+        
+        {/* Annual Goals */}
+        <Card className="mb-4">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Flag className="h-4 w-4" />
+              Annual {t('goal', 'plural')} ({currentQuarter?.year})
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {foundations?.annualGoals && foundations.annualGoals.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                {foundations.annualGoals.map((goal: any, idx) => {
+                  const title = typeof goal === "string" ? goal : goal.title;
+                  const year = typeof goal === "string" ? currentQuarter?.year : goal.year;
+                  return (
+                    <div key={idx} className="flex items-start gap-2 text-sm p-2 rounded bg-muted/30">
+                      <Target className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                      <span className="text-muted-foreground">{title}</span>
+                      {year && year !== currentQuarter?.year && (
+                        <Badge variant="outline" className="text-xs">{year}</Badge>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">No annual goals defined</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Quarterly Rocks and OKRs Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Quarterly Rocks */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-primary" />
               <h2 className="text-xl font-semibold">Quarterly Rocks</h2>
@@ -671,25 +695,24 @@ export default function Dashboard() {
               )}
             </CardContent>
           </Card>
-        </div>
-      </div>
-
-      {/* OKRs Section - Grouped by Team */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <Target className="h-5 w-5 text-primary" />
-            <h2 className="text-xl font-semibold">
-              {selectedTeam === 'all' ? `${t('objective', 'plural')} by Team` : `${teams?.find(team => team.id === selectedTeam)?.name || 'Team'} ${t('objective', 'plural')}`}
-            </h2>
           </div>
-          <Link href="/planning">
-            <Button variant="ghost" size="sm" className="gap-2" data-testid="link-okrs">
-              View Details
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-          </Link>
-        </div>
+
+          {/* OKRs - Second column */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Target className="h-5 w-5 text-primary" />
+                <h2 className="text-xl font-semibold">
+                  {selectedTeam === 'all' ? `${t('objective', 'plural')} by Team` : `${teams?.find(team => team.id === selectedTeam)?.name || 'Team'} ${t('objective', 'plural')}`}
+                </h2>
+              </div>
+              <Link href="/planning">
+                <Button variant="ghost" size="sm" className="gap-2" data-testid="link-okrs">
+                  View Details
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
         
         {objectivesError ? (
           <Card>
@@ -853,7 +876,9 @@ export default function Dashboard() {
               </p>
             </CardContent>
           </Card>
-        )}
+          )}
+          </div>
+        </div>
       </div>
 
       {/* Focus Rhythm */}
