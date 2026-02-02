@@ -2,7 +2,7 @@
 
 **Welcome to Vega - The Synozur Alliance Company Operating System**
 
-Version 1.6 | Last Updated: January 31, 2026
+Version 1.7 | Last Updated: February 2, 2026
 
 ---
 
@@ -33,7 +33,7 @@ Vega is a comprehensive Company Operating System with the following capabilities
 
 ### Strategy & Planning
 - **Mission, Vision & Values** - Define and communicate your organization's core identity
-- **Ambitions** - 3-5 year strategic targets that bridge vision and annual goals (New in v1.6)
+- **Ambitions** - 3-5 year strategic targets that bridge vision and annual goals (New in v1.7)
 - **Annual Goals** - Set high-level yearly targets with optional ambition linking
 - **Strategic Initiatives** - Create and manage strategic priorities with owner assignment and timeline
 - **OKRs (Objectives & Key Results)** - Full OKR framework with 4 hierarchy levels (Organization, Team, Division, Individual)

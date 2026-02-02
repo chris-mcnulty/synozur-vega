@@ -16,7 +16,7 @@ Publishing Big Rock tasks to Microsoft Planner with three options:
 ---
 
 ## Priority 2: Ambitions Module
-**Status**: ✅ IMPLEMENTED (v1.6)
+**Status**: ✅ COMPLETE (v1.7)
 
 Add 3-5 year strategic targets (Ambitions) as a new layer above Annual Goals in Foundations.
 
@@ -55,9 +55,9 @@ AnnualGoal {
 }
 ```
 
-**Remaining Work**:
-- Company OS Dashboard chart update to show Ambitions layer (future enhancement)
-- PDF report inclusion of Ambitions (future enhancement)
+**Remaining Work** (Future Enhancements):
+- Company OS Dashboard chart update to show Ambitions layer
+- PDF report inclusion of Ambitions
 
 ---
 

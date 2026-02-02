@@ -6,6 +6,30 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 
 ---
 
+## February 2026
+
+### February 2, 2026 - Version 1.7
+
+**New Features**
+- **Ambitions Module**: Add 3-5 year strategic targets as a new strategic layer above Annual Goals
+  - Create, edit, close, and reopen long-term ambitions with target years (3-10 years out)
+  - Link ambitions to organizational values for strategic alignment
+  - Active/Closed tab filtering with soft limit warning at >5 active ambitions
+  - Annual Goals can now optionally link to parent Ambitions
+  - Closing notes captured when marking ambitions complete
+
+**API & Integration Updates**
+- New `get_ambitions` MCP tool with status and targetYear filters
+- Enhanced `get_annual_goals` MCP tool with `includeAmbitions` parameter for linked ambition resolution
+- OpenAPI specification updated with Ambition and enhanced AnnualGoal schemas
+- Export/Import now includes Ambitions with backward compatibility for older files
+
+**Documentation**
+- User Guide updated with comprehensive Ambitions documentation
+- Backlog and roadmap updated to reflect v1.7 completion
+
+---
+
 ## January 2026
 
 ### January 31, 2026
