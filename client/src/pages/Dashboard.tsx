@@ -434,6 +434,35 @@ export default function Dashboard() {
                 </div>
                 <Separator className="my-4" />
                 <div className="space-y-3">
+                  <h3 className="font-semibold">Ambitions (3-5 Year Targets)</h3>
+                  {(() => {
+                    const ambitions = foundations?.ambitions as Array<{ id: string; title: string; description?: string; targetYear: number; status: string; linkedValueTitles?: string[] }> | null;
+                    const activeAmbitions = ambitions?.filter(a => a.status === 'active') || [];
+                    if (activeAmbitions.length > 0) {
+                      return (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {activeAmbitions.map((ambition) => (
+                            <div key={ambition.id} className="flex items-start gap-2 text-base p-2 rounded-lg bg-muted/50">
+                              <Sparkles className="h-4 w-4 text-primary mt-1 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className="font-medium">{ambition.title}</span>
+                                  <Badge variant="outline" className="text-xs">{ambition.targetYear}</Badge>
+                                </div>
+                                {ambition.description && (
+                                  <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{ambition.description}</p>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    }
+                    return <p className="text-base text-muted-foreground">No active ambitions defined</p>;
+                  })()}
+                </div>
+                <Separator className="my-4" />
+                <div className="space-y-3">
                   <h3 className="font-semibold">Annual {t('goal', 'plural')} ({currentQuarter?.year})</h3>
                   {foundations?.annualGoals && foundations.annualGoals.length > 0 ? (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-2">

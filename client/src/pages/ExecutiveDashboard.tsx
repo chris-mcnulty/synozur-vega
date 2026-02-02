@@ -272,6 +272,15 @@ export default function ExecutiveDashboard() {
     enabled: !!currentTenant?.id,
   });
 
+  // Fetch foundations to display Ambitions
+  const { data: foundations } = useQuery<{
+    id: string;
+    ambitions?: Array<{ id: string; title: string; description?: string; targetYear: number; status: string; linkedValueTitles?: string[] }>;
+  }>({
+    queryKey: [`/api/foundations/${currentTenant?.id}`],
+    enabled: !!currentTenant?.id,
+  });
+
   const isLoading = loadingObjectives || loadingKRs;
 
   // Helper function to calculate objective progress from its key results
@@ -624,6 +633,45 @@ export default function ExecutiveDashboard() {
           </SelectContent>
         </Select>
       </div>
+
+      {/* Ambitions Section - Long-term strategic targets */}
+      {(() => {
+        const ambitions = foundations?.ambitions;
+        const activeAmbitions = ambitions?.filter(a => a.status === 'active') || [];
+        if (activeAmbitions.length > 0) {
+          return (
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="h-5 w-5 text-primary" />
+                  <CardTitle className="text-lg">Strategic Ambitions</CardTitle>
+                  <Badge variant="secondary" className="ml-auto">{activeAmbitions.length} Active</Badge>
+                </div>
+                <CardDescription>3-5 year strategic targets guiding organizational direction</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {activeAmbitions.map((ambition) => (
+                    <div key={ambition.id} className="flex items-start gap-3 p-3 rounded-lg bg-muted/50 border">
+                      <Target className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-medium text-sm">{ambition.title}</span>
+                          <Badge variant="outline" className="text-xs">{ambition.targetYear}</Badge>
+                        </div>
+                        {ambition.description && (
+                          <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{ambition.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        }
+        return null;
+      })()}
 
       {metrics && (
         <>
