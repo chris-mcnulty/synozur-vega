@@ -15,7 +15,7 @@ Preferred communication style: Simple, everyday language.
 - **UI/UX Decisions**: Mimics Orion.synozur.com's aesthetic, emphasizing whitespace, card-based layouts, and subtle animations.
 - **Key Features**:
     - **Dashboards**: Company OS Dashboard, Executive Dashboard (advanced analytics, pace tracking, velocity projections), and Team Dashboard (simplified, weekly execution focus).
-    - **Core Modules**: Foundations (mission, vision, values, ambitions, annual goals with AI), Strategy (AI drafting, goal alignment), Outcomes (hierarchical OKRs, "big rocks"), Focus Rhythm (meeting management), Reporting (PDF/PPTX export, customizable branding).
+    - **Core Modules**: Foundations (mission, vision, values, ambitions), Strategy (AI drafting, goal alignment), Outcomes (hierarchical OKRs, "big rocks", annual goals with AI suggestions and ambition linking), Focus Rhythm (meeting management), Reporting (PDF/PPTX export, customizable branding).
     - **Ambitions Module**: Long-term strategic targets (3-5 years) bridging vision and annual goals. Features: add/edit/close/reopen, value linking, target year selection, active/closed filtering, soft limit warning at >5 active. Annual Goals can optionally link to parent Ambitions.
     - **AI & Intelligence**: OKR Intelligence for pace and velocity tracking, predictive projections, and "Behind Pace" alerts. Launchpad for AI-powered document analysis.
     - **Administration**: Tenant Admin (org, M365 integration, user management, allowed domains), System Admin (platform-wide AI config, service plans, announcements).
