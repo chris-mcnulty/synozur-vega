@@ -35,7 +35,10 @@ import { TrendingUp, Target, Activity, AlertCircle, AlertTriangle, CheckCircle, 
 import { ExcelFilePicker } from "@/components/ExcelFilePicker";
 import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
 import { cn } from "@/lib/utils";
-import type { Foundation, CompanyValue } from "@shared/schema";
+import type { Foundation, CompanyValue, AnnualGoal, Ambition } from "@shared/schema";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Save } from "lucide-react";
+import { AIGoalsSuggestionDialog } from "@/components/AIGoalsSuggestionDialog";
 import { ProgressSummaryDialog } from "@/components/ProgressSummaryDialog";
 import { CloneObjectiveDialog } from "@/components/okr/CloneObjectiveDialog";
 import { CloneBigRockDialog } from "@/components/okr/CloneBigRockDialog";
@@ -201,6 +204,13 @@ export default function PlanningEnhanced() {
   const [detailPaneEntity, setDetailPaneEntity] = useState<any>(null);
   const [detailPaneParentObjective, setDetailPaneParentObjective] = useState<any>(null);
 
+  // Annual Goals state
+  const currentYear = new Date().getFullYear();
+  const [goals, setGoals] = useState<AnnualGoal[]>([]);
+  const [customGoal, setCustomGoal] = useState("");
+  const [cloneSourceYear, setCloneSourceYear] = useState<number | null>(null);
+  const [aiGoalsSuggestionOpen, setAiGoalsSuggestionOpen] = useState(false);
+
   // Fetch teams for filtering
   const { data: teamsData = [] } = useQuery<{ id: string; name: string }[]>({
     queryKey: [`/api/okr/teams`, currentTenant?.id],
@@ -240,6 +250,171 @@ export default function PlanningEnhanced() {
       setFiltersInitialized(true);
     }
   }, [foundation?.fiscalYearStartMonth, filtersInitialized]);
+
+  // Initialize goals from foundation
+  useEffect(() => {
+    if (foundation?.annualGoals) {
+      const rawGoals = foundation.annualGoals || [];
+      // Migrate legacy string goals to new AnnualGoal format
+      const migratedGoals: AnnualGoal[] = rawGoals.map((goal: any) => {
+        if (typeof goal === "string") {
+          return { title: goal, year: currentYear - 1 };
+        }
+        if (!goal.year || goal.year === 0) {
+          return { ...goal, year: currentYear - 1 };
+        }
+        return goal;
+      });
+      setGoals(migratedGoals);
+    } else {
+      setGoals([]);
+    }
+  }, [foundation?.annualGoals, currentTenant?.id]);
+
+  // Get ambitions from foundation
+  const ambitions: Ambition[] = foundation?.ambitions || [];
+  const activeAmbitions = ambitions.filter(a => a.status === 'active');
+
+  // Get unique years from goals for display
+  const uniqueGoalYears = [...new Set(goals.map(g => g.year))].sort((a, b) => b - a);
+  
+  // Generate available years for goal year selection
+  const yearsFromGoals = goals.map(g => g.year);
+  const standardYears = [currentYear + 1, currentYear, currentYear - 1, currentYear - 2, currentYear - 3];
+  const availableGoalYears = [...new Set([...yearsFromGoals, ...standardYears])].sort((a, b) => b - a);
+
+  // Goal suggestions for quick add
+  const goalSuggestions = [
+    "Increase revenue by 30%",
+    "Expand to new markets",
+    "Improve customer satisfaction",
+    "Launch innovative products",
+    "Build high-performing teams",
+    "Achieve operational excellence",
+  ];
+
+  // Annual Goals handlers
+  const handleAddCustomGoal = () => {
+    const trimmedGoal = customGoal.trim();
+    if (trimmedGoal && !goals.some(g => g.title === trimmedGoal)) {
+      setGoals([...goals, { title: trimmedGoal, year: currentYear }]);
+      setCustomGoal("");
+    }
+  };
+
+  const handleRemoveGoal = (index: number) => {
+    setGoals(goals.filter((_, i) => i !== index));
+  };
+
+  const handleUpdateGoalYear = (index: number, newYear: number) => {
+    const updatedGoals = [...goals];
+    updatedGoals[index] = { ...updatedGoals[index], year: newYear };
+    setGoals(updatedGoals);
+  };
+
+  const handleUpdateGoalAmbition = (index: number, ambitionId: string | undefined) => {
+    const updatedGoals = [...goals];
+    updatedGoals[index] = { ...updatedGoals[index], linkedAmbitionId: ambitionId };
+    setGoals(updatedGoals);
+  };
+
+  const handleCloneGoal = (goal: AnnualGoal, targetYear: number) => {
+    const exists = goals.some(g => g.title === goal.title && g.year === targetYear);
+    if (exists) {
+      toast({
+        title: "Goal Already Exists",
+        description: `"${goal.title}" already exists for ${targetYear}`,
+        variant: "destructive",
+      });
+      return;
+    }
+    setGoals([...goals, { ...goal, year: targetYear }]);
+    toast({
+      title: "Goal Cloned",
+      description: `"${goal.title}" has been cloned to ${targetYear}`,
+    });
+  };
+
+  const handleCloneAllGoals = (sourceYear: number, targetYear: number) => {
+    const goalsToClone = goals.filter(g => g.year === sourceYear);
+    if (goalsToClone.length === 0) {
+      toast({
+        title: "No Goals Found",
+        description: `No goals found for ${sourceYear}`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const newGoals: AnnualGoal[] = [];
+    let skipped = 0;
+    
+    for (const goal of goalsToClone) {
+      const exists = goals.some(g => g.title === goal.title && g.year === targetYear);
+      if (!exists) {
+        newGoals.push({ ...goal, year: targetYear });
+      } else {
+        skipped++;
+      }
+    }
+    
+    if (newGoals.length > 0) {
+      setGoals([...goals, ...newGoals]);
+      toast({
+        title: "Goals Cloned",
+        description: `${newGoals.length} goal(s) cloned to ${targetYear}${skipped > 0 ? ` (${skipped} skipped - already exist)` : ''}`,
+      });
+    } else {
+      toast({
+        title: "No New Goals",
+        description: `All ${sourceYear} goals already exist in ${targetYear}`,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleAddGoalSuggestion = (suggestion: string) => {
+    if (!goals.some(g => g.title === suggestion)) {
+      setGoals([...goals, { title: suggestion, year: currentYear }]);
+    }
+  };
+
+  // Save goals mutation
+  const saveGoalsMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentTenant?.id) {
+        throw new Error("No tenant selected");
+      }
+      return apiRequest("POST", "/api/foundations", {
+        tenantId: currentTenant.id,
+        mission: foundation?.mission || "",
+        vision: foundation?.vision || "",
+        values: foundation?.values || [],
+        ambitions: foundation?.ambitions || [],
+        annualGoals: goals,
+        tagline: foundation?.tagline || "",
+        companySummary: foundation?.companySummary || "",
+        messagingStatement: foundation?.messagingStatement || "",
+        cultureStatement: foundation?.cultureStatement || "",
+        brandVoice: foundation?.brandVoice || "",
+        updatedBy: user?.email || "Current User",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/foundations/${currentTenant?.id}`] });
+      toast({
+        title: "Goals Saved",
+        description: "Your annual goals have been updated successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to save goals. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Fetch enhanced OKR data (uses unified filters)
   const { data: objectives = [], isLoading: loadingObjectives } = useQuery<Objective[]>({
@@ -1943,6 +2118,9 @@ export default function PlanningEnhanced() {
             <TabsTrigger value="progress" data-testid="tab-progress">
               Progress Dashboard
             </TabsTrigger>
+            <TabsTrigger value="annual-goals" data-testid="tab-annual-goals">
+              Annual Goals ({goals.length})
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="hierarchy">
@@ -2318,7 +2496,247 @@ export default function PlanningEnhanced() {
           <TabsContent value="progress">
             <ProgressDashboard objectives={enrichedObjectives} bigRocks={bigRocks} />
           </TabsContent>
+
+          {/* Annual Goals Tab */}
+          <TabsContent value="annual-goals">
+            <Card data-testid="card-annual-goals">
+              <CardHeader className="flex flex-row items-start justify-between gap-2">
+                <div>
+                  <CardTitle>Annual Goals</CardTitle>
+                  <CardDescription>Define your key organizational objectives for each year</CardDescription>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setAiGoalsSuggestionOpen(true)}
+                    data-testid="button-ai-goal-suggestions"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    AI Suggestions
+                  </Button>
+                  <Button
+                    onClick={() => saveGoalsMutation.mutate()}
+                    disabled={saveGoalsMutation.isPending}
+                    data-testid="button-save-goals"
+                  >
+                    {saveGoalsMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    ) : (
+                      <Save className="h-4 w-4 mr-2" />
+                    )}
+                    Save Goals
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Show existing goals grouped by year */}
+                {goals.length > 0 ? (
+                  <div className="space-y-3">
+                    {uniqueGoalYears.map((goalYear) => {
+                      const yearGoals = goals.filter(g => (g.year || currentYear) === goalYear);
+                      if (yearGoals.length === 0) return null;
+                      return (
+                        <div key={goalYear} className="space-y-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-xs font-medium">{goalYear}</Badge>
+                            <span className="text-xs text-muted-foreground">({yearGoals.length} goals)</span>
+                          </div>
+                          {yearGoals.map((goal) => {
+                            const originalIndex = goals.findIndex(g => g === goal);
+                            return (
+                              <div
+                                key={originalIndex}
+                                className="bg-secondary/30 border-l-4 border-primary/30 rounded-r-lg p-3 space-y-2"
+                                data-testid={`goal-item-${originalIndex}`}
+                              >
+                                <div className="flex items-center justify-between gap-2">
+                                  <p className="text-sm flex-1">{goal.title}</p>
+                                  <div className="flex items-center gap-1 opacity-60 hover:opacity-100 transition-opacity">
+                                    <Select
+                                      value={goal.year?.toString() || currentYear.toString()}
+                                      onValueChange={(value) => handleUpdateGoalYear(originalIndex, parseInt(value))}
+                                    >
+                                      <SelectTrigger className="w-16 h-7 text-xs" data-testid={`select-goal-year-${originalIndex}`}>
+                                        <SelectValue />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {availableGoalYears.map((y) => (
+                                          <SelectItem key={y} value={y.toString()}>
+                                            {y}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <Select
+                                      onValueChange={(targetYear) => handleCloneGoal(goal, parseInt(targetYear))}
+                                    >
+                                      <SelectTrigger className="w-7 h-7 p-0" data-testid={`button-clone-goal-${originalIndex}`}>
+                                        <Copy className="h-3 w-3 mx-auto" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="header" disabled className="font-medium text-xs">
+                                          Clone to year...
+                                        </SelectItem>
+                                        {availableGoalYears
+                                          .filter(y => y !== goal.year)
+                                          .map((y) => (
+                                            <SelectItem key={y} value={y.toString()}>
+                                              {y}
+                                            </SelectItem>
+                                          ))}
+                                      </SelectContent>
+                                    </Select>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-7 w-7"
+                                      onClick={() => handleRemoveGoal(originalIndex)}
+                                      data-testid={`button-remove-goal-${originalIndex}`}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                </div>
+                                {/* Ambition link row */}
+                                {activeAmbitions.length > 0 && (
+                                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Target className="h-3 w-3" />
+                                    <span>Links to:</span>
+                                    <Select
+                                      value={goal.linkedAmbitionId || "none"}
+                                      onValueChange={(value) => handleUpdateGoalAmbition(originalIndex, value === "none" ? undefined : value)}
+                                    >
+                                      <SelectTrigger className="h-6 text-xs w-auto min-w-[120px]" data-testid={`select-goal-ambition-${originalIndex}`}>
+                                        <SelectValue placeholder="No ambition linked" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="none">No ambition linked</SelectItem>
+                                        {activeAmbitions.map((ambition) => (
+                                          <SelectItem key={ambition.id} value={ambition.id}>
+                                            {ambition.title} ({ambition.targetYear})
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                    
+                    {/* Clone All Goals Section */}
+                    {uniqueGoalYears.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2 p-3 bg-muted/30 rounded-lg text-muted-foreground">
+                        <span className="text-xs">Clone all goals from</span>
+                        <Select
+                          value={(cloneSourceYear ?? uniqueGoalYears[0])?.toString()}
+                          onValueChange={(value) => setCloneSourceYear(parseInt(value))}
+                        >
+                          <SelectTrigger className="w-20 h-7 text-xs" data-testid="select-clone-source-year">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {uniqueGoalYears.map((y) => (
+                              <SelectItem key={y} value={y.toString()}>
+                                {y}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <span className="text-xs">to</span>
+                        <Select
+                          onValueChange={(targetYear) => {
+                            const sourceYear = cloneSourceYear ?? uniqueGoalYears[0] ?? currentYear;
+                            handleCloneAllGoals(sourceYear, parseInt(targetYear));
+                          }}
+                        >
+                          <SelectTrigger className="w-20 h-7 text-xs" data-testid="select-clone-target-year">
+                            <SelectValue placeholder="Year" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableGoalYears.map((y) => (
+                              <SelectItem key={y} value={y.toString()}>
+                                {y}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-center py-6 text-muted-foreground">
+                    <Target className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p className="text-sm">No annual goals defined yet</p>
+                    <p className="text-xs mt-1">Add goals below to track your key organizational objectives</p>
+                  </div>
+                )}
+
+                {/* Add Goal Section */}
+                <Collapsible>
+                  <CollapsibleTrigger asChild>
+                    <Button variant="ghost" size="sm" className="w-full justify-start text-muted-foreground" data-testid="button-add-goal-toggle">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add Goal
+                    </Button>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="space-y-4 pt-4">
+                    <div className="flex gap-2">
+                      <Input
+                        id="custom-goal"
+                        value={customGoal}
+                        onChange={(e) => setCustomGoal(e.target.value)}
+                        placeholder="Enter an annual goal..."
+                        onKeyPress={(e) => e.key === "Enter" && handleAddCustomGoal()}
+                        data-testid="input-custom-goal"
+                      />
+                      <Button
+                        onClick={handleAddCustomGoal}
+                        disabled={!customGoal.trim()}
+                        data-testid="button-add-goal"
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add
+                      </Button>
+                    </div>
+                  </CollapsibleContent>
+                </Collapsible>
+
+                <div className="border-t pt-4">
+                  <Label className="text-sm text-muted-foreground mb-2 block">Quick Suggestions</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {goalSuggestions.map((suggestion, index) => (
+                      <Badge
+                        key={index}
+                        variant={goals.some(g => g.title === suggestion) ? "default" : "outline"}
+                        className="cursor-pointer py-2 px-4 hover-elevate"
+                        onClick={() => handleAddGoalSuggestion(suggestion)}
+                        data-testid={`suggestion-goal-${index}`}
+                      >
+                        {suggestion}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
         </Tabs>
+
+        {/* AI Goals Suggestion Dialog */}
+        <AIGoalsSuggestionDialog
+          open={aiGoalsSuggestionOpen}
+          onOpenChange={setAiGoalsSuggestionOpen}
+          onAddGoal={(goalTitle) => {
+            if (!goals.some(g => g.title === goalTitle)) {
+              setGoals([...goals, { title: goalTitle, year: currentYear }]);
+            }
+          }}
+        />
 
         {/* Create/Edit Objective Dialog - Tabbed */}
         <Dialog open={objectiveDialogOpen} onOpenChange={setObjectiveDialogOpen}>

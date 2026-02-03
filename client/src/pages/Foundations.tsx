@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-// Note: No useMemo import - availableYears computed directly to avoid hook ordering issues
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,13 +10,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Eye, Edit, X, Plus, Save, Trash2, Loader2, Sparkles, AlertCircle, Copy, Pencil } from "lucide-react";
+import { Eye, Edit, X, Plus, Save, Trash2, Loader2, AlertCircle, Pencil } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
 import { ValueDetailView } from "@/components/ValueDetailView";
-import { AIGoalsSuggestionDialog } from "@/components/AIGoalsSuggestionDialog";
 import { ValuesAlignmentWidget } from "@/components/ValuesAlignmentWidget";
 import { getCurrentQuarter } from "@/lib/fiscal-utils";
 import type { Foundation, CompanyValue, AnnualGoal, Ambition } from "@shared/schema";
@@ -51,16 +49,6 @@ const valueSuggestions = [
   "Agility",
 ];
 
-const goalSuggestions = [
-  "Increase revenue by 30%",
-  "Expand to new markets",
-  "Improve customer satisfaction",
-  "Launch innovative products",
-  "Build high-performing teams",
-  "Achieve operational excellence",
-  "Strengthen brand presence",
-  "Foster sustainable practices",
-];
 
 export default function Foundations() {
   const { toast } = useToast();
@@ -68,7 +56,6 @@ export default function Foundations() {
   
   const [customMission, setCustomMission] = useState("");
   const [customVision, setCustomVision] = useState("");
-  const [customGoal, setCustomGoal] = useState("");
   
   // Collapsible state for Mission/Vision editing
   const [missionEditOpen, setMissionEditOpen] = useState(false);
@@ -84,17 +71,11 @@ export default function Foundations() {
   const [valueDetailOpen, setValueDetailOpen] = useState(false);
   const [selectedValue, setSelectedValue] = useState<CompanyValue | null>(null);
   
-  // AI suggestions dialog state
-  const [aiGoalsSuggestionOpen, setAiGoalsSuggestionOpen] = useState(false);
-  
-  // Clone all goals state
-  const [cloneSourceYear, setCloneSourceYear] = useState<number | null>(null);
-  
   const [mission, setMission] = useState<string>("");
   const [vision, setVision] = useState<string>("");
   const [values, setValues] = useState<CompanyValue[]>([]);
   const [ambitions, setAmbitions] = useState<Ambition[]>([]);
-  const [goals, setGoals] = useState<AnnualGoal[]>([]);
+  const [goals, setGoals] = useState<AnnualGoal[]>([]); // Kept for save mutation - edited in Outcomes
   const currentYear = new Date().getFullYear();
   
   // Ambition dialog state
@@ -184,7 +165,6 @@ export default function Foundations() {
     // Clear custom input fields when tenant changes
     setCustomMission("");
     setCustomVision("");
-    setCustomGoal("");
   }, [foundation, currentTenant?.id]);
 
   // Save mutation
@@ -305,15 +285,7 @@ export default function Foundations() {
     setValueDescription("");
   };
 
-  const handleAddCustomGoal = () => {
-    const trimmedGoal = customGoal.trim();
-    if (trimmedGoal && !goals.some(g => g.title === trimmedGoal)) {
-      setGoals([...goals, { title: trimmedGoal, year: currentYear }]);
-      setCustomGoal("");
-    }
-  };
-
-  const handleAddSuggestion = (type: "mission" | "vision" | "value" | "goal", suggestion: string) => {
+  const handleAddSuggestion = (type: "mission" | "vision" | "value", suggestion: string) => {
     if (type === "mission") {
       setMission(suggestion);
     } else if (type === "vision") {
@@ -326,101 +298,12 @@ export default function Foundations() {
       if (!values.some(v => v.title === suggestion)) {
         setValues([...values, newValue]);
       }
-    } else if (type === "goal") {
-      if (!goals.some(g => g.title === suggestion)) {
-        setGoals([...goals, { title: suggestion, year: currentYear }]);
-      }
     }
   };
 
   const handleRemoveValue = (index: number) => {
     setValues(values.filter((_, i) => i !== index));
   };
-
-  // Remove goal by index to avoid deleting duplicate titles across years
-  const handleRemoveGoal = (index: number) => {
-    setGoals(goals.filter((_, i) => i !== index));
-  };
-
-  // Update the year of a specific goal
-  const handleUpdateGoalYear = (index: number, newYear: number) => {
-    const updatedGoals = [...goals];
-    updatedGoals[index] = { ...updatedGoals[index], year: newYear };
-    setGoals(updatedGoals);
-  };
-
-  // Update the linked ambition of a specific goal
-  const handleUpdateGoalAmbition = (index: number, ambitionId: string | undefined) => {
-    const updatedGoals = [...goals];
-    updatedGoals[index] = { ...updatedGoals[index], linkedAmbitionId: ambitionId };
-    setGoals(updatedGoals);
-  };
-
-  // Clone a single goal to a target year
-  const handleCloneGoal = (goal: AnnualGoal, targetYear: number) => {
-    // Check if a goal with the same title already exists for the target year
-    const exists = goals.some(g => g.title === goal.title && g.year === targetYear);
-    if (exists) {
-      toast({
-        title: "Goal Already Exists",
-        description: `"${goal.title}" already exists for ${targetYear}`,
-        variant: "destructive",
-      });
-      return;
-    }
-    setGoals([...goals, { ...goal, year: targetYear }]);
-    toast({
-      title: "Goal Cloned",
-      description: `"${goal.title}" has been cloned to ${targetYear}`,
-    });
-  };
-
-  // Clone all goals from one year to another
-  const handleCloneAllGoals = (sourceYear: number, targetYear: number) => {
-    const goalsToClone = goals.filter(g => g.year === sourceYear);
-    if (goalsToClone.length === 0) {
-      toast({
-        title: "No Goals Found",
-        description: `No goals found for ${sourceYear}`,
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    const newGoals: AnnualGoal[] = [];
-    let skipped = 0;
-    
-    for (const goal of goalsToClone) {
-      const exists = goals.some(g => g.title === goal.title && g.year === targetYear);
-      if (!exists) {
-        newGoals.push({ ...goal, year: targetYear });
-      } else {
-        skipped++;
-      }
-    }
-    
-    if (newGoals.length > 0) {
-      setGoals([...goals, ...newGoals]);
-      toast({
-        title: "Goals Cloned",
-        description: `${newGoals.length} goal(s) cloned to ${targetYear}${skipped > 0 ? ` (${skipped} skipped - already exist)` : ''}`,
-      });
-    } else {
-      toast({
-        title: "No New Goals",
-        description: `All ${sourceYear} goals already exist in ${targetYear}`,
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Get unique years from goals for the clone all dropdown
-  const uniqueGoalYears = [...new Set(goals.map(g => g.year))].sort((a, b) => b - a);
-  
-  // Generate available years for selection (includes years from existing goals plus standard range)
-  const yearsFromGoals = goals.map(g => g.year);
-  const standardYears = [currentYear + 1, currentYear, currentYear - 1, currentYear - 2, currentYear - 3];
-  const availableYears = [...new Set([...yearsFromGoals, ...standardYears])].sort((a, b) => b - a);
 
   // Generate available target years for ambitions (3-10 years out)
   const ambitionYears = Array.from({ length: 8 }, (_, i) => currentYear + 3 + i);
@@ -1218,17 +1101,6 @@ export default function Foundations() {
           tenantId={currentTenant.id}
         />
       )}
-
-      {/* AI Goals Suggestion Dialog */}
-      <AIGoalsSuggestionDialog
-        open={aiGoalsSuggestionOpen}
-        onOpenChange={setAiGoalsSuggestionOpen}
-        onAddGoal={(goalTitle) => {
-          if (!goals.some(g => g.title === goalTitle)) {
-            setGoals(prev => [...prev, { title: goalTitle, year: currentYear }]);
-          }
-        }}
-      />
 
       {/* Ambition Add/Edit Dialog */}
       <Dialog open={ambitionDialogOpen} onOpenChange={setAmbitionDialogOpen}>
