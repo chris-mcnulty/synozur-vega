@@ -98,6 +98,11 @@ export async function generateReportPPTX(data: ReportData): Promise<Buffer> {
 
   await addTitleSlide(pptx, tenant, report, branding, primaryColor, defaultFont);
 
+  // Always add executive summary as the second slide
+  if (content?.summary) {
+    addExecutiveSummarySlide(pptx, content.summary, content.aiSummary, objectives, bigRocks, report, primaryColor);
+  }
+
   if (options.executiveScorecard && content?.summary) {
     addExecutiveScorecardSlide(pptx, content.summary, primaryColor);
   }
@@ -215,6 +220,207 @@ async function addTitleSlide(
     fontSize: 9, color: 'FFFFFF',
     align: 'center', fontFace, italic: true
   });
+}
+
+function addExecutiveSummarySlide(
+  pptx: PptxInstance,
+  summary: any,
+  aiSummary: any,
+  objectives: any[],
+  bigRocks: any[],
+  report: ReportInstance,
+  primaryColor: string
+) {
+  const slide = pptx.addSlide();
+  
+  // Header
+  slide.addText('Executive Summary', {
+    x: 0.4, y: 0.2, w: 9.5, h: 0.5,
+    fontSize: 26, color: primaryColor, bold: true
+  });
+  
+  // Period context
+  const periodStart = new Date(report.periodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  const periodEnd = new Date(report.periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  slide.addText(`${periodStart} - ${periodEnd}`, {
+    x: 0.4, y: 0.65, w: 9.5, h: 0.3,
+    fontSize: 12, color: '6B7280'
+  });
+  
+  // Calculate status
+  const avgProgress = summary.averageProgress || 0;
+  const overallStatus = avgProgress >= 70 ? 'On Track' : avgProgress >= 40 ? 'At Risk' : 'Behind Schedule';
+  const statusColor = getStatusColor(avgProgress);
+  
+  // Overall Status Banner
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x: 0.4, y: 1.0, w: 9.5, h: 0.7,
+    fill: { color: avgProgress >= 70 ? 'DCFCE7' : avgProgress >= 40 ? 'FEF9C3' : 'FEE2E2' },
+    line: { color: statusColor, width: 2 }
+  });
+  
+  slide.addText(`Overall Status: ${overallStatus}`, {
+    x: 0.6, y: 1.1, w: 5, h: 0.25,
+    fontSize: 14, color: statusColor, bold: true
+  });
+  
+  slide.addText(`${formatProgress(avgProgress)} Average Progress`, {
+    x: 0.6, y: 1.4, w: 5, h: 0.25,
+    fontSize: 12, color: '374151'
+  });
+  
+  slide.addText(`${summary.totalObjectives || 0} Objectives  •  ${summary.totalKeyResults || 0} Key Results  •  ${summary.totalBigRocks || 0} Initiatives`, {
+    x: 5.5, y: 1.25, w: 4.3, h: 0.25,
+    fontSize: 11, color: '64748B', align: 'right'
+  });
+
+  // Key Metrics Row - 4 boxes
+  const metrics = [
+    { 
+      label: 'Objectives Completed', 
+      value: `${summary.completedObjectives || 0}/${summary.totalObjectives || 0}`,
+      subtext: summary.totalObjectives > 0 ? `${Math.round((summary.completedObjectives || 0) / summary.totalObjectives * 100)}%` : '0%'
+    },
+    { 
+      label: 'Key Results Completed', 
+      value: `${summary.completedKeyResults || 0}/${summary.totalKeyResults || 0}`,
+      subtext: summary.totalKeyResults > 0 ? `${Math.round((summary.completedKeyResults || 0) / summary.totalKeyResults * 100)}%` : '0%'
+    },
+    { 
+      label: 'Initiatives Done', 
+      value: `${summary.completedBigRocks || 0}/${summary.totalBigRocks || 0}`,
+      subtext: summary.totalBigRocks > 0 ? `${Math.round((summary.completedBigRocks || 0) / summary.totalBigRocks * 100)}%` : '0%'
+    },
+    { 
+      label: 'Average Progress', 
+      value: formatProgress(avgProgress),
+      subtext: overallStatus,
+      isProgress: true
+    },
+  ];
+  
+  metrics.forEach((metric, index) => {
+    const xPos = 0.4 + (index * 2.4);
+    
+    slide.addShape(pptx.ShapeType.roundRect, {
+      x: xPos, y: 1.9, w: 2.2, h: 1.0,
+      fill: { color: 'F8FAFC' },
+      line: { color: 'E2E8F0', width: 1 }
+    });
+    
+    slide.addText(metric.label, {
+      x: xPos, y: 1.98, w: 2.2, h: 0.25,
+      fontSize: 9, color: '64748B', align: 'center'
+    });
+    
+    const valueColor = metric.isProgress ? statusColor : '1E293B';
+    slide.addText(metric.value, {
+      x: xPos, y: 2.25, w: 2.2, h: 0.35,
+      fontSize: 20, color: valueColor, bold: true, align: 'center'
+    });
+    
+    slide.addText(metric.subtext, {
+      x: xPos, y: 2.62, w: 2.2, h: 0.2,
+      fontSize: 9, color: metric.isProgress ? statusColor : '6B7280', align: 'center'
+    });
+  });
+
+  // Two columns: Highlights and Concerns
+  const halfWidth = 4.65;
+  
+  // Left column: Highlights / Wins
+  slide.addText('Highlights', {
+    x: 0.4, y: 3.1, w: halfWidth, h: 0.3,
+    fontSize: 13, color: '166534', bold: true
+  });
+  
+  // Find completed or high-progress items
+  const completedObjectives = objectives.filter((o: any) => (o.progress || 0) >= 100).slice(0, 2);
+  const topPerformers = objectives.filter((o: any) => (o.progress || 0) >= 70 && (o.progress || 0) < 100)
+    .sort((a: any, b: any) => (b.progress || 0) - (a.progress || 0)).slice(0, 2);
+  const completedRocks = bigRocks.filter((r: any) => r.status === 'completed').slice(0, 1);
+  
+  const highlights: string[] = [];
+  if (completedObjectives.length > 0) {
+    highlights.push(`${completedObjectives.length} objective${completedObjectives.length > 1 ? 's' : ''} completed`);
+  }
+  if (completedRocks.length > 0) {
+    highlights.push(`Initiative completed: ${completedRocks[0].title?.substring(0, 30) || 'Untitled'}${completedRocks[0].title?.length > 30 ? '...' : ''}`);
+  }
+  if (topPerformers.length > 0) {
+    highlights.push(`${topPerformers.length} objective${topPerformers.length > 1 ? 's' : ''} on track (70%+)`);
+  }
+  if (summary.completedKeyResults > 0) {
+    highlights.push(`${summary.completedKeyResults} key result${summary.completedKeyResults > 1 ? 's' : ''} achieved`);
+  }
+  if (highlights.length === 0) {
+    highlights.push('Review in-progress items for updates');
+  }
+
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x: 0.4, y: 3.4, w: halfWidth, h: 1.6,
+    fill: { color: 'F0FDF4' },
+    line: { color: 'BBF7D0', width: 1 }
+  });
+  
+  highlights.slice(0, 4).forEach((item, index) => {
+    slide.addText(`✓ ${item}`, {
+      x: 0.55, y: 3.5 + (index * 0.35), w: halfWidth - 0.3, h: 0.3,
+      fontSize: 10, color: '166534'
+    });
+  });
+
+  // Right column: Areas of Concern
+  slide.addText('Areas Needing Attention', {
+    x: 5.25, y: 3.1, w: halfWidth, h: 0.3,
+    fontSize: 13, color: '991B1B', bold: true
+  });
+  
+  const atRiskObjectives = objectives.filter((o: any) => (o.progress || 0) < 40);
+  const blockedRocks = bigRocks.filter((r: any) => r.status === 'blocked');
+  const behindObjectives = objectives.filter((o: any) => (o.progress || 0) >= 40 && (o.progress || 0) < 70);
+  
+  const concerns: string[] = [];
+  if (atRiskObjectives.length > 0) {
+    concerns.push(`${atRiskObjectives.length} objective${atRiskObjectives.length > 1 ? 's' : ''} below 40% progress`);
+  }
+  if (blockedRocks.length > 0) {
+    concerns.push(`${blockedRocks.length} initiative${blockedRocks.length > 1 ? 's' : ''} blocked`);
+  }
+  if (behindObjectives.length > 0) {
+    concerns.push(`${behindObjectives.length} objective${behindObjectives.length > 1 ? 's' : ''} at risk (40-70%)`);
+  }
+  if (avgProgress < 40) {
+    concerns.push('Overall progress significantly behind target');
+  }
+  if (concerns.length === 0) {
+    concerns.push('No critical items requiring immediate attention');
+  }
+
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x: 5.25, y: 3.4, w: halfWidth, h: 1.6,
+    fill: { color: 'FEF2F2' },
+    line: { color: 'FECACA', width: 1 }
+  });
+  
+  concerns.slice(0, 4).forEach((item, index) => {
+    slide.addText(`• ${item}`, {
+      x: 5.4, y: 3.5 + (index * 0.35), w: halfWidth - 0.3, h: 0.3,
+      fontSize: 10, color: '991B1B'
+    });
+  });
+
+  // AI Summary headline at bottom if available
+  if (aiSummary?.headline) {
+    slide.addShape(pptx.ShapeType.roundRect, {
+      x: 0.4, y: 5.1, w: 9.5, h: 0.45,
+      fill: { color: primaryColor },
+    });
+    slide.addText(`AI Insight: ${aiSummary.headline}`, {
+      x: 0.55, y: 5.15, w: 9.2, h: 0.35,
+      fontSize: 11, color: 'FFFFFF', italic: true
+    });
+  }
 }
 
 function addExecutiveScorecardSlide(pptx: PptxInstance, summary: any, primaryColor: string) {
