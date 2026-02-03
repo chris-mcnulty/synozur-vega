@@ -222,6 +222,171 @@ async function addTitleSlide(
   });
 }
 
+function generateExecutiveNarrative(
+  summary: any,
+  objectives: any[],
+  bigRocks: any[],
+  aiSummary: any,
+  periodStart: string,
+  periodEnd: string
+): { paragraph1: string; paragraph2: string; paragraph3: string } {
+  const avgProgress = summary.averageProgress || 0;
+  const totalObj = summary.totalObjectives || 0;
+  const completedObj = summary.completedObjectives || 0;
+  const totalKR = summary.totalKeyResults || 0;
+  const completedKR = summary.completedKeyResults || 0;
+  const totalRocks = summary.totalBigRocks || 0;
+  const completedRocks = summary.completedBigRocks || 0;
+  
+  // Calculate counts
+  const atRiskCount = objectives.filter((o: any) => (o.progress || 0) < 40).length;
+  const onTrackCount = objectives.filter((o: any) => (o.progress || 0) >= 70).length;
+  const blockedRocksCount = bigRocks.filter((r: any) => r.status === 'blocked').length;
+  
+  // Universal fallback sentences for padding
+  const universalFallbacks = [
+    'Progress is being tracked across all areas.',
+    'Teams remain focused on achieving targets.',
+    'Momentum continues through this period.'
+  ];
+  
+  // Helper to build exactly 3 sentences from priority list with padding
+  const buildParagraph = (sentences: string[], fallbacks: string[]): string => {
+    let filtered = sentences.filter(s => s && s.trim().length > 5);
+    
+    // Pad with provided fallbacks first
+    const allFallbacks = [...fallbacks, ...universalFallbacks];
+    while (filtered.length < 3 && allFallbacks.length > 0) {
+      const fallback = allFallbacks.shift();
+      if (fallback && fallback.trim().length > 5) {
+        filtered.push(fallback);
+      }
+    }
+    
+    // Ensure we have exactly 3 valid sentences
+    filtered = filtered.slice(0, 3);
+    
+    // Truncate each sentence to max 90 chars if needed (ensures 3 fit in ~270 chars)
+    const truncatedSentences = filtered.map(s => {
+      if (s.length > 95) {
+        const cut = s.substring(0, 90);
+        const lastSpace = cut.lastIndexOf(' ');
+        return (lastSpace > 50 ? cut.substring(0, lastSpace) : cut) + '...';
+      }
+      return s;
+    });
+    
+    return truncatedSentences.join(' ');
+  };
+
+  // Paragraph 1: Performance Overview (exactly 3 sentences)
+  const p1Sentences: string[] = [];
+  p1Sentences.push(`This report covers ${periodStart} to ${periodEnd}, during which the organization achieved ${Math.round(avgProgress)}% average progress.`);
+  
+  if (totalObj > 0 && totalKR > 0) {
+    const objPct = Math.round((completedObj / totalObj) * 100);
+    const krPct = Math.round((completedKR / totalKR) * 100);
+    p1Sentences.push(`${completedObj} of ${totalObj} objectives (${objPct}%) and ${completedKR} of ${totalKR} key results (${krPct}%) have been completed.`);
+  } else if (totalObj > 0) {
+    const objPct = Math.round((completedObj / totalObj) * 100);
+    p1Sentences.push(`${completedObj} of ${totalObj} objectives (${objPct}%) have been completed during this period.`);
+  } else {
+    p1Sentences.push('Objectives are being established as this tracking period begins.');
+  }
+  
+  if (avgProgress >= 70) {
+    p1Sentences.push('Execution is on track and the team is well-positioned to meet targets.');
+  } else if (avgProgress >= 40) {
+    p1Sentences.push('Progress is underway but continued focus is needed to improve trajectory.');
+  } else {
+    p1Sentences.push('Significant acceleration is required to close the gap to target.');
+  }
+  
+  const p1Fallbacks = [
+    'Teams are actively tracking progress across all objectives.',
+    'Key results are being monitored for completion.'
+  ];
+  const paragraph1 = buildParagraph(p1Sentences, p1Fallbacks);
+
+  // Paragraph 2: Initiatives & Highlights (exactly 3 sentences)
+  const p2Sentences: string[] = [];
+  
+  if (totalRocks > 0) {
+    const rockStatus = completedRocks > 0 
+      ? `${completedRocks} completed` 
+      : blockedRocksCount > 0 
+        ? `${blockedRocksCount} blocked` 
+        : 'in progress';
+    p2Sentences.push(`The organization is driving ${totalRocks} strategic initiative${totalRocks > 1 ? 's' : ''} (${rockStatus}).`);
+  } else {
+    p2Sentences.push('Strategic initiatives are being identified for this period.');
+  }
+  
+  if (onTrackCount > 0) {
+    p2Sentences.push(`${onTrackCount} objective${onTrackCount > 1 ? 's are' : ' is'} performing well at 70% progress or higher.`);
+  } else if (completedObj > 0) {
+    p2Sentences.push(`${completedObj} objective${completedObj > 1 ? 's have' : ' has'} been fully completed this period.`);
+  } else {
+    p2Sentences.push('Teams are building momentum toward their objectives.');
+  }
+  
+  if (completedRocks > 0 && completedObj > 0) {
+    p2Sentences.push('Key achievements include completed initiatives and objectives meeting their targets.');
+  } else if (onTrackCount > 0) {
+    p2Sentences.push('On-track items demonstrate strong execution in priority areas.');
+  } else {
+    p2Sentences.push('Early progress is being established across key focus areas.');
+  }
+  
+  const p2Fallbacks = [
+    'Teams are making steady progress on their priorities.',
+    'Regular check-ins are helping drive accountability.'
+  ];
+  const paragraph2 = buildParagraph(p2Sentences, p2Fallbacks);
+
+  // Paragraph 3: Focus & Recommendations (exactly 3 sentences)
+  const p3Sentences: string[] = [];
+  
+  if (atRiskCount > 0) {
+    p3Sentences.push(`${atRiskCount} objective${atRiskCount > 1 ? 's' : ''} below 40% progress require${atRiskCount > 1 ? '' : 's'} immediate attention.`);
+  } else if (avgProgress >= 70) {
+    p3Sentences.push('The organization is executing well with no critical items requiring intervention.');
+  } else {
+    p3Sentences.push('While progress is underway, proactive monitoring is recommended.');
+  }
+  
+  if (blockedRocksCount > 0) {
+    p3Sentences.push(`Unblocking ${blockedRocksCount} stalled initiative${blockedRocksCount > 1 ? 's' : ''} should be a leadership priority.`);
+  } else if (avgProgress < 70) {
+    p3Sentences.push('Teams should focus on accelerating at-risk items and removing blockers.');
+  } else {
+    p3Sentences.push('Maintaining current momentum will ensure strong period-end results.');
+  }
+  
+  // Final recommendation sentence
+  if (aiSummary?.guidance && typeof aiSummary.guidance === 'string' && aiSummary.guidance.trim().length > 10) {
+    // Take just first sentence of AI guidance, with safety checks
+    const cleaned = aiSummary.guidance.trim().replace(/^\.+/, '');
+    const sentences = cleaned.split(/(?<=[.!?])\s+/);
+    const firstSentence = sentences[0]?.trim();
+    if (firstSentence && firstSentence.length > 10 && firstSentence.length < 120) {
+      p3Sentences.push(firstSentence.endsWith('.') ? firstSentence : firstSentence + '.');
+    } else {
+      p3Sentences.push('Continue regular check-ins to sustain progress.');
+    }
+  } else {
+    p3Sentences.push('Regular check-ins and proactive blocker resolution will maintain momentum.');
+  }
+  
+  const p3Fallbacks = [
+    'Continued focus on execution will ensure period success.',
+    'The team is positioned to deliver strong results.'
+  ];
+  const paragraph3 = buildParagraph(p3Sentences, p3Fallbacks);
+
+  return { paragraph1, paragraph2, paragraph3 };
+}
+
 function addExecutiveSummarySlide(
   pptx: PptxInstance,
   summary: any,
@@ -233,192 +398,139 @@ function addExecutiveSummarySlide(
 ) {
   const slide = pptx.addSlide();
   
+  // Period dates
+  const periodStart = new Date(report.periodStart).toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+  const periodEnd = new Date(report.periodEnd).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  
   // Header
   slide.addText('Executive Summary', {
-    x: 0.4, y: 0.2, w: 9.5, h: 0.5,
+    x: 0.4, y: 0.2, w: 7, h: 0.5,
     fontSize: 26, color: primaryColor, bold: true
   });
   
-  // Period context
-  const periodStart = new Date(report.periodStart).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  const periodEnd = new Date(report.periodEnd).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  // Period in header area
   slide.addText(`${periodStart} - ${periodEnd}`, {
-    x: 0.4, y: 0.65, w: 9.5, h: 0.3,
-    fontSize: 12, color: '6B7280'
+    x: 0.4, y: 0.65, w: 9.5, h: 0.25,
+    fontSize: 11, color: '6B7280'
   });
   
-  // Calculate status
+  // Calculate status for badge
   const avgProgress = summary.averageProgress || 0;
-  const overallStatus = avgProgress >= 70 ? 'On Track' : avgProgress >= 40 ? 'At Risk' : 'Behind Schedule';
+  const overallStatus = avgProgress >= 70 ? 'On Track' : avgProgress >= 40 ? 'At Risk' : 'Behind';
   const statusColor = getStatusColor(avgProgress);
+  const statusBgColor = avgProgress >= 70 ? 'DCFCE7' : avgProgress >= 40 ? 'FEF9C3' : 'FEE2E2';
   
-  // Overall Status Banner
+  // Status badge in top right
   slide.addShape(pptx.ShapeType.roundRect, {
-    x: 0.4, y: 1.0, w: 9.5, h: 0.7,
-    fill: { color: avgProgress >= 70 ? 'DCFCE7' : avgProgress >= 40 ? 'FEF9C3' : 'FEE2E2' },
+    x: 7.8, y: 0.25, w: 2.1, h: 0.55,
+    fill: { color: statusBgColor },
     line: { color: statusColor, width: 2 }
   });
-  
-  slide.addText(`Overall Status: ${overallStatus}`, {
-    x: 0.6, y: 1.1, w: 5, h: 0.25,
-    fontSize: 14, color: statusColor, bold: true
-  });
-  
-  slide.addText(`${formatProgress(avgProgress)} Average Progress`, {
-    x: 0.6, y: 1.4, w: 5, h: 0.25,
-    fontSize: 12, color: '374151'
-  });
-  
-  slide.addText(`${summary.totalObjectives || 0} Objectives  •  ${summary.totalKeyResults || 0} Key Results  •  ${summary.totalBigRocks || 0} Initiatives`, {
-    x: 5.5, y: 1.25, w: 4.3, h: 0.25,
-    fontSize: 11, color: '64748B', align: 'right'
+  slide.addText(`${overallStatus} • ${formatProgress(avgProgress)}`, {
+    x: 7.8, y: 0.32, w: 2.1, h: 0.4,
+    fontSize: 12, color: statusColor, bold: true, align: 'center'
   });
 
-  // Key Metrics Row - 4 boxes
+  // Generate the three-paragraph narrative
+  const narrative = generateExecutiveNarrative(summary, objectives, bigRocks, aiSummary, periodStart, periodEnd);
+  
+  // Narrative text box with nice formatting
+  slide.addShape(pptx.ShapeType.roundRect, {
+    x: 0.4, y: 1.0, w: 9.5, h: 3.0,
+    fill: { color: 'FAFAFA' },
+    line: { color: 'E5E7EB', width: 1 }
+  });
+  
+  // Paragraph 1 - Performance Overview
+  slide.addText('Performance Overview', {
+    x: 0.6, y: 1.08, w: 9.1, h: 0.22,
+    fontSize: 10, color: primaryColor, bold: true
+  });
+  slide.addText(narrative.paragraph1, {
+    x: 0.6, y: 1.3, w: 9.1, h: 0.7,
+    fontSize: 9, color: '374151', valign: 'top'
+  });
+  
+  // Paragraph 2 - Initiatives & Highlights
+  slide.addText('Initiatives & Highlights', {
+    x: 0.6, y: 2.05, w: 9.1, h: 0.22,
+    fontSize: 10, color: primaryColor, bold: true
+  });
+  slide.addText(narrative.paragraph2, {
+    x: 0.6, y: 2.27, w: 9.1, h: 0.65,
+    fontSize: 9, color: '374151', valign: 'top'
+  });
+  
+  // Paragraph 3 - Focus & Recommendations
+  slide.addText('Focus Areas & Recommendations', {
+    x: 0.6, y: 2.97, w: 9.1, h: 0.22,
+    fontSize: 10, color: primaryColor, bold: true
+  });
+  slide.addText(narrative.paragraph3, {
+    x: 0.6, y: 3.19, w: 9.1, h: 0.75,
+    fontSize: 9, color: '374151', valign: 'top'
+  });
+
+  // Key Metrics Row at bottom - 4 compact boxes
   const metrics = [
     { 
-      label: 'Objectives Completed', 
+      label: 'Objectives', 
       value: `${summary.completedObjectives || 0}/${summary.totalObjectives || 0}`,
-      subtext: summary.totalObjectives > 0 ? `${Math.round((summary.completedObjectives || 0) / summary.totalObjectives * 100)}%` : '0%'
+      pct: summary.totalObjectives > 0 ? Math.round((summary.completedObjectives || 0) / summary.totalObjectives * 100) : 0
     },
     { 
-      label: 'Key Results Completed', 
+      label: 'Key Results', 
       value: `${summary.completedKeyResults || 0}/${summary.totalKeyResults || 0}`,
-      subtext: summary.totalKeyResults > 0 ? `${Math.round((summary.completedKeyResults || 0) / summary.totalKeyResults * 100)}%` : '0%'
+      pct: summary.totalKeyResults > 0 ? Math.round((summary.completedKeyResults || 0) / summary.totalKeyResults * 100) : 0
     },
     { 
-      label: 'Initiatives Done', 
+      label: 'Initiatives', 
       value: `${summary.completedBigRocks || 0}/${summary.totalBigRocks || 0}`,
-      subtext: summary.totalBigRocks > 0 ? `${Math.round((summary.completedBigRocks || 0) / summary.totalBigRocks * 100)}%` : '0%'
+      pct: summary.totalBigRocks > 0 ? Math.round((summary.completedBigRocks || 0) / summary.totalBigRocks * 100) : 0
     },
     { 
-      label: 'Average Progress', 
+      label: 'Avg Progress', 
       value: formatProgress(avgProgress),
-      subtext: overallStatus,
+      pct: avgProgress,
       isProgress: true
     },
   ];
   
   metrics.forEach((metric, index) => {
     const xPos = 0.4 + (index * 2.4);
+    const metricColor = getStatusColor(metric.pct);
     
     slide.addShape(pptx.ShapeType.roundRect, {
-      x: xPos, y: 1.9, w: 2.2, h: 1.0,
-      fill: { color: 'F8FAFC' },
+      x: xPos, y: 4.1, w: 2.2, h: 0.75,
+      fill: { color: 'FFFFFF' },
       line: { color: 'E2E8F0', width: 1 }
     });
     
     slide.addText(metric.label, {
-      x: xPos, y: 1.98, w: 2.2, h: 0.25,
-      fontSize: 9, color: '64748B', align: 'center'
+      x: xPos, y: 4.13, w: 2.2, h: 0.2,
+      fontSize: 8, color: '64748B', align: 'center'
     });
     
-    const valueColor = metric.isProgress ? statusColor : '1E293B';
     slide.addText(metric.value, {
-      x: xPos, y: 2.25, w: 2.2, h: 0.35,
-      fontSize: 20, color: valueColor, bold: true, align: 'center'
+      x: xPos, y: 4.32, w: 2.2, h: 0.28,
+      fontSize: 16, color: metric.isProgress ? metricColor : '1E293B', bold: true, align: 'center'
     });
     
-    slide.addText(metric.subtext, {
-      x: xPos, y: 2.62, w: 2.2, h: 0.2,
-      fontSize: 9, color: metric.isProgress ? statusColor : '6B7280', align: 'center'
+    slide.addText(`${metric.pct}%`, {
+      x: xPos, y: 4.6, w: 2.2, h: 0.18,
+      fontSize: 8, color: metricColor, align: 'center'
     });
   });
 
-  // Two columns: Highlights and Concerns
-  const halfWidth = 4.65;
-  
-  // Left column: Highlights / Wins
-  slide.addText('Highlights', {
-    x: 0.4, y: 3.1, w: halfWidth, h: 0.3,
-    fontSize: 13, color: '166534', bold: true
-  });
-  
-  // Find completed or high-progress items
-  const completedObjectives = objectives.filter((o: any) => (o.progress || 0) >= 100).slice(0, 2);
-  const topPerformers = objectives.filter((o: any) => (o.progress || 0) >= 70 && (o.progress || 0) < 100)
-    .sort((a: any, b: any) => (b.progress || 0) - (a.progress || 0)).slice(0, 2);
-  const completedRocks = bigRocks.filter((r: any) => r.status === 'completed').slice(0, 1);
-  
-  const highlights: string[] = [];
-  if (completedObjectives.length > 0) {
-    highlights.push(`${completedObjectives.length} objective${completedObjectives.length > 1 ? 's' : ''} completed`);
-  }
-  if (completedRocks.length > 0) {
-    highlights.push(`Initiative completed: ${completedRocks[0].title?.substring(0, 30) || 'Untitled'}${completedRocks[0].title?.length > 30 ? '...' : ''}`);
-  }
-  if (topPerformers.length > 0) {
-    highlights.push(`${topPerformers.length} objective${topPerformers.length > 1 ? 's' : ''} on track (70%+)`);
-  }
-  if (summary.completedKeyResults > 0) {
-    highlights.push(`${summary.completedKeyResults} key result${summary.completedKeyResults > 1 ? 's' : ''} achieved`);
-  }
-  if (highlights.length === 0) {
-    highlights.push('Review in-progress items for updates');
-  }
-
-  slide.addShape(pptx.ShapeType.roundRect, {
-    x: 0.4, y: 3.4, w: halfWidth, h: 1.6,
-    fill: { color: 'F0FDF4' },
-    line: { color: 'BBF7D0', width: 1 }
-  });
-  
-  highlights.slice(0, 4).forEach((item, index) => {
-    slide.addText(`✓ ${item}`, {
-      x: 0.55, y: 3.5 + (index * 0.35), w: halfWidth - 0.3, h: 0.3,
-      fontSize: 10, color: '166534'
-    });
-  });
-
-  // Right column: Areas of Concern
-  slide.addText('Areas Needing Attention', {
-    x: 5.25, y: 3.1, w: halfWidth, h: 0.3,
-    fontSize: 13, color: '991B1B', bold: true
-  });
-  
-  const atRiskObjectives = objectives.filter((o: any) => (o.progress || 0) < 40);
-  const blockedRocks = bigRocks.filter((r: any) => r.status === 'blocked');
-  const behindObjectives = objectives.filter((o: any) => (o.progress || 0) >= 40 && (o.progress || 0) < 70);
-  
-  const concerns: string[] = [];
-  if (atRiskObjectives.length > 0) {
-    concerns.push(`${atRiskObjectives.length} objective${atRiskObjectives.length > 1 ? 's' : ''} below 40% progress`);
-  }
-  if (blockedRocks.length > 0) {
-    concerns.push(`${blockedRocks.length} initiative${blockedRocks.length > 1 ? 's' : ''} blocked`);
-  }
-  if (behindObjectives.length > 0) {
-    concerns.push(`${behindObjectives.length} objective${behindObjectives.length > 1 ? 's' : ''} at risk (40-70%)`);
-  }
-  if (avgProgress < 40) {
-    concerns.push('Overall progress significantly behind target');
-  }
-  if (concerns.length === 0) {
-    concerns.push('No critical items requiring immediate attention');
-  }
-
-  slide.addShape(pptx.ShapeType.roundRect, {
-    x: 5.25, y: 3.4, w: halfWidth, h: 1.6,
-    fill: { color: 'FEF2F2' },
-    line: { color: 'FECACA', width: 1 }
-  });
-  
-  concerns.slice(0, 4).forEach((item, index) => {
-    slide.addText(`• ${item}`, {
-      x: 5.4, y: 3.5 + (index * 0.35), w: halfWidth - 0.3, h: 0.3,
-      fontSize: 10, color: '991B1B'
-    });
-  });
-
-  // AI Summary headline at bottom if available
+  // AI Insight banner at bottom if available
   if (aiSummary?.headline) {
     slide.addShape(pptx.ShapeType.roundRect, {
-      x: 0.4, y: 5.1, w: 9.5, h: 0.45,
+      x: 0.4, y: 4.95, w: 9.5, h: 0.35,
       fill: { color: primaryColor },
     });
     slide.addText(`AI Insight: ${aiSummary.headline}`, {
-      x: 0.55, y: 5.15, w: 9.2, h: 0.35,
-      fontSize: 11, color: 'FFFFFF', italic: true
+      x: 0.55, y: 4.98, w: 9.2, h: 0.28,
+      fontSize: 9, color: 'FFFFFF', italic: true
     });
   }
 }
