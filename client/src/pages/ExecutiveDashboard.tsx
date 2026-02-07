@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -203,26 +203,31 @@ export default function ExecutiveDashboard() {
   const { data: keyResultsMap = {}, isLoading: loadingKRs } = useQuery<Record<string, KeyResult[]>>({
     queryKey: ["/api/okr/all-key-results", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year],
     queryFn: async () => {
-      if (!objectives.length) return {};
+      if (!currentTenant || !currentQuarter) return {};
+      // Fetch all key results for the tenant/quarter in a single request
+      const params = new URLSearchParams({
+        tenantId: currentTenant.id,
+        ...(currentQuarter.quarter && { quarter: String(currentQuarter.quarter) }),
+        ...(currentQuarter.year && { year: String(currentQuarter.year) }),
+      });
+      const res = await fetch(`/api/okr/key-results?${params}`, {
+        credentials: 'include',
+        headers: getHeaders(),
+      });
+      if (!res.ok) return {};
+      const allKeyResults: KeyResult[] = await res.json();
+      
+      // Group key results by objectiveId
       const results: Record<string, KeyResult[]> = {};
-      await Promise.all(
-        objectives.map(async (obj) => {
-          try {
-            const res = await fetch(`/api/okr/objectives/${obj.id}/key-results`, {
-              credentials: 'include',
-              headers: getHeaders(),
-            });
-            if (res.ok) {
-              results[obj.id] = await res.json();
-            }
-          } catch (e) {
-            results[obj.id] = [];
-          }
-        })
-      );
+      allKeyResults.forEach(kr => {
+        if (!results[kr.objectiveId]) {
+          results[kr.objectiveId] = [];
+        }
+        results[kr.objectiveId].push(kr);
+      });
       return results;
     },
-    enabled: objectives.length > 0,
+    enabled: !!currentTenant?.id && !!currentQuarter?.year,
   });
 
   const { data: teams = [] } = useQuery<Team[]>({
@@ -283,8 +288,8 @@ export default function ExecutiveDashboard() {
 
   const isLoading = loadingObjectives || loadingKRs;
 
-  // Helper function to calculate objective progress from its key results
-  const calculateObjectiveProgress = (objectiveId: string): number => {
+  // Helper function to calculate objective progress from its key results (memoized)
+  const calculateObjectiveProgress = useCallback((objectiveId: string): number => {
     const krs = keyResultsMap[objectiveId] || [];
     if (krs.length === 0) return 0;
     
@@ -295,7 +300,7 @@ export default function ExecutiveDashboard() {
     }, 0);
     
     return Math.round(totalProgress / krs.length);
-  };
+  }, [keyResultsMap]);
 
   const metrics = useMemo(() => {
     if (!objectives.length) return null;

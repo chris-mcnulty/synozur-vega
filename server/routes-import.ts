@@ -179,25 +179,23 @@ router.get('/export-cos', async (req: Request, res: Response) => {
     // Wrap foundation in array for export (there's only one per tenant)
     const foundations = foundation ? [foundation] : [];
 
-    // Get all Key Results for the objectives
-    const keyResults = await Promise.all(
-      objectives.map((obj: any) => storage.getKeyResultsByObjectiveId(obj.id))
-    ).then(results => results.flat());
+    // Get all Key Results for the objectives using batch method
+    const objectiveIds = objectives.map((obj: any) => obj.id);
+    const keyResultsMap = await storage.getKeyResultsByObjectiveIds(objectiveIds);
+    const keyResults = Array.from(keyResultsMap.values()).flat();
 
-    // Get check-ins for objectives, key results, and big rocks
-    const checkIns: any[] = [];
-    for (const obj of objectives) {
-      const objCheckIns = await storage.getCheckInsByEntityId('objective', obj.id);
-      checkIns.push(...objCheckIns);
-    }
-    for (const kr of keyResults) {
-      const krCheckIns = await storage.getCheckInsByEntityId('key_result', kr.id);
-      checkIns.push(...krCheckIns);
-    }
-    for (const br of bigRocks) {
-      const brCheckIns = await storage.getCheckInsByEntityId('big_rock', br.id);
-      checkIns.push(...brCheckIns);
-    }
+    // Get check-ins for objectives, key results, and big rocks using batch methods
+    const [objCheckInsMap, krCheckInsMap, brCheckInsMap] = await Promise.all([
+      storage.getCheckInsByEntityIds('objective', objectives.map((obj: any) => obj.id)),
+      storage.getCheckInsByEntityIds('key_result', keyResults.map((kr: any) => kr.id)),
+      storage.getCheckInsByEntityIds('big_rock', bigRocks.map((br: any) => br.id))
+    ]);
+    
+    const checkIns: any[] = [
+      ...Array.from(objCheckInsMap.values()).flat(),
+      ...Array.from(krCheckInsMap.values()).flat(),
+      ...Array.from(brCheckInsMap.values()).flat()
+    ];
 
     // Build export object
     const exportData = {
