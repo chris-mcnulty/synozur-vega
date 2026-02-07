@@ -227,7 +227,7 @@ export default function ExecutiveDashboard() {
       });
       return results;
     },
-    enabled: !!currentTenant?.id && !!currentQuarter,
+    enabled: !!currentTenant?.id && !!currentQuarter?.year,
   });
 
   const { data: teams = [] } = useQuery<Team[]>({

@@ -426,8 +426,12 @@ export interface IStorage {
 
 export class DatabaseStorage implements IStorage {
   // In-memory cache with TTL for frequently-accessed queries
+  // Note: This is a simple in-memory cache suitable for single-instance deployments
+  // For multi-instance deployments, consider using Redis or similar distributed cache
   private queryCache = new Map<string, { data: any; timestamp: number }>();
-  private readonly CACHE_TTL = 60 * 1000; // 60 seconds
+  private readonly CACHE_TTL = process.env.QUERY_CACHE_TTL 
+    ? parseInt(process.env.QUERY_CACHE_TTL) 
+    : 60 * 1000; // Default: 60 seconds
 
   /**
    * Get data from cache if available and not expired
@@ -877,11 +881,10 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteTeam(id: string): Promise<void> {
-    // Get team first to know which tenant to invalidate
-    const team = await this.getTeamById(id);
-    await db.delete(teams).where(eq(teams.id, id));
-    if (team) {
-      this.invalidateCache(`teams:${team.tenantId}`);
+    // Use RETURNING clause to get tenantId for cache invalidation without extra query
+    const [deletedTeam] = await db.delete(teams).where(eq(teams.id, id)).returning({ tenantId: teams.tenantId });
+    if (deletedTeam) {
+      this.invalidateCache(`teams:${deletedTeam.tenantId}`);
     }
   }
 
@@ -929,16 +932,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteObjective(id: string): Promise<void> {
-    // Get objective first to know which tenant to invalidate
-    const objective = await this.getObjectiveById(id);
     // Delete child key results and big rocks first
     await db.delete(keyResults).where(eq(keyResults.objectiveId, id));
     await db.delete(bigRocks).where(eq(bigRocks.objectiveId, id));
-    // Delete the objective
-    await db.delete(objectives).where(eq(objectives.id, id));
+    // Delete the objective and get tenantId using RETURNING clause
+    const [deletedObjective] = await db.delete(objectives).where(eq(objectives.id, id)).returning({ tenantId: objectives.tenantId });
     // Invalidate objectives cache for this tenant
-    if (objective) {
-      this.invalidateCache(`objectives:${objective.tenantId}`);
+    if (deletedObjective) {
+      this.invalidateCache(`objectives:${deletedObjective.tenantId}`);
     }
   }
 
@@ -1140,10 +1141,15 @@ export class DatabaseStorage implements IStorage {
       .values(insertKeyResult as any)
       .returning();
     // Invalidate objectives cache since KR progress affects objective progress
+    // Use lightweight query to get just tenantId instead of full objective
     if (keyResult.objectiveId) {
-      const objective = await this.getObjectiveById(keyResult.objectiveId);
-      if (objective) {
-        this.invalidateCache(`objectives:${objective.tenantId}`);
+      const objective = await db
+        .select({ tenantId: objectives.tenantId })
+        .from(objectives)
+        .where(eq(objectives.id, keyResult.objectiveId))
+        .limit(1);
+      if (objective[0]) {
+        this.invalidateCache(`objectives:${objective[0].tenantId}`);
       }
     }
     return keyResult;
@@ -1156,27 +1162,42 @@ export class DatabaseStorage implements IStorage {
       .where(eq(keyResults.id, id))
       .returning();
     // Invalidate objectives cache since KR progress affects objective progress
+    // Use lightweight query to get just tenantId instead of full objective
     if (keyResult.objectiveId) {
-      const objective = await this.getObjectiveById(keyResult.objectiveId);
-      if (objective) {
-        this.invalidateCache(`objectives:${objective.tenantId}`);
+      const objective = await db
+        .select({ tenantId: objectives.tenantId })
+        .from(objectives)
+        .where(eq(objectives.id, keyResult.objectiveId))
+        .limit(1);
+      if (objective[0]) {
+        this.invalidateCache(`objectives:${objective[0].tenantId}`);
       }
     }
     return keyResult;
   }
 
   async deleteKeyResult(id: string): Promise<void> {
-    // Get key result first to invalidate cache
-    const keyResult = await this.getKeyResultById(id);
+    // Get key result with objective info using join, then delete
+    const keyResultWithObjective = await db
+      .select({ objectiveId: keyResults.objectiveId })
+      .from(keyResults)
+      .where(eq(keyResults.id, id))
+      .limit(1);
+    
     // Delete associated big rocks first
     await db.delete(bigRocks).where(eq(bigRocks.keyResultId, id));
     // Delete the key result
     await db.delete(keyResults).where(eq(keyResults.id, id));
+    
     // Invalidate objectives cache
-    if (keyResult?.objectiveId) {
-      const objective = await this.getObjectiveById(keyResult.objectiveId);
-      if (objective) {
-        this.invalidateCache(`objectives:${objective.tenantId}`);
+    if (keyResultWithObjective[0]?.objectiveId) {
+      const objective = await db
+        .select({ tenantId: objectives.tenantId })
+        .from(objectives)
+        .where(eq(objectives.id, keyResultWithObjective[0].objectiveId))
+        .limit(1);
+      if (objective[0]) {
+        this.invalidateCache(`objectives:${objective[0].tenantId}`);
       }
     }
   }
@@ -1318,10 +1339,15 @@ export class DatabaseStorage implements IStorage {
       } as any)
       .returning();
     // Invalidate objectives cache since big rocks are linked to objectives
+    // Use lightweight query to get just tenantId
     if (bigRock.objectiveId) {
-      const objective = await this.getObjectiveById(bigRock.objectiveId);
-      if (objective) {
-        this.invalidateCache(`objectives:${objective.tenantId}`);
+      const objective = await db
+        .select({ tenantId: objectives.tenantId })
+        .from(objectives)
+        .where(eq(objectives.id, bigRock.objectiveId))
+        .limit(1);
+      if (objective[0]) {
+        this.invalidateCache(`objectives:${objective[0].tenantId}`);
       }
     }
     return bigRock;
@@ -1339,24 +1365,39 @@ export class DatabaseStorage implements IStorage {
       .where(eq(bigRocks.id, id))
       .returning();
     // Invalidate objectives cache
+    // Use lightweight query to get just tenantId
     if (bigRock.objectiveId) {
-      const objective = await this.getObjectiveById(bigRock.objectiveId);
-      if (objective) {
-        this.invalidateCache(`objectives:${objective.tenantId}`);
+      const objective = await db
+        .select({ tenantId: objectives.tenantId })
+        .from(objectives)
+        .where(eq(objectives.id, bigRock.objectiveId))
+        .limit(1);
+      if (objective[0]) {
+        this.invalidateCache(`objectives:${objective[0].tenantId}`);
       }
     }
     return bigRock;
   }
 
   async deleteBigRock(id: string): Promise<void> {
-    // Get big rock first to invalidate cache
-    const bigRock = await this.getBigRockById(id);
+    // Get big rock with objective info, then delete
+    const bigRockWithObjective = await db
+      .select({ objectiveId: bigRocks.objectiveId })
+      .from(bigRocks)
+      .where(eq(bigRocks.id, id))
+      .limit(1);
+    
     await db.delete(bigRocks).where(eq(bigRocks.id, id));
+    
     // Invalidate objectives cache
-    if (bigRock?.objectiveId) {
-      const objective = await this.getObjectiveById(bigRock.objectiveId);
-      if (objective) {
-        this.invalidateCache(`objectives:${objective.tenantId}`);
+    if (bigRockWithObjective[0]?.objectiveId) {
+      const objective = await db
+        .select({ tenantId: objectives.tenantId })
+        .from(objectives)
+        .where(eq(objectives.id, bigRockWithObjective[0].objectiveId))
+        .limit(1);
+      if (objective[0]) {
+        this.invalidateCache(`objectives:${objective[0].tenantId}`);
       }
     }
   }
