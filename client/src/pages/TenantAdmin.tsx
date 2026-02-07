@@ -30,7 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, AlertCircle, AlertTriangle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, HelpCircle, Link, Loader2, RefreshCw } from "lucide-react";
+import { CheckCircle2, AlertCircle, AlertTriangle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, HelpCircle, Link, Loader2, RefreshCw, Bell } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type TenantBranding, vocabularyAlternatives, type VocabularyTerms } from "@shared/schema";
 import { useAuth } from "@/contexts/AuthContext";
@@ -4630,6 +4630,33 @@ export default function TenantAdmin() {
                     >
                       Configure
                     </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Bell className="h-4 w-4" />
+                    Notifications
+                  </h3>
+                  <div className="p-3 border rounded-md">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">Show "What's New" on Login</p>
+                        <p className="text-sm text-muted-foreground">
+                          When enabled, users see a summary of new features after each platform update
+                        </p>
+                      </div>
+                      <Switch
+                        checked={(selectedTenantForSettings as any).showChangelogOnLogin !== false}
+                        onCheckedChange={(checked) => {
+                          updateTenantMutation.mutate({
+                            id: selectedTenantForSettings.id,
+                            data: { showChangelogOnLogin: checked } as any
+                          });
+                        }}
+                        data-testid="settings-toggle-changelog"
+                      />
+                    </div>
                   </div>
                 </div>
               </TabsContent>

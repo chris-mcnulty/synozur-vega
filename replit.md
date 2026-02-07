@@ -22,6 +22,8 @@ Preferred communication style: Simple, everyday language.
     - **OKR Workflow**: Cloning, Period Close-Out with mandatory notes, Mixed Child Rollup Progress Calculation.
     - **Vocabulary Module**: Customizable terminology with system defaults and tenant overrides.
     - **Public Domain Handling (Invite-Only Mode)**: Prevents domain squatting for public email domains by enforcing invite-only tenants.
+    - **What's New Modal**: AI-powered summary of recent platform updates shown on login. Dismissible per-version, tenant-level toggle. Uses CHANGELOG.md as source.
+    - **Changelog Page**: Full markdown-rendered changelog at `/changelog` with search, table of contents, and scroll-to-top. Accessible from sidebar navigation.
 
 ### Backend
 - **Server**: Express.js with Node.js, providing a RESTful API.

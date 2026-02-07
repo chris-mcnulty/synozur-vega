@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
 import { AIChatPanel } from "@/components/AIChatPanel";
+import { WhatsNewModal } from "@/components/WhatsNewModal";
 import { ConsultingModeToggle } from "@/components/ConsultingModeToggle";
 import { SynozurLogo } from "@/components/SynozurLogo";
 import { TenantProvider } from "@/contexts/TenantContext";
@@ -182,7 +183,6 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
         </header>
         <div className="flex flex-1 overflow-hidden bg-background">
           <main className="flex-1 overflow-auto p-8 bg-background">
-            {/* Route-level error boundary catches errors in lazy-loaded pages */}
             <RouteErrorBoundary>
               {children}
             </RouteErrorBoundary>
@@ -190,6 +190,7 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
           {chatOpen && <AIChatPanel onClose={() => setChatOpen(false)} />}
         </div>
       </div>
+      <WhatsNewModal />
     </div>
   );
 }

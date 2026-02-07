@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2, Rocket, Info, ChevronDown, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2, Rocket, Info, FileText, ChevronDown, type LucideIcon } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -368,6 +368,14 @@ export function AppSidebar() {
                   <a href="/help" className="pl-6">
                     <HelpCircle className="h-4 w-4" />
                     <span>User Guide</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild data-testid="link-changelog">
+                  <a href="/changelog" className="pl-6">
+                    <FileText className="h-4 w-4" />
+                    <span>Changelog</span>
                   </a>
                 </SidebarMenuButton>
               </SidebarMenuItem>

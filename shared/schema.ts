@@ -199,6 +199,8 @@ export const users = pgTable("users", {
   userType: text("user_type").default("client"), // 'client', 'consultant', or 'internal'
   // Timestamp for tracking when user was created
   createdAt: timestamp("created_at").defaultNow(),
+  // What's New changelog tracking
+  lastDismissedChangelogVersion: text("last_dismissed_changelog_version"),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -365,6 +367,8 @@ export const tenants = pgTable("tenants", {
   // Invite-only mode: when true, new users cannot auto-join via domain matching
   // Used for tenants created by users with public email domains (Gmail, Yahoo, etc.)
   inviteOnly: boolean("invite_only").default(false),
+  // What's New changelog modal - tenant admins can disable
+  showChangelogOnLogin: boolean("show_changelog_on_login").default(true),
   // Organization classification fields (collected during signup)
   organizationSize: text("organization_size"), // '1-10', '11-50', '51-200', '201-500', '501-1000', '1000+'
   industry: text("industry"), // e.g., 'Technology', 'Healthcare', 'Finance', etc.

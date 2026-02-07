@@ -130,6 +130,138 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Changelog route - serve the markdown file (like user guide)
+  app.get("/api/changelog", async (req, res) => {
+    try {
+      const changelogPath = join(process.cwd(), "CHANGELOG.md");
+      const content = await readFile(changelogPath, "utf-8");
+      res.type("text/markdown").send(content);
+    } catch (error) {
+      console.error("Error reading changelog:", error);
+      res.status(500).json({ error: "Failed to load changelog" });
+    }
+  });
+
+  // What's New - check if user should see the modal + return AI summary
+  const CURRENT_CHANGELOG_VERSION = "1.2026.02.07";
+  const changelogSummaryCache = new Map<string, { summary: string; highlights: string[]; date: string }>();
+
+  app.get("/api/changelog/whats-new", authWithTenant, async (req: any, res) => {
+    try {
+      const user = req.user;
+      const tenantId = req.tenantId || user.tenantId;
+
+      // Check tenant setting
+      if (tenantId) {
+        const tenant = await storage.getTenantById(tenantId);
+        if (tenant && tenant.showChangelogOnLogin === false) {
+          return res.json({ show: false });
+        }
+      }
+
+      // Check if user already dismissed this version
+      if (user.lastDismissedChangelogVersion === CURRENT_CHANGELOG_VERSION) {
+        return res.json({ show: false });
+      }
+
+      // Check cache
+      if (changelogSummaryCache.has(CURRENT_CHANGELOG_VERSION)) {
+        const cached = changelogSummaryCache.get(CURRENT_CHANGELOG_VERSION)!;
+        return res.json({
+          show: true,
+          version: CURRENT_CHANGELOG_VERSION,
+          ...cached,
+        });
+      }
+
+      // Read changelog and extract current version section
+      let changelogContent = "";
+      try {
+        const changelogPath = join(process.cwd(), "CHANGELOG.md");
+        const fullContent = await readFile(changelogPath, "utf-8");
+        
+        // Extract the section for the current version
+        const versionHeader = `### February 7, 2026 - Version 1.8`;
+        const headerIndex = fullContent.indexOf(versionHeader);
+        if (headerIndex !== -1) {
+          const nextSectionIndex = fullContent.indexOf("\n---", headerIndex + 1);
+          changelogContent = nextSectionIndex !== -1
+            ? fullContent.substring(headerIndex, nextSectionIndex).trim()
+            : fullContent.substring(headerIndex).trim();
+        }
+      } catch {
+        return res.json({ show: false });
+      }
+
+      if (!changelogContent) {
+        return res.json({ show: false });
+      }
+
+      // Try AI summary
+      let summary = "";
+      let highlights: string[] = [];
+      const date = "February 7, 2026";
+
+      try {
+        const { getChatCompletion } = await import("./ai");
+        const { AI_FEATURES } = await import("@shared/schema");
+        const aiResponse = await getChatCompletion(
+          [
+            {
+              role: "system",
+              content: `Summarize these software release notes into a friendly, non-technical overview for end users of a company strategy and OKR management platform. Group changes into 3-5 highlights. Use simple, clear language. Respond with valid JSON only: { "summary": "One paragraph overview", "highlights": ["Highlight 1 description", "Highlight 2 description"] }`,
+            },
+            {
+              role: "user",
+              content: changelogContent,
+            },
+          ],
+          { maxTokens: 1000, temperature: 0.3 },
+          AI_FEATURES.OTHER
+        );
+
+        // Parse the AI response
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          summary = parsed.summary || "";
+          highlights = parsed.highlights || [];
+        }
+      } catch (aiError) {
+        console.error("AI summary generation failed, using fallback:", aiError);
+        // Fallback: use first 500 characters of raw content
+        summary = changelogContent.substring(0, 500).replace(/[#*_]/g, "").trim();
+        highlights = ["New features and improvements have been added to the platform."];
+      }
+
+      const result = { summary, highlights, date };
+      changelogSummaryCache.set(CURRENT_CHANGELOG_VERSION, result);
+
+      return res.json({
+        show: true,
+        version: CURRENT_CHANGELOG_VERSION,
+        ...result,
+      });
+    } catch (error) {
+      console.error("Error in whats-new:", error);
+      return res.json({ show: false });
+    }
+  });
+
+  // Dismiss the What's New modal
+  app.post("/api/changelog/dismiss", authWithTenant, async (req: any, res) => {
+    try {
+      const userId = req.user.id;
+      await storage.updateUser(userId, {
+        lastDismissedChangelogVersion: CURRENT_CHANGELOG_VERSION,
+      } as any);
+      return res.json({ success: true });
+    } catch (error) {
+      console.error("Error dismissing changelog:", error);
+      return res.status(500).json({ error: "Failed to dismiss changelog" });
+    }
+  });
+
   // OpenAPI specification for M365 Copilot Agent integration
   app.get("/openapi.yaml", async (req, res) => {
     try {
