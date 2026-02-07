@@ -163,6 +163,7 @@ export interface IStorage {
   }>>;
   
   getCheckInsByEntityId(entityType: string, entityId: string): Promise<CheckIn[]>;
+  getCheckInsByEntityIds(entityType: string, entityIds: string[]): Promise<Map<string, CheckIn[]>>;
   getCheckInById(id: string): Promise<CheckIn | undefined>;
   createCheckIn(checkIn: InsertCheckIn): Promise<CheckIn>;
   updateCheckIn(id: string, data: Partial<CheckIn>): Promise<CheckIn>;
@@ -1634,6 +1635,35 @@ export class DatabaseStorage implements IStorage {
   // These methods fetch data for multiple entities in a single query
   // to avoid N+1 query problems
   // ============================================
+
+  /**
+   * Get all check-ins for multiple entities in a single query
+   * Returns a Map of entityId -> CheckIn[]
+   */
+  async getCheckInsByEntityIds(entityType: string, entityIds: string[]): Promise<Map<string, CheckIn[]>> {
+    if (entityIds.length === 0) {
+      return new Map();
+    }
+    
+    const allCheckIns = await db
+      .select()
+      .from(checkIns)
+      .where(and(
+        eq(checkIns.entityType, entityType),
+        inArray(checkIns.entityId, entityIds)
+      ))
+      .orderBy(desc(checkIns.asOfDate));
+    
+    // Group by entityId
+    const resultMap = new Map<string, CheckIn[]>();
+    for (const checkIn of allCheckIns) {
+      const existing = resultMap.get(checkIn.entityId) || [];
+      existing.push(checkIn);
+      resultMap.set(checkIn.entityId, existing);
+    }
+    
+    return resultMap;
+  }
 
   /**
    * Get all key results for multiple objectives in a single query

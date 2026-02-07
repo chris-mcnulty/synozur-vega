@@ -70,10 +70,10 @@ router.post("/snapshots", requireValidatedTenant, async (req: Request, res: Resp
       storage.getBigRocksByTenantId(tenantId, req.body.quarter, req.body.year),
     ]);
     
-    // Get key results for all objectives
-    const keyResults = await Promise.all(
-      objectives.map(obj => storage.getKeyResultsByObjectiveId(obj.id))
-    ).then(results => results.flat());
+    // Get key results for all objectives using batch method
+    const objectiveIds = objectives.map(obj => obj.id);
+    const keyResultsMap = await storage.getKeyResultsByObjectiveIds(objectiveIds);
+    const keyResults = Array.from(keyResultsMap.values()).flat();
     
     // Calculate metrics (normalize progress to max 100% to avoid inflated averages)
     const completedObjectives = objectives.filter(o => (o.progress || 0) >= 100).length;
@@ -321,14 +321,15 @@ router.post("/reports/generate", requireValidatedTenant, async (req: Request, re
         storage.getTeamsByTenantId(tenantId),
       ]);
       
-      const keyResults = await Promise.all(
-        objectives.map(obj => storage.getKeyResultsByObjectiveId(obj.id))
-      ).then(results => results.flat());
+      // Use batch methods to avoid N+1 queries
+      const objectiveIds = objectives.map(obj => obj.id);
+      const keyResultsMap = await storage.getKeyResultsByObjectiveIds(objectiveIds);
+      const keyResults = Array.from(keyResultsMap.values()).flat();
       
-      // Fetch check-ins for all key results
-      const checkIns = await Promise.all(
-        keyResults.map(kr => storage.getCheckInsByEntityId('key_result', kr.id))
-      ).then(results => results.flat());
+      // Fetch check-ins for all key results in a single query
+      const keyResultIds = keyResults.map(kr => kr.id);
+      const checkInsMap = await storage.getCheckInsByEntityIds('key_result', keyResultIds);
+      const checkIns = Array.from(checkInsMap.values()).flat();
       
       const completedObjectives = objectives.filter(o => (o.progress || 0) >= 100).length;
       const completedKeyResults = keyResults.filter(kr => (kr.progress || 0) >= 100).length;
@@ -565,9 +566,10 @@ router.get("/summary", requireValidatedTenant, async (req: Request, res: Respons
       storage.getBigRocksByTenantId(tenantId, quarter, year),
     ]);
     
-    const keyResults = await Promise.all(
-      objectives.map(obj => storage.getKeyResultsByObjectiveId(obj.id))
-    ).then(results => results.flat());
+    // Use batch method to avoid N+1 queries
+    const objectiveIds = objectives.map(obj => obj.id);
+    const keyResultsMap = await storage.getKeyResultsByObjectiveIds(objectiveIds);
+    const keyResults = Array.from(keyResultsMap.values()).flat();
     
     const completedObjectives = objectives.filter(o => (o.progress || 0) >= 100).length;
     const completedKeyResults = keyResults.filter(kr => (kr.progress || 0) >= 100).length;
