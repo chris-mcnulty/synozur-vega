@@ -1,6 +1,6 @@
 # Vega Platform Master Backlog
 
-**Last Updated:** February 7, 2026 (Added v1.8 features: What's New, Ambitions, Performance Optimizations, Job Scheduler Enhancements)
+**Last Updated:** February 7, 2026 (Added AI documentation audit, Dashboard AI tools section)
 
 > **Note:** This is the single source of truth for all Vega feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference this document for backlog-related questions.
 
@@ -2493,6 +2493,27 @@ All date/time operations use America/Los_Angeles timezone.
 ---
 
 ## COMPLETED FEATURES
+
+### AI Documentation & Dashboard Update ✅ (February 7, 2026)
+
+Comprehensive AI features documentation and Dashboard surfacing:
+
+**User Guide Updates:**
+- Added documentation for 10 AI features that were built but undocumented
+- AI Check-in Note Rewriter (4 modes: full rewrite, clarity, concise, expand)
+- AI OKR Suggestions, Big Rock Suggestions, Annual Goal Suggestions
+- AI Strategy Drafter, Meeting Recap Parser, OKR Quality Scoring
+- AI Progress Summary for reports
+- Pace & Velocity Tracking with Pace Badges (Ahead, On Track, Behind, At Risk)
+- AI Provider Configuration (System Admin → AI Config tab)
+- Expanded Feature Overview with full AI & Intelligence category
+
+**Dashboard Update:**
+- Added "AI-Powered Tools" section to Company OS Dashboard
+- Four feature cards: AI Chat, Pace & Velocity, AI Suggestions, Check-in Rewriter
+- Surfaces AI capabilities to help users discover available tools
+
+---
 
 ### What's New & Changelog ✅ (February 7, 2026)
 

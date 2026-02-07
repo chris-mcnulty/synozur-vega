@@ -17,7 +17,7 @@ Version 1.8 | Last Updated: February 7, 2026
 7. [Strategy Module](#strategy-module)
 8. [Planning (OKRs)](#planning-okrs)
 9. [Focus Rhythm](#focus-rhythm)
-10. [AI Assistant](#ai-assistant)
+10. [AI Assistant & Intelligence](#ai-assistant)
 11. [Microsoft 365 Integration](#microsoft-365-integration)
 12. [Import & Export](#import--export)
 13. [Reporting](#reporting)
@@ -58,8 +58,16 @@ Vega is a comprehensive Company Operating System with the following capabilities
 - **Meeting Notes** - Capture decisions, action items, and follow-ups
 
 ### AI & Intelligence
-- **AI Chat Assistant** - Context-aware AI for strategy and OKR guidance
-- **OKR Intelligence** - Predictive analytics for pace and velocity
+- **AI Chat Assistant** - Context-aware AI for strategy and OKR guidance with function calling
+- **OKR Intelligence** - Predictive analytics for pace and velocity with Pace Badges
+- **AI Check-in Rewriter** - Improve check-in notes with four rewrite modes
+- **AI OKR Suggestions** - Generate objective and key result ideas based on your strategies
+- **AI Big Rock Suggestions** - Get initiative recommendations aligned to objectives
+- **AI Annual Goal Suggestions** - Generate goal ideas grounded in your mission, vision, and strategies
+- **AI Strategy Drafter** - Draft strategic initiatives from a description using organizational context
+- **AI Meeting Recap Parser** - Extract action items, decisions, and blockers from meeting notes
+- **OKR Quality Scoring** - AI-powered quality assessment with improvement suggestions
+- **AI Progress Summary** - Generate executive summaries of OKR progress for reports
 - **Launchpad Wizard** - AI-powered setup for new organizations using uploaded documents
 - **Dynamic AI Providers** - Support for multiple AI models (GPT-5, GPT-4o, Claude, Replit AI)
 - **AI Grounding Documents** - Customize AI behavior with company context
@@ -883,96 +891,290 @@ Click any meeting to see:
 
 ## AI Assistant
 
-Vega includes an AI-powered assistant to help you analyze data, answer questions, and generate insights.
+Vega includes a comprehensive suite of AI-powered tools that help you at every stage of strategic planning and execution. From drafting strategies and goals to tracking progress and improving your check-in notes, AI is woven throughout the platform.
 
-### Accessing the AI Assistant
+### Accessing the AI Chat
 
-Click the **sparkle icon (✨)** in the top right corner to open the AI chat panel.
+Click the **sparkle icon** in the top right corner to open the AI chat panel. This is your general-purpose assistant for querying data, getting insights, and asking questions.
 
-### What the AI Can Do
+### AI Chat Assistant
 
-The AI Assistant has access to your organization's data and can help with:
+The AI Chat has access to your organization's data and can help with:
 
-**1. Query OKRs:**
+**Query OKRs:**
 - "What are our Q4 objectives?"
 - "Show me all Key Results for the sales team"
 - "List objectives owned by John Smith"
 
-**2. Analyze Performance:**
+**Analyze Performance:**
 - "What items are at risk?"
 - "Show me objectives behind schedule"
 - "Which Key Results have exceeded their targets?"
 
-**3. Strategic Analysis:**
+**Strategic Analysis:**
 - "Find strategies without supporting objectives"
 - "Which annual goals lack objectives?"
 - "Identify execution gaps"
 
-**4. Meeting Insights:**
+**Meeting Insights:**
 - "Show upcoming quarterly meetings"
 - "List all meetings linked to this objective"
 
-**5. Context and Guidance:**
+**Context and Guidance:**
 - "What is our company mission?"
 - "What are our core values?"
 - "Explain the OKR methodology"
 
-### Using the AI Assistant
+**Using the Chat:**
 
-**To Ask a Question:**
-
-1. Open the AI chat panel (sparkle icon)
+1. Open the AI chat panel (sparkle icon in the top bar)
 2. Type your question in natural language
 3. Press Enter or click Send
 4. The AI will process your request and respond
 
-**Example Interactions:**
+The AI maintains conversation context, so you can ask follow-up questions like "Now show only the ones that are behind" without repeating your earlier query.
 
-```
-You: What are our Q4 2025 objectives for the marketing team?
+Behind the scenes, the AI uses specialized functions including: querying objectives, key results, big rocks, meetings, identifying at-risk items, analyzing strategic gaps and objective gaps, and accessing your mission, vision, and values.
 
-AI: I found 5 objectives for the marketing team in Q4 2025:
-1. Increase brand awareness in target markets (75% progress)
-2. Launch new website redesign (50% progress)
-...
+![AI Assistant chat panel with example conversation](/guide-images/10-ai-assistant-chat.png)
+*Screenshot showing the AI chat panel interface with example queries and responses*
 
-You: Which of these are at risk?
+---
 
-AI: Based on current status, "Launch new website redesign" is marked 
-as At Risk. The most recent check-in notes indicate delays in content 
-creation...
-```
+### AI Check-in Note Rewriter
 
-### AI Functions
+When recording check-in updates on Key Results or Big Rocks, the AI can help you write better, more professional notes.
 
-Behind the scenes, the AI uses specialized tools:
+**Where to Find It:**
+- Open any Key Result or Big Rock detail view
+- Enter your check-in note text
+- Click the AI rewrite button to improve your note
 
-- **listObjectives**: Query objectives with filters
-- **listKeyResults**: Retrieve Key Results
-- **listBigRocks**: Find initiatives
-- **listMeetings**: Search meetings
-- **getAtRiskItems**: Identify items needing attention
-- **analyzeStrategicGaps**: Find strategies without supporting initiatives
-- **analyzeObjectiveGaps**: Find goals without objectives
-- **getFoundationContext**: Access mission, vision, values
+**Four Rewrite Modes:**
 
-### Best Practices for AI
+| Mode | What It Does |
+|------|-------------|
+| **Full Rewrite** | Professional, detailed rewrite that includes context about progress toward the goal. Data-driven and specific. |
+| **Improve Clarity** | Fixes grammar, structure, and clarity while keeping the original meaning intact. |
+| **Make Concise** | Shortens the note while preserving key points. Makes it punchy and easy to scan. |
+| **Add Context** | Expands the note by adding relevant context about progress, timeline, and next steps based on actual data. |
 
-**Be Specific:**
+The AI has access to the Key Result's target value, current progress, pace status, and parent objective context, so it can write notes that reference real data.
+
+**Example:**
+
+Your original note: "things are going ok, talked to the team"
+
+AI Full Rewrite: "Progress is on track at 65% against our Q1 target of 500 new signups. Team alignment session completed this week to address the remaining 35% gap. Next steps include launching the referral campaign to accelerate acquisition pace."
+
+---
+
+### AI OKR Suggestions
+
+When creating objectives, the AI can suggest OKR ideas based on your existing strategies and organizational context.
+
+**Where to Find It:**
+- In the Planning module, look for the AI suggestion option when creating new objectives
+- The AI considers your current strategies, existing objectives for the period, and your organization's focus areas
+
+**What It Provides:**
+- Suggested objective titles with descriptions
+- Recommended key results for each objective
+- Alignment to existing strategies
+- Target values and measurement approaches
+
+---
+
+### AI Big Rock Suggestions
+
+When planning major initiatives for an objective, the AI can recommend Big Rock ideas.
+
+**Where to Find It:**
+- Within an objective's detail view, use the AI suggestion feature for Big Rocks
+- You can also ask for Big Rock ideas through the AI Chat panel
+
+**What It Provides:**
+- Initiative ideas that support the objective
+- Consideration of existing key results to suggest complementary initiatives
+- Practical, actionable recommendations
+
+---
+
+### AI Annual Goal Suggestions
+
+The AI can generate annual goal ideas that align with your organization's mission, vision, values, strategies, and existing objectives.
+
+**Where to Find It:**
+- In the Outcomes module when managing Annual Goals, open the AI Goal Suggestions dialog
+- Goals are generated automatically when you open the dialog
+
+**What It Provides:**
+- Goal titles grounded in your organizational identity and strategic direction
+- Suggestions that complement (rather than duplicate) your existing goals
+- One-click "Add" to create a goal directly from a suggestion
+
+---
+
+### AI Strategy Drafter
+
+Describe a strategic direction in your own words, and the AI will draft a complete strategy for you.
+
+**Where to Find It:**
+- In the Strategy module, use the "AI Draft" feature
+- Provide at least a brief description of the strategy you want to create (minimum 10 characters)
+
+**What It Provides:**
+- A professionally structured strategy draft
+- Content grounded in your organization's foundations (mission, vision, values)
+- Awareness of your existing strategies to avoid duplication
+- Streamed output so you can see the draft as it's being written
+
+---
+
+### AI Meeting Recap Parser
+
+After a meeting, paste your raw meeting notes and the AI will extract structured information automatically.
+
+**Where to Find It:**
+- In Focus Rhythm meeting detail views, use the AI recap feature
+- Provide your meeting notes (minimum 10 characters)
+
+**What It Extracts:**
+- **Action Items**: Tasks that need to be done, with suggested owners
+- **Decisions**: Key decisions made during the meeting
+- **Blockers**: Issues or obstacles raised that need resolution
+- Context from linked OKRs is used to make the parsing more relevant
+
+---
+
+### OKR Quality Scoring
+
+Get an AI-powered quality assessment of your objectives and key results before finalizing them.
+
+**Where to Find It:**
+- In the objective edit or creation view, click the **"Check Quality"** button
+- The AI analyzes your objective title, description, key results, and alignment
+
+**What It Provides:**
+- An overall quality score
+- Specific feedback on areas like clarity, measurability, ambition level, and alignment
+- Actionable suggestions for improvement
+- You can apply suggestions directly to update your OKR
+
+**Tips for Better Scores:**
+- Include a clear, specific objective title
+- Add a description that explains what success looks like
+- Define key results with measurable targets and units
+- Align your objective to parent strategies or goals
+
+---
+
+### AI Progress Summary
+
+When generating reports, the AI creates executive-level summaries of OKR progress for a given time period.
+
+**Where to Find It:**
+- In the Reporting module, AI-generated period summaries appear in both PDF and PowerPoint exports
+- The summary is automatically generated based on your objectives, key results, and check-in data
+
+**What It Provides:**
+- An executive headline summarizing period performance
+- Key themes (up to 4) extracted from check-in notes and progress data
+- Strategic guidance and recommendations for the next period
+- Included as a branded slide in PowerPoint exports
+
+---
+
+### Pace & Velocity Tracking (OKR Intelligence)
+
+Vega automatically calculates pace and velocity metrics for every objective and key result, giving you real-time intelligence on whether you're on track.
+
+**How It Works:**
+
+The system compares your actual progress against where you should be at this point in the quarter (or year for annual goals). For example, if you're 50% through Q2 and an objective is at 30% progress, you're behind pace.
+
+**Pace Badges:**
+
+Every objective and key result displays a color-coded pace badge:
+
+| Badge | Meaning |
+|-------|---------|
+| **Ahead** | Progress is more than 10 percentage points above expected pace |
+| **On Track** | Progress is within 10 percentage points of expected pace |
+| **Behind** | Progress is more than 10 points below expected, but less than 25 |
+| **At Risk** | Progress is more than 25 percentage points below expected pace |
+| **No Data** | Not enough check-in data to calculate pace |
+| **Completed** | The item has reached or exceeded its target |
+
+**Where You See Pace:**
+- **Executive Dashboard**: Summary counts of how many objectives are ahead, on track, behind, or at risk
+- **OKR Detail View**: Individual pace badge with tooltip showing expected vs. actual progress
+- **Hierarchical OKR Table**: Pace badges on each row for quick scanning
+- **Meeting Detail Pages**: Pace context for linked OKRs
+
+**Velocity Projections:**
+
+The system also calculates velocity (the rate of progress over time) and projects where you'll end up by the end of the period. This projection appears in tooltips when you hover over pace badges.
+
+**Risk Signals:**
+
+In addition to pace, the system detects risk signals:
+- **Stalled**: No check-in activity for an extended period
+- **Attention Needed**: Progress is falling behind and may need intervention
+
+---
+
+### AI Provider Configuration (Platform Admins Only)
+
+Platform administrators can switch the AI provider and model that powers all AI features in Vega.
+
+**Where to Find It:**
+- Navigate to **System Admin** (visible only to platform admins)
+- Click the **"AI Config"** tab
+
+**Supported Providers:**
+
+| Provider | Models | Notes |
+|----------|--------|-------|
+| **Replit AI** | Default model | No additional configuration needed |
+| **OpenAI** | GPT-5, GPT-4o | Requires OPENAI_API_KEY |
+| **Azure OpenAI** | GPT-5, GPT-4o | Requires AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY |
+| **Anthropic** | Claude 3.5 Opus, Claude 3.5 Sonnet, Claude 3.5 Haiku | Requires ANTHROPIC_API_KEY |
+
+**What Changes Affect:**
+- AI Chat conversations
+- OKR suggestions and quality scoring
+- Check-in note rewriting
+- Strategy drafting
+- Goal suggestions
+- Meeting recap parsing
+- Document analysis in Launchpad
+- Report AI summaries
+
+Changes take effect immediately after saving. Different models have different pricing, quality, and speed characteristics. GPT-5 offers the highest quality but at higher cost. GPT-4o provides a good balance.
+
+---
+
+### AI Best Practices
+
+**Be Specific in Chat:**
 - Instead of "Show me objectives", try "Show me Q4 marketing objectives"
 - Include time periods, teams, or owners for better results
 
-**Ask Follow-Up Questions:**
-- The AI maintains conversation context
-- You can refine queries: "Now show only the ones that are behind"
+**Use Rewrite Modes Strategically:**
+- Use "Full Rewrite" for drafts that need major improvement
+- Use "Improve Clarity" when the content is good but the writing needs polish
+- Use "Make Concise" for lengthy notes that need tightening
+- Use "Add Context" when your note is too brief
 
-**Use for Analysis:**
-- Ask "why" and "what if" questions
-- Request comparisons and trends
-- Get insights on patterns
+**Check OKR Quality Early:**
+- Score your objectives while drafting them, not after they're finalized
+- Apply the AI's suggestions iteratively for better results
 
-![AI Assistant chat panel with example conversation](/guide-images/10-ai-assistant-chat.png)
-*Screenshot showing the AI chat panel interface with example queries and responses, demonstrating the AI analyzing OKR data and providing strategic insights*
+**Leverage AI for Preparation:**
+- Use AI Goal Suggestions before annual planning sessions
+- Use Strategy Drafter to create starting points for team discussions
+- Use Meeting Recap Parser immediately after meetings while notes are fresh
 
 ---
 
