@@ -1,0 +1,84 @@
+Prompt for Replit Agent: Build "What's New" Feature Update Dialog
+
+You are building a "What's New" feature update dialog for Constellation, a multi-tenant consulting delivery platform built with React 18 + TypeScript + Vite on the frontend and Node.js + Express + Drizzle ORM + PostgreSQL on the backend. The UI uses shadcn/ui components with Tailwind CSS and supports dark mode.
+
+Goal
+Build a modal dialog that shows users a friendly summary of recent platform changes on their next login after a new changelog version is published. Users dismiss the modal once and don't see it again until the next notable update. The feature is controlled by a tenant-level admin setting (on by default, can be turned off).
+
+Existing Context
+Changelog source: client/public/docs/CHANGELOG.md — Markdown file with versioned release notes. Current version format: ### Version 1.2026.MM.DD (Month Day, Year). Each version section has sub-sections like #### ✨ New Features, #### 🛠 Improvements, #### 🐛 Bug Fixes.
+System settings table: system_settings table with columns setting_key (varchar PK), setting_value (text), description (text), setting_type (text). Already stores VERSION_RELEASE_DATE.
+Tenants table: tenants in shared/schema.ts — has boolean flags for various features (e.g., expenseRemindersEnabled). Add new columns here following the same pattern.
+Users table: users in shared/schema.ts — has varchar/text columns for user metadata. Add new columns here.
+Auth: requireAuth middleware from server/session-store protects API routes. req.user has id, role, tenantId. Roles: admin, billing-admin, pm, employee, executive.
+AI service: server/services/ai-service.ts exports aiService with customPrompt(systemPrompt, userMessage, options) method. Use { temperature: 0.3, maxTokens: 1000, responseFormat: 'json' } for structured output.
+Frontend patterns: Use @tanstack/react-query for data fetching (useQuery/useMutation), apiRequest from @/lib/queryClient for mutations, queryClient for cache invalidation. Use shadcn Dialog component from @/components/ui/dialog.
+Routes: All API routes are registered in server/routes.ts inside the registerRoutes(app) function. Add new routes there.
+Schema changes: Add columns to shared/schema.ts, then run npm run db:push (or npm run db:push --force if needed). Never write raw SQL migrations. Never change existing ID column types.
+What to Build
+1. Database Schema Changes (shared/schema.ts)
+Add to the users table:
+
+lastDismissedChangelogVersion: varchar("last_dismissed_changelog_version", { length: 50 }),
+Add to the tenants table:
+
+showChangelogOnLogin: boolean("show_changelog_on_login").default(true),
+Run npm run db:push after schema changes.
+
+2. Backend API Endpoints (add to server/routes.ts)
+GET /api/changelog/whats-new (protected by requireAuth):
+
+Look up the tenant's showChangelogOnLogin — if false, return { show: false }.
+Read CURRENT_CHANGELOG_VERSION from system_settings. If missing, return { show: false }.
+Compare against req.user's lastDismissedChangelogVersion — if they match, return { show: false }.
+Check if a cached summary exists in system_settings with key CHANGELOG_SUMMARY_{version}. If yes, return it.
+If no cache: read client/public/docs/CHANGELOG.md, extract the section for the current version (everything between the version's ### Version heading and the next ### Version heading or ---).
+Send the extracted section to aiService.customPrompt() with this system prompt:
+Summarize these software release notes into a friendly, non-technical overview for end users of a consulting project management platform. Group changes into 3-5 highlights. Use simple, clear language. Respond with valid JSON only: { "summary": "One paragraph overview", "highlights": ["Highlight 1 description", "Highlight 2 description", ...] }
+Cache the AI result in system_settings as CHANGELOG_SUMMARY_{version}.
+Return { show: true, version: string, date: string, summary: string, highlights: string[] }.
+POST /api/changelog/dismiss (protected by requireAuth):
+
+Read CURRENT_CHANGELOG_VERSION from system_settings.
+Update the current user's lastDismissedChangelogVersion to that version.
+Return { success: true }.
+3. Frontend Component: client/src/components/WhatsNewModal.tsx
+Build a modal dialog with these specs:
+
+Data fetching: useQuery({ queryKey: ['/api/changelog/whats-new'] }) — fetches on app load.
+Visibility: Only render the Dialog when response has show: true.
+Header: "What's New in Constellation" with the version string and formatted release date.
+Body: The summary paragraph followed by highlights as a bulleted list with checkmark or sparkle icons.
+Footer:
+"Got it" primary button — calls POST /api/changelog/dismiss, then invalidates ['/api/changelog/whats-new'] query.
+"View Full Changelog" secondary link — navigates to /changelog using wouter's useLocation.
+Mobile responsive (critical):
+Desktop: centered modal, max-w-lg, padding p-6.
+Mobile (<640px): near-full-width w-[calc(100vw-2rem)] sm:max-w-lg, padding p-4.
+Body scrollable: max-h-[60vh] overflow-y-auto.
+Footer buttons stack vertically on mobile: flex-col sm:flex-row.
+"Got it" button: full-width on mobile, minimum 44px height for touch targets.
+Text scaling: header text-lg sm:text-xl, body text-sm sm:text-base.
+Dark mode: Use Tailwind dark: variants following existing patterns in the app.
+4. Layout Integration
+Add <WhatsNewModal /> to client/src/components/layout/layout.tsx alongside the existing <HelpChat /> component. It should only render for authenticated users.
+
+5. Admin Setting
+In the System Settings page (find the tenant settings form), add a toggle for "Show 'What's New' on Login" bound to tenants.showChangelogOnLogin. Include helper text: "When enabled, users see a summary of new features after each platform update."
+
+6. Set Current Version
+Insert or update CURRENT_CHANGELOG_VERSION in system_settings to match the latest version in CHANGELOG.md (currently 1.2026.01.31).
+
+Edge Cases to Handle
+New users with null lastDismissedChangelogVersion: show the modal on first login.
+AI service unavailable: fall back to the first 500 characters of the raw changelog section.
+Missing changelog file: return { show: false } gracefully.
+Tenant admin disables feature: no modal for any user in that tenant.
+Testing
+After building, verify:
+
+Login as a user → modal appears with AI-generated summary and date.
+Click "Got it" → modal doesn't appear on next page load.
+Change CURRENT_CHANGELOG_VERSION to a new value → modal reappears on next load.
+Disable showChangelogOnLogin for the tenant → modal stops appearing for all tenant users.
+Test on mobile viewport (375px width) → modal displays as near-full-width with stacked buttons.
