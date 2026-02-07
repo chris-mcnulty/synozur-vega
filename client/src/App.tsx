@@ -190,7 +190,7 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
           {chatOpen && <AIChatPanel onClose={() => setChatOpen(false)} />}
         </div>
       </div>
-      <WhatsNewModal />
+      {/* WhatsNewModal disabled */}
     </div>
   );
 }
