@@ -425,6 +425,39 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  // In-memory cache with TTL for frequently-accessed queries
+  private queryCache = new Map<string, { data: any; timestamp: number }>();
+  private readonly CACHE_TTL = 60 * 1000; // 60 seconds
+
+  /**
+   * Get data from cache if available and not expired
+   */
+  private getCached<T>(cacheKey: string): T | null {
+    const cached = this.queryCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+      return cached.data as T;
+    }
+    return null;
+  }
+
+  /**
+   * Store data in cache with current timestamp
+   */
+  private setCache(cacheKey: string, data: any): void {
+    this.queryCache.set(cacheKey, { data, timestamp: Date.now() });
+  }
+
+  /**
+   * Invalidate cache entries by prefix
+   */
+  private invalidateCache(prefix: string): void {
+    for (const key of Array.from(this.queryCache.keys())) {
+      if (key.startsWith(prefix)) {
+        this.queryCache.delete(key);
+      }
+    }
+  }
+
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
@@ -751,6 +784,13 @@ export class DatabaseStorage implements IStorage {
 
   // Enhanced OKR Method Implementations
   async getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number, level?: string, teamId?: string): Promise<Objective[]> {
+    // Check cache first
+    const cacheKey = `objectives:${tenantId}:${quarter}:${year}:${level}:${teamId}`;
+    const cached = this.getCached<Objective[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     // Build base conditions
     const conditions: any[] = [eq(objectives.tenantId, tenantId)];
     
@@ -785,11 +825,21 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(objectives.teamId, teamId));
     }
     
-    return await db.select().from(objectives).where(and(...conditions));
+    const data = await db.select().from(objectives).where(and(...conditions));
+    this.setCache(cacheKey, data);
+    return data;
   }
 
   async getTeamsByTenantId(tenantId: string): Promise<Team[]> {
-    return await db.select().from(teams).where(eq(teams.tenantId, tenantId));
+    const cacheKey = `teams:${tenantId}`;
+    const cached = this.getCached<Team[]>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const data = await db.select().from(teams).where(eq(teams.tenantId, tenantId));
+    this.setCache(cacheKey, data);
+    return data;
   }
 
   async getTeamByName(tenantId: string, name: string): Promise<Team | undefined> {
@@ -799,6 +849,8 @@ export class DatabaseStorage implements IStorage {
 
   async createTeam(team: InsertTeam): Promise<Team> {
     const [created] = await db.insert(teams).values(team as any).returning();
+    // Invalidate teams cache for this tenant
+    this.invalidateCache(`teams:${team.tenantId}`);
     return created;
   }
 
@@ -817,11 +869,20 @@ export class DatabaseStorage implements IStorage {
       } as any)
       .where(eq(teams.id, id))
       .returning();
+    // Invalidate teams cache for this tenant
+    if (team) {
+      this.invalidateCache(`teams:${team.tenantId}`);
+    }
     return team;
   }
 
   async deleteTeam(id: string): Promise<void> {
+    // Get team first to know which tenant to invalidate
+    const team = await this.getTeamById(id);
     await db.delete(teams).where(eq(teams.id, id));
+    if (team) {
+      this.invalidateCache(`teams:${team.tenantId}`);
+    }
   }
 
   async getObjectiveById(id: string): Promise<Objective | undefined> {
@@ -843,6 +904,8 @@ export class DatabaseStorage implements IStorage {
         linkedGoals: insertObjective.linkedGoals ? [...insertObjective.linkedGoals] : null,
       } as any)
       .returning();
+    // Invalidate objectives cache for this tenant
+    this.invalidateCache(`objectives:${objective.tenantId}`);
     return objective;
   }
 
@@ -858,15 +921,25 @@ export class DatabaseStorage implements IStorage {
       } as any)
       .where(eq(objectives.id, id))
       .returning();
+    // Invalidate objectives cache for this tenant
+    if (objective) {
+      this.invalidateCache(`objectives:${objective.tenantId}`);
+    }
     return objective;
   }
 
   async deleteObjective(id: string): Promise<void> {
+    // Get objective first to know which tenant to invalidate
+    const objective = await this.getObjectiveById(id);
     // Delete child key results and big rocks first
     await db.delete(keyResults).where(eq(keyResults.objectiveId, id));
     await db.delete(bigRocks).where(eq(bigRocks.objectiveId, id));
     // Delete the objective
     await db.delete(objectives).where(eq(objectives.id, id));
+    // Invalidate objectives cache for this tenant
+    if (objective) {
+      this.invalidateCache(`objectives:${objective.tenantId}`);
+    }
   }
 
   async cloneObjective(objectiveId: string, options: {
@@ -1066,6 +1139,13 @@ export class DatabaseStorage implements IStorage {
       .insert(keyResults)
       .values(insertKeyResult as any)
       .returning();
+    // Invalidate objectives cache since KR progress affects objective progress
+    if (keyResult.objectiveId) {
+      const objective = await this.getObjectiveById(keyResult.objectiveId);
+      if (objective) {
+        this.invalidateCache(`objectives:${objective.tenantId}`);
+      }
+    }
     return keyResult;
   }
 
@@ -1075,14 +1155,30 @@ export class DatabaseStorage implements IStorage {
       .set(updateData as any)
       .where(eq(keyResults.id, id))
       .returning();
+    // Invalidate objectives cache since KR progress affects objective progress
+    if (keyResult.objectiveId) {
+      const objective = await this.getObjectiveById(keyResult.objectiveId);
+      if (objective) {
+        this.invalidateCache(`objectives:${objective.tenantId}`);
+      }
+    }
     return keyResult;
   }
 
   async deleteKeyResult(id: string): Promise<void> {
+    // Get key result first to invalidate cache
+    const keyResult = await this.getKeyResultById(id);
     // Delete associated big rocks first
     await db.delete(bigRocks).where(eq(bigRocks.keyResultId, id));
     // Delete the key result
     await db.delete(keyResults).where(eq(keyResults.id, id));
+    // Invalidate objectives cache
+    if (keyResult?.objectiveId) {
+      const objective = await this.getObjectiveById(keyResult.objectiveId);
+      if (objective) {
+        this.invalidateCache(`objectives:${objective.tenantId}`);
+      }
+    }
   }
 
   async promoteKeyResultToKpi(keyResultId: string, userId: string): Promise<Kpi> {
@@ -1221,6 +1317,13 @@ export class DatabaseStorage implements IStorage {
         tasks: insertBigRock.tasks ? [...insertBigRock.tasks] : null,
       } as any)
       .returning();
+    // Invalidate objectives cache since big rocks are linked to objectives
+    if (bigRock.objectiveId) {
+      const objective = await this.getObjectiveById(bigRock.objectiveId);
+      if (objective) {
+        this.invalidateCache(`objectives:${objective.tenantId}`);
+      }
+    }
     return bigRock;
   }
 
@@ -1235,11 +1338,27 @@ export class DatabaseStorage implements IStorage {
       })
       .where(eq(bigRocks.id, id))
       .returning();
+    // Invalidate objectives cache
+    if (bigRock.objectiveId) {
+      const objective = await this.getObjectiveById(bigRock.objectiveId);
+      if (objective) {
+        this.invalidateCache(`objectives:${objective.tenantId}`);
+      }
+    }
     return bigRock;
   }
 
   async deleteBigRock(id: string): Promise<void> {
+    // Get big rock first to invalidate cache
+    const bigRock = await this.getBigRockById(id);
     await db.delete(bigRocks).where(eq(bigRocks.id, id));
+    // Invalidate objectives cache
+    if (bigRock?.objectiveId) {
+      const objective = await this.getObjectiveById(bigRock.objectiveId);
+      if (objective) {
+        this.invalidateCache(`objectives:${objective.tenantId}`);
+      }
+    }
   }
 
   // Big Rock Task methods
