@@ -159,6 +159,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Don't show for first-time users (they already see the Launchpad welcome screen)
+      if (!user.lastDismissedChangelogVersion) {
+        // Silently set their version so they'll see future updates
+        await storage.updateUser(user.id, { lastDismissedChangelogVersion: CURRENT_CHANGELOG_VERSION });
+        return res.json({ show: false });
+      }
+
       // Check if user already dismissed this version
       if (user.lastDismissedChangelogVersion === CURRENT_CHANGELOG_VERSION) {
         return res.json({ show: false });
