@@ -11,13 +11,19 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 ### February 7, 2026 - Version 1.8
 
 **New Features**
-- **What's New Modal**: See a friendly AI-powered summary of recent platform updates when you log in after a new release. Tenant admins can toggle this feature on or off.
-- **Full Changelog Page**: Browse the complete history of Vega updates from a dedicated page in the sidebar, with search and table of contents.
-- **Annual Goals in Outcomes**: Annual Goals have moved from Foundations to the Outcomes module for tighter alignment with OKR planning workflows. All functionality preserved including AI suggestions, cloning, and year selectors.
+- **What's New Modal**: See a friendly AI-powered summary of recent platform updates when you log in after a new release. First-time users see the Launchpad welcome instead and are silently updated to the current version. Tenant admins can toggle this feature on or off in General settings.
+- **Full Changelog Page**: Browse the complete history of Vega updates from a dedicated page accessible from the sidebar, with search, table of contents, and scroll-to-top.
+- **Annual Goals in Outcomes**: Annual Goals have moved from Foundations to the Outcomes module for tighter alignment with OKR planning workflows. All functionality preserved including AI suggestions, ambition linking, cloning, and year selectors.
 
 **Improvements**
-- Job Scheduler now supports killing stuck job runs with confirmation and audit trail
+- Job Scheduler now supports killing stuck job runs with confirmation dialog and audit trail (records killedByUserId and killedAt)
+- Job Scheduler supports schedule editing with presets from every minute to daily intervals (vega_admin only)
 - Enhanced OKR Intelligence with improved velocity projections
+
+**Performance**
+- Executive Dashboard now fetches all key results in a single batch request instead of one per objective, significantly reducing load times for large tenants
+- Storage layer batch methods (getKeyResultsByObjectiveIds, getCheckInsByEntityIds) with in-memory query caching (60-second TTL) and automatic cache invalidation on writes
+- Report generation and COS export use batch queries to eliminate N+1 database patterns
 
 ---
 
@@ -54,7 +60,7 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
   - Manual job controls: Run Now, Pause, Resume (vega_admin only)
   - View-only access for tenant_admin users
   - Automatic email notifications to all platform admins when jobs fail
-  - Two system jobs configured: Expiration Reminders (hourly) and Reminder Cache Reset (5 minutes)
+  - Two system jobs configured: Expiration Reminders (daily) and Reminder Cache Reset (daily)
 
 **Improvements**
 - System Admin now includes a "Scheduled Jobs" tab for job monitoring

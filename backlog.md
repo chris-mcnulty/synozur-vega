@@ -1,5 +1,60 @@
 # Vega Roadmap & Backlog
 
+Last Updated: February 7, 2026
+
+---
+
+## Recently Completed
+
+### What's New & Changelog (v1.8)
+**Status**: COMPLETE (v1.8 - February 7, 2026)
+
+- What's New modal with AI-powered summaries shown on login after new releases
+- First-time user detection (skips modal, shows Launchpad welcome instead)
+- Tenant admin toggle for "Show What's New on Login" in General settings
+- Full Changelog page at `/changelog` with markdown rendering, search, table of contents, and scroll-to-top
+- Changelog accessible from sidebar navigation
+
+### Annual Goals Move to Outcomes (v1.8)
+**Status**: COMPLETE (v1.8 - February 7, 2026)
+
+- Annual Goals moved from Foundations to Outcomes module
+- All functionality preserved: AI suggestions, ambition linking, cloning, year selectors
+
+### Performance Optimizations (v1.8)
+**Status**: COMPLETE (v1.8 - February 7, 2026)
+
+- Executive Dashboard batch key results fetch (eliminates N+1 queries)
+- Storage batch methods: `getKeyResultsByObjectiveIds`, `getCheckInsByEntityIds`
+- In-memory query cache with 60-second TTL and automatic invalidation on writes
+- Report generation and COS export use batch queries
+
+### Job Scheduler Enhancements (v1.8)
+**Status**: COMPLETE (v1.8 - February 7, 2026)
+
+- Kill stuck job runs with confirmation dialog and audit trail (killedByUserId, killedAt)
+- Schedule editing with presets from every minute to daily intervals (vega_admin only)
+- resultSummary JSONB field for structured execution results
+
+### Ambitions Module (v1.7)
+**Status**: COMPLETE (v1.7 - February 2, 2026)
+
+- `ambitions` JSONB field added to foundations table
+- Ambitions UI in Foundations page with add/edit/close/reopen
+- Active/Closed filtering via Tabs component
+- Value linking (multi-select from org values)
+- Target year selection (3-10 years from current)
+- Soft limit warning at >5 active ambitions
+- Annual Goals can link to parent Ambitions
+- MCP tools: `get_ambitions` and enhanced `get_annual_goals` with `includeAmbitions`
+- OpenAPI spec updated with Ambition/AnnualGoal schemas
+
+**Remaining Enhancements** (Future):
+- Company OS Dashboard chart update to show Ambitions layer
+- PDF report inclusion of Ambitions
+
+---
+
 ## Priority 1: Microsoft Planner Integration for Big Rock Tasks
 **Status**: Design Complete - Ready to Build
 
@@ -11,57 +66,17 @@ Publishing Big Rock tasks to Microsoft Planner with three options:
 **Implementation Details**:
 - `bigRockPlannerMappings` table: id, bigRockId, tenantId, teamId, channelId, planId, bucketId, lastSyncedAt
 - Bidirectional Sync: Vega → Planner and Planner → Vega
+- Status mapping already in place: Open=0%, In Progress=50%, Completed=100%
 - Reference: Use Constellation's planner-service.ts patterns
 
----
-
-## Priority 2: Ambitions Module
-**Status**: ✅ COMPLETE (v1.7)
-
-Add 3-5 year strategic targets (Ambitions) as a new layer above Annual Goals in Foundations.
-
-**Implemented Features**:
-- ✅ `ambitions` JSONB field added to foundations table
-- ✅ Ambitions UI in Foundations page with add/edit/close/reopen
-- ✅ Active/Closed filtering via Tabs component
-- ✅ Value linking (multi-select from org values)
-- ✅ Target year selection (3-10 years from current)
-- ✅ Soft limit warning at >5 active ambitions
-- ✅ Annual Goals can link to parent Ambitions
-- ✅ MCP tools: `get_ambitions` and enhanced `get_annual_goals` with `includeAmbitions`
-- ✅ OpenAPI spec updated with Ambition/AnnualGoal schemas
-- ✅ User Guide updated with Ambitions documentation
-- ✅ replit.md updated with Ambitions module documentation
-
-**Data Model**:
-```
-Ambition {
-  id: string (UUID)
-  title: string
-  description?: string
-  targetYear: number
-  linkedValueTitles?: string[]
-  status: 'active' | 'closed'
-  closedAt?: Date
-  closedNote?: string
-  createdAt: Date
-}
-
-AnnualGoal {
-  title: string
-  year: number
-  description?: string
-  linkedAmbitionId?: string  // optional link to parent Ambition
-}
-```
-
-**Remaining Work** (Future Enhancements):
-- Company OS Dashboard chart update to show Ambitions layer
-- PDF report inclusion of Ambitions
+**Prerequisites Built**:
+- Big Rock Tasks feature complete (v1.5) with full CRUD, RBAC, status workflow
+- Task count badges on Big Rock cards
+- Planner task ID field (`plannerTaskId`) already on bigRockTasks table
 
 ---
 
-## Priority 3: Support Tickets & Feedback
+## Priority 2: Support Tickets & Feedback
 **Status**: Design Complete
 
 **Support Tickets**:
@@ -85,15 +100,32 @@ AnnualGoal {
 
 ---
 
-## Priority 4: M365 Copilot Studio + MCP Integration
+## Priority 3: M365 Copilot Studio + MCP Integration
 **Status**: Design In Progress
 
 Enable Vega data access through M365 Copilot via Copilot Studio → MCP Server pattern.
 
+**Already Built**:
+- MCP Server at `/mcp` endpoint with 13 tools (10 read, 3 write)
+- JWT-based auth with scope-based permissions
+- API key management with rotation and IP allowlisting
+- OpenAPI spec available at `/openapi.yaml` and `/openapi.json`
+- Copilot Agent manifests in `/public/copilot-agent/`
+
 ---
 
 ## Future Backlog Items
+
+### Platform Enhancements
+- Company OS Dashboard chart update to show Ambitions layer
+- PDF report inclusion of Ambitions
 - Enhanced AI-powered OKR recommendations
-- Additional M365 integrations (SharePoint document linking)
 - Advanced reporting and analytics dashboards
 - Mobile-responsive improvements
+
+### Integrations
+- Additional M365 integrations (SharePoint document linking)
+- Bidirectional Planner sync for Big Rock Tasks (Priority 1)
+
+### Known Issues
+- Outcomes page intermittent black screen with Excel autosync (under investigation)

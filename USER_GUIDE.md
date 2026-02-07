@@ -2,7 +2,7 @@
 
 **Welcome to Vega - The Synozur Alliance Company Operating System**
 
-Version 1.7 | Last Updated: February 2, 2026
+Version 1.8 | Last Updated: February 7, 2026
 
 ---
 
@@ -11,19 +11,20 @@ Version 1.7 | Last Updated: February 2, 2026
 1. [Feature Overview](#feature-overview)
 2. [Introduction](#introduction)
 3. [Getting Started](#getting-started)
-4. [Dashboard Overview](#dashboard-overview)
-5. [Foundations Module](#foundations-module)
-6. [Strategy Module](#strategy-module)
-7. [Planning (OKRs)](#planning-okrs)
-8. [Focus Rhythm](#focus-rhythm)
-9. [AI Assistant](#ai-assistant)
-10. [Microsoft 365 Integration](#microsoft-365-integration)
-11. [Import & Export](#import--export)
-12. [Reporting](#reporting)
-13. [Launchpad (AI Kickstart Wizard)](#launchpad-ai-kickstart-wizard)
-14. [Settings & Administration](#settings--administration)
-15. [Best Practices](#best-practices)
-16. [Troubleshooting](#troubleshooting)
+4. [What's New & Changelog](#whats-new--changelog)
+5. [Dashboard Overview](#dashboard-overview)
+6. [Foundations Module](#foundations-module)
+7. [Strategy Module](#strategy-module)
+8. [Planning (OKRs)](#planning-okrs)
+9. [Focus Rhythm](#focus-rhythm)
+10. [AI Assistant](#ai-assistant)
+11. [Microsoft 365 Integration](#microsoft-365-integration)
+12. [Import & Export](#import--export)
+13. [Reporting](#reporting)
+14. [Launchpad (AI Kickstart Wizard)](#launchpad-ai-kickstart-wizard)
+15. [Settings & Administration](#settings--administration)
+16. [Best Practices](#best-practices)
+17. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -34,7 +35,7 @@ Vega is a comprehensive Company Operating System with the following capabilities
 ### Strategy & Planning
 - **Mission, Vision & Values** - Define and communicate your organization's core identity
 - **Ambitions** - 3-5 year strategic targets that bridge vision and annual goals (New in v1.7)
-- **Annual Goals** - Set high-level yearly targets with optional ambition linking
+- **Annual Goals** - Set high-level yearly targets with optional ambition linking (moved to Outcomes in v1.8)
 - **Strategic Initiatives** - Create and manage strategic priorities with owner assignment and timeline
 - **OKRs (Objectives & Key Results)** - Full OKR framework with 4 hierarchy levels (Organization, Team, Division, Individual)
 - **Big Rocks** - Major quarterly initiatives linked to objectives and strategies
@@ -79,6 +80,10 @@ Vega is a comprehensive Company Operating System with the following capabilities
 - **OKR Quality Scores** - Automated scoring for objective quality
 - **Dashboard Views** - Executive, Team, and Company OS dashboards
 
+### Platform Updates
+- **What's New Modal** - AI-powered summary of recent platform updates shown on login (New in v1.8)
+- **Changelog Page** - Full history of platform updates with search and table of contents (New in v1.8)
+
 ### Administration
 - **Multi-Tenancy** - Isolated organizations with data security
 - **Role-Based Access Control** - Six roles with fine-grained permissions
@@ -97,7 +102,7 @@ Vega is a comprehensive Company Operating System designed to help organizations 
 
 ### Key Features
 
-- **Foundations**: Define your organization's identity through mission, vision, values, and annual goals
+- **Foundations**: Define your organization's identity through mission, vision, values, and ambitions
 - **Strategy**: Develop and track strategic initiatives that drive your business forward
 - **Planning (OKRs)**: Set and track Objectives and Key Results at organization, team, division, and individual levels
 - **Focus Rhythm**: Integrate strategy reviews with regular meeting cadences (weekly, monthly, quarterly, annual)
@@ -170,7 +175,7 @@ After logging in for the first time:
 The left sidebar provides access to all major modules:
 
 - **Dashboard**: Your home base showing key metrics and priorities
-- **Foundations**: Organization identity (mission, vision, values, annual goals)
+- **Foundations**: Organization identity (mission, vision, values, ambitions)
 - **Strategy**: Strategic initiatives and plans
 - **Planning**: OKR management (Objectives, Key Results, Big Rocks)
 - **Focus Rhythm**: Meeting management and cadence
@@ -188,6 +193,42 @@ The left sidebar provides access to all major modules:
 
 ![Vega main interface showing navigation and controls](/guide-images/02-main-navigation.png)
 *Screenshot highlighting the left sidebar navigation and top bar elements including AI chat icon, theme toggle, and profile menu*
+
+---
+
+## What's New & Changelog
+
+Vega keeps you informed about platform updates through two features added in v1.8.
+
+### What's New Modal
+
+When you log in after a new release, a "What's New" modal appears with an AI-generated summary of recent changes. This gives you a quick overview of new features and improvements without needing to read the full changelog.
+
+**How It Works:**
+- Appears automatically after login when there are new updates since your last visit
+- Shows a friendly, plain-language summary of recent changes
+- Click **"Got it"** to dismiss until the next release
+- First-time users will not see this modal (you will see the Launchpad welcome instead)
+
+**Tenant Admin Control:**
+Tenant admins can turn this feature on or off for their organization:
+1. Navigate to **Tenant Admin** (Admin section)
+2. Go to the **General** tab
+3. Find **Notifications** section
+4. Toggle **"Show What's New on Login"** on or off
+
+### Changelog Page
+
+Browse the complete history of all Vega updates from a dedicated page.
+
+**Accessing the Changelog:**
+Click **"Changelog"** in the left sidebar under the support section.
+
+**Features:**
+- Full markdown-rendered history of all platform updates
+- **Search**: Filter entries by keyword to find specific features or fixes
+- **Table of Contents**: Jump to any version or date with one click
+- **Scroll to Top**: Quick return to the top of the page after scrolling
 
 ---
 
@@ -331,7 +372,7 @@ Ambitions are 3-5 year strategic targets that bridge the gap between your vision
 
 #### Annual Goals
 
-High-level goals for the current fiscal year.
+High-level goals for the current fiscal year. As of v1.8, Annual Goals are managed in the **Outcomes** module (previously in Foundations) for tighter alignment with OKR planning workflows. All functionality is preserved including AI suggestions, ambition linking, cloning, and year selectors.
 
 **Structure:**
 - **Title**: Clear, measurable goal statement
@@ -371,7 +412,7 @@ How your organization works together and what makes your culture unique.
 Guidelines for communication tone and style.
 
 ![Foundations module displaying core organizational identity](/guide-images/04-foundations-module.png)
-*Screenshot displaying the Foundations page with Mission, Vision, Values (with tags), Annual Goals, and other identity components*
+*Screenshot displaying the Foundations page with Mission, Vision, Values (with tags), Ambitions, and other identity components*
 
 ### Editing Foundations (Admin Only)
 
@@ -1843,7 +1884,7 @@ Navigate to System Admin → Scheduled Jobs tab.
 View all registered background jobs with:
 - **Job Name**: Display name and technical identifier
 - **Status**: Active (running on schedule) or Paused
-- **Schedule**: How often the job runs (e.g., "Every hour", "Every 5 minutes")
+- **Schedule**: How often the job runs (e.g., "Every day", "Every hour")
 - **Category**: Job type (notification, sync, maintenance, system)
 - **Last Run**: When the job last executed
 - **Next Run**: When the job will run next
@@ -1860,10 +1901,12 @@ Platform admins with vega_admin role can control jobs:
 - **Run Now**: Manually trigger a job immediately
 - **Pause**: Stop a job from running on its schedule
 - **Resume**: Restart a paused job
+- **Edit Schedule**: Change how often a job runs using schedule presets (every minute to daily intervals)
+- **Kill Stuck Run**: Force-stop a job run that appears stuck in "Running" state. Requires confirmation. Records who killed it and when for audit purposes.
 
 **Currently Registered Jobs:**
-- **Expiration Reminders**: Runs hourly to check for expiring items and send notification emails
-- **Reminder Cache Reset**: Runs every 5 minutes for cache maintenance
+- **Expiration Reminders**: Runs daily to check for expiring items and send notification emails
+- **Reminder Cache Reset**: Runs daily for cache maintenance
 
 **Job Failure Notifications:**
 When any background job fails, all platform admins (vega_admin users) receive an email alert with:
@@ -2142,7 +2185,7 @@ Vega uses role-based permissions to control access:
 
 **Focus Rhythm**: Regular meeting cadences (weekly, monthly, quarterly, annual) that connect strategy to execution.
 
-**Foundation**: The core identity elements of an organization: mission, vision, values, and annual goals.
+**Foundation**: The core identity elements of an organization: mission, vision, values, and ambitions. Annual goals are managed in the Outcomes module.
 
 **Key Result (KR)**: A quantitative metric that measures progress toward an objective. Typically 3-5 per objective.
 
@@ -2184,6 +2227,13 @@ Vega uses role-based permissions to control access:
   - Added responsive mobile design for admin screens
   - System Admin now has tabs: Vocabulary, AI Usage, Plans, Security, Tenants, Traffic, Announcements
   - Updated navigation and documentation for admin screens
+- **v1.4** (February 7, 2026): Version 1.8 updates:
+  - Added What's New & Changelog section with modal and full changelog page documentation
+  - Updated Annual Goals to reflect move from Foundations to Outcomes module
+  - Added Job Scheduler kill stuck runs and schedule editing documentation
+  - Updated job schedules to reflect actual intervals (daily)
+  - Added Platform Updates category to Feature Overview
+  - Updated Table of Contents
 
 ---
 
