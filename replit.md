@@ -59,7 +59,15 @@ Preferred communication style: Simple, everyday language.
     - Rate limiting (60 req/min per tenant, 10 token exchanges/min per IP)
     - Full audit logging of all tool invocations
     - UI for key management in Tenant Admin → Integrations tab with IP restrictions, rotation, and visual warning for write permissions
-- **Job Scheduler**: Platform-wide background job management accessible via System Admin → Scheduled Jobs. Features job registration, execution history, manual triggers, pause/resume controls, schedule editing (vega_admin only), kill stuck runs (with confirmation), and failure email notifications. Currently runs 2 system jobs: expiration-reminders (daily) and reminder-cache-reset (daily). Supports schedule presets from every minute to daily intervals. Kill functionality marks stuck runs as KILLED and records killedByUserId and killedAt. Aligned with Constellation patterns including resultSummary JSONB field for structured execution results.
+- **Microsoft Planner Integration (Priority 1)**: Bidirectional task linking between Planner and Vega. Features:
+    - PlannerTaskLinkPanel in Objective and Big Rock detail views for linking/unlinking tasks
+    - PlannerSyncStatusSection in Tenant Admin → Integrations tab with connection status, sync metrics, manual sync controls
+    - Independent OAuth flow with Tasks.ReadWrite + Group.Read.All scopes (no Outlook dependency)
+    - Token expiry detection with reconnect banners and error recovery
+    - Auto-sync scheduler job (planner-sync) running every 4 hours via Job Scheduler
+    - Backend: graph-planner service (server/services/graph-planner.ts), planner routes (server/routes-planner.ts)
+    - Frontend: PlannerTaskLinkPanel (client/src/components/planner/PlannerTaskLinkPanel.tsx)
+- **Job Scheduler**: Platform-wide background job management accessible via System Admin → Scheduled Jobs. Features job registration, execution history, manual triggers, pause/resume controls, schedule editing (vega_admin only), kill stuck runs (with confirmation), and failure email notifications. Currently runs 3 system jobs: expiration-reminders (daily), reminder-cache-reset (daily), planner-sync (every 4 hours). Supports schedule presets from every minute to daily intervals. Kill functionality marks stuck runs as KILLED and records killedByUserId and killedAt. Aligned with Constellation patterns including resultSummary JSONB field for structured execution results.
 
 ## Related Synozur Products
 

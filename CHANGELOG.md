@@ -11,6 +11,12 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 ### February 7, 2026 - Version 1.8
 
 **New Features**
+- **Microsoft Planner Integration (Priority 1)**: Link Planner tasks directly to Objectives and Big Rocks for unified progress tracking
+  - Planner Task Link Panel in Objective and Big Rock detail views with task status, progress bars, and due dates
+  - Planner management section in Tenant Admin Integrations tab with connection status, sync metrics, and manual sync controls
+  - Automatic background sync every 4 hours via Job Scheduler
+  - Independent OAuth flow (no Outlook dependency) with Tasks.ReadWrite scope
+  - Token expiry detection with reconnect banners and error recovery
 - **What's New Modal**: See a friendly AI-powered summary of recent platform updates when you log in after a new release. First-time users see the Launchpad welcome instead and are silently updated to the current version. Tenant admins can toggle this feature on or off in General settings.
 - **Full Changelog Page**: Browse the complete history of Vega updates from a dedicated page accessible from the sidebar, with search, table of contents, and scroll-to-top.
 - **Annual Goals in Outcomes**: Annual Goals have moved from Foundations to the Outcomes module for tighter alignment with OKR planning workflows. All functionality preserved including AI suggestions, ambition linking, cloning, and year selectors.
@@ -18,6 +24,7 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 **Improvements**
 - Job Scheduler now supports killing stuck job runs with confirmation dialog and audit trail (records killedByUserId and killedAt)
 - Job Scheduler supports schedule editing with presets from every minute to daily intervals (vega_admin only)
+- Job Scheduler now runs 3 system jobs: expiration-reminders (daily), reminder-cache-reset (daily), planner-sync (every 4 hours)
 - Enhanced OKR Intelligence with improved velocity projections
 
 **Performance**

@@ -249,9 +249,14 @@ function PlannerSyncStatusSection() {
     onError: (error: any) => {
       toast({
         title: "Sync failed",
-        description: error.message,
+        description: error.reconnectRequired
+          ? "Token expired. Please reconnect Microsoft Planner."
+          : error.message,
         variant: "destructive",
       });
+      if (error.reconnectRequired) {
+        queryClient.invalidateQueries({ queryKey: ["/auth/entra/planner/status"] });
+      }
     },
   });
 
@@ -306,7 +311,27 @@ function PlannerSyncStatusSection() {
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <Clock className="h-3 w-3" />
                 Token expires: {new Date(connectionStatus.expiresAt).toLocaleString()}
+                {new Date(connectionStatus.expiresAt) < new Date() && (
+                  <Badge variant="destructive" className="ml-1">Expired</Badge>
+                )}
               </div>
+            )}
+
+            {connectionStatus?.expiresAt && new Date(connectionStatus.expiresAt) < new Date() && (
+              <Alert variant="destructive" data-testid="alert-planner-token-expired">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="flex items-center justify-between gap-2 flex-wrap">
+                  <span>Your Planner connection token has expired. Reconnect to resume syncing.</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.location.href = '/auth/entra/planner/connect'}
+                    data-testid="button-reconnect-planner"
+                  >
+                    Reconnect
+                  </Button>
+                </AlertDescription>
+              </Alert>
             )}
 
             <div className="flex gap-2 flex-wrap">

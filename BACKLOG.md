@@ -28,7 +28,7 @@
 | Item | Status | Notes |
 |------|--------|-------|
 | **RBAC** | ✅ 100% | Complete. Fine-grained permissions implemented. |
-| **M365 Multi-Tenant** | ✅ ~90% | SSO, Planner, SharePoint/OneDrive, Admin Consent, Outlook Calendar complete. |
+| **M365 Multi-Tenant** | ✅ ~95% | SSO, Planner (Priority 1 complete with auto-sync), SharePoint/OneDrive, Admin Consent, Outlook Calendar complete. |
 | **Focus Rhythm** | ✅ ~85% | Decisions/Risks UI, OKR linking, meeting templates complete. |
 | **Culture & Values** | ✅ Complete | |
 | **M365 Copilot Agent** | ~60% | OpenAPI spec ✅, Declarative manifest ✅, API plugin ✅, OAuth setup pending |
@@ -2398,14 +2398,26 @@ Session cookie now persists correctly after Microsoft SSO redirect.
 
 ### Microsoft Planner Integration Issues
 
-**Status:** Partially Working  
-**Severity:** Medium
+**Status:** Resolved (Priority 1 Complete)  
+**Severity:** Low (remaining items are Priority 2/3)
 
-Current Issues:
-1. Token dependency on Outlook connection
-2. Scope limitations (read-only with Tasks.Read)
-3. Rate limiting (100 req/10 sec)
-4. No automatic sync scheduler
+Resolved Issues:
+1. ~~Token dependency on Outlook connection~~ - Planner has independent OAuth flow with own service token store
+2. ~~Scope limitations (read-only with Tasks.Read)~~ - Now uses Tasks.ReadWrite + Group.Read.All scopes
+3. Rate limiting (100 req/10 sec) - Mitigated by 4-hour auto-sync cadence
+4. ~~No automatic sync scheduler~~ - planner-sync job runs every 4 hours
+
+Completed Features:
+- PlannerTaskLinkPanel integrated into Objective and Big Rock detail views
+- PlannerSyncStatusSection in TenantAdmin Integrations tab with metrics and manual sync
+- Auto-sync scheduler job (planner-sync) running every 4 hours
+- Token expiry detection with reconnect banners
+- Independent OAuth flow (no Outlook dependency)
+
+Remaining (Priority 2/3):
+- Bidirectional sync (push Vega changes back to Planner)
+- Big Rock to Planner Plan creation
+- Real-time webhook notifications from Planner
 
 ---
 
