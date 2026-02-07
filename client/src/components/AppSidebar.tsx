@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2, Rocket, Info, FileText, ChevronDown, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2, Rocket, Info, FileText, ChevronDown, LifeBuoy, type LucideIcon } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
@@ -369,6 +369,18 @@ export function AppSidebar() {
                     <HelpCircle className="h-4 w-4" />
                     <span>User Guide</span>
                   </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  isActive={location.startsWith("/support")}
+                  data-testid="sidebar-support"
+                  onClick={() => setLocation("/support")}
+                >
+                  <span className="pl-6 flex items-center gap-2">
+                    <LifeBuoy className="h-4 w-4" />
+                    <span>Support</span>
+                  </span>
                 </SidebarMenuButton>
               </SidebarMenuItem>
               <SidebarMenuItem>

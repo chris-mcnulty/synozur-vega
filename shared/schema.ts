@@ -2091,3 +2091,62 @@ export const insertJobRunSchema = createInsertSchema(jobRuns).omit({
 
 export type InsertJobRun = z.infer<typeof insertJobRunSchema>;
 export type JobRun = typeof jobRuns.$inferSelect;
+
+// ============================================
+// SUPPORT TICKETS
+// ============================================
+
+export const TICKET_CATEGORIES = ['bug', 'feature_request', 'question', 'feedback'] as const;
+export const TICKET_PRIORITIES = ['low', 'medium', 'high'] as const;
+export const TICKET_STATUSES = ['open', 'in_progress', 'resolved', 'closed'] as const;
+
+export type TicketCategory = typeof TICKET_CATEGORIES[number];
+export type TicketPriority = typeof TICKET_PRIORITIES[number];
+export type TicketStatus = typeof TICKET_STATUSES[number];
+
+export const supportTickets = pgTable("support_tickets", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketNumber: integer("ticket_number").notNull(),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  category: text("category").notNull(), // 'bug', 'feature_request', 'question', 'feedback'
+  subject: text("subject").notNull(),
+  description: text("description").notNull(),
+  priority: text("priority").notNull().default("medium"), // 'low', 'medium', 'high'
+  status: text("status").notNull().default("open"), // 'open', 'in_progress', 'resolved', 'closed'
+  assignedTo: varchar("assigned_to").references(() => users.id, { onDelete: 'set null' }),
+  metadata: jsonb("metadata"), // Browser info, current page, etc.
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  resolvedAt: timestamp("resolved_at"),
+  resolvedBy: varchar("resolved_by").references(() => users.id, { onDelete: 'set null' }),
+});
+
+export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit({
+  id: true,
+  ticketNumber: true,
+  createdAt: true,
+  updatedAt: true,
+  resolvedAt: true,
+  resolvedBy: true,
+});
+
+export type InsertSupportTicket = z.infer<typeof insertSupportTicketSchema>;
+export type SupportTicket = typeof supportTickets.$inferSelect;
+
+export const supportTicketReplies = pgTable("support_ticket_replies", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketId: varchar("ticket_id").notNull().references(() => supportTickets.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  message: text("message").notNull(),
+  isInternal: boolean("is_internal").default(false), // Internal notes vs user-visible replies
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertSupportTicketReplySchema = createInsertSchema(supportTicketReplies).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSupportTicketReply = z.infer<typeof insertSupportTicketReplySchema>;
+export type SupportTicketReply = typeof supportTicketReplies.$inferSelect;

@@ -710,6 +710,133 @@ export async function sendJobFailureNotificationEmail(
   await client.send(msg);
 }
 
+export async function sendSupportTicketAcknowledgement(
+  to: string,
+  userName: string,
+  ticketNumber: number,
+  subject: string,
+  category: string,
+  priority: string
+) {
+  const { client, fromEmail } = await getUncachableSendGridClient();
+  const ticketUrl = `${APP_URL}/support`;
+  
+  const msg = {
+    to,
+    from: fromEmail,
+    subject: `Vega Support Ticket #${ticketNumber} - We've received your request`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a; color: #ffffff;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #0a0a0a;">
+            <tr>
+              <td style="padding: 40px 20px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #1a1a1a; border-radius: 12px; overflow: hidden;">
+                  <tr>
+                    <td style="padding: 30px 40px; background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);">
+                      <h1 style="margin: 0; font-size: 24px; color: #ffffff;">Support Ticket Received</h1>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 30px 40px;">
+                      <p style="margin: 0 0 20px; font-size: 16px; color: #e0e0e0;">Hi ${userName || 'there'},</p>
+                      <p style="margin: 0 0 20px; font-size: 14px; color: #b0b0b0;">Thank you for contacting Vega Support. We've received your ${category.replace('_', ' ')} and a member of our team will review it shortly.</p>
+                      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                        <tr><td style="padding: 8px 12px; font-size: 13px; color: #888; border-bottom: 1px solid #333;">Ticket #</td><td style="padding: 8px 12px; font-size: 13px; color: #e0e0e0; border-bottom: 1px solid #333;">${ticketNumber}</td></tr>
+                        <tr><td style="padding: 8px 12px; font-size: 13px; color: #888; border-bottom: 1px solid #333;">Subject</td><td style="padding: 8px 12px; font-size: 13px; color: #e0e0e0; border-bottom: 1px solid #333;">${subject}</td></tr>
+                        <tr><td style="padding: 8px 12px; font-size: 13px; color: #888; border-bottom: 1px solid #333;">Priority</td><td style="padding: 8px 12px; font-size: 13px; color: #e0e0e0; border-bottom: 1px solid #333;">${priority}</td></tr>
+                        <tr><td style="padding: 8px 12px; font-size: 13px; color: #888;">Status</td><td style="padding: 8px 12px; font-size: 13px; color: #e0e0e0;">Open</td></tr>
+                      </table>
+                      <p style="margin: 0 0 20px; font-size: 14px; color: #b0b0b0;">You can track your ticket status in Vega:</p>
+                      <a href="${ticketUrl}" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px;">View My Tickets</a>
+                      <p style="margin: 20px 0 0; font-size: 13px; color: #888;">We typically respond within 1 business day.</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 20px 40px; border-top: 1px solid #2a2a2a; text-align: center;">
+                      <p style="margin: 0; font-size: 12px; color: #666666;">&copy; ${new Date().getFullYear()} Synozur Alliance LLC. All rights reserved.</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `,
+    text: `Hi ${userName || 'there'},\n\nThank you for contacting Vega Support. We've received your ${category.replace('_', ' ')}.\n\nTicket #: ${ticketNumber}\nSubject: ${subject}\nPriority: ${priority}\nStatus: Open\n\nYou can track your ticket: ${ticketUrl}\n\nWe typically respond within 1 business day.\n\nThe Vega Team`
+  };
+  
+  await client.send(msg);
+}
+
+export async function sendSupportTicketInternalNotification(
+  to: string,
+  ticketNumber: number,
+  userName: string,
+  userEmail: string,
+  tenantName: string,
+  category: string,
+  priority: string,
+  subject: string,
+  description: string
+) {
+  const { client, fromEmail } = await getUncachableSendGridClient();
+  const adminUrl = `${APP_URL}/system-admin?tab=support`;
+  
+  const msg = {
+    to,
+    from: fromEmail,
+    subject: `[Vega Support] New ${priority} ${category.replace('_', ' ')} from ${userName} (${tenantName})`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a; color: #ffffff;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #0a0a0a;">
+            <tr>
+              <td style="padding: 40px 20px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #1a1a1a; border-radius: 12px; overflow: hidden;">
+                  <tr>
+                    <td style="padding: 30px 40px; background: ${priority === 'high' ? '#dc2626' : priority === 'medium' ? '#d97706' : '#2563eb'};">
+                      <h1 style="margin: 0; font-size: 20px; color: #ffffff;">New Support Ticket #${ticketNumber}</h1>
+                      <p style="margin: 5px 0 0; font-size: 14px; color: rgba(255,255,255,0.8);">${priority.toUpperCase()} priority ${category.replace('_', ' ')}</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 30px 40px;">
+                      <table style="width: 100%; border-collapse: collapse; margin: 0 0 20px;">
+                        <tr><td style="padding: 8px 12px; font-size: 13px; color: #888; border-bottom: 1px solid #333;">User</td><td style="padding: 8px 12px; font-size: 13px; color: #e0e0e0; border-bottom: 1px solid #333;">${userName} (${userEmail})</td></tr>
+                        <tr><td style="padding: 8px 12px; font-size: 13px; color: #888; border-bottom: 1px solid #333;">Tenant</td><td style="padding: 8px 12px; font-size: 13px; color: #e0e0e0; border-bottom: 1px solid #333;">${tenantName}</td></tr>
+                        <tr><td style="padding: 8px 12px; font-size: 13px; color: #888;">Subject</td><td style="padding: 8px 12px; font-size: 13px; color: #e0e0e0;">${subject}</td></tr>
+                      </table>
+                      <div style="padding: 16px; background: #111; border-radius: 8px; margin: 0 0 20px;">
+                        <p style="margin: 0; font-size: 13px; color: #888; margin-bottom: 8px;">Description:</p>
+                        <p style="margin: 0; font-size: 14px; color: #e0e0e0; white-space: pre-wrap;">${description.substring(0, 500)}${description.length > 500 ? '...' : ''}</p>
+                      </div>
+                      <a href="${adminUrl}" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px;">View in Admin</a>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 20px 40px; border-top: 1px solid #2a2a2a; text-align: center;">
+                      <p style="margin: 0; font-size: 12px; color: #666666;">&copy; ${new Date().getFullYear()} Synozur Alliance LLC. All rights reserved.</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `,
+    text: `New Support Ticket #${ticketNumber}\n\nUser: ${userName} (${userEmail})\nTenant: ${tenantName}\nCategory: ${category}\nPriority: ${priority}\n\nSubject: ${subject}\n\nDescription:\n${description}\n\nView ticket: ${adminUrl}`
+  };
+  
+  await client.send(msg);
+}
+
 // Hash a token for secure storage (similar to password hashing)
 export function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');

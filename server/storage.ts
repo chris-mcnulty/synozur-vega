@@ -42,7 +42,9 @@ import {
   mcpApiKeys, type McpApiKey, type InsertMcpApiKey,
   mcpAuditLogs, type McpAuditLog, type InsertMcpAuditLog,
   scheduledJobs, type ScheduledJob, type InsertScheduledJob,
-  jobRuns, type JobRun, type InsertJobRun, JOB_STATUS, JOB_RUN_STATUS
+  jobRuns, type JobRun, type InsertJobRun, JOB_STATUS, JOB_RUN_STATUS,
+  supportTickets, type SupportTicket, type InsertSupportTicket,
+  supportTicketReplies, type SupportTicketReply, type InsertSupportTicketReply
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, inArray, gte, lte, count } from "drizzle-orm";
@@ -401,6 +403,19 @@ export interface IStorage {
   // MCP Audit Logs methods
   createMcpAuditLog(log: InsertMcpAuditLog): Promise<McpAuditLog>;
   getMcpAuditLogs(tenantId: string, limit?: number): Promise<McpAuditLog[]>;
+  
+  // Support Tickets methods
+  getSupportTicketsByTenantId(tenantId: string, status?: string): Promise<SupportTicket[]>;
+  getSupportTicketsByUserId(userId: string): Promise<SupportTicket[]>;
+  getAllSupportTickets(filters?: { status?: string; priority?: string; category?: string; tenantId?: string }): Promise<SupportTicket[]>;
+  getSupportTicketById(id: string): Promise<SupportTicket | undefined>;
+  createSupportTicket(ticket: InsertSupportTicket): Promise<SupportTicket>;
+  updateSupportTicket(id: string, updates: Partial<InsertSupportTicket>): Promise<SupportTicket>;
+  getNextTicketNumber(): Promise<number>;
+  
+  // Support Ticket Replies methods
+  getSupportTicketReplies(ticketId: string, includeInternal?: boolean): Promise<SupportTicketReply[]>;
+  createSupportTicketReply(reply: InsertSupportTicketReply): Promise<SupportTicketReply>;
   
   // Admin users methods
   getVegaAdminUsers(): Promise<User[]>;
@@ -3741,6 +3756,77 @@ export class DatabaseStorage implements IStorage {
         )
       )
       .orderBy(desc(jobRuns.startedAt));
+  }
+
+  async getSupportTicketsByTenantId(tenantId: string, status?: string): Promise<SupportTicket[]> {
+    const conditions = [eq(supportTickets.tenantId, tenantId)];
+    if (status) conditions.push(eq(supportTickets.status, status));
+    return await db.select().from(supportTickets)
+      .where(and(...conditions))
+      .orderBy(desc(supportTickets.createdAt));
+  }
+
+  async getSupportTicketsByUserId(userId: string): Promise<SupportTicket[]> {
+    return await db.select().from(supportTickets)
+      .where(eq(supportTickets.userId, userId))
+      .orderBy(desc(supportTickets.createdAt));
+  }
+
+  async getAllSupportTickets(filters?: { status?: string; priority?: string; category?: string; tenantId?: string }): Promise<SupportTicket[]> {
+    const conditions: any[] = [];
+    if (filters?.status) conditions.push(eq(supportTickets.status, filters.status));
+    if (filters?.priority) conditions.push(eq(supportTickets.priority, filters.priority));
+    if (filters?.category) conditions.push(eq(supportTickets.category, filters.category));
+    if (filters?.tenantId) conditions.push(eq(supportTickets.tenantId, filters.tenantId));
+    
+    const query = conditions.length > 0
+      ? db.select().from(supportTickets).where(and(...conditions))
+      : db.select().from(supportTickets);
+    
+    return await query.orderBy(desc(supportTickets.createdAt));
+  }
+
+  async getSupportTicketById(id: string): Promise<SupportTicket | undefined> {
+    const [ticket] = await db.select().from(supportTickets).where(eq(supportTickets.id, id));
+    return ticket;
+  }
+
+  async createSupportTicket(ticket: InsertSupportTicket): Promise<SupportTicket> {
+    const ticketNumber = await this.getNextTicketNumber();
+    const [created] = await db.insert(supportTickets).values({ ...ticket, ticketNumber }).returning();
+    return created;
+  }
+
+  async updateSupportTicket(id: string, updates: Partial<InsertSupportTicket>): Promise<SupportTicket> {
+    const [updated] = await db.update(supportTickets)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(supportTickets.id, id))
+      .returning();
+    return updated;
+  }
+
+  async getNextTicketNumber(): Promise<number> {
+    const result = await db.select({ maxNum: sql<number>`COALESCE(MAX(${supportTickets.ticketNumber}), 0)` })
+      .from(supportTickets);
+    return (result[0]?.maxNum || 0) + 1;
+  }
+
+  async getSupportTicketReplies(ticketId: string, includeInternal: boolean = false): Promise<SupportTicketReply[]> {
+    const conditions = [eq(supportTicketReplies.ticketId, ticketId)];
+    if (!includeInternal) {
+      conditions.push(eq(supportTicketReplies.isInternal, false));
+    }
+    return await db.select().from(supportTicketReplies)
+      .where(and(...conditions))
+      .orderBy(supportTicketReplies.createdAt);
+  }
+
+  async createSupportTicketReply(reply: InsertSupportTicketReply): Promise<SupportTicketReply> {
+    const [created] = await db.insert(supportTicketReplies).values(reply).returning();
+    await db.update(supportTickets)
+      .set({ updatedAt: new Date() })
+      .where(eq(supportTickets.id, reply.ticketId));
+    return created;
   }
 }
 

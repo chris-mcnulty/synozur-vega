@@ -2565,6 +2565,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { jobsRouter } = await import("./routes-jobs");
   app.use("/api/jobs", ...authWithTenant, jobsRouter);
 
+  // Import and use Support routes (Help & Support Ticket System)
+  const { supportRouter } = await import("./routes-support");
+  app.use("/api/support", supportRouter);
+
   // ============================================
   // PLATFORM ADMIN ROUTES - Service Plans & Blocked Domains
   // ============================================

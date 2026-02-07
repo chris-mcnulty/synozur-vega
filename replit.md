@@ -113,3 +113,33 @@ Preferred communication style: Simple, everyday language.
 - Integrated into Big Rock edit dialog in `PlanningEnhanced.tsx`
 - Task count badges (completed/total) displayed on Big Rock cards
 
+## Help Chatbot & Support Ticket System (Priority 2)
+
+### Help Chatbot
+- AI-powered help assistant grounded on USER_GUIDE.md content
+- Streaming responses via `/api/support/help/chat/stream` endpoint
+- HelpChatPanel component (`client/src/components/HelpChatPanel.tsx`) - sliding panel from header
+- Escalation: "Open Support Ticket" button pre-fills ticket form with conversation summary
+- Accessible via Help button in main header toolbar
+
+### Support Ticket System
+- **Database Tables**: `support_tickets` (id, ticketNumber, tenantId, userId, category, subject, description, priority, status, assignedTo, metadata, timestamps) and `support_ticket_replies` (id, ticketId, userId, message, isInternal, createdAt)
+- **Categories**: bug, feature_request, question, feedback
+- **Priorities**: low, medium, high
+- **Statuses**: open, in_progress, resolved, closed
+- **Email Notifications**: SendGrid-based acknowledgment to user + internal notification to vega_admin users
+
+### API Routes (server/routes-support.ts)
+- POST `/api/support/tickets` - Create ticket (authenticated users)
+- GET `/api/support/tickets` - List tickets (own for users, all for admins with filters)
+- GET `/api/support/tickets/:id` - Ticket detail with replies, author, tenant info
+- POST `/api/support/tickets/:id/replies` - Add reply (owner or admin, internal notes for admin only)
+- PATCH `/api/support/tickets/:id` - Update ticket status/priority/assignee (admin only)
+- POST `/api/support/help/chat/stream` - AI help chatbot streaming endpoint
+
+### UI Components
+- `HelpChatPanel` in header toolbar (Help button)
+- `Support` page at `/support` with list, detail, and new ticket views (sidebar link)
+- `AdminSupportTab` in System Admin → Support tab for cross-tenant ticket management
+- Admin features: filters (status/priority/category), status updates, internal notes, reply threads
+

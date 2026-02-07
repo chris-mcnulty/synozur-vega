@@ -15,6 +15,7 @@ import { Switch } from "@/components/ui/switch";
 import type { SystemBanner, ServicePlan, BlockedDomain, CapabilitySection, CapabilityTab } from "@shared/schema";
 import { PlatformAIUsageWidget } from "@/components/AIUsageWidget";
 import { ScheduledJobsManager } from "@/components/ScheduledJobsManager";
+import { AdminSupportTab } from "@/components/admin/AdminSupportTab";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { ImageUpload } from "@/components/ImageUpload";
@@ -932,7 +933,12 @@ export default function SystemAdmin() {
         </p>
       </div>
 
-      <Tabs defaultValue="vocabulary" className="space-y-4">
+      <Tabs defaultValue={(() => {
+        const params = new URLSearchParams(window.location.search);
+        const tab = params.get('tab');
+        const validTabs = ['vocabulary', 'ai-usage', 'ai-config', 'plans', 'security', 'tenants', 'traffic', 'announcements', 'jobs', 'support'];
+        return tab && validTabs.includes(tab) ? tab : 'vocabulary';
+      })()} className="space-y-4">
         <div className="w-full overflow-x-auto pb-1">
           <TabsList className="w-max min-w-full sm:w-auto flex flex-wrap gap-1">
             <TabsTrigger value="vocabulary" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-vocabulary">
@@ -970,6 +976,10 @@ export default function SystemAdmin() {
             <TabsTrigger value="jobs" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-jobs">
               <Calendar className="h-4 w-4 shrink-0" />
               <span className="text-xs sm:text-sm">Jobs</span>
+            </TabsTrigger>
+            <TabsTrigger value="support" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-support">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span className="text-xs sm:text-sm">Support</span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -1865,6 +1875,9 @@ export default function SystemAdmin() {
 
         <TabsContent value="jobs" className="space-y-4">
           <ScheduledJobsManager />
+        </TabsContent>
+        <TabsContent value="support" className="space-y-4">
+          <AdminSupportTab />
         </TabsContent>
       </Tabs>
 

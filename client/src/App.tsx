@@ -9,6 +9,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
 import { AIChatPanel } from "@/components/AIChatPanel";
+import { HelpChatPanel } from "@/components/HelpChatPanel";
 import { WhatsNewModal } from "@/components/WhatsNewModal";
 import { ConsultingModeToggle } from "@/components/ConsultingModeToggle";
 import { SynozurLogo } from "@/components/SynozurLogo";
@@ -16,7 +17,7 @@ import { TenantProvider } from "@/contexts/TenantContext";
 import { VocabularyProvider } from "@/contexts/VocabularyContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { ErrorBoundary, RouteErrorBoundary, PageLoadingFallback, FullPageLoadingFallback } from "@/components/ErrorBoundary";
-import { Sparkles } from "lucide-react";
+import { Sparkles, HelpCircle } from "lucide-react";
 import React, { useState, Suspense, lazy } from "react";
 import { useLocation } from "wouter";
 
@@ -56,6 +57,7 @@ const Launchpad = lazy(() => import("@/pages/Launchpad"));
 const About = lazy(() => import("@/pages/About"));
 const Changelog = lazy(() => import("@/pages/Changelog"));
 const Roadmap = lazy(() => import("@/pages/Roadmap"));
+const Support = lazy(() => import("@/pages/Support"));
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -154,6 +156,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 
 function ModuleLayout({ children }: { children: React.ReactNode }) {
   const [chatOpen, setChatOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [, setLocation] = useLocation();
 
   return (
     <div className="flex h-screen w-full bg-background">
@@ -171,7 +175,15 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
             <ConsultingModeToggle />
             <TenantSwitcher />
             <button
-              onClick={() => setChatOpen(!chatOpen)}
+              onClick={() => { setHelpOpen(!helpOpen); if (chatOpen) setChatOpen(false); }}
+              className="flex items-center gap-2 px-3 py-2 rounded-lg hover-elevate active-elevate-2 border"
+              data-testid="button-toggle-help-chat"
+            >
+              <HelpCircle className="h-4 w-4 text-muted-foreground" />
+              <span className="hidden md:inline">Help</span>
+            </button>
+            <button
+              onClick={() => { setChatOpen(!chatOpen); if (helpOpen) setHelpOpen(false); }}
               className="flex items-center gap-2 px-3 py-2 rounded-lg hover-elevate active-elevate-2 border"
               data-testid="button-toggle-ai-chat"
             >
@@ -188,6 +200,15 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
             </RouteErrorBoundary>
           </main>
           {chatOpen && <AIChatPanel onClose={() => setChatOpen(false)} />}
+          {helpOpen && (
+            <HelpChatPanel
+              onClose={() => setHelpOpen(false)}
+              onOpenTicket={(summary) => {
+                setHelpOpen(false);
+                setLocation("/support/new" + (summary ? `?summary=${encodeURIComponent(summary)}` : ""));
+              }}
+            />
+          )}
         </div>
       </div>
       <WhatsNewModal />
@@ -315,6 +336,16 @@ function Router() {
       <Route path="/roadmap">
         <LazyProtectedRoute>
           <Roadmap />
+        </LazyProtectedRoute>
+      </Route>
+      <Route path="/support">
+        <LazyProtectedRoute>
+          <Support />
+        </LazyProtectedRoute>
+      </Route>
+      <Route path="/support/:view">
+        <LazyProtectedRoute>
+          <Support />
         </LazyProtectedRoute>
       </Route>
 
