@@ -46,6 +46,7 @@ import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceL
 import type { CheckIn, Objective, KeyResult, Strategy, BigRock } from "@shared/schema";
 import { MilestoneTimeline, type PhasedTargets } from "./MilestoneTimeline";
 import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
+import { PlannerTaskLinkPanel } from "@/components/planner/PlannerTaskLinkPanel";
 import { usePermissions } from "@/hooks/use-permissions";
 
 interface OKRDetailPaneProps {
@@ -686,6 +687,14 @@ export function OKRDetailPane({
                 {entityType === "key_result" && (
                   <PlannerProgressMapping
                     entityType="keyresult"
+                    entityId={entity.id}
+                    entityTitle={entity.title}
+                  />
+                )}
+
+                {entityType === "objective" && (
+                  <PlannerTaskLinkPanel
+                    entityType="objective"
                     entityId={entity.id}
                     entityTitle={entity.title}
                   />

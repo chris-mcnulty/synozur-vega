@@ -34,6 +34,7 @@ import { MilestoneTimeline } from "@/components/okr/MilestoneTimeline";
 import { TrendingUp, Target, Activity, AlertCircle, AlertTriangle, CheckCircle, CheckSquare, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink, Calendar, X, Filter } from "lucide-react";
 import { ExcelFilePicker } from "@/components/ExcelFilePicker";
 import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
+import { PlannerTaskLinkPanel } from "@/components/planner/PlannerTaskLinkPanel";
 import { cn } from "@/lib/utils";
 import type { Foundation, CompanyValue, AnnualGoal, Ambition } from "@shared/schema";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -3545,6 +3546,16 @@ export default function PlanningEnhanced() {
                 <BigRockTasks 
                   bigRockId={selectedBigRock.id}
                   canModify={permissions.canModifyOKR(selectedBigRock.ownerId, selectedBigRock.createdBy) || permissions.canModifyByEmail(selectedBigRock.ownerEmail)}
+                />
+              </div>
+            )}
+
+            {selectedBigRock && (
+              <div className="pt-4 border-t">
+                <PlannerTaskLinkPanel
+                  entityType="bigrock"
+                  entityId={selectedBigRock.id}
+                  entityTitle={selectedBigRock.title}
                 />
               </div>
             )}

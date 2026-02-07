@@ -3190,6 +3190,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
   
+  // Register Planner auto-sync job - runs every 4 hours
+  await jobScheduler.registerJob(
+    'planner-sync',
+    'Microsoft Planner Sync',
+    'Automatically syncs plans, buckets, and tasks from Microsoft Planner for all connected users',
+    'integration',
+    'Every 4 hours',
+    14400000, // 4 hours
+    async () => {
+      const { syncAllPlannerData } = await import('./services/graph-planner');
+      let totalPlans = 0;
+      let totalTasks = 0;
+      let syncedTenants = 0;
+      let failedTenants = 0;
+      const details: any[] = [];
+
+      try {
+        const tenants = await storage.getAllTenants();
+
+        for (const tenant of tenants) {
+          if (!(tenant as any).connectorPlanner) continue;
+
+          const users = await storage.getAllUsers(tenant.id);
+          let synced = false;
+
+          for (const user of users) {
+            const graphToken = await storage.getGraphToken(user.id, 'planner');
+            if (!graphToken?.accessToken) continue;
+
+            try {
+              const result = await syncAllPlannerData(user.id, tenant.id);
+              totalPlans += result.plans.length;
+              totalTasks += result.tasks.length;
+              syncedTenants++;
+              synced = true;
+              details.push({
+                tenant: tenant.name,
+                user: user.email,
+                plans: result.plans.length,
+                tasks: result.tasks.length,
+              });
+              break;
+            } catch (syncError: any) {
+              console.error(`[PlannerSync] Failed for tenant ${tenant.name}, user ${user.email}:`, syncError.message);
+            }
+          }
+
+          if (!synced) {
+            failedTenants++;
+          }
+        }
+      } catch (error: any) {
+        console.error('[PlannerSync] Job error:', error);
+      }
+
+      return {
+        summary: syncedTenants > 0
+          ? `Synced ${totalPlans} plans, ${totalTasks} tasks across ${syncedTenants} organizations`
+          : failedTenants > 0
+            ? `No successful syncs. ${failedTenants} organizations failed.`
+            : 'No organizations with Planner enabled',
+        details: { syncedTenants, failedTenants, totalPlans, totalTasks, tenantDetails: details },
+      };
+    }
+  );
+
   // Register reminder cache reset job - runs once daily at midnight Pacific  
   await jobScheduler.registerJob(
     'reminder-cache-reset',

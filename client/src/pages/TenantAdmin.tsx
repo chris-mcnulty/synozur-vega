@@ -30,7 +30,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2, AlertCircle, AlertTriangle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, HelpCircle, Link, Loader2, RefreshCw, Bell } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import { CheckCircle2, AlertCircle, AlertTriangle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, Settings2, HelpCircle, Link, Link2, Loader2, RefreshCw, Bell, ListTodo } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type TenantBranding, vocabularyAlternatives, type VocabularyTerms } from "@shared/schema";
 import { useAuth } from "@/contexts/AuthContext";
@@ -198,6 +199,161 @@ function isValidIpOrCidr(value: string): boolean {
   }
   
   return false;
+}
+
+function PlannerSyncStatusSection() {
+  const { toast } = useToast();
+
+  const { data: plannerStatus, isLoading: statusLoading } = useQuery<{
+    connected: boolean;
+    planCount: number;
+    taskCount: number;
+    lastSyncAt: string | null;
+  }>({
+    queryKey: ["/api/planner/status"],
+  });
+
+  const { data: connectionStatus } = useQuery<{
+    configured: boolean;
+    connected: boolean;
+    expiresAt: string | null;
+    scopes: string[];
+  }>({
+    queryKey: ["/auth/entra/planner/status"],
+  });
+
+  const syncMutation = useMutation({
+    mutationFn: async () => {
+      const tenantId = localStorage.getItem("currentTenantId");
+      const res = await fetch("/api/planner/sync", {
+        method: "POST",
+        credentials: "include",
+        headers: tenantId ? { "x-tenant-id": tenantId } : {},
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const error = new Error(data.error || data.message || "Sync failed");
+        (error as any).reconnectRequired = data.reconnectRequired;
+        throw error;
+      }
+      return data;
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Planner synced",
+        description: `Synced ${data.planCount} plans, ${data.bucketCount} buckets, ${data.taskCount} tasks`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/planner"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/planner/status"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Sync failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  if (statusLoading) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <Skeleton className="h-20 w-full" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  const isConnected = connectionStatus?.connected || plannerStatus?.connected;
+
+  return (
+    <Card data-testid="planner-sync-status-card">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-2">
+            <ListTodo className="h-5 w-5 text-primary" />
+            Planner Connection
+          </div>
+          <Badge variant={isConnected ? "default" : "secondary"}>
+            {isConnected ? "Connected" : "Not Connected"}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isConnected ? (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="text-center p-3 bg-muted/30 rounded-md">
+                <p className="text-2xl font-bold" data-testid="text-planner-plan-count">{plannerStatus?.planCount || 0}</p>
+                <p className="text-xs text-muted-foreground">Plans</p>
+              </div>
+              <div className="text-center p-3 bg-muted/30 rounded-md">
+                <p className="text-2xl font-bold" data-testid="text-planner-task-count">{plannerStatus?.taskCount || 0}</p>
+                <p className="text-xs text-muted-foreground">Tasks</p>
+              </div>
+              <div className="text-center p-3 bg-muted/30 rounded-md col-span-2">
+                <p className="text-sm font-medium" data-testid="text-planner-last-sync">
+                  {plannerStatus?.lastSyncAt
+                    ? new Date(plannerStatus.lastSyncAt).toLocaleString()
+                    : "Never synced"}
+                </p>
+                <p className="text-xs text-muted-foreground">Last Sync</p>
+              </div>
+            </div>
+
+            {connectionStatus?.expiresAt && (
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                Token expires: {new Date(connectionStatus.expiresAt).toLocaleString()}
+              </div>
+            )}
+
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => syncMutation.mutate()}
+                disabled={syncMutation.isPending}
+                data-testid="button-planner-sync"
+              >
+                {syncMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4 mr-1" />
+                )}
+                Sync Now
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.location.href = '/settings?tab=m365'}
+                data-testid="button-planner-settings"
+              >
+                <Settings2 className="h-4 w-4 mr-1" />
+                Connection Settings
+              </Button>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-4">
+            <p className="text-sm text-muted-foreground mb-3">
+              Connect Microsoft Planner to sync tasks and track progress against your OKRs and Big Rocks.
+            </p>
+            <Button
+              variant="default"
+              size="sm"
+              onClick={() => window.location.href = '/auth/entra/planner/connect'}
+              data-testid="button-connect-planner"
+            >
+              <Link2 className="h-4 w-4 mr-1" />
+              Connect Microsoft Planner
+            </Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 function McpApiKeysSection() {
@@ -2881,6 +3037,17 @@ export default function TenantAdmin() {
               </Card>
             ))}
           </div>
+        </div>
+
+        {/* Planner Sync Status */}
+        <div>
+          <div className="mb-4">
+            <h2 className="text-lg md:text-xl font-semibold">Microsoft Planner Sync</h2>
+            <p className="text-sm text-muted-foreground">
+              View sync status and manage the connection between Vega and Microsoft Planner
+            </p>
+          </div>
+          <PlannerSyncStatusSection />
         </div>
 
         {/* MCP API Keys Section */}
