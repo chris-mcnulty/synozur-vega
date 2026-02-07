@@ -1,6 +1,6 @@
 # Vega Platform Master Backlog
 
-**Last Updated:** January 31, 2026 (Added Job Scheduler Dashboard to Completed Features)
+**Last Updated:** February 7, 2026 (Added v1.8 features: What's New, Ambitions, Performance Optimizations, Job Scheduler Enhancements)
 
 > **Note:** This is the single source of truth for all Vega feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference this document for backlog-related questions.
 
@@ -2430,6 +2430,15 @@ Self-referencing types in `shared/schema.ts` cause implicit 'any' warnings. Does
 
 ---
 
+### Outcomes Page Black Screen with Excel Autosync
+
+**Status:** Under Investigation  
+**Severity:** Medium
+
+Intermittent black screen on Outcomes page when Excel autosync is active. No error logs captured yet.
+
+---
+
 ## TECHNICAL DECISIONS
 
 ### ADR-001: Session-Based Authentication
@@ -2484,6 +2493,58 @@ All date/time operations use America/Los_Angeles timezone.
 ---
 
 ## COMPLETED FEATURES
+
+### What's New & Changelog ✅ (February 7, 2026)
+
+AI-powered platform update notifications and full changelog access:
+
+**What's New Modal:**
+- Shown on login after new platform releases with AI-generated summary
+- First-time users skip modal (see Launchpad welcome instead, lastDismissedChangelogVersion set silently)
+- Dismissible per-version (stored in user record)
+- Tenant admin toggle "Show Changelog on Login" in General settings → Notifications
+
+**Changelog Page:**
+- Full markdown-rendered changelog at `/changelog`
+- Search, table of contents, scroll-to-top
+- Accessible from sidebar navigation
+
+---
+
+### Ambitions Module ✅ (February 2, 2026)
+
+Long-term strategic targets (3-5 years) bridging vision and annual goals:
+
+- `ambitions` JSONB field added to foundations table
+- Ambitions UI in Foundations page with add/edit/close/reopen
+- Active/Closed filtering via Tabs component
+- Value linking (multi-select from org values)
+- Target year selection (3-10 years from current)
+- Soft limit warning at >5 active ambitions
+- Annual Goals can link to parent Ambitions
+- MCP tools: `get_ambitions` and enhanced `get_annual_goals` with `includeAmbitions`
+- OpenAPI spec updated with Ambition/AnnualGoal schemas
+
+**Remaining Enhancements** (Future):
+- Company OS Dashboard chart update to show Ambitions layer
+- PDF report inclusion of Ambitions
+
+---
+
+### Annual Goals Move to Outcomes ✅ (February 7, 2026)
+
+Annual Goals moved from Foundations to Outcomes module for tighter alignment with OKR planning workflows. All functionality preserved including AI suggestions, ambition linking, cloning, and year selectors.
+
+---
+
+### Performance Optimizations ✅ (February 7, 2026)
+
+- Executive Dashboard batch key results fetch (eliminates N+1 queries)
+- Storage batch methods: `getKeyResultsByObjectiveIds`, `getCheckInsByEntityIds`
+- In-memory query cache with 60-second TTL and automatic invalidation on writes
+- Report generation and COS export use batch queries
+
+---
 
 ### MCP Server (Model Context Protocol) ✅ (January 17, 2026)
 
@@ -2632,13 +2693,15 @@ Platform-wide job monitoring and management for background tasks:
 - Failure notification emails to all vega_admin users via SendGrid
 
 **System Jobs Registered:**
-- `expiration-reminders`: Hourly check for expiring items and email notifications
-- `reminder-cache-reset`: 5-minute cache maintenance
+- `expiration-reminders`: Daily check for expiring items and email notifications
+- `reminder-cache-reset`: Daily cache maintenance
 
 **Admin UI (System Admin → Scheduled Jobs):**
 - Jobs List tab: View all registered jobs with status, schedule, category, last/next run times
 - Run History tab: View execution history with status indicators (success/failed/running)
 - Job controls: Run Now, Pause, Resume buttons (vega_admin only)
+- Kill stuck runs with confirmation dialog and audit trail (killedByUserId, killedAt) (v1.8)
+- Schedule editing with presets from every minute to daily intervals (vega_admin only) (v1.8)
 - Tenant Admin users have view-only access
 
 **API Routes:**
@@ -2647,6 +2710,8 @@ Platform-wide job monitoring and management for background tasks:
 - POST `/api/jobs/:jobId/run` - Manually trigger job (vega_admin only)
 - POST `/api/jobs/:jobId/pause` - Pause job (vega_admin only)
 - POST `/api/jobs/:jobId/resume` - Resume job (vega_admin only)
+- PATCH `/api/jobs/:jobId/schedule` - Edit job schedule (vega_admin only) (v1.8)
+- POST `/api/jobs/runs/:runId/kill` - Kill stuck run (vega_admin only) (v1.8)
 
 ---
 
