@@ -8,6 +8,19 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 
 ## February 2026
 
+### February 7, 2026 - Version 1.8
+
+**New Features**
+- **What's New Modal**: See a friendly AI-powered summary of recent platform updates when you log in after a new release. Tenant admins can toggle this feature on or off.
+- **Full Changelog Page**: Browse the complete history of Vega updates from a dedicated page in the sidebar, with search and table of contents.
+- **Annual Goals in Outcomes**: Annual Goals have moved from Foundations to the Outcomes module for tighter alignment with OKR planning workflows. All functionality preserved including AI suggestions, cloning, and year selectors.
+
+**Improvements**
+- Job Scheduler now supports killing stuck job runs with confirmation and audit trail
+- Enhanced OKR Intelligence with improved velocity projections
+
+---
+
 ### February 2, 2026 - Version 1.7
 
 **New Features**
