@@ -205,10 +205,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
-      // Don't show for first-time users (they already see the Launchpad welcome screen)
+      // Only suppress for brand-new users (created in the last hour) who haven't
+      // dismissed any version yet — they see the Launchpad welcome screen first.
+      // Existing users with null simply haven't seen any What's New modal yet.
       if (!user.lastDismissedChangelogVersion) {
-        await storage.updateUser(user.id, { lastDismissedChangelogVersion: currentChangelogVersion });
-        return res.json({ showModal: false });
+        const createdAt = user.createdAt ? new Date(user.createdAt).getTime() : 0;
+        const oneHourAgo = Date.now() - 60 * 60 * 1000;
+        if (createdAt > oneHourAgo) {
+          await storage.updateUser(user.id, { lastDismissedChangelogVersion: currentChangelogVersion });
+          return res.json({ showModal: false });
+        }
       }
 
       // Check if user already dismissed this version
