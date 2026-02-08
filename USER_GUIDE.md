@@ -2,7 +2,7 @@
 
 **Welcome to Vega - The Synozur Alliance Company Operating System**
 
-Version 1.8 | Last Updated: February 7, 2026
+Version 1.9 | Last Updated: February 8, 2026
 
 ---
 
@@ -18,13 +18,14 @@ Version 1.8 | Last Updated: February 7, 2026
 8. [Planning (OKRs)](#planning-okrs)
 9. [Focus Rhythm](#focus-rhythm)
 10. [AI Assistant & Intelligence](#ai-assistant)
-11. [Microsoft 365 Integration](#microsoft-365-integration)
-12. [Import & Export](#import--export)
-13. [Reporting](#reporting)
-14. [Launchpad (AI Kickstart Wizard)](#launchpad-ai-kickstart-wizard)
-15. [Settings & Administration](#settings--administration)
-16. [Best Practices](#best-practices)
-17. [Troubleshooting](#troubleshooting)
+11. [Help & Support](#help--support)
+12. [Microsoft 365 Integration](#microsoft-365-integration)
+13. [Import & Export](#import--export)
+14. [Reporting](#reporting)
+15. [Launchpad (AI Kickstart Wizard)](#launchpad-ai-kickstart-wizard)
+16. [Settings & Administration](#settings--administration)
+17. [Best Practices](#best-practices)
+18. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -87,6 +88,11 @@ Vega is a comprehensive Company Operating System with the following capabilities
 - **PowerPoint Export** - Presentation-ready slides for strategy reviews
 - **OKR Quality Scores** - Automated scoring for objective quality
 - **Dashboard Views** - Executive, Team, and Company OS dashboards
+
+### Help & Support (New in v1.9)
+- **Help Chatbot** - AI-powered help assistant grounded on the User Guide, accessible from the header
+- **Support Tickets** - Submit and track bug reports, feature requests, questions, and feedback
+- **Admin Support Dashboard** - Cross-tenant ticket management for platform admins
 
 ### Platform Updates
 - **What's New Modal** - AI-powered summary of recent platform updates shown on login (New in v1.8)
@@ -189,6 +195,7 @@ The left sidebar provides access to all major modules:
 - **Focus Rhythm**: Meeting management and cadence
 - **Import**: Import OKR data from other systems
 - **Launchpad**: AI Kickstart Wizard for new organizations
+- **Support**: View and manage your support tickets (New in v1.9)
 - **Settings**: Personal and M365 connection settings
 - **Admin** (if authorized): Tenant administration
 
@@ -196,6 +203,7 @@ The left sidebar provides access to all major modules:
 
 - **Tenant Switcher**: If you have access to multiple organizations, switch between them here
 - **AI Chat**: Click the sparkle icon to open the AI Assistant
+- **Help**: Click the Help button to open the AI-powered Help Chatbot (New in v1.9)
 - **Theme Toggle**: Switch between light and dark mode
 - **Profile Menu**: Access settings and logout
 
@@ -1178,6 +1186,117 @@ Changes take effect immediately after saving. Different models have different pr
 
 ---
 
+## Help & Support
+
+Vega provides a built-in help system with an AI-powered chatbot and a support ticket system so you can get answers quickly and escalate issues when needed.
+
+### Help Chatbot
+
+The Help Chatbot is an AI-powered assistant that answers questions about using Vega based on the official User Guide. It's available from anywhere in the platform.
+
+**Accessing the Help Chatbot:**
+Click the **Help** button in the top header toolbar. A sliding panel opens from the right side of the screen.
+
+**How to Use It:**
+1. Type your question in the text field at the bottom of the panel
+2. Press **Enter** or click **Send**
+3. The AI will stream a response based on the Vega User Guide
+4. Continue the conversation with follow-up questions
+
+**Example Questions:**
+- "How do I create an OKR?"
+- "What is a Big Rock?"
+- "How do check-ins work?"
+- "How do I connect Microsoft 365?"
+- "What are the different user roles?"
+
+**Escalation to Support:**
+If the chatbot can't fully resolve your question, click the **"Open Support Ticket"** button at the bottom of the panel. This opens the support ticket form with your conversation summary pre-filled in the description, so you don't have to repeat yourself.
+
+**Tips:**
+- Be specific in your questions for better answers
+- The chatbot knows about all Vega features documented in this guide
+- Conversation history is maintained during your session
+- Close and reopen the panel without losing your conversation
+
+---
+
+### Support Tickets
+
+The Support Ticket system lets you submit bug reports, feature requests, questions, and general feedback to the Vega team.
+
+**Accessing Support:**
+Click **"Support"** in the left sidebar under the support section.
+
+#### Creating a Ticket
+
+1. Click **"New Ticket"** on the Support page (or use the escalation button in the Help Chatbot)
+2. Fill in the form:
+   - **Subject**: A short description of your issue or request
+   - **Category**: Choose one of:
+     - **Bug**: Something isn't working correctly
+     - **Feature Request**: A new capability you'd like to see
+     - **Question**: A question that the chatbot couldn't answer
+     - **Feedback**: General feedback about the platform
+   - **Priority**: How urgent this is (Low, Medium, or High)
+   - **Description**: Detailed explanation of your issue, request, or feedback
+3. Click **"Submit Ticket"**
+
+**What Happens After Submission:**
+- You receive an email confirmation with your ticket number and details
+- Platform admins are automatically notified via email
+- Your ticket appears in your ticket list with status tracking
+
+#### Viewing Your Tickets
+
+The Support page shows all your submitted tickets with:
+- **Ticket Number**: Unique identifier for tracking
+- **Subject**: Your ticket title
+- **Status**: Current state (Open, In Progress, Resolved, Closed)
+- **Priority**: Urgency level
+- **Category**: Type of request
+- **Date**: When you submitted the ticket
+
+Click any ticket to view its full details and reply thread.
+
+#### Ticket Replies
+
+Once a ticket is open, you can communicate back and forth with the support team:
+1. Open a ticket from your ticket list
+2. Scroll to the **Replies** section
+3. Type your message in the text area
+4. Click the **Send** button
+
+Replies from the Vega team will appear in the same thread. You'll see the author name and timestamp for each reply.
+
+#### Ticket Statuses
+
+| Status | Meaning |
+|--------|---------|
+| **Open** | Your ticket has been submitted and is awaiting review |
+| **In Progress** | The support team is actively working on your issue |
+| **Resolved** | A solution has been provided or the issue has been fixed |
+| **Closed** | The ticket is complete and no further action is needed |
+
+---
+
+### Admin Support Dashboard (Platform Admins Only)
+
+Platform administrators can manage support tickets across all tenants from the System Admin page.
+
+**Accessing the Admin Dashboard:**
+Navigate to **System Admin** → **Support** tab.
+
+**Features:**
+- **Global Ticket View**: See all tickets across all organizations
+- **Filters**: Filter by status, priority, category, or specific tenant
+- **Status Management**: Update ticket status (Open, In Progress, Resolved, Closed)
+- **Priority Updates**: Change ticket priority as needed
+- **Internal Notes**: Add notes visible only to other admins (not visible to the ticket creator)
+- **Reply Threads**: Respond directly to users within ticket detail views
+
+---
+
 ## MCP Server (AI Assistant Integration)
 
 Vega includes a Model Context Protocol (MCP) server that allows external AI assistants like Claude Desktop, Cursor, and other MCP-compatible tools to access your organization's data securely.
@@ -2023,16 +2142,18 @@ System Administration is accessible only to Vega Admins and Global Admins. This 
 
 Click **"System"** in the left sidebar (only visible to platform admins).
 
-#### System Admin Tabs (Updated Jan 31, 2026)
+#### System Admin Tabs (Updated Feb 8, 2026)
 
 1. **Vocabulary**: Set system-wide default terminology
 2. **AI Usage**: Monitor platform-wide AI token consumption and costs
-3. **Plans**: Create and manage service plans for tenant licensing
-4. **Security**: Manage blocked email domains
-5. **Tenants**: View tenant activity, assign service plans
-6. **Traffic**: Website traffic analytics
-7. **Announcements**: System-wide announcement banners
-8. **Scheduled Jobs**: Monitor and control background system jobs
+3. **AI Config**: Configure AI provider and model settings
+4. **Plans**: Create and manage service plans for tenant licensing
+5. **Security**: Manage blocked email domains
+6. **Tenants**: View tenant activity, assign service plans
+7. **Traffic**: Website traffic analytics
+8. **Announcements**: System-wide announcement banners
+9. **Scheduled Jobs**: Monitor and control background system jobs
+10. **Support**: Manage support tickets across all tenants (New in v1.9)
 
 #### AI Usage Reporting (Platform-wide)
 
@@ -2359,17 +2480,19 @@ Vega uses role-based permissions to control access:
 ### Getting Help
 
 **Resources:**
+- **Help Chatbot**: Click the Help button in the header for instant AI-powered answers (New in v1.9)
+- **Support Tickets**: Submit a support ticket from the Support page in the sidebar (New in v1.9)
 - **User Guide**: This document
-- **Technical Documentation**: `TECHNICAL_DECISIONS.md`, `BACKLOG.md`
 - **Admin Support**: Contact your tenant administrator
 - **Platform Support**: Contact The Synozur Alliance
 
 **Reporting Bugs:**
-1. Note the exact steps to reproduce
-2. Capture any error messages
-3. Include browser type and version
-4. Note your role and tenant
-5. Contact your administrator or Synozur support
+1. Try the **Help Chatbot** first for quick answers
+2. If unresolved, click **"Open Support Ticket"** in the chatbot or go to the Support page
+3. Select **"Bug"** as the category
+4. Include the exact steps to reproduce
+5. Capture any error messages
+6. The ticket system automatically notifies the Vega team
 
 ---
 
@@ -2389,6 +2512,8 @@ Vega uses role-based permissions to control access:
 
 **Foundation**: The core identity elements of an organization: mission, vision, values, and ambitions. Annual goals are managed in the Outcomes module.
 
+**Help Chatbot**: An AI-powered assistant that answers questions about using Vega based on the official User Guide. Accessible from the Help button in the header toolbar.
+
 **Key Result (KR)**: A quantitative metric that measures progress toward an objective. Typically 3-5 per objective.
 
 **Launchpad**: An AI-powered kickstart wizard that analyzes strategic documents to automatically generate a complete Company OS proposal, including mission, vision, values, strategies, objectives, and big rocks.
@@ -2400,6 +2525,8 @@ Vega uses role-based permissions to control access:
 **Rollup**: The aggregation of Key Result progress to calculate overall Objective progress.
 
 **Strategy**: A high-level plan or initiative designed to achieve annual goals.
+
+**Support Ticket**: A formal request for help, bug report, feature request, or feedback submitted through the Support page. Tracked with status, priority, and reply threads.
 
 **Tenant**: An organization or company instance within Vega. Multi-tenant architecture allows multiple organizations on one platform.
 
@@ -2436,6 +2563,14 @@ Vega uses role-based permissions to control access:
   - Updated job schedules to reflect actual intervals (daily)
   - Added Platform Updates category to Feature Overview
   - Updated Table of Contents
+- **v1.5** (February 8, 2026): Version 1.9 updates:
+  - Added Help & Support section with Help Chatbot and Support Tickets documentation
+  - Added Help button to Top Bar description
+  - Added Support link to Main Navigation description
+  - Updated System Admin tabs to include Support tab
+  - Updated Getting Help section with chatbot-first approach
+  - Added Help & Support category to Feature Overview
+  - Added glossary terms: Help Chatbot, Support Ticket
 
 ---
 

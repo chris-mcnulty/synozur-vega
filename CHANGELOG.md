@@ -8,6 +8,29 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 
 ## February 2026
 
+### February 8, 2026 - Version 1.9
+
+**New Features**
+- **Help Chatbot**: AI-powered help assistant accessible from the Help button in the header toolbar
+  - Answers questions about using Vega based on the official User Guide
+  - Streaming responses for a smooth conversational experience
+  - "Open Support Ticket" escalation button pre-fills ticket form with conversation summary
+- **Support Ticket System**: Full support ticket lifecycle for bug reports, feature requests, questions, and feedback
+  - Create, view, and track support tickets with category, priority, and status management
+  - Reply threads for back-and-forth communication between users and admins
+  - Email notifications via SendGrid: acknowledgment to users and alerts to platform admins
+  - Support page accessible from the sidebar with ticket list, detail view, and new ticket form
+- **Admin Support Dashboard**: Cross-tenant ticket management for platform admins in System Admin
+  - Filter tickets by status, priority, category, and tenant
+  - Update ticket status and priority, assign tickets
+  - Internal notes visible only to admins for team coordination
+
+**Improvements**
+- System Admin now includes a "Support" tab for global ticket management
+- Help button added to main header toolbar for quick access to AI-powered help
+
+---
+
 ### February 7, 2026 - Version 1.8
 
 **New Features**
