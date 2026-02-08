@@ -891,6 +891,109 @@ aiRouter.get("/usage/platform", async (req: Request, res: Response) => {
 });
 
 // ============================================
+// MODEL COMPARISON (platform admins only)
+// ============================================
+
+aiRouter.get("/usage/model-comparison", async (req: Request, res: Response) => {
+  try {
+    if (!req.user) {
+      return res.status(401).json({ error: "Authentication required" });
+    }
+    if (!hasPermission(req.user.role as Role, PERMISSIONS.MANAGE_PLATFORM)) {
+      return res.status(403).json({ error: "Platform admin access required" });
+    }
+
+    const days = Math.min(parseInt(req.query.days as string) || 30, 90);
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    startDate.setHours(0, 0, 0, 0);
+
+    const { aiUsageLogs } = await import("@shared/schema");
+    const { db } = await import("./db");
+    const { sql, and, gte } = await import("drizzle-orm");
+
+    const logs = await db
+      .select()
+      .from(aiUsageLogs)
+      .where(gte(aiUsageLogs.createdAt, startDate));
+
+    const modelStats: Record<string, {
+      requests: number;
+      totalTokens: number;
+      promptTokens: number;
+      completionTokens: number;
+      totalCostMicrodollars: number;
+      totalLatencyMs: number;
+      latencyCount: number;
+      errors: number;
+      byDay: Record<string, { requests: number; tokens: number; cost: number; avgLatency: number; latencyCount: number }>;
+    }> = {};
+
+    for (const log of logs) {
+      const model = log.model;
+      if (!modelStats[model]) {
+        modelStats[model] = {
+          requests: 0, totalTokens: 0, promptTokens: 0, completionTokens: 0,
+          totalCostMicrodollars: 0, totalLatencyMs: 0, latencyCount: 0, errors: 0, byDay: {},
+        };
+      }
+      const s = modelStats[model];
+      s.requests++;
+      s.totalTokens += log.totalTokens;
+      s.promptTokens += log.promptTokens;
+      s.completionTokens += log.completionTokens;
+      s.totalCostMicrodollars += log.estimatedCostMicrodollars || 0;
+      if (log.latencyMs) { s.totalLatencyMs += log.latencyMs; s.latencyCount++; }
+      if (log.errorCode) s.errors++;
+
+      const dayKey = new Date(log.createdAt).toISOString().split('T')[0];
+      if (!s.byDay[dayKey]) {
+        s.byDay[dayKey] = { requests: 0, tokens: 0, cost: 0, avgLatency: 0, latencyCount: 0 };
+      }
+      s.byDay[dayKey].requests++;
+      s.byDay[dayKey].tokens += log.totalTokens;
+      s.byDay[dayKey].cost += log.estimatedCostMicrodollars || 0;
+      if (log.latencyMs) {
+        s.byDay[dayKey].avgLatency += log.latencyMs;
+        s.byDay[dayKey].latencyCount++;
+      }
+    }
+
+    const models = Object.entries(modelStats).map(([model, stats]) => {
+      const dailyData = Object.entries(stats.byDay)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, d]) => ({
+          date,
+          requests: d.requests,
+          tokens: d.tokens,
+          cost: d.cost,
+          avgLatency: d.latencyCount > 0 ? Math.round(d.avgLatency / d.latencyCount) : 0,
+        }));
+
+      return {
+        model,
+        requests: stats.requests,
+        totalTokens: stats.totalTokens,
+        promptTokens: stats.promptTokens,
+        completionTokens: stats.completionTokens,
+        totalCostMicrodollars: stats.totalCostMicrodollars,
+        avgLatencyMs: stats.latencyCount > 0 ? Math.round(stats.totalLatencyMs / stats.latencyCount) : 0,
+        avgTokensPerRequest: stats.requests > 0 ? Math.round(stats.totalTokens / stats.requests) : 0,
+        costPerRequest: stats.requests > 0 ? Math.round(stats.totalCostMicrodollars / stats.requests) : 0,
+        errorRate: stats.requests > 0 ? Number(((stats.errors / stats.requests) * 100).toFixed(1)) : 0,
+        errors: stats.errors,
+        dailyData,
+      };
+    }).sort((a, b) => b.requests - a.requests);
+
+    res.json({ days, startDate, models });
+  } catch (error: any) {
+    console.error("[AI Usage] Error fetching model comparison:", error.message || error);
+    res.status(500).json({ error: error.message || "Failed to fetch model comparison data" });
+  }
+});
+
+// ============================================
 // CHECK-IN NOTE REWRITING
 // ============================================
 

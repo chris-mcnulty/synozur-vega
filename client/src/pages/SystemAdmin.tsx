@@ -13,7 +13,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import type { SystemBanner, ServicePlan, BlockedDomain, CapabilitySection, CapabilityTab } from "@shared/schema";
-import { PlatformAIUsageWidget } from "@/components/AIUsageWidget";
+import { PlatformAIUsageWidget, ModelComparisonWidget } from "@/components/AIUsageWidget";
 import { ScheduledJobsManager } from "@/components/ScheduledJobsManager";
 import { AdminSupportTab } from "@/components/admin/AdminSupportTab";
 import { Input } from "@/components/ui/input";
@@ -1062,6 +1062,7 @@ export default function SystemAdmin() {
 
         <TabsContent value="ai-usage" className="space-y-4">
           <PlatformAIUsageWidget />
+          <ModelComparisonWidget />
           <Card>
             <CardHeader>
               <CardTitle>About AI Usage Tracking</CardTitle>

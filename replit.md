@@ -41,7 +41,7 @@ Preferred communication style: Simple, everyday language.
 ## External Dependencies
 
 - **Microsoft 365 Integration**: Microsoft Graph Client for integration with Excel, Outlook Calendar, and Microsoft Planner via OAuth. Supports bidirectional sync for Planner, event access for Outlook, and Excel data binding for Key Results.
-- **AI Services**: Dynamic AI provider configuration supporting Replit AI (default), Azure OpenAI, OpenAI, and Anthropic. Admins can switch providers/models (GPT-5, GPT-4o, Claude 3.5 Opus/Sonnet/Haiku) at runtime. Includes grounding documents for AI behavior and context, and tracks AI usage for cost analysis.
+- **AI Services**: Dynamic AI provider configuration supporting Replit AI (default), Azure OpenAI, OpenAI, and Anthropic. Admins can switch providers/models (GPT-5, GPT-4o, Claude Sonnet 4, Claude Opus 4, Claude 3.5 Sonnet/Haiku) at runtime. Claude Sonnet 4 and Opus 4 available via Replit AI provider. Includes grounding documents for AI behavior and context, tracks AI usage for cost analysis, and provides a Model Comparison dashboard for side-by-side performance/cost tracking across models over time.
 - **UI Component Library**: shadcn/ui (built on Radix UI primitives).
 - **Database**: Neon PostgreSQL.
 - **Transactional Email**: SendGrid.
