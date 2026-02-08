@@ -1,6 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import { createServer, type Server } from "http";
 import { readFile } from "fs/promises";
+import { readFileSync, existsSync } from "fs";
 import { join } from "path";
 import { storage } from "./storage";
 import { verifyPassword } from "./auth";
@@ -142,73 +143,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // What's New - check if user should see the modal + return AI summary
-  const CURRENT_CHANGELOG_VERSION = "1.2026.02.07";
-  const changelogSummaryCache = new Map<string, { summary: string; highlights: string[]; date: string }>();
+  // ============================================================================
+  // "What's New" Changelog Modal API (pattern from Constellation)
+  // ============================================================================
+
+  // Auto-detect current version from CHANGELOG.md at startup
+  let currentChangelogVersion = "";
+  (function seedChangelogVersion() {
+    try {
+      const changelogPath = join(process.cwd(), "CHANGELOG.md");
+      if (existsSync(changelogPath)) {
+        const content = readFileSync(changelogPath, "utf-8");
+        const match = content.match(/Version\s+([\d.]+)/);
+        if (match) {
+          currentChangelogVersion = match[1];
+          console.log(`[CHANGELOG] Auto-detected version: ${currentChangelogVersion}`);
+        }
+      }
+    } catch (err: any) {
+      console.error("[CHANGELOG] Failed to seed changelog version:", err.message);
+    }
+  })();
+
+  // In-memory cache for AI-generated summaries (keyed by version)
+  const changelogSummaryCache = new Map<string, { summary: string; highlights: Array<{ icon: string; title: string; description: string }> }>();
+
+  // Extract structured highlights from markdown as fallback when AI is unavailable
+  function extractFallbackHighlights(markdown: string): Array<{ icon: string; title: string; description: string }> {
+    const highlights: Array<{ icon: string; title: string; description: string }> = [];
+    const featurePattern = /\*\*([^*]+)\*\*\n((?:- [^\n]+\n?)+)/g;
+    let match;
+    const icons = ["star", "message-circle", "bar-chart-3", "clipboard-list", "wrench", "book-open", "zap", "target"];
+    let iconIdx = 0;
+    while ((match = featurePattern.exec(markdown)) !== null && highlights.length < 5) {
+      const title = match[1].trim();
+      if (title === "Release Date:" || title === "Status:" || title === "Codename:") continue;
+      const bullets = match[2].split("\n").filter((l: string) => l.trim().startsWith("- ")).map((l: string) => l.replace(/^- /, "").trim());
+      const description = bullets.slice(0, 2).join(". ");
+      if (description) {
+        highlights.push({ icon: icons[iconIdx % icons.length], title, description });
+        iconIdx++;
+      }
+    }
+    return highlights;
+  }
 
   app.get("/api/changelog/whats-new", authWithTenant, async (req: any, res) => {
     try {
       const user = req.user;
       const tenantId = req.tenantId || user.tenantId;
 
+      if (!currentChangelogVersion) {
+        return res.json({ showModal: false });
+      }
+
       // Check tenant setting
       if (tenantId) {
         const tenant = await storage.getTenantById(tenantId);
         if (tenant && tenant.showChangelogOnLogin === false) {
-          return res.json({ show: false });
+          return res.json({ showModal: false });
         }
       }
 
       // Don't show for first-time users (they already see the Launchpad welcome screen)
       if (!user.lastDismissedChangelogVersion) {
-        // Silently set their version so they'll see future updates
-        await storage.updateUser(user.id, { lastDismissedChangelogVersion: CURRENT_CHANGELOG_VERSION });
-        return res.json({ show: false });
+        await storage.updateUser(user.id, { lastDismissedChangelogVersion: currentChangelogVersion });
+        return res.json({ showModal: false });
       }
 
       // Check if user already dismissed this version
-      if (user.lastDismissedChangelogVersion === CURRENT_CHANGELOG_VERSION) {
-        return res.json({ show: false });
+      if (user.lastDismissedChangelogVersion === currentChangelogVersion) {
+        return res.json({ showModal: false });
       }
 
       // Check cache
-      if (changelogSummaryCache.has(CURRENT_CHANGELOG_VERSION)) {
-        const cached = changelogSummaryCache.get(CURRENT_CHANGELOG_VERSION)!;
+      if (changelogSummaryCache.has(currentChangelogVersion)) {
+        const cached = changelogSummaryCache.get(currentChangelogVersion)!;
         return res.json({
-          show: true,
-          version: CURRENT_CHANGELOG_VERSION,
+          showModal: true,
+          version: currentChangelogVersion,
           ...cached,
         });
       }
 
-      // Read changelog and extract current version section
+      // Read changelog and extract recent sections (last 2 weeks)
       let changelogContent = "";
       try {
         const changelogPath = join(process.cwd(), "CHANGELOG.md");
         const fullContent = await readFile(changelogPath, "utf-8");
-        
-        // Extract the section for the current version
-        const versionHeader = `### February 7, 2026 - Version 1.8`;
-        const headerIndex = fullContent.indexOf(versionHeader);
-        if (headerIndex !== -1) {
-          const nextSectionIndex = fullContent.indexOf("\n---", headerIndex + 1);
-          changelogContent = nextSectionIndex !== -1
-            ? fullContent.substring(headerIndex, nextSectionIndex).trim()
-            : fullContent.substring(headerIndex).trim();
+
+        const twoWeeksAgo = new Date();
+        twoWeeksAgo.setDate(twoWeeksAgo.getDate() - 14);
+
+        const versionBlocks = fullContent.split(/(?=###\s+)/);
+        const recentSections: string[] = [];
+        for (const block of versionBlocks) {
+          const dateMatch = block.match(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\s+(\d{1,2}),?\s+(\d{4})\b/);
+          if (dateMatch) {
+            const blockDate = new Date(`${dateMatch[1]} ${dateMatch[2]}, ${dateMatch[3]}`);
+            if (blockDate >= twoWeeksAgo) {
+              recentSections.push(block.trim());
+            }
+          }
         }
+
+        changelogContent = recentSections.length > 0
+          ? recentSections.join("\n\n").substring(0, 4000)
+          : fullContent.substring(0, 2000);
       } catch {
-        return res.json({ show: false });
+        return res.json({ showModal: false });
       }
 
       if (!changelogContent) {
-        return res.json({ show: false });
+        return res.json({ showModal: true, version: currentChangelogVersion, summary: "New updates are available!", highlights: [] });
       }
 
-      // Try AI summary
-      let summary = "";
-      let highlights: string[] = [];
-      const date = "February 7, 2026";
-
+      // Try AI summary with structured highlights
       try {
         const { getChatCompletion } = await import("./ai");
         const { AI_FEATURES } = await import("@shared/schema");
@@ -216,56 +266,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
           [
             {
               role: "system",
-              content: `Summarize these software release notes into a friendly, non-technical overview for end users of a company strategy and OKR management platform. Group changes into 3-5 highlights. Use simple, clear language. Respond with valid JSON only: { "summary": "One paragraph overview", "highlights": ["Highlight 1 description", "Highlight 2 description"] }`,
+              content: `You summarize software release notes into friendly, non-technical overviews for business users. Combine all versions into a single cohesive summary. Group into 3-5 highlights. Return valid JSON only: { "summary": "brief overview sentence", "highlights": [{ "icon": "lucide-icon-name", "title": "short title", "description": "1-2 sentence description" }] }. For icon, use lucide icon names like: star, message-circle, bar-chart-3, shield-check, zap, target, wrench, book-open, clipboard-list, bell.`,
             },
             {
               role: "user",
               content: changelogContent,
             },
           ],
-          { maxTokens: 1000, temperature: 0.3 },
+          { maxTokens: 1024, temperature: 0.5 },
           AI_FEATURES.OTHER
         );
 
-        // Parse the AI response
         const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
-          summary = parsed.summary || "";
-          highlights = parsed.highlights || [];
+          if (parsed.highlights && parsed.highlights.length > 0) {
+            const result = { summary: parsed.summary || "", highlights: parsed.highlights };
+            changelogSummaryCache.set(currentChangelogVersion, result);
+            return res.json({ showModal: true, version: currentChangelogVersion, ...result });
+          }
         }
-      } catch (aiError) {
-        console.error("AI summary generation failed, using fallback:", aiError);
-        // Fallback: use first 500 characters of raw content
-        summary = changelogContent.substring(0, 500).replace(/[#*_]/g, "").trim();
-        highlights = ["New features and improvements have been added to the platform."];
+      } catch (aiError: any) {
+        console.error("[CHANGELOG] AI summary generation failed:", aiError.message);
       }
 
-      const result = { summary, highlights, date };
-      changelogSummaryCache.set(CURRENT_CHANGELOG_VERSION, result);
-
-      return res.json({
-        show: true,
-        version: CURRENT_CHANGELOG_VERSION,
-        ...result,
-      });
+      // Fallback: extract highlights from markdown structure
+      const highlights = extractFallbackHighlights(changelogContent);
+      const fallbackResult = { summary: "Here's what's new in the latest updates.", highlights };
+      if (highlights.length > 0) {
+        changelogSummaryCache.set(currentChangelogVersion, fallbackResult);
+      }
+      return res.json({ showModal: true, version: currentChangelogVersion, ...fallbackResult });
     } catch (error) {
-      console.error("Error in whats-new:", error);
-      return res.json({ show: false });
+      console.error("[CHANGELOG] Failed to check changelog status:", error);
+      return res.json({ showModal: false });
     }
   });
 
-  // Dismiss the What's New modal
   app.post("/api/changelog/dismiss", authWithTenant, async (req: any, res) => {
     try {
-      const userId = req.user.id;
-      await storage.updateUser(userId, {
-        lastDismissedChangelogVersion: CURRENT_CHANGELOG_VERSION,
-      } as any);
-      return res.json({ success: true });
-    } catch (error) {
-      console.error("Error dismissing changelog:", error);
-      return res.status(500).json({ error: "Failed to dismiss changelog" });
+      const user = req.user;
+      const { version } = req.body;
+
+      if (!version || typeof version !== "string") {
+        return res.status(400).json({ message: "Version is required" });
+      }
+
+      await storage.updateUser(user.id, { lastDismissedChangelogVersion: version } as any);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("[CHANGELOG] Failed to dismiss changelog:", error);
+      return res.status(500).json({ message: "Failed to dismiss changelog" });
     }
   });
 
