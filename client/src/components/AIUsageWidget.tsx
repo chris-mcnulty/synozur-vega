@@ -77,6 +77,7 @@ const getModelDisplayName = (model: string) => {
     "gpt-5": "GPT-5",
     "claude-sonnet-4": "Claude Sonnet 4",
     "claude-opus-4": "Claude Opus 4",
+    "claude-opus-4-5": "Claude Opus 4.5",
     "claude-3.5-sonnet": "Claude 3.5 Sonnet",
     "claude-3.5-haiku": "Claude 3.5 Haiku",
     "claude-3-opus": "Claude 3 Opus",
