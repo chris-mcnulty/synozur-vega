@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useLocation } from "wouter";
-import { Sparkles, X, ExternalLink, ChevronRight, Star, MessageCircle, BarChart3, ClipboardList, Wrench, BookOpen, Zap, Target, ShieldCheck, Bell } from "lucide-react";
+import { Sparkles, X, ExternalLink, ChevronRight, Star, MessageCircle, BarChart3, ClipboardList, Wrench, BookOpen, Zap, Target, ShieldCheck, Bell, Rocket, LayoutDashboard } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +36,8 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   "target": Target,
   "shield-check": ShieldCheck,
   "bell": Bell,
+  "rocket": Rocket,
+  "layout-dashboard": LayoutDashboard,
 };
 
 function HighlightIcon({ name }: { name: string }) {

@@ -264,34 +264,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.json({ showModal: true, version: currentChangelogVersion, summary: "New updates are available!", highlights: [] });
       }
 
-      // Try AI summary with structured highlights
+      // Generate AI summary with structured highlights using getSimpleCompletion
+      // (bypasses grounding docs — this is a standalone summarization task)
       try {
-        const { getChatCompletion } = await import("./ai");
+        const { getSimpleCompletion } = await import("./ai");
         const { AI_FEATURES } = await import("@shared/schema");
-        const aiResponse = await getChatCompletion(
-          [
-            {
-              role: "system",
-              content: `You summarize software release notes into friendly, non-technical overviews for business users. Combine all versions into a single cohesive summary. Group into 3-5 highlights. Return valid JSON only: { "summary": "brief overview sentence", "highlights": [{ "icon": "lucide-icon-name", "title": "short title", "description": "1-2 sentence description" }] }. For icon, use lucide icon names like: star, message-circle, bar-chart-3, shield-check, zap, target, wrench, book-open, clipboard-list, bell.`,
-            },
-            {
-              role: "user",
-              content: changelogContent,
-            },
-          ],
-          { maxTokens: 1024, temperature: 0.5 },
+
+        const systemPrompt = `You summarize software release notes into friendly, warm "What's New" announcements for business users. Write as if speaking directly to the user ("You can now...", "We've improved..."). Use plain everyday language — no jargon, no markdown, no bold/italic markers. Return ONLY valid JSON with no code fences.`;
+
+        const userPrompt = `Summarize these release notes from "Vega" (a company strategy and OKR management platform) into 3-5 highlights for end users.
+
+Return this exact JSON structure:
+{ "summary": "One friendly sentence overview", "highlights": [{ "icon": "lucide-icon-name", "title": "Short Catchy Title (3-5 words)", "description": "2-3 sentences about what this means for the user, written warmly and clearly." }] }
+
+For icon, choose from: star, message-circle, bar-chart-3, shield-check, zap, target, wrench, book-open, clipboard-list, bell, rocket, layout-dashboard
+
+RELEASE NOTES:
+${changelogContent}`;
+
+        const aiResponse = await getSimpleCompletion(
+          systemPrompt,
+          userPrompt,
+          { maxTokens: 16384 },
           AI_FEATURES.OTHER
         );
 
-        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+        console.log("[CHANGELOG] AI raw response length:", aiResponse.length);
+        console.log("[CHANGELOG] AI raw response preview:", aiResponse.substring(0, 300));
+
+        // Strip markdown code fences if present
+        let cleanedResponse = aiResponse.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+        const jsonMatch = cleanedResponse.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           const parsed = JSON.parse(jsonMatch[0]);
           if (parsed.highlights && parsed.highlights.length > 0) {
-            const result = { summary: parsed.summary || "", highlights: parsed.highlights };
+            // Strip any residual markdown from descriptions
+            const cleanHighlights = parsed.highlights.map((h: any) => ({
+              icon: h.icon || "star",
+              title: (h.title || "").replace(/\*\*/g, ""),
+              description: (h.description || "").replace(/\*\*/g, "").replace(/\*/g, ""),
+            }));
+            const result = { summary: (parsed.summary || "").replace(/\*\*/g, ""), highlights: cleanHighlights };
             changelogSummaryCache.set(currentChangelogVersion, result);
+            console.log("[CHANGELOG] AI summary cached with", cleanHighlights.length, "highlights");
             return res.json({ showModal: true, version: currentChangelogVersion, ...result });
           }
         }
+        console.warn("[CHANGELOG] AI response did not contain valid JSON highlights");
       } catch (aiError: any) {
         console.error("[CHANGELOG] AI summary generation failed:", aiError.message);
       }
