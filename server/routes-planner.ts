@@ -461,6 +461,22 @@ router.put('/mapping/bigrock/:bigRockId', async (req: Request, res: Response) =>
       plannerSyncEnabled: plannerSyncEnabled ?? false,
     });
 
+    // Trigger initial bucket+task sync when mapping is first configured
+    if (plannerPlanId && plannerSyncEnabled) {
+      try {
+        const userId = req.user!.id;
+        const plan = await storage.getPlannerPlanById(plannerPlanId);
+        if (plan) {
+          console.log('[Planner API] Running initial sync for newly mapped Big Rock:', bigRockId);
+          await syncPlannerBuckets(userId, tenantId, plan.id, plan.graphPlanId);
+          await syncPlannerTasks(userId, tenantId, plan.id, plan.graphPlanId);
+          console.log('[Planner API] Initial sync complete for Big Rock:', bigRockId);
+        }
+      } catch (syncErr: any) {
+        console.warn('[Planner API] Initial sync after mapping failed (non-blocking):', syncErr?.message);
+      }
+    }
+
     res.json({ success: true, bigRock: updated });
   } catch (error: any) {
     console.error('[Planner API] Set Big Rock mapping error:', error);
@@ -781,15 +797,23 @@ router.post('/teams/:teamId/plans', async (req: Request, res: Response) => {
     }
 
     const plan = await createPlanInTeam(userId, tenantId, teamId, title);
+    console.log('[Planner API] Plan created:', { id: plan.id, graphPlanId: plan.graphPlanId, title: plan.title });
+
+    // Sync buckets from Graph to capture Microsoft's auto-created default bucket(s)
+    let syncedBuckets: any[] = [];
+    try {
+      syncedBuckets = await syncPlannerBuckets(userId, tenantId, plan.id, plan.graphPlanId);
+      console.log(`[Planner API] Synced ${syncedBuckets.length} default bucket(s) from Graph`);
+    } catch (bucketSyncError) {
+      console.warn('[Planner API] Failed to sync default buckets from Graph:', bucketSyncError);
+    }
 
     if (channelId && plan) {
       try {
-        const planFromDb = await storage.getPlannerPlanById(plan.id);
-        if (planFromDb) {
-          await addPlannerTabToChannel(userId, teamId, channelId, planFromDb.graphPlanId, title);
-        }
-      } catch (tabError) {
-        console.warn('[Planner API] Failed to add tab to channel (non-critical):', tabError);
+        await addPlannerTabToChannel(userId, teamId, channelId, plan.graphPlanId, title);
+        console.log('[Planner API] Successfully pinned tab to channel');
+      } catch (tabError: any) {
+        console.warn('[Planner API] Failed to add tab to channel:', tabError?.message || tabError);
       }
     }
 
@@ -802,7 +826,8 @@ router.post('/teams/:teamId/plans', async (req: Request, res: Response) => {
       }
     }
 
-    res.json({ plan, bucket });
+    // Return all synced buckets so the frontend can select one
+    res.json({ plan, bucket, syncedBuckets });
   } catch (error: any) {
     console.error('[Planner API] Create plan in team error:', error);
     res.status(500).json({ error: 'Failed to create plan', message: error.message });

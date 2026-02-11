@@ -248,6 +248,14 @@ export async function syncPlannerTasks(
   const client = getGraphClient(accessToken);
 
   try {
+    // Always sync buckets first so we have up-to-date bucket mappings
+    // This prevents tasks from being silently dropped due to unknown buckets
+    try {
+      await syncPlannerBuckets(userId, tenantId, planId, graphPlanId);
+    } catch (bucketSyncErr) {
+      console.warn('[Graph Planner] Failed to pre-sync buckets before task sync:', bucketSyncErr);
+    }
+
     const response = await client.api(`/planner/plans/${graphPlanId}/tasks`).get();
     const graphTasks: GraphPlannerTask[] = response.value || [];
 
@@ -258,8 +266,11 @@ export async function syncPlannerTasks(
     buckets.forEach(b => bucketMap.set(b.graphBucketId, b.id));
 
     for (const graphTask of graphTasks) {
-      const bucketId = bucketMap.get(graphTask.bucketId);
-      if (!bucketId) continue;
+      let bucketId = bucketMap.get(graphTask.bucketId);
+      if (!bucketId) {
+        console.warn(`[Graph Planner] Task "${graphTask.title}" has unknown bucket ${graphTask.bucketId}, skipping`);
+        continue;
+      }
 
       const assignments = graphTask.assignments 
         ? Object.fromEntries(
@@ -886,14 +897,15 @@ export async function addPlannerTabToChannel(
   planTitle: string
 ): Promise<void> {
   return withTokenRetry(userId, async (client) => {
+    const entityId = `tt.c_${channelId}_p_${planId}_h_${Date.now()}`;
     await client.api(`/teams/${teamId}/channels/${channelId}/tabs`).post({
       displayName: planTitle,
       'teamsApp@odata.bind': "https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/com.microsoft.teamspace.tab.planner",
       configuration: {
-        entityId: planId,
-        contentUrl: `https://tasks.office.com/${planId}/Home/PlanViews/Board`,
-        removeUrl: `https://tasks.office.com/${planId}/Home/PlanViews/Board`,
-        websiteUrl: `https://tasks.office.com/${planId}/Home/PlanViews/Board`,
+        entityId,
+        contentUrl: `https://tasks.teams.microsoft.com/teamsui/{tid}/Home/PlannerFrame?page=7&auth_pvr=OrgId&auth_upn={userPrincipalName}&groupId=${teamId}&planId=${planId}&channelId=${channelId}&entityId=${entityId}&tid={tid}&userObjectId={userObjectId}&subEntityId={subEntityId}&sessionId={sessionId}&theme={theme}&mkt={locale}&ringId={ringId}&PlannerRouteHint={tid}&tabVersion=20200228.1_s`,
+        removeUrl: `https://tasks.teams.microsoft.com/teamsui/{tid}/Home/PlannerFrame?page=13&auth_pvr=OrgId&auth_upn={userPrincipalName}&groupId=${teamId}&planId=${planId}&channelId=${channelId}&entityId=${entityId}&tid={tid}&userObjectId={userObjectId}&subEntityId={subEntityId}&sessionId={sessionId}&theme={theme}&mkt={locale}&ringId={ringId}&PlannerRouteHint={tid}&tabVersion=20200228.1_s`,
+        websiteUrl: `https://tasks.office.com/{tid}/Home/PlanViews/${planId}?Type=PlanLink&Channel=TeamsTab`,
       },
     });
     console.log(`[Graph Planner] Added Planner tab "${planTitle}" to channel ${channelId}`);

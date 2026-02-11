@@ -128,7 +128,11 @@ export function PlannerCreatePlanDialog({
       const plan = data.plan;
       const bucket = data.bucket;
       setSelectedPlan(plan);
-      if (bucket) setSelectedBucket(bucket);
+      if (bucket) {
+        setSelectedBucket(bucket);
+      } else if (data.syncedBuckets?.length > 0) {
+        setSelectedBucket(data.syncedBuckets[0]);
+      }
       toast({ title: "Plan created", description: `"${plan.title}" created in Microsoft Planner` });
       setStep("confirm");
     },
