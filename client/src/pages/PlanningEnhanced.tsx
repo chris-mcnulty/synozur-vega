@@ -2132,7 +2132,7 @@ export default function PlanningEnhanced() {
               Progress Dashboard
             </TabsTrigger>
             <TabsTrigger value="annual-goals" data-testid="tab-annual-goals">
-              Annual Goals ({goals.length})
+              Annual Goals ({goals.filter(g => (g.year || currentYear) === goalsYearFilter).length})
             </TabsTrigger>
           </TabsList>
 
