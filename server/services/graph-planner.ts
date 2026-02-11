@@ -83,7 +83,47 @@ function getMsalClient(): ConfidentialClientApplication | null {
   });
 }
 
-async function getAccessToken(userId: string): Promise<string | null> {
+async function refreshTokenForUser(userId: string): Promise<string | null> {
+  const graphToken = await storage.getGraphToken(userId, 'planner');
+  if (!graphToken?.refreshToken) {
+    console.warn(`[Graph Planner] No refresh token available for user ${userId}`);
+    return null;
+  }
+
+  try {
+    const msalClient = getMsalClient();
+    if (!msalClient) return null;
+
+    const decryptedRefresh = isEncrypted(graphToken.refreshToken) 
+      ? decryptToken(graphToken.refreshToken) 
+      : graphToken.refreshToken;
+
+    const response = await msalClient.acquireTokenByRefreshToken({
+      refreshToken: decryptedRefresh,
+      scopes: PLANNER_SCOPES,
+    });
+
+    if (response) {
+      const newRefreshToken = (response as any).refreshToken || decryptedRefresh;
+      await storage.upsertGraphToken({
+        userId,
+        tenantId: graphToken.tenantId,
+        accessToken: encryptToken(response.accessToken),
+        refreshToken: encryptToken(newRefreshToken),
+        expiresAt: response.expiresOn ? new Date(response.expiresOn) : null,
+        scopes: graphToken.scopes,
+        service: 'planner',
+      });
+      console.log(`[Graph Planner] Token refreshed successfully for user ${userId}`);
+      return response.accessToken;
+    }
+  } catch (error) {
+    console.error(`[Graph Planner] Token refresh failed for user ${userId}:`, error);
+  }
+  return null;
+}
+
+async function getAccessToken(userId: string, forceRefresh = false): Promise<string | null> {
   const graphToken = await storage.getGraphToken(userId, 'planner');
   if (!graphToken) {
     console.warn(`[Graph Planner] No token found for user ${userId}`);
@@ -99,47 +139,18 @@ async function getAccessToken(userId: string): Promise<string | null> {
     ? decryptToken(graphToken.accessToken) 
     : graphToken.accessToken;
 
-  if (graphToken.expiresAt && new Date(graphToken.expiresAt) > new Date()) {
+  if (!forceRefresh && graphToken.expiresAt && new Date(graphToken.expiresAt) > new Date()) {
     return accessToken;
   }
 
-  if (graphToken.refreshToken) {
-    try {
-      const msalClient = getMsalClient();
-      if (!msalClient) {
-        return null;
-      }
+  const refreshed = await refreshTokenForUser(userId);
+  if (refreshed) return refreshed;
 
-      const decryptedRefresh = isEncrypted(graphToken.refreshToken) 
-        ? decryptToken(graphToken.refreshToken) 
-        : graphToken.refreshToken;
-
-      const refreshRequest = {
-        refreshToken: decryptedRefresh,
-        scopes: PLANNER_SCOPES,
-      };
-
-      const response = await msalClient.acquireTokenByRefreshToken(refreshRequest);
-      if (response) {
-        const newRefreshToken = (response as any).refreshToken || decryptedRefresh;
-        
-        await storage.upsertGraphToken({
-          userId,
-          tenantId: graphToken.tenantId,
-          accessToken: encryptToken(response.accessToken),
-          refreshToken: encryptToken(newRefreshToken),
-          expiresAt: response.expiresOn ? new Date(response.expiresOn) : null,
-          scopes: graphToken.scopes,
-          service: 'planner',
-        });
-        return response.accessToken;
-      }
-    } catch (error) {
-      console.error(`[Graph Planner] Token refresh failed for user ${userId}:`, error);
-    }
+  if (!forceRefresh && graphToken.expiresAt === null) {
+    return accessToken;
   }
 
-  return accessToken;
+  return null;
 }
 
 function getGraphClient(accessToken: string): Client {
@@ -772,18 +783,10 @@ export async function syncPlannerTasksToBigRockTasks(
 
 // ============ Create Planner Plan in Teams/Channels ============
 
-export async function getTeamsForUser(
-  userId: string
+async function fetchTeamsWithClient(
+  client: Client
 ): Promise<Array<{ id: string; displayName: string; description?: string }>> {
-  const accessToken = await getAccessToken(userId);
-  if (!accessToken) {
-    throw new Error('No valid access token available');
-  }
-
-  const client = getGraphClient(accessToken);
-
   try {
-    // First try /me/joinedTeams (requires Team.ReadBasic.All)
     const response = await client.api('/me/joinedTeams')
       .select('id,displayName,description')
       .get();
@@ -792,25 +795,48 @@ export async function getTeamsForUser(
       teams.sort((a: any, b: any) => a.displayName.localeCompare(b.displayName));
       return teams;
     }
-    // If empty, fall through to groups approach
   } catch (error: any) {
-    console.warn('[Graph Planner] /me/joinedTeams failed (may need Team.ReadBasic.All scope), falling back to groups:', error.message);
+    if (error.statusCode === 401) throw error;
+    console.warn('[Graph Planner] /me/joinedTeams failed, falling back to groups:', error.message);
   }
 
-  // Fallback: Use /me/memberOf with Group.Read.All scope (like Constellation)
-  // This lists Microsoft 365 groups the user belongs to (which back Teams)
+  const response = await client.api('/me/memberOf/microsoft.graph.group')
+    .filter("groupTypes/any(c:c eq 'Unified')")
+    .select('id,displayName,description')
+    .top(100)
+    .get();
+  const groups = response.value || [];
+  groups.sort((a: any, b: any) => a.displayName.localeCompare(b.displayName));
+  return groups;
+}
+
+export async function getTeamsForUser(
+  userId: string
+): Promise<Array<{ id: string; displayName: string; description?: string }>> {
+  return withTokenRetry(userId, fetchTeamsWithClient);
+}
+
+async function withTokenRetry<T>(
+  userId: string,
+  operation: (client: Client) => Promise<T>
+): Promise<T> {
+  const accessToken = await getAccessToken(userId);
+  if (!accessToken) {
+    throw new Error('No valid access token available. Please reconnect Microsoft Planner.');
+  }
+
   try {
-    const response = await client.api('/me/memberOf/microsoft.graph.group')
-      .filter("groupTypes/any(c:c eq 'Unified')")
-      .select('id,displayName,description')
-      .top(100)
-      .get();
-    const groups = response.value || [];
-    groups.sort((a: any, b: any) => a.displayName.localeCompare(b.displayName));
-    return groups;
-  } catch (error2: any) {
-    console.error('[Graph Planner] Failed to get teams via groups fallback:', error2);
-    throw error2;
+    return await operation(getGraphClient(accessToken));
+  } catch (error: any) {
+    if (error.statusCode === 401 || error.code === 'InvalidAuthenticationToken') {
+      console.log('[Graph Planner] Token expired, attempting refresh and retry...');
+      const refreshedToken = await getAccessToken(userId, true);
+      if (refreshedToken) {
+        return await operation(getGraphClient(refreshedToken));
+      }
+      throw new Error('Microsoft token expired and could not be refreshed. Please reconnect Microsoft Planner.');
+    }
+    throw error;
   }
 }
 
@@ -818,22 +844,12 @@ export async function getChannelsForTeam(
   userId: string,
   teamId: string
 ): Promise<Array<{ id: string; displayName: string; membershipType?: string }>> {
-  const accessToken = await getAccessToken(userId);
-  if (!accessToken) {
-    throw new Error('No valid access token available');
-  }
-
-  const client = getGraphClient(accessToken);
-
-  try {
+  return withTokenRetry(userId, async (client) => {
     const response = await client.api(`/teams/${teamId}/channels`)
       .select('id,displayName,membershipType')
       .get();
     return response.value || [];
-  } catch (error) {
-    console.error('[Graph Planner] Failed to get channels:', error);
-    throw error;
-  }
+  });
 }
 
 export async function createPlanInTeam(
@@ -842,14 +858,7 @@ export async function createPlanInTeam(
   teamId: string,
   planTitle: string
 ): Promise<PlannerPlan> {
-  const accessToken = await getAccessToken(userId);
-  if (!accessToken) {
-    throw new Error('No valid access token available');
-  }
-
-  const client = getGraphClient(accessToken);
-
-  try {
+  return withTokenRetry(userId, async (client) => {
     const response = await client.api('/planner/plans').post({
       owner: teamId,
       title: planTitle,
@@ -866,10 +875,7 @@ export async function createPlanInTeam(
     };
 
     return await storage.upsertPlannerPlan(planData);
-  } catch (error) {
-    console.error('[Graph Planner] Failed to create plan in team:', error);
-    throw error;
-  }
+  });
 }
 
 export async function addPlannerTabToChannel(
@@ -879,14 +885,7 @@ export async function addPlannerTabToChannel(
   planId: string,
   planTitle: string
 ): Promise<void> {
-  const accessToken = await getAccessToken(userId);
-  if (!accessToken) {
-    throw new Error('No valid access token available');
-  }
-
-  const client = getGraphClient(accessToken);
-
-  try {
+  return withTokenRetry(userId, async (client) => {
     await client.api(`/teams/${teamId}/channels/${channelId}/tabs`).post({
       displayName: planTitle,
       'teamsApp@odata.bind': "https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/com.microsoft.teamspace.tab.planner",
@@ -897,12 +896,8 @@ export async function addPlannerTabToChannel(
         websiteUrl: `https://tasks.office.com/${planId}/Home/PlanViews/Board`,
       },
     });
-
     console.log(`[Graph Planner] Added Planner tab "${planTitle}" to channel ${channelId}`);
-  } catch (error) {
-    console.error('[Graph Planner] Failed to add Planner tab to channel:', error);
-    throw error;
-  }
+  });
 }
 
 export async function createBucketInPlan(
@@ -916,14 +911,7 @@ export async function createBucketInPlan(
     throw new Error('Plan not found');
   }
 
-  const accessToken = await getAccessToken(userId);
-  if (!accessToken) {
-    throw new Error('No valid access token available');
-  }
-
-  const client = getGraphClient(accessToken);
-
-  try {
+  return withTokenRetry(userId, async (client) => {
     const response = await client.api('/planner/buckets').post({
       planId: plan.graphPlanId,
       name: bucketName,
@@ -938,8 +926,5 @@ export async function createBucketInPlan(
     };
 
     return await storage.upsertPlannerBucket(bucketData);
-  } catch (error) {
-    console.error('[Graph Planner] Failed to create bucket:', error);
-    throw error;
-  }
+  });
 }

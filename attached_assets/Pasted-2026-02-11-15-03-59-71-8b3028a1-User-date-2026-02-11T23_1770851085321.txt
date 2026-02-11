@@ -1,0 +1,224 @@
+2026-02-11 15:03:59.71
+8b3028a1
+User
+date: 2026-02-11T23:03:59.000Z,
+2026-02-11 15:03:59.71
+8b3028a1
+User
+at GraphRequest. (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphRequest.js:315:84) {
+2026-02-11 15:03:59.71
+8b3028a1
+User
+vary: 'Accept-Encoding',
+2026-02-11 15:03:59.71
+8b3028a1
+User
+at GraphErrorHandler.constructErrorFromResponse (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphErrorHandler.js:63:22)
+2026-02-11 15:03:59.71
+8b3028a1
+User
+'strict-transport-security': 'max-age=31536000',
+2026-02-11 15:03:59.71
+8b3028a1
+User
+at new GraphError (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphError.js:34:28)
+2026-02-11 15:03:59.71
+8b3028a1
+User
+'transfer-encoding': 'chunked',
+2026-02-11 15:03:59.71
+8b3028a1
+User
+statusCode: 401,
+2026-02-11 15:03:59.71
+8b3028a1
+User
+}
+2026-02-11 15:03:59.71
+8b3028a1
+User
+'client-request-id': 'ea842395-2da4-8401-00c6-6c76505dfb01',
+2026-02-11 15:03:59.71
+8b3028a1
+User
+'x-ms-ags-diagnostic': '{"ServerInfo":{"DataCenter":"Central US","Slice":"E","Ring":"4","ScaleUnit":"000","RoleInstance":"DS1PEPF00040E69"}}',
+2026-02-11 15:03:59.71
+8b3028a1
+User
+at new GraphError (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphError.js:34:28)
+2026-02-11 15:03:59.71
+8b3028a1
+User
+at GraphRequest. (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphRequest.js:315:84) {
+2026-02-11 15:03:59.71
+8b3028a1
+User
+date: 2026-02-11T23:03:59.000Z,
+2026-02-11 15:03:59.71
+8b3028a1
+User
+'content-encoding': 'gzip',
+2026-02-11 15:03:59.71
+8b3028a1
+User
+at Function. (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphErrorHandler.js:91:48)
+2026-02-11 15:03:59.71
+8b3028a1
+User
+'transfer-encoding': 'chunked',
+2026-02-11 15:03:59.71
+8b3028a1
+User
+at /home/runner/workspace/node_modules/tslib/tslib.js:170:75
+2026-02-11 15:03:59.71
+8b3028a1
+User
+'content-type': 'application/json',
+2026-02-11 15:03:59.71
+8b3028a1
+User
+at GraphErrorHandler.constructErrorFromResponse (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphErrorHandler.js:63:22)
+2026-02-11 15:03:59.71
+8b3028a1
+User
+date: 'Wed, 11 Feb 2026 23:03:59 GMT'
+2026-02-11 15:03:59.71
+8b3028a1
+User
+'content-encoding': 'gzip',
+2026-02-11 15:03:59.71
+8b3028a1
+User
+at /home/runner/workspace/node_modules/tslib/tslib.js:170:75
+2026-02-11 15:03:59.71
+8b3028a1
+User
+at Object.__awaiter (/home/runner/workspace/node_modules/tslib/tslib.js:166:16)
+2026-02-11 15:03:59.71
+8b3028a1
+User
+requestId: '488a4a20-dbc3-428a-9423-a5eb02e71d18',
+2026-02-11 15:03:59.71
+8b3028a1
+User
+code: 'InvalidAuthenticationToken',
+2026-02-11 15:03:59.71
+8b3028a1
+User
+requestId: '488a4a20-dbc3-428a-9423-a5eb02e71d18',
+2026-02-11 15:03:59.71
+8b3028a1
+User
+[Graph Planner] Failed to get teams via groups fallback: GraphError: Lifetime validation failed, the token is expired.
+2026-02-11 15:03:59.71
+8b3028a1
+User
+at step (/home/runner/workspace/node_modules/tslib/tslib.js:196:27)
+2026-02-11 15:03:59.72
+8b3028a1
+User
+'client-request-id': 'ea842395-2da4-8401-00c6-6c76505dfb01',
+2026-02-11 15:03:59.72
+8b3028a1
+User
+headers: Headers {
+2026-02-11 15:03:59.72
+8b3028a1
+User
+at Object.next (/home/runner/workspace/node_modules/tslib/tslib.js:177:57)
+2026-02-11 15:03:59.72
+8b3028a1
+User
+date: 2026-02-11T23:03:59.000Z,
+2026-02-11 15:03:59.72
+8b3028a1
+User
+at step (/home/runner/workspace/node_modules/tslib/tslib.js:196:27)
+2026-02-11 15:03:59.72
+8b3028a1
+User
+at new GraphError (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphError.js:34:28)
+2026-02-11 15:03:59.72
+8b3028a1
+User
+vary: 'Accept-Encoding',
+2026-02-11 15:03:59.72
+8b3028a1
+User
+at GraphErrorHandler.getError (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphErrorHandler.js:87:24)
+2026-02-11 15:03:59.72
+8b3028a1
+User
+code: 'InvalidAuthenticationToken',
+2026-02-11 15:03:59.72
+8b3028a1
+User
+'request-id': '488a4a20-dbc3-428a-9423-a5eb02e71d18',
+2026-02-11 15:03:59.72
+8b3028a1
+User
+at Object.__awaiter (/home/runner/workspace/node_modules/tslib/tslib.js:166:16)
+2026-02-11 15:03:59.72
+8b3028a1
+User
+at GraphRequest. (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphRequest.js:315:84) {
+2026-02-11 15:03:59.72
+8b3028a1
+User
+'content-encoding': 'gzip',
+2026-02-11 15:03:59.72
+8b3028a1
+User
+'content-type': 'application/json',
+2026-02-11 15:03:59.72
+8b3028a1
+User
+'strict-transport-security': 'max-age=31536000',
+2026-02-11 15:03:59.72
+8b3028a1
+User
+requestId: '488a4a20-dbc3-428a-9423-a5eb02e71d18',
+2026-02-11 15:03:59.72
+8b3028a1
+User
+body: '{"code":"InvalidAuthenticationToken","message":"Lifetime validation failed, the token is expired.","innerError":{"date":"2026-02-11T23:03:59","request-id":"488a4a20-dbc3-428a-9423-a5eb02e71d18","client-request-id":"ea842395-2da4-8401-00c6-6c76505dfb01"}}',
+2026-02-11 15:03:59.72
+8b3028a1
+User
+at Function. (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphErrorHandler.js:91:48)
+2026-02-11 15:03:59.72
+8b3028a1
+User
+'x-ms-ags-diagnostic': '{"ServerInfo":{"DataCenter":"Central US","Slice":"E","Ring":"4","ScaleUnit":"000","RoleInstance":"DS1PEPF00040E69"}}',
+2026-02-11 15:03:59.72
+8b3028a1
+User
+at /home/runner/workspace/node_modules/tslib/tslib.js:170:75
+2026-02-11 15:03:59.72
+8b3028a1
+User
+'transfer-encoding': 'chunked',
+2026-02-11 15:03:59.72
+8b3028a1
+User
+statusCode: 401,
+2026-02-11 15:03:59.72
+8b3028a1
+User
+[Planner API] Get teams error: GraphError: Lifetime validation failed, the token is expired.
+2026-02-11 15:03:59.72
+8b3028a1
+User
+at GraphErrorHandler.constructErrorFromResponse (/home/runner/workspace/node_modules/@microsoft/microsoft-graph-client/lib/src/GraphErrorHandler.js:63:22)
+2026-02-11 15:03:59.72
+8b3028a1
+User
+}
+2026-02-11 15:03:59.72
+8b3028a1
+User
+'www-authenticate': 'Bearer realm="", authorization_uri="https://login.microsoftonline.com/common/oauth2/authorize", client_id="00000003-0000-0000-c000-000000000000"',
+2026-02-11 15:03:59.72
+8b3028a1
+User
+at new Promise ()
