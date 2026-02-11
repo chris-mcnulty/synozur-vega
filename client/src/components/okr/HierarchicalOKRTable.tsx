@@ -83,6 +83,7 @@ interface HierarchyObjective {
   progress: number;
   status: string;
   statusOverride?: string;
+  progressMode?: string;
   ownerEmail?: string;
   ownerId?: string;
   createdBy?: string;
@@ -514,9 +515,9 @@ function ObjectiveRow({
         <TableCell className="py-3" data-testid={`cell-status-${objective.id}`}>
           {(() => {
             const { status: effectiveStatus, isDerived } = getEffectiveStatus(objective);
-            // Calculate progress from Key Results if available, otherwise use stored progress
-            const calculatedProgress = (objective.keyResults && objective.keyResults.length > 0) || 
-                                       (objective.childObjectives && objective.childObjectives.length > 0)
+            const calculatedProgress = objective.progressMode === 'rollup' && 
+                                       ((objective.keyResults && objective.keyResults.length > 0) || 
+                                        (objective.childObjectives && objective.childObjectives.length > 0))
               ? calculateObjectiveProgress(objective.keyResults || [], objective.childObjectives || [])
               : objective.progress;
             return (
