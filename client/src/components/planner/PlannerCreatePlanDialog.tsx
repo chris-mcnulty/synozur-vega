@@ -66,11 +66,22 @@ export function PlannerCreatePlanDialog({
   const [newBucketName, setNewBucketName] = useState("");
   const [teamSearchQuery, setTeamSearchQuery] = useState("");
 
-  const { data: teams = [], isLoading: loadingTeams } = useQuery<TeamItem[]>({
+  const { data: teams = [], isLoading: loadingTeams, error: teamsError } = useQuery<TeamItem[]>({
     queryKey: ["/api/planner/teams"],
     enabled: open && (step === "select-team"),
     retry: false,
   });
+
+  const teamsErrorMsg = (teamsError as any)?.message?.toLowerCase() || '';
+  const needsReconnect = !!teamsError && (
+    teamsErrorMsg.includes('expired') ||
+    teamsErrorMsg.includes('reconnect') ||
+    teamsErrorMsg.startsWith('401')
+  );
+
+  const handleReconnectPlanner = () => {
+    window.location.href = "/auth/entra/planner/connect";
+  };
 
   const filteredTeams = useMemo(() => {
     if (!teamSearchQuery.trim()) return teams;
@@ -122,6 +133,11 @@ export function PlannerCreatePlanDialog({
       setStep("confirm");
     },
     onError: (error: any) => {
+      const msg = error.message?.toLowerCase() || '';
+      if (msg.includes('expired') || msg.includes('reconnect') || msg.includes('401')) {
+        setStep("select-team");
+        queryClient.invalidateQueries({ queryKey: ["/api/planner/teams"] });
+      }
       toast({ title: "Failed to create plan", description: error.message, variant: "destructive" });
     },
   });
@@ -269,6 +285,18 @@ export function PlannerCreatePlanDialog({
         {step === "select-team" && (
           <div className="space-y-3" data-testid="step-select-team">
             <p className="text-sm text-muted-foreground">Select a Microsoft Team to create the plan in:</p>
+            {needsReconnect ? (
+              <div className="text-center py-8 space-y-3">
+                <AlertCircle className="h-8 w-8 mx-auto text-destructive opacity-60" />
+                <p className="text-sm font-medium">Your Microsoft connection has expired</p>
+                <p className="text-xs text-muted-foreground">You need to sign in again with Microsoft to access your Teams and Planner.</p>
+                <Button onClick={handleReconnectPlanner} data-testid="button-reconnect-planner">
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Reconnect to Microsoft
+                </Button>
+              </div>
+            ) : (
+            <>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
@@ -311,6 +339,8 @@ export function PlannerCreatePlanDialog({
                   ))}
                 </div>
               </ScrollArea>
+            )}
+            </>
             )}
           </div>
         )}

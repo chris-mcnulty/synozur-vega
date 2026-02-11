@@ -105,18 +105,34 @@ export function PlannerTaskLinkPanel({ entityType, entityId, entityTitle }: Plan
 
   const syncMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", "/api/planner/sync");
+      const res = await fetch("/api/planner/sync", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        const err = new Error(data.error || "Sync failed");
+        (err as any).reconnectRequired = data.reconnectRequired;
+        throw err;
+      }
+      return data;
     },
     onSuccess: () => {
       toast({ title: "Planner data synced successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/planner"] });
     },
     onError: (error: any) => {
-      toast({ 
-        title: "Sync failed", 
-        description: error.message,
-        variant: "destructive" 
-      });
+      if (error.reconnectRequired) {
+        toast({
+          title: "Microsoft connection expired",
+          description: "Please reconnect to continue using Planner features.",
+          variant: "destructive",
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/planner/status"] });
+      } else {
+        toast({ title: "Sync failed", description: error.message, variant: "destructive" });
+      }
     },
   });
 
@@ -155,6 +171,10 @@ export function PlannerTaskLinkPanel({ entityType, entityId, entityTitle }: Plan
     },
   });
 
+  const handleReconnectPlanner = () => {
+    window.location.href = "/auth/entra/planner/connect";
+  };
+
   if (!plannerStatus?.connected) {
     return (
       <Card>
@@ -164,13 +184,17 @@ export function PlannerTaskLinkPanel({ entityType, entityId, entityTitle }: Plan
             Microsoft Planner Tasks
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-3">
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Connect Microsoft Planner in your account settings to link tasks.
+              Microsoft Planner is not connected. Connect now to link tasks.
             </AlertDescription>
           </Alert>
+          <Button size="sm" onClick={handleReconnectPlanner} data-testid="button-connect-planner-inline">
+            <Link2 className="h-4 w-4 mr-2" />
+            Connect Microsoft Planner
+          </Button>
         </CardContent>
       </Card>
     );
