@@ -40,7 +40,7 @@ Preferred communication style: Simple, everyday language.
 
 ## External Dependencies
 
-- **Microsoft 365 Integration**: Microsoft Graph Client for integration with Excel, Outlook Calendar, and Microsoft Planner via OAuth. Supports bidirectional sync for Planner tasks, event access for Outlook, and Excel data binding for Key Results.
+- **Microsoft 365 Integration**: Microsoft Graph Client for integration with Excel, Outlook Calendar, and Microsoft Planner via OAuth. Supports bidirectional sync for Planner tasks, event access for Outlook, and Excel data binding for Key Results. Constellation-style Planner integration with multi-step wizard dialog for plan creation (Team → Channel → Plan flow), following patterns from the Constellation codebase at `https://github.com/chris-mcnulty/synozur-scdp`.
 - **AI Services**: Dynamic AI provider configuration supporting Replit AI (default), Azure OpenAI, OpenAI, and Anthropic. Admins can switch providers/models (e.g., GPT-5, GPT-4o, Claude Opus 4.5) at runtime. Includes grounding documents, AI usage tracking, and a Model Comparison dashboard.
 - **UI Component Library**: shadcn/ui (built on Radix UI primitives).
 - **Database**: Neon PostgreSQL.
