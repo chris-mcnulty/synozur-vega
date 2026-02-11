@@ -34,6 +34,7 @@ import { MilestoneTimeline } from "@/components/okr/MilestoneTimeline";
 import { TrendingUp, Target, Activity, AlertCircle, AlertTriangle, CheckCircle, CheckSquare, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink, Calendar, X, Filter } from "lucide-react";
 import { ExcelFilePicker } from "@/components/ExcelFilePicker";
 import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
+import { PlannerCreatePlanDialog } from "@/components/planner/PlannerCreatePlanDialog";
 import { PlannerTaskLinkPanel } from "@/components/planner/PlannerTaskLinkPanel";
 import { cn } from "@/lib/utils";
 import type { Foundation, CompanyValue, AnnualGoal, Ambition } from "@shared/schema";
@@ -585,6 +586,7 @@ export default function PlanningEnhanced() {
   const [selectedKeyResult, setSelectedKeyResult] = useState<KeyResult | null>(null);
   const [selectedBigRock, setSelectedBigRock] = useState<BigRock | null>(null);
   const [selectedBigRockForLink, setSelectedBigRockForLink] = useState<string | null>(null);
+  const [showCreatePlanDialog, setShowCreatePlanDialog] = useState(false);
   const [checkInEntity, setCheckInEntity] = useState<{ type: string; id: string; current?: any } | null>(null);
 
   // Value tag states
@@ -3494,7 +3496,7 @@ export default function PlanningEnhanced() {
                 </div>
 
                 {selectedBigRock && (
-                  <div className="pt-2">
+                  <div className="pt-2 space-y-2">
                     <PlannerProgressMapping
                       entityType="bigrock"
                       entityId={selectedBigRock.id}
@@ -3503,6 +3505,17 @@ export default function PlanningEnhanced() {
                         setBigRockForm({ ...bigRockForm, completionPercentage: Math.round(progress) });
                       }}
                     />
+                    {!selectedBigRock.plannerPlanId && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowCreatePlanDialog(true)}
+                        data-testid="button-create-planner-plan"
+                      >
+                        <Plus className="w-4 h-4 mr-1" />
+                        Create Plan in Teams
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>
@@ -3623,6 +3636,15 @@ export default function PlanningEnhanced() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {selectedBigRock && (
+          <PlannerCreatePlanDialog
+            open={showCreatePlanDialog}
+            onOpenChange={setShowCreatePlanDialog}
+            bigRockId={selectedBigRock.id}
+            bigRockTitle={selectedBigRock.title}
+          />
+        )}
 
         {/* Weight Management Dialog */}
         <Dialog open={weightManagementDialogOpen} onOpenChange={(open) => {
