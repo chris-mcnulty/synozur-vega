@@ -212,6 +212,8 @@ export default function PlanningEnhanced() {
   const [customGoal, setCustomGoal] = useState("");
   const [cloneSourceYear, setCloneSourceYear] = useState<number | null>(null);
   const [aiGoalsSuggestionOpen, setAiGoalsSuggestionOpen] = useState(false);
+  const [goalsYearFilter, setGoalsYearFilter] = useState<number>(currentYear);
+  const [alignmentGoalYear, setAlignmentGoalYear] = useState<number>(currentYear);
 
   // Fetch teams for filtering
   const { data: teamsData = [] } = useQuery<{ id: string; name: string }[]>({
@@ -299,7 +301,7 @@ export default function PlanningEnhanced() {
   const handleAddCustomGoal = () => {
     const trimmedGoal = customGoal.trim();
     if (trimmedGoal && !goals.some(g => g.title === trimmedGoal)) {
-      setGoals([...goals, { title: trimmedGoal, year: currentYear }]);
+      setGoals([...goals, { title: trimmedGoal, year: goalsYearFilter }]);
       setCustomGoal("");
     }
   };
@@ -385,7 +387,7 @@ export default function PlanningEnhanced() {
 
   const handleAddGoalSuggestion = (suggestion: string) => {
     if (!goals.some(g => g.title === suggestion)) {
-      setGoals([...goals, { title: suggestion, year: currentYear }]);
+      setGoals([...goals, { title: suggestion, year: goalsYearFilter }]);
     }
   };
 
@@ -2516,7 +2518,23 @@ export default function PlanningEnhanced() {
                   <CardTitle>Annual Goals</CardTitle>
                   <CardDescription>Define your key organizational objectives for each year</CardDescription>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={goalsYearFilter.toString()}
+                    onValueChange={(value) => setGoalsYearFilter(parseInt(value))}
+                  >
+                    <SelectTrigger className="w-24" data-testid="select-goals-year-filter">
+                      <Calendar className="w-3 h-3 mr-1" />
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableGoalYears.map((y) => (
+                        <SelectItem key={y} value={y.toString()}>
+                          {y}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <Button
                     variant="outline"
                     size="sm"
@@ -2541,11 +2559,13 @@ export default function PlanningEnhanced() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Show existing goals grouped by year */}
-                {goals.length > 0 ? (
+                {/* Show goals for the selected year */}
+                {(() => {
+                  const filteredGoals = goals.filter(g => (g.year || currentYear) === goalsYearFilter);
+                  return filteredGoals.length > 0 ? (
                   <div className="space-y-3">
-                    {uniqueGoalYears.map((goalYear) => {
-                      const yearGoals = goals.filter(g => (g.year || currentYear) === goalYear);
+                    {[goalsYearFilter].map((goalYear) => {
+                      const yearGoals = filteredGoals;
                       if (yearGoals.length === 0) return null;
                       return (
                         <div key={goalYear} className="space-y-2">
@@ -2688,10 +2708,11 @@ export default function PlanningEnhanced() {
                 ) : (
                   <div className="text-center py-6 text-muted-foreground">
                     <Target className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                    <p className="text-sm">No annual goals defined yet</p>
-                    <p className="text-xs mt-1">Add goals below to track your key organizational objectives</p>
+                    <p className="text-sm">No goals for {goalsYearFilter}</p>
+                    <p className="text-xs mt-1">Add goals below or select a different year above</p>
                   </div>
-                )}
+                );
+                })()}
 
                 {/* Add Goal Section */}
                 <Collapsible>
@@ -2750,7 +2771,7 @@ export default function PlanningEnhanced() {
           onOpenChange={setAiGoalsSuggestionOpen}
           onAddGoal={(goalTitle) => {
             if (!goals.some(g => g.title === goalTitle)) {
-              setGoals([...goals, { title: goalTitle, year: currentYear }]);
+              setGoals([...goals, { title: goalTitle, year: goalsYearFilter }]);
             }
           }}
         />
@@ -2995,12 +3016,35 @@ export default function PlanningEnhanced() {
                   </div>
 
                   <div>
-                    <Label>Linked Annual Goals</Label>
+                    <div className="flex items-center justify-between gap-2">
+                      <Label>Linked Annual Goals</Label>
+                      <Select
+                        value={alignmentGoalYear.toString()}
+                        onValueChange={(value) => setAlignmentGoalYear(parseInt(value))}
+                      >
+                        <SelectTrigger className="w-20 h-7 text-xs" data-testid="select-alignment-goal-year">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableGoalYears.map((y) => (
+                            <SelectItem key={y} value={y.toString()}>
+                              {y}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div className="flex flex-wrap gap-2 mt-2">
-                      {(!foundation?.annualGoals || foundation.annualGoals.length === 0) ? (
-                        <p className="text-sm text-muted-foreground">No annual goals defined yet</p>
-                      ) : (
-                        foundation.annualGoals.map((goal: any, idx: number) => {
+                      {(() => {
+                        const allGoals = foundation?.annualGoals || [];
+                        const yearFilteredGoals = allGoals.filter((goal: any) => {
+                          const goalYear = typeof goal === 'string' ? currentYear : (goal.year || currentYear);
+                          return goalYear === alignmentGoalYear;
+                        });
+                        if (yearFilteredGoals.length === 0) {
+                          return <p className="text-sm text-muted-foreground">No goals for {alignmentGoalYear}</p>;
+                        }
+                        return yearFilteredGoals.map((goal: any, idx: number) => {
                           const goalTitle = typeof goal === 'string' ? goal : goal.title;
                           return (
                             <Badge
@@ -3013,8 +3057,8 @@ export default function PlanningEnhanced() {
                               {goalTitle}
                             </Badge>
                           );
-                        })
-                      )}
+                        });
+                      })()}
                     </div>
                   </div>
 
