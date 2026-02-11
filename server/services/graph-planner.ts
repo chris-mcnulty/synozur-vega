@@ -15,6 +15,8 @@ import type {
 const PLANNER_SCOPES = [
   'Tasks.ReadWrite',
   'Group.Read.All',
+  'Team.ReadBasic.All',
+  'Channel.ReadBasic.All',
 ];
 
 const BIG_ROCK_STATUS_TO_PERCENT: Record<string, number> = {
@@ -781,13 +783,34 @@ export async function getTeamsForUser(
   const client = getGraphClient(accessToken);
 
   try {
+    // First try /me/joinedTeams (requires Team.ReadBasic.All)
     const response = await client.api('/me/joinedTeams')
       .select('id,displayName,description')
       .get();
-    return response.value || [];
-  } catch (error) {
-    console.error('[Graph Planner] Failed to get teams:', error);
-    throw error;
+    const teams = response.value || [];
+    if (teams.length > 0) {
+      teams.sort((a: any, b: any) => a.displayName.localeCompare(b.displayName));
+      return teams;
+    }
+    // If empty, fall through to groups approach
+  } catch (error: any) {
+    console.warn('[Graph Planner] /me/joinedTeams failed (may need Team.ReadBasic.All scope), falling back to groups:', error.message);
+  }
+
+  // Fallback: Use /me/memberOf with Group.Read.All scope (like Constellation)
+  // This lists Microsoft 365 groups the user belongs to (which back Teams)
+  try {
+    const response = await client.api('/me/memberOf/microsoft.graph.group')
+      .filter("groupTypes/any(c:c eq 'Unified')")
+      .select('id,displayName,description')
+      .top(100)
+      .get();
+    const groups = response.value || [];
+    groups.sort((a: any, b: any) => a.displayName.localeCompare(b.displayName));
+    return groups;
+  } catch (error2: any) {
+    console.error('[Graph Planner] Failed to get teams via groups fallback:', error2);
+    throw error2;
   }
 }
 

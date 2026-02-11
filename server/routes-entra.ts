@@ -57,6 +57,8 @@ const PLANNER_SCOPES = [
   'User.Read',
   'Tasks.ReadWrite',
   'Group.Read.All',
+  'Team.ReadBasic.All',
+  'Channel.ReadBasic.All',
   'offline_access',
 ];
 
