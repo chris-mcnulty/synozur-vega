@@ -307,6 +307,14 @@ export default function PlanningEnhanced() {
     setGoals(goals.filter((_, i) => i !== index));
   };
 
+  const handleUpdateGoalTitle = (index: number, newTitle: string) => {
+    const trimmed = newTitle.trim();
+    if (!trimmed) return;
+    const updatedGoals = [...goals];
+    updatedGoals[index] = { ...updatedGoals[index], title: trimmed };
+    setGoals(updatedGoals);
+  };
+
   const handleUpdateGoalYear = (index: number, newYear: number) => {
     const updatedGoals = [...goals];
     updatedGoals[index] = { ...updatedGoals[index], year: newYear };
@@ -2552,7 +2560,13 @@ export default function PlanningEnhanced() {
                                 data-testid={`goal-item-${originalIndex}`}
                               >
                                 <div className="flex items-center justify-between gap-2">
-                                  <p className="text-sm flex-1">{goal.title}</p>
+                                  <Input
+                                    className="text-sm flex-1 h-7 border-transparent bg-transparent hover:border-input focus:border-input focus:bg-background"
+                                    value={goal.title}
+                                    onChange={(e) => handleUpdateGoalTitle(originalIndex, e.target.value)}
+                                    onBlur={(e) => handleUpdateGoalTitle(originalIndex, e.target.value)}
+                                    data-testid={`input-goal-title-${originalIndex}`}
+                                  />
                                   <div className="flex items-center gap-1 opacity-60 hover:opacity-100 transition-opacity">
                                     <Select
                                       value={goal.year?.toString() || currentYear.toString()}
