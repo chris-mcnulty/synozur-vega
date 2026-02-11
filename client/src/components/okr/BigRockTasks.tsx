@@ -31,7 +31,12 @@ import {
   User,
   CheckCircle2,
   Circle,
-  Clock
+  Clock,
+  RefreshCw,
+  ArrowUpFromLine,
+  ArrowDownToLine,
+  Link2,
+  Loader2
 } from "lucide-react";
 import { format } from "date-fns";
 import type { BigRockTask } from "@shared/schema";
@@ -41,6 +46,7 @@ import { UserPicker } from "@/components/UserPicker";
 interface BigRockTasksProps {
   bigRockId: string;
   canModify: boolean;
+  plannerMapped?: boolean;
 }
 
 type TaskStatus = 'open' | 'in_progress' | 'completed';
@@ -51,7 +57,7 @@ const statusConfig: Record<TaskStatus, { label: string; icon: any; color: string
   completed: { label: 'Completed', icon: CheckCircle2, color: 'bg-green-500' },
 };
 
-export function BigRockTasks({ bigRockId, canModify }: BigRockTasksProps) {
+export function BigRockTasks({ bigRockId, canModify, plannerMapped }: BigRockTasksProps) {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<BigRockTask | null>(null);
@@ -154,6 +160,38 @@ export function BigRockTasks({ bigRockId, canModify }: BigRockTasksProps) {
     },
   });
 
+  const syncTasksMutation = useMutation({
+    mutationFn: async (direction: 'push' | 'pull' | 'both') => {
+      const res = await apiRequest('POST', `/api/planner/bigrock/${bigRockId}/sync-tasks`, { direction });
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks/${bigRockId}/tasks`] });
+      queryClient.invalidateQueries({ queryKey: ['/api/okr/big-rocks/task-counts'] });
+      const msgs: string[] = [];
+      if (data.push) msgs.push(`Pushed: ${data.push.created} created, ${data.push.updated} updated`);
+      if (data.pull) msgs.push(`Pulled: ${data.pull.created} created, ${data.pull.updated} updated`);
+      toast({ title: 'Sync complete', description: msgs.join('. ') || 'Tasks synchronized.' });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Sync failed', description: error.message, variant: 'destructive' });
+    },
+  });
+
+  const pushSingleTaskMutation = useMutation({
+    mutationFn: async (taskId: string) => {
+      const res = await apiRequest('POST', `/api/planner/bigrock/${bigRockId}/push-task/${taskId}`);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks/${bigRockId}/tasks`] });
+      toast({ title: 'Task synced', description: `Task ${data.action} in Planner.` });
+    },
+    onError: (error: any) => {
+      toast({ title: 'Sync failed', description: error.message, variant: 'destructive' });
+    },
+  });
+
   const resetForm = () => {
     setFormData({
       title: '',
@@ -188,7 +226,7 @@ export function BigRockTasks({ bigRockId, canModify }: BigRockTasksProps) {
 
   return (
     <Card>
-      <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
+      <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2 flex-wrap">
         <div className="flex items-center gap-2">
           <CardTitle className="text-sm font-medium">Tasks</CardTitle>
           {totalCount > 0 && (
@@ -196,18 +234,64 @@ export function BigRockTasks({ bigRockId, canModify }: BigRockTasksProps) {
               {completedCount}/{totalCount}
             </Badge>
           )}
+          {plannerMapped && (
+            <Badge variant="outline" className="text-xs">
+              <Link2 className="w-3 h-3 mr-1" />
+              Planner
+            </Badge>
+          )}
         </div>
-        {canModify && (
-          <Button 
-            size="sm" 
-            variant="ghost"
-            onClick={() => setCreateDialogOpen(true)}
-            data-testid="button-add-task"
-          >
-            <Plus className="w-4 h-4 mr-1" />
-            Add
-          </Button>
-        )}
+        <div className="flex items-center gap-1">
+          {plannerMapped && canModify && (
+            <>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => syncTasksMutation.mutate('push')}
+                disabled={syncTasksMutation.isPending}
+                title="Push tasks to Planner"
+                data-testid="button-push-tasks"
+              >
+                {syncTasksMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <ArrowUpFromLine className="w-4 h-4" />
+                )}
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => syncTasksMutation.mutate('pull')}
+                disabled={syncTasksMutation.isPending}
+                title="Pull tasks from Planner"
+                data-testid="button-pull-tasks"
+              >
+                <ArrowDownToLine className="w-4 h-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => syncTasksMutation.mutate('both')}
+                disabled={syncTasksMutation.isPending}
+                title="Sync both directions"
+                data-testid="button-sync-tasks"
+              >
+                <RefreshCw className="w-4 h-4" />
+              </Button>
+            </>
+          )}
+          {canModify && (
+            <Button 
+              size="sm" 
+              variant="ghost"
+              onClick={() => setCreateDialogOpen(true)}
+              data-testid="button-add-task"
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Add
+            </Button>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {isLoading ? (
@@ -259,27 +343,46 @@ export function BigRockTasks({ bigRockId, canModify }: BigRockTasksProps) {
                     </div>
                   </div>
 
-                  {canModify && (
-                    <div className="flex gap-1 invisible group-hover:visible">
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => openEditDialog(task)}
-                        data-testid={`button-edit-task-${task.id}`}
-                      >
-                        <Pencil className="w-3 h-3" />
-                      </Button>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        className="text-destructive"
-                        onClick={() => { setSelectedTask(task); setDeleteDialogOpen(true); }}
-                        data-testid={`button-delete-task-${task.id}`}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  )}
+                  <div className="flex gap-1 items-center">
+                    {plannerMapped && task.plannerTaskId && (
+                      <Badge variant="outline" className="text-xs no-default-hover-elevate no-default-active-elevate">
+                        <Link2 className="w-3 h-3" />
+                      </Badge>
+                    )}
+                    {canModify && (
+                      <div className="flex gap-1 invisible group-hover:visible">
+                        {plannerMapped && !task.plannerTaskId && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => pushSingleTaskMutation.mutate(task.id)}
+                            disabled={pushSingleTaskMutation.isPending}
+                            title="Push to Planner"
+                            data-testid={`button-push-task-${task.id}`}
+                          >
+                            <ArrowUpFromLine className="w-3 h-3" />
+                          </Button>
+                        )}
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => openEditDialog(task)}
+                          data-testid={`button-edit-task-${task.id}`}
+                        >
+                          <Pencil className="w-3 h-3" />
+                        </Button>
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="text-destructive"
+                          onClick={() => { setSelectedTask(task); setDeleteDialogOpen(true); }}
+                          data-testid={`button-delete-task-${task.id}`}
+                        >
+                          <Trash2 className="w-3 h-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               );
             })}

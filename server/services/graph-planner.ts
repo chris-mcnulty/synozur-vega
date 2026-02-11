@@ -6,6 +6,7 @@ import type {
   PlannerPlan, 
   PlannerBucket, 
   PlannerTask,
+  BigRockTask,
   InsertPlannerPlan,
   InsertPlannerBucket,
   InsertPlannerTask 
@@ -15,6 +16,22 @@ const PLANNER_SCOPES = [
   'Tasks.ReadWrite',
   'Group.Read.All',
 ];
+
+const BIG_ROCK_STATUS_TO_PERCENT: Record<string, number> = {
+  open: 0,
+  in_progress: 50,
+  completed: 100,
+};
+
+const PERCENT_TO_BIG_ROCK_STATUS = (pct: number): string => {
+  if (pct >= 100) return 'completed';
+  if (pct > 0) return 'in_progress';
+  return 'open';
+};
+
+const graphUserCache = new Map<string, { email: string; displayName: string; expiresAt: number }>();
+const emailToGraphIdCache = new Map<string, { graphUserId: string; expiresAt: number }>();
+const CACHE_TTL = 15 * 60 * 1000;
 
 interface GraphPlannerPlan {
   id: string;
@@ -414,4 +431,492 @@ export async function getPlannerIntegrationStatus(userId: string): Promise<{
     taskCount,
     lastSyncAt: token.lastUsedAt,
   };
+}
+
+// ============ Email-based People Resolution ============
+
+export async function resolveGraphUserEmail(
+  userId: string,
+  graphUserId: string
+): Promise<{ email: string; displayName: string } | null> {
+  const cached = graphUserCache.get(graphUserId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { email: cached.email, displayName: cached.displayName };
+  }
+
+  const accessToken = await getAccessToken(userId);
+  if (!accessToken) return null;
+
+  const client = getGraphClient(accessToken);
+
+  try {
+    const user = await client.api(`/users/${graphUserId}`)
+      .select('mail,userPrincipalName,displayName')
+      .get();
+
+    const email = (user.mail || user.userPrincipalName || '').toLowerCase();
+    const displayName = user.displayName || '';
+
+    if (email) {
+      graphUserCache.set(graphUserId, { email, displayName, expiresAt: Date.now() + CACHE_TTL });
+    }
+
+    return email ? { email, displayName } : null;
+  } catch (error) {
+    console.error(`[Graph Planner] Failed to resolve user ${graphUserId}:`, error);
+    return null;
+  }
+}
+
+export async function resolveEmailToGraphUserId(
+  userId: string,
+  email: string
+): Promise<string | null> {
+  const normalizedEmail = email.toLowerCase().trim();
+  
+  const cached = emailToGraphIdCache.get(normalizedEmail);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.graphUserId;
+  }
+
+  const accessToken = await getAccessToken(userId);
+  if (!accessToken) return null;
+
+  const client = getGraphClient(accessToken);
+
+  try {
+    const response = await client.api('/users')
+      .filter(`tolower(mail) eq '${normalizedEmail}' or tolower(userPrincipalName) eq '${normalizedEmail}'`)
+      .select('id,mail,userPrincipalName')
+      .top(1)
+      .get();
+
+    const users = response.value || [];
+    if (users.length > 0) {
+      const graphId = users[0].id;
+      emailToGraphIdCache.set(normalizedEmail, { graphUserId: graphId, expiresAt: Date.now() + CACHE_TTL });
+      return graphId;
+    }
+
+    return null;
+  } catch (error) {
+    console.error(`[Graph Planner] Failed to resolve email ${normalizedEmail}:`, error);
+    return null;
+  }
+}
+
+export async function resolveGraphAssignmentsToEmails(
+  userId: string,
+  assignments: Record<string, any> | null | undefined
+): Promise<Array<{ graphUserId: string; email: string; displayName: string }>> {
+  if (!assignments || Object.keys(assignments).length === 0) return [];
+
+  const results: Array<{ graphUserId: string; email: string; displayName: string }> = [];
+
+  for (const graphUserId of Object.keys(assignments)) {
+    const resolved = await resolveGraphUserEmail(userId, graphUserId);
+    if (resolved) {
+      results.push({ graphUserId, ...resolved });
+    }
+  }
+
+  return results;
+}
+
+// ============ Bidirectional Big Rock Task ↔ Planner Task Sync ============
+
+export async function createPlannerTaskFromBigRockTask(
+  userId: string,
+  bigRockTask: BigRockTask,
+  planId: string,
+  bucketId: string | null
+): Promise<PlannerTask | null> {
+  const plan = await storage.getPlannerPlanById(planId);
+  if (!plan) {
+    throw new Error('Mapped Planner plan not found');
+  }
+
+  const accessToken = await getAccessToken(userId);
+  if (!accessToken) {
+    throw new Error('No valid access token available');
+  }
+
+  const client = getGraphClient(accessToken);
+
+  try {
+    const taskPayload: any = {
+      planId: plan.graphPlanId,
+      title: bigRockTask.title,
+      percentComplete: BIG_ROCK_STATUS_TO_PERCENT[bigRockTask.status] ?? 0,
+    };
+
+    if (bucketId) {
+      const bucket = await storage.getPlannerBucketById(bucketId);
+      if (bucket) {
+        taskPayload.bucketId = bucket.graphBucketId;
+      }
+    }
+
+    if (bigRockTask.dueDate) {
+      taskPayload.dueDateTime = new Date(bigRockTask.dueDate).toISOString();
+    }
+
+    if (bigRockTask.assigneeEmail) {
+      const graphUserId = await resolveEmailToGraphUserId(userId, bigRockTask.assigneeEmail);
+      if (graphUserId) {
+        taskPayload.assignments = {
+          [graphUserId]: {
+            '@odata.type': '#microsoft.graph.plannerAssignment',
+            orderHint: ' !'
+          }
+        };
+      }
+    }
+
+    const response = await client.api('/planner/tasks').post(taskPayload);
+    console.log(`[Graph Planner] Created Planner task "${bigRockTask.title}" -> ${response.id}`);
+
+    const resolvedBucketId = bucketId || null;
+    const plannerTaskData: InsertPlannerTask = {
+      tenantId: plan.tenantId,
+      planId: plan.id,
+      bucketId: resolvedBucketId,
+      graphTaskId: response.id,
+      title: response.title,
+      percentComplete: response.percentComplete || 0,
+      priority: response.priority || 5,
+      startDateTime: response.startDateTime ? new Date(response.startDateTime) : null,
+      dueDateTime: response.dueDateTime ? new Date(response.dueDateTime) : null,
+      completedDateTime: null,
+      assignments: response.assignments || {},
+    };
+
+    const plannerTask = await storage.upsertPlannerTask(plannerTaskData);
+
+    await storage.updateBigRockTask(bigRockTask.id, {
+      plannerTaskId: plannerTask.id,
+    });
+
+    return plannerTask;
+  } catch (error) {
+    console.error(`[Graph Planner] Failed to create Planner task from Big Rock Task:`, error);
+    throw error;
+  }
+}
+
+export async function updatePlannerTaskFromBigRockTask(
+  userId: string,
+  bigRockTask: BigRockTask
+): Promise<void> {
+  if (!bigRockTask.plannerTaskId) return;
+
+  const plannerTask = await storage.getPlannerTaskById(bigRockTask.plannerTaskId);
+  if (!plannerTask) return;
+
+  const accessToken = await getAccessToken(userId);
+  if (!accessToken) {
+    console.warn('[Graph Planner] No access token for Planner task update');
+    return;
+  }
+
+  const client = getGraphClient(accessToken);
+
+  try {
+    const taskDetails = await client.api(`/planner/tasks/${plannerTask.graphTaskId}`).get();
+    const etag = taskDetails['@odata.etag'];
+
+    const patchPayload: any = {
+      title: bigRockTask.title,
+      percentComplete: BIG_ROCK_STATUS_TO_PERCENT[bigRockTask.status] ?? 0,
+    };
+
+    if (bigRockTask.dueDate) {
+      patchPayload.dueDateTime = new Date(bigRockTask.dueDate).toISOString();
+    }
+
+    if (bigRockTask.assigneeEmail) {
+      const graphUserId = await resolveEmailToGraphUserId(userId, bigRockTask.assigneeEmail);
+      if (graphUserId) {
+        const existingAssignments = taskDetails.assignments || {};
+        if (!existingAssignments[graphUserId]) {
+          patchPayload.assignments = {
+            ...existingAssignments,
+            [graphUserId]: {
+              '@odata.type': '#microsoft.graph.plannerAssignment',
+              orderHint: ' !'
+            }
+          };
+        }
+      }
+    }
+
+    await client.api(`/planner/tasks/${plannerTask.graphTaskId}`)
+      .header('If-Match', etag)
+      .patch(patchPayload);
+
+    await storage.upsertPlannerTask({
+      ...plannerTask,
+      title: bigRockTask.title,
+      percentComplete: patchPayload.percentComplete,
+      dueDateTime: bigRockTask.dueDate ? new Date(bigRockTask.dueDate) : plannerTask.dueDateTime,
+    });
+
+    console.log(`[Graph Planner] Updated Planner task "${bigRockTask.title}"`);
+  } catch (error) {
+    console.error(`[Graph Planner] Failed to update Planner task:`, error);
+  }
+}
+
+export async function deletePlannerTaskForBigRockTask(
+  userId: string,
+  plannerTaskId: string
+): Promise<void> {
+  const plannerTask = await storage.getPlannerTaskById(plannerTaskId);
+  if (!plannerTask) return;
+
+  const accessToken = await getAccessToken(userId);
+  if (!accessToken) {
+    console.warn('[Graph Planner] No access token for Planner task deletion');
+    return;
+  }
+
+  const client = getGraphClient(accessToken);
+
+  try {
+    const taskDetails = await client.api(`/planner/tasks/${plannerTask.graphTaskId}`).get();
+    const etag = taskDetails['@odata.etag'];
+
+    await client.api(`/planner/tasks/${plannerTask.graphTaskId}`)
+      .header('If-Match', etag)
+      .delete();
+
+    console.log(`[Graph Planner] Deleted Planner task "${plannerTask.title}"`);
+  } catch (error) {
+    console.error(`[Graph Planner] Failed to delete Planner task:`, error);
+  }
+}
+
+export async function syncPlannerTasksToBigRockTasks(
+  userId: string,
+  bigRockId: string,
+  tenantId: string,
+  planId: string,
+  bucketId: string | null
+): Promise<{ created: number; updated: number; total: number }> {
+  let plannerTasks: PlannerTask[];
+  if (bucketId) {
+    plannerTasks = await storage.getPlannerTasksByBucketId(bucketId);
+  } else {
+    plannerTasks = await storage.getPlannerTasksByPlanId(planId);
+  }
+
+  const existingTasks = await storage.getBigRockTasksByBigRockId(bigRockId);
+  const tasksByPlannerId = new Map<string, BigRockTask>();
+  for (const t of existingTasks) {
+    if (t.plannerTaskId) {
+      tasksByPlannerId.set(t.plannerTaskId, t);
+    }
+  }
+
+  let created = 0;
+  let updated = 0;
+
+  for (const pt of plannerTasks) {
+    const existingBRTask = tasksByPlannerId.get(pt.id);
+    const newStatus = PERCENT_TO_BIG_ROCK_STATUS(pt.percentComplete ?? 0);
+
+    let assigneeEmail: string | null = null;
+    if (pt.assignments && Object.keys(pt.assignments).length > 0) {
+      const resolved = await resolveGraphAssignmentsToEmails(userId, pt.assignments);
+      if (resolved.length > 0) {
+        assigneeEmail = resolved[0].email;
+      }
+    }
+
+    const assigneeId = assigneeEmail 
+      ? (await storage.getUserByEmail(assigneeEmail))?.id || null
+      : null;
+
+    if (existingBRTask) {
+      await storage.updateBigRockTask(existingBRTask.id, {
+        title: pt.title,
+        status: newStatus,
+        assigneeEmail: assigneeEmail || existingBRTask.assigneeEmail,
+        assigneeId: assigneeId || existingBRTask.assigneeId,
+        dueDate: pt.dueDateTime || existingBRTask.dueDate,
+        completedAt: pt.percentComplete === 100 ? (pt.completedDateTime || new Date()) : null,
+      });
+      updated++;
+    } else {
+      await storage.createBigRockTask({
+        tenantId,
+        bigRockId,
+        title: pt.title,
+        description: pt.description || null,
+        status: newStatus,
+        assigneeId: assigneeId,
+        assigneeEmail: assigneeEmail,
+        dueDate: pt.dueDateTime || null,
+        completedAt: pt.percentComplete === 100 ? (pt.completedDateTime || new Date()) : null,
+        plannerTaskId: pt.id,
+        sortOrder: created,
+      });
+      created++;
+    }
+  }
+
+  return { created, updated, total: plannerTasks.length };
+}
+
+// ============ Create Planner Plan in Teams/Channels ============
+
+export async function getTeamsForUser(
+  userId: string
+): Promise<Array<{ id: string; displayName: string; description?: string }>> {
+  const accessToken = await getAccessToken(userId);
+  if (!accessToken) {
+    throw new Error('No valid access token available');
+  }
+
+  const client = getGraphClient(accessToken);
+
+  try {
+    const response = await client.api('/me/joinedTeams')
+      .select('id,displayName,description')
+      .get();
+    return response.value || [];
+  } catch (error) {
+    console.error('[Graph Planner] Failed to get teams:', error);
+    throw error;
+  }
+}
+
+export async function getChannelsForTeam(
+  userId: string,
+  teamId: string
+): Promise<Array<{ id: string; displayName: string; membershipType?: string }>> {
+  const accessToken = await getAccessToken(userId);
+  if (!accessToken) {
+    throw new Error('No valid access token available');
+  }
+
+  const client = getGraphClient(accessToken);
+
+  try {
+    const response = await client.api(`/teams/${teamId}/channels`)
+      .select('id,displayName,membershipType')
+      .get();
+    return response.value || [];
+  } catch (error) {
+    console.error('[Graph Planner] Failed to get channels:', error);
+    throw error;
+  }
+}
+
+export async function createPlanInTeam(
+  userId: string,
+  tenantId: string,
+  teamId: string,
+  planTitle: string
+): Promise<PlannerPlan> {
+  const accessToken = await getAccessToken(userId);
+  if (!accessToken) {
+    throw new Error('No valid access token available');
+  }
+
+  const client = getGraphClient(accessToken);
+
+  try {
+    const response = await client.api('/planner/plans').post({
+      owner: teamId,
+      title: planTitle,
+    });
+
+    console.log(`[Graph Planner] Created plan "${planTitle}" in team ${teamId} -> ${response.id}`);
+
+    const planData: InsertPlannerPlan = {
+      tenantId,
+      graphPlanId: response.id,
+      title: response.title,
+      owner: response.owner,
+      graphGroupId: teamId,
+    };
+
+    return await storage.upsertPlannerPlan(planData);
+  } catch (error) {
+    console.error('[Graph Planner] Failed to create plan in team:', error);
+    throw error;
+  }
+}
+
+export async function addPlannerTabToChannel(
+  userId: string,
+  teamId: string,
+  channelId: string,
+  planId: string,
+  planTitle: string
+): Promise<void> {
+  const accessToken = await getAccessToken(userId);
+  if (!accessToken) {
+    throw new Error('No valid access token available');
+  }
+
+  const client = getGraphClient(accessToken);
+
+  try {
+    await client.api(`/teams/${teamId}/channels/${channelId}/tabs`).post({
+      displayName: planTitle,
+      'teamsApp@odata.bind': "https://graph.microsoft.com/v1.0/appCatalogs/teamsApps/com.microsoft.teamspace.tab.planner",
+      configuration: {
+        entityId: planId,
+        contentUrl: `https://tasks.office.com/${planId}/Home/PlanViews/Board`,
+        removeUrl: `https://tasks.office.com/${planId}/Home/PlanViews/Board`,
+        websiteUrl: `https://tasks.office.com/${planId}/Home/PlanViews/Board`,
+      },
+    });
+
+    console.log(`[Graph Planner] Added Planner tab "${planTitle}" to channel ${channelId}`);
+  } catch (error) {
+    console.error('[Graph Planner] Failed to add Planner tab to channel:', error);
+    throw error;
+  }
+}
+
+export async function createBucketInPlan(
+  userId: string,
+  tenantId: string,
+  planId: string,
+  bucketName: string
+): Promise<PlannerBucket> {
+  const plan = await storage.getPlannerPlanById(planId);
+  if (!plan) {
+    throw new Error('Plan not found');
+  }
+
+  const accessToken = await getAccessToken(userId);
+  if (!accessToken) {
+    throw new Error('No valid access token available');
+  }
+
+  const client = getGraphClient(accessToken);
+
+  try {
+    const response = await client.api('/planner/buckets').post({
+      planId: plan.graphPlanId,
+      name: bucketName,
+    });
+
+    const bucketData: InsertPlannerBucket = {
+      tenantId,
+      planId: plan.id,
+      graphBucketId: response.id,
+      name: response.name,
+      orderHint: response.orderHint || '',
+    };
+
+    return await storage.upsertPlannerBucket(bucketData);
+  } catch (error) {
+    console.error('[Graph Planner] Failed to create bucket:', error);
+    throw error;
+  }
 }

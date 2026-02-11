@@ -7,7 +7,17 @@ import {
   syncPlannerTasks,
   createPlannerTask,
   updatePlannerTaskProgress,
-  getPlannerIntegrationStatus
+  getPlannerIntegrationStatus,
+  getTeamsForUser,
+  getChannelsForTeam,
+  createPlanInTeam,
+  addPlannerTabToChannel,
+  createBucketInPlan,
+  createPlannerTaskFromBigRockTask,
+  updatePlannerTaskFromBigRockTask,
+  deletePlannerTaskForBigRockTask,
+  syncPlannerTasksToBigRockTasks,
+  resolveGraphAssignmentsToEmails,
 } from './services/graph-planner';
 import { hasPermission, PERMISSIONS, Role } from '@shared/rbac';
 
@@ -727,6 +737,222 @@ router.get('/mapping/bigrock/:bigRockId/progress', async (req: Request, res: Res
   } catch (error: any) {
     console.error('[Planner API] Get Big Rock progress error:', error);
     res.status(500).json({ error: 'Failed to get progress', message: error.message });
+  }
+});
+
+// ============ Teams & Channels ============
+
+router.get('/teams', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const teams = await getTeamsForUser(userId);
+    res.json(teams);
+  } catch (error: any) {
+    console.error('[Planner API] Get teams error:', error);
+    if (error.message?.includes('No valid access token')) {
+      return res.status(401).json({ error: 'Planner connection expired', reconnectRequired: true });
+    }
+    res.status(500).json({ error: 'Failed to get teams', message: error.message });
+  }
+});
+
+router.get('/teams/:teamId/channels', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const channels = await getChannelsForTeam(userId, req.params.teamId);
+    res.json(channels);
+  } catch (error: any) {
+    console.error('[Planner API] Get channels error:', error);
+    res.status(500).json({ error: 'Failed to get channels', message: error.message });
+  }
+});
+
+// ============ Create Plan in Team ============
+
+router.post('/teams/:teamId/plans', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const tenantId = req.effectiveTenantId!;
+    const { teamId } = req.params;
+    const { title, channelId, bucketName } = req.body;
+
+    if (!title) {
+      return res.status(400).json({ error: 'Plan title is required' });
+    }
+
+    const plan = await createPlanInTeam(userId, tenantId, teamId, title);
+
+    if (channelId && plan) {
+      try {
+        const planFromDb = await storage.getPlannerPlanById(plan.id);
+        if (planFromDb) {
+          await addPlannerTabToChannel(userId, teamId, channelId, planFromDb.graphPlanId, title);
+        }
+      } catch (tabError) {
+        console.warn('[Planner API] Failed to add tab to channel (non-critical):', tabError);
+      }
+    }
+
+    let bucket = null;
+    if (bucketName && plan) {
+      try {
+        bucket = await createBucketInPlan(userId, tenantId, plan.id, bucketName);
+      } catch (bucketError) {
+        console.warn('[Planner API] Failed to create bucket (non-critical):', bucketError);
+      }
+    }
+
+    res.json({ plan, bucket });
+  } catch (error: any) {
+    console.error('[Planner API] Create plan in team error:', error);
+    res.status(500).json({ error: 'Failed to create plan', message: error.message });
+  }
+});
+
+// ============ Bidirectional Big Rock Task Sync ============
+
+router.post('/bigrock/:bigRockId/sync-tasks', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const tenantId = req.effectiveTenantId!;
+    const { bigRockId } = req.params;
+    const { direction } = req.body; // 'push' | 'pull' | 'both'
+
+    const bigRock = await storage.getBigRockById(bigRockId);
+    if (!bigRock || bigRock.tenantId !== tenantId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (!bigRock.plannerPlanId) {
+      return res.status(400).json({ error: 'No Planner mapping configured for this Big Rock' });
+    }
+
+    const plan = await storage.getPlannerPlanById(bigRock.plannerPlanId);
+    if (!plan) {
+      return res.status(400).json({ error: 'Mapped plan not found' });
+    }
+
+    try {
+      await syncPlannerTasks(userId, tenantId, plan.id, plan.graphPlanId);
+    } catch (syncError: any) {
+      if (syncError.message?.includes('No valid access token')) {
+        return res.status(401).json({ error: 'Planner connection expired', reconnectRequired: true });
+      }
+    }
+
+    const results: any = { direction };
+
+    if (direction === 'push' || direction === 'both') {
+      const bigRockTasks = await storage.getBigRockTasksByBigRockId(bigRockId);
+      let pushed = 0;
+      let updated = 0;
+
+      for (const brt of bigRockTasks) {
+        if (brt.plannerTaskId) {
+          await updatePlannerTaskFromBigRockTask(userId, brt);
+          updated++;
+        } else {
+          await createPlannerTaskFromBigRockTask(
+            userId, brt, bigRock.plannerPlanId, bigRock.plannerBucketId || null
+          );
+          pushed++;
+        }
+      }
+
+      results.push = { created: pushed, updated };
+    }
+
+    if (direction === 'pull' || direction === 'both') {
+      const pullResults = await syncPlannerTasksToBigRockTasks(
+        userId, bigRockId, tenantId, bigRock.plannerPlanId, bigRock.plannerBucketId || null
+      );
+      results.pull = pullResults;
+    }
+
+    await storage.updateBigRock(bigRockId, {
+      plannerLastSyncAt: new Date(),
+      plannerSyncError: null,
+    });
+
+    const progress = await calculatePlannerProgress(
+      bigRock.plannerPlanId, bigRock.plannerBucketId || null, tenantId
+    );
+
+    await storage.updateBigRock(bigRockId, {
+      completionPercentage: Math.round(progress.percentage),
+    });
+
+    res.json({ success: true, ...results, progress });
+  } catch (error: any) {
+    console.error('[Planner API] Sync tasks error:', error);
+    await storage.updateBigRock(req.params.bigRockId, {
+      plannerSyncError: error.message,
+      plannerLastSyncAt: new Date(),
+    }).catch(() => {});
+    res.status(500).json({ error: 'Failed to sync tasks', message: error.message });
+  }
+});
+
+router.post('/bigrock/:bigRockId/push-task/:taskId', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const tenantId = req.effectiveTenantId!;
+    const { bigRockId, taskId } = req.params;
+
+    const bigRock = await storage.getBigRockById(bigRockId);
+    if (!bigRock || bigRock.tenantId !== tenantId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    if (!bigRock.plannerPlanId) {
+      return res.status(400).json({ error: 'No Planner mapping configured' });
+    }
+
+    const task = await storage.getBigRockTaskById(taskId);
+    if (!task || task.bigRockId !== bigRockId) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    if (task.plannerTaskId) {
+      await updatePlannerTaskFromBigRockTask(userId, task);
+      res.json({ success: true, action: 'updated' });
+    } else {
+      const plannerTask = await createPlannerTaskFromBigRockTask(
+        userId, task, bigRock.plannerPlanId, bigRock.plannerBucketId || null
+      );
+      res.json({ success: true, action: 'created', plannerTask });
+    }
+  } catch (error: any) {
+    console.error('[Planner API] Push task error:', error);
+    res.status(500).json({ error: 'Failed to push task', message: error.message });
+  }
+});
+
+router.delete('/bigrock/:bigRockId/planner-task/:taskId', async (req: Request, res: Response) => {
+  try {
+    const userId = req.user!.id;
+    const tenantId = req.effectiveTenantId!;
+    const { bigRockId, taskId } = req.params;
+
+    const bigRock = await storage.getBigRockById(bigRockId);
+    if (!bigRock || bigRock.tenantId !== tenantId) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const task = await storage.getBigRockTaskById(taskId);
+    if (!task || task.bigRockId !== bigRockId) {
+      return res.status(404).json({ error: 'Task not found' });
+    }
+
+    if (task.plannerTaskId) {
+      await deletePlannerTaskForBigRockTask(userId, task.plannerTaskId);
+      await storage.updateBigRockTask(taskId, { plannerTaskId: null });
+    }
+
+    res.json({ success: true });
+  } catch (error: any) {
+    console.error('[Planner API] Delete planner task error:', error);
+    res.status(500).json({ error: 'Failed to delete planner task', message: error.message });
   }
 });
 

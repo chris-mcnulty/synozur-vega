@@ -3560,6 +3560,7 @@ export default function PlanningEnhanced() {
                 <BigRockTasks 
                   bigRockId={selectedBigRock.id}
                   canModify={permissions.canModifyOKR(selectedBigRock.ownerId, selectedBigRock.createdBy) || permissions.canModifyByEmail(selectedBigRock.ownerEmail)}
+                  plannerMapped={!!selectedBigRock.plannerPlanId}
                 />
               </div>
             )}
