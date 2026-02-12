@@ -195,12 +195,13 @@ function PlannerProgressMappingInner({
 
   const syncProgressMutation = useMutation({
     mutationFn: async () => {
-      return await apiRequest("POST", syncEndpoint);
+      const res = await apiRequest("POST", syncEndpoint);
+      return await res.json();
     },
     onSuccess: (data: any) => {
       toast({ 
         title: "Progress synced", 
-        description: `${data.completedTasks}/${data.totalTasks} tasks completed` 
+        description: `${data.completedTasks ?? 0}/${data.totalTasks ?? 0} tasks completed` 
       });
       queryClient.invalidateQueries({ queryKey: [progressEndpoint] });
       if (onProgressUpdate && data.progress !== undefined) {

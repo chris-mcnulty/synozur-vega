@@ -800,14 +800,16 @@ router.post('/teams/:teamId/plans', async (req: Request, res: Response) => {
     console.log('[Planner API] Plan created:', { id: plan.id, graphPlanId: plan.graphPlanId, title: plan.title });
 
     // Sync buckets from Graph to capture Microsoft's auto-created default bucket(s)
-    // Microsoft may take a moment to provision the default bucket after plan creation,
-    // so retry with a short delay if first attempt returns 0 buckets
+    // Microsoft may take several seconds to provision the default bucket after plan creation,
+    // so retry with increasing delays if first attempt returns 0 buckets
     let syncedBuckets: any[] = [];
     try {
+      const delays = [2000, 3000, 5000];
       syncedBuckets = await syncPlannerBuckets(userId, tenantId, plan.id, plan.graphPlanId);
-      if (syncedBuckets.length === 0) {
-        console.log('[Planner API] No buckets found yet, waiting 2s for Graph provisioning...');
-        await new Promise(resolve => setTimeout(resolve, 2000));
+      for (const delay of delays) {
+        if (syncedBuckets.length > 0) break;
+        console.log(`[Planner API] No buckets found yet, waiting ${delay}ms for Graph provisioning...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
         syncedBuckets = await syncPlannerBuckets(userId, tenantId, plan.id, plan.graphPlanId);
       }
       console.log(`[Planner API] Synced ${syncedBuckets.length} default bucket(s) from Graph`);

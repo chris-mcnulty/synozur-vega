@@ -582,6 +582,29 @@ export async function createPlannerTaskFromBigRockTask(
       }
     }
 
+    // Planner API requires a bucketId — if none was specified, find the first available bucket
+    if (!taskPayload.bucketId) {
+      const planBuckets = await storage.getPlannerBucketsByPlanId(planId);
+      if (planBuckets.length === 0) {
+        // Try syncing buckets from Graph as a last resort
+        try {
+          const freshBuckets = await syncPlannerBuckets(userId, plan.tenantId, planId, plan.graphPlanId);
+          if (freshBuckets.length > 0) {
+            taskPayload.bucketId = freshBuckets[0].graphBucketId;
+          }
+        } catch (e) {
+          console.warn('[Graph Planner] Failed to sync buckets for task creation fallback:', e);
+        }
+      } else {
+        taskPayload.bucketId = planBuckets[0].graphBucketId;
+      }
+    }
+
+    if (!taskPayload.bucketId) {
+      console.error('[Graph Planner] Cannot create task without a bucket — no buckets available for plan', planId);
+      return null;
+    }
+
     if (bigRockTask.dueDate) {
       taskPayload.dueDateTime = new Date(bigRockTask.dueDate).toISOString();
     }
