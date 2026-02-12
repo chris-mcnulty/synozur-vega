@@ -3622,15 +3622,7 @@ export default function PlanningEnhanced() {
               </div>
             )}
 
-            {selectedBigRock && (
-              <div className="pt-4 border-t">
-                <PlannerTaskLinkPanel
-                  entityType="bigrock"
-                  entityId={selectedBigRock.id}
-                  entityTitle={selectedBigRock.title}
-                />
-              </div>
-            )}
+            
 
             <DialogFooter>
               <Button variant="outline" onClick={() => { 

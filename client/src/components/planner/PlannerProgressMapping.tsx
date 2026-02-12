@@ -199,9 +199,13 @@ function PlannerProgressMappingInner({
       return await res.json();
     },
     onSuccess: (data: any) => {
+      const desc = data.syncWarning 
+        ? data.syncWarning 
+        : `${data.completedTasks ?? 0}/${data.totalTasks ?? 0} tasks completed`;
       toast({ 
-        title: "Progress synced", 
-        description: `${data.completedTasks ?? 0}/${data.totalTasks ?? 0} tasks completed` 
+        title: data.syncWarning ? "Progress synced (cached)" : "Progress synced", 
+        description: desc,
+        variant: data.syncWarning ? "default" : "default"
       });
       queryClient.invalidateQueries({ queryKey: [progressEndpoint] });
       if (onProgressUpdate && data.progress !== undefined) {

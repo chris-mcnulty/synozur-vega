@@ -586,15 +586,14 @@ router.post('/mapping/bigrock/:bigRockId/sync', async (req: Request, res: Respon
 
     console.log('[Planner API] Refreshing tasks from Microsoft Graph for plan:', plan.title);
     
-    // IMPORTANT: First refresh tasks from Microsoft Graph before calculating progress
-    // This ensures we have the latest task data from Planner
+    // First sync buckets, then tasks from Microsoft Graph
+    let syncWarning: string | null = null;
     try {
+      await syncPlannerBuckets(userId, tenantId!, plan.id, plan.graphPlanId);
       await syncPlannerTasks(userId, tenantId!, plan.id, plan.graphPlanId);
-      console.log('[Planner API] Successfully refreshed tasks from Microsoft Graph');
+      console.log('[Planner API] Successfully refreshed buckets and tasks from Microsoft Graph');
     } catch (syncError: any) {
-      console.error('[Planner API] Failed to refresh tasks from Graph:', syncError);
-      // If we can't refresh from Graph, still try to calculate from local data
-      // but warn the user that data may be stale
+      console.error('[Planner API] Failed to refresh from Graph:', syncError);
       if (syncError.message?.includes('No valid access token') || 
           syncError.message?.includes('accessToken is null')) {
         return res.status(401).json({ 
@@ -602,7 +601,7 @@ router.post('/mapping/bigrock/:bigRockId/sync', async (req: Request, res: Respon
           reconnectRequired: true
         });
       }
-      // For other errors, continue with stale local data but log the issue
+      syncWarning = 'Could not reach Microsoft Graph. Showing locally cached data.';
       console.warn('[Planner API] Proceeding with potentially stale local data');
     }
 
@@ -617,16 +616,17 @@ router.post('/mapping/bigrock/:bigRockId/sync', async (req: Request, res: Respon
 
     // Update big rock with calculated progress
     const updated = await storage.updateBigRock(bigRockId, {
-      completionPercentage: Math.round(progress.percentage),
+      completionPercentage: Math.round(progress.percentage || 0),
       plannerLastSyncAt: new Date(),
-      plannerSyncError: null,
+      plannerSyncError: syncWarning,
     });
 
     res.json({ 
       success: true, 
-      progress: progress.percentage,
-      totalTasks: progress.totalTasks,
-      completedTasks: progress.completedTasks,
+      progress: progress.percentage || 0,
+      totalTasks: progress.totalTasks || 0,
+      completedTasks: progress.completedTasks || 0,
+      syncWarning,
       bigRock: updated
     });
   } catch (error: any) {
