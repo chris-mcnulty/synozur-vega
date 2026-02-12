@@ -1541,35 +1541,31 @@ export async function generateParentObjectiveCheckInSummary(
     bigRockSection = `\n### Linked Big Rocks (In-Progress)\n${rockDetails}`;
   }
 
-  const messages: ChatMessage[] = [
-    {
-      role: "user",
-      content: `You are writing a check-in summary for a parent objective in an OKR system. Draft a concise, professional check-in note that summarizes the current state based on all child data below.
+  const systemPrompt = `You are a professional OKR check-in assistant. You write concise, data-driven check-in summaries for parent objectives based on child objective and key result data. Write in first person as the objective owner. Use plain text only — no markdown, no bullet points, no headers. Be specific with numbers. Keep it to 3-6 sentences.`;
 
-## Parent Objective
-**${objective.title}** — ${Math.round(objective.progress)}% complete (${objective.status})
+  const userMessage = `Write a check-in note for this parent objective based on the data below.
+
+Parent Objective: ${objective.title} — ${Math.round(objective.progress)}% complete (${objective.status})
 ${objective.description ? `Description: ${objective.description}` : ''}
 Period: Q${objective.quarter} ${objective.year}
 
-### Direct Key Results
+Direct Key Results:
 ${directKRSummary || '(None)'}
 
-### Child Objectives
+Child Objectives:
 ${childSummaries || '(None)'}
 ${bigRockSection}
 
-Please write a check-in note (3-6 sentences) that:
-1. Summarizes overall progress toward the parent objective
-2. Highlights which children are on track vs. needing attention
-3. Notes any key achievements or blockers from the data
-4. ${bigRocks && bigRocks.length > 0 ? 'Mentions the status of linked Big Rocks that are still in progress' : 'Keeps focus on objectives and key results'}
+Requirements:
+1. Summarize overall progress toward the parent objective
+2. Highlight which children are on track vs. needing attention
+3. Note any key achievements or blockers from the data
+${bigRocks && bigRocks.length > 0 ? '4. Mention the status of linked Big Rocks that are still in progress' : ''}`;
 
-Write in first person as the objective owner providing an update. Be specific with numbers where relevant. Do not use markdown formatting — just plain text paragraphs.`,
-    },
-  ];
-
-  return getChatCompletion(messages, {
-    tenantId: context.tenantId,
-    maxTokens: 1024,
-  }, AI_FEATURES.CHECK_IN_DRAFT);
+  return getSimpleCompletion(
+    systemPrompt,
+    userMessage,
+    { tenantId: context.tenantId, maxTokens: 1024 },
+    AI_FEATURES.CHECK_IN_DRAFT
+  );
 }
