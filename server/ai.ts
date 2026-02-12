@@ -1565,7 +1565,7 @@ ${bigRocks && bigRocks.length > 0 ? '4. Mention the status of linked Big Rocks t
   return getSimpleCompletion(
     systemPrompt,
     userMessage,
-    { tenantId: context.tenantId, maxTokens: 1024 },
+    { tenantId: context.tenantId, maxTokens: 4096 },
     AI_FEATURES.CHECK_IN_DRAFT
   );
 }
