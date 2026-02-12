@@ -880,8 +880,13 @@ export default function PlanningEnhanced() {
 
   const isParentObjective = useMemo(() => {
     if (!checkInEntity || checkInEntity.type !== "objective") return false;
-    return objectives.some(o => o.parentId === checkInEntity.id);
-  }, [checkInEntity, objectives]);
+    const hasChildObjectives = objectives.some(o => o.parentId === checkInEntity.id);
+    if (hasChildObjectives) return true;
+    const enriched = enrichedObjectives.find(o => o.id === checkInEntity.id);
+    const hasKeyResults = enriched?.keyResults?.length > 0;
+    const hasLinkedBigRocks = enriched?.bigRocks?.length > 0;
+    return hasKeyResults || hasLinkedBigRocks;
+  }, [checkInEntity, objectives, enrichedObjectives]);
 
   // Helper function to sync value tags
   const syncValueTags = async (
@@ -4328,7 +4333,7 @@ export default function PlanningEnhanced() {
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground" data-testid="text-ai-draft-description">
-                    AI will summarize progress from child objectives, key results{aiDraftState.includeBigRocks ? ', and linked Big Rocks' : ''} into a check-in note.
+                    AI will summarize progress from supporting objectives, key results{aiDraftState.includeBigRocks ? ', and linked Big Rocks' : ''} into a check-in note.
                   </p>
                   {aiDraftState.error && (
                     <p className="text-xs text-destructive" data-testid="text-ai-draft-error">{aiDraftState.error}</p>
