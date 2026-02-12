@@ -1541,26 +1541,40 @@ export async function generateParentObjectiveCheckInSummary(
     bigRockSection = `\n### Linked Big Rocks (In-Progress)\n${rockDetails}`;
   }
 
-  const systemPrompt = `You are a professional OKR check-in assistant. You write concise, data-driven check-in summaries for parent objectives based on child objective and key result data. Write in first person as the objective owner. Use plain text only — no markdown, no bullet points, no headers. Be specific with numbers. Keep it to 3-6 sentences.`;
+  const systemPrompt = `You are a Company Operating System (CoS) check-in assistant writing for a business leader. You draft natural, confident check-in summaries that sound like a leader updating their team — not a robot reading data.
 
-  const userMessage = `Write a check-in note for this parent objective based on the data below.
+LANGUAGE RULES (strict):
+- NEVER say "child objective" — say "supporting objective" or just name it directly
+- NEVER say "parent objective" — say "this objective" or reference it by name
+- NEVER abbreviate "Key Result" as "KR" — write "key result" in full
+- NEVER use markdown, bullet points, headers, or formatting — plain text paragraphs only
+- Use Company OS vocabulary: objectives, key results, Big Rocks, strategies, goals
+- Use natural progress language: "on track", "gaining momentum", "needs attention", "behind pace", "not yet started"
+- Write in first person as the objective owner
+- Be specific with numbers and percentages
+- Keep it to 3-6 sentences
+- Frame progress constructively — lead with momentum, then note areas needing focus
+- Connect the details to the bigger picture`;
 
-Parent Objective: ${objective.title} — ${Math.round(objective.progress)}% complete (${objective.status})
+  const userMessage = `Draft a check-in update for this objective based on the supporting data below.
+
+Objective: ${objective.title} — ${Math.round(objective.progress)}% overall (${objective.status})
 ${objective.description ? `Description: ${objective.description}` : ''}
 Period: Q${objective.quarter} ${objective.year}
 
-Direct Key Results:
+Key Results directly under this objective:
 ${directKRSummary || '(None)'}
 
-Child Objectives:
+Supporting Objectives:
 ${childSummaries || '(None)'}
 ${bigRockSection}
 
-Requirements:
-1. Summarize overall progress toward the parent objective
-2. Highlight which children are on track vs. needing attention
-3. Note any key achievements or blockers from the data
-${bigRocks && bigRocks.length > 0 ? '4. Mention the status of linked Big Rocks that are still in progress' : ''}`;
+Write a natural check-in note that:
+1. Opens with overall progress on this objective
+2. Highlights which supporting objectives and key results are moving well vs. need attention (reference them by name, not as "children")
+3. Notes specific achievements or blockers using actual numbers
+${bigRocks && bigRocks.length > 0 ? '4. Mentions the status of linked Big Rocks still in progress' : ''}
+5. Closes with near-term priorities or what needs to happen next`;
 
   return getSimpleCompletion(
     systemPrompt,
