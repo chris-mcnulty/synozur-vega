@@ -800,20 +800,31 @@ router.post('/teams/:teamId/plans', async (req: Request, res: Response) => {
     console.log('[Planner API] Plan created:', { id: plan.id, graphPlanId: plan.graphPlanId, title: plan.title });
 
     // Sync buckets from Graph to capture Microsoft's auto-created default bucket(s)
+    // Microsoft may take a moment to provision the default bucket after plan creation,
+    // so retry with a short delay if first attempt returns 0 buckets
     let syncedBuckets: any[] = [];
     try {
       syncedBuckets = await syncPlannerBuckets(userId, tenantId, plan.id, plan.graphPlanId);
+      if (syncedBuckets.length === 0) {
+        console.log('[Planner API] No buckets found yet, waiting 2s for Graph provisioning...');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        syncedBuckets = await syncPlannerBuckets(userId, tenantId, plan.id, plan.graphPlanId);
+      }
       console.log(`[Planner API] Synced ${syncedBuckets.length} default bucket(s) from Graph`);
     } catch (bucketSyncError) {
       console.warn('[Planner API] Failed to sync default buckets from Graph:', bucketSyncError);
     }
 
+    let tabCreated = false;
+    let tabError: string | null = null;
     if (channelId && plan) {
       try {
         await addPlannerTabToChannel(userId, teamId, channelId, plan.graphPlanId, title);
+        tabCreated = true;
         console.log('[Planner API] Successfully pinned tab to channel');
-      } catch (tabError: any) {
-        console.warn('[Planner API] Failed to add tab to channel:', tabError?.message || tabError);
+      } catch (err: any) {
+        tabError = err?.message || 'Failed to pin tab';
+        console.warn('[Planner API] Failed to add tab to channel:', tabError);
       }
     }
 
@@ -826,8 +837,7 @@ router.post('/teams/:teamId/plans', async (req: Request, res: Response) => {
       }
     }
 
-    // Return all synced buckets so the frontend can select one
-    res.json({ plan, bucket, syncedBuckets });
+    res.json({ plan, bucket, syncedBuckets, tabCreated, tabError });
   } catch (error: any) {
     console.error('[Planner API] Create plan in team error:', error);
     res.status(500).json({ error: 'Failed to create plan', message: error.message });

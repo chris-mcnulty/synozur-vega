@@ -134,6 +134,15 @@ export function PlannerCreatePlanDialog({
         setSelectedBucket(data.syncedBuckets[0]);
       }
       toast({ title: "Plan created", description: `"${plan.title}" created in Microsoft Planner` });
+      if (data.tabError) {
+        toast({
+          title: "Could not pin tab to channel",
+          description: data.tabError.includes('scope') || data.tabError.includes('permission')
+            ? "Your Microsoft account needs the TeamsTab.Create permission. Ask your admin to grant it, or you can pin the tab manually in Teams."
+            : data.tabError,
+          variant: "destructive",
+        });
+      }
       setStep("confirm");
     },
     onError: (error: any) => {

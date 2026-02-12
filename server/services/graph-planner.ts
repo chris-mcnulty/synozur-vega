@@ -17,6 +17,7 @@ const PLANNER_SCOPES = [
   'Group.Read.All',
   'Team.ReadBasic.All',
   'Channel.ReadBasic.All',
+  'TeamsTab.Create',
 ];
 
 const BIG_ROCK_STATUS_TO_PERCENT: Record<string, number> = {

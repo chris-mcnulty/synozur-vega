@@ -59,6 +59,7 @@ const PLANNER_SCOPES = [
   'Group.Read.All',
   'Team.ReadBasic.All',
   'Channel.ReadBasic.All',
+  'TeamsTab.Create',
   'offline_access',
 ];
 
