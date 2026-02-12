@@ -1472,3 +1472,104 @@ INITIATIVES:
   }
 }
 
+
+// ============ Parent Objective Check-In Draft ============
+
+export interface ParentObjectiveCheckInContext {
+  tenantId: string;
+  objective: {
+    title: string;
+    description?: string | null;
+    progress: number;
+    status: string;
+    quarter: number;
+    year: number;
+  };
+  childObjectives: Array<{
+    title: string;
+    progress: number;
+    status: string;
+    keyResults: Array<{
+      title: string;
+      currentValue: number;
+      targetValue: number;
+      unit?: string;
+      progress: number;
+      status: string;
+      lastCheckInNote?: string | null;
+    }>;
+  }>;
+  keyResults: Array<{
+    title: string;
+    currentValue: number;
+    targetValue: number;
+    unit?: string;
+    progress: number;
+    status: string;
+    lastCheckInNote?: string | null;
+  }>;
+  bigRocks?: Array<{
+    title: string;
+    completionPercentage: number;
+    status: string;
+    taskCount?: number;
+    completedTaskCount?: number;
+  }>;
+}
+
+export async function generateParentObjectiveCheckInSummary(
+  context: ParentObjectiveCheckInContext
+): Promise<string> {
+  const { objective, childObjectives, keyResults, bigRocks } = context;
+
+  const childSummaries = childObjectives.map(child => {
+    const krDetails = child.keyResults.map(kr =>
+      `      - ${kr.title}: ${kr.currentValue}/${kr.targetValue} ${kr.unit || ''} (${Math.round(kr.progress)}% - ${kr.status})${kr.lastCheckInNote ? ` — "${kr.lastCheckInNote}"` : ''}`
+    ).join('\n');
+    return `    * ${child.title} — ${Math.round(child.progress)}% (${child.status})\n${krDetails || '      (No key results)'}`;
+  }).join('\n\n');
+
+  const directKRSummary = keyResults.map(kr =>
+    `    - ${kr.title}: ${kr.currentValue}/${kr.targetValue} ${kr.unit || ''} (${Math.round(kr.progress)}% - ${kr.status})${kr.lastCheckInNote ? ` — "${kr.lastCheckInNote}"` : ''}`
+  ).join('\n');
+
+  let bigRockSection = '';
+  if (bigRocks && bigRocks.length > 0) {
+    const rockDetails = bigRocks.map(br =>
+      `    - ${br.title}: ${br.completionPercentage}% complete (${br.status})${br.taskCount ? ` — ${br.completedTaskCount}/${br.taskCount} tasks done` : ''}`
+    ).join('\n');
+    bigRockSection = `\n### Linked Big Rocks (In-Progress)\n${rockDetails}`;
+  }
+
+  const messages: ChatMessage[] = [
+    {
+      role: "user",
+      content: `You are writing a check-in summary for a parent objective in an OKR system. Draft a concise, professional check-in note that summarizes the current state based on all child data below.
+
+## Parent Objective
+**${objective.title}** — ${Math.round(objective.progress)}% complete (${objective.status})
+${objective.description ? `Description: ${objective.description}` : ''}
+Period: Q${objective.quarter} ${objective.year}
+
+### Direct Key Results
+${directKRSummary || '(None)'}
+
+### Child Objectives
+${childSummaries || '(None)'}
+${bigRockSection}
+
+Please write a check-in note (3-6 sentences) that:
+1. Summarizes overall progress toward the parent objective
+2. Highlights which children are on track vs. needing attention
+3. Notes any key achievements or blockers from the data
+4. ${bigRocks && bigRocks.length > 0 ? 'Mentions the status of linked Big Rocks that are still in progress' : 'Keeps focus on objectives and key results'}
+
+Write in first person as the objective owner providing an update. Be specific with numbers where relevant. Do not use markdown formatting — just plain text paragraphs.`,
+    },
+  ];
+
+  return getChatCompletion(messages, {
+    tenantId: context.tenantId,
+    maxTokens: 1024,
+  }, AI_FEATURES.CHECK_IN_DRAFT);
+}

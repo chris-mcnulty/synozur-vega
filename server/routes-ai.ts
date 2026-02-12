@@ -1176,3 +1176,106 @@ Original note to rewrite:
     res.status(500).json({ error: error.message || "Failed to rewrite check-in note" });
   }
 });
+
+aiRouter.post("/parent-objective-checkin-draft", requireAIChat, async (req: Request, res: Response) => {
+  try {
+    const { objectiveId, includeBigRocks } = req.body;
+    const user = (req as any).user;
+    const tenantId = (req.session as any).currentTenantId || user.tenantId;
+
+    if (!objectiveId) {
+      return res.status(400).json({ error: "objectiveId is required" });
+    }
+
+    const objective = await storage.getObjectiveById(objectiveId);
+    if (!objective || objective.tenantId !== tenantId) {
+      return res.status(404).json({ error: "Objective not found" });
+    }
+
+    const childObjectives = await storage.getChildObjectives(objectiveId);
+    const directKeyResults = await storage.getKeyResultsByObjectiveId(objectiveId);
+
+    const childObjectivesWithKRs = await Promise.all(
+      childObjectives.map(async (child) => {
+        const krs = await storage.getKeyResultsByObjectiveId(child.id);
+        return {
+          title: child.title,
+          progress: child.progress || 0,
+          status: child.status || 'not_started',
+          keyResults: krs.map(kr => ({
+            title: kr.title,
+            currentValue: kr.currentValue || 0,
+            targetValue: kr.targetValue || 0,
+            unit: kr.unit || undefined,
+            progress: kr.progress || 0,
+            status: kr.status || 'not_started',
+            lastCheckInNote: kr.lastCheckInNote || null,
+          })),
+        };
+      })
+    );
+
+    const directKRData = directKeyResults.map(kr => ({
+      title: kr.title,
+      currentValue: kr.currentValue || 0,
+      targetValue: kr.targetValue || 0,
+      unit: kr.unit || undefined,
+      progress: kr.progress || 0,
+      status: kr.status || 'not_started',
+      lastCheckInNote: kr.lastCheckInNote || null,
+    }));
+
+    let bigRockData: any[] | undefined;
+    if (includeBigRocks) {
+      const linkedBigRocks = await storage.getBigRocksLinkedToObjective(objectiveId);
+      const inProgressRocks = linkedBigRocks.filter(br =>
+        (br.completionPercentage || 0) < 100 &&
+        br.quarter === objective.quarter &&
+        br.year === objective.year
+      );
+
+      if (inProgressRocks.length > 0) {
+        const bigRockIds = inProgressRocks.map(br => br.id);
+        const taskCounts = await storage.getBigRockTaskCountsByBigRockIds(bigRockIds);
+
+        bigRockData = inProgressRocks.map(br => {
+          const counts = taskCounts.get(br.id);
+          return {
+            title: br.title,
+            completionPercentage: br.completionPercentage || 0,
+            status: br.status || 'not-started',
+            taskCount: counts?.total || 0,
+            completedTaskCount: counts?.completed || 0,
+          };
+        });
+      }
+    }
+
+    const { generateParentObjectiveCheckInSummary } = await import('./ai');
+
+    const draft = await generateParentObjectiveCheckInSummary({
+      tenantId,
+      objective: {
+        title: objective.title,
+        description: objective.description,
+        progress: objective.progress || 0,
+        status: objective.status || 'not_started',
+        quarter: objective.quarter || 1,
+        year: objective.year || new Date().getFullYear(),
+      },
+      childObjectives: childObjectivesWithKRs,
+      keyResults: directKRData,
+      bigRocks: bigRockData,
+    });
+
+    res.json({
+      draft,
+      childCount: childObjectives.length,
+      keyResultCount: directKeyResults.length,
+      bigRockCount: bigRockData?.length || 0,
+    });
+  } catch (error: any) {
+    console.error("[Parent Objective Check-in Draft] Error:", error.message || error);
+    res.status(500).json({ error: error.message || "Failed to generate check-in draft" });
+  }
+});

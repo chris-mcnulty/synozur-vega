@@ -37,6 +37,7 @@ import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapp
 import { PlannerCreatePlanDialog } from "@/components/planner/PlannerCreatePlanDialog";
 import { PlannerTaskLinkPanel } from "@/components/planner/PlannerTaskLinkPanel";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 import type { Foundation, CompanyValue, AnnualGoal, Ambition } from "@shared/schema";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Save } from "lucide-react";
@@ -744,6 +745,16 @@ export default function PlanningEnhanced() {
     error: null,
   });
 
+  const [aiDraftState, setAiDraftState] = useState<{
+    isDrafting: boolean;
+    includeBigRocks: boolean;
+    error: string | null;
+  }>({
+    isDrafting: false,
+    includeBigRocks: true,
+    error: null,
+  });
+
   // Reset AI rewrite state when dialog closes
   useEffect(() => {
     if (!checkInDialogOpen) {
@@ -751,6 +762,11 @@ export default function PlanningEnhanced() {
         isRewriting: false,
         suggestion: null,
         mode: 'full',
+        error: null,
+      });
+      setAiDraftState({
+        isDrafting: false,
+        includeBigRocks: true,
         error: null,
       });
     }
@@ -829,6 +845,43 @@ export default function PlanningEnhanced() {
       });
     }
   };
+
+  const aiDraftMutation = useMutation({
+    mutationFn: async (data: { objectiveId: string; includeBigRocks: boolean }) => {
+      const res = await apiRequest('POST', '/api/ai/parent-objective-checkin-draft', data);
+      return res.json();
+    },
+    onSuccess: (data) => {
+      setCheckInForm(prev => ({ ...prev, note: data.draft }));
+      setAiDraftState(prev => ({ ...prev, isDrafting: false }));
+      toast({
+        title: "AI Draft Generated",
+        description: `Summary based on ${data.childCount} child objective(s), ${data.keyResultCount} key result(s)${data.bigRockCount > 0 ? `, and ${data.bigRockCount} Big Rock(s)` : ''}.`,
+      });
+    },
+    onError: (error: any) => {
+      setAiDraftState(prev => ({ ...prev, isDrafting: false, error: error.message }));
+      toast({
+        title: "Draft Failed",
+        description: error.message || "Could not generate AI draft.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleAiDraftCheckIn = () => {
+    if (!checkInEntity || checkInEntity.type !== "objective") return;
+    setAiDraftState(prev => ({ ...prev, isDrafting: true, error: null }));
+    aiDraftMutation.mutate({
+      objectiveId: checkInEntity.id,
+      includeBigRocks: aiDraftState.includeBigRocks,
+    });
+  };
+
+  const isParentObjective = useMemo(() => {
+    if (!checkInEntity || checkInEntity.type !== "objective") return false;
+    return objectives.some(o => o.parentId === checkInEntity.id);
+  }, [checkInEntity, objectives]);
 
   // Helper function to sync value tags
   const syncValueTags = async (
@@ -4221,6 +4274,49 @@ export default function PlanningEnhanced() {
                   </SelectContent>
                 </Select>
               </div>
+              {isParentObjective && checkInEntity?.type === "objective" && (
+                <div className="p-3 bg-primary/5 border border-primary/20 rounded-md space-y-3" data-testid="section-ai-draft-checkin">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      <span className="text-sm font-medium" data-testid="text-ai-draft-title">AI Check-In Draft</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer" data-testid="label-include-bigrocks">
+                        <Checkbox
+                          checked={aiDraftState.includeBigRocks}
+                          onCheckedChange={(checked) => setAiDraftState(prev => ({ ...prev, includeBigRocks: !!checked }))}
+                          data-testid="checkbox-include-bigrocks"
+                        />
+                        Include Big Rocks
+                      </label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleAiDraftCheckIn}
+                        disabled={aiDraftState.isDrafting}
+                        className="gap-1"
+                        data-testid="button-ai-draft-checkin"
+                      >
+                        {aiDraftState.isDrafting ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Sparkles className="h-3 w-3" />
+                        )}
+                        <span className="text-xs">{aiDraftState.isDrafting ? "Drafting..." : "Generate Draft"}</span>
+                      </Button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-muted-foreground" data-testid="text-ai-draft-description">
+                    AI will summarize progress from child objectives, key results{aiDraftState.includeBigRocks ? ', and linked Big Rocks' : ''} into a check-in note.
+                  </p>
+                  {aiDraftState.error && (
+                    <p className="text-xs text-destructive" data-testid="text-ai-draft-error">{aiDraftState.error}</p>
+                  )}
+                </div>
+              )}
+
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <Label htmlFor="ci-note">Note</Label>
