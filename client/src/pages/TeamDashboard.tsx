@@ -317,8 +317,8 @@ function TeamDashboardContent() {
       if (!currentTenant?.id) return [];
       const params = new URLSearchParams({
         tenantId: currentTenant.id,
-        ...(currentQuarter?.quarter && { quarter: String(currentQuarter.quarter) }),
-        ...(currentQuarter?.year && { year: String(currentQuarter.year) }),
+        ...(currentQuarter?.quarter != null && { quarter: String(currentQuarter.quarter) }),
+        ...(currentQuarter?.year != null && { year: String(currentQuarter.year) }),
         ...(selectedTeamId && { teamId: selectedTeamId }),
       });
       const res = await fetch(`/api/okr/objectives?${params}`);
@@ -334,8 +334,8 @@ function TeamDashboardContent() {
       if (!currentTenant?.id) return [];
       const params = new URLSearchParams({
         tenantId: currentTenant.id,
-        ...(currentQuarter?.quarter && { quarter: String(currentQuarter.quarter) }),
-        ...(currentQuarter?.year && { year: String(currentQuarter.year) }),
+        ...(currentQuarter?.quarter != null && { quarter: String(currentQuarter.quarter) }),
+        ...(currentQuarter?.year != null && { year: String(currentQuarter.year) }),
         ...(selectedTeamId && { teamId: selectedTeamId }),
       });
       const res = await fetch(`/api/okr/key-results?${params}`);
@@ -351,8 +351,8 @@ function TeamDashboardContent() {
       if (!currentTenant?.id) return [];
       const params = new URLSearchParams({
         tenantId: currentTenant.id,
-        ...(currentQuarter?.quarter && { quarter: String(currentQuarter.quarter) }),
-        ...(currentQuarter?.year && { year: String(currentQuarter.year) }),
+        ...(currentQuarter?.quarter != null && { quarter: String(currentQuarter.quarter) }),
+        ...(currentQuarter?.year != null && { year: String(currentQuarter.year) }),
       });
       const res = await fetch(`/api/okr/big-rocks?${params}`);
       if (!res.ok) throw new Error('Failed to fetch big rocks');
