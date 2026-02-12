@@ -47,7 +47,7 @@ import {
   supportTicketReplies, type SupportTicketReply, type InsertSupportTicketReply
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, sql, isNull, inArray, gte, lte, count } from "drizzle-orm";
+import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, count } from "drizzle-orm";
 import { hashPassword } from "./auth";
 
 export interface IStorage {
@@ -132,6 +132,7 @@ export interface IStorage {
   getBigRockByIdForTenant(id: string, tenantId: string): Promise<BigRock | undefined>;
   getBigRocksByObjectiveId(objectiveId: string): Promise<BigRock[]>;
   getBigRocksByKeyResultId(keyResultId: string): Promise<BigRock[]>;
+  getBigRocksWithPlannerSync(): Promise<BigRock[]>;
   createBigRock(bigRock: InsertBigRock): Promise<BigRock>;
   updateBigRock(id: string, bigRock: Partial<InsertBigRock>): Promise<BigRock>;
   deleteBigRock(id: string): Promise<void>;
@@ -1342,6 +1343,15 @@ export class DatabaseStorage implements IStorage {
 
   async getBigRocksByKeyResultId(keyResultId: string): Promise<BigRock[]> {
     return await db.select().from(bigRocks).where(eq(bigRocks.keyResultId, keyResultId));
+  }
+
+  async getBigRocksWithPlannerSync(): Promise<BigRock[]> {
+    return await db.select().from(bigRocks).where(
+      and(
+        isNotNull(bigRocks.plannerPlanId),
+        eq(bigRocks.plannerSyncEnabled, true)
+      )
+    );
   }
 
   async createBigRock(insertBigRock: InsertBigRock): Promise<BigRock> {

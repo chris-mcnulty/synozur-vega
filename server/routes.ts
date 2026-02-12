@@ -3336,6 +3336,127 @@ ${changelogContent}`;
     }
   );
 
+  // Register Big Rock ↔ Planner bidirectional task sync (includes assignees) - runs every 2 hours
+  await jobScheduler.registerJob(
+    'planner-bigrock-task-sync',
+    'Planner Big Rock Task Sync',
+    'Bidirectionally syncs tasks and assignees between Microsoft Planner and Big Rocks for all mapped Big Rocks with sync enabled',
+    'integration',
+    'Every 2 hours',
+    7200000, // 2 hours
+    async () => {
+      const { 
+        syncPlannerBuckets, 
+        syncPlannerTasks, 
+        syncPlannerTasksToBigRockTasks,
+        calculatePlannerProgress
+      } = await import('./services/graph-planner');
+
+      const bigRocksToSync = await storage.getBigRocksWithPlannerSync();
+      
+      if (bigRocksToSync.length === 0) {
+        return { summary: 'No Big Rocks with Planner sync enabled', details: { count: 0 } };
+      }
+
+      let synced = 0;
+      let failed = 0;
+      let totalCreated = 0;
+      let totalUpdated = 0;
+      const details: any[] = [];
+
+      for (const bigRock of bigRocksToSync) {
+        if (!bigRock.plannerPlanId) continue;
+
+        const plan = await storage.getPlannerPlanById(bigRock.plannerPlanId);
+        if (!plan) {
+          failed++;
+          details.push({ bigRock: bigRock.title, error: 'Mapped plan not found' });
+          continue;
+        }
+
+        // Find a user with a valid Graph token for this tenant
+        const tenantUsers = await storage.getAllUsers(bigRock.tenantId);
+        let syncUserId: string | null = null;
+
+        for (const u of tenantUsers) {
+          const graphToken = await storage.getGraphToken(u.id, 'planner');
+          if (graphToken?.accessToken) {
+            syncUserId = u.id;
+            break;
+          }
+        }
+
+        if (!syncUserId) {
+          failed++;
+          details.push({ bigRock: bigRock.title, error: 'No user with valid Planner token' });
+          await storage.updateBigRock(bigRock.id, {
+            plannerSyncError: 'Auto-sync failed: No user with valid Planner connection',
+          });
+          continue;
+        }
+
+        try {
+          // Step 1: Sync buckets from Graph
+          await syncPlannerBuckets(syncUserId, bigRock.tenantId, plan.id, plan.graphPlanId);
+
+          // Step 2: Sync tasks from Graph (gets latest task data including assignees)
+          await syncPlannerTasks(syncUserId, bigRock.tenantId, plan.id, plan.graphPlanId);
+
+          // Step 3: Pull Planner tasks into Big Rock tasks (bidirectional, resolves assignees)
+          const result = await syncPlannerTasksToBigRockTasks(
+            syncUserId,
+            bigRock.id,
+            bigRock.tenantId,
+            plan.id,
+            bigRock.plannerBucketId || null
+          );
+
+          // Step 4: Calculate and update progress
+          const progress = await calculatePlannerProgress(
+            bigRock.plannerPlanId,
+            bigRock.plannerBucketId || null,
+            bigRock.tenantId
+          );
+
+          await storage.updateBigRock(bigRock.id, {
+            completionPercentage: Math.round(progress.percentage || 0),
+            plannerLastSyncAt: new Date(),
+            plannerSyncError: null,
+          });
+
+          totalCreated += result.created;
+          totalUpdated += result.updated;
+          synced++;
+          details.push({
+            bigRock: bigRock.title,
+            tenant: bigRock.tenantId,
+            created: result.created,
+            updated: result.updated,
+            total: result.total,
+            progress: Math.round(progress.percentage || 0),
+          });
+        } catch (syncError: any) {
+          failed++;
+          const errorMsg = syncError.message || 'Unknown sync error';
+          details.push({ bigRock: bigRock.title, error: errorMsg });
+          await storage.updateBigRock(bigRock.id, {
+            plannerSyncError: `Auto-sync failed: ${errorMsg}`,
+          });
+          console.error(`[PlannerBigRockSync] Failed for "${bigRock.title}":`, errorMsg);
+        }
+      }
+
+      return {
+        summary: synced > 0
+          ? `Synced ${synced} Big Rocks (${totalCreated} tasks created, ${totalUpdated} updated)${failed > 0 ? `, ${failed} failed` : ''}`
+          : failed > 0
+            ? `All ${failed} Big Rock syncs failed`
+            : 'No Big Rocks needed syncing',
+        details: { synced, failed, totalCreated, totalUpdated, bigRocks: details },
+      };
+    }
+  );
+
   // Register reminder cache reset job - runs once daily at midnight Pacific  
   await jobScheduler.registerJob(
     'reminder-cache-reset',

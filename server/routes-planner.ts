@@ -18,6 +18,7 @@ import {
   deletePlannerTaskForBigRockTask,
   syncPlannerTasksToBigRockTasks,
   resolveGraphAssignmentsToEmails,
+  calculatePlannerProgress,
 } from './services/graph-planner';
 import { hasPermission, PERMISSIONS, Role } from '@shared/rbac';
 
@@ -639,36 +640,6 @@ router.post('/mapping/bigrock/:bigRockId/sync', async (req: Request, res: Respon
     res.status(500).json({ error: 'Failed to sync progress', message: error.message });
   }
 });
-
-// Helper function to calculate progress from Planner tasks
-async function calculatePlannerProgress(
-  planId: string, 
-  bucketId: string | null,
-  tenantId: string
-): Promise<{ percentage: number; totalTasks: number; completedTasks: number }> {
-  // Get all tasks from the plan or specific bucket
-  let tasks;
-  if (bucketId) {
-    tasks = await storage.getPlannerTasksByBucketId(bucketId);
-  } else {
-    tasks = await storage.getPlannerTasksByPlanId(planId);
-  }
-
-  if (!tasks || tasks.length === 0) {
-    return { percentage: 0, totalTasks: 0, completedTasks: 0 };
-  }
-
-  // Count completed tasks (percentComplete === 100)
-  const completedTasks = tasks.filter(t => t.percentComplete === 100).length;
-  const totalTasks = tasks.length;
-  const percentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
-
-  return {
-    percentage: Math.round(percentage * 10) / 10, // Round to 1 decimal
-    totalTasks,
-    completedTasks
-  };
-}
 
 // Get Planner progress summary for a Key Result
 router.get('/mapping/keyresult/:keyResultId/progress', async (req: Request, res: Response) => {

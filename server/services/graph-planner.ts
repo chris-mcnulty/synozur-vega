@@ -816,6 +816,35 @@ export async function syncPlannerTasksToBigRockTasks(
   return { created, updated, total: plannerTasks.length };
 }
 
+// ============ Calculate Planner Progress ============
+
+export async function calculatePlannerProgress(
+  planId: string, 
+  bucketId: string | null,
+  tenantId: string
+): Promise<{ percentage: number; totalTasks: number; completedTasks: number }> {
+  let tasks;
+  if (bucketId) {
+    tasks = await storage.getPlannerTasksByBucketId(bucketId);
+  } else {
+    tasks = await storage.getPlannerTasksByPlanId(planId);
+  }
+
+  if (!tasks || tasks.length === 0) {
+    return { percentage: 0, totalTasks: 0, completedTasks: 0 };
+  }
+
+  const completedTasks = tasks.filter(t => t.percentComplete === 100).length;
+  const totalTasks = tasks.length;
+  const percentage = totalTasks > 0 ? (completedTasks / totalTasks) * 100 : 0;
+
+  return {
+    percentage: Math.round(percentage * 10) / 10,
+    totalTasks,
+    completedTasks
+  };
+}
+
 // ============ Create Planner Plan in Teams/Channels ============
 
 async function fetchTeamsWithClient(
