@@ -3498,6 +3498,25 @@ export default function PlanningEnhanced() {
                   />
                 </div>
 
+                <div>
+                  <Label htmlFor="br-objective">Linked Objective</Label>
+                  <Select
+                    value={bigRockForm.objectiveId || "none"}
+                    onValueChange={(value) => setBigRockForm({ ...bigRockForm, objectiveId: value === "none" ? "" : value })}
+                  >
+                    <SelectTrigger data-testid="select-bigrock-objective">
+                      <SelectValue placeholder="Select an objective (optional)" />
+                    </SelectTrigger>
+                    <SelectContent className="z-[60]">
+                      <SelectItem value="none">No Objective</SelectItem>
+                      {objectives.map((obj) => (
+                        <SelectItem key={obj.id} value={obj.id}>{obj.title}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground mt-1">Which objective does this Big Rock support?</p>
+                </div>
+
                 <div className="grid grid-cols-3 gap-4">
                   <div>
                     <Label htmlFor="br-period">Period</Label>
