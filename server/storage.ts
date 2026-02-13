@@ -828,12 +828,8 @@ export class DatabaseStorage implements IStorage {
         eq(objectives.quarter, 0)
       ));
     } else if (quarter !== undefined && quarter > 0 && year !== undefined) {
-      // Include both quarterly AND annual objectives (treat both null and 0 as annual)
-      conditions.push(or(
-        eq(objectives.quarter, quarter),
-        isNull(objectives.quarter),
-        eq(objectives.quarter, 0)
-      ));
+      // Show only the exact quarter requested - do NOT include Annual objectives
+      conditions.push(eq(objectives.quarter, quarter));
     }
     
     // Add level filter if provided (organization, team, individual)
@@ -1283,9 +1279,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getBigRocksByTenantId(tenantId: string, quarter?: number, year?: number): Promise<BigRock[]> {
-    // If quarter is 0 or undefined (annual view), fetch ALL big rocks for that year
-    // This includes quarterly (Q1-Q4) AND annual big rocks
-    if ((quarter === 0 || quarter === undefined) && year !== undefined) {
+    // Annual view (quarter=0): show only annual big rocks for that year
+    if (quarter === 0 && year !== undefined) {
+      return await db.select().from(bigRocks).where(
+        and(
+          eq(bigRocks.tenantId, tenantId),
+          eq(bigRocks.year, year),
+          or(eq(bigRocks.quarter, 0), isNull(bigRocks.quarter))
+        )
+      );
+    }
+    
+    // No quarter specified: fetch ALL big rocks for that year (all periods)
+    if (quarter === undefined && year !== undefined) {
       return await db.select().from(bigRocks).where(
         and(
           eq(bigRocks.tenantId, tenantId),
@@ -1294,17 +1300,13 @@ export class DatabaseStorage implements IStorage {
       );
     }
     
-    // If quarter and year provided (quarterly view), include both that quarter's AND annual big rocks
+    // If quarter and year provided (quarterly view), show only that quarter's big rocks
     if (quarter !== undefined && quarter > 0 && year !== undefined) {
       return await db.select().from(bigRocks).where(
         and(
           eq(bigRocks.tenantId, tenantId),
           eq(bigRocks.year, year),
-          or(
-            eq(bigRocks.quarter, quarter),
-            isNull(bigRocks.quarter),
-            eq(bigRocks.quarter, 0)
-          )
+          eq(bigRocks.quarter, quarter)
         )
       );
     }

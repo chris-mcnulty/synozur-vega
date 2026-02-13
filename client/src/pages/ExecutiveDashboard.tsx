@@ -72,8 +72,11 @@ type Quarter = {
 
 const currentYear = new Date().getFullYear();
 const quarters: Quarter[] = [
+  { id: `annual-${currentYear + 1}`, label: `Annual ${currentYear + 1}`, year: currentYear + 1, quarter: 0 },
   ...generateQuarters(currentYear + 1),
+  { id: `annual-${currentYear}`, label: `Annual ${currentYear}`, year: currentYear, quarter: 0 },
   ...generateQuarters(currentYear),
+  { id: `annual-${currentYear - 1}`, label: `Annual ${currentYear - 1}`, year: currentYear - 1, quarter: 0 },
   ...generateQuarters(currentYear - 1),
 ];
 

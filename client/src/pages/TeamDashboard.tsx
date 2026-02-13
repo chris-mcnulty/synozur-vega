@@ -114,8 +114,11 @@ type Quarter = {
 
 const currentYear = new Date().getFullYear();
 const quarters: Quarter[] = [
+  { id: `annual-${currentYear}`, label: `Annual ${currentYear}`, year: currentYear, quarter: 0, startDate: "Jan 1", endDate: "Dec 31" },
   ...generateQuarters(currentYear),
+  { id: `annual-${currentYear - 1}`, label: `Annual ${currentYear - 1}`, year: currentYear - 1, quarter: 0, startDate: "Jan 1", endDate: "Dec 31" },
   ...generateQuarters(currentYear - 1),
+  { id: `annual-${currentYear - 2}`, label: `Annual ${currentYear - 2}`, year: currentYear - 2, quarter: 0, startDate: "Jan 1", endDate: "Dec 31" },
   ...generateQuarters(currentYear - 2),
 ];
 
@@ -197,7 +200,10 @@ function TeamDashboardContent() {
   
   const getDefaultQuarterId = () => {
     const tenantTimePeriod = currentTenant?.defaultTimePeriod;
-    if (tenantTimePeriod?.mode === 'specific' && tenantTimePeriod.year && tenantTimePeriod.quarter) {
+    if (tenantTimePeriod?.mode === 'specific' && tenantTimePeriod.year && tenantTimePeriod.quarter != null) {
+      if (tenantTimePeriod.quarter === 0) {
+        return `annual-${tenantTimePeriod.year}`;
+      }
       return `q${tenantTimePeriod.quarter}-${tenantTimePeriod.year}`;
     }
     return `q${currentQuarterNum}-${currentYearNum}`;
@@ -229,8 +235,10 @@ function TeamDashboardContent() {
       // If no stored quarter, use tenant default time period
       if (!storedQuarter) {
         const tenantTimePeriod = currentTenant.defaultTimePeriod as { mode?: string; year?: number; quarter?: number } | null;
-        if (tenantTimePeriod?.mode === 'specific' && tenantTimePeriod.year && tenantTimePeriod.quarter) {
-          const tenantQuarterId = `q${tenantTimePeriod.quarter}-${tenantTimePeriod.year}`;
+        if (tenantTimePeriod?.mode === 'specific' && tenantTimePeriod.year && tenantTimePeriod.quarter != null) {
+          const tenantQuarterId = tenantTimePeriod.quarter === 0 
+            ? `annual-${tenantTimePeriod.year}` 
+            : `q${tenantTimePeriod.quarter}-${tenantTimePeriod.year}`;
           // Only update if different from current selection
           if (selectedQuarter !== tenantQuarterId) {
             setSelectedQuarter(tenantQuarterId);
