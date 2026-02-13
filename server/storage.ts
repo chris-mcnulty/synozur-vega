@@ -167,6 +167,7 @@ export interface IStorage {
   
   getCheckInsByEntityId(entityType: string, entityId: string): Promise<CheckIn[]>;
   getCheckInsByEntityIds(entityType: string, entityIds: string[]): Promise<Map<string, CheckIn[]>>;
+  getCheckInsByTenantId(tenantId: string): Promise<CheckIn[]>;
   getCheckInById(id: string): Promise<CheckIn | undefined>;
   createCheckIn(checkIn: InsertCheckIn): Promise<CheckIn>;
   updateCheckIn(id: string, data: Partial<CheckIn>): Promise<CheckIn>;
@@ -1763,6 +1764,14 @@ export class DatabaseStorage implements IStorage {
         eq(checkIns.entityType, entityType),
         eq(checkIns.entityId, entityId)
       ))
+      .orderBy(desc(checkIns.asOfDate));
+  }
+
+  async getCheckInsByTenantId(tenantId: string): Promise<CheckIn[]> {
+    return await db
+      .select()
+      .from(checkIns)
+      .where(eq(checkIns.tenantId, tenantId))
       .orderBy(desc(checkIns.asOfDate));
   }
 

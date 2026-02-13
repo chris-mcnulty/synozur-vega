@@ -115,9 +115,16 @@ interface PaceResult {
 
 function calculatePaceWithProjection(progress: number, quarter: number, year: number, daysSinceLastCheckIn?: number | null): PaceResult {
   const now = new Date();
-  const quarterStartMonth = (quarter - 1) * 3;
-  const startDate = new Date(year, quarterStartMonth, 1);
-  const endDate = new Date(year, quarterStartMonth + 3, 0);
+  let startDate: Date;
+  let endDate: Date;
+  if (quarter === 0) {
+    startDate = new Date(year, 0, 1);
+    endDate = new Date(year, 11, 31);
+  } else {
+    const quarterStartMonth = (quarter - 1) * 3;
+    startDate = new Date(year, quarterStartMonth, 1);
+    endDate = new Date(year, quarterStartMonth + 3, 0);
+  }
   
   const totalDays = Math.max(1, Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
   const rawElapsedDays = Math.floor((now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -187,8 +194,8 @@ export default function ExecutiveDashboard() {
       if (!currentTenant) return [];
       const params = new URLSearchParams({
         tenantId: currentTenant.id,
-        ...(currentQuarter?.quarter && { quarter: String(currentQuarter.quarter) }),
-        ...(currentQuarter?.year && { year: String(currentQuarter.year) }),
+        ...(currentQuarter?.quarter != null && { quarter: String(currentQuarter.quarter) }),
+        ...(currentQuarter?.year != null && { year: String(currentQuarter.year) }),
       });
       const res = await fetch(`/api/okr/objectives?${params}`, {
         credentials: 'include',
@@ -207,8 +214,8 @@ export default function ExecutiveDashboard() {
       // Fetch all key results for the tenant/quarter in a single request
       const params = new URLSearchParams({
         tenantId: currentTenant.id,
-        ...(currentQuarter.quarter && { quarter: String(currentQuarter.quarter) }),
-        ...(currentQuarter.year && { year: String(currentQuarter.year) }),
+        ...(currentQuarter.quarter != null && { quarter: String(currentQuarter.quarter) }),
+        ...(currentQuarter.year != null && { year: String(currentQuarter.year) }),
       });
       const res = await fetch(`/api/okr/key-results?${params}`, {
         credentials: 'include',
@@ -250,8 +257,8 @@ export default function ExecutiveDashboard() {
       if (!currentTenant) return [];
       const params = new URLSearchParams({
         tenantId: currentTenant.id,
-        ...(currentQuarter?.quarter && { quarter: String(currentQuarter.quarter) }),
-        ...(currentQuarter?.year && { year: String(currentQuarter.year) }),
+        ...(currentQuarter?.quarter != null && { quarter: String(currentQuarter.quarter) }),
+        ...(currentQuarter?.year != null && { year: String(currentQuarter.year) }),
       });
       const res = await fetch(`/api/okr/big-rocks?${params}`, {
         credentials: 'include',
@@ -336,7 +343,7 @@ export default function ExecutiveDashboard() {
       krs.forEach(kr => krToObjectiveMap.set(kr.id, obj.id));
     });
 
-    // Count objectives with ANY check-in activity (objective or KR level)
+    // Count objectives with ANY check-in activity (objective or KR level) or recent updates
     const objectivesWithCheckIns = new Set<string>();
     allCheckIns.forEach(ci => {
       if (ci.entityType === 'objective') {
@@ -348,13 +355,24 @@ export default function ExecutiveDashboard() {
         }
       }
     });
+    objectives.forEach(obj => {
+      if (obj.updatedAt && obj.updatedAt !== obj.createdAt) {
+        objectivesWithCheckIns.add(obj.id);
+      }
+      const krs = keyResultsMap[obj.id] || [];
+      if (krs.some(kr => kr.updatedAt && kr.updatedAt !== kr.createdAt)) {
+        objectivesWithCheckIns.add(obj.id);
+      }
+    });
 
     const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     const objectivesCheckedInThisWeek = objectives.filter(obj => {
-      const krs = keyResultsMap[obj.id] || [];
-      const krIds = new Set(krs.map(kr => kr.id));
+      if (obj.updatedAt && new Date(obj.updatedAt).getTime() > oneWeekAgo) return true;
       
-      // Check for any recent check-in on this objective OR its key results
+      const krs = keyResultsMap[obj.id] || [];
+      if (krs.some(kr => kr.updatedAt && new Date(kr.updatedAt).getTime() > oneWeekAgo)) return true;
+      
+      const krIds = new Set(krs.map(kr => kr.id));
       const recentCheckIn = allCheckIns.find(ci => {
         if (!ci.createdAt || new Date(ci.createdAt).getTime() <= oneWeekAgo) return false;
         return ci.entityId === obj.id || krIds.has(ci.entityId);
@@ -469,36 +487,60 @@ export default function ExecutiveDashboard() {
           (keyResultsMap[obj.id] || []).some(kr => kr.id === ci.entityId))
         .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())[0];
       
-      if (!lastCheckIn) return true;
-      const daysSince = Math.floor((Date.now() - new Date(lastCheckIn.createdAt!).getTime()) / (1000 * 60 * 60 * 24));
+      const lastCheckInTime = lastCheckIn?.createdAt ? new Date(lastCheckIn.createdAt).getTime() : 0;
+      const updatedAtTime = obj.updatedAt ? new Date(obj.updatedAt).getTime() : 0;
+      const krs = keyResultsMap[obj.id] || [];
+      const latestKrUpdate = krs.reduce((latest, kr) => {
+        const t = kr.updatedAt ? new Date(kr.updatedAt).getTime() : 0;
+        return t > latest ? t : latest;
+      }, 0);
+      const mostRecentActivity = Math.max(lastCheckInTime, updatedAtTime, latestKrUpdate);
+      
+      if (mostRecentActivity === 0) return true;
+      const daysSince = Math.floor((Date.now() - mostRecentActivity) / (1000 * 60 * 60 * 24));
       return daysSince > 14; // Stale if not updated in 2 weeks
     });
 
     // Average days since last check-in
     const avgDaysSinceCheckIn = objectivesWithProgress.length > 0
       ? Math.round(objectivesWithProgress.reduce((sum, obj) => {
-          const checkIns = allCheckIns.filter(ci => 
+          const objCheckIns = allCheckIns.filter(ci => 
             ci.entityId === obj.id || 
             (keyResultsMap[obj.id] || []).some(kr => kr.id === ci.entityId)
           );
-          if (checkIns.length === 0) return sum + 30; // Default to 30 if no check-ins
-          const latest = checkIns.sort((a, b) => 
-            new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
-          )[0];
-          return sum + Math.floor((Date.now() - new Date(latest.createdAt!).getTime()) / (1000 * 60 * 60 * 24));
+          const latestCheckInTime = objCheckIns.length > 0
+            ? Math.max(...objCheckIns.filter(ci => ci.createdAt).map(ci => new Date(ci.createdAt!).getTime()))
+            : 0;
+          const updatedAtTime = obj.updatedAt ? new Date(obj.updatedAt).getTime() : 0;
+          const avgKrs = keyResultsMap[obj.id] || [];
+          const latestAvgKrUpdate = avgKrs.reduce((latest, kr) => {
+            const t = kr.updatedAt ? new Date(kr.updatedAt).getTime() : 0;
+            return t > latest ? t : latest;
+          }, 0);
+          const mostRecent = Math.max(latestCheckInTime, updatedAtTime, latestAvgKrUpdate);
+          if (mostRecent === 0) return sum + 30;
+          return sum + Math.floor((Date.now() - mostRecent) / (1000 * 60 * 60 * 24));
         }, 0) / objectivesWithProgress.length)
       : 0;
 
     // Pace-based metrics - objectives falling behind based on time elapsed vs progress
     const objectivesWithPace = objectivesWithProgress
-      .filter(obj => obj.quarter && obj.quarter > 0 && obj.year)
+      .filter(obj => obj.quarter != null && obj.year)
       .map(obj => {
         const lastCheckIn = allCheckIns
           .filter(ci => ci.entityId === obj.id || 
             (keyResultsMap[obj.id] || []).some(kr => kr.id === ci.entityId))
           .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime())[0];
-        const daysSinceLastCheckIn = lastCheckIn 
-          ? Math.floor((Date.now() - new Date(lastCheckIn.createdAt!).getTime()) / (1000 * 60 * 60 * 24))
+        const lastCheckInTime = lastCheckIn?.createdAt ? new Date(lastCheckIn.createdAt).getTime() : 0;
+        const objUpdatedAtTime = obj.updatedAt ? new Date(obj.updatedAt).getTime() : 0;
+        const paceKrs = keyResultsMap[obj.id] || [];
+        const latestPaceKrUpdate = paceKrs.reduce((latest, kr) => {
+          const t = kr.updatedAt ? new Date(kr.updatedAt).getTime() : 0;
+          return t > latest ? t : latest;
+        }, 0);
+        const mostRecentActivity = Math.max(lastCheckInTime, objUpdatedAtTime, latestPaceKrUpdate);
+        const daysSinceLastCheckIn = mostRecentActivity > 0
+          ? Math.floor((Date.now() - mostRecentActivity) / (1000 * 60 * 60 * 24))
           : null;
         const paceResult = calculatePaceWithProjection(obj.calculatedProgress, obj.quarter!, obj.year!, daysSinceLastCheckIn);
         return {

@@ -982,6 +982,15 @@ okrRouter.get("/check-ins", async (req, res) => {
       return res.status(400).json({ error: "entityType and entityId are required" });
     }
     
+    if (entityType === 'all' && entityId === 'all') {
+      const tenantId = (req.session as any).currentTenantId || (req as any).user?.tenantId;
+      if (!tenantId) {
+        return res.status(400).json({ error: "Tenant context required" });
+      }
+      const allCheckIns = await storage.getCheckInsByTenantId(tenantId);
+      return res.json(allCheckIns);
+    }
+    
     const checkIns = await storage.getCheckInsByEntityId(
       entityType as string,
       entityId as string
