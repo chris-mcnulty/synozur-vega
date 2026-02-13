@@ -270,6 +270,23 @@ export default function ExecutiveDashboard() {
     enabled: !!currentTenant?.id && !!currentQuarter,
   });
 
+  const bigRockIds = bigRocks.map(br => br.id);
+  const { data: bigRockTaskCounts = {} } = useQuery<Record<string, { total: number; completed: number }>>({
+    queryKey: ["/api/okr/big-rocks/task-counts", bigRockIds],
+    queryFn: async () => {
+      if (bigRockIds.length === 0) return {};
+      const res = await fetch(`/api/okr/big-rocks/task-counts`, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { ...getHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bigRockIds }),
+      });
+      if (!res.ok) return {};
+      return res.json();
+    },
+    enabled: bigRockIds.length > 0,
+  });
+
   const { data: allCheckIns = [] } = useQuery<CheckIn[]>({
     queryKey: ["/api/okr/check-ins/all", currentTenant?.id],
     queryFn: async () => {
@@ -1499,39 +1516,56 @@ export default function ExecutiveDashboard() {
               </CardHeader>
               <CardContent>
                 {metrics.bigRocksList.length > 0 ? (
-                  <div className="space-y-2">
-                    {metrics.bigRocksList.map((br) => (
-                      <div 
-                        key={br.id}
-                        className={cn(
-                          "flex items-center gap-3 p-2 rounded-lg",
-                          br.status === 'completed' 
-                            ? "bg-green-50 dark:bg-green-950/30" 
-                            : "bg-muted/50"
-                        )}
-                        data-testid={`item-bigrock-${br.id}`}
-                      >
-                        {br.status === 'completed' ? (
-                          <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
-                        ) : br.status === 'in_progress' ? (
-                          <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin flex-shrink-0" />
-                        ) : (
-                          <Circle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        )}
-                        <span className={cn(
-                          "text-sm truncate flex-1",
-                          br.status === 'completed' && "line-through text-muted-foreground"
-                        )}>
-                          {br.title}
-                        </span>
-                        <Badge 
-                          variant={br.status === 'completed' ? 'secondary' : 'outline'} 
-                          className="text-xs flex-shrink-0"
+                  <div className="space-y-3">
+                    {metrics.bigRocksList.map((br) => {
+                      const taskCount = bigRockTaskCounts[br.id];
+                      const progress = br.completionPercentage || 0;
+                      return (
+                        <div 
+                          key={br.id}
+                          className={cn(
+                            "p-3 rounded-lg",
+                            br.status === 'completed' 
+                              ? "bg-green-50 dark:bg-green-950/30" 
+                              : "bg-muted/50"
+                          )}
+                          data-testid={`item-bigrock-${br.id}`}
                         >
-                          {br.status === 'completed' ? 'Done' : br.status === 'in_progress' ? 'Active' : 'Pending'}
-                        </Badge>
-                      </div>
-                    ))}
+                          <div className="flex items-center gap-3">
+                            {br.status === 'completed' ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500 flex-shrink-0" />
+                            ) : br.status === 'in_progress' ? (
+                              <div className="h-4 w-4 rounded-full border-2 border-primary border-t-transparent animate-spin flex-shrink-0" />
+                            ) : (
+                              <Circle className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                            )}
+                            <span className={cn(
+                              "text-sm truncate flex-1",
+                              br.status === 'completed' && "line-through text-muted-foreground"
+                            )}>
+                              {br.title}
+                            </span>
+                            <span className="text-xs font-medium text-muted-foreground flex-shrink-0" data-testid={`text-bigrock-progress-${br.id}`}>
+                              {progress}%
+                            </span>
+                            <Badge 
+                              variant={br.status === 'completed' ? 'secondary' : 'outline'} 
+                              className="text-xs flex-shrink-0"
+                            >
+                              {br.status === 'completed' ? 'Done' : br.status === 'in_progress' ? 'Active' : 'Pending'}
+                            </Badge>
+                          </div>
+                          <div className="mt-2 flex items-center gap-2">
+                            <Progress value={progress} className="h-1.5 flex-1" />
+                            {taskCount && taskCount.total > 0 && (
+                              <span className="text-xs text-muted-foreground flex-shrink-0" data-testid={`text-bigrock-tasks-${br.id}`}>
+                                {taskCount.completed}/{taskCount.total} tasks
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
                     {metrics.bigRocksTotal > 8 && (
                       <p className="text-xs text-muted-foreground text-center pt-2">
                         + {metrics.bigRocksTotal - 8} more big rocks
