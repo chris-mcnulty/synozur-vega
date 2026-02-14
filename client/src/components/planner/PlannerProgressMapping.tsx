@@ -21,7 +21,7 @@ import {
   Loader2,
   Unlink
 } from "lucide-react";
-import plannerIcon from "@assets/IMG_6924_1765505101956.png";
+import plannerIcon from "@/assets/brand/IMG_6924_1765505101956.png";
 
 // Error boundary to catch and display any rendering errors
 interface ErrorBoundaryState {

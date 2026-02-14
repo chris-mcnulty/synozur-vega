@@ -35,10 +35,10 @@ import { CheckCircle2, AlertCircle, AlertTriangle, Calendar, Plus, Pencil, Trash
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type TenantBranding, vocabularyAlternatives, type VocabularyTerms } from "@shared/schema";
 import { useAuth } from "@/contexts/AuthContext";
-import excelIcon from "@assets/Excel_512_1765494903271.png";
-import oneDriveIcon from "@assets/OneDrive_512_1765494903274.png";
-import outlookIcon from "@assets/Outlook_512_1765494903276.png";
-import sharePointIcon from "@assets/SharePoint_512_1765494903279.png";
+import excelIcon from "@/assets/brand/Excel_512_1765494903271.png";
+import oneDriveIcon from "@/assets/brand/OneDrive_512_1765494903274.png";
+import outlookIcon from "@/assets/brand/Outlook_512_1765494903276.png";
+import sharePointIcon from "@/assets/brand/SharePoint_512_1765494903279.png";
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";

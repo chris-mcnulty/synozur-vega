@@ -6,12 +6,12 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
-import microsoftPartnerBadgeWhite from "@assets/MSFT-CAPP-PREFERRED-White_1767641957468.png";
-import microsoftPartnerBadgeBlack from "@assets/MSFT-CAPP-PREFERRED-BlackColor_1767641891731.png";
-import vegaLogo from "@assets/VegaTight_1766605018223.png";
-import synozurMark from "@assets/SynozurMark_color1400_1766606244412.png";
-import synozurLogoColor from "@assets/SA-Logo-Horizontal-color_1768839624375.png";
-import synozurLogoWhite from "@assets/SA-Logo-Horizontal-white_1768839624376.png";
+import microsoftPartnerBadgeWhite from "@/assets/brand/MSFT-CAPP-PREFERRED-White_1767641957468.png";
+import microsoftPartnerBadgeBlack from "@/assets/brand/MSFT-CAPP-PREFERRED-BlackColor_1767641891731.png";
+import vegaLogo from "@/assets/brand/VegaTight_1766605018223.png";
+import synozurMark from "@/assets/brand/SynozurMark_color1400_1766606244412.png";
+import synozurLogoColor from "@/assets/brand/SA-Logo-Horizontal-color_1768839624375.png";
+import synozurLogoWhite from "@/assets/brand/SA-Logo-Horizontal-white_1768839624376.png";
 
 export default function Landing() {
   const { isAuthenticated, isLoading } = useAuth();

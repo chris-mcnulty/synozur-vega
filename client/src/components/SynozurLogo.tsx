@@ -1,6 +1,6 @@
-import logoColor from "@assets/SynozurMark_color1400_1763228452349.png";
-import logoWhite from "@assets/SynozurLogo_white 1400_1763228452349.png";
-import logoHorizontal from "@assets/SA-Logo-Horizontal-color_1763228452349.png";
+import logoColor from "@/assets/brand/SynozurMark_color1400_1763228452349.png";
+import logoWhite from "@/assets/brand/SynozurLogo_white 1400_1763228452349.png";
+import logoHorizontal from "@/assets/brand/SA-Logo-Horizontal-color_1763228452349.png";
 
 type SynozurLogoProps = {
   variant?: "mark" | "full" | "horizontal";

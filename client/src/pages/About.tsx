@@ -18,7 +18,7 @@ import {
   FileText,
   Map
 } from "lucide-react";
-import vegaLogo from "@assets/VegaTight_1766605018223.png";
+import vegaLogo from "@/assets/brand/VegaTight_1766605018223.png";
 
 const VERSION_MAJOR = 1;
 

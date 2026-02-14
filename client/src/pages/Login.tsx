@@ -9,11 +9,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Eye, EyeOff, Shield, Loader2, AlertCircle, ExternalLink, X } from "lucide-react";
-import microsoftLogo from "@assets/Microsoft_Icon_6_1765741102026.jpeg";
+import microsoftLogo from "@/assets/brand/Microsoft_Icon_6_1765741102026.jpeg";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import starTrailsBg from "@assets/AdobeStock_362805421_1763398687511.jpeg";
-import vegaLogo from "@assets/VegaTight_1766605018223.png";
-import vegaLogoWhite from "@assets/Vega_-_White_1767549184769.png";
+import starTrailsBg from "@/assets/brand/AdobeStock_362805421_1763398687511.jpeg";
+import vegaLogo from "@/assets/brand/VegaTight_1766605018223.png";
+import vegaLogoWhite from "@/assets/brand/Vega_-_White_1767549184769.png";
 import ReCAPTCHA from "react-google-recaptcha";
 
 const ORGANIZATION_SIZES = [
