@@ -5,21 +5,21 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
-import { queryClient, apiRequest } from "@/lib/queryClient";
-import { ListTodo, CheckCircle, XCircle, RefreshCw, Link2, Unlink, Loader2 } from "lucide-react";
+import { queryClient } from "@/lib/queryClient";
+import { ListTodo, CheckCircle, XCircle, RefreshCw, Loader2, Settings } from "lucide-react";
 
 interface PlannerStatus {
   configured: boolean;
   connected: boolean;
-  expiresAt: string | null;
-  scopes: string[];
+  planCount: number;
+  taskCount: number;
 }
 
 export function PlannerConnectionCard() {
   const { toast } = useToast();
 
   const { data: status, isLoading } = useQuery<PlannerStatus>({
-    queryKey: ["/auth/entra/planner/status"],
+    queryKey: ["/api/planner/status"],
   });
 
   const syncMutation = useMutation({
@@ -32,9 +32,7 @@ export function PlannerConnectionCard() {
       });
       const data = await res.json();
       if (!res.ok) {
-        const error = new Error(data.error || data.message || "Sync failed");
-        (error as any).reconnectRequired = data.reconnectRequired;
-        throw error;
+        throw new Error(data.error || data.message || "Sync failed");
       }
       return data;
     },
@@ -44,11 +42,9 @@ export function PlannerConnectionCard() {
         description: `Synced ${data.planCount} plans, ${data.bucketCount} buckets, ${data.taskCount} tasks` 
       });
       queryClient.invalidateQueries({ queryKey: ["/api/planner"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/planner/status"] });
     },
     onError: (error: any) => {
-      if (error.reconnectRequired) {
-        queryClient.invalidateQueries({ queryKey: ["/auth/entra/planner/status"] });
-      }
       toast({ 
         title: "Sync failed", 
         description: error.message,
@@ -56,27 +52,6 @@ export function PlannerConnectionCard() {
       });
     },
   });
-
-  const disconnectMutation = useMutation({
-    mutationFn: async () => {
-      return await apiRequest("POST", "/auth/entra/planner/disconnect");
-    },
-    onSuccess: () => {
-      toast({ title: "Planner disconnected" });
-      queryClient.invalidateQueries({ queryKey: ["/auth/entra/planner/status"] });
-    },
-    onError: (error: any) => {
-      toast({ 
-        title: "Disconnect failed", 
-        description: error.message,
-        variant: "destructive" 
-      });
-    },
-  });
-
-  const handleConnect = () => {
-    window.location.href = "/auth/entra/planner/connect";
-  };
 
   if (isLoading) {
     return (
@@ -101,14 +76,16 @@ export function PlannerConnectionCard() {
             Microsoft Planner Integration
           </CardTitle>
           <CardDescription>
-            Connect Microsoft Planner to link tasks with your OKRs
+            Sync Microsoft Planner tasks with your OKRs and Big Rocks
           </CardDescription>
         </CardHeader>
         <CardContent>
           <Alert>
+            <Settings className="h-4 w-4" />
             <AlertDescription>
-              Microsoft Planner integration requires Azure AD configuration. 
-              Contact your administrator to enable this feature.
+              Microsoft Planner integration requires Azure AD app registration credentials.
+              Set PLANNER_TENANT_ID, PLANNER_CLIENT_ID, and PLANNER_CLIENT_SECRET environment 
+              variables to enable this integration.
             </AlertDescription>
           </Alert>
         </CardContent>
@@ -119,65 +96,42 @@ export function PlannerConnectionCard() {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2 flex-wrap">
           <div>
             <CardTitle className="flex items-center gap-2">
               <ListTodo className="h-5 w-5" />
               Microsoft Planner Integration
             </CardTitle>
             <CardDescription>
-              Connect Microsoft Planner to link tasks with your OKRs
+              Sync Microsoft Planner tasks with your OKRs and Big Rocks
             </CardDescription>
           </div>
-          {status.connected ? (
-            <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-              <CheckCircle className="h-3 w-3 mr-1" />
-              Connected
-            </Badge>
-          ) : (
-            <Badge variant="outline">
-              <XCircle className="h-3 w-3 mr-1" />
-              Not Connected
-            </Badge>
-          )}
+          <Badge className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
+            <CheckCircle className="h-3 w-3 mr-1" />
+            Configured
+          </Badge>
         </div>
       </CardHeader>
       <CardContent>
-        {status.connected ? (
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              onClick={() => syncMutation.mutate()}
-              disabled={syncMutation.isPending}
-              data-testid="button-sync-planner-data"
-            >
-              {syncMutation.isPending ? (
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-              ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
-              )}
-              Sync Planner Data
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => disconnectMutation.mutate()}
-              disabled={disconnectMutation.isPending}
-              data-testid="button-disconnect-planner"
-            >
-              <Unlink className="h-4 w-4 mr-2" />
-              Disconnect
-            </Button>
-          </div>
-        ) : (
-          <Button onClick={handleConnect} data-testid="button-connect-planner">
-            <Link2 className="h-4 w-4 mr-2" />
-            Connect Microsoft Planner
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            variant="outline"
+            onClick={() => syncMutation.mutate()}
+            disabled={syncMutation.isPending}
+            data-testid="button-sync-planner-data"
+          >
+            {syncMutation.isPending ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4 mr-2" />
+            )}
+            Sync Planner Data
           </Button>
-        )}
+        </div>
 
-        {status.connected && status.expiresAt && (
+        {status.planCount > 0 && (
           <p className="text-xs text-muted-foreground mt-3">
-            Token expires: {new Date(status.expiresAt).toLocaleString()}
+            {status.planCount} plans, {status.taskCount} tasks synced
           </p>
         )}
       </CardContent>

@@ -3280,6 +3280,12 @@ ${changelogContent}`;
     14400000, // 4 hours
     async () => {
       const { syncAllPlannerData } = await import('./services/graph-planner');
+      const { isPlannerConfigured } = await import('./services/planner-auth');
+      
+      if (!isPlannerConfigured()) {
+        return { summary: 'Planner integration not configured (missing credentials)', details: { configured: false } };
+      }
+
       let totalPlans = 0;
       let totalTasks = 0;
       let syncedTenants = 0;
@@ -3290,35 +3296,19 @@ ${changelogContent}`;
         const tenants = await storage.getAllTenants();
 
         for (const tenant of tenants) {
-          if (!(tenant as any).connectorPlanner) continue;
-
-          const users = await storage.getAllUsers(tenant.id);
-          let synced = false;
-
-          for (const user of users) {
-            const graphToken = await storage.getGraphToken(user.id, 'planner');
-            if (!graphToken?.accessToken) continue;
-
-            try {
-              const result = await syncAllPlannerData(user.id, tenant.id);
-              totalPlans += result.plans.length;
-              totalTasks += result.tasks.length;
-              syncedTenants++;
-              synced = true;
-              details.push({
-                tenant: tenant.name,
-                user: user.email,
-                plans: result.plans.length,
-                tasks: result.tasks.length,
-              });
-              break;
-            } catch (syncError: any) {
-              console.error(`[PlannerSync] Failed for tenant ${tenant.name}, user ${user.email}:`, syncError.message);
-            }
-          }
-
-          if (!synced) {
+          try {
+            const result = await syncAllPlannerData(tenant.id);
+            totalPlans += result.plans.length;
+            totalTasks += result.tasks.length;
+            syncedTenants++;
+            details.push({
+              tenant: tenant.name,
+              plans: result.plans.length,
+              tasks: result.tasks.length,
+            });
+          } catch (syncError: any) {
             failedTenants++;
+            console.error(`[PlannerSync] Failed for tenant ${tenant.name}:`, syncError.message);
           }
         }
       } catch (error: any) {
@@ -3351,6 +3341,11 @@ ${changelogContent}`;
         syncPlannerTasksToBigRockTasks,
         calculatePlannerProgress
       } = await import('./services/graph-planner');
+      const { isPlannerConfigured } = await import('./services/planner-auth');
+
+      if (!isPlannerConfigured()) {
+        return { summary: 'Planner integration not configured (missing credentials)', details: { configured: false } };
+      }
 
       const bigRocksToSync = await storage.getBigRocksWithPlannerSync();
       
@@ -3374,40 +3369,15 @@ ${changelogContent}`;
           continue;
         }
 
-        // Find a user with a valid Graph token for this tenant
-        const tenantUsers = await storage.getAllUsers(bigRock.tenantId);
-        let syncUserId: string | null = null;
-
-        for (const u of tenantUsers) {
-          const graphToken = await storage.getGraphToken(u.id, 'planner');
-          if (graphToken?.accessToken) {
-            syncUserId = u.id;
-            break;
-          }
-        }
-
-        if (!syncUserId) {
-          failed++;
-          details.push({ bigRock: bigRock.title, error: 'No user with valid Planner token' });
-          await storage.updateBigRock(bigRock.id, {
-            plannerSyncError: 'Auto-sync failed: No user with valid Planner connection',
-          });
-          continue;
-        }
-
         try {
-          // Step 1: Sync buckets from Graph
-          await syncPlannerBuckets(syncUserId, bigRock.tenantId, plan.id, plan.graphPlanId);
+          await syncPlannerBuckets(bigRock.tenantId, plan.id, plan.graphPlanId);
 
-          // Step 2: Sync tasks from Graph (gets latest task data including assignees)
-          await syncPlannerTasks(syncUserId, bigRock.tenantId, plan.id, plan.graphPlanId);
+          await syncPlannerTasks(bigRock.tenantId, plan.id, plan.graphPlanId);
 
-          // Step 3: Pull Planner tasks into Big Rock tasks (bidirectional, resolves assignees)
           const result = await syncPlannerTasksToBigRockTasks(
-            syncUserId,
             bigRock.id,
             bigRock.tenantId,
-            plan.id,
+            bigRock.plannerPlanId,
             bigRock.plannerBucketId || null
           );
 

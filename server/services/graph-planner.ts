@@ -1,7 +1,6 @@
 import { Client } from '@microsoft/microsoft-graph-client';
-import { ConfidentialClientApplication, OnBehalfOfRequest } from '@azure/msal-node';
 import { storage } from '../storage';
-import { decryptToken, isEncrypted, encryptToken } from '../utils/encryption';
+import { getPlannerGraphClient, isPlannerConfigured } from './planner-auth';
 import type { 
   PlannerPlan, 
   PlannerBucket, 
@@ -11,14 +10,6 @@ import type {
   InsertPlannerBucket,
   InsertPlannerTask 
 } from '../../shared/schema';
-
-const PLANNER_SCOPES = [
-  'Tasks.ReadWrite',
-  'Group.Read.All',
-  'Team.ReadBasic.All',
-  'Channel.ReadBasic.All',
-  'TeamsTab.Create',
-];
 
 const BIG_ROCK_STATUS_TO_PERCENT: Record<string, number> = {
   open: 0,
@@ -70,123 +61,46 @@ interface GraphPlannerTask {
   assignments?: Record<string, { assignedBy: { user: { id: string } } }>;
 }
 
-function getMsalClient(): ConfidentialClientApplication | null {
-  if (!process.env.AZURE_CLIENT_ID || !process.env.AZURE_CLIENT_SECRET) {
-    return null;
-  }
-
-  return new ConfidentialClientApplication({
-    auth: {
-      clientId: process.env.AZURE_CLIENT_ID,
-      authority: `https://login.microsoftonline.com/${process.env.AZURE_TENANT_ID || 'common'}`,
-      clientSecret: process.env.AZURE_CLIENT_SECRET,
-    },
-  });
+async function getClient(): Promise<Client> {
+  return getPlannerGraphClient();
 }
 
-async function refreshTokenForUser(userId: string): Promise<string | null> {
-  const graphToken = await storage.getGraphToken(userId, 'planner');
-  if (!graphToken?.refreshToken) {
-    console.warn(`[Graph Planner] No refresh token available for user ${userId}`);
-    return null;
-  }
-
-  try {
-    const msalClient = getMsalClient();
-    if (!msalClient) return null;
-
-    const decryptedRefresh = isEncrypted(graphToken.refreshToken) 
-      ? decryptToken(graphToken.refreshToken) 
-      : graphToken.refreshToken;
-
-    const response = await msalClient.acquireTokenByRefreshToken({
-      refreshToken: decryptedRefresh,
-      scopes: PLANNER_SCOPES,
-    });
-
-    if (response) {
-      const newRefreshToken = (response as any).refreshToken || decryptedRefresh;
-      await storage.upsertGraphToken({
-        userId,
-        tenantId: graphToken.tenantId,
-        accessToken: encryptToken(response.accessToken),
-        refreshToken: encryptToken(newRefreshToken),
-        expiresAt: response.expiresOn ? new Date(response.expiresOn) : null,
-        scopes: graphToken.scopes,
-        service: 'planner',
-      });
-      console.log(`[Graph Planner] Token refreshed successfully for user ${userId}`);
-      return response.accessToken;
-    }
-  } catch (error) {
-    console.error(`[Graph Planner] Token refresh failed for user ${userId}:`, error);
-  }
-  return null;
-}
-
-async function getAccessToken(userId: string, forceRefresh = false): Promise<string | null> {
-  const graphToken = await storage.getGraphToken(userId, 'planner');
-  if (!graphToken) {
-    console.warn(`[Graph Planner] No token found for user ${userId}`);
-    return null;
-  }
-
-  if (!graphToken.accessToken) {
-    console.warn(`[Graph Planner] Token found but accessToken is null for user ${userId}`);
-    return null;
-  }
-
-  const accessToken = isEncrypted(graphToken.accessToken) 
-    ? decryptToken(graphToken.accessToken) 
-    : graphToken.accessToken;
-
-  if (!forceRefresh && graphToken.expiresAt && new Date(graphToken.expiresAt) > new Date()) {
-    return accessToken;
-  }
-
-  const refreshed = await refreshTokenForUser(userId);
-  if (refreshed) return refreshed;
-
-  if (!forceRefresh && graphToken.expiresAt === null) {
-    return accessToken;
-  }
-
-  return null;
-}
-
-function getGraphClient(accessToken: string): Client {
-  return Client.init({
-    authProvider: (done) => {
-      done(null, accessToken);
-    },
-  });
-}
-
-export async function syncPlannerPlans(userId: string, tenantId: string): Promise<PlannerPlan[]> {
-  const accessToken = await getAccessToken(userId);
-  if (!accessToken) {
-    throw new Error('No valid access token available');
-  }
-
-  const client = getGraphClient(accessToken);
+export async function syncPlannerPlans(tenantId: string): Promise<PlannerPlan[]> {
+  const client = await getClient();
   
   try {
-    const response = await client.api('/me/planner/plans').get();
-    const graphPlans: GraphPlannerPlan[] = response.value || [];
+    const groupsResponse = await client.api('/groups')
+      .filter("groupTypes/any(c:c eq 'Unified')")
+      .select('id,displayName')
+      .top(100)
+      .get();
 
+    const groups = groupsResponse.value || [];
     const syncedPlans: PlannerPlan[] = [];
 
-    for (const graphPlan of graphPlans) {
-      const planData: InsertPlannerPlan = {
-        tenantId,
-        graphPlanId: graphPlan.id,
-        title: graphPlan.title,
-        owner: graphPlan.owner,
-        graphGroupId: graphPlan.container?.containerId || null,
-      };
+    for (const group of groups) {
+      try {
+        const plansResponse = await client.api(`/groups/${group.id}/planner/plans`).get();
+        const graphPlans: GraphPlannerPlan[] = plansResponse.value || [];
 
-      const plan = await storage.upsertPlannerPlan(planData);
-      syncedPlans.push(plan);
+        for (const graphPlan of graphPlans) {
+          const planData: InsertPlannerPlan = {
+            tenantId,
+            graphPlanId: graphPlan.id,
+            title: graphPlan.title,
+            owner: graphPlan.owner,
+            graphGroupId: group.id,
+          };
+
+          const plan = await storage.upsertPlannerPlan(planData);
+          syncedPlans.push(plan);
+        }
+      } catch (groupError: any) {
+        if (groupError.statusCode === 403 || groupError.statusCode === 404) {
+          continue;
+        }
+        console.warn(`[Graph Planner] Failed to list plans for group ${group.displayName}:`, groupError.message);
+      }
     }
 
     return syncedPlans;
@@ -197,17 +111,11 @@ export async function syncPlannerPlans(userId: string, tenantId: string): Promis
 }
 
 export async function syncPlannerBuckets(
-  userId: string, 
   tenantId: string, 
   planId: string,
   graphPlanId: string
 ): Promise<PlannerBucket[]> {
-  const accessToken = await getAccessToken(userId);
-  if (!accessToken) {
-    throw new Error('No valid access token available');
-  }
-
-  const client = getGraphClient(accessToken);
+  const client = await getClient();
 
   try {
     const response = await client.api(`/planner/plans/${graphPlanId}/buckets`).get();
@@ -236,23 +144,15 @@ export async function syncPlannerBuckets(
 }
 
 export async function syncPlannerTasks(
-  userId: string,
   tenantId: string,
   planId: string,
   graphPlanId: string
 ): Promise<PlannerTask[]> {
-  const accessToken = await getAccessToken(userId);
-  if (!accessToken) {
-    throw new Error('No valid access token available');
-  }
-
-  const client = getGraphClient(accessToken);
+  const client = await getClient();
 
   try {
-    // Always sync buckets first so we have up-to-date bucket mappings
-    // This prevents tasks from being silently dropped due to unknown buckets
     try {
-      await syncPlannerBuckets(userId, tenantId, planId, graphPlanId);
+      await syncPlannerBuckets(tenantId, planId, graphPlanId);
     } catch (bucketSyncErr) {
       console.warn('[Graph Planner] Failed to pre-sync buckets before task sync:', bucketSyncErr);
     }
@@ -275,8 +175,8 @@ export async function syncPlannerTasks(
 
       const assignments = graphTask.assignments 
         ? Object.fromEntries(
-            Object.entries(graphTask.assignments).map(([userId, data]) => [
-              userId,
+            Object.entries(graphTask.assignments).map(([uid, data]) => [
+              uid,
               { assignedBy: data.assignedBy?.user?.id || '', assignedDateTime: new Date().toISOString() }
             ])
           )
@@ -307,21 +207,21 @@ export async function syncPlannerTasks(
   }
 }
 
-export async function syncAllPlannerData(userId: string, tenantId: string): Promise<{
+export async function syncAllPlannerData(tenantId: string): Promise<{
   plans: PlannerPlan[];
   buckets: PlannerBucket[];
   tasks: PlannerTask[];
 }> {
-  const plans = await syncPlannerPlans(userId, tenantId);
+  const plans = await syncPlannerPlans(tenantId);
   
   const allBuckets: PlannerBucket[] = [];
   const allTasks: PlannerTask[] = [];
 
   for (const plan of plans) {
-    const buckets = await syncPlannerBuckets(userId, tenantId, plan.id, plan.graphPlanId);
+    const buckets = await syncPlannerBuckets(tenantId, plan.id, plan.graphPlanId);
     allBuckets.push(...buckets);
 
-    const tasks = await syncPlannerTasks(userId, tenantId, plan.id, plan.graphPlanId);
+    const tasks = await syncPlannerTasks(tenantId, plan.id, plan.graphPlanId);
     allTasks.push(...tasks);
   }
 
@@ -329,7 +229,6 @@ export async function syncAllPlannerData(userId: string, tenantId: string): Prom
 }
 
 export async function createPlannerTask(
-  userId: string,
   planId: string,
   bucketId: string,
   title: string,
@@ -345,12 +244,7 @@ export async function createPlannerTask(
     throw new Error('Bucket not found');
   }
 
-  const accessToken = await getAccessToken(userId);
-  if (!accessToken) {
-    throw new Error('No valid access token available');
-  }
-
-  const client = getGraphClient(accessToken);
+  const client = await getClient();
 
   try {
     const taskPayload: any = {
@@ -363,7 +257,9 @@ export async function createPlannerTask(
       taskPayload.dueDateTime = dueDate.toISOString();
     }
 
-    const response = await client.api('/planner/tasks').post(taskPayload);
+    const response = await client.api('/planner/tasks')
+      .header('Prefer', 'ExchangeNotifications.Suppress')
+      .post(taskPayload);
 
     const taskData: InsertPlannerTask = {
       tenantId: plan.tenantId,
@@ -387,7 +283,6 @@ export async function createPlannerTask(
 }
 
 export async function updatePlannerTaskProgress(
-  userId: string,
   taskId: string,
   percentComplete: number
 ): Promise<PlannerTask | null> {
@@ -396,12 +291,7 @@ export async function updatePlannerTaskProgress(
     throw new Error('Task not found');
   }
 
-  const accessToken = await getAccessToken(userId);
-  if (!accessToken) {
-    throw new Error('No valid access token available');
-  }
-
-  const client = getGraphClient(accessToken);
+  const client = await getClient();
 
   try {
     const taskDetails = await client.api(`/planner/tasks/${task.graphTaskId}`).get();
@@ -409,6 +299,7 @@ export async function updatePlannerTaskProgress(
 
     await client.api(`/planner/tasks/${task.graphTaskId}`)
       .header('If-Match', etag)
+      .header('Prefer', 'ExchangeNotifications.Suppress')
       .patch({ percentComplete });
 
     const updatedTask = await storage.getPlannerTaskById(taskId);
@@ -425,24 +316,19 @@ export async function updatePlannerTaskProgress(
   }
 }
 
-export async function getPlannerIntegrationStatus(userId: string): Promise<{
+export async function getPlannerIntegrationStatus(tenantId: string): Promise<{
   connected: boolean;
+  configured: boolean;
   planCount: number;
   taskCount: number;
-  lastSyncAt: Date | null;
 }> {
-  const token = await storage.getGraphToken(userId, 'planner');
+  const configured = isPlannerConfigured();
   
-  if (!token) {
-    return { connected: false, planCount: 0, taskCount: 0, lastSyncAt: null };
+  if (!configured) {
+    return { connected: false, configured: false, planCount: 0, taskCount: 0 };
   }
 
-  const user = await storage.getUser(userId);
-  if (!user?.tenantId) {
-    return { connected: false, planCount: 0, taskCount: 0, lastSyncAt: null };
-  }
-
-  const plans = await storage.getPlannerPlansByTenantId(user.tenantId);
+  const plans = await storage.getPlannerPlansByTenantId(tenantId);
   let taskCount = 0;
   
   for (const plan of plans) {
@@ -452,16 +338,15 @@ export async function getPlannerIntegrationStatus(userId: string): Promise<{
 
   return {
     connected: true,
+    configured: true,
     planCount: plans.length,
     taskCount,
-    lastSyncAt: token.lastUsedAt,
   };
 }
 
-// ============ Email-based People Resolution ============
+// ============ Email-based People Resolution (App-Only Auth) ============
 
 export async function resolveGraphUserEmail(
-  userId: string,
   graphUserId: string
 ): Promise<{ email: string; displayName: string } | null> {
   const cached = graphUserCache.get(graphUserId);
@@ -469,12 +354,8 @@ export async function resolveGraphUserEmail(
     return { email: cached.email, displayName: cached.displayName };
   }
 
-  const accessToken = await getAccessToken(userId);
-  if (!accessToken) return null;
-
-  const client = getGraphClient(accessToken);
-
   try {
+    const client = await getClient();
     const user = await client.api(`/users/${graphUserId}`)
       .select('mail,userPrincipalName,displayName')
       .get();
@@ -494,7 +375,6 @@ export async function resolveGraphUserEmail(
 }
 
 export async function resolveEmailToGraphUserId(
-  userId: string,
   email: string
 ): Promise<string | null> {
   const normalizedEmail = email.toLowerCase().trim();
@@ -504,14 +384,10 @@ export async function resolveEmailToGraphUserId(
     return cached.graphUserId;
   }
 
-  const accessToken = await getAccessToken(userId);
-  if (!accessToken) return null;
-
-  const client = getGraphClient(accessToken);
-
   try {
+    const client = await getClient();
     const response = await client.api('/users')
-      .filter(`tolower(mail) eq '${normalizedEmail}' or tolower(userPrincipalName) eq '${normalizedEmail}'`)
+      .filter(`mail eq '${normalizedEmail}' or userPrincipalName eq '${normalizedEmail}'`)
       .select('id,mail,userPrincipalName')
       .top(1)
       .get();
@@ -531,7 +407,6 @@ export async function resolveEmailToGraphUserId(
 }
 
 export async function resolveGraphAssignmentsToEmails(
-  userId: string,
   assignments: Record<string, any> | null | undefined
 ): Promise<Array<{ graphUserId: string; email: string; displayName: string }>> {
   if (!assignments || Object.keys(assignments).length === 0) return [];
@@ -539,7 +414,7 @@ export async function resolveGraphAssignmentsToEmails(
   const results: Array<{ graphUserId: string; email: string; displayName: string }> = [];
 
   for (const graphUserId of Object.keys(assignments)) {
-    const resolved = await resolveGraphUserEmail(userId, graphUserId);
+    const resolved = await resolveGraphUserEmail(graphUserId);
     if (resolved) {
       results.push({ graphUserId, ...resolved });
     }
@@ -548,10 +423,9 @@ export async function resolveGraphAssignmentsToEmails(
   return results;
 }
 
-// ============ Bidirectional Big Rock Task ↔ Planner Task Sync ============
+// ============ Bidirectional Big Rock Task <-> Planner Task Sync ============
 
 export async function createPlannerTaskFromBigRockTask(
-  userId: string,
   bigRockTask: BigRockTask,
   planId: string,
   bucketId: string | null
@@ -561,12 +435,7 @@ export async function createPlannerTaskFromBigRockTask(
     throw new Error('Mapped Planner plan not found');
   }
 
-  const accessToken = await getAccessToken(userId);
-  if (!accessToken) {
-    throw new Error('No valid access token available');
-  }
-
-  const client = getGraphClient(accessToken);
+  const client = await getClient();
 
   try {
     const taskPayload: any = {
@@ -582,13 +451,11 @@ export async function createPlannerTaskFromBigRockTask(
       }
     }
 
-    // Planner API requires a bucketId — if none was specified, find the first available bucket
     if (!taskPayload.bucketId) {
       const planBuckets = await storage.getPlannerBucketsByPlanId(planId);
       if (planBuckets.length === 0) {
-        // Try syncing buckets from Graph as a last resort
         try {
-          const freshBuckets = await syncPlannerBuckets(userId, plan.tenantId, planId, plan.graphPlanId);
+          const freshBuckets = await syncPlannerBuckets(plan.tenantId, planId, plan.graphPlanId);
           if (freshBuckets.length > 0) {
             taskPayload.bucketId = freshBuckets[0].graphBucketId;
           }
@@ -610,7 +477,7 @@ export async function createPlannerTaskFromBigRockTask(
     }
 
     if (bigRockTask.assigneeEmail) {
-      const graphUserId = await resolveEmailToGraphUserId(userId, bigRockTask.assigneeEmail);
+      const graphUserId = await resolveEmailToGraphUserId(bigRockTask.assigneeEmail);
       if (graphUserId) {
         taskPayload.assignments = {
           [graphUserId]: {
@@ -621,7 +488,9 @@ export async function createPlannerTaskFromBigRockTask(
       }
     }
 
-    const response = await client.api('/planner/tasks').post(taskPayload);
+    const response = await client.api('/planner/tasks')
+      .header('Prefer', 'ExchangeNotifications.Suppress')
+      .post(taskPayload);
     console.log(`[Graph Planner] Created Planner task "${bigRockTask.title}" -> ${response.id}`);
 
     const resolvedBucketId = bucketId || null;
@@ -653,7 +522,6 @@ export async function createPlannerTaskFromBigRockTask(
 }
 
 export async function updatePlannerTaskFromBigRockTask(
-  userId: string,
   bigRockTask: BigRockTask
 ): Promise<void> {
   if (!bigRockTask.plannerTaskId) return;
@@ -661,15 +529,9 @@ export async function updatePlannerTaskFromBigRockTask(
   const plannerTask = await storage.getPlannerTaskById(bigRockTask.plannerTaskId);
   if (!plannerTask) return;
 
-  const accessToken = await getAccessToken(userId);
-  if (!accessToken) {
-    console.warn('[Graph Planner] No access token for Planner task update');
-    return;
-  }
-
-  const client = getGraphClient(accessToken);
-
   try {
+    const client = await getClient();
+
     const taskDetails = await client.api(`/planner/tasks/${plannerTask.graphTaskId}`).get();
     const etag = taskDetails['@odata.etag'];
 
@@ -683,7 +545,7 @@ export async function updatePlannerTaskFromBigRockTask(
     }
 
     if (bigRockTask.assigneeEmail) {
-      const graphUserId = await resolveEmailToGraphUserId(userId, bigRockTask.assigneeEmail);
+      const graphUserId = await resolveEmailToGraphUserId(bigRockTask.assigneeEmail);
       if (graphUserId) {
         const existingAssignments = taskDetails.assignments || {};
         if (!existingAssignments[graphUserId]) {
@@ -700,6 +562,7 @@ export async function updatePlannerTaskFromBigRockTask(
 
     await client.api(`/planner/tasks/${plannerTask.graphTaskId}`)
       .header('If-Match', etag)
+      .header('Prefer', 'ExchangeNotifications.Suppress')
       .patch(patchPayload);
 
     await storage.upsertPlannerTask({
@@ -716,26 +579,20 @@ export async function updatePlannerTaskFromBigRockTask(
 }
 
 export async function deletePlannerTaskForBigRockTask(
-  userId: string,
   plannerTaskId: string
 ): Promise<void> {
   const plannerTask = await storage.getPlannerTaskById(plannerTaskId);
   if (!plannerTask) return;
 
-  const accessToken = await getAccessToken(userId);
-  if (!accessToken) {
-    console.warn('[Graph Planner] No access token for Planner task deletion');
-    return;
-  }
-
-  const client = getGraphClient(accessToken);
-
   try {
+    const client = await getClient();
+
     const taskDetails = await client.api(`/planner/tasks/${plannerTask.graphTaskId}`).get();
     const etag = taskDetails['@odata.etag'];
 
     await client.api(`/planner/tasks/${plannerTask.graphTaskId}`)
       .header('If-Match', etag)
+      .header('Prefer', 'ExchangeNotifications.Suppress')
       .delete();
 
     console.log(`[Graph Planner] Deleted Planner task "${plannerTask.title}"`);
@@ -745,7 +602,6 @@ export async function deletePlannerTaskForBigRockTask(
 }
 
 export async function syncPlannerTasksToBigRockTasks(
-  userId: string,
   bigRockId: string,
   tenantId: string,
   planId: string,
@@ -775,7 +631,7 @@ export async function syncPlannerTasksToBigRockTasks(
 
     let assigneeEmail: string | null = null;
     if (pt.assignments && Object.keys(pt.assignments).length > 0) {
-      const resolved = await resolveGraphAssignmentsToEmails(userId, pt.assignments);
+      const resolved = await resolveGraphAssignmentsToEmails(pt.assignments);
       if (resolved.length > 0) {
         assigneeEmail = resolved[0].email;
       }
@@ -845,111 +701,82 @@ export async function calculatePlannerProgress(
   };
 }
 
-// ============ Create Planner Plan in Teams/Channels ============
-
-async function fetchTeamsWithClient(
-  client: Client
-): Promise<Array<{ id: string; displayName: string; description?: string }>> {
-  try {
-    const response = await client.api('/me/joinedTeams')
-      .select('id,displayName,description')
-      .get();
-    const teams = response.value || [];
-    if (teams.length > 0) {
-      teams.sort((a: any, b: any) => a.displayName.localeCompare(b.displayName));
-      return teams;
-    }
-  } catch (error: any) {
-    if (error.statusCode === 401) throw error;
-    console.warn('[Graph Planner] /me/joinedTeams failed, falling back to groups:', error.message);
-  }
-
-  const response = await client.api('/me/memberOf/microsoft.graph.group')
-    .filter("groupTypes/any(c:c eq 'Unified')")
-    .select('id,displayName,description')
-    .top(100)
-    .get();
-  const groups = response.value || [];
-  groups.sort((a: any, b: any) => a.displayName.localeCompare(b.displayName));
-  return groups;
-}
+// ============ Create Planner Plan in Teams/Channels (App-Only) ============
 
 export async function getTeamsForUser(
-  userId: string
+  tenantId: string
 ): Promise<Array<{ id: string; displayName: string; description?: string }>> {
-  return withTokenRetry(userId, fetchTeamsWithClient);
-}
-
-async function withTokenRetry<T>(
-  userId: string,
-  operation: (client: Client) => Promise<T>
-): Promise<T> {
-  const accessToken = await getAccessToken(userId);
-  if (!accessToken) {
-    throw new Error('No valid access token available. Please reconnect Microsoft Planner.');
-  }
-
+  const client = await getClient();
+  
   try {
-    return await operation(getGraphClient(accessToken));
+    const response = await client.api('/groups')
+      .filter("groupTypes/any(c:c eq 'Unified')")
+      .select('id,displayName,description')
+      .top(100)
+      .get();
+    const groups = response.value || [];
+    groups.sort((a: any, b: any) => a.displayName.localeCompare(b.displayName));
+    return groups;
   } catch (error: any) {
-    if (error.statusCode === 401 || error.code === 'InvalidAuthenticationToken') {
-      console.log('[Graph Planner] Token expired, attempting refresh and retry...');
-      const refreshedToken = await getAccessToken(userId, true);
-      if (refreshedToken) {
-        return await operation(getGraphClient(refreshedToken));
-      }
-      throw new Error('Microsoft token expired and could not be refreshed. Please reconnect Microsoft Planner.');
-    }
+    console.error('[Graph Planner] Failed to list groups/teams:', error.message);
     throw error;
   }
 }
 
 export async function getChannelsForTeam(
-  userId: string,
   teamId: string
 ): Promise<Array<{ id: string; displayName: string; membershipType?: string }>> {
-  return withTokenRetry(userId, async (client) => {
+  const client = await getClient();
+
+  try {
     const response = await client.api(`/teams/${teamId}/channels`)
       .select('id,displayName,membershipType')
       .get();
     return response.value || [];
-  });
+  } catch (error: any) {
+    console.error('[Graph Planner] Failed to list channels:', error.message);
+    if (error.message?.includes('Insufficient privileges') || error.message?.includes('Authorization_RequestDenied')) {
+      console.warn('[Graph Planner] Channel.ReadBasic.All permission not granted, returning General channel fallback');
+      return [{ id: 'general', displayName: 'General', membershipType: 'standard' }];
+    }
+    throw error;
+  }
 }
 
 export async function createPlanInTeam(
-  userId: string,
   tenantId: string,
   teamId: string,
   planTitle: string
 ): Promise<PlannerPlan> {
-  return withTokenRetry(userId, async (client) => {
-    const response = await client.api('/planner/plans').post({
-      owner: teamId,
-      title: planTitle,
-    });
+  const client = await getClient();
 
-    console.log(`[Graph Planner] Created plan "${planTitle}" in team ${teamId} -> ${response.id}`);
-
-    const planData: InsertPlannerPlan = {
-      tenantId,
-      graphPlanId: response.id,
-      title: response.title,
-      owner: response.owner,
-      graphGroupId: teamId,
-    };
-
-    return await storage.upsertPlannerPlan(planData);
+  const response = await client.api('/planner/plans').post({
+    owner: teamId,
+    title: planTitle,
   });
+
+  console.log(`[Graph Planner] Created plan "${planTitle}" in team ${teamId} -> ${response.id}`);
+
+  const planData: InsertPlannerPlan = {
+    tenantId,
+    graphPlanId: response.id,
+    title: response.title,
+    owner: response.owner,
+    graphGroupId: teamId,
+  };
+
+  return await storage.upsertPlannerPlan(planData);
 }
 
 export async function addPlannerTabToChannel(
-  userId: string,
   teamId: string,
   channelId: string,
   planId: string,
   planTitle: string
 ): Promise<void> {
-  return withTokenRetry(userId, async (client) => {
+  const client = await getClient();
+
+  try {
     const entityId = `tt.c_${channelId}_p_${planId}_h_${Date.now()}`;
     await client.api(`/teams/${teamId}/channels/${channelId}/tabs`).post({
       displayName: planTitle,
@@ -962,11 +789,16 @@ export async function addPlannerTabToChannel(
       },
     });
     console.log(`[Graph Planner] Added Planner tab "${planTitle}" to channel ${channelId}`);
-  });
+  } catch (error: any) {
+    console.error('[Graph Planner] Failed to add Planner tab:', error.message);
+    if (error.message?.includes('Insufficient privileges') || error.message?.includes('Authorization_RequestDenied')) {
+      throw new Error('Tab creation requires TeamsTab.Create permission. The plan was created but not pinned to the channel.');
+    }
+    throw error;
+  }
 }
 
 export async function createBucketInPlan(
-  userId: string,
   tenantId: string,
   planId: string,
   bucketName: string
@@ -976,20 +808,22 @@ export async function createBucketInPlan(
     throw new Error('Plan not found');
   }
 
-  return withTokenRetry(userId, async (client) => {
-    const response = await client.api('/planner/buckets').post({
+  const client = await getClient();
+
+  const response = await client.api('/planner/buckets')
+    .header('Prefer', 'ExchangeNotifications.Suppress')
+    .post({
       planId: plan.graphPlanId,
       name: bucketName,
     });
 
-    const bucketData: InsertPlannerBucket = {
-      tenantId,
-      planId: plan.id,
-      graphBucketId: response.id,
-      name: response.name,
-      orderHint: response.orderHint || '',
-    };
+  const bucketData: InsertPlannerBucket = {
+    tenantId,
+    planId: plan.id,
+    graphBucketId: response.id,
+    name: response.name,
+    orderHint: response.orderHint || '',
+  };
 
-    return await storage.upsertPlannerBucket(bucketData);
-  });
+  return await storage.upsertPlannerBucket(bucketData);
 }

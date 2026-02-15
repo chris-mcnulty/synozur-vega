@@ -20,12 +20,10 @@ import {
   resolveGraphAssignmentsToEmails,
   calculatePlannerProgress,
 } from './services/graph-planner';
+import { isPlannerConfigured } from './services/planner-auth';
 import { hasPermission, PERMISSIONS, Role } from '@shared/rbac';
 
 const router = Router();
-
-// Note: All routes are protected by authWithTenant middleware at the router level
-// These ownership validators ensure tenant-scoped data access
 
 async function validatePlanOwnership(req: Request, res: Response, next: NextFunction) {
   const { planId } = req.params;
@@ -87,8 +85,8 @@ async function validateTaskOwnership(req: Request, res: Response, next: NextFunc
 
 router.get('/status', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
-    const status = await getPlannerIntegrationStatus(userId);
+    const tenantId = req.effectiveTenantId!;
+    const status = await getPlannerIntegrationStatus(tenantId);
     res.json(status);
   } catch (error) {
     console.error('[Planner API] Status error:', error);
@@ -98,10 +96,16 @@ router.get('/status', async (req: Request, res: Response) => {
 
 router.post('/sync', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
     const tenantId = req.effectiveTenantId!;
 
-    const result = await syncAllPlannerData(userId, tenantId);
+    if (!isPlannerConfigured()) {
+      return res.status(503).json({ 
+        error: 'Microsoft Planner integration is not configured. Please contact your administrator.',
+        configured: false
+      });
+    }
+
+    const result = await syncAllPlannerData(tenantId);
     
     res.json({
       success: true,
@@ -112,31 +116,27 @@ router.post('/sync', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('[Planner API] Sync error:', error);
     
-    // Provide user-friendly error messages for common issues
     let userMessage = 'Failed to sync Planner data';
     let statusCode = 500;
     
-    if (error.message?.includes('No valid access token') || 
-        error.message?.includes('accessToken is null')) {
-      userMessage = 'Your Planner connection has expired. Please reconnect by clicking "Connect Microsoft Planner" in Settings.';
-      statusCode = 401;
-    } else if (error.code === 'InvalidAuthenticationToken' ||
-               error.statusCode === 401) {
-      userMessage = 'Your Planner authorization has expired. Please reconnect in Settings.';
+    if (error.message?.includes('not configured')) {
+      userMessage = 'Planner integration is not configured. Please contact your administrator to set up the Azure AD app registration.';
+      statusCode = 503;
+    } else if (error.message?.includes('Failed to get access token')) {
+      userMessage = 'Could not authenticate with Microsoft Graph. Please verify the Planner credentials are correct.';
       statusCode = 401;
     } else if (error.code === 'Authorization_RequestDenied' ||
                error.statusCode === 403) {
-      userMessage = 'Access denied. Please ensure you have permission to access Planner in your Microsoft 365 account.';
+      userMessage = 'Access denied. The Azure AD app may need additional permissions (Group.Read.All, Tasks.ReadWrite.All).';
       statusCode = 403;
     } else if (error.code === 'Request_ResourceNotFound') {
-      userMessage = 'No Planner plans found. Make sure you have access to at least one Planner plan in Microsoft 365.';
+      userMessage = 'No Planner plans found accessible to this integration.';
       statusCode = 404;
     }
     
     res.status(statusCode).json({ 
       error: userMessage,
       message: error.message,
-      reconnectRequired: statusCode === 401
     });
   }
 });
@@ -205,7 +205,6 @@ router.get('/tasks/:taskId', validateTaskOwnership, async (req: Request, res: Re
 
 router.post('/tasks', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
     const tenantId = req.effectiveTenantId;
     const { planId, bucketId, title, dueDate } = req.body;
     
@@ -219,7 +218,6 @@ router.post('/tasks', async (req: Request, res: Response) => {
     }
 
     const task = await createPlannerTask(
-      userId, 
       planId, 
       bucketId, 
       title, 
@@ -238,7 +236,6 @@ router.post('/tasks', async (req: Request, res: Response) => {
 
 router.patch('/tasks/:taskId/progress', validateTaskOwnership, async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
     const { taskId } = req.params;
     const { percentComplete } = req.body;
     
@@ -246,7 +243,7 @@ router.patch('/tasks/:taskId/progress', validateTaskOwnership, async (req: Reque
       return res.status(400).json({ error: 'percentComplete must be a number between 0 and 100' });
     }
 
-    const task = await updatePlannerTaskProgress(userId, taskId, percentComplete);
+    const task = await updatePlannerTaskProgress(taskId, percentComplete);
     res.json(task);
   } catch (error: any) {
     console.error('[Planner API] Update task progress error:', error);
@@ -389,7 +386,6 @@ router.get('/bigrocks/:bigRockId/tasks', async (req: Request, res: Response) => 
 
 // ===== Planner Progress Mapping Endpoints =====
 
-// Set or update Planner mapping for a Key Result
 router.put('/mapping/keyresult/:keyResultId', async (req: Request, res: Response) => {
   try {
     const tenantId = req.effectiveTenantId;
@@ -401,7 +397,6 @@ router.put('/mapping/keyresult/:keyResultId', async (req: Request, res: Response
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // If enabling sync, validate the plan/bucket belong to this tenant
     if (plannerPlanId) {
       const plan = await storage.getPlannerPlanById(plannerPlanId);
       if (!plan || plan.tenantId !== tenantId) {
@@ -429,7 +424,6 @@ router.put('/mapping/keyresult/:keyResultId', async (req: Request, res: Response
   }
 });
 
-// Set or update Planner mapping for a Big Rock
 router.put('/mapping/bigrock/:bigRockId', async (req: Request, res: Response) => {
   try {
     const tenantId = req.effectiveTenantId;
@@ -441,7 +435,6 @@ router.put('/mapping/bigrock/:bigRockId', async (req: Request, res: Response) =>
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // If enabling sync, validate the plan/bucket belong to this tenant
     if (plannerPlanId) {
       const plan = await storage.getPlannerPlanById(plannerPlanId);
       if (!plan || plan.tenantId !== tenantId) {
@@ -462,15 +455,13 @@ router.put('/mapping/bigrock/:bigRockId', async (req: Request, res: Response) =>
       plannerSyncEnabled: plannerSyncEnabled ?? false,
     });
 
-    // Trigger initial bucket+task sync when mapping is first configured
     if (plannerPlanId && plannerSyncEnabled) {
       try {
-        const userId = req.user!.id;
         const plan = await storage.getPlannerPlanById(plannerPlanId);
         if (plan) {
           console.log('[Planner API] Running initial sync for newly mapped Big Rock:', bigRockId);
-          await syncPlannerBuckets(userId, tenantId, plan.id, plan.graphPlanId);
-          await syncPlannerTasks(userId, tenantId, plan.id, plan.graphPlanId);
+          await syncPlannerBuckets(tenantId, plan.id, plan.graphPlanId);
+          await syncPlannerTasks(tenantId, plan.id, plan.graphPlanId);
           console.log('[Planner API] Initial sync complete for Big Rock:', bigRockId);
         }
       } catch (syncErr: any) {
@@ -485,14 +476,10 @@ router.put('/mapping/bigrock/:bigRockId', async (req: Request, res: Response) =>
   }
 });
 
-// Calculate and sync progress for a Key Result from Planner
 router.post('/mapping/keyresult/:keyResultId/sync', async (req: Request, res: Response) => {
   try {
     const tenantId = req.effectiveTenantId;
-    const userId = req.user!.id;
     const { keyResultId } = req.params;
-    
-    console.log('[Planner API] Syncing Key Result progress:', { keyResultId, userId, tenantId });
     
     const keyResult = await storage.getKeyResultById(keyResultId);
     if (!keyResult || keyResult.tenantId !== tenantId) {
@@ -503,7 +490,6 @@ router.post('/mapping/keyresult/:keyResultId/sync', async (req: Request, res: Re
       return res.status(400).json({ error: 'No Planner mapping configured' });
     }
 
-    // Get the plan to get its graphPlanId for fetching fresh data
     const plan = await storage.getPlannerPlanById(keyResult.plannerPlanId);
     if (!plan) {
       return res.status(400).json({ error: 'Mapped plan not found. Please re-configure Planner mapping.' });
@@ -511,32 +497,25 @@ router.post('/mapping/keyresult/:keyResultId/sync', async (req: Request, res: Re
 
     console.log('[Planner API] Refreshing tasks from Microsoft Graph for plan:', plan.title);
     
-    // IMPORTANT: First refresh tasks from Microsoft Graph before calculating progress
     try {
-      await syncPlannerTasks(userId, tenantId!, plan.id, plan.graphPlanId);
+      await syncPlannerTasks(tenantId!, plan.id, plan.graphPlanId);
       console.log('[Planner API] Successfully refreshed tasks from Microsoft Graph');
     } catch (syncError: any) {
       console.error('[Planner API] Failed to refresh tasks from Graph:', syncError);
-      if (syncError.message?.includes('No valid access token') || 
-          syncError.message?.includes('accessToken is null')) {
-        return res.status(401).json({ 
-          error: 'Your Planner connection has expired. Please reconnect in Settings.',
-          reconnectRequired: true
+      if (syncError.message?.includes('not configured')) {
+        return res.status(503).json({ 
+          error: 'Planner integration is not configured. Please contact your administrator.',
         });
       }
       console.warn('[Planner API] Proceeding with potentially stale local data');
     }
 
-    // Calculate progress from tasks in the mapped plan/bucket
     const progress = await calculatePlannerProgress(
       keyResult.plannerPlanId, 
       keyResult.plannerBucketId || null,
       tenantId!
     );
 
-    console.log('[Planner API] Calculated progress:', progress);
-
-    // Update key result with calculated progress
     const updated = await storage.updateKeyResult(keyResultId, {
       progress: progress.percentage,
       plannerLastSyncAt: new Date(),
@@ -552,7 +531,6 @@ router.post('/mapping/keyresult/:keyResultId/sync', async (req: Request, res: Re
     });
   } catch (error: any) {
     console.error('[Planner API] Sync KR progress error:', error);
-    // Store the error for display
     await storage.updateKeyResult(req.params.keyResultId, {
       plannerSyncError: error.message,
       plannerLastSyncAt: new Date(),
@@ -561,14 +539,10 @@ router.post('/mapping/keyresult/:keyResultId/sync', async (req: Request, res: Re
   }
 });
 
-// Calculate and sync progress for a Big Rock from Planner
 router.post('/mapping/bigrock/:bigRockId/sync', async (req: Request, res: Response) => {
   try {
     const tenantId = req.effectiveTenantId;
-    const userId = req.user!.id;
     const { bigRockId } = req.params;
-    
-    console.log('[Planner API] Syncing Big Rock progress:', { bigRockId, userId, tenantId });
     
     const bigRock = await storage.getBigRockById(bigRockId);
     if (!bigRock || bigRock.tenantId !== tenantId) {
@@ -579,7 +553,6 @@ router.post('/mapping/bigrock/:bigRockId/sync', async (req: Request, res: Respon
       return res.status(400).json({ error: 'No Planner mapping configured' });
     }
 
-    // Get the plan to get its graphPlanId for fetching fresh data
     const plan = await storage.getPlannerPlanById(bigRock.plannerPlanId);
     if (!plan) {
       return res.status(400).json({ error: 'Mapped plan not found. Please re-configure Planner mapping.' });
@@ -587,35 +560,28 @@ router.post('/mapping/bigrock/:bigRockId/sync', async (req: Request, res: Respon
 
     console.log('[Planner API] Refreshing tasks from Microsoft Graph for plan:', plan.title);
     
-    // First sync buckets, then tasks from Microsoft Graph
     let syncWarning: string | null = null;
     try {
-      await syncPlannerBuckets(userId, tenantId!, plan.id, plan.graphPlanId);
-      await syncPlannerTasks(userId, tenantId!, plan.id, plan.graphPlanId);
+      await syncPlannerBuckets(tenantId!, plan.id, plan.graphPlanId);
+      await syncPlannerTasks(tenantId!, plan.id, plan.graphPlanId);
       console.log('[Planner API] Successfully refreshed buckets and tasks from Microsoft Graph');
     } catch (syncError: any) {
       console.error('[Planner API] Failed to refresh from Graph:', syncError);
-      if (syncError.message?.includes('No valid access token') || 
-          syncError.message?.includes('accessToken is null')) {
-        return res.status(401).json({ 
-          error: 'Your Planner connection has expired. Please reconnect in Settings.',
-          reconnectRequired: true
+      if (syncError.message?.includes('not configured')) {
+        return res.status(503).json({ 
+          error: 'Planner integration is not configured. Please contact your administrator.',
         });
       }
       syncWarning = 'Could not reach Microsoft Graph. Showing locally cached data.';
       console.warn('[Planner API] Proceeding with potentially stale local data');
     }
 
-    // Calculate progress from tasks in the mapped plan/bucket
     const progress = await calculatePlannerProgress(
       bigRock.plannerPlanId, 
       bigRock.plannerBucketId || null,
       tenantId!
     );
 
-    console.log('[Planner API] Calculated progress:', progress);
-
-    // Update big rock with calculated progress
     const updated = await storage.updateBigRock(bigRockId, {
       completionPercentage: Math.round(progress.percentage || 0),
       plannerLastSyncAt: new Date(),
@@ -632,7 +598,6 @@ router.post('/mapping/bigrock/:bigRockId/sync', async (req: Request, res: Respon
     });
   } catch (error: any) {
     console.error('[Planner API] Sync Big Rock progress error:', error);
-    // Store the error for display
     await storage.updateBigRock(req.params.bigRockId, {
       plannerSyncError: error.message,
       plannerLastSyncAt: new Date(),
@@ -641,8 +606,7 @@ router.post('/mapping/bigrock/:bigRockId/sync', async (req: Request, res: Respon
   }
 });
 
-// Get Planner progress summary for a Key Result
-router.get('/mapping/keyresult/:keyResultId/progress', async (req: Request, res: Response) => {
+router.get('/mapping/keyresult/:keyResultId', async (req: Request, res: Response) => {
   try {
     const tenantId = req.effectiveTenantId;
     const { keyResultId } = req.params;
@@ -664,28 +628,29 @@ router.get('/mapping/keyresult/:keyResultId/progress', async (req: Request, res:
     const progress = await calculatePlannerProgress(
       keyResult.plannerPlanId,
       keyResult.plannerBucketId || null,
-      tenantId
+      tenantId!
     );
 
     res.json({
       mapped: true,
       planId: keyResult.plannerPlanId,
-      planTitle: plan?.title || 'Unknown Plan',
+      planTitle: plan?.title,
       bucketId: keyResult.plannerBucketId,
-      bucketName: bucket?.name || null,
+      bucketName: bucket?.name,
       syncEnabled: keyResult.plannerSyncEnabled,
       lastSyncAt: keyResult.plannerLastSyncAt,
       syncError: keyResult.plannerSyncError,
-      ...progress
+      progress: progress.percentage,
+      totalTasks: progress.totalTasks,
+      completedTasks: progress.completedTasks,
     });
   } catch (error: any) {
-    console.error('[Planner API] Get KR progress error:', error);
-    res.status(500).json({ error: 'Failed to get progress', message: error.message });
+    console.error('[Planner API] Get KR mapping error:', error);
+    res.status(500).json({ error: 'Failed to get Planner mapping', message: error.message });
   }
 });
 
-// Get Planner progress summary for a Big Rock
-router.get('/mapping/bigrock/:bigRockId/progress', async (req: Request, res: Response) => {
+router.get('/mapping/bigrock/:bigRockId', async (req: Request, res: Response) => {
   try {
     const tenantId = req.effectiveTenantId;
     const { bigRockId } = req.params;
@@ -707,46 +672,44 @@ router.get('/mapping/bigrock/:bigRockId/progress', async (req: Request, res: Res
     const progress = await calculatePlannerProgress(
       bigRock.plannerPlanId,
       bigRock.plannerBucketId || null,
-      tenantId
+      tenantId!
     );
 
     res.json({
       mapped: true,
       planId: bigRock.plannerPlanId,
-      planTitle: plan?.title || 'Unknown Plan',
+      planTitle: plan?.title,
       bucketId: bigRock.plannerBucketId,
-      bucketName: bucket?.name || null,
+      bucketName: bucket?.name,
       syncEnabled: bigRock.plannerSyncEnabled,
       lastSyncAt: bigRock.plannerLastSyncAt,
       syncError: bigRock.plannerSyncError,
-      ...progress
+      progress: progress.percentage || 0,
+      totalTasks: progress.totalTasks || 0,
+      completedTasks: progress.completedTasks || 0,
     });
   } catch (error: any) {
-    console.error('[Planner API] Get Big Rock progress error:', error);
-    res.status(500).json({ error: 'Failed to get progress', message: error.message });
+    console.error('[Planner API] Get Big Rock mapping error:', error);
+    res.status(500).json({ error: 'Failed to get Planner mapping', message: error.message });
   }
 });
 
-// ============ Teams & Channels ============
+// ===== Teams / Channels / Plan Creation =====
 
 router.get('/teams', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
-    const teams = await getTeamsForUser(userId);
+    const tenantId = req.effectiveTenantId!;
+    const teams = await getTeamsForUser(tenantId);
     res.json(teams);
   } catch (error: any) {
     console.error('[Planner API] Get teams error:', error);
-    if (error.message?.includes('No valid access token')) {
-      return res.status(401).json({ error: 'Planner connection expired', reconnectRequired: true });
-    }
     res.status(500).json({ error: 'Failed to get teams', message: error.message });
   }
 });
 
 router.get('/teams/:teamId/channels', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
-    const channels = await getChannelsForTeam(userId, req.params.teamId);
+    const channels = await getChannelsForTeam(req.params.teamId);
     res.json(channels);
   } catch (error: any) {
     console.error('[Planner API] Get channels error:', error);
@@ -754,11 +717,8 @@ router.get('/teams/:teamId/channels', async (req: Request, res: Response) => {
   }
 });
 
-// ============ Create Plan in Team ============
-
 router.post('/teams/:teamId/plans', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
     const tenantId = req.effectiveTenantId!;
     const { teamId } = req.params;
     const { title, channelId, bucketName } = req.body;
@@ -767,153 +727,119 @@ router.post('/teams/:teamId/plans', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Plan title is required' });
     }
 
-    const plan = await createPlanInTeam(userId, tenantId, teamId, title);
-    console.log('[Planner API] Plan created:', { id: plan.id, graphPlanId: plan.graphPlanId, title: plan.title });
+    const plan = await createPlanInTeam(tenantId, teamId, title);
 
-    // Sync buckets from Graph to capture Microsoft's auto-created default bucket(s)
-    // Microsoft may take several seconds to provision the default bucket after plan creation,
-    // so retry with increasing delays if first attempt returns 0 buckets
-    let syncedBuckets: any[] = [];
+    let syncedBuckets;
     try {
-      const delays = [2000, 3000, 5000];
-      syncedBuckets = await syncPlannerBuckets(userId, tenantId, plan.id, plan.graphPlanId);
-      for (const delay of delays) {
-        if (syncedBuckets.length > 0) break;
-        console.log(`[Planner API] No buckets found yet, waiting ${delay}ms for Graph provisioning...`);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        syncedBuckets = await syncPlannerBuckets(userId, tenantId, plan.id, plan.graphPlanId);
+      syncedBuckets = await syncPlannerBuckets(tenantId, plan.id, plan.graphPlanId);
+    } catch (bucketSyncErr) {
+      console.warn('[Planner API] Failed to sync buckets after plan creation:', bucketSyncErr);
+      try {
+        syncedBuckets = await syncPlannerBuckets(tenantId, plan.id, plan.graphPlanId);
+      } catch (retryErr) {
+        console.warn('[Planner API] Retry also failed:', retryErr);
       }
-      console.log(`[Planner API] Synced ${syncedBuckets.length} default bucket(s) from Graph`);
-    } catch (bucketSyncError) {
-      console.warn('[Planner API] Failed to sync default buckets from Graph:', bucketSyncError);
     }
 
     let tabCreated = false;
-    let tabError: string | null = null;
-    if (channelId && plan) {
+    if (channelId) {
       try {
-        await addPlannerTabToChannel(userId, teamId, channelId, plan.graphPlanId, title);
+        await addPlannerTabToChannel(teamId, channelId, plan.graphPlanId, title);
         tabCreated = true;
-        console.log('[Planner API] Successfully pinned tab to channel');
-      } catch (err: any) {
-        tabError = err?.message || 'Failed to pin tab';
-        console.warn('[Planner API] Failed to add tab to channel:', tabError);
+      } catch (tabErr: any) {
+        console.warn('[Planner API] Tab creation failed (non-blocking):', tabErr.message);
       }
     }
 
     let bucket = null;
-    if (bucketName && plan) {
+    if (bucketName) {
       try {
-        bucket = await createBucketInPlan(userId, tenantId, plan.id, bucketName);
-      } catch (bucketError) {
-        console.warn('[Planner API] Failed to create bucket (non-critical):', bucketError);
+        bucket = await createBucketInPlan(tenantId, plan.id, bucketName);
+      } catch (bucketErr: any) {
+        console.warn('[Planner API] Custom bucket creation failed:', bucketErr.message);
       }
     }
 
-    res.json({ plan, bucket, syncedBuckets, tabCreated, tabError });
+    res.json({ 
+      success: true, 
+      plan,
+      buckets: syncedBuckets || [],
+      customBucket: bucket,
+      tabCreated,
+    });
   } catch (error: any) {
-    console.error('[Planner API] Create plan in team error:', error);
+    console.error('[Planner API] Create plan error:', error);
     res.status(500).json({ error: 'Failed to create plan', message: error.message });
   }
 });
 
-// ============ Bidirectional Big Rock Task Sync ============
+// ===== Big Rock Task Bidirectional Sync =====
 
-router.post('/bigrock/:bigRockId/sync-tasks', async (req: Request, res: Response) => {
+router.post('/bigrock-tasks/:bigRockId/sync', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
     const tenantId = req.effectiveTenantId!;
     const { bigRockId } = req.params;
-    const { direction } = req.body; // 'push' | 'pull' | 'both'
-
+    
     const bigRock = await storage.getBigRockById(bigRockId);
     if (!bigRock || bigRock.tenantId !== tenantId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
     if (!bigRock.plannerPlanId) {
-      return res.status(400).json({ error: 'No Planner mapping configured for this Big Rock' });
+      return res.status(400).json({ error: 'Big Rock has no Planner mapping' });
     }
 
     const plan = await storage.getPlannerPlanById(bigRock.plannerPlanId);
     if (!plan) {
-      return res.status(400).json({ error: 'Mapped plan not found' });
+      return res.status(400).json({ error: 'Mapped Planner plan not found' });
     }
 
-    try {
-      await syncPlannerTasks(userId, tenantId, plan.id, plan.graphPlanId);
-    } catch (syncError: any) {
-      if (syncError.message?.includes('No valid access token')) {
-        return res.status(401).json({ error: 'Planner connection expired', reconnectRequired: true });
-      }
-    }
+    await syncPlannerTasks(tenantId, plan.id, plan.graphPlanId);
 
-    const results: any = { direction };
-
-    if (direction === 'push' || direction === 'both') {
-      const bigRockTasks = await storage.getBigRockTasksByBigRockId(bigRockId);
-      let pushed = 0;
-      let updated = 0;
-
-      for (const brt of bigRockTasks) {
-        if (brt.plannerTaskId) {
-          await updatePlannerTaskFromBigRockTask(userId, brt);
-          updated++;
-        } else {
-          await createPlannerTaskFromBigRockTask(
-            userId, brt, bigRock.plannerPlanId, bigRock.plannerBucketId || null
-          );
-          pushed++;
+    const existingBRTasks = await storage.getBigRockTasksByBigRockId(bigRockId);
+    for (const brt of existingBRTasks) {
+      if (brt.plannerTaskId) {
+        try {
+          await updatePlannerTaskFromBigRockTask(brt);
+        } catch (err: any) {
+          console.warn(`[Planner API] Failed to push task "${brt.title}" to Planner:`, err.message);
+        }
+      } else if (bigRock.plannerSyncEnabled) {
+        try {
+          await createPlannerTaskFromBigRockTask(brt, bigRock.plannerPlanId, bigRock.plannerBucketId || null);
+        } catch (err: any) {
+          console.warn(`[Planner API] Failed to create Planner task for "${brt.title}":`, err.message);
         }
       }
-
-      results.push = { created: pushed, updated };
     }
 
-    if (direction === 'pull' || direction === 'both') {
-      const pullResults = await syncPlannerTasksToBigRockTasks(
-        userId, bigRockId, tenantId, bigRock.plannerPlanId, bigRock.plannerBucketId || null
-      );
-      results.pull = pullResults;
-    }
-
-    await storage.updateBigRock(bigRockId, {
-      plannerLastSyncAt: new Date(),
-      plannerSyncError: null,
-    });
-
-    const progress = await calculatePlannerProgress(
-      bigRock.plannerPlanId, bigRock.plannerBucketId || null, tenantId
+    const syncResult = await syncPlannerTasksToBigRockTasks(
+      bigRockId, tenantId, bigRock.plannerPlanId, bigRock.plannerBucketId || null
     );
 
-    await storage.updateBigRock(bigRockId, {
-      completionPercentage: Math.round(progress.percentage),
+    res.json({
+      success: true,
+      ...syncResult,
     });
-
-    res.json({ success: true, ...results, progress });
   } catch (error: any) {
-    console.error('[Planner API] Sync tasks error:', error);
-    await storage.updateBigRock(req.params.bigRockId, {
-      plannerSyncError: error.message,
-      plannerLastSyncAt: new Date(),
-    }).catch(() => {});
+    console.error('[Planner API] Big Rock task sync error:', error);
     res.status(500).json({ error: 'Failed to sync tasks', message: error.message });
   }
 });
 
-router.post('/bigrock/:bigRockId/push-task/:taskId', async (req: Request, res: Response) => {
+router.post('/bigrock-tasks/:bigRockId/push', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
     const tenantId = req.effectiveTenantId!;
-    const { bigRockId, taskId } = req.params;
-
+    const { bigRockId } = req.params;
+    const { taskId } = req.body;
+    
     const bigRock = await storage.getBigRockById(bigRockId);
     if (!bigRock || bigRock.tenantId !== tenantId) {
       return res.status(403).json({ error: 'Access denied' });
     }
 
     if (!bigRock.plannerPlanId) {
-      return res.status(400).json({ error: 'No Planner mapping configured' });
+      return res.status(400).json({ error: 'Big Rock has no Planner mapping' });
     }
 
     const task = await storage.getBigRockTaskById(taskId);
@@ -922,26 +848,25 @@ router.post('/bigrock/:bigRockId/push-task/:taskId', async (req: Request, res: R
     }
 
     if (task.plannerTaskId) {
-      await updatePlannerTaskFromBigRockTask(userId, task);
+      await updatePlannerTaskFromBigRockTask(task);
       res.json({ success: true, action: 'updated' });
     } else {
       const plannerTask = await createPlannerTaskFromBigRockTask(
-        userId, task, bigRock.plannerPlanId, bigRock.plannerBucketId || null
+        task, bigRock.plannerPlanId, bigRock.plannerBucketId || null
       );
       res.json({ success: true, action: 'created', plannerTask });
     }
   } catch (error: any) {
     console.error('[Planner API] Push task error:', error);
-    res.status(500).json({ error: 'Failed to push task', message: error.message });
+    res.status(500).json({ error: 'Failed to push task to Planner', message: error.message });
   }
 });
 
-router.delete('/bigrock/:bigRockId/planner-task/:taskId', async (req: Request, res: Response) => {
+router.delete('/bigrock-tasks/:bigRockId/planner/:taskId', async (req: Request, res: Response) => {
   try {
-    const userId = req.user!.id;
     const tenantId = req.effectiveTenantId!;
     const { bigRockId, taskId } = req.params;
-
+    
     const bigRock = await storage.getBigRockById(bigRockId);
     if (!bigRock || bigRock.tenantId !== tenantId) {
       return res.status(403).json({ error: 'Access denied' });
@@ -953,15 +878,15 @@ router.delete('/bigrock/:bigRockId/planner-task/:taskId', async (req: Request, r
     }
 
     if (task.plannerTaskId) {
-      await deletePlannerTaskForBigRockTask(userId, task.plannerTaskId);
-      await storage.updateBigRockTask(taskId, { plannerTaskId: null });
+      await deletePlannerTaskForBigRockTask(task.plannerTaskId);
     }
 
     res.json({ success: true });
   } catch (error: any) {
-    console.error('[Planner API] Delete planner task error:', error);
-    res.status(500).json({ error: 'Failed to delete planner task', message: error.message });
+    console.error('[Planner API] Delete Planner task error:', error);
+    res.status(500).json({ error: 'Failed to delete Planner task', message: error.message });
   }
 });
 
-export const plannerRouter = router;
+export { router as plannerRouter };
+export default router;
