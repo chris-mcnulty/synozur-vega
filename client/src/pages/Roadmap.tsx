@@ -2,7 +2,11 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { ArrowLeft, CheckCircle2, Clock, Sparkles, Target, Users, BarChart3, Puzzle, Database } from "lucide-react";
+import {
+  ArrowLeft, CheckCircle2, Clock, Sparkles, Target, Users, BarChart3,
+  Puzzle, Database, Shield, Calendar, Bot, Ticket, Briefcase, Layers,
+  FileText, ListChecks, ClipboardList
+} from "lucide-react";
 import { Link } from "wouter";
 
 interface RoadmapItem {
@@ -25,28 +29,76 @@ const roadmap: RoadmapPhase[] = [
     timeframe: "Q4 2025 - Q1 2026",
     items: [
       {
-        title: "OKR Intelligence",
-        description: "Pace tracking with on-track/ahead/behind indicators and velocity projections",
+        title: "OKR Intelligence & Pace Tracking",
+        description: "On-track/ahead/behind indicators, velocity projections, behind-pace alerts, and risk signals on dashboards",
         status: "completed",
         icon: BarChart3
       },
       {
-        title: "Executive Dashboard Personalization",
-        description: "Customize which sections and metrics appear on your executive dashboard",
+        title: "Executive & Team Dashboards",
+        description: "Advanced analytics with velocity projections, weekly execution focus, and quarterly period filtering",
         status: "completed",
         icon: Target
       },
       {
-        title: "OKR Period Close-Out",
-        description: "Gracefully close or continue OKRs across periods with proper documentation",
+        title: "Microsoft 365 Integration",
+        description: "Entra ID SSO, Outlook Calendar, SharePoint/OneDrive, and Microsoft Planner with bidirectional task sync",
+        status: "completed",
+        icon: Puzzle
+      },
+      {
+        title: "Big Rock Tasks & Planner Sync",
+        description: "Task management for Big Rocks with status flow, assignee resolution, and Constellation-style Planner synchronization",
+        status: "completed",
+        icon: ListChecks
+      },
+      {
+        title: "Ambitions Module",
+        description: "3-5 year strategic targets linking vision to annual goals with AI suggestions and status tracking",
+        status: "completed",
+        icon: Layers
+      },
+      {
+        title: "Help Chatbot & Support Tickets",
+        description: "AI-powered help assistant grounded on documentation, with escalation to a full support ticket system",
+        status: "completed",
+        icon: Bot
+      },
+      {
+        title: "OKR Period Close-Out & Cloning",
+        description: "Gracefully close or continue OKRs across periods with mandatory notes and cloning options",
         status: "completed",
         icon: CheckCircle2
       },
       {
-        title: "Team Mode",
-        description: "Simplified team-focused views with filtered OKRs and quick check-ins",
+        title: "AI-Powered Tools",
+        description: "OKR drafting, check-in note rewriting, parent objective summary drafting, and AI usage tracking",
         status: "completed",
-        icon: Users
+        icon: Sparkles
+      },
+      {
+        title: "RBAC & Multi-Tenancy",
+        description: "6-role permission system with fine-grained OKR permissions, multi-tenant data isolation, and team management",
+        status: "completed",
+        icon: Shield
+      },
+      {
+        title: "Focus Rhythm & Meetings",
+        description: "Meeting management with OKR linking, decisions/risks tracking, and meeting templates",
+        status: "completed",
+        icon: Calendar
+      },
+      {
+        title: "Job Scheduler Dashboard",
+        description: "Central service for background jobs with logging, pause/resume, and failure notifications",
+        status: "completed",
+        icon: ClipboardList
+      },
+      {
+        title: "Reporting & Export",
+        description: "PDF and PPTX export with AI period summaries, dynamic date selectors, and import/export capabilities",
+        status: "completed",
+        icon: FileText
       }
     ]
   },
@@ -56,14 +108,14 @@ const roadmap: RoadmapPhase[] = [
     items: [
       {
         title: "M365 Copilot Agent",
-        description: "Natural language interaction with Vega through Microsoft 365 Copilot",
+        description: "Natural language interaction with Vega through Microsoft 365 Copilot using the OpenAPI specification",
         status: "in_progress",
         progress: 60,
         icon: Sparkles
       },
       {
         title: "Excel Data Binding",
-        description: "Link Key Results directly to Excel cells for automatic progress updates",
+        description: "Link Key Results directly to Excel cells for automatic progress updates via Microsoft Graph",
         status: "in_progress",
         progress: 40,
         icon: Puzzle
@@ -71,32 +123,26 @@ const roadmap: RoadmapPhase[] = [
     ]
   },
   {
-    name: "Coming Soon",
+    name: "Committed Next",
     timeframe: "Q2 2026",
     items: [
       {
-        title: "Strategy Cascade Visualization",
-        description: "Visual hierarchy showing how strategies flow down to objectives and actions",
+        title: "Meeting Prep AI",
+        description: "Auto-generate meeting preparation summaries by analyzing linked OKRs before Focus Rhythm meetings",
         status: "planned",
-        icon: Target
+        icon: Briefcase
       },
       {
-        title: "OKR Health Scoring",
-        description: "AI-powered health assessments with predictive risk indicators",
+        title: "Predictive Analytics",
+        description: "Forecast OKR completion probability based on historical velocity and time remaining",
         status: "planned",
         icon: BarChart3
       },
       {
-        title: "Cross-Team Dependencies",
-        description: "Track and visualize dependencies between team objectives",
+        title: "Premium Feature Gating",
+        description: "Feature entitlement system to gate premium features by service plan tier",
         status: "planned",
-        icon: Users
-      },
-      {
-        title: "Power BI Data Pull",
-        description: "Link Key Results to Power BI measures for automatic progress updates from your BI dashboards",
-        status: "planned",
-        icon: Database
+        icon: Shield
       }
     ]
   }
@@ -105,42 +151,48 @@ const roadmap: RoadmapPhase[] = [
 const statusConfig = {
   completed: { label: "Completed", variant: "default" as const, className: "bg-green-600" },
   in_progress: { label: "In Progress", variant: "secondary" as const, className: "" },
-  planned: { label: "Planned", variant: "outline" as const, className: "" }
+  planned: { label: "Committed", variant: "outline" as const, className: "" }
 };
 
 export default function Roadmap() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-4 flex-wrap">
         <Link href="/about">
           <Button variant="ghost" size="sm" data-testid="button-back-about">
             <ArrowLeft className="h-4 w-4 mr-1" />
             About
           </Button>
         </Link>
-        <div>
-          <h1 className="text-2xl font-bold">Product Roadmap</h1>
-          <p className="text-muted-foreground text-sm">What we're building next</p>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl font-bold" data-testid="text-roadmap-title">Product Roadmap</h1>
+          <p className="text-muted-foreground text-sm">What we've built and what we're committed to delivering next</p>
         </div>
+        <Link href="/backlog">
+          <Button variant="outline" size="sm" data-testid="button-view-backlog">
+            <Ticket className="h-4 w-4 mr-1" />
+            View Backlog
+          </Button>
+        </Link>
       </div>
 
       <div className="space-y-8">
         {roadmap.map((phase, phaseIdx) => (
           <div key={phaseIdx} className="space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
               <h2 className="text-xl font-semibold">{phase.name}</h2>
               <Badge variant="outline" className="text-xs">
                 <Clock className="h-3 w-3 mr-1" />
                 {phase.timeframe}
               </Badge>
             </div>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {phase.items.map((item, itemIdx) => {
                 const Icon = item.icon;
                 const config = statusConfig[item.status];
                 return (
-                  <Card key={itemIdx} className="hover-elevate">
+                  <Card key={itemIdx} className="hover-elevate" data-testid={`card-roadmap-item-${phaseIdx}-${itemIdx}`}>
                     <CardHeader className="pb-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2">
@@ -183,17 +235,24 @@ export default function Roadmap() {
             <div>
               <h3 className="font-semibold">Have a feature request?</h3>
               <p className="text-sm text-muted-foreground">
-                We'd love to hear your ideas for making Vega even better.
+                We'd love to hear your ideas. Feature requests are tracked in our backlog.
               </p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => window.open('mailto:Vega@synozur.com?subject=Feature Request', '_blank')}
-              data-testid="button-feature-request"
-            >
-              Submit a Request
-            </Button>
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open('mailto:Vega@synozur.com?subject=Feature Request', '_blank')}
+                data-testid="button-feature-request"
+              >
+                Submit a Request
+              </Button>
+              <Link href="/backlog">
+                <Button variant="ghost" size="sm" data-testid="button-browse-backlog">
+                  Browse Backlog
+                </Button>
+              </Link>
+            </div>
           </div>
         </CardContent>
       </Card>

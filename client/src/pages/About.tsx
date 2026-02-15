@@ -16,7 +16,8 @@ import {
   Rocket,
   HelpCircle,
   FileText,
-  Map
+  Map,
+  ListTodo
 } from "lucide-react";
 import vegaLogo from "@/assets/brand/VegaTight_1766605018223.png";
 
@@ -230,11 +231,11 @@ export default function About() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="h-5 w-5" />
-              <span>Updates & Roadmap</span>
+              <span>Updates, Roadmap & Backlog</span>
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="p-4 bg-muted/30 rounded-lg">
                 <div className="flex items-center gap-2 mb-2">
                   <FileText className="h-4 w-4 text-primary" />
@@ -261,7 +262,7 @@ export default function About() {
                   <h4 className="font-semibold text-sm">Roadmap</h4>
                 </div>
                 <p className="text-sm text-muted-foreground mb-3">
-                  Explore upcoming features and our development priorities.
+                  Committed features we're actively building and delivering next.
                 </p>
                 <Button
                   size="sm"
@@ -272,6 +273,26 @@ export default function About() {
                   <a href="/roadmap">
                     <Map className="h-3 w-3 mr-1" />
                     View Roadmap
+                  </a>
+                </Button>
+              </div>
+              <div className="p-4 bg-muted/30 rounded-lg">
+                <div className="flex items-center gap-2 mb-2">
+                  <ListTodo className="h-4 w-4 text-primary" />
+                  <h4 className="font-semibold text-sm">Backlog</h4>
+                </div>
+                <p className="text-sm text-muted-foreground mb-3">
+                  All proposed features, design work, known issues, and future vision.
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  asChild
+                  data-testid="button-backlog"
+                >
+                  <a href="/backlog">
+                    <ListTodo className="h-3 w-3 mr-1" />
+                    View Backlog
                   </a>
                 </Button>
               </div>

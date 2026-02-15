@@ -57,6 +57,7 @@ const Launchpad = lazy(() => import("@/pages/Launchpad"));
 const About = lazy(() => import("@/pages/About"));
 const Changelog = lazy(() => import("@/pages/Changelog"));
 const Roadmap = lazy(() => import("@/pages/Roadmap"));
+const Backlog = lazy(() => import("@/pages/Backlog"));
 const Support = lazy(() => import("@/pages/Support"));
 
 // Protected route wrapper
@@ -336,6 +337,11 @@ function Router() {
       <Route path="/roadmap">
         <LazyProtectedRoute>
           <Roadmap />
+        </LazyProtectedRoute>
+      </Route>
+      <Route path="/backlog">
+        <LazyProtectedRoute>
+          <Backlog />
         </LazyProtectedRoute>
       </Route>
       <Route path="/support">

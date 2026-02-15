@@ -48,3 +48,12 @@ Preferred communication style: Simple, everyday language.
 - **HubSpot CRM Integration**: Automated deal creation for new tenant signups.
 - **OpenAPI Specification**: Full OpenAPI 3.0 spec at `/openapi.yaml` and `/openapi.json` for M365 Copilot Agent integration.
 - **M365 Copilot Agent**: Declarative agent manifest, API plugin manifest, and Teams app manifest available in `/public/copilot-agent/`.
+
+## Planning & Tracking
+
+- **BACKLOG.md**: The master backlog document (2,800+ lines) containing all feature proposals, implementation plans, UX enhancements, known issues, technical decisions, business vision, and completed features. This is the single source of truth for all backlog-related questions. Located at project root.
+- **Roadmap Page** (`/roadmap`): Public-facing view of committed deliverables — what's been completed, what's in progress, and what's committed next. Data defined in `client/src/pages/Roadmap.tsx`.
+- **Backlog Page** (`/backlog`): Comprehensive in-app view of everything in the backlog — proposed features, design work, known issues, future vision, and completed items. Filterable by status and category. Data defined in `client/src/pages/Backlog.tsx`.
+- **Changelog Page** (`/changelog`): Version-by-version release notes.
+- **About Page** (`/about`): Links to all three (Changelog, Roadmap, Backlog) in the "Updates, Roadmap & Backlog" section.
+- **Key distinction**: Roadmap = committed work. Backlog = everything proposed or suggested. When features move from backlog to active development, update both pages.
