@@ -21,6 +21,8 @@ import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/use-permissions";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
+import { useTimePeriod } from "@/contexts/TimePeriodContext";
+import { UserPicker } from "@/components/UserPicker";
 import { useAuth } from "@/contexts/AuthContext";
 import { getCurrentQuarter } from "@/lib/quarters";
 import { WeightManager } from "@/components/WeightManager";
@@ -175,13 +177,13 @@ export default function PlanningEnhanced() {
   // Track active focus filter for UI display
   const [activeFocusFilter, setActiveFocusFilter] = useState<string | null>(null);
   
-  // Load saved filters from localStorage
+  const { quarter: globalQuarter, year: globalYear, isAnnual: globalIsAnnual } = useTimePeriod();
+  
   const savedFilters = getSavedPlanningFilters();
   
   const [selectedTab, setSelectedTab] = useState(savedFilters?.selectedTab || "hierarchy");
-  // Unified filters for all tabs
-  const [quarter, setQuarter] = useState<number | null>(savedFilters?.quarter ?? null); // null means "All Periods"
-  const [year, setYear] = useState(savedFilters?.year || new Date().getFullYear());
+  const [quarter, setQuarter] = useState<number | null>(savedFilters?.quarter ?? (globalIsAnnual ? null : globalQuarter));
+  const [year, setYear] = useState(savedFilters?.year || globalYear);
   const [level, setLevel] = useState<string>(savedFilters?.level || "all");
   const [teamId, setTeamId] = useState<string>(savedFilters?.teamId || "all");
   const [statusFilter, setStatusFilter] = useState<string>(savedFilters?.statusFilter || "all");
@@ -242,19 +244,11 @@ export default function PlanningEnhanced() {
     enabled: !!currentTenant?.id,
   });
 
-  // Set initial quarter/year based on tenant's fiscal year (only if no saved filters)
   useEffect(() => {
     if (!filtersInitialized) {
-      if (foundation) {
-        const fiscalYearStartMonth = foundation.fiscalYearStartMonth || 1;
-        const currentPeriod = getCurrentQuarter(fiscalYearStartMonth);
-        setQuarter(currentPeriod.quarter);
-        setYear(currentPeriod.year);
-      }
-      // Mark as initialized after first render so filters will be saved
       setFiltersInitialized(true);
     }
-  }, [foundation?.fiscalYearStartMonth, filtersInitialized]);
+  }, [filtersInitialized]);
 
   // Initialize goals from foundation
   useEffect(() => {
@@ -2888,14 +2882,11 @@ export default function PlanningEnhanced() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="obj-owner">Owner Email</Label>
-                      <Input
-                        id="obj-owner"
-                        type="email"
+                      <Label htmlFor="obj-owner">Owner</Label>
+                      <UserPicker
                         value={objectiveForm.ownerEmail}
-                        onChange={(e) => setObjectiveForm({ ...objectiveForm, ownerEmail: e.target.value })}
-                        placeholder="owner@example.com"
-                        data-testid="input-objective-owner"
+                        onChange={(email) => setObjectiveForm({ ...objectiveForm, ownerEmail: email })}
+                        placeholder="Select owner..."
                       />
                     </div>
                     <div>
@@ -3571,14 +3562,11 @@ export default function PlanningEnhanced() {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="br-owner">Owner Email</Label>
-                    <Input
-                      id="br-owner"
-                      type="email"
+                    <Label htmlFor="br-owner">Owner</Label>
+                    <UserPicker
                       value={bigRockForm.ownerEmail}
-                      onChange={(e) => setBigRockForm({ ...bigRockForm, ownerEmail: e.target.value })}
-                      placeholder="owner@example.com"
-                      data-testid="input-bigrock-owner"
+                      onChange={(email) => setBigRockForm({ ...bigRockForm, ownerEmail: email })}
+                      placeholder="Select owner..."
                     />
                   </div>
                 </div>

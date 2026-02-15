@@ -48,6 +48,7 @@ import { Link } from "wouter";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useVocabulary } from "@/contexts/VocabularyContext";
+import { useTimePeriod } from "@/contexts/TimePeriodContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getCurrentQuarter, generateQuarters, getQuarterElapsedPercent, getYearElapsedPercent, getRelativeProgressColor, assessRelativeProgress } from "@/lib/fiscal-utils";
@@ -196,77 +197,27 @@ function TeamDashboardContent() {
   // KR filter state - defaults to showing incomplete
   const [krFilter, setKrFilter] = useState<'all' | 'incomplete' | 'at_risk'>('incomplete');
   
-  const { quarter: currentQuarterNum, year: currentYearNum } = getCurrentQuarter();
+  const { selectedQuarterId: selectedQuarter, setSelectedQuarterId: setSelectedQuarter } = useTimePeriod();
   
-  const getDefaultQuarterId = () => {
-    const tenantTimePeriod = currentTenant?.defaultTimePeriod;
-    if (tenantTimePeriod?.mode === 'specific' && tenantTimePeriod.year && tenantTimePeriod.quarter != null) {
-      if (tenantTimePeriod.quarter === 0) {
-        return `annual-${tenantTimePeriod.year}`;
-      }
-      return `q${tenantTimePeriod.quarter}-${tenantTimePeriod.year}`;
-    }
-    return `q${currentQuarterNum}-${currentYearNum}`;
-  };
-  
-  const defaultQuarterId = getDefaultQuarterId();
-  
-  // Get tenant-scoped storage keys - memoized to avoid recalculating on every render
   const storageKeys = useMemo(() => {
     if (!currentTenant?.id) return null;
     return getStorageKeys(currentTenant.id);
   }, [currentTenant?.id]);
   
-  // Read from localStorage only when tenant is loaded
-  const savedQuarter = typeof window !== 'undefined' && storageKeys 
-    ? localStorage.getItem(storageKeys.QUARTER) 
-    : null;
   const savedTeam = typeof window !== 'undefined' && storageKeys 
     ? localStorage.getItem(storageKeys.TEAM) 
     : null;
   
-  const [selectedQuarter, setSelectedQuarter] = useState(savedQuarter || defaultQuarterId);
   const [selectedTeamId, setSelectedTeamId] = useState<string | null>(savedTeam);
   
-  // Update selected quarter when tenant loads with its default time period
-  useEffect(() => {
-    if (currentTenant && !tenantLoading) {
-      const storedQuarter = storageKeys ? localStorage.getItem(storageKeys.QUARTER) : null;
-      // If no stored quarter, use tenant default time period
-      if (!storedQuarter) {
-        const tenantTimePeriod = currentTenant.defaultTimePeriod as { mode?: string; year?: number; quarter?: number } | null;
-        if (tenantTimePeriod?.mode === 'specific' && tenantTimePeriod.year && tenantTimePeriod.quarter != null) {
-          const tenantQuarterId = tenantTimePeriod.quarter === 0 
-            ? `annual-${tenantTimePeriod.year}` 
-            : `q${tenantTimePeriod.quarter}-${tenantTimePeriod.year}`;
-          // Only update if different from current selection
-          if (selectedQuarter !== tenantQuarterId) {
-            setSelectedQuarter(tenantQuarterId);
-          }
-        }
-      }
-    }
-  }, [currentTenant, tenantLoading, storageKeys]);
-  
-  // Update state when tenant loads and we have saved values
   useEffect(() => {
     if (storageKeys) {
-      const storedQuarter = localStorage.getItem(storageKeys.QUARTER);
       const storedTeam = localStorage.getItem(storageKeys.TEAM);
-      if (storedQuarter) {
-        setSelectedQuarter(storedQuarter);
-      }
       if (storedTeam && !selectedTeamId) {
         setSelectedTeamId(storedTeam);
       }
     }
   }, [storageKeys]);
-  
-  useEffect(() => {
-    if (selectedQuarter && storageKeys) {
-      localStorage.setItem(storageKeys.QUARTER, selectedQuarter);
-    }
-  }, [selectedQuarter, storageKeys]);
   
   useEffect(() => {
     if (selectedTeamId && storageKeys) {

@@ -36,6 +36,7 @@ import { Link } from "wouter";
 import { useTenant } from "@/contexts/TenantContext";
 import { useVocabulary } from "@/contexts/VocabularyContext";
 import { getCurrentQuarter, generateQuarters } from "@/lib/fiscal-utils";
+import { useTimePeriod } from "@/contexts/TimePeriodContext";
 import type { Foundation, Strategy, Objective, BigRock, Meeting, Team } from "@shared/schema";
 import { ValueBadges } from "@/components/ValueBadges";
 import { ExpandableText } from "@/components/ExpandableText";
@@ -78,33 +79,13 @@ export default function Dashboard() {
   const { currentTenant, isLoading: tenantLoading } = useTenant();
   const { t } = useVocabulary();
   
-  // Compute default quarter based on tenant settings or current quarter
-  const { quarter: currentQuarterNum, year: currentYearNum } = getCurrentQuarter();
+  const { selectedQuarterId: selectedQuarter, setSelectedQuarterId: setSelectedQuarter, selectedQuarter: currentQuarterObj, year: currentYearNum } = useTimePeriod();
   
-  // Load saved preferences from localStorage - use stable initial values
-  const savedQuarter = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.QUARTER) : null;
   const savedTeamFilter = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.TEAM_FILTER) : null;
-  const defaultQuarterId = `q${currentQuarterNum}-${currentYearNum}`;
   
   const [selectedFiscalYear, setSelectedFiscalYear] = useState(`fy${currentYearNum}`);
-  const [selectedQuarter, setSelectedQuarter] = useState(savedQuarter || defaultQuarterId);
   const [identityOpen, setIdentityOpen] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<string>(savedTeamFilter || 'all');
-  
-  // Sync fiscal year with tenant preferences when tenant loads
-  useEffect(() => {
-    if (currentTenant?.defaultTimePeriod?.mode === 'specific' && currentTenant.defaultTimePeriod.year) {
-      setSelectedFiscalYear(`fy${currentTenant.defaultTimePeriod.year}`);
-      if (currentTenant.defaultTimePeriod.quarter) {
-        setSelectedQuarter(`q${currentTenant.defaultTimePeriod.quarter}-${currentTenant.defaultTimePeriod.year}`);
-      }
-    }
-  }, [currentTenant?.defaultTimePeriod]);
-  
-  // Persist preferences to localStorage
-  useEffect(() => {
-    localStorage.setItem(STORAGE_KEYS.QUARTER, selectedQuarter);
-  }, [selectedQuarter]);
   
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.TEAM_FILTER, selectedTeam);

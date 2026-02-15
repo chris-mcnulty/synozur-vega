@@ -16,8 +16,16 @@ import { SynozurLogo } from "@/components/SynozurLogo";
 import { TenantProvider } from "@/contexts/TenantContext";
 import { VocabularyProvider } from "@/contexts/VocabularyContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { TimePeriodProvider, useTimePeriod } from "@/contexts/TimePeriodContext";
 import { ErrorBoundary, RouteErrorBoundary, PageLoadingFallback, FullPageLoadingFallback } from "@/components/ErrorBoundary";
-import { Sparkles, HelpCircle } from "lucide-react";
+import { Sparkles, HelpCircle, CalendarRange } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import React, { useState, Suspense, lazy } from "react";
 import { useLocation } from "wouter";
 
@@ -155,6 +163,27 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+function GlobalTimePeriodSelector() {
+  const { selectedQuarterId, setSelectedQuarterId, allQuarters } = useTimePeriod();
+  return (
+    <Select value={selectedQuarterId} onValueChange={setSelectedQuarterId}>
+      <SelectTrigger className="w-[140px] hidden sm:flex" data-testid="select-global-period">
+        <div className="flex items-center gap-2">
+          <CalendarRange className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
+          <SelectValue placeholder="Select period" />
+        </div>
+      </SelectTrigger>
+      <SelectContent>
+        {allQuarters.map((q) => (
+          <SelectItem key={q.id} value={q.id} data-testid={`select-period-option-${q.id}`}>
+            {q.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 function ModuleLayout({ children }: { children: React.ReactNode }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
@@ -171,6 +200,7 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
               <SynozurLogo variant="mark" className="h-8 w-8 flex-shrink-0" />
               <span className="font-bold text-lg hidden md:block">Vega</span>
             </div>
+            <GlobalTimePeriodSelector />
           </div>
           <div className="flex items-center gap-4">
             <ConsultingModeToggle />
@@ -373,14 +403,16 @@ function App() {
         <ThemeProvider>
           <AuthProvider>
             <TenantProvider>
-              <VocabularyProvider>
-                <TooltipProvider>
-                  <SidebarProvider style={style as React.CSSProperties}>
-                    <Router />
-                  </SidebarProvider>
-                  <Toaster />
-                </TooltipProvider>
-              </VocabularyProvider>
+              <TimePeriodProvider>
+                <VocabularyProvider>
+                  <TooltipProvider>
+                    <SidebarProvider style={style as React.CSSProperties}>
+                      <Router />
+                    </SidebarProvider>
+                    <Toaster />
+                  </TooltipProvider>
+                </VocabularyProvider>
+              </TimePeriodProvider>
             </TenantProvider>
           </AuthProvider>
         </ThemeProvider>
