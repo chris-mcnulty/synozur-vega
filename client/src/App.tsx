@@ -18,14 +18,14 @@ import { VocabularyProvider } from "@/contexts/VocabularyContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { TimePeriodProvider, useTimePeriod } from "@/contexts/TimePeriodContext";
 import { ErrorBoundary, RouteErrorBoundary, PageLoadingFallback, FullPageLoadingFallback } from "@/components/ErrorBoundary";
-import { Sparkles, HelpCircle, CalendarRange } from "lucide-react";
+import { Sparkles, HelpCircle, CalendarRange, ChevronLeft, ChevronRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { getCurrentQuarter } from "@/lib/fiscal-utils";
 import React, { useState, Suspense, lazy } from "react";
 import { useLocation } from "wouter";
 
@@ -164,23 +164,113 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
 }
 
 function GlobalTimePeriodSelector() {
-  const { selectedQuarterId, setSelectedQuarterId, allQuarters } = useTimePeriod();
+  const { selectedQuarterId, setSelectedQuarterId, year: selectedYear } = useTimePeriod();
+  const [browseYear, setBrowseYear] = useState(selectedYear);
+  const [open, setOpen] = useState(false);
+
+  const currentYear = new Date().getFullYear();
+  const minYear = currentYear - 2;
+  const maxYear = currentYear + 1;
+
+  React.useEffect(() => {
+    setBrowseYear(selectedYear);
+  }, [selectedYear, open]);
+
+  const isSelected = (qId: string) => selectedQuarterId === qId;
+
+  const handleSelect = (qId: string) => {
+    setSelectedQuarterId(qId);
+    setOpen(false);
+  };
+
+  const displayLabel = selectedQuarterId.startsWith("annual-")
+    ? `FY ${selectedQuarterId.replace("annual-", "")}`
+    : selectedQuarterId.replace(/^q(\d)-(\d+)$/, "Q$1 $2");
+
   return (
-    <Select value={selectedQuarterId} onValueChange={setSelectedQuarterId}>
-      <SelectTrigger className="w-[140px] hidden sm:flex" data-testid="select-global-period">
-        <div className="flex items-center gap-2">
-          <CalendarRange className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0" />
-          <SelectValue placeholder="Select period" />
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="hidden sm:flex items-center gap-2"
+          data-testid="select-global-period"
+        >
+          <CalendarRange className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-sm font-medium">{displayLabel}</span>
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[220px] p-3" align="start">
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={browseYear <= minYear}
+            onClick={() => setBrowseYear((y) => y - 1)}
+            data-testid="button-period-prev-year"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <span className="text-sm font-semibold" data-testid="text-period-year">{browseYear}</span>
+          <Button
+            variant="ghost"
+            size="icon"
+            disabled={browseYear >= maxYear}
+            onClick={() => setBrowseYear((y) => y + 1)}
+            data-testid="button-period-next-year"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </Button>
         </div>
-      </SelectTrigger>
-      <SelectContent>
-        {allQuarters.map((q) => (
-          <SelectItem key={q.id} value={q.id} data-testid={`select-period-option-${q.id}`}>
-            {q.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+        <div className="grid grid-cols-2 gap-1.5 mb-2">
+          {[1, 2, 3, 4].map((q) => {
+            const qId = `q${q}-${browseYear}`;
+            return (
+              <Button
+                key={qId}
+                variant={isSelected(qId) ? "default" : "outline"}
+                size="sm"
+                className="text-xs"
+                onClick={() => handleSelect(qId)}
+                data-testid={`button-period-q${q}`}
+              >
+                Q{q}
+              </Button>
+            );
+          })}
+        </div>
+        <Button
+          variant={isSelected(`annual-${browseYear}`) ? "default" : "outline"}
+          size="sm"
+          className="w-full text-xs"
+          onClick={() => handleSelect(`annual-${browseYear}`)}
+          data-testid="button-period-annual"
+        >
+          Annual {browseYear}
+        </Button>
+        {(() => {
+          const { quarter: cq, year: cy } = getCurrentQuarter();
+          const currentId = `q${cq}-${cy}`;
+          if (selectedQuarterId !== currentId) {
+            return (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full text-xs mt-2 text-muted-foreground"
+                onClick={() => {
+                  setBrowseYear(cy);
+                  handleSelect(currentId);
+                }}
+                data-testid="button-period-go-current"
+              >
+                Go to current period
+              </Button>
+            );
+          }
+          return null;
+        })()}
+      </PopoverContent>
+    </Popover>
   );
 }
 
