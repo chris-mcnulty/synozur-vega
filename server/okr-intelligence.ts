@@ -248,6 +248,174 @@ export function getPaceStatusColor(status: PaceStatus): string {
   }
 }
 
+export type TrendDirection = 'accelerating' | 'steady' | 'decelerating' | 'insufficient_data';
+
+export interface CompletionForecast {
+  completionProbability: number;
+  projectedEndValue: number;
+  confidenceLow: number;
+  confidenceMid: number;
+  confidenceHigh: number;
+  trend: TrendDirection;
+  riskFlag: boolean;
+  riskReasons: string[];
+  velocity: number | null;
+  recentVelocity: number | null;
+  daysRemaining: number;
+  percentageThrough: number;
+}
+
+export function calculateCompletionForecast(params: {
+  progress: number;
+  targetValue?: number;
+  quarter?: number | null;
+  year?: number | null;
+  startDate?: Date | string | null;
+  endDate?: Date | string | null;
+  checkIns?: CheckInData[];
+}): CompletionForecast {
+  const { progress, targetValue = 100, checkIns = [] } = params;
+  const now = getPacificNow();
+
+  let startDate: Date | null = null;
+  let endDate: Date | null = null;
+
+  if (params.startDate) {
+    startDate = typeof params.startDate === 'string' ? parseISO(params.startDate) : params.startDate;
+    if (!isValid(startDate)) startDate = null;
+  }
+  if (params.endDate) {
+    endDate = typeof params.endDate === 'string' ? parseISO(params.endDate) : params.endDate;
+    if (!isValid(endDate)) endDate = null;
+  }
+  if ((!startDate || !endDate) && params.quarter) {
+    const qd = getQuarterDates(params.year ?? null, params.quarter);
+    startDate = startDate || qd.start;
+    endDate = endDate || qd.end;
+  }
+
+  if (!startDate || !endDate) {
+    return {
+      completionProbability: progress >= targetValue ? 100 : 50,
+      projectedEndValue: progress,
+      confidenceLow: progress,
+      confidenceMid: progress,
+      confidenceHigh: progress,
+      trend: 'insufficient_data',
+      riskFlag: false,
+      riskReasons: [],
+      velocity: null,
+      recentVelocity: null,
+      daysRemaining: 0,
+      percentageThrough: 0,
+    };
+  }
+
+  const totalDays = Math.max(1, differenceInDays(endDate, startDate));
+  const rawElapsed = differenceInDays(now, startDate);
+  const elapsedDays = Math.max(0, Math.min(rawElapsed, totalDays));
+  const isPeriodEnded = rawElapsed > totalDays;
+  const daysRemaining = isPeriodEnded ? 0 : Math.max(0, differenceInDays(endDate, now));
+  const percentageThrough = isPeriodEnded ? 100 : (elapsedDays / totalDays) * 100;
+
+  const sorted = [...checkIns].sort((a, b) =>
+    new Date(a.asOfDate).getTime() - new Date(b.asOfDate).getTime()
+  );
+
+  let overallVelocity: number | null = null;
+  if (sorted.length >= 2) {
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    const daysBetween = differenceInDays(new Date(last.asOfDate), new Date(first.asOfDate));
+    if (daysBetween > 0) {
+      overallVelocity = (last.newProgress - first.previousProgress) / daysBetween;
+    }
+  } else if (elapsedDays > 0 && progress > 0) {
+    overallVelocity = progress / elapsedDays;
+  }
+
+  let recentVelocity: number | null = null;
+  if (sorted.length >= 3) {
+    const midpoint = Math.floor(sorted.length / 2);
+    const recentHalf = sorted.slice(midpoint);
+    if (recentHalf.length >= 2) {
+      const rFirst = recentHalf[0];
+      const rLast = recentHalf[recentHalf.length - 1];
+      const rDays = differenceInDays(new Date(rLast.asOfDate), new Date(rFirst.asOfDate));
+      if (rDays > 0) {
+        recentVelocity = (rLast.newProgress - rFirst.previousProgress) / rDays;
+      }
+    }
+  }
+
+  let trend: TrendDirection = 'insufficient_data';
+  if (overallVelocity !== null && recentVelocity !== null && overallVelocity > 0) {
+    const ratio = recentVelocity / overallVelocity;
+    if (ratio > 1.25) trend = 'accelerating';
+    else if (ratio < 0.75) trend = 'decelerating';
+    else trend = 'steady';
+  } else if (overallVelocity !== null) {
+    trend = 'steady';
+  }
+
+  const effectiveVelocity = recentVelocity !== null && recentVelocity > 0
+    ? recentVelocity
+    : overallVelocity;
+
+  let projectedEndValue: number;
+  if (isPeriodEnded) {
+    projectedEndValue = progress;
+  } else if (effectiveVelocity !== null && effectiveVelocity > 0) {
+    projectedEndValue = progress + effectiveVelocity * daysRemaining;
+  } else if (percentageThrough > 0) {
+    projectedEndValue = (progress / percentageThrough) * 100;
+  } else {
+    projectedEndValue = progress;
+  }
+  projectedEndValue = Math.min(projectedEndValue, 200);
+
+  let completionProbability: number;
+  if (isPeriodEnded) {
+    completionProbability = progress >= targetValue ? 100 : Math.round((progress / targetValue) * 100);
+  } else {
+    completionProbability = Math.min(100, Math.round((projectedEndValue / targetValue) * 100));
+  }
+
+  const varianceFactor = sorted.length >= 3 ? 0.15 : sorted.length >= 2 ? 0.25 : 0.4;
+  const confidenceMid = Math.round(projectedEndValue * 10) / 10;
+  const confidenceLow = Math.max(0, Math.round((projectedEndValue * (1 - varianceFactor)) * 10) / 10);
+  const confidenceHigh = Math.min(200, Math.round((projectedEndValue * (1 + varianceFactor)) * 10) / 10);
+
+  const riskReasons: string[] = [];
+  if (completionProbability < 50) riskReasons.push('Low completion probability');
+  if (trend === 'decelerating') riskReasons.push('Decelerating velocity');
+  if (elapsedDays >= 30 && progress === 0) riskReasons.push('No progress after 30+ days');
+  if (sorted.length > 0) {
+    const lastCheckIn = sorted[sorted.length - 1];
+    const daysSince = differenceInDays(now, new Date(lastCheckIn.asOfDate));
+    if (daysSince >= 14) riskReasons.push(`No check-in for ${daysSince} days`);
+  } else if (elapsedDays > 14) {
+    riskReasons.push('No check-ins recorded');
+  }
+
+  const riskFlag = completionProbability < 50 || riskReasons.length >= 2;
+
+  return {
+    completionProbability,
+    projectedEndValue: Math.round(confidenceMid * 10) / 10,
+    confidenceLow,
+    confidenceMid,
+    confidenceHigh,
+    trend,
+    riskFlag,
+    riskReasons,
+    velocity: overallVelocity !== null ? Math.round(overallVelocity * 100) / 100 : null,
+    recentVelocity: recentVelocity !== null ? Math.round(recentVelocity * 100) / 100 : null,
+    daysRemaining,
+    percentageThrough: Math.round(percentageThrough * 10) / 10,
+  };
+}
+
 export function getPaceStatusBadgeVariant(status: PaceStatus): 'default' | 'secondary' | 'destructive' | 'outline' {
   switch (status) {
     case 'ahead':

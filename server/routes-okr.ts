@@ -1471,7 +1471,7 @@ okrRouter.post("/backfill-progress", async (req, res) => {
 // OKR INTELLIGENCE: Pace & Velocity Metrics
 // ============================================
 
-import { calculatePaceMetrics, formatPaceDescription, type PaceMetrics } from './okr-intelligence';
+import { calculatePaceMetrics, formatPaceDescription, calculateCompletionForecast, type PaceMetrics, type CompletionForecast, type TrendDirection } from './okr-intelligence';
 
 // Get pace metrics for a specific objective
 okrRouter.get("/objectives/:id/pace", async (req, res) => {
@@ -1616,5 +1616,100 @@ okrRouter.get("/pace-metrics", async (req, res) => {
   } catch (error) {
     console.error('[OKR Pace] Failed to get bulk pace metrics:', error);
     res.status(500).json({ error: "Failed to calculate pace metrics" });
+  }
+});
+
+okrRouter.get("/forecasts", async (req, res) => {
+  try {
+    const { tenantId, quarter, year } = req.query;
+    if (!tenantId) {
+      return res.status(400).json({ error: "tenantId is required" });
+    }
+
+    let objectives = await storage.getObjectivesByTenantId(tenantId as string);
+
+    if (quarter && year) {
+      objectives = objectives.filter(obj =>
+        obj.quarter === parseInt(quarter as string) &&
+        obj.year === parseInt(year as string)
+      );
+    }
+
+    const forecasts: Array<{
+      objectiveId: string;
+      title: string;
+      progress: number;
+      ownerEmail: string | null;
+      level: string | null;
+      status: string | null;
+      forecast: CompletionForecast;
+    }> = [];
+
+    for (const objective of objectives) {
+      const checkIns = await storage.getCheckInsByEntityId('objective', objective.id);
+
+      const forecast = calculateCompletionForecast({
+        progress: objective.progress || 0,
+        targetValue: 100,
+        quarter: objective.quarter,
+        year: objective.year,
+        startDate: objective.startDate,
+        endDate: objective.endDate,
+        checkIns: checkIns.map(c => ({
+          asOfDate: c.asOfDate || c.createdAt!,
+          newProgress: c.newProgress || 0,
+          previousProgress: c.previousProgress || 0,
+        })),
+      });
+
+      forecasts.push({
+        objectiveId: objective.id,
+        title: objective.title,
+        progress: objective.progress || 0,
+        ownerEmail: objective.ownerEmail,
+        level: objective.level,
+        status: objective.status,
+        forecast,
+      });
+    }
+
+    const atRiskForecasts = forecasts.filter(f => f.forecast.riskFlag);
+    const avgProbability = forecasts.length > 0
+      ? Math.round(forecasts.reduce((sum, f) => sum + f.forecast.completionProbability, 0) / forecasts.length)
+      : 0;
+    const avgProjected = forecasts.length > 0
+      ? Math.round(forecasts.reduce((sum, f) => sum + Math.min(f.forecast.projectedEndValue, 100), 0) / forecasts.length)
+      : 0;
+
+    const trendDistribution = {
+      accelerating: forecasts.filter(f => f.forecast.trend === 'accelerating').length,
+      steady: forecasts.filter(f => f.forecast.trend === 'steady').length,
+      decelerating: forecasts.filter(f => f.forecast.trend === 'decelerating').length,
+      insufficientData: forecasts.filter(f => f.forecast.trend === 'insufficient_data').length,
+    };
+
+    const probabilityBands = {
+      high: forecasts.filter(f => f.forecast.completionProbability >= 75).length,
+      medium: forecasts.filter(f => f.forecast.completionProbability >= 50 && f.forecast.completionProbability < 75).length,
+      low: forecasts.filter(f => f.forecast.completionProbability < 50).length,
+    };
+
+    res.json({
+      forecasts,
+      summary: {
+        total: forecasts.length,
+        avgProbability,
+        avgProjected,
+        atRiskCount: atRiskForecasts.length,
+        trendDistribution,
+        probabilityBands,
+      },
+      atRisk: atRiskForecasts
+        .sort((a, b) => a.forecast.completionProbability - b.forecast.completionProbability)
+        .slice(0, 10),
+    });
+  } catch (error) {
+    console.error('[OKR Forecast] Failed to calculate forecasts:', error);
+    res.status(500).json({ error: "Failed to calculate forecasts" });
   }
 });

@@ -16,7 +16,7 @@ Preferred communication style: Simple, everyday language.
     - **Dashboards**: Company OS, Executive (advanced analytics, velocity projections), and Team Dashboards (weekly execution focus).
     - **Core Modules**: Foundations (mission, vision, values, ambitions), Strategy (AI drafting, goal alignment), Outcomes (hierarchical OKRs, "big rocks", annual goals with AI suggestions), Focus Rhythm (meeting management), Reporting (PDF/PPTX export).
     - **Ambitions Module**: Manages 3-5 year strategic targets, linking vision to annual goals with AI suggestions and status tracking.
-    - **AI & Intelligence**: OKR Intelligence for pace/velocity tracking, predictive projections, and "Behind Pace" alerts. Launchpad for AI-powered document analysis. AI-powered summary of recent platform updates via "What's New Modal".
+    - **AI & Intelligence**: OKR Intelligence for pace/velocity tracking, predictive projections, and "Behind Pace" alerts. **Predictive Analytics** with velocity-based completion forecasting, confidence bands (low/mid/high derived from check-in variance), trend detection (accelerating/steady/decelerating), risk flagging, and probability distribution visualization on the Executive Dashboard (`/api/okr/forecasts` endpoint, `calculateCompletionForecast()` in `server/okr-intelligence.ts`). Launchpad for AI-powered document analysis. AI-powered summary of recent platform updates via "What's New Modal".
     - **Administration**: Tenant Admin (org, M365 integration, user management), System Admin (platform-wide AI config, service plans).
     - **OKR Workflow**: Cloning, Period Close-Out with mandatory notes, Mixed Child Rollup Progress Calculation.
     - **Vocabulary Module**: Customizable terminology.

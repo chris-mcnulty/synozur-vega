@@ -313,6 +313,61 @@ export default function ExecutiveDashboard() {
     enabled: !!currentTenant?.id,
   });
 
+  type ForecastItem = {
+    objectiveId: string;
+    title: string;
+    progress: number;
+    ownerEmail: string | null;
+    level: string | null;
+    status: string | null;
+    forecast: {
+      completionProbability: number;
+      projectedEndValue: number;
+      confidenceLow: number;
+      confidenceMid: number;
+      confidenceHigh: number;
+      trend: 'accelerating' | 'steady' | 'decelerating' | 'insufficient_data';
+      riskFlag: boolean;
+      riskReasons: string[];
+      velocity: number | null;
+      recentVelocity: number | null;
+      daysRemaining: number;
+      percentageThrough: number;
+    };
+  };
+
+  type ForecastResponse = {
+    forecasts: ForecastItem[];
+    summary: {
+      total: number;
+      avgProbability: number;
+      avgProjected: number;
+      atRiskCount: number;
+      trendDistribution: { accelerating: number; steady: number; decelerating: number; insufficientData: number };
+      probabilityBands: { high: number; medium: number; low: number };
+    };
+    atRisk: ForecastItem[];
+  };
+
+  const { data: forecastData } = useQuery<ForecastResponse>({
+    queryKey: ["/api/okr/forecasts", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year],
+    queryFn: async () => {
+      if (!currentTenant || !currentQuarter) return null;
+      const params = new URLSearchParams({
+        tenantId: currentTenant.id,
+        ...(currentQuarter.quarter != null && { quarter: String(currentQuarter.quarter) }),
+        ...(currentQuarter.year != null && { year: String(currentQuarter.year) }),
+      });
+      const res = await fetch(`/api/okr/forecasts?${params}`, {
+        credentials: 'include',
+        headers: getHeaders(),
+      });
+      if (!res.ok) return null;
+      return res.json();
+    },
+    enabled: !!currentTenant?.id && !!currentQuarter,
+  });
+
   const isLoading = loadingObjectives || loadingKRs;
 
   // Helper function to calculate objective progress from its key results (memoized)
@@ -949,75 +1004,190 @@ export default function ExecutiveDashboard() {
             </HoverCard>
           </div>
 
-          <Card className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border-purple-200 dark:border-purple-800">
+          <Card className="bg-gradient-to-br from-purple-50 to-blue-50 dark:from-purple-950/30 dark:to-blue-950/30 border-purple-200 dark:border-purple-800" data-testid="card-predictive-forecast">
             <CardHeader className="pb-2">
-              <CardTitle className="flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-purple-600" />
-                Predictive Forecast
-              </CardTitle>
-              <CardDescription>AI-powered completion projections based on current velocity</CardDescription>
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-purple-600" />
+                    Completion Forecast
+                  </CardTitle>
+                  <CardDescription>Velocity-based completion projections with confidence bands</CardDescription>
+                </div>
+                {forecastData?.summary && (
+                  <div className="flex items-center gap-1.5">
+                    <Badge variant={forecastData.summary.avgProbability >= 70 ? "default" : forecastData.summary.avgProbability >= 50 ? "secondary" : "destructive"}>
+                      {forecastData.summary.avgProbability}% avg. probability
+                    </Badge>
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingUp className="h-4 w-4 text-green-600" />
-                    <span className="text-sm font-medium text-muted-foreground">On Track to Complete</span>
+              {forecastData?.summary ? (
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
+                    <div className="p-3 rounded-lg bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-2 mb-1">
+                        <TrendingUp className="h-4 w-4 text-green-600" />
+                        <span className="text-xs font-medium text-muted-foreground">High Confidence</span>
+                      </div>
+                      <p className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid="text-forecast-high">
+                        {forecastData.summary.probabilityBands.high}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">75%+ likely to hit target</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Minus className="h-4 w-4 text-amber-600" />
+                        <span className="text-xs font-medium text-muted-foreground">Moderate</span>
+                      </div>
+                      <p className="text-2xl font-bold text-amber-600 dark:text-amber-400" data-testid="text-forecast-medium">
+                        {forecastData.summary.probabilityBands.medium}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">50-74% completion probability</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-2 mb-1">
+                        <AlertTriangle className="h-4 w-4 text-red-600" />
+                        <span className="text-xs font-medium text-muted-foreground">At Risk</span>
+                      </div>
+                      <p className="text-2xl font-bold text-red-600 dark:text-red-400" data-testid="text-forecast-low">
+                        {forecastData.summary.probabilityBands.low}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">&lt;50% likely without intervention</p>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Target className="h-4 w-4 text-purple-600" />
+                        <span className="text-xs font-medium text-muted-foreground">Projected Completion</span>
+                      </div>
+                      <p className="text-2xl font-bold" data-testid="text-forecast-projected">
+                        {forecastData.summary.avgProjected}%
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">Avg. end-of-period projection</p>
+                    </div>
                   </div>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid="text-forecast-on-track">
-                    {paceDistribution.ahead + paceDistribution.onTrack}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {metrics.totalObjectives > 0 
-                      ? `${Math.round(((paceDistribution.ahead + paceDistribution.onTrack) / metrics.totalObjectives) * 100)}% of objectives`
-                      : 'No objectives'}
-                  </p>
-                </div>
-                
-                <div className="p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-2 mb-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                    <span className="text-sm font-medium text-muted-foreground">May Miss Target</span>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+                    <div className="p-3 rounded-lg bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
+                      <span className="text-xs font-medium text-muted-foreground block mb-2">Velocity Trends</span>
+                      <div className="flex items-center gap-3 flex-wrap">
+                        <div className="flex items-center gap-1.5">
+                          <ArrowUp className="h-3.5 w-3.5 text-green-600" />
+                          <span className="text-sm">{forecastData.summary.trendDistribution.accelerating} accelerating</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Minus className="h-3.5 w-3.5 text-blue-600" />
+                          <span className="text-sm">{forecastData.summary.trendDistribution.steady} steady</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <ArrowDown className="h-3.5 w-3.5 text-red-600" />
+                          <span className="text-sm">{forecastData.summary.trendDistribution.decelerating} decelerating</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="p-3 rounded-lg bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
+                      <span className="text-xs font-medium text-muted-foreground block mb-2">Probability Distribution</span>
+                      <div className="flex items-center gap-1 h-5">
+                        {forecastData.summary.total > 0 && (
+                          <>
+                            {forecastData.summary.probabilityBands.high > 0 && (
+                              <div
+                                className="h-full bg-green-500 rounded-l-sm"
+                                style={{ width: `${(forecastData.summary.probabilityBands.high / forecastData.summary.total) * 100}%` }}
+                                title={`${forecastData.summary.probabilityBands.high} high confidence`}
+                              />
+                            )}
+                            {forecastData.summary.probabilityBands.medium > 0 && (
+                              <div
+                                className="h-full bg-amber-500"
+                                style={{ width: `${(forecastData.summary.probabilityBands.medium / forecastData.summary.total) * 100}%` }}
+                                title={`${forecastData.summary.probabilityBands.medium} moderate`}
+                              />
+                            )}
+                            {forecastData.summary.probabilityBands.low > 0 && (
+                              <div
+                                className="h-full bg-red-500 rounded-r-sm"
+                                style={{ width: `${(forecastData.summary.probabilityBands.low / forecastData.summary.total) * 100}%` }}
+                                title={`${forecastData.summary.probabilityBands.low} at risk`}
+                              />
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-2xl font-bold text-amber-600 dark:text-amber-400" data-testid="text-forecast-behind">
-                    {paceDistribution.behind}
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Behind pace but recoverable
-                  </p>
-                </div>
-                
-                <div className="p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
-                  <div className="flex items-center gap-2 mb-2">
-                    <TrendingDown className="h-4 w-4 text-red-600" />
-                    <span className="text-sm font-medium text-muted-foreground">Projected Completion</span>
-                  </div>
-                  <p className="text-2xl font-bold" data-testid="text-forecast-projected">
-                    {avgProjectedProgress}%
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Based on current velocity
-                  </p>
-                </div>
-              </div>
-              
-              {paceDistribution.atRisk > 0 && (
-                <div className="mt-4 p-3 rounded-lg bg-red-100 dark:bg-red-900/30 border border-red-300 dark:border-red-700 flex items-center gap-3">
-                  <AlertCircle className="h-5 w-5 text-red-600 shrink-0" />
-                  <div className="flex-1">
-                    <span className="text-sm font-medium text-red-700 dark:text-red-400">
-                      {paceDistribution.atRisk} objective{paceDistribution.atRisk > 1 ? 's' : ''} at critical risk
-                    </span>
-                    <p className="text-xs text-red-600 dark:text-red-400 mt-0.5">
-                      Unlikely to meet targets without intervention
+
+                  {forecastData.atRisk.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2 flex-wrap">
+                        <span className="text-sm font-semibold text-red-700 dark:text-red-400 flex items-center gap-1.5">
+                          <AlertCircle className="h-4 w-4" />
+                          Risk-Flagged Objectives ({forecastData.atRisk.length})
+                        </span>
+                        <Link href="/planning">
+                          <Button size="sm" variant="outline" className="shrink-0">
+                            <Eye className="h-4 w-4 mr-1" />
+                            Review All
+                          </Button>
+                        </Link>
+                      </div>
+                      <div className="space-y-1.5">
+                        {forecastData.atRisk.slice(0, 5).map((item) => (
+                          <div key={item.objectiveId} className="flex items-center justify-between gap-3 p-2.5 rounded-lg bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{item.title}</p>
+                              <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                <span className="text-xs text-muted-foreground">{item.progress}% progress</span>
+                                <Badge variant="destructive" className="text-xs">{item.forecast.completionProbability}% probability</Badge>
+                                {item.forecast.trend === 'decelerating' && (
+                                  <Badge variant="outline" className="text-xs"><ArrowDown className="h-3 w-3 mr-0.5" />Decelerating</Badge>
+                                )}
+                                {item.forecast.riskReasons.length > 0 && (
+                                  <span className="text-xs text-red-600 dark:text-red-400">{item.forecast.riskReasons[0]}</span>
+                                )}
+                              </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-semibold">{item.forecast.confidenceLow}-{Math.round(Math.min(item.forecast.confidenceHigh, 100))}%</p>
+                              <p className="text-xs text-muted-foreground">confidence range</p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingUp className="h-4 w-4 text-green-600" />
+                      <span className="text-sm font-medium text-muted-foreground">On Track to Complete</span>
+                    </div>
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid="text-forecast-on-track">
+                      {paceDistribution.ahead + paceDistribution.onTrack}
                     </p>
                   </div>
-                  <Link href="/planning">
-                    <Button size="sm" variant="outline" className="shrink-0 border-red-300 dark:border-red-700">
-                      <Eye className="h-4 w-4 mr-1" />
-                      Review
-                    </Button>
-                  </Link>
+                  <div className="p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-2 mb-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-600" />
+                      <span className="text-sm font-medium text-muted-foreground">May Miss Target</span>
+                    </div>
+                    <p className="text-2xl font-bold text-amber-600 dark:text-amber-400">
+                      {paceDistribution.behind}
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-lg bg-white/60 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
+                    <div className="flex items-center gap-2 mb-2">
+                      <TrendingDown className="h-4 w-4 text-red-600" />
+                      <span className="text-sm font-medium text-muted-foreground">Projected Completion</span>
+                    </div>
+                    <p className="text-2xl font-bold">
+                      {avgProjectedProgress}%
+                    </p>
+                  </div>
                 </div>
               )}
             </CardContent>
