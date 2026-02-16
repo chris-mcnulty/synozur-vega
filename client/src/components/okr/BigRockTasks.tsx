@@ -377,14 +377,14 @@ export function BigRockTasks({ bigRockId, canModify, plannerMapped }: BigRockTas
               ) : (
                 <RefreshCw className="w-3 h-3 mr-1" />
               )}
-              Sync with Planner
+              Sync Plan
             </Button>
           )}
         </div>
       </CardHeader>
       {plannerMapped && canModify && (
         <div className="px-6 pb-2 flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-muted-foreground">Planner sync:</span>
+          <span className="text-xs text-muted-foreground">Planner:</span>
           <Button
             variant="ghost"
             size="sm"
@@ -393,7 +393,7 @@ export function BigRockTasks({ bigRockId, canModify, plannerMapped }: BigRockTas
             data-testid="button-push-tasks"
           >
             <ArrowUpFromLine className="w-3 h-3 mr-1" />
-            Push to Planner
+            Push to Plan
           </Button>
           <Button
             variant="ghost"
@@ -403,7 +403,7 @@ export function BigRockTasks({ bigRockId, canModify, plannerMapped }: BigRockTas
             data-testid="button-pull-tasks"
           >
             <ArrowDownToLine className="w-3 h-3 mr-1" />
-            Pull from Planner
+            Pull from Plan
           </Button>
         </div>
       )}
