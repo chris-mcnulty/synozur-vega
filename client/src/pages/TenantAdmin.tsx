@@ -2984,13 +2984,24 @@ export default function TenantAdmin() {
                         </div>
                       </div>
                       
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         {hasConsent ? (
                           <>
                             <Badge variant="default" className="bg-green-600 hover:bg-green-700">
                               <CheckCircle2 className="h-3 w-3 mr-1" />
                               Consent Granted
                             </Badge>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => {
+                                window.location.href = `/auth/entra/admin-consent?tenantId=${tenant.id}`;
+                              }}
+                              data-testid={`button-reconsent-${tenant.id}`}
+                            >
+                              <RefreshCw className="h-3 w-3 mr-1" />
+                              Re-consent (Update Permissions)
+                            </Button>
                             <Button
                               variant="outline"
                               size="sm"
@@ -3034,9 +3045,16 @@ export default function TenantAdmin() {
                 })}
               </div>
               
-              <p className="text-xs text-muted-foreground mt-4">
-                Required scopes: User.Read.All, Files.Read.All, Sites.Read.All, Tasks.ReadWrite.All, Calendars.ReadWrite, Mail.Read
-              </p>
+              <div className="mt-4 space-y-2">
+                <p className="text-xs font-medium text-muted-foreground">Required permissions:</p>
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p><span className="font-medium">Delegated:</span> User.Read, Files.Read.All, Sites.Read.All, Tasks.ReadWrite.All, Calendars.ReadWrite, Mail.Read</p>
+                  <p><span className="font-medium">Application:</span> Group.Read.All, Tasks.ReadWrite.All, User.ReadBasic.All</p>
+                </div>
+                <p className="text-xs text-muted-foreground italic">
+                  Application permissions are required for Planner integration. If you recently enabled Planner, use "Re-consent (Update Permissions)" to grant the new permissions.
+                </p>
+              </div>
             </CardContent>
           </Card>
           
