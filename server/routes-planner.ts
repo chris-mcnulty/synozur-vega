@@ -25,6 +25,16 @@ import { hasPermission, PERMISSIONS, Role } from '@shared/rbac';
 
 const router = Router();
 
+async function getAzureTenantId(req: Request, res: Response): Promise<string | null> {
+  const tenantId = req.effectiveTenantId!;
+  const tenant = await storage.getTenantById(tenantId);
+  if (!tenant?.azureTenantId) {
+    res.status(400).json({ error: 'Tenant does not have Azure AD configured. Please set up Azure Tenant ID in Tenant Admin settings.' });
+    return null;
+  }
+  return tenant.azureTenantId;
+}
+
 async function validatePlanOwnership(req: Request, res: Response, next: NextFunction) {
   const { planId } = req.params;
   if (!planId) return next();
@@ -105,7 +115,10 @@ router.post('/sync', async (req: Request, res: Response) => {
       });
     }
 
-    const result = await syncAllPlannerData(tenantId);
+    const azureTenantId = await getAzureTenantId(req, res);
+    if (!azureTenantId) return;
+
+    const result = await syncAllPlannerData(tenantId, azureTenantId);
     
     res.json({
       success: true,
@@ -217,10 +230,14 @@ router.post('/tasks', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'Access denied to this plan' });
     }
 
+    const azureTenantId = await getAzureTenantId(req, res);
+    if (!azureTenantId) return;
+
     const task = await createPlannerTask(
       planId, 
       bucketId, 
       title, 
+      azureTenantId,
       dueDate ? new Date(dueDate) : undefined
     );
     
@@ -243,7 +260,10 @@ router.patch('/tasks/:taskId/progress', validateTaskOwnership, async (req: Reque
       return res.status(400).json({ error: 'percentComplete must be a number between 0 and 100' });
     }
 
-    const task = await updatePlannerTaskProgress(taskId, percentComplete);
+    const azureTenantId = await getAzureTenantId(req, res);
+    if (!azureTenantId) return;
+
+    const task = await updatePlannerTaskProgress(taskId, percentComplete, azureTenantId);
     res.json(task);
   } catch (error: any) {
     console.error('[Planner API] Update task progress error:', error);
@@ -459,10 +479,13 @@ router.put('/mapping/bigrock/:bigRockId', async (req: Request, res: Response) =>
       try {
         const plan = await storage.getPlannerPlanById(plannerPlanId);
         if (plan) {
-          console.log('[Planner API] Running initial sync for newly mapped Big Rock:', bigRockId);
-          await syncPlannerBuckets(tenantId, plan.id, plan.graphPlanId);
-          await syncPlannerTasks(tenantId, plan.id, plan.graphPlanId);
-          console.log('[Planner API] Initial sync complete for Big Rock:', bigRockId);
+          const azureTenantId = await getAzureTenantId(req, res);
+          if (azureTenantId) {
+            console.log('[Planner API] Running initial sync for newly mapped Big Rock:', bigRockId);
+            await syncPlannerBuckets(tenantId, plan.id, plan.graphPlanId, azureTenantId);
+            await syncPlannerTasks(tenantId, plan.id, plan.graphPlanId, azureTenantId);
+            console.log('[Planner API] Initial sync complete for Big Rock:', bigRockId);
+          }
         }
       } catch (syncErr: any) {
         console.warn('[Planner API] Initial sync after mapping failed (non-blocking):', syncErr?.message);
@@ -495,10 +518,13 @@ router.post('/mapping/keyresult/:keyResultId/sync', async (req: Request, res: Re
       return res.status(400).json({ error: 'Mapped plan not found. Please re-configure Planner mapping.' });
     }
 
+    const azureTenantId = await getAzureTenantId(req, res);
+    if (!azureTenantId) return;
+
     console.log('[Planner API] Refreshing tasks from Microsoft Graph for plan:', plan.title);
     
     try {
-      await syncPlannerTasks(tenantId!, plan.id, plan.graphPlanId);
+      await syncPlannerTasks(tenantId!, plan.id, plan.graphPlanId, azureTenantId);
       console.log('[Planner API] Successfully refreshed tasks from Microsoft Graph');
     } catch (syncError: any) {
       console.error('[Planner API] Failed to refresh tasks from Graph:', syncError);
@@ -558,12 +584,15 @@ router.post('/mapping/bigrock/:bigRockId/sync', async (req: Request, res: Respon
       return res.status(400).json({ error: 'Mapped plan not found. Please re-configure Planner mapping.' });
     }
 
+    const azureTenantId = await getAzureTenantId(req, res);
+    if (!azureTenantId) return;
+
     console.log('[Planner API] Refreshing tasks from Microsoft Graph for plan:', plan.title);
     
     let syncWarning: string | null = null;
     try {
-      await syncPlannerBuckets(tenantId!, plan.id, plan.graphPlanId);
-      await syncPlannerTasks(tenantId!, plan.id, plan.graphPlanId);
+      await syncPlannerBuckets(tenantId!, plan.id, plan.graphPlanId, azureTenantId);
+      await syncPlannerTasks(tenantId!, plan.id, plan.graphPlanId, azureTenantId);
       console.log('[Planner API] Successfully refreshed buckets and tasks from Microsoft Graph');
     } catch (syncError: any) {
       console.error('[Planner API] Failed to refresh from Graph:', syncError);
@@ -699,7 +728,9 @@ router.get('/mapping/bigrock/:bigRockId', async (req: Request, res: Response) =>
 router.get('/teams', async (req: Request, res: Response) => {
   try {
     const tenantId = req.effectiveTenantId!;
-    const teams = await getTeamsForUser(tenantId);
+    const azureTenantId = await getAzureTenantId(req, res);
+    if (!azureTenantId) return;
+    const teams = await getTeamsForUser(tenantId, azureTenantId);
     res.json(teams);
   } catch (error: any) {
     console.error('[Planner API] Get teams error:', error);
@@ -709,7 +740,9 @@ router.get('/teams', async (req: Request, res: Response) => {
 
 router.get('/teams/:teamId/channels', async (req: Request, res: Response) => {
   try {
-    const channels = await getChannelsForTeam(req.params.teamId);
+    const azureTenantId = await getAzureTenantId(req, res);
+    if (!azureTenantId) return;
+    const channels = await getChannelsForTeam(req.params.teamId, azureTenantId);
     res.json(channels);
   } catch (error: any) {
     console.error('[Planner API] Get channels error:', error);
@@ -727,15 +760,18 @@ router.post('/teams/:teamId/plans', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Plan title is required' });
     }
 
-    const plan = await createPlanInTeam(tenantId, teamId, title);
+    const azureTenantId = await getAzureTenantId(req, res);
+    if (!azureTenantId) return;
+
+    const plan = await createPlanInTeam(tenantId, teamId, title, azureTenantId);
 
     let syncedBuckets;
     try {
-      syncedBuckets = await syncPlannerBuckets(tenantId, plan.id, plan.graphPlanId);
+      syncedBuckets = await syncPlannerBuckets(tenantId, plan.id, plan.graphPlanId, azureTenantId);
     } catch (bucketSyncErr) {
       console.warn('[Planner API] Failed to sync buckets after plan creation:', bucketSyncErr);
       try {
-        syncedBuckets = await syncPlannerBuckets(tenantId, plan.id, plan.graphPlanId);
+        syncedBuckets = await syncPlannerBuckets(tenantId, plan.id, plan.graphPlanId, azureTenantId);
       } catch (retryErr) {
         console.warn('[Planner API] Retry also failed:', retryErr);
       }
@@ -744,7 +780,7 @@ router.post('/teams/:teamId/plans', async (req: Request, res: Response) => {
     let tabCreated = false;
     if (channelId) {
       try {
-        await addPlannerTabToChannel(teamId, channelId, plan.graphPlanId, title);
+        await addPlannerTabToChannel(teamId, channelId, plan.graphPlanId, title, azureTenantId);
         tabCreated = true;
       } catch (tabErr: any) {
         console.warn('[Planner API] Tab creation failed (non-blocking):', tabErr.message);
@@ -754,7 +790,7 @@ router.post('/teams/:teamId/plans', async (req: Request, res: Response) => {
     let bucket = null;
     if (bucketName) {
       try {
-        bucket = await createBucketInPlan(tenantId, plan.id, bucketName);
+        bucket = await createBucketInPlan(tenantId, plan.id, bucketName, azureTenantId);
       } catch (bucketErr: any) {
         console.warn('[Planner API] Custom bucket creation failed:', bucketErr.message);
       }
@@ -794,19 +830,22 @@ router.post('/bigrock-tasks/:bigRockId/sync', async (req: Request, res: Response
       return res.status(400).json({ error: 'Mapped Planner plan not found' });
     }
 
-    await syncPlannerTasks(tenantId, plan.id, plan.graphPlanId);
+    const azureTenantId = await getAzureTenantId(req, res);
+    if (!azureTenantId) return;
+
+    await syncPlannerTasks(tenantId, plan.id, plan.graphPlanId, azureTenantId);
 
     const existingBRTasks = await storage.getBigRockTasksByBigRockId(bigRockId);
     for (const brt of existingBRTasks) {
       if (brt.plannerTaskId) {
         try {
-          await updatePlannerTaskFromBigRockTask(brt);
+          await updatePlannerTaskFromBigRockTask(brt, azureTenantId);
         } catch (err: any) {
           console.warn(`[Planner API] Failed to push task "${brt.title}" to Planner:`, err.message);
         }
       } else if (bigRock.plannerSyncEnabled) {
         try {
-          await createPlannerTaskFromBigRockTask(brt, bigRock.plannerPlanId, bigRock.plannerBucketId || null);
+          await createPlannerTaskFromBigRockTask(brt, bigRock.plannerPlanId, bigRock.plannerBucketId || null, azureTenantId);
         } catch (err: any) {
           console.warn(`[Planner API] Failed to create Planner task for "${brt.title}":`, err.message);
         }
@@ -814,7 +853,7 @@ router.post('/bigrock-tasks/:bigRockId/sync', async (req: Request, res: Response
     }
 
     const syncResult = await syncPlannerTasksToBigRockTasks(
-      bigRockId, tenantId, bigRock.plannerPlanId, bigRock.plannerBucketId || null
+      bigRockId, tenantId, bigRock.plannerPlanId, bigRock.plannerBucketId || null, azureTenantId
     );
 
     res.json({
@@ -847,12 +886,15 @@ router.post('/bigrock-tasks/:bigRockId/push', async (req: Request, res: Response
       return res.status(404).json({ error: 'Task not found' });
     }
 
+    const azureTenantId = await getAzureTenantId(req, res);
+    if (!azureTenantId) return;
+
     if (task.plannerTaskId) {
-      await updatePlannerTaskFromBigRockTask(task);
+      await updatePlannerTaskFromBigRockTask(task, azureTenantId);
       res.json({ success: true, action: 'updated' });
     } else {
       const plannerTask = await createPlannerTaskFromBigRockTask(
-        task, bigRock.plannerPlanId, bigRock.plannerBucketId || null
+        task, bigRock.plannerPlanId, bigRock.plannerBucketId || null, azureTenantId
       );
       res.json({ success: true, action: 'created', plannerTask });
     }
@@ -878,7 +920,9 @@ router.delete('/bigrock-tasks/:bigRockId/planner/:taskId', async (req: Request, 
     }
 
     if (task.plannerTaskId) {
-      await deletePlannerTaskForBigRockTask(task.plannerTaskId);
+      const azureTenantId = await getAzureTenantId(req, res);
+      if (!azureTenantId) return;
+      await deletePlannerTaskForBigRockTask(task.plannerTaskId, azureTenantId);
     }
 
     res.json({ success: true });

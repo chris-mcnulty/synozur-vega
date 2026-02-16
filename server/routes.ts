@@ -3296,8 +3296,12 @@ ${changelogContent}`;
         const tenants = await storage.getAllTenants();
 
         for (const tenant of tenants) {
+          if (!tenant.azureTenantId) {
+            console.log(`[PlannerSync] Skipping tenant ${tenant.name} — no Azure Tenant ID configured`);
+            continue;
+          }
           try {
-            const result = await syncAllPlannerData(tenant.id);
+            const result = await syncAllPlannerData(tenant.id, tenant.azureTenantId);
             totalPlans += result.plans.length;
             totalTasks += result.tasks.length;
             syncedTenants++;
@@ -3369,16 +3373,24 @@ ${changelogContent}`;
           continue;
         }
 
-        try {
-          await syncPlannerBuckets(bigRock.tenantId, plan.id, plan.graphPlanId);
+        const tenant = await storage.getTenantById(bigRock.tenantId);
+        if (!tenant?.azureTenantId) {
+          failed++;
+          details.push({ bigRock: bigRock.title, error: 'Tenant has no Azure Tenant ID configured' });
+          continue;
+        }
 
-          await syncPlannerTasks(bigRock.tenantId, plan.id, plan.graphPlanId);
+        try {
+          await syncPlannerBuckets(bigRock.tenantId, plan.id, plan.graphPlanId, tenant.azureTenantId);
+
+          await syncPlannerTasks(bigRock.tenantId, plan.id, plan.graphPlanId, tenant.azureTenantId);
 
           const result = await syncPlannerTasksToBigRockTasks(
             bigRock.id,
             bigRock.tenantId,
             bigRock.plannerPlanId,
-            bigRock.plannerBucketId || null
+            bigRock.plannerBucketId || null,
+            tenant.azureTenantId
           );
 
           // Step 4: Calculate and update progress

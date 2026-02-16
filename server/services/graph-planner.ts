@@ -61,12 +61,12 @@ interface GraphPlannerTask {
   assignments?: Record<string, { assignedBy: { user: { id: string } } }>;
 }
 
-async function getClient(): Promise<Client> {
-  return getPlannerGraphClient();
+async function getClient(azureTenantId: string): Promise<Client> {
+  return getPlannerGraphClient(azureTenantId);
 }
 
-export async function syncPlannerPlans(tenantId: string): Promise<PlannerPlan[]> {
-  const client = await getClient();
+export async function syncPlannerPlans(tenantId: string, azureTenantId: string): Promise<PlannerPlan[]> {
+  const client = await getClient(azureTenantId);
   
   try {
     const groupsResponse = await client.api('/groups')
@@ -113,9 +113,10 @@ export async function syncPlannerPlans(tenantId: string): Promise<PlannerPlan[]>
 export async function syncPlannerBuckets(
   tenantId: string, 
   planId: string,
-  graphPlanId: string
+  graphPlanId: string,
+  azureTenantId: string
 ): Promise<PlannerBucket[]> {
-  const client = await getClient();
+  const client = await getClient(azureTenantId);
 
   try {
     const response = await client.api(`/planner/plans/${graphPlanId}/buckets`).get();
@@ -146,13 +147,14 @@ export async function syncPlannerBuckets(
 export async function syncPlannerTasks(
   tenantId: string,
   planId: string,
-  graphPlanId: string
+  graphPlanId: string,
+  azureTenantId: string
 ): Promise<PlannerTask[]> {
-  const client = await getClient();
+  const client = await getClient(azureTenantId);
 
   try {
     try {
-      await syncPlannerBuckets(tenantId, planId, graphPlanId);
+      await syncPlannerBuckets(tenantId, planId, graphPlanId, azureTenantId);
     } catch (bucketSyncErr) {
       console.warn('[Graph Planner] Failed to pre-sync buckets before task sync:', bucketSyncErr);
     }
@@ -207,21 +209,21 @@ export async function syncPlannerTasks(
   }
 }
 
-export async function syncAllPlannerData(tenantId: string): Promise<{
+export async function syncAllPlannerData(tenantId: string, azureTenantId: string): Promise<{
   plans: PlannerPlan[];
   buckets: PlannerBucket[];
   tasks: PlannerTask[];
 }> {
-  const plans = await syncPlannerPlans(tenantId);
+  const plans = await syncPlannerPlans(tenantId, azureTenantId);
   
   const allBuckets: PlannerBucket[] = [];
   const allTasks: PlannerTask[] = [];
 
   for (const plan of plans) {
-    const buckets = await syncPlannerBuckets(tenantId, plan.id, plan.graphPlanId);
+    const buckets = await syncPlannerBuckets(tenantId, plan.id, plan.graphPlanId, azureTenantId);
     allBuckets.push(...buckets);
 
-    const tasks = await syncPlannerTasks(tenantId, plan.id, plan.graphPlanId);
+    const tasks = await syncPlannerTasks(tenantId, plan.id, plan.graphPlanId, azureTenantId);
     allTasks.push(...tasks);
   }
 
@@ -232,6 +234,7 @@ export async function createPlannerTask(
   planId: string,
   bucketId: string,
   title: string,
+  azureTenantId: string,
   dueDate?: Date
 ): Promise<PlannerTask | null> {
   const plan = await storage.getPlannerPlanById(planId);
@@ -244,7 +247,7 @@ export async function createPlannerTask(
     throw new Error('Bucket not found');
   }
 
-  const client = await getClient();
+  const client = await getClient(azureTenantId);
 
   try {
     const taskPayload: any = {
@@ -284,14 +287,15 @@ export async function createPlannerTask(
 
 export async function updatePlannerTaskProgress(
   taskId: string,
-  percentComplete: number
+  percentComplete: number,
+  azureTenantId: string
 ): Promise<PlannerTask | null> {
   const task = await storage.getPlannerTaskById(taskId);
   if (!task) {
     throw new Error('Task not found');
   }
 
-  const client = await getClient();
+  const client = await getClient(azureTenantId);
 
   try {
     const taskDetails = await client.api(`/planner/tasks/${task.graphTaskId}`).get();
@@ -347,7 +351,8 @@ export async function getPlannerIntegrationStatus(tenantId: string): Promise<{
 // ============ Email-based People Resolution (App-Only Auth) ============
 
 export async function resolveGraphUserEmail(
-  graphUserId: string
+  graphUserId: string,
+  azureTenantId: string
 ): Promise<{ email: string; displayName: string } | null> {
   const cached = graphUserCache.get(graphUserId);
   if (cached && cached.expiresAt > Date.now()) {
@@ -355,7 +360,7 @@ export async function resolveGraphUserEmail(
   }
 
   try {
-    const client = await getClient();
+    const client = await getClient(azureTenantId);
     const user = await client.api(`/users/${graphUserId}`)
       .select('mail,userPrincipalName,displayName')
       .get();
@@ -375,7 +380,8 @@ export async function resolveGraphUserEmail(
 }
 
 export async function resolveEmailToGraphUserId(
-  email: string
+  email: string,
+  azureTenantId: string
 ): Promise<string | null> {
   const normalizedEmail = email.toLowerCase().trim();
   
@@ -385,7 +391,7 @@ export async function resolveEmailToGraphUserId(
   }
 
   try {
-    const client = await getClient();
+    const client = await getClient(azureTenantId);
     const response = await client.api('/users')
       .filter(`mail eq '${normalizedEmail}' or userPrincipalName eq '${normalizedEmail}'`)
       .select('id,mail,userPrincipalName')
@@ -407,14 +413,15 @@ export async function resolveEmailToGraphUserId(
 }
 
 export async function resolveGraphAssignmentsToEmails(
-  assignments: Record<string, any> | null | undefined
+  assignments: Record<string, any> | null | undefined,
+  azureTenantId: string
 ): Promise<Array<{ graphUserId: string; email: string; displayName: string }>> {
   if (!assignments || Object.keys(assignments).length === 0) return [];
 
   const results: Array<{ graphUserId: string; email: string; displayName: string }> = [];
 
   for (const graphUserId of Object.keys(assignments)) {
-    const resolved = await resolveGraphUserEmail(graphUserId);
+    const resolved = await resolveGraphUserEmail(graphUserId, azureTenantId);
     if (resolved) {
       results.push({ graphUserId, ...resolved });
     }
@@ -428,14 +435,15 @@ export async function resolveGraphAssignmentsToEmails(
 export async function createPlannerTaskFromBigRockTask(
   bigRockTask: BigRockTask,
   planId: string,
-  bucketId: string | null
+  bucketId: string | null,
+  azureTenantId: string
 ): Promise<PlannerTask | null> {
   const plan = await storage.getPlannerPlanById(planId);
   if (!plan) {
     throw new Error('Mapped Planner plan not found');
   }
 
-  const client = await getClient();
+  const client = await getClient(azureTenantId);
 
   try {
     const taskPayload: any = {
@@ -455,7 +463,7 @@ export async function createPlannerTaskFromBigRockTask(
       const planBuckets = await storage.getPlannerBucketsByPlanId(planId);
       if (planBuckets.length === 0) {
         try {
-          const freshBuckets = await syncPlannerBuckets(plan.tenantId, planId, plan.graphPlanId);
+          const freshBuckets = await syncPlannerBuckets(plan.tenantId, planId, plan.graphPlanId, azureTenantId);
           if (freshBuckets.length > 0) {
             taskPayload.bucketId = freshBuckets[0].graphBucketId;
           }
@@ -477,7 +485,7 @@ export async function createPlannerTaskFromBigRockTask(
     }
 
     if (bigRockTask.assigneeEmail) {
-      const graphUserId = await resolveEmailToGraphUserId(bigRockTask.assigneeEmail);
+      const graphUserId = await resolveEmailToGraphUserId(bigRockTask.assigneeEmail, azureTenantId);
       if (graphUserId) {
         taskPayload.assignments = {
           [graphUserId]: {
@@ -522,7 +530,8 @@ export async function createPlannerTaskFromBigRockTask(
 }
 
 export async function updatePlannerTaskFromBigRockTask(
-  bigRockTask: BigRockTask
+  bigRockTask: BigRockTask,
+  azureTenantId: string
 ): Promise<void> {
   if (!bigRockTask.plannerTaskId) return;
 
@@ -530,7 +539,7 @@ export async function updatePlannerTaskFromBigRockTask(
   if (!plannerTask) return;
 
   try {
-    const client = await getClient();
+    const client = await getClient(azureTenantId);
 
     const taskDetails = await client.api(`/planner/tasks/${plannerTask.graphTaskId}`).get();
     const etag = taskDetails['@odata.etag'];
@@ -545,7 +554,7 @@ export async function updatePlannerTaskFromBigRockTask(
     }
 
     if (bigRockTask.assigneeEmail) {
-      const graphUserId = await resolveEmailToGraphUserId(bigRockTask.assigneeEmail);
+      const graphUserId = await resolveEmailToGraphUserId(bigRockTask.assigneeEmail, azureTenantId);
       if (graphUserId) {
         const existingAssignments = taskDetails.assignments || {};
         if (!existingAssignments[graphUserId]) {
@@ -579,13 +588,14 @@ export async function updatePlannerTaskFromBigRockTask(
 }
 
 export async function deletePlannerTaskForBigRockTask(
-  plannerTaskId: string
+  plannerTaskId: string,
+  azureTenantId: string
 ): Promise<void> {
   const plannerTask = await storage.getPlannerTaskById(plannerTaskId);
   if (!plannerTask) return;
 
   try {
-    const client = await getClient();
+    const client = await getClient(azureTenantId);
 
     const taskDetails = await client.api(`/planner/tasks/${plannerTask.graphTaskId}`).get();
     const etag = taskDetails['@odata.etag'];
@@ -605,7 +615,8 @@ export async function syncPlannerTasksToBigRockTasks(
   bigRockId: string,
   tenantId: string,
   planId: string,
-  bucketId: string | null
+  bucketId: string | null,
+  azureTenantId: string
 ): Promise<{ created: number; updated: number; total: number }> {
   let plannerTasks: PlannerTask[];
   if (bucketId) {
@@ -631,7 +642,7 @@ export async function syncPlannerTasksToBigRockTasks(
 
     let assigneeEmail: string | null = null;
     if (pt.assignments && Object.keys(pt.assignments).length > 0) {
-      const resolved = await resolveGraphAssignmentsToEmails(pt.assignments);
+      const resolved = await resolveGraphAssignmentsToEmails(pt.assignments, azureTenantId);
       if (resolved.length > 0) {
         assigneeEmail = resolved[0].email;
       }
@@ -704,9 +715,10 @@ export async function calculatePlannerProgress(
 // ============ Create Planner Plan in Teams/Channels (App-Only) ============
 
 export async function getTeamsForUser(
-  tenantId: string
+  tenantId: string,
+  azureTenantId: string
 ): Promise<Array<{ id: string; displayName: string; description?: string }>> {
-  const client = await getClient();
+  const client = await getClient(azureTenantId);
   
   try {
     const response = await client.api('/groups')
@@ -724,9 +736,10 @@ export async function getTeamsForUser(
 }
 
 export async function getChannelsForTeam(
-  teamId: string
+  teamId: string,
+  azureTenantId: string
 ): Promise<Array<{ id: string; displayName: string; membershipType?: string }>> {
-  const client = await getClient();
+  const client = await getClient(azureTenantId);
 
   try {
     const response = await client.api(`/teams/${teamId}/channels`)
@@ -746,9 +759,10 @@ export async function getChannelsForTeam(
 export async function createPlanInTeam(
   tenantId: string,
   teamId: string,
-  planTitle: string
+  planTitle: string,
+  azureTenantId: string
 ): Promise<PlannerPlan> {
-  const client = await getClient();
+  const client = await getClient(azureTenantId);
 
   const response = await client.api('/planner/plans').post({
     owner: teamId,
@@ -772,9 +786,10 @@ export async function addPlannerTabToChannel(
   teamId: string,
   channelId: string,
   planId: string,
-  planTitle: string
+  planTitle: string,
+  azureTenantId: string
 ): Promise<void> {
-  const client = await getClient();
+  const client = await getClient(azureTenantId);
 
   try {
     const entityId = `tt.c_${channelId}_p_${planId}_h_${Date.now()}`;
@@ -801,14 +816,15 @@ export async function addPlannerTabToChannel(
 export async function createBucketInPlan(
   tenantId: string,
   planId: string,
-  bucketName: string
+  bucketName: string,
+  azureTenantId: string
 ): Promise<PlannerBucket> {
   const plan = await storage.getPlannerPlanById(planId);
   if (!plan) {
     throw new Error('Plan not found');
   }
 
-  const client = await getClient();
+  const client = await getClient(azureTenantId);
 
   const response = await client.api('/planner/buckets')
     .header('Prefer', 'ExchangeNotifications.Suppress')

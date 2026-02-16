@@ -60,30 +60,42 @@ async function getClientCredentialsToken(credentials: PlannerCredentials): Promi
   return data.access_token;
 }
 
-export function getSystemPlannerCredentials(): PlannerCredentials | null {
-  const tenantId = process.env.PLANNER_TENANT_ID || process.env.AZURE_TENANT_ID;
-  const clientId = process.env.PLANNER_CLIENT_ID || process.env.AZURE_CLIENT_ID;
-  const clientSecret = process.env.PLANNER_CLIENT_SECRET || process.env.AZURE_CLIENT_SECRET;
+export function getAppCredentials(): { clientId: string; clientSecret: string } | null {
+  const clientId = process.env.AZURE_CLIENT_ID;
+  const clientSecret = process.env.AZURE_CLIENT_SECRET;
 
-  if (!tenantId || !clientId || !clientSecret) {
+  if (!clientId || !clientSecret) {
     return null;
   }
 
-  const invalidTenantIds = ['common', 'organizations', 'consumers'];
-  if (invalidTenantIds.includes(tenantId.toLowerCase())) {
-    console.warn('[PLANNER-AUTH] Tenant ID cannot be "common" for client_credentials flow');
-    return null;
-  }
-
-  return { tenantId, clientId, clientSecret };
+  return { clientId, clientSecret };
 }
 
-export async function getPlannerGraphClient(credentials?: PlannerCredentials): Promise<Client> {
-  const creds = credentials || getSystemPlannerCredentials();
+export function getPlannerCredentialsForTenant(azureTenantId: string): PlannerCredentials | null {
+  if (!azureTenantId) return null;
+
+  const invalidTenantIds = ['common', 'organizations', 'consumers'];
+  if (invalidTenantIds.includes(azureTenantId.toLowerCase())) {
+    console.warn('[PLANNER-AUTH] Tenant ID cannot be "common" for client_credentials flow — need actual Azure tenant GUID');
+    return null;
+  }
+
+  const appCreds = getAppCredentials();
+  if (!appCreds) return null;
+
+  return {
+    tenantId: azureTenantId,
+    clientId: appCreds.clientId,
+    clientSecret: appCreds.clientSecret,
+  };
+}
+
+export async function getPlannerGraphClient(azureTenantId: string): Promise<Client> {
+  const creds = getPlannerCredentialsForTenant(azureTenantId);
 
   if (!creds) {
     throw new Error(
-      'Planner integration not configured. Set PLANNER_TENANT_ID, PLANNER_CLIENT_ID, PLANNER_CLIENT_SECRET (or AZURE_TENANT_ID, AZURE_CLIENT_ID, AZURE_CLIENT_SECRET) environment variables.'
+      `Planner integration not configured for Azure tenant "${azureTenantId}". Ensure AZURE_CLIENT_ID and AZURE_CLIENT_SECRET are set, and the Vega tenant has an Azure Tenant ID configured.`
     );
   }
 
@@ -97,13 +109,13 @@ export async function getPlannerGraphClient(credentials?: PlannerCredentials): P
 }
 
 export function isPlannerConfigured(): boolean {
-  return getSystemPlannerCredentials() !== null;
+  return getAppCredentials() !== null;
 }
 
-export async function testPlannerConnection(): Promise<{ success: boolean; message?: string; error?: string; permissionIssue?: string }> {
+export async function testPlannerConnection(azureTenantId: string): Promise<{ success: boolean; message?: string; error?: string; permissionIssue?: string }> {
   try {
-    console.log('[PLANNER-AUTH] Testing connection...');
-    const client = await getPlannerGraphClient();
+    console.log('[PLANNER-AUTH] Testing connection for Azure tenant:', azureTenantId);
+    const client = await getPlannerGraphClient(azureTenantId);
 
     try {
       const groupsResult = await client.api('/groups').top(1).select('id,displayName').get();
@@ -115,7 +127,7 @@ export async function testPlannerConnection(): Promise<{ success: boolean; messa
         return {
           success: false,
           error: 'Group.Read.All permission not configured or not consented',
-          permissionIssue: 'The Azure app needs "Group.Read.All" Application permission with admin consent.'
+          permissionIssue: 'The Azure app needs "Group.Read.All" Application permission with admin consent in this tenant.'
         };
       }
       throw groupsError;
