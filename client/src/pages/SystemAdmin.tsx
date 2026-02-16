@@ -2113,60 +2113,12 @@ export default function SystemAdmin() {
 
 function AnnouncementManager() {
   const { toast } = useToast();
-  const [enableBanner, setEnableBanner] = useState(false);
-  const [bannerContent, setBannerContent] = useState("");
-  const [linkUrl, setLinkUrl] = useState("");
-  const [linkText, setLinkText] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
+  const [editingBanner, setEditingBanner] = useState<SystemBanner | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   const { data: banners, isLoading: bannersLoading } = useQuery<SystemBanner[]>({
     queryKey: ["/api/admin/banners"],
   });
-
-  const activeBanner = banners?.[0];
-
-  useEffect(() => {
-    if (activeBanner) {
-      setEnableBanner(activeBanner.status === 'on');
-      setBannerContent(activeBanner.content || "");
-      setLinkUrl(activeBanner.linkUrl || "");
-      setLinkText(activeBanner.linkText || "");
-    }
-  }, [activeBanner]);
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      const payload = {
-        content: bannerContent,
-        linkUrl: linkUrl || null,
-        linkText: linkText || null,
-        status: enableBanner ? 'on' : 'off',
-      };
-
-      if (activeBanner) {
-        await apiRequest("PATCH", `/api/admin/banners/${activeBanner.id}`, payload);
-      } else {
-        await apiRequest("POST", "/api/admin/banners", payload);
-      }
-
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/banners"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/banners/active"] });
-      
-      toast({
-        title: "Announcement saved",
-        description: "The announcement has been updated successfully.",
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save announcement. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSaving(false);
-    }
-  };
 
   if (bannersLoading) {
     return (
@@ -2177,104 +2129,337 @@ function AnnouncementManager() {
   }
 
   return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Megaphone className="h-5 w-5" />
+                System Announcements
+              </CardTitle>
+              <CardDescription>
+                Display announcement banners across the platform for all logged-in users. Banners appear at the top of every page and can be dismissed per session.
+              </CardDescription>
+            </div>
+            <Button
+              onClick={() => { setIsCreating(true); setEditingBanner(null); }}
+              data-testid="button-create-banner"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Banner
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {(!banners || banners.length === 0) && !isCreating ? (
+            <div className="text-center py-8 text-muted-foreground">
+              <Megaphone className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p>No announcements yet. Create one to alert users across all tenants.</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {banners?.map((banner) => (
+                <BannerListItem
+                  key={banner.id}
+                  banner={banner}
+                  onEdit={() => { setEditingBanner(banner); setIsCreating(false); }}
+                />
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {(isCreating || editingBanner) && (
+        <BannerEditor
+          banner={editingBanner}
+          onClose={() => { setEditingBanner(null); setIsCreating(false); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function BannerListItem({ banner, onEdit }: { banner: SystemBanner; onEdit: () => void }) {
+  const { toast } = useToast();
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const statusLabel = banner.status === 'on' ? 'Active' : banner.status === 'scheduled' ? 'Scheduled' : 'Off';
+  const statusColor = banner.status === 'on'
+    ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400'
+    : banner.status === 'scheduled'
+    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+    : 'bg-muted text-muted-foreground';
+
+  const now = new Date();
+  const isWithinSchedule = banner.status === 'scheduled' &&
+    (!banner.scheduledStart || now >= new Date(banner.scheduledStart)) &&
+    (!banner.scheduledEnd || now <= new Date(banner.scheduledEnd));
+
+  const handleDelete = async () => {
+    if (!confirm("Are you sure you want to delete this banner?")) return;
+    setIsDeleting(true);
+    try {
+      await apiRequest("DELETE", `/api/admin/banners/${banner.id}`);
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/banners"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/banners/active"] });
+      toast({ title: "Banner deleted" });
+    } catch {
+      toast({ title: "Error", description: "Failed to delete banner.", variant: "destructive" });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleToggle = async () => {
+    const newStatus = banner.status === 'on' ? 'off' : 'on';
+    try {
+      await apiRequest("PATCH", `/api/admin/banners/${banner.id}`, { status: newStatus });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/banners"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/banners/active"] });
+      toast({ title: newStatus === 'on' ? "Banner activated" : "Banner deactivated" });
+    } catch {
+      toast({ title: "Error", description: "Failed to update banner.", variant: "destructive" });
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-between gap-4 p-4 border rounded-md" data-testid={`banner-item-${banner.id}`}>
+      <div className="flex-1 min-w-0 space-y-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${statusColor}`}>
+            {statusLabel}
+          </span>
+          {isWithinSchedule && (
+            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400">
+              Currently Showing
+            </span>
+          )}
+          {banner.scheduledStart && (
+            <span className="text-xs text-muted-foreground">
+              From: {new Date(banner.scheduledStart).toLocaleDateString()}
+            </span>
+          )}
+          {banner.scheduledEnd && (
+            <span className="text-xs text-muted-foreground">
+              Until: {new Date(banner.scheduledEnd).toLocaleDateString()}
+            </span>
+          )}
+        </div>
+        <p className="text-sm truncate">{banner.content}</p>
+        <div
+          className="h-2 w-16 rounded"
+          style={{ backgroundColor: banner.backgroundColor || '#0EA5E9' }}
+          title={`Color: ${banner.backgroundColor || '#0EA5E9'}`}
+        />
+      </div>
+      <div className="flex items-center gap-1 flex-shrink-0">
+        {banner.status !== 'scheduled' && (
+          <Button size="icon" variant="ghost" onClick={handleToggle} data-testid={`button-toggle-banner-${banner.id}`}>
+            {banner.status === 'on' ? <Eye className="h-4 w-4" /> : <Eye className="h-4 w-4 opacity-40" />}
+          </Button>
+        )}
+        <Button size="icon" variant="ghost" onClick={onEdit} data-testid={`button-edit-banner-${banner.id}`}>
+          <Pencil className="h-4 w-4" />
+        </Button>
+        <Button size="icon" variant="ghost" onClick={handleDelete} disabled={isDeleting} data-testid={`button-delete-banner-${banner.id}`}>
+          <Trash2 className="h-4 w-4 text-destructive" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+const BANNER_COLORS = [
+  { label: "Blue (Info)", bg: "#0EA5E9", text: "#FFFFFF" },
+  { label: "Purple (Vega)", bg: "#810FFB", text: "#FFFFFF" },
+  { label: "Amber (Warning)", bg: "#F59E0B", text: "#000000" },
+  { label: "Red (Critical)", bg: "#EF4444", text: "#FFFFFF" },
+  { label: "Green (Success)", bg: "#22C55E", text: "#FFFFFF" },
+  { label: "Slate (Neutral)", bg: "#475569", text: "#FFFFFF" },
+];
+
+function BannerEditor({ banner, onClose }: { banner: SystemBanner | null; onClose: () => void }) {
+  const { toast } = useToast();
+  const [content, setContent] = useState(banner?.content || "");
+  const [linkUrl, setLinkUrl] = useState(banner?.linkUrl || "");
+  const [linkText, setLinkText] = useState(banner?.linkText || "");
+  const [status, setStatus] = useState<string>(banner?.status || "on");
+  const [backgroundColor, setBackgroundColor] = useState(banner?.backgroundColor || "#0EA5E9");
+  const [textColor, setTextColor] = useState(banner?.textColor || "#FFFFFF");
+  const [scheduledStart, setScheduledStart] = useState(
+    banner?.scheduledStart ? new Date(banner.scheduledStart).toISOString().slice(0, 16) : ""
+  );
+  const [scheduledEnd, setScheduledEnd] = useState(
+    banner?.scheduledEnd ? new Date(banner.scheduledEnd).toISOString().slice(0, 16) : ""
+  );
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSave = async () => {
+    if (!content.trim()) return;
+    setIsSaving(true);
+    try {
+      const payload: Record<string, unknown> = {
+        content,
+        linkUrl: linkUrl || null,
+        linkText: linkText || null,
+        status,
+        backgroundColor,
+        textColor,
+        scheduledStart: status === 'scheduled' && scheduledStart ? new Date(scheduledStart).toISOString() : null,
+        scheduledEnd: status === 'scheduled' && scheduledEnd ? new Date(scheduledEnd).toISOString() : null,
+      };
+
+      if (banner) {
+        await apiRequest("PATCH", `/api/admin/banners/${banner.id}`, payload);
+      } else {
+        await apiRequest("POST", "/api/admin/banners", payload);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/banners"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/banners/active"] });
+      toast({ title: banner ? "Banner updated" : "Banner created" });
+      onClose();
+    } catch {
+      toast({ title: "Error", description: "Failed to save banner.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Megaphone className="h-5 w-5" />
-          System Announcement
+          <Pencil className="h-5 w-5" />
+          {banner ? "Edit Banner" : "Create Banner"}
         </CardTitle>
-        <CardDescription>
-          Display an announcement banner across the landing page and dashboard for all users
-        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <Label htmlFor="enable-banner" className="text-base font-medium">Enable Announcement</Label>
-            <p className="text-sm text-muted-foreground">Show the announcement on the main page</p>
-          </div>
-          <Switch
-            id="enable-banner"
-            checked={enableBanner}
-            onCheckedChange={setEnableBanner}
-            data-testid="switch-enable-banner"
-          />
+        <div className="space-y-2">
+          <Label htmlFor="banner-status">Status</Label>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger data-testid="select-banner-status">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="on">Active (show immediately)</SelectItem>
+              <SelectItem value="scheduled">Scheduled (show within date range)</SelectItem>
+              <SelectItem value="off">Off (hidden)</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
+        {status === 'scheduled' && (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="scheduled-start">Start Date & Time</Label>
+              <Input
+                id="scheduled-start"
+                type="datetime-local"
+                value={scheduledStart}
+                onChange={(e) => setScheduledStart(e.target.value)}
+                data-testid="input-scheduled-start"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="scheduled-end">End Date & Time</Label>
+              <Input
+                id="scheduled-end"
+                type="datetime-local"
+                value={scheduledEnd}
+                onChange={(e) => setScheduledEnd(e.target.value)}
+                data-testid="input-scheduled-end"
+              />
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
-          <Label htmlFor="banner-content">Announcement Text</Label>
+          <Label htmlFor="banner-content-edit">Announcement Text</Label>
           <Textarea
-            id="banner-content"
-            placeholder="Happy Holidays! Have a wonderful holiday season, and see you in 2026."
-            value={bannerContent}
-            onChange={(e) => setBannerContent(e.target.value)}
-            className="min-h-[100px]"
+            id="banner-content-edit"
+            placeholder="Important: Your organization needs to grant admin consent for Microsoft Planner integration..."
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            className="min-h-[80px]"
             data-testid="input-banner-content"
           />
-          <p className="text-sm text-muted-foreground">
-            This message will be displayed prominently on the main page
-          </p>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="link-url">Link URL (optional)</Label>
+            <Label htmlFor="banner-link-url">Link URL (optional)</Label>
             <Input
-              id="link-url"
-              placeholder="https://example.com/announcement"
+              id="banner-link-url"
+              placeholder="https://docs.example.com/setup"
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
-              data-testid="input-link-url"
+              data-testid="input-banner-link-url"
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="link-text">Link Text (optional)</Label>
+            <Label htmlFor="banner-link-text">Link Text (optional)</Label>
             <Input
-              id="link-text"
+              id="banner-link-text"
               placeholder="Learn more"
               value={linkText}
               onChange={(e) => setLinkText(e.target.value)}
-              data-testid="input-link-text"
+              data-testid="input-banner-link-text"
             />
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Banner Color</Label>
+          <div className="flex flex-wrap gap-2">
+            {BANNER_COLORS.map((color) => (
+              <button
+                key={color.bg}
+                onClick={() => { setBackgroundColor(color.bg); setTextColor(color.text); }}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-medium border transition-all ${
+                  backgroundColor === color.bg ? 'ring-2 ring-primary ring-offset-2' : ''
+                }`}
+                style={{ backgroundColor: color.bg, color: color.text }}
+                data-testid={`button-color-${color.label.toLowerCase().replace(/[^a-z]/g, '-')}`}
+              >
+                {color.label}
+              </button>
+            ))}
           </div>
         </div>
 
         <div className="space-y-2">
           <Label>Preview</Label>
-          <div className="rounded-lg border p-4 bg-muted/50">
-            <div className="flex items-start gap-2 text-primary">
-              <Info className="h-5 w-5 mt-0.5 flex-shrink-0" />
-              <p>
-                <span className="font-semibold">Announcement:</span>{" "}
-                {bannerContent || "Your announcement text will appear here..."}
-                {linkUrl && linkText && (
-                  <a href={linkUrl} target="_blank" rel="noopener noreferrer" className="ml-1 underline inline-flex items-center gap-1">
-                    {linkText}
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                )}
-              </p>
-            </div>
+          <div
+            className="relative flex items-center justify-center gap-2 px-4 py-2 text-sm rounded-md"
+            style={{ backgroundColor, color: textColor }}
+          >
+            <span>{content || "Your announcement text will appear here..."}</span>
+            {linkUrl && linkText && (
+              <span className="inline-flex items-center gap-1 underline underline-offset-2 font-medium">
+                {linkText}
+                <ExternalLink className="h-3 w-3" />
+              </span>
+            )}
+            <X className="h-4 w-4 opacity-60 ml-4 flex-shrink-0" />
           </div>
         </div>
 
-        <div className="flex items-start gap-2 text-sm text-muted-foreground bg-muted/30 rounded-lg p-3">
-          <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
-          <p>
-            The system announcement appears at the top of the landing page and dashboard for all users. 
-            Use it for important updates, maintenance notices, or special events.
-          </p>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button
+            onClick={handleSave}
+            disabled={isSaving || !content.trim()}
+            data-testid="button-save-banner"
+          >
+            <Save className="h-4 w-4 mr-2" />
+            {isSaving ? "Saving..." : (banner ? "Update Banner" : "Create Banner")}
+          </Button>
+          <Button variant="outline" onClick={onClose} data-testid="button-cancel-banner">
+            Cancel
+          </Button>
         </div>
-
-        <Button 
-          onClick={handleSave} 
-          disabled={isSaving || !bannerContent.trim()}
-          className="w-full sm:w-auto"
-          data-testid="button-save-announcement"
-        >
-          <Save className="h-4 w-4 mr-2" />
-          {isSaving ? "Saving..." : "Save Announcement"}
-        </Button>
       </CardContent>
     </Card>
   );

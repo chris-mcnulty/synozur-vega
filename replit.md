@@ -57,3 +57,15 @@ Preferred communication style: Simple, everyday language.
 - **Changelog Page** (`/changelog`): Version-by-version release notes.
 - **About Page** (`/about`): Links to all three (Changelog, Roadmap, Backlog) in the "Updates, Roadmap & Backlog" section.
 - **Key distinction**: Roadmap = committed work. Backlog = everything proposed or suggested. When features move from backlog to active development, update both pages.
+
+## Related Projects
+
+- **Photo Pairs App**: https://github.com/chris-mcnulty/Cascadia-photo-pairs (Replit: https://replit.com/@chrismcnulty/Photo-Pairs) — Christopher McNulty's photo voting/pairing application built on Replit. Referenced for UX patterns including alert banner design.
+
+## Announcement Banner System
+
+- **Schema**: `system_banners` table in `shared/schema.ts` — supports `off`/`on`/`scheduled` status, `scheduledStart`/`scheduledEnd` for time-bound display, custom `backgroundColor`/`textColor`, optional link with `linkUrl`/`linkText`.
+- **Display**: `AnnouncementBanner` component rendered globally in `ModuleLayout` (App.tsx) above the header for all authenticated pages. Not shown on the public Landing page.
+- **Dismissal**: Uses `sessionStorage` keyed by banner ID. Once dismissed, stays hidden for the rest of the browser session. A new banner with a different ID will show fresh.
+- **Admin**: Managed by platform admins (Vega Admins) in the System Admin panel under "System Announcements". Supports creating multiple banners, scheduling with date/time pickers, color presets, and live preview.
+- **API**: `GET /api/banners/active` returns the currently active banner (respects scheduling logic). CRUD via `/api/admin/banners` (platform admin only).

@@ -11,6 +11,7 @@ import { TenantSwitcher } from "@/components/TenantSwitcher";
 import { AIChatPanel } from "@/components/AIChatPanel";
 import { HelpChatPanel } from "@/components/HelpChatPanel";
 import { WhatsNewModal } from "@/components/WhatsNewModal";
+import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { ConsultingModeToggle } from "@/components/ConsultingModeToggle";
 import { SynozurLogo } from "@/components/SynozurLogo";
 import { TenantProvider } from "@/contexts/TenantContext";
@@ -283,6 +284,7 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
     <div className="flex h-screen w-full bg-background">
       <AppSidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
+        <AnnouncementBanner />
         <header className="flex items-center justify-between p-4 border-b gap-4">
           <div className="flex items-center gap-4">
             <SidebarTrigger data-testid="button-sidebar-toggle" />

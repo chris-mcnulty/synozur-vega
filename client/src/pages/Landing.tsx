@@ -1,5 +1,4 @@
 import { LandingHero } from "@/components/LandingHero";
-import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -109,7 +108,6 @@ export default function Landing() {
             </div>
           </div>
         </nav>
-        <AnnouncementBanner />
       </div>
       {/* Main Content - account for header + potential banner */}
       <div className="pt-16">

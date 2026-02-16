@@ -40,7 +40,6 @@ import { useTimePeriod } from "@/contexts/TimePeriodContext";
 import type { Foundation, Strategy, Objective, BigRock, Meeting, Team } from "@shared/schema";
 import { ValueBadges } from "@/components/ValueBadges";
 import { ExpandableText } from "@/components/ExpandableText";
-import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { CompanyOSExportDialog } from "@/components/CompanyOSExportDialog";
 import { StrategicAlignmentSankey } from "@/components/StrategicAlignmentSankey";
 import { WelcomeDialog } from "@/components/WelcomeDialog";
@@ -196,7 +195,6 @@ export default function Dashboard() {
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       <WelcomeDialog isNewUser={isNewUser} />
-      <AnnouncementBanner />
       {/* Header with Quarter Selector */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
