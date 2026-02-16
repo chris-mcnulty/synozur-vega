@@ -35,7 +35,6 @@ import {
 import { Link } from "wouter";
 import { useTenant } from "@/contexts/TenantContext";
 import { useVocabulary } from "@/contexts/VocabularyContext";
-import { getCurrentQuarter, generateQuarters } from "@/lib/fiscal-utils";
 import { useTimePeriod } from "@/contexts/TimePeriodContext";
 import type { Foundation, Strategy, Objective, BigRock, Meeting, Team } from "@shared/schema";
 import { ValueBadges } from "@/components/ValueBadges";
@@ -45,52 +44,24 @@ import { StrategicAlignmentSankey } from "@/components/StrategicAlignmentSankey"
 import { WelcomeDialog } from "@/components/WelcomeDialog";
 import { FileDown, Flag } from "lucide-react";
 
-type Quarter = {
-  id: string;
-  label: string;
-  year: number;
-  quarter: number;
-  startDate: string;
-  endDate: string;
-};
-
-const fiscalYears = [
-  { id: "fy2026", label: "FY 2026 (Jan - Dec)", startMonth: 1 },
-  { id: "fy2025", label: "FY 2025 (Jan - Dec)", startMonth: 1 },
-  { id: "fy2024", label: "FY 2024 (Jan - Dec)", startMonth: 1 },
-];
-
-// Generate quarters for current, next, and previous year
-const currentYear = new Date().getFullYear();
-const quarters: Quarter[] = [
-  ...generateQuarters(currentYear + 1),
-  ...generateQuarters(currentYear),
-  ...generateQuarters(currentYear - 1),
-];
-
-// localStorage keys for persisting user preferences
 const STORAGE_KEYS = {
   TEAM_FILTER: 'vega-dashboard-team-filter',
-  QUARTER: 'vega-dashboard-quarter',
 };
 
 export default function Dashboard() {
   const { currentTenant, isLoading: tenantLoading } = useTenant();
   const { t } = useVocabulary();
   
-  const { selectedQuarterId: selectedQuarter, setSelectedQuarterId: setSelectedQuarter, selectedQuarter: currentQuarterObj, year: currentYearNum } = useTimePeriod();
+  const { selectedQuarter: currentQuarter } = useTimePeriod();
   
   const savedTeamFilter = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEYS.TEAM_FILTER) : null;
   
-  const [selectedFiscalYear, setSelectedFiscalYear] = useState(`fy${currentYearNum}`);
   const [identityOpen, setIdentityOpen] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState<string>(savedTeamFilter || 'all');
   
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.TEAM_FILTER, selectedTeam);
   }, [selectedTeam]);
-
-  const currentQuarter = quarters.find((q) => q.id === selectedQuarter);
 
   // Fetch real data from APIs - use optional chaining for tenant id
   const { data: foundations, isLoading: loadingFoundations } = useQuery<Foundation>({
@@ -223,30 +194,6 @@ export default function Dashboard() {
               {teams?.map((team) => (
                 <SelectItem key={team.id} value={team.id}>
                   {team.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={selectedFiscalYear} onValueChange={setSelectedFiscalYear}>
-            <SelectTrigger className="w-48" data-testid="select-fiscal-year">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {fiscalYears.map((fy) => (
-                <SelectItem key={fy.id} value={fy.id}>
-                  {fy.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
-            <SelectTrigger className="w-40" data-testid="select-quarter">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {quarters.map((q) => (
-                <SelectItem key={q.id} value={q.id}>
-                  {q.label}
                 </SelectItem>
               ))}
             </SelectContent>

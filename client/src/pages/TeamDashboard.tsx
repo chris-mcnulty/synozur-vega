@@ -51,7 +51,7 @@ import { useVocabulary } from "@/contexts/VocabularyContext";
 import { useTimePeriod } from "@/contexts/TimePeriodContext";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { getCurrentQuarter, generateQuarters, getQuarterElapsedPercent, getYearElapsedPercent, getRelativeProgressColor, assessRelativeProgress } from "@/lib/fiscal-utils";
+import { getQuarterElapsedPercent, getYearElapsedPercent, getRelativeProgressColor, assessRelativeProgress } from "@/lib/fiscal-utils";
 import { format } from "date-fns";
 import type { Objective, KeyResult, BigRock, Strategy, Team, Foundation, CheckIn } from "@shared/schema";
 
@@ -104,29 +104,9 @@ class TeamDashboardErrorBoundary extends Component<
   }
 }
 
-type Quarter = {
-  id: string;
-  label: string;
-  year: number;
-  quarter: number;
-  startDate: string;
-  endDate: string;
-};
-
-const currentYear = new Date().getFullYear();
-const quarters: Quarter[] = [
-  { id: `annual-${currentYear}`, label: `Annual ${currentYear}`, year: currentYear, quarter: 0, startDate: "Jan 1", endDate: "Dec 31" },
-  ...generateQuarters(currentYear),
-  { id: `annual-${currentYear - 1}`, label: `Annual ${currentYear - 1}`, year: currentYear - 1, quarter: 0, startDate: "Jan 1", endDate: "Dec 31" },
-  ...generateQuarters(currentYear - 1),
-  { id: `annual-${currentYear - 2}`, label: `Annual ${currentYear - 2}`, year: currentYear - 2, quarter: 0, startDate: "Jan 1", endDate: "Dec 31" },
-  ...generateQuarters(currentYear - 2),
-];
-
 // Storage keys are scoped by tenant to prevent cross-tenant team ID conflicts
 const getStorageKeys = (tenantId: string) => ({
   TEAM: `vega-team-dashboard-team-${tenantId}`,
-  QUARTER: 'vega-team-dashboard-quarter', // Quarter can be shared across tenants
 });
 
 function getStatusIcon(status: string) {
@@ -197,7 +177,7 @@ function TeamDashboardContent() {
   // KR filter state - defaults to showing incomplete
   const [krFilter, setKrFilter] = useState<'all' | 'incomplete' | 'at_risk'>('incomplete');
   
-  const { selectedQuarterId: selectedQuarter, setSelectedQuarterId: setSelectedQuarter } = useTimePeriod();
+  const { selectedQuarter: currentQuarter } = useTimePeriod();
   
   const storageKeys = useMemo(() => {
     if (!currentTenant?.id) return null;
@@ -224,8 +204,6 @@ function TeamDashboardContent() {
       localStorage.setItem(storageKeys.TEAM, selectedTeamId);
     }
   }, [selectedTeamId, storageKeys]);
-
-  const currentQuarter = quarters.find((q) => q.id === selectedQuarter);
 
   const { data: teams, isLoading: loadingTeams } = useQuery<Team[]>({
     queryKey: ["/api/okr/teams", currentTenant?.id],
@@ -572,18 +550,6 @@ Status: ${checkInForm.newStatus}`;
               {(userTeams.length > 0 ? userTeams : teams)?.map((team) => (
                 <SelectItem key={team.id} value={team.id}>
                   {team.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
-            <SelectTrigger className="w-40" data-testid="select-quarter">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {quarters.map((q) => (
-                <SelectItem key={q.id} value={q.id}>
-                  {q.label}
                 </SelectItem>
               ))}
             </SelectContent>

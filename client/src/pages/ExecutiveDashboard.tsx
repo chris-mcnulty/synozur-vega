@@ -1,16 +1,9 @@
-import { useState, useMemo, useCallback } from "react";
+import { useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   HoverCard,
   HoverCardContent,
@@ -44,7 +37,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { useTenant } from "@/contexts/TenantContext";
 import { useVocabulary } from "@/contexts/VocabularyContext";
-import { getCurrentQuarter, generateQuarters } from "@/lib/fiscal-utils";
+import { useTimePeriod } from "@/contexts/TimePeriodContext";
 import type { Objective, KeyResult, Team, CheckIn, BigRock } from "@shared/schema";
 import { 
   BarChart, 
@@ -62,23 +55,6 @@ import {
   CartesianGrid,
 } from "recharts";
 import { cn } from "@/lib/utils";
-
-type Quarter = {
-  id: string;
-  label: string;
-  year: number;
-  quarter: number;
-};
-
-const currentYear = new Date().getFullYear();
-const quarters: Quarter[] = [
-  { id: `annual-${currentYear + 1}`, label: `Annual ${currentYear + 1}`, year: currentYear + 1, quarter: 0 },
-  ...generateQuarters(currentYear + 1),
-  { id: `annual-${currentYear}`, label: `Annual ${currentYear}`, year: currentYear, quarter: 0 },
-  ...generateQuarters(currentYear),
-  { id: `annual-${currentYear - 1}`, label: `Annual ${currentYear - 1}`, year: currentYear - 1, quarter: 0 },
-  ...generateQuarters(currentYear - 1),
-];
 
 function getProgressColor(progress: number): string {
   if (progress >= 70) return "text-green-600 dark:text-green-400";
@@ -179,11 +155,7 @@ export default function ExecutiveDashboard() {
   const { currentTenant, isLoading: tenantLoading } = useTenant();
   const { t } = useVocabulary();
   
-  const { quarter: currentQuarterNum, year: currentYearNum } = getCurrentQuarter();
-  const defaultQuarterId = `q${currentQuarterNum}-${currentYearNum}`;
-  const [selectedQuarter, setSelectedQuarter] = useState(defaultQuarterId);
-  
-  const currentQuarter = quarters.find((q) => q.id === selectedQuarter);
+  const { selectedQuarter: currentQuarter } = useTimePeriod();
 
   // Helper to get headers with tenant ID for all API calls
   const getHeaders = () => ({
@@ -742,18 +714,6 @@ export default function ExecutiveDashboard() {
             Strategic overview and organizational health for {currentQuarter?.label}
           </p>
         </div>
-        <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
-          <SelectTrigger className="w-40" data-testid="select-exec-quarter">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {quarters.map((q) => (
-              <SelectItem key={q.id} value={q.id}>
-                {q.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
       </div>
 
       {/* Ambitions Section - Long-term strategic targets */}
