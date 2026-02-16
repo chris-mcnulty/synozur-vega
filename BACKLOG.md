@@ -1620,6 +1620,181 @@ Phase 3: Recovery (Week 3-4)
 
 ---
 
+### Support Ticket Planner Sync
+
+**Status:** Proposed  
+**Effort:** 2-3 weeks  
+**Priority:** Medium  
+**Added:** February 16, 2026
+
+Optionally sync Vega support tickets to a **common** Microsoft Planner plan that receives tickets from **all tenants**. This differs from per-tenant Big Rock Planner sync — support tickets from every tenant funnel into a single shared Planner plan managed by Vega admins. Per-tenant opt-in controls whether a tenant's tickets flow to Planner.
+
+#### Design Decisions
+
+1. **Common Planner Plan (not per-tenant):** All tenant support tickets sync to one shared Planner plan. This gives the Vega support team a unified view in Microsoft Teams/Planner across all customer tenants.
+2. **Per-Tenant Opt-In:** Each tenant can enable/disable support ticket sync independently via Tenant Admin settings.
+3. **Constellation-Style Plan Selection:** Uses the same multi-step wizard pattern (Team → Channel → Plan → Bucket) already built for Big Rocks.
+4. **Help Chatbot Escalation:** Tickets created from the AI Help Chatbot already escalate to the support ticket system — they will automatically sync to Planner like any other ticket.
+
+#### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  System Admin → Support Planner Configuration               │
+│  ═══════════════════════════════════════════════════════     │
+│                                                              │
+│  Common Support Plan: [Select Planner Plan]                  │
+│  ┌──────────────────────────────────────────────────┐       │
+│  │ Team: Vega Support Team                          │       │
+│  │ Plan: Support Tickets                            │       │
+│  │ Default Bucket: Incoming                         │       │
+│  └──────────────────────────────────────────────────┘       │
+│                                                              │
+│  Bucket Mapping (optional):                                  │
+│  ┌──────────────────────────────────────────────────┐       │
+│  │ Bug         → "Bugs" bucket                      │       │
+│  │ Feature Req → "Feature Requests" bucket          │       │
+│  │ Question    → "Questions" bucket                 │       │
+│  │ Feedback    → "Feedback" bucket                  │       │
+│  └──────────────────────────────────────────────────┘       │
+│                                                              │
+│  Per-Tenant Opt-In:                                          │
+│  ┌──────────────────────────────────────────────────┐       │
+│  │ ☑ Acme Corp     ☑ Beta Inc     ☐ Gamma LLC      │       │
+│  └──────────────────────────────────────────────────┘       │
+└─────────────────────────────────────────────────────────────┘
+```
+
+#### Database Schema Changes
+
+**Key Design Decision:** The common support Planner plan is NOT stored in the existing tenant-scoped `plannerPlans`/`plannerBuckets`/`plannerTasks` tables. Those tables are designed for per-tenant Big Rock sync. Instead, we use a dedicated `support_planner_config` table that stores Graph IDs directly, bypassing the tenant-scoped planner data model entirely. The `graph-planner.ts` functions (like `getClient()`) can be reused for Graph API calls by passing the configured `azureTenantId`, but plan/bucket/task records are NOT duplicated into the existing tenant-scoped tables.
+
+```typescript
+// New: Platform-level support planner configuration (standalone, not tenant-scoped)
+supportPlannerConfig: pgTable("support_planner_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  
+  // Direct Graph IDs (NOT FK to plannerPlans — this is a global config, not tenant-scoped)
+  graphPlanId: text("graph_plan_id"),             // Microsoft Graph plan ID
+  graphBucketId: text("graph_bucket_id"),         // Default bucket Graph ID
+  graphGroupId: text("graph_group_id"),           // M365 Group hosting the plan
+  planTitle: text("plan_title"),                  // Display name of the plan
+  
+  // Azure tenant that hosts this Planner plan (for app-only auth via planner-auth.ts)
+  azureTenantId: text("azure_tenant_id").notNull(),
+  
+  // Category-to-bucket mapping (optional)
+  categoryBucketMapping: jsonb("category_bucket_mapping"),
+  // e.g. { "bug": "graph-bucket-id-1", "feature_request": "graph-bucket-id-2", ... }
+  // Values are Graph bucket IDs, not FK to plannerBuckets
+  
+  enabled: boolean("enabled").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Extend tenants table:
+// Add: supportPlannerSyncEnabled boolean default false
+// Controls whether this tenant's tickets flow to the common Planner plan
+
+// Extend supportTickets table:
+// Add: graphTaskId text          -- Microsoft Graph task ID (NOT FK to plannerTasks)
+// Add: plannerSyncedAt timestamp
+// Add: plannerSyncError text
+```
+
+**Graph API Reuse:** The `getPlannerGraphClient(azureTenantId)` function from `planner-auth.ts` works for any Azure tenant ID. For support ticket sync, we call it with `supportPlannerConfig.azureTenantId` to get a Graph client, then make direct Graph API calls (create task, update task) without going through the tenant-scoped storage methods in `graph-planner.ts`. A new `support-planner.ts` service module handles the support-specific sync logic.
+
+#### Sync Logic
+
+1. **On Ticket Creation (POST /api/support/tickets):**
+   - Check if support Planner sync is globally enabled
+   - Check if the ticket's tenant has opt-in enabled
+   - If both true, create a Planner task in the common plan:
+     - Title: `[TICKET-{number}] {subject}`
+     - Bucket: Mapped by category (or default bucket)
+     - Description: Ticket description + tenant name + author info
+     - Priority: Map ticket priority → Planner priority (low=9, medium=5, high=1)
+     - Labels: Tenant name, category
+   - Store the `graphTaskId` on the support ticket record
+
+2. **On Ticket Status Update (PATCH /api/support/tickets/:id):**
+   - If ticket has a plannerTaskId, update the Planner task:
+     - `open` → percentComplete: 0
+     - `in_progress` → percentComplete: 50
+     - `resolved` → percentComplete: 100
+     - `closed` → percentComplete: 100
+
+3. **On Planner Task Update (Sync Job / Optional):**
+   - Periodically check Planner tasks for changes
+   - If Planner task marked complete, update ticket status to "resolved"
+   - If Planner task reassigned, optionally update ticket assignee
+
+4. **Auth:** Uses existing multi-tenant app-only client_credentials auth from `planner-auth.ts`. The common Planner plan lives in a specific Azure tenant (configured in supportPlannerConfig.azureTenantId).
+
+#### API Endpoints
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/admin/support-planner/config` | GET | Get support Planner configuration |
+| `/api/admin/support-planner/config` | PUT | Update configuration (plan, buckets, mapping) |
+| `/api/admin/support-planner/tenants` | GET | List tenants with sync opt-in status |
+| `/api/admin/support-planner/tenants/:id` | PATCH | Toggle tenant opt-in |
+| `/api/admin/support-planner/sync` | POST | Manual sync (push pending tickets) |
+
+#### UI Changes
+
+1. **System Admin Panel → New "Support Planner" tab:**
+   - Constellation-style wizard to select the common Planner plan (Team → Plan → Bucket)
+   - Category-to-bucket mapping configuration
+   - Per-tenant opt-in toggle list
+   - Sync status and error display
+
+2. **Tenant Admin Panel → Support Settings:**
+   - Toggle: "Sync support tickets to Planner" (if globally enabled)
+   - Read-only display of which Planner plan tickets sync to
+
+3. **Admin Support Tab (ticket detail):**
+   - Show Planner sync status badge on each ticket
+   - Link to open the Planner task directly
+   - Manual "Sync to Planner" button for tickets that failed sync
+
+#### Implementation Phases
+
+```
+Phase 1: Schema & Configuration (Week 1)
+├── Database schema additions (supportPlannerConfig, ticket fields)
+├── System Admin configuration UI (plan selection wizard)
+├── Per-tenant opt-in settings
+└── API endpoints for config management
+
+Phase 2: Ticket → Planner Sync (Week 1-2)
+├── Auto-create Planner task on ticket creation
+├── Status update sync (ticket status → Planner percentComplete)
+├── Priority mapping
+├── Category → bucket routing
+└── Error handling and retry logic
+
+Phase 3: Bidirectional Sync & Polish (Week 2-3)
+├── Planner → ticket status sync (via scheduled job)
+├── Sync status badges in admin ticket views
+├── Direct Planner task links
+├── Manual sync/retry for failed tickets
+└── Testing and edge cases
+```
+
+#### Key Differences from Big Rock Planner Sync
+
+| Aspect | Big Rock Sync | Support Ticket Sync |
+|--------|--------------|---------------------|
+| Scope | Per-tenant, per-Big Rock | Global common plan, all tenants |
+| Plan Selection | Each Big Rock picks its own plan | Single plan configured by Vega Admin |
+| Auth | Uses ticket's tenant azureTenantId | Uses a single configured azureTenantId |
+| Bucket Mapping | User-selected per Big Rock | Auto-mapped by ticket category |
+| Sync Direction | Bidirectional (tasks ↔ Big Rock tasks) | Primarily ticket → Planner, optional reverse |
+
+---
+
 ### Strategy Cascade Visualization (Strategy Map)
 
 **Effort:** 2-3 weeks  

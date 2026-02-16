@@ -364,6 +364,15 @@ const backlogItems: BacklogItem[] = [
     priority: "Low",
     icon: Users
   },
+  {
+    title: "Support Ticket Planner Sync",
+    description: "Optionally sync support tickets to a common Microsoft Planner plan across all tenants. Per-tenant opt-in, auto-create tasks on ticket creation, bidirectional status sync, and Constellation-style plan selection wizard",
+    status: "proposed",
+    category: "integration",
+    effort: "2-3 weeks",
+    priority: "Medium",
+    icon: ListChecks
+  },
 
   {
     title: "Probabilistic Outcome Forecasting",
