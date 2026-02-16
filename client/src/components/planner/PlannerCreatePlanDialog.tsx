@@ -40,6 +40,7 @@ interface PlanItem {
   id: string;
   title: string;
   graphPlanId: string;
+  groupDisplayName?: string | null;
 }
 
 interface BucketItem {
@@ -513,7 +514,12 @@ export function PlannerCreatePlanDialog({
                     >
                       <CardContent className="flex items-center gap-3 p-3">
                         <FolderPlus className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                        <p className="text-sm font-medium truncate">{plan.title}</p>
+                        <div className="truncate">
+                          <p className="text-sm font-medium truncate">{plan.title}</p>
+                          {plan.groupDisplayName && (
+                            <p className="text-xs text-muted-foreground truncate">{plan.groupDisplayName}</p>
+                          )}
+                        </div>
                       </CardContent>
                     </Card>
                   ))}

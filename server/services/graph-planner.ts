@@ -90,6 +90,7 @@ export async function syncPlannerPlans(tenantId: string, azureTenantId: string):
             title: graphPlan.title,
             owner: graphPlan.owner,
             graphGroupId: group.id,
+            groupDisplayName: group.displayName || null,
           };
 
           const plan = await storage.upsertPlannerPlan(planData);
@@ -760,7 +761,8 @@ export async function createPlanInTeam(
   tenantId: string,
   teamId: string,
   planTitle: string,
-  azureTenantId: string
+  azureTenantId: string,
+  teamDisplayName?: string
 ): Promise<PlannerPlan> {
   const client = await getClient(azureTenantId);
 
@@ -771,12 +773,23 @@ export async function createPlanInTeam(
 
   console.log(`[Graph Planner] Created plan "${planTitle}" in team ${teamId} -> ${response.id}`);
 
+  let groupName = teamDisplayName || null;
+  if (!groupName) {
+    try {
+      const groupInfo = await client.api(`/groups/${teamId}`).select('displayName').get();
+      groupName = groupInfo.displayName || null;
+    } catch {
+      // ignore
+    }
+  }
+
   const planData: InsertPlannerPlan = {
     tenantId,
     graphPlanId: response.id,
     title: response.title,
     owner: response.owner,
     graphGroupId: teamId,
+    groupDisplayName: groupName,
   };
 
   return await storage.upsertPlannerPlan(planData);

@@ -64,6 +64,7 @@ interface PlannerPlan {
   id: string;
   title: string;
   graphPlanId: string;
+  groupDisplayName?: string | null;
 }
 
 interface PlannerBucket {
@@ -410,7 +411,9 @@ function PlannerProgressMappingInner({
                       .filter(plan => plan && typeof plan.id === 'string' && plan.id.length > 0 && typeof plan.title === 'string')
                       .map((plan) => (
                         <SelectItem key={plan.id} value={plan.id}>
-                          {plan.title}
+                          {plan.groupDisplayName
+                            ? `${plan.title} (${plan.groupDisplayName})`
+                            : plan.title}
                         </SelectItem>
                       ))}
                   </SelectContent>

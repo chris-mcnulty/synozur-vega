@@ -300,7 +300,7 @@ export function BigRockTasks({ bigRockId, canModify, plannerMapped }: BigRockTas
 
   const syncTasksMutation = useMutation({
     mutationFn: async (direction: 'push' | 'pull' | 'both') => {
-      const res = await apiRequest('POST', `/api/planner/bigrock/${bigRockId}/sync-tasks`, { direction });
+      const res = await apiRequest('POST', `/api/planner/bigrock-tasks/${bigRockId}/sync`, { direction });
       return res.json();
     },
     onSuccess: (data) => {
@@ -318,7 +318,7 @@ export function BigRockTasks({ bigRockId, canModify, plannerMapped }: BigRockTas
 
   const pushSingleTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
-      const res = await apiRequest('POST', `/api/planner/bigrock/${bigRockId}/push-task/${taskId}`);
+      const res = await apiRequest('POST', `/api/planner/bigrock-tasks/${bigRockId}/push`, { taskId });
       return res.json();
     },
     onSuccess: (data) => {

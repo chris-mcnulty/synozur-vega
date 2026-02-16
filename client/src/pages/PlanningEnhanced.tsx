@@ -5360,6 +5360,12 @@ function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, on
                       <Badge variant="secondary" className="text-xs">
                         {rock.quarter === 0 ? 'Annual' : `Q${rock.quarter}`} {rock.year}
                       </Badge>
+                      {rock.plannerPlanId && (
+                        <Badge variant="outline" className="text-xs" data-testid={`badge-planner-linked-${rock.id}`}>
+                          <Link2 className="h-3 w-3 mr-1" />
+                          Planner
+                        </Badge>
+                      )}
                     </div>
                     {rock.objectiveId && (
                       <p className="text-sm text-muted-foreground mt-1">

@@ -1495,6 +1495,7 @@ export const plannerPlans = pgTable("planner_plans", {
   // Plan details
   title: text("title").notNull(),
   owner: text("owner"),
+  groupDisplayName: text("group_display_name"),
   
   // Sync metadata
   lastSyncedAt: timestamp("last_synced_at"),
