@@ -553,7 +553,13 @@ export async function updatePlannerTaskFromBigRockTask(
 
     const vegaPercent = BIG_ROCK_STATUS_TO_PERCENT[bigRockTask.status] ?? 0;
     const plannerPercent = taskDetails.percentComplete ?? 0;
+
+    // Most advanced status always wins — never regress progress
     const resolvedPercent = Math.max(vegaPercent, plannerPercent);
+
+    if (vegaPercent !== plannerPercent) {
+      console.log(`[Graph Planner] Push "${bigRockTask.title}": Vega=${vegaPercent}%, Planner=${plannerPercent}% → resolved=${resolvedPercent}% (most advanced wins)`);
+    }
 
     const patchPayload: any = {
       title: bigRockTask.title,
@@ -601,7 +607,7 @@ export async function updatePlannerTaskFromBigRockTask(
     if (resolvedStatus !== bigRockTask.status) {
       await storage.updateBigRockTask(bigRockTask.id, {
         status: resolvedStatus,
-        completedAt: resolvedPercent === 100 ? new Date() : null,
+        completedAt: resolvedPercent === 100 ? (taskDetails.completedDateTime ? new Date(taskDetails.completedDateTime) : new Date()) : null,
       });
       console.log(`[Graph Planner] Also updated Vega task "${bigRockTask.title}" to ${resolvedStatus} (Planner was more advanced)`);
     }
@@ -683,9 +689,16 @@ export async function syncPlannerTasksToBigRockTasks(
       : null;
 
     if (existingBRTask) {
-      const existingRank = STATUS_RANK[existingBRTask.status] ?? 0;
-      const plannerRank = STATUS_RANK[newStatus] ?? 0;
-      const winningStatus = plannerRank >= existingRank ? newStatus : existingBRTask.status;
+      const vegaPercent = BIG_ROCK_STATUS_TO_PERCENT[existingBRTask.status] ?? 0;
+      const plannerPercent = pt.percentComplete ?? 0;
+
+      // Most advanced status always wins — never regress progress
+      const resolvedPercent = Math.max(vegaPercent, plannerPercent);
+      const winningStatus = PERCENT_TO_BIG_ROCK_STATUS(resolvedPercent);
+
+      if (vegaPercent !== plannerPercent) {
+        console.log(`[Graph Planner] Pull "${pt.title}": Vega=${existingBRTask.status}(${vegaPercent}%), Planner=${newStatus}(${plannerPercent}%) → ${winningStatus}(${resolvedPercent}%) (most advanced wins)`);
+      }
 
       await storage.updateBigRockTask(existingBRTask.id, {
         title: pt.title,
