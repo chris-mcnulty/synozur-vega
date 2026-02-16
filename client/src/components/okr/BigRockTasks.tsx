@@ -365,45 +365,48 @@ export function BigRockTasks({ bigRockId, canModify, plannerMapped }: BigRockTas
         </div>
         <div className="flex items-center gap-1">
           {plannerMapped && canModify && (
-            <>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => syncTasksMutation.mutate('push')}
-                disabled={syncTasksMutation.isPending}
-                title="Push tasks to Planner"
-                data-testid="button-push-tasks"
-              >
-                {syncTasksMutation.isPending ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <ArrowUpFromLine className="w-4 h-4" />
-                )}
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => syncTasksMutation.mutate('pull')}
-                disabled={syncTasksMutation.isPending}
-                title="Pull tasks from Planner"
-                data-testid="button-pull-tasks"
-              >
-                <ArrowDownToLine className="w-4 h-4" />
-              </Button>
-              <Button
-                size="icon"
-                variant="ghost"
-                onClick={() => syncTasksMutation.mutate('both')}
-                disabled={syncTasksMutation.isPending}
-                title="Sync both directions"
-                data-testid="button-sync-tasks"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </Button>
-            </>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => syncTasksMutation.mutate('both')}
+              disabled={syncTasksMutation.isPending}
+              data-testid="button-sync-tasks"
+            >
+              {syncTasksMutation.isPending ? (
+                <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+              ) : (
+                <RefreshCw className="w-3 h-3 mr-1" />
+              )}
+              Sync with Planner
+            </Button>
           )}
         </div>
       </CardHeader>
+      {plannerMapped && canModify && (
+        <div className="px-6 pb-2 flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-muted-foreground">Planner sync:</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => syncTasksMutation.mutate('push')}
+            disabled={syncTasksMutation.isPending}
+            data-testid="button-push-tasks"
+          >
+            <ArrowUpFromLine className="w-3 h-3 mr-1" />
+            Push to Planner
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => syncTasksMutation.mutate('pull')}
+            disabled={syncTasksMutation.isPending}
+            data-testid="button-pull-tasks"
+          >
+            <ArrowDownToLine className="w-3 h-3 mr-1" />
+            Pull from Planner
+          </Button>
+        </div>
+      )}
       <CardContent className="space-y-1">
         {isLoading ? (
           <div className="text-sm text-muted-foreground text-center py-4">Loading tasks...</div>
