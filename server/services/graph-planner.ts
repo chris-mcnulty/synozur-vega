@@ -23,6 +23,12 @@ const PERCENT_TO_BIG_ROCK_STATUS = (pct: number): string => {
   return 'open';
 };
 
+const STATUS_RANK: Record<string, number> = {
+  open: 0,
+  in_progress: 1,
+  completed: 2,
+};
+
 const graphUserCache = new Map<string, { email: string; displayName: string; expiresAt: number }>();
 const emailToGraphIdCache = new Map<string, { graphUserId: string; expiresAt: number }>();
 const CACHE_TTL = 15 * 60 * 1000;
@@ -545,9 +551,13 @@ export async function updatePlannerTaskFromBigRockTask(
     const taskDetails = await client.api(`/planner/tasks/${plannerTask.graphTaskId}`).get();
     const etag = taskDetails['@odata.etag'];
 
+    const vegaPercent = BIG_ROCK_STATUS_TO_PERCENT[bigRockTask.status] ?? 0;
+    const plannerPercent = taskDetails.percentComplete ?? 0;
+    const resolvedPercent = Math.max(vegaPercent, plannerPercent);
+
     const patchPayload: any = {
       title: bigRockTask.title,
-      percentComplete: BIG_ROCK_STATUS_TO_PERCENT[bigRockTask.status] ?? 0,
+      percentComplete: resolvedPercent,
     };
 
     if (bigRockTask.dueDate) {
@@ -570,19 +580,38 @@ export async function updatePlannerTaskFromBigRockTask(
       }
     }
 
-    await client.api(`/planner/tasks/${plannerTask.graphTaskId}`)
-      .header('If-Match', etag)
-      .header('Prefer', 'ExchangeNotifications.Suppress')
-      .patch(patchPayload);
+    if (resolvedPercent !== plannerPercent) {
+      await client.api(`/planner/tasks/${plannerTask.graphTaskId}`)
+        .header('If-Match', etag)
+        .header('Prefer', 'ExchangeNotifications.Suppress')
+        .patch(patchPayload);
+      console.log(`[Graph Planner] Updated Planner task "${bigRockTask.title}" (${plannerPercent}% → ${resolvedPercent}%)`);
+    } else {
+      const { percentComplete, ...nonStatusPayload } = patchPayload;
+      if (Object.keys(nonStatusPayload).length > 0) {
+        await client.api(`/planner/tasks/${plannerTask.graphTaskId}`)
+          .header('If-Match', etag)
+          .header('Prefer', 'ExchangeNotifications.Suppress')
+          .patch(patchPayload);
+      }
+      console.log(`[Graph Planner] Planner task "${bigRockTask.title}" already at ${plannerPercent}%, no status change`);
+    }
+
+    const resolvedStatus = PERCENT_TO_BIG_ROCK_STATUS(resolvedPercent);
+    if (resolvedStatus !== bigRockTask.status) {
+      await storage.updateBigRockTask(bigRockTask.id, {
+        status: resolvedStatus,
+        completedAt: resolvedPercent === 100 ? new Date() : null,
+      });
+      console.log(`[Graph Planner] Also updated Vega task "${bigRockTask.title}" to ${resolvedStatus} (Planner was more advanced)`);
+    }
 
     await storage.upsertPlannerTask({
       ...plannerTask,
       title: bigRockTask.title,
-      percentComplete: patchPayload.percentComplete,
+      percentComplete: resolvedPercent,
       dueDateTime: bigRockTask.dueDate ? new Date(bigRockTask.dueDate) : plannerTask.dueDateTime,
     });
-
-    console.log(`[Graph Planner] Updated Planner task "${bigRockTask.title}"`);
   } catch (error) {
     console.error(`[Graph Planner] Failed to update Planner task:`, error);
   }
@@ -654,13 +683,17 @@ export async function syncPlannerTasksToBigRockTasks(
       : null;
 
     if (existingBRTask) {
+      const existingRank = STATUS_RANK[existingBRTask.status] ?? 0;
+      const plannerRank = STATUS_RANK[newStatus] ?? 0;
+      const winningStatus = plannerRank >= existingRank ? newStatus : existingBRTask.status;
+
       await storage.updateBigRockTask(existingBRTask.id, {
         title: pt.title,
-        status: newStatus,
+        status: winningStatus,
         assigneeEmail: assigneeEmail || existingBRTask.assigneeEmail,
         assigneeId: assigneeId || existingBRTask.assigneeId,
         dueDate: pt.dueDateTime || existingBRTask.dueDate,
-        completedAt: pt.percentComplete === 100 ? (pt.completedDateTime || new Date()) : null,
+        completedAt: winningStatus === 'completed' ? (pt.completedDateTime || existingBRTask.completedAt || new Date()) : null,
       });
       updated++;
     } else {

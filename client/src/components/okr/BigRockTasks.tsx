@@ -34,6 +34,7 @@ import {
   Loader2,
   X,
   CalendarPlus,
+  ExternalLink,
 } from "lucide-react";
 import { format } from "date-fns";
 import type { BigRockTask } from "@shared/schema";
@@ -44,6 +45,7 @@ interface BigRockTasksProps {
   bigRockId: string;
   canModify: boolean;
   plannerMapped?: boolean;
+  plannerPlanId?: string | null;
 }
 
 type TaskStatus = 'open' | 'in_progress' | 'completed';
@@ -227,7 +229,7 @@ function InlineDatePicker({
   );
 }
 
-export function BigRockTasks({ bigRockId, canModify, plannerMapped }: BigRockTasksProps) {
+export function BigRockTasks({ bigRockId, canModify, plannerMapped, plannerPlanId }: BigRockTasksProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState<BigRockTask | null>(null);
   const [quickAddTitle, setQuickAddTitle] = useState('');
@@ -239,6 +241,15 @@ export function BigRockTasks({ bigRockId, canModify, plannerMapped }: BigRockTas
   const { data: tasks = [], isLoading } = useQuery<BigRockTask[]>({
     queryKey: [`/api/okr/big-rocks/${bigRockId}/tasks`],
   });
+
+  const { data: plannerPlanData } = useQuery<{ graphPlanId: string; title: string; groupDisplayName: string | null }>({
+    queryKey: [`/api/planner/plans/${plannerPlanId}`],
+    enabled: !!plannerPlanId,
+  });
+
+  const plannerUrl = plannerPlanData?.graphPlanId
+    ? `https://tasks.office.com/Home/Planner/#/plantaskboard/planId/${plannerPlanData.graphPlanId}`
+    : null;
 
   const canUpdateTask = (task: BigRockTask): boolean => {
     if (canModify) return true;
@@ -356,12 +367,19 @@ export function BigRockTasks({ bigRockId, canModify, plannerMapped }: BigRockTas
               {completedCount}/{totalCount}
             </Badge>
           )}
-          {plannerMapped && (
+          {plannerMapped && plannerUrl ? (
+            <a href={plannerUrl} target="_blank" rel="noopener noreferrer" data-testid="link-open-planner-plan">
+              <Badge variant="outline" className="text-xs cursor-pointer">
+                <ExternalLink className="w-3 h-3 mr-1" />
+                Open in Planner
+              </Badge>
+            </a>
+          ) : plannerMapped ? (
             <Badge variant="outline" className="text-xs no-default-hover-elevate no-default-active-elevate">
               <Link2 className="w-3 h-3 mr-1" />
               Planner
             </Badge>
-          )}
+          ) : null}
         </div>
         <div className="flex items-center gap-1">
           {plannerMapped && canModify && (

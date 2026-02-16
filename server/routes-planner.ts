@@ -835,26 +835,24 @@ router.post('/bigrock-tasks/:bigRockId/sync', async (req: Request, res: Response
 
     await syncPlannerTasks(tenantId, plan.id, plan.graphPlanId, azureTenantId);
 
-    const existingBRTasks = await storage.getBigRockTasksByBigRockId(bigRockId);
-    for (const brt of existingBRTasks) {
-      if (brt.plannerTaskId) {
-        try {
-          await updatePlannerTaskFromBigRockTask(brt, azureTenantId);
-        } catch (err: any) {
-          console.warn(`[Planner API] Failed to push task "${brt.title}" to Planner:`, err.message);
-        }
-      } else if (bigRock.plannerSyncEnabled) {
-        try {
-          await createPlannerTaskFromBigRockTask(brt, bigRock.plannerPlanId, bigRock.plannerBucketId || null, azureTenantId);
-        } catch (err: any) {
-          console.warn(`[Planner API] Failed to create Planner task for "${brt.title}":`, err.message);
-        }
-      }
-    }
-
+    // Pull Planner → Vega first (Planner is source of truth for already-linked tasks)
     const syncResult = await syncPlannerTasksToBigRockTasks(
       bigRockId, tenantId, bigRock.plannerPlanId, bigRock.plannerBucketId || null, azureTenantId
     );
+
+    // Only push NEW unlinked Vega tasks to Planner (don't overwrite Planner status for existing links)
+    if (bigRock.plannerSyncEnabled) {
+      const existingBRTasks = await storage.getBigRockTasksByBigRockId(bigRockId);
+      for (const brt of existingBRTasks) {
+        if (!brt.plannerTaskId) {
+          try {
+            await createPlannerTaskFromBigRockTask(brt, bigRock.plannerPlanId, bigRock.plannerBucketId || null, azureTenantId);
+          } catch (err: any) {
+            console.warn(`[Planner API] Failed to create Planner task for "${brt.title}":`, err.message);
+          }
+        }
+      }
+    }
 
     res.json({
       success: true,
