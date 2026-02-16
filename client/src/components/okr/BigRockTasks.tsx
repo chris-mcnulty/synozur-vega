@@ -196,7 +196,7 @@ function InlineDatePicker({
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent className="w-auto p-3" align="start" side="bottom">
+      <PopoverContent className="w-auto p-3 z-[100]" align="start" side="bottom">
         <div className="flex items-center gap-2">
           <Input
             type="date"
