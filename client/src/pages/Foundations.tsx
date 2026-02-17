@@ -167,16 +167,16 @@ export default function Foundations() {
     setCustomVision("");
   }, [foundation, currentTenant?.id]);
 
-  // Save mutation
+  // Save mutation - accepts optional overrides so callers can pass updated data directly
   const saveMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (overrides?: { ambitions?: Ambition[]; values?: CompanyValue[]; annualGoals?: AnnualGoal[] }) => {
       return apiRequest("POST", "/api/foundations", {
         tenantId: currentTenant!.id,
         mission,
         vision,
-        values,
-        ambitions,
-        annualGoals: goals,
+        values: overrides?.values ?? values,
+        ambitions: overrides?.ambitions ?? ambitions,
+        annualGoals: overrides?.annualGoals ?? goals,
         tagline,
         companySummary,
         messagingStatement,
@@ -270,15 +270,16 @@ export default function Foundations() {
       description: valueDescription.trim(),
     };
 
+    let updatedValues: CompanyValue[];
     if (editingValueIndex !== null) {
-      // Update existing value
-      const updatedValues = [...values];
+      updatedValues = [...values];
       updatedValues[editingValueIndex] = newValue;
-      setValues(updatedValues);
     } else {
-      // Add new value
-      setValues([...values, newValue]);
+      updatedValues = [...values, newValue];
     }
+
+    setValues(updatedValues);
+    saveMutation.mutate({ values: updatedValues });
 
     setValueDialogOpen(false);
     setValueTitle("");
@@ -302,7 +303,9 @@ export default function Foundations() {
   };
 
   const handleRemoveValue = (index: number) => {
-    setValues(values.filter((_, i) => i !== index));
+    const updatedValues = values.filter((_, i) => i !== index);
+    setValues(updatedValues);
+    saveMutation.mutate({ values: updatedValues });
   };
 
   // Generate available target years for ambitions (3-10 years out)
@@ -339,9 +342,10 @@ export default function Foundations() {
       return;
     }
 
+    let updatedAmbitions: Ambition[];
+
     if (editingAmbitionId) {
-      // Update existing ambition
-      const updatedAmbitions = ambitions.map(a => 
+      updatedAmbitions = ambitions.map(a => 
         a.id === editingAmbitionId 
           ? { 
               ...a, 
@@ -352,9 +356,7 @@ export default function Foundations() {
             } 
           : a
       );
-      setAmbitions(updatedAmbitions);
     } else {
-      // Add new ambition
       const newAmbition: Ambition = {
         id: crypto.randomUUID(),
         title: ambitionTitle.trim(),
@@ -365,7 +367,6 @@ export default function Foundations() {
         createdAt: new Date().toISOString(),
       };
       
-      // Show warning if >5 active ambitions
       const activeCount = ambitions.filter(a => a.status === 'active').length;
       if (activeCount >= 5) {
         toast({
@@ -374,8 +375,11 @@ export default function Foundations() {
         });
       }
       
-      setAmbitions([...ambitions, newAmbition]);
+      updatedAmbitions = [...ambitions, newAmbition];
     }
+
+    setAmbitions(updatedAmbitions);
+    saveMutation.mutate({ ambitions: updatedAmbitions });
 
     setAmbitionDialogOpen(false);
     setAmbitionTitle("");
@@ -403,13 +407,10 @@ export default function Foundations() {
         : a
     );
     setAmbitions(updatedAmbitions);
+    saveMutation.mutate({ ambitions: updatedAmbitions });
     setCloseAmbitionDialogOpen(false);
     setClosingAmbitionId(null);
     setCloseAmbitionNote("");
-    toast({
-      title: "Ambition Closed",
-      description: "The ambition has been marked as closed",
-    });
   };
 
   const handleReopenAmbition = (ambitionId: string) => {
@@ -424,10 +425,7 @@ export default function Foundations() {
         : a
     );
     setAmbitions(updatedAmbitions);
-    toast({
-      title: "Ambition Reopened",
-      description: "The ambition has been marked as active",
-    });
+    saveMutation.mutate({ ambitions: updatedAmbitions });
   };
 
   const handleToggleAmbitionValue = (valueTitle: string) => {
@@ -460,7 +458,7 @@ export default function Foundations() {
   };
 
   const handleSave = () => {
-    saveMutation.mutate();
+    saveMutation.mutate(undefined);
   };
 
   if (isLoading) {
@@ -1025,8 +1023,8 @@ export default function Foundations() {
         </TabsContent>
       </Tabs>
 
-      {/* Save Button - Works across all tabs */}
-      <div className="mt-6 flex justify-end">
+      {/* Save Button - Sticky at bottom for mission/vision/text changes */}
+      <div className="sticky bottom-0 z-50 bg-background/95 backdrop-blur-sm border-t py-3 mt-6 -mx-4 px-4 flex justify-end">
         <Button
           onClick={handleSave}
           disabled={saveMutation.isPending}
