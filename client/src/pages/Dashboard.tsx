@@ -483,25 +483,29 @@ export default function Dashboard() {
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            {foundations?.annualGoals && foundations.annualGoals.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                {foundations.annualGoals.map((goal: any, idx) => {
-                  const title = typeof goal === "string" ? goal : goal.title;
-                  const year = typeof goal === "string" ? currentQuarter?.year : goal.year;
-                  return (
-                    <div key={idx} className="flex items-start gap-2 text-sm p-2 rounded bg-muted/30">
-                      <Target className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
-                      <span className="text-muted-foreground">{title}</span>
-                      {year && year !== currentQuarter?.year && (
-                        <Badge variant="outline" className="text-xs">{year}</Badge>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-sm text-muted-foreground">No annual goals defined</p>
-            )}
+            {(() => {
+              const selectedYear = currentQuarter?.year;
+              const filteredGoals = (foundations?.annualGoals || []).filter((goal: any) => {
+                const goalYear = typeof goal === "string" ? undefined : goal.year;
+                return !selectedYear || !goalYear || goalYear === selectedYear;
+              });
+              if (filteredGoals.length > 0) {
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    {filteredGoals.map((goal: any, idx: number) => {
+                      const title = typeof goal === "string" ? goal : goal.title;
+                      return (
+                        <div key={idx} className="flex items-start gap-2 text-sm p-2 rounded bg-muted/30">
+                          <Target className="h-4 w-4 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-muted-foreground">{title}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              }
+              return <p className="text-sm text-muted-foreground">No annual goals defined for {selectedYear}</p>;
+            })()}
           </CardContent>
         </Card>
 
