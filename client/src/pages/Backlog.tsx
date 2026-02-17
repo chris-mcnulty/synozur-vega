@@ -408,12 +408,40 @@ const backlogItems: BacklogItem[] = [
     icon: BookOpen
   },
   {
-    title: "Universal Data Connectors",
-    description: "Expand beyond M365: Salesforce, Jira, Linear, Mixpanel, QuickBooks, GitHub, Zendesk, and more for automatic KR updates from live data sources",
-    status: "future",
+    title: "Viva Goals Connectors: M365 In-Boundary",
+    description: "Excel Online, Planner, and Teams connectors for automatic KR updates from Microsoft 365 data sources (3 integrations, parity with Viva Goals)",
+    status: "proposed",
+    category: "integration",
+    effort: "2-3 weeks",
+    priority: "Low",
+    icon: Puzzle
+  },
+  {
+    title: "Viva Goals Connectors: Cross-Boundary Microsoft",
+    description: "Azure DevOps, Azure Data Explorer, Dynamics 365, MS SQL Server, Power BI, and Project for the Web connectors for KR data binding (6 integrations)",
+    status: "proposed",
+    category: "integration",
+    effort: "4-6 weeks",
+    priority: "Low",
+    icon: Database
+  },
+  {
+    title: "Viva Goals Connectors: Third-Party Data",
+    description: "Amazon Redshift, Asana, BigQuery, Box, Domo, Favro, GitHub, GitLab, Google Sheets, HubSpot, Jira (Cloud/Server/Data Center), Looker, Mode, Monday.com, MySQL, PostgreSQL, ProjectPlace, Salesforce, Smartsheet, Snowflake, Tableau, Trello, Zendesk connectors (24 integrations)",
+    status: "proposed",
     category: "integration",
     effort: "Ongoing",
-    icon: Puzzle
+    priority: "Low",
+    icon: Database
+  },
+  {
+    title: "Viva Goals Connectors: Third-Party Collaboration",
+    description: "Slack integration for notifications, check-in reminders, and OKR updates directly in Slack channels (1 integration, parity with Viva Goals)",
+    status: "proposed",
+    category: "integration",
+    effort: "1-2 weeks",
+    priority: "Low",
+    icon: MessageSquare
   },
   {
     title: "Bi-Directional Action Orchestration",
