@@ -97,6 +97,10 @@ export default function Strategy() {
   const [strategyValueTags, setStrategyValueTags] = useState<string[]>([]);
   const [previousStrategyValueTags, setPreviousStrategyValueTags] = useState<string[]>([]);
   
+  // Goal year filter state
+  const [showAllGoalYears, setShowAllGoalYears] = useState(false);
+  const currentYear = new Date().getFullYear();
+  
   const [formData, setFormData] = useState<StrategyFormData>({
     title: "",
     description: "",
@@ -135,23 +139,26 @@ export default function Strategy() {
   const unlinkedGoals = useMemo(() => {
     if (!annualGoals || annualGoals.length === 0) return [];
     
-    // Get all goal indices that are linked to at least one strategy
-    const linkedGoalIndices = new Set<number>();
+    // Get all goal titles that are linked to at least one strategy
+    const linkedGoalTitles = new Set<string>();
     strategies.forEach(s => {
-      (s.linkedGoals || []).forEach((goalIdx: string) => {
-        linkedGoalIndices.add(parseInt(goalIdx));
+      (s.linkedGoals || []).forEach((goalTitle: string) => {
+        linkedGoalTitles.add(goalTitle);
       });
     });
     
-    // Find goals that are NOT linked
+    // Find goals that are NOT linked — filter to current year only
     return annualGoals
       .map((goal: any, idx: number) => ({
         index: idx,
         title: typeof goal === 'string' ? goal : goal.title,
         year: typeof goal === 'string' ? null : goal.year,
       }))
-      .filter(g => !linkedGoalIndices.has(g.index));
-  }, [annualGoals, strategies]);
+      .filter(g => {
+        const goalYear = g.year || currentYear;
+        return goalYear === currentYear && !linkedGoalTitles.has(g.title);
+      });
+  }, [annualGoals, strategies, currentYear]);
   
   // Filter strategies based on focus filter
   const filteredStrategies = useMemo(() => {
@@ -337,9 +344,27 @@ export default function Strategy() {
 
   // Use actual annual goals from Foundations, with fallback
   // Extract goal titles for display (handle both old string format and new AnnualGoal format)
-  const availableGoals: string[] = (foundation?.annualGoals || []).map((goal: any) => 
+  const allAvailableGoals: string[] = (foundation?.annualGoals || []).map((goal: any) => 
     typeof goal === 'string' ? goal : goal.title
   );
+  
+  // Build year-grouped goals for display
+  const goalsByYear = useMemo(() => {
+    const groups: Record<number, string[]> = {};
+    (foundation?.annualGoals || []).forEach((goal: any) => {
+      const title = typeof goal === 'string' ? goal : goal.title;
+      const year = typeof goal === 'string' ? currentYear : (goal.year || currentYear);
+      if (!groups[year]) groups[year] = [];
+      groups[year].push(title);
+    });
+    return groups;
+  }, [foundation?.annualGoals, currentYear]);
+  
+  // Current year goals for default view
+  const currentYearGoals = goalsByYear[currentYear] || [];
+  
+  // Goals to show in selectors - current year only by default, all when toggled
+  const availableGoals = showAllGoalYears ? allAvailableGoals : currentYearGoals;
 
   const openEditDialog = async (strategy: Strategy) => {
     setSelectedStrategy(strategy);
@@ -538,7 +563,7 @@ export default function Strategy() {
       status: "not-started",
       owner: "",
       timeline: parsedDraft.suggestedTimeline,
-      linkedGoals: parsedDraft.linkedGoals.filter(g => availableGoals.includes(g)),
+      linkedGoals: parsedDraft.linkedGoals.filter(g => allAvailableGoals.includes(g)),
     });
 
     // Close AI dialog and open create dialog
@@ -872,20 +897,53 @@ export default function Strategy() {
                   </div>
 
                   <div>
-                    <Label>Linked Annual Goals</Label>
-                    <div className="flex flex-wrap gap-2 mt-2">
-                      {availableGoals.map((goal) => (
-                        <Badge
-                          key={goal}
-                          variant={formData.linkedGoals.includes(goal) ? "default" : "outline"}
-                          className="cursor-pointer"
-                          onClick={() => toggleGoal(goal)}
-                          data-testid={`badge-goal-${goal?.toLowerCase().replace(/\s+/g, '-')}`}
-                        >
-                          {goal}
-                        </Badge>
-                      ))}
+                    <div className="flex items-center justify-between mb-2">
+                      <Label>Linked Annual Goals</Label>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowAllGoalYears(!showAllGoalYears)}
+                        data-testid="button-toggle-goal-years"
+                      >
+                        {showAllGoalYears ? `Show ${currentYear} Only` : "Show All Years"}
+                      </Button>
                     </div>
+                    {showAllGoalYears ? (
+                      <div className="space-y-3">
+                        {Object.keys(goalsByYear).sort((a, b) => Number(b) - Number(a)).map((year) => (
+                          <div key={year}>
+                            <p className="text-xs font-medium text-muted-foreground mb-1">{year}</p>
+                            <div className="flex flex-wrap gap-2">
+                              {goalsByYear[Number(year)].map((goal) => (
+                                <Badge
+                                  key={goal}
+                                  variant={formData.linkedGoals.includes(goal) ? "default" : "outline"}
+                                  className="cursor-pointer"
+                                  onClick={() => toggleGoal(goal)}
+                                  data-testid={`badge-goal-${goal?.toLowerCase().replace(/\s+/g, '-')}`}
+                                >
+                                  {goal}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="flex flex-wrap gap-2">
+                        {availableGoals.map((goal) => (
+                          <Badge
+                            key={goal}
+                            variant={formData.linkedGoals.includes(goal) ? "default" : "outline"}
+                            className="cursor-pointer"
+                            onClick={() => toggleGoal(goal)}
+                            data-testid={`badge-goal-${goal?.toLowerCase().replace(/\s+/g, '-')}`}
+                          >
+                            {goal}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
                 <DialogFooter>
@@ -1122,20 +1180,53 @@ export default function Strategy() {
               </div>
 
               <div>
-                <Label>Linked Annual Goals</Label>
-                <div className="flex flex-wrap gap-2 mt-2">
-                  {availableGoals.map((goal) => (
-                    <Badge
-                      key={goal}
-                      variant={formData.linkedGoals.includes(goal) ? "default" : "outline"}
-                      className="cursor-pointer"
-                      onClick={() => toggleGoal(goal)}
-                      data-testid={`badge-edit-goal-${goal?.toLowerCase().replace(/\s+/g, '-')}`}
-                    >
-                      {goal}
-                    </Badge>
-                  ))}
+                <div className="flex items-center justify-between mb-2">
+                  <Label>Linked Annual Goals</Label>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAllGoalYears(!showAllGoalYears)}
+                    data-testid="button-edit-toggle-goal-years"
+                  >
+                    {showAllGoalYears ? `Show ${currentYear} Only` : "Show All Years"}
+                  </Button>
                 </div>
+                {showAllGoalYears ? (
+                  <div className="space-y-3">
+                    {Object.keys(goalsByYear).sort((a, b) => Number(b) - Number(a)).map((year) => (
+                      <div key={year}>
+                        <p className="text-xs font-medium text-muted-foreground mb-1">{year}</p>
+                        <div className="flex flex-wrap gap-2">
+                          {goalsByYear[Number(year)].map((goal) => (
+                            <Badge
+                              key={goal}
+                              variant={formData.linkedGoals.includes(goal) ? "default" : "outline"}
+                              className="cursor-pointer"
+                              onClick={() => toggleGoal(goal)}
+                              data-testid={`badge-edit-goal-${goal?.toLowerCase().replace(/\s+/g, '-')}`}
+                            >
+                              {goal}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-2">
+                    {availableGoals.map((goal) => (
+                      <Badge
+                        key={goal}
+                        variant={formData.linkedGoals.includes(goal) ? "default" : "outline"}
+                        className="cursor-pointer"
+                        onClick={() => toggleGoal(goal)}
+                        data-testid={`badge-edit-goal-${goal?.toLowerCase().replace(/\s+/g, '-')}`}
+                      >
+                        {goal}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
             <DialogFooter>
