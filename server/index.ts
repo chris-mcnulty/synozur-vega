@@ -83,8 +83,10 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Initialize database with seed data if empty (for production deployments)
-  await initializeDatabase();
+  // Health check endpoint - responds immediately for deployment checks
+  app.get("/api/health", (_req: Request, res: Response) => {
+    res.json({ status: "ok", timestamp: Date.now() });
+  });
 
   const server = await registerRoutes(app);
 
@@ -137,5 +139,10 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+
+    // Initialize database AFTER port is open so deployment health checks pass
+    initializeDatabase()
+      .then(() => log("Database initialization complete"))
+      .catch((err) => console.error("Database initialization error (non-fatal):", err));
   });
 })();
