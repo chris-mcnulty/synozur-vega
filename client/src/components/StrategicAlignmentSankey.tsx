@@ -101,7 +101,12 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
     const linkList: SankeyLinkData[] = [];
     const recommendations: Recommendation[] = [];
 
-    const goals = foundation?.annualGoals || [];
+    const allGoals = foundation?.annualGoals || [];
+    const goals = allGoals.filter((goal: any) => {
+      if (typeof goal === "string") return true;
+      const goalYear = goal.year || year;
+      return goalYear === year;
+    });
     const goalIdMap = new Map<string, number>();
     const strategyIdMap = new Map<string, number>();
     const objectiveIdMap = new Map<string, number>();
@@ -307,7 +312,7 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
     const width = 1000;
 
     return { nodes: nodeList, links: linkList, recommendations, width, height };
-  }, [alignmentData, t]);
+  }, [alignmentData, t, year]);
 
   const sankeyData = useMemo(() => {
     if (nodes.length === 0 || links.length === 0) return null;
