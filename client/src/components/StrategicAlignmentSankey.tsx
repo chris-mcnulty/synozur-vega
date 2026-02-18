@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, AlertTriangle, CheckCircle, Target, Lightbulb, ArrowRight } from "lucide-react";
+import { Loader2, AlertTriangle, CheckCircle, Target, Lightbulb, ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useVocabulary } from "@/contexts/VocabularyContext";
 import { sankey, sankeyLinkHorizontal, SankeyNode, SankeyLink } from "d3-sankey";
@@ -40,6 +40,7 @@ interface Recommendation {
   message: string;
   action?: string;
   actionLink?: string;
+  details?: string[];
 }
 
 const LAYER_COLORS: Record<string, string> = {
@@ -68,6 +69,7 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
   const { t } = useVocabulary();
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [hoveredLink, setHoveredLink] = useState<number | null>(null);
+  const [expandedRecs, setExpandedRecs] = useState<Set<number>>(new Set());
 
   const { data: alignmentData, isLoading } = useQuery<AlignmentData>({
     queryKey: ["/api/strategic-alignment", currentTenant?.id, year, quarter],
@@ -244,13 +246,14 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
         goalsWithLinks.add(link.source);
       }
     });
-    const unlinkedGoals = goals.filter((_, idx) => !goalsWithLinks.has(idx));
+    const unlinkedGoals = goals.filter((_: any, idx: number) => !goalsWithLinks.has(idx));
     if (unlinkedGoals.length > 0 && strategies.length > 0) {
       recommendations.push({
         type: "gap",
         message: `${unlinkedGoals.length} ${unlinkedGoals.length === 1 ? "goal has" : "goals have"} no aligned ${t("strategy", "plural").toLowerCase()}`,
         action: `Link ${t("strategy", "plural").toLowerCase()} to these goals`,
         actionLink: "/strategy?focus=unlinked-goals",
+        details: unlinkedGoals.map((g: any) => typeof g === "string" ? g : (g.title || g.goal || "Untitled goal")),
       });
     }
 
@@ -263,6 +266,7 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
         message: `${strategiesWithoutObjectives.length} ${strategiesWithoutObjectives.length === 1 ? "strategy has" : "strategies have"} no aligned ${t("objective", "plural").toLowerCase()}`,
         action: `Create ${t("objective", "plural").toLowerCase()} for these strategies`,
         actionLink: "/planning?focus=strategies-without-objectives",
+        details: strategiesWithoutObjectives.map((s) => s.title),
       });
     }
 
@@ -275,6 +279,7 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
         message: `${objectivesWithoutKRs.length} ${t("objective", "plural").toLowerCase()} ${objectivesWithoutKRs.length === 1 ? "has" : "have"} no ${t("keyResult", "plural").toLowerCase()}`,
         action: `Add ${t("keyResult", "plural").toLowerCase()} to measure progress`,
         actionLink: "/planning?focus=objectives-without-key-results",
+        details: objectivesWithoutKRs.map((o) => o.title),
       });
     }
 
@@ -285,6 +290,7 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
         message: `${atRiskObjectives.length} ${t("objective", "plural").toLowerCase()} ${atRiskObjectives.length === 1 ? "is" : "are"} at risk or behind`,
         action: "Schedule review meetings",
         actionLink: "/focus-rhythm?focus=at-risk",
+        details: atRiskObjectives.map((o) => o.title),
       });
     }
 
@@ -587,41 +593,78 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
               Recommended Actions
             </h4>
             <div className="grid gap-2">
-              {recommendations.map((rec, idx) => (
-                <Alert
-                  key={idx}
-                  className={cn(
-                    "py-2",
-                    rec.type === "gap" && "border-amber-500/50 bg-amber-500/10",
-                    rec.type === "risk" && "border-red-500/50 bg-red-500/10",
-                    rec.type === "success" && "border-green-500/50 bg-green-500/10"
-                  )}
-                >
-                  <div className="flex items-center gap-2">
-                    {rec.type === "gap" && <AlertTriangle className="h-4 w-4 text-amber-500" />}
-                    {rec.type === "risk" && <AlertTriangle className="h-4 w-4 text-red-500" />}
-                    {rec.type === "success" && <CheckCircle className="h-4 w-4 text-green-500" />}
-                    <AlertDescription className="flex-1 text-sm">
-                      {rec.message}
-                    </AlertDescription>
-                    {rec.action && (
-                      <Button variant="ghost" size="sm" className="ml-auto shrink-0" asChild={!!rec.actionLink}>
-                        {rec.actionLink ? (
-                          <a href={rec.actionLink}>
-                            {rec.action}
-                            <ArrowRight className="h-3 w-3 ml-1" />
-                          </a>
-                        ) : (
-                          <>
-                            {rec.action}
-                            <ArrowRight className="h-3 w-3 ml-1" />
-                          </>
-                        )}
-                      </Button>
+              {recommendations.map((rec, idx) => {
+                const isExpanded = expandedRecs.has(idx);
+                const hasDetails = rec.details && rec.details.length > 0;
+                return (
+                  <Alert
+                    key={idx}
+                    className={cn(
+                      "py-2",
+                      rec.type === "gap" && "border-amber-500/50 bg-amber-500/10",
+                      rec.type === "risk" && "border-red-500/50 bg-red-500/10",
+                      rec.type === "success" && "border-green-500/50 bg-green-500/10"
                     )}
-                  </div>
-                </Alert>
-              ))}
+                    data-testid={`alert-recommendation-${idx}`}
+                  >
+                    <div className="flex items-center gap-2">
+                      {rec.type === "gap" && <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" />}
+                      {rec.type === "risk" && <AlertTriangle className="h-4 w-4 text-red-500 shrink-0" />}
+                      {rec.type === "success" && <CheckCircle className="h-4 w-4 text-green-500 shrink-0" />}
+                      <AlertDescription className="flex-1 text-sm">
+                        <button
+                          className={cn(
+                            "inline-flex items-center gap-1 text-left",
+                            hasDetails && "cursor-pointer"
+                          )}
+                          onClick={() => {
+                            if (!hasDetails) return;
+                            setExpandedRecs(prev => {
+                              const next = new Set(prev);
+                              if (next.has(idx)) next.delete(idx);
+                              else next.add(idx);
+                              return next;
+                            });
+                          }}
+                          data-testid={`button-expand-recommendation-${idx}`}
+                        >
+                          {rec.message}
+                          {hasDetails && (
+                            isExpanded
+                              ? <ChevronUp className="h-3 w-3 shrink-0" />
+                              : <ChevronDown className="h-3 w-3 shrink-0" />
+                          )}
+                        </button>
+                      </AlertDescription>
+                      {rec.action && (
+                        <Button variant="ghost" size="sm" className="ml-auto shrink-0" asChild={!!rec.actionLink}>
+                          {rec.actionLink ? (
+                            <a href={rec.actionLink}>
+                              {rec.action}
+                              <ArrowRight className="h-3 w-3 ml-1" />
+                            </a>
+                          ) : (
+                            <>
+                              {rec.action}
+                              <ArrowRight className="h-3 w-3 ml-1" />
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+                    {hasDetails && isExpanded && (
+                      <div className="mt-2 ml-6 space-y-1" data-testid={`details-recommendation-${idx}`}>
+                        {rec.details!.map((item, i) => (
+                          <div key={i} className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Target className="h-3 w-3 shrink-0" />
+                            <span>{item}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </Alert>
+                );
+              })}
             </div>
           </div>
         )}
