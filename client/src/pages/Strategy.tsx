@@ -362,6 +362,7 @@ export default function Strategy() {
   
   // Current year goals for default view
   const currentYearGoals = goalsByYear[currentYear] || [];
+  const currentYearGoalTitles = useMemo(() => new Set(currentYearGoals), [currentYearGoals]);
   
   // Goals to show in selectors - current year only by default, all when toggled
   const availableGoals = showAllGoalYears ? allAvailableGoals : currentYearGoals;
@@ -1051,6 +1052,8 @@ export default function Strategy() {
                     onDelete={openDeleteDialog}
                     getPriorityVariant={getPriorityVariant}
                     getStatusColor={getStatusColor}
+                    currentYearGoalTitles={currentYearGoalTitles}
+                    currentYear={currentYear}
                   />
                 ))}
               </div>
@@ -1075,6 +1078,8 @@ export default function Strategy() {
                       onDelete={openDeleteDialog}
                       getPriorityVariant={getPriorityVariant}
                       getStatusColor={getStatusColor}
+                      currentYearGoalTitles={currentYearGoalTitles}
+                      currentYear={currentYear}
                     />
                   ))}
                 </div>
@@ -1290,9 +1295,11 @@ interface StrategyCardProps {
   onDelete: (strategy: Strategy) => void;
   getPriorityVariant: (priority: string) => "destructive" | "default" | "secondary" | "outline";
   getStatusColor: (status: string) => string;
+  currentYearGoalTitles: Set<string>;
+  currentYear: number;
 }
 
-function StrategyCard({ strategy, onEdit, onDelete, getPriorityVariant, getStatusColor }: StrategyCardProps) {
+function StrategyCard({ strategy, onEdit, onDelete, getPriorityVariant, getStatusColor, currentYearGoalTitles, currentYear }: StrategyCardProps) {
   // Fetch value tags for this strategy
   const { data: strategyValues = [] } = useQuery<string[]>({
     queryKey: ['/api/strategies', strategy.id, 'values'],
@@ -1375,21 +1382,41 @@ function StrategyCard({ strategy, onEdit, onDelete, getPriorityVariant, getStatu
             </div>
           )}
           
-          {strategy.linkedGoals && strategy.linkedGoals.length > 0 && (
-            <div>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                <Link2 className="w-4 h-4" />
-                <span>Linked Annual Goals</span>
+          {strategy.linkedGoals && strategy.linkedGoals.length > 0 && (() => {
+            const currentGoals = strategy.linkedGoals.filter(g => currentYearGoalTitles.has(g));
+            const historicalGoals = strategy.linkedGoals.filter(g => !currentYearGoalTitles.has(g));
+            return (
+              <div>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                  <Link2 className="w-4 h-4" />
+                  <span>Linked Annual Goals</span>
+                </div>
+                {currentGoals.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {currentGoals.map((goal, index) => (
+                      <Badge key={index} variant="secondary" data-testid={`badge-linked-goal-${index}`}>
+                        {goal}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                {historicalGoals.length > 0 && (
+                  <details className="mt-2">
+                    <summary className="text-xs text-muted-foreground cursor-pointer">
+                      {historicalGoals.length} goal{historicalGoals.length !== 1 ? "s" : ""} from other years
+                    </summary>
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      {historicalGoals.map((goal, index) => (
+                        <Badge key={index} variant="outline" className="opacity-70" data-testid={`badge-historical-goal-${index}`}>
+                          {goal}
+                        </Badge>
+                      ))}
+                    </div>
+                  </details>
+                )}
               </div>
-              <div className="flex flex-wrap gap-2">
-                {strategy.linkedGoals.map((goal, index) => (
-                  <Badge key={index} variant="secondary">
-                    {goal}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-          )}
+            );
+          })()}
         </div>
       </CardContent>
     </Card>

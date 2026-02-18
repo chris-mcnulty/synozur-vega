@@ -245,13 +245,17 @@ export function StrategicAlignmentSankey({ year, quarter }: Props) {
     });
 
     // Check for unlinked goals (goals with no strategies pointing to them)
-    const goalsWithLinks = new Set<number>();
-    linkList.forEach(link => {
-      if (link.source < goals.length) {
-        goalsWithLinks.add(link.source);
-      }
+    // Build a set of goal titles that have at least one strategy linking to them
+    const goalTitlesWithStrategies = new Set<string>();
+    strategies.forEach((strategy) => {
+      (strategy.linkedGoals || []).forEach((title: string) => {
+        goalTitlesWithStrategies.add(title);
+      });
     });
-    const unlinkedGoals = goals.filter((_: any, idx: number) => !goalsWithLinks.has(idx));
+    const unlinkedGoals = goals.filter((goal: any) => {
+      const title = typeof goal === "string" ? goal : (goal.title || goal.goal || "");
+      return !goalTitlesWithStrategies.has(title);
+    });
     if (unlinkedGoals.length > 0 && strategies.length > 0) {
       recommendations.push({
         type: "gap",
