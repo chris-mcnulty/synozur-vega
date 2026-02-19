@@ -56,7 +56,13 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 
-function getProgressColor(progress: number): string {
+function getProgressColor(progress: number, expectedProgress?: number): string {
+  if (expectedProgress !== undefined) {
+    const gap = progress - expectedProgress;
+    if (gap >= -5) return "text-green-600 dark:text-green-400";
+    if (gap >= -15) return "text-amber-600 dark:text-amber-400";
+    return "text-red-600 dark:text-red-400";
+  }
   if (progress >= 70) return "text-green-600 dark:text-green-400";
   if (progress >= 40) return "text-amber-600 dark:text-amber-400";
   return "text-red-600 dark:text-red-400";
@@ -371,9 +377,14 @@ export default function ExecutiveDashboard() {
       ? Math.round(objectivesWithProgress.reduce((sum, obj) => sum + obj.calculatedProgress, 0) / objectivesWithProgress.length)
       : 0;
 
-    const atRiskObjectives = objectivesWithProgress.filter(obj => 
-      obj.status === 'at_risk' || obj.status === 'behind' || obj.calculatedProgress < 30
-    );
+    const atRiskObjectives = objectivesWithProgress.filter(obj => {
+      if (obj.status === 'at_risk' || obj.status === 'behind') return true;
+      if (obj.quarter != null && obj.year) {
+        const paceCheck = calculatePaceWithProjection(obj.calculatedProgress, obj.quarter, obj.year);
+        return paceCheck.status === 'at_risk';
+      }
+      return false;
+    });
 
     const completedObjectives = objectivesWithProgress.filter(obj => 
       obj.status === 'completed' || obj.calculatedProgress >= 100
@@ -391,13 +402,15 @@ export default function ExecutiveDashboard() {
     });
 
     // Count objectives with ANY check-in activity (objective or KR level) or recent updates
+    // Only count objectives that are in the current period's objectives list
+    const currentObjectiveIds = new Set(objectives.map(obj => obj.id));
     const objectivesWithCheckIns = new Set<string>();
     allCheckIns.forEach(ci => {
-      if (ci.entityType === 'objective') {
+      if (ci.entityType === 'objective' && currentObjectiveIds.has(ci.entityId)) {
         objectivesWithCheckIns.add(ci.entityId);
       } else if (ci.entityType === 'key_result') {
         const parentObjId = krToObjectiveMap.get(ci.entityId);
-        if (parentObjId) {
+        if (parentObjId && currentObjectiveIds.has(parentObjId)) {
           objectivesWithCheckIns.add(parentObjId);
         }
       }
@@ -628,10 +641,16 @@ export default function ExecutiveDashboard() {
       ? Math.round(objectivesWithPace.reduce((sum, obj) => sum + Math.min(obj.projectedEndProgress, 100), 0) / objectivesWithPace.length)
       : 0;
 
+    // Average expected progress based on time elapsed in period
+    const avgExpectedProgress = objectivesWithPace.length > 0
+      ? Math.round(objectivesWithPace.reduce((sum, obj) => sum + obj.expectedProgress, 0) / objectivesWithPace.length)
+      : undefined;
+
     return {
       totalObjectives: objectives.length,
       totalKRs: allKRs.length,
       avgProgress,
+      avgExpectedProgress,
       atRiskCount: atRiskObjectives.length,
       atRiskObjectives,
       completedCount: completedObjectives.length,
@@ -698,9 +717,20 @@ export default function ExecutiveDashboard() {
     );
   }
 
-  const daysInQuarter = 90;
+  const isAnnualPeriod = currentQuarter?.quarter === 0;
+  const periodStart = currentQuarter 
+    ? isAnnualPeriod 
+      ? new Date(currentQuarter.year, 0, 1) 
+      : new Date(currentQuarter.year, (currentQuarter.quarter - 1) * 3, 1)
+    : new Date();
+  const periodEnd = currentQuarter 
+    ? isAnnualPeriod 
+      ? new Date(currentQuarter.year, 11, 31)
+      : new Date(currentQuarter.year, currentQuarter.quarter * 3, 0)
+    : new Date();
+  const daysInQuarter = Math.max(1, Math.floor((periodEnd.getTime() - periodStart.getTime()) / (1000 * 60 * 60 * 24)));
   const dayOfQuarter = currentQuarter ? Math.min(
-    Math.floor((Date.now() - new Date(currentQuarter.year, (currentQuarter.quarter - 1) * 3, 1).getTime()) / (1000 * 60 * 60 * 24)),
+    Math.max(0, Math.floor((Date.now() - periodStart.getTime()) / (1000 * 60 * 60 * 24))),
     daysInQuarter
   ) : 0;
   const daysRemaining = Math.max(0, daysInQuarter - dayOfQuarter);
@@ -768,13 +798,20 @@ export default function ExecutiveDashboard() {
                           <p className="text-sm font-medium text-muted-foreground">Overall Progress</p>
                           <Info className="h-3 w-3 text-muted-foreground" />
                         </div>
-                        <p className={cn("text-3xl font-bold", getProgressColor(metrics.avgProgress))} data-testid="text-overall-progress">
+                        <p className={cn("text-3xl font-bold", getProgressColor(metrics.avgProgress, metrics.avgExpectedProgress))} data-testid="text-overall-progress">
                           {metrics.avgProgress}%
                         </p>
                       </div>
-                      <div className={cn("p-3 rounded-full", metrics.avgProgress >= 50 ? "bg-green-100 dark:bg-green-900" : "bg-amber-100 dark:bg-amber-900")}>
-                        <TrendingUp className={cn("h-6 w-6", metrics.avgProgress >= 50 ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400")} />
-                      </div>
+                      {(() => {
+                        const isAheadOfPace = metrics.avgExpectedProgress !== undefined 
+                          ? metrics.avgProgress >= metrics.avgExpectedProgress - 5
+                          : metrics.avgProgress >= 50;
+                        return (
+                          <div className={cn("p-3 rounded-full", isAheadOfPace ? "bg-green-100 dark:bg-green-900" : "bg-amber-100 dark:bg-amber-900")}>
+                            <TrendingUp className={cn("h-6 w-6", isAheadOfPace ? "text-green-600 dark:text-green-400" : "text-amber-600 dark:text-amber-400")} />
+                          </div>
+                        );
+                      })()}
                     </div>
                     <Progress value={metrics.avgProgress} className="mt-4 h-2" />
                     <p className="text-xs text-muted-foreground mt-2">
@@ -787,7 +824,7 @@ export default function ExecutiveDashboard() {
                 <div className="space-y-2">
                   <h4 className="font-semibold">Why it matters</h4>
                   <p className="text-sm text-muted-foreground">
-                    Shows average completion across all objectives based on Key Result progress. At mid-quarter, aim for 40-50%.
+                    Shows average completion across all objectives based on Key Result progress. Color reflects pace: green means on or ahead of schedule relative to time elapsed in the period.
                   </p>
                   <Separator />
                   <h4 className="font-semibold">How to act</h4>
@@ -832,7 +869,7 @@ export default function ExecutiveDashboard() {
                 <div className="space-y-2">
                   <h4 className="font-semibold">Why it matters</h4>
                   <p className="text-sm text-muted-foreground">
-                    Objectives with less than 30% progress or marked as "Behind" or "At Risk" need immediate attention.
+                    Objectives explicitly marked as "Behind" or "At Risk", or those significantly behind expected pace for their period.
                   </p>
                   <Separator />
                   <h4 className="font-semibold">How to act</h4>
