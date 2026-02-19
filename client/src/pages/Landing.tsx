@@ -186,7 +186,7 @@ export default function Landing() {
                 <h4 className="font-semibold mb-3">Company</h4>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <li><a href="https://www.synozur.com" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">About Synozur</a></li>
-                  <li><a href="https://www.synozur.com" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Contact</a></li>
+                  <li><a href="https://www.synozur.com/contact" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Contact</a></li>
                   <li><a href="https://www.synozur.com" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Blog</a></li>
                 </ul>
               </div>
