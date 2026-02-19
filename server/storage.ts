@@ -150,6 +150,7 @@ export interface IStorage {
   linkObjectiveToBigRock(objectiveId: string, bigRockId: string, tenantId: string): Promise<void>;
   unlinkObjectiveToBigRock(objectiveId: string, bigRockId: string): Promise<void>;
   getBigRocksLinkedToObjective(objectiveId: string): Promise<BigRock[]>;
+  getLinkedObjectiveIdsForBigRocks(bigRockIds: string[]): Promise<Map<string, string[]>>;
   
   // KeyResult-BigRock linking methods
   linkKeyResultToBigRock(keyResultId: string, bigRockId: string, tenantId: string): Promise<void>;
@@ -1554,6 +1555,26 @@ export class DatabaseStorage implements IStorage {
       .where(eq(objectiveBigRocks.objectiveId, objectiveId));
     
     return links.map(link => link.big_rocks);
+  }
+
+  async getLinkedObjectiveIdsForBigRocks(bigRockIds: string[]): Promise<Map<string, string[]>> {
+    if (bigRockIds.length === 0) return new Map();
+    
+    const links = await db
+      .select({
+        bigRockId: objectiveBigRocks.bigRockId,
+        objectiveId: objectiveBigRocks.objectiveId,
+      })
+      .from(objectiveBigRocks)
+      .where(inArray(objectiveBigRocks.bigRockId, bigRockIds));
+    
+    const result = new Map<string, string[]>();
+    for (const link of links) {
+      const existing = result.get(link.bigRockId) || [];
+      existing.push(link.objectiveId);
+      result.set(link.bigRockId, existing);
+    }
+    return result;
   }
 
   async linkKeyResultToBigRock(keyResultId: string, bigRockId: string, tenantId: string): Promise<void> {

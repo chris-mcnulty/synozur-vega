@@ -838,6 +838,27 @@ okrRouter.post("/big-rocks/task-counts", async (req, res) => {
   }
 });
 
+okrRouter.post("/big-rocks/linked-objectives", async (req, res) => {
+  try {
+    const { bigRockIds } = req.body;
+    
+    if (!Array.isArray(bigRockIds)) {
+      return res.status(400).json({ error: "bigRockIds must be an array" });
+    }
+    
+    const linkedMap = await storage.getLinkedObjectiveIdsForBigRocks(bigRockIds);
+    
+    const result: Record<string, string[]> = {};
+    linkedMap.forEach((value, key) => {
+      result[key] = value;
+    });
+    
+    res.json(result);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 okrRouter.post("/big-rocks/:id/clone", requireValidatedTenant, async (req, res) => {
   try {
     const { targetQuarter, targetYear, keepOriginalOwner, newOwnerId, keepLinkedOKR } = req.body;

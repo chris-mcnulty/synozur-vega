@@ -457,6 +457,23 @@ export default function PlanningEnhanced() {
     enabled: !!currentTenant?.id,
   });
 
+  // Fetch linked objectives from junction table for all big rocks
+  const { data: bigRockLinkedObjectives = {} } = useQuery<Record<string, string[]>>({
+    queryKey: [`/api/okr/big-rocks/linked-objectives`, bigRocks.map((r: any) => r.id).join(',')],
+    queryFn: async () => {
+      if (bigRocks.length === 0) return {};
+      const res = await fetch('/api/okr/big-rocks/linked-objectives', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bigRockIds: bigRocks.map((r: any) => r.id) }),
+        credentials: 'include'
+      });
+      if (!res.ok) return {};
+      return res.json();
+    },
+    enabled: bigRocks.length > 0,
+  });
+
   // Fetch hierarchy data (uses unified filters)
   const { data: hierarchyData = [], isLoading: loadingHierarchy } = useQuery<any[]>({
     queryKey: [`/api/okr/hierarchy`, currentTenant?.id, quarter, year, level, teamId],
@@ -726,6 +743,43 @@ export default function PlanningEnhanced() {
       };
       
       syncPlannerProgress();
+    }
+  }, [checkInDialogOpen, checkInEntity?.id, checkInEntity?.type, checkInEntity?.current?.plannerSyncEnabled]);
+
+  // Auto-populate progress from Big Rock tasks when opening check-in (non-Planner-sync case)
+  useEffect(() => {
+    if (checkInDialogOpen && checkInEntity?.type === "big_rock" && !checkInEntity.current?.plannerSyncEnabled) {
+      const fetchTaskProgress = async () => {
+        try {
+          const res = await fetch('/api/okr/big-rocks/task-counts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bigRockIds: [checkInEntity.id] }),
+            credentials: 'include'
+          });
+          if (!res.ok) return;
+          const counts = await res.json();
+          const taskInfo = counts[checkInEntity.id];
+          if (taskInfo && taskInfo.total > 0) {
+            const taskProgress = Math.round((taskInfo.completed / taskInfo.total) * 100);
+            setPlannerSyncState({
+              loading: false,
+              error: null,
+              totalTasks: taskInfo.total,
+              completedTasks: taskInfo.completed,
+              progress: taskProgress,
+              lastSyncAt: null,
+            });
+            setCheckInForm(prev => ({
+              ...prev,
+              newProgress: taskProgress,
+            }));
+          }
+        } catch (error) {
+          console.error('[Task Progress] Error fetching task counts for check-in:', error);
+        }
+      };
+      fetchTaskProgress();
     }
   }, [checkInDialogOpen, checkInEntity?.id, checkInEntity?.type, checkInEntity?.current?.plannerSyncEnabled]);
 
@@ -4225,14 +4279,29 @@ export default function PlanningEnhanced() {
                       )}
                     </div>
                   ) : (
-                    <Slider
-                      id="ci-bigrock-progress"
-                      value={[checkInForm.newProgress]}
-                      onValueChange={(value) => setCheckInForm({ ...checkInForm, newProgress: value[0] })}
-                      max={100}
-                      step={5}
-                      data-testid="slider-bigrock-checkin-progress"
-                    />
+                    <div className="space-y-3">
+                      {plannerSyncState.totalTasks > 0 && (
+                        <div className="p-3 bg-primary/5 border border-primary/20 rounded-md text-sm">
+                          <div className="flex items-center justify-between">
+                            <span className="font-medium">Progress from Tasks</span>
+                            <span className="text-lg font-bold">{plannerSyncState.progress}%</span>
+                          </div>
+                          <div className="mt-2 flex items-center gap-2 text-muted-foreground">
+                            <CheckSquare className="h-3 w-3" />
+                            <span>{plannerSyncState.completedTasks}/{plannerSyncState.totalTasks} tasks completed</span>
+                          </div>
+                          <Progress value={plannerSyncState.progress} className="mt-2 h-2" />
+                        </div>
+                      )}
+                      <Slider
+                        id="ci-bigrock-progress"
+                        value={[checkInForm.newProgress]}
+                        onValueChange={(value) => setCheckInForm({ ...checkInForm, newProgress: value[0] })}
+                        max={100}
+                        step={5}
+                        data-testid="slider-bigrock-checkin-progress"
+                      />
+                    </div>
                   )}
                 </div>
               )}
