@@ -33,7 +33,7 @@ import { OKRDetailPane } from "@/components/okr/OKRDetailPane";
 import { ProgressSummaryBar } from "@/components/okr/ProgressSummaryBar";
 import { MilestoneEditor, type PhasedTargets } from "@/components/okr/MilestoneEditor";
 import { MilestoneTimeline } from "@/components/okr/MilestoneTimeline";
-import { TrendingUp, Target, Activity, AlertCircle, AlertTriangle, CheckCircle, CheckSquare, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink, Calendar, X, Filter } from "lucide-react";
+import { TrendingUp, Target, Activity, AlertCircle, AlertTriangle, CheckCircle, CheckSquare, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink, Calendar, X, Filter, Users } from "lucide-react";
 import { ExcelFilePicker } from "@/components/ExcelFilePicker";
 import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
 import { PlannerCreatePlanDialog } from "@/components/planner/PlannerCreatePlanDialog";
@@ -116,8 +116,11 @@ interface BigRock {
   createdBy?: string;
   accountableId?: string;
   accountableEmail?: string;
+  teamId?: string;
   lastCheckInAt?: Date | string;
   lastCheckInNote?: string;
+  plannerPlanId?: string;
+  plannerSyncEnabled?: boolean;
 }
 
 interface CheckIn {
@@ -2546,6 +2549,8 @@ export default function PlanningEnhanced() {
               bigRocks={bigRocks} 
               objectives={objectives}
               strategies={strategies}
+              teams={teamsData}
+              activeQuarter={quarter}
               onCreateBigRock={handleCreateBigRock}
               onEditBigRock={handleEditBigRock}
               onDeleteBigRock={handleDeleteBigRock}
@@ -5257,7 +5262,7 @@ export default function PlanningEnhanced() {
 }
 
 // Big Rocks Section Component
-function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, onEditBigRock, onDeleteBigRock, onCloneBigRock, onCheckIn, onViewHistory }: any) {
+function BigRocksSection({ bigRocks, objectives, strategies, teams, activeQuarter, onCreateBigRock, onEditBigRock, onDeleteBigRock, onCloneBigRock, onCheckIn, onViewHistory }: any) {
   // Fetch task counts for all Big Rocks
   const bigRockIds = bigRocks.map((rock: BigRock) => rock.id);
   const bigRockIdsKey = bigRockIds.sort().join(','); // Stable key for cache
@@ -5286,6 +5291,30 @@ function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, on
     const strategy = strategies?.find((s: any) => s.id === strategyId);
     return strategy?.title || "Unknown Strategy";
   };
+
+  const getTeamName = (teamId: string) => {
+    const team = teams?.find((t: any) => t.id === teamId);
+    return team?.name || null;
+  };
+
+  // Determine if we should group by quarter (when viewing Annual or All Periods)
+  const shouldGroupByQuarter = activeQuarter === null || activeQuarter === 0;
+
+  // Group and sort big rocks by quarter
+  const groupedBigRocks = useMemo(() => {
+    if (!shouldGroupByQuarter) return null;
+    const groups: Record<string, BigRock[]> = {};
+    const sorted = [...bigRocks].sort((a: BigRock, b: BigRock) => {
+      if (a.quarter !== b.quarter) return a.quarter - b.quarter;
+      return a.title.localeCompare(b.title);
+    });
+    sorted.forEach((rock: BigRock) => {
+      const label = rock.quarter === 0 ? 'Annual' : `Q${rock.quarter}`;
+      if (!groups[label]) groups[label] = [];
+      groups[label].push(rock);
+    });
+    return groups;
+  }, [bigRocks, shouldGroupByQuarter]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -5328,6 +5357,155 @@ function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, on
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  const renderBigRockCard = (rock: BigRock) => {
+    const effectiveStatus = deriveEffectiveStatus(rock.status, rock.completionPercentage);
+    return (
+      <Card key={rock.id} className="hover-elevate" data-testid={`card-bigrock-${rock.id}`}>
+        <CardHeader className="pb-3">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <CardTitle className="text-lg leading-tight">{rock.title}</CardTitle>
+                <Badge variant="secondary" className="text-xs">
+                  {rock.quarter === 0 ? 'Annual' : `Q${rock.quarter}`} {rock.year}
+                </Badge>
+                {rock.plannerPlanId && (
+                  <Badge variant="outline" className="text-xs" data-testid={`badge-planner-linked-${rock.id}`}>
+                    <Link2 className="h-3 w-3 mr-1" />
+                    Planner
+                  </Badge>
+                )}
+              </div>
+              {rock.objectiveId && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  <Target className="h-3 w-3 inline mr-1" />
+                  {getObjectiveTitle(rock.objectiveId)}
+                </p>
+              )}
+              {rock.teamId && getTeamName(rock.teamId) && (
+                <p className="text-xs text-muted-foreground mt-1" data-testid={`text-team-${rock.id}`}>
+                  <Users className="h-3 w-3 inline mr-1" />
+                  {getTeamName(rock.teamId)}
+                </p>
+              )}
+              {rock.accountableEmail && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Accountable: {rock.accountableEmail}
+                </p>
+              )}
+            </div>
+            <div className="flex gap-1 flex-shrink-0">
+              {effectiveStatus !== 'closed' && (
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => onCheckIn(rock)}
+                  title="Check In"
+                  data-testid={`button-checkin-bigrock-${rock.id}`}
+                >
+                  <Activity className="h-4 w-4 text-primary" />
+                </Button>
+              )}
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => onViewHistory(rock)}
+                title="View History"
+                data-testid={`button-history-bigrock-${rock.id}`}
+              >
+                <History className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => onEditBigRock(rock)}
+                data-testid={`button-edit-bigrock-${rock.id}`}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => onCloneBigRock(rock)}
+                title="Clone to another quarter"
+                data-testid={`button-clone-bigrock-${rock.id}`}
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => onDeleteBigRock(rock.id)}
+                data-testid={`button-delete-bigrock-${rock.id}`}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {rock.description && (
+            <p className="text-sm text-muted-foreground mb-4">{rock.description}</p>
+          )}
+          {rock.linkedStrategies && rock.linkedStrategies.length > 0 && (
+            <div className="mb-3">
+              <h4 className="font-medium text-sm mb-2">Linked Strategies</h4>
+              <div className="flex flex-wrap gap-2">
+                {rock.linkedStrategies.map((strategyId: string) => (
+                  <Badge key={strategyId} variant="outline" className="text-xs">
+                    {getStrategyTitle(strategyId)}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          )}
+          <div className="space-y-3">
+            <div className="flex justify-between text-sm">
+              <span>Completion</span>
+              <span className="font-medium">{rock.completionPercentage}%</span>
+            </div>
+            <div className="h-2 bg-secondary rounded-full overflow-hidden">
+              <div
+                className={cn("h-full transition-all", getStatusColor(effectiveStatus))}
+                style={{ width: `${rock.completionPercentage}%` }}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant={getStatusBadgeVariant(effectiveStatus)}
+                  data-testid={`badge-status-${rock.id}`}
+                >
+                  {effectiveStatus.replace("_", " ")}
+                </Badge>
+                {taskCounts?.[rock.id] && taskCounts[rock.id].total > 0 && (
+                  <Badge 
+                    variant="outline" 
+                    className="text-xs"
+                    data-testid={`badge-tasks-${rock.id}`}
+                  >
+                    <CheckSquare className="h-3 w-3 mr-1" />
+                    {taskCounts[rock.id].completed}/{taskCounts[rock.id].total} tasks
+                  </Badge>
+                )}
+              </div>
+              {rock.lastCheckInAt && (
+                <span className="text-xs text-muted-foreground">
+                  Last check-in: {formatDate(rock.lastCheckInAt)}
+                </span>
+              )}
+            </div>
+            {rock.lastCheckInNote && (
+              <p className="text-xs text-muted-foreground italic border-l-2 border-muted pl-2 mt-2">
+                "{rock.lastCheckInNote.length > 100 ? rock.lastCheckInNote.substring(0, 100) + "..." : rock.lastCheckInNote}"
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
@@ -5347,152 +5525,22 @@ function BigRocksSection({ bigRocks, objectives, strategies, onCreateBigRock, on
             </p>
           </CardContent>
         </Card>
+      ) : shouldGroupByQuarter && groupedBigRocks ? (
+        <div className="space-y-6">
+          {Object.entries(groupedBigRocks).map(([label, rocks]) => (
+            <div key={label}>
+              <h3 className="text-base font-semibold mb-3 text-muted-foreground" data-testid={`heading-quarter-${label}`}>
+                {label} ({(rocks as BigRock[]).length})
+              </h3>
+              <div className="grid gap-4 md:grid-cols-2">
+                {(rocks as BigRock[]).map((rock: BigRock) => renderBigRockCard(rock))}
+              </div>
+            </div>
+          ))}
+        </div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {bigRocks.map((rock: BigRock) => {
-            const effectiveStatus = deriveEffectiveStatus(rock.status, rock.completionPercentage);
-            return (
-            <Card key={rock.id} className="hover-elevate" data-testid={`card-bigrock-${rock.id}`}>
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <CardTitle className="text-lg leading-tight">{rock.title}</CardTitle>
-                      <Badge variant="secondary" className="text-xs">
-                        {rock.quarter === 0 ? 'Annual' : `Q${rock.quarter}`} {rock.year}
-                      </Badge>
-                      {rock.plannerPlanId && (
-                        <Badge variant="outline" className="text-xs" data-testid={`badge-planner-linked-${rock.id}`}>
-                          <Link2 className="h-3 w-3 mr-1" />
-                          Planner
-                        </Badge>
-                      )}
-                    </div>
-                    {rock.objectiveId && (
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Linked to: {getObjectiveTitle(rock.objectiveId)}
-                      </p>
-                    )}
-                    {rock.accountableEmail && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Accountable: {rock.accountableEmail}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex gap-1 flex-shrink-0">
-                    {effectiveStatus !== 'closed' && (
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => onCheckIn(rock)}
-                        title="Check In"
-                        data-testid={`button-checkin-bigrock-${rock.id}`}
-                      >
-                        <Activity className="h-4 w-4 text-primary" />
-                      </Button>
-                    )}
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => onViewHistory(rock)}
-                      title="View History"
-                      data-testid={`button-history-bigrock-${rock.id}`}
-                    >
-                      <History className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => onEditBigRock(rock)}
-                      data-testid={`button-edit-bigrock-${rock.id}`}
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => onCloneBigRock(rock)}
-                      title="Clone to another quarter"
-                      data-testid={`button-clone-bigrock-${rock.id}`}
-                    >
-                      <Copy className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      size="icon"
-                      variant="ghost"
-                      onClick={() => onDeleteBigRock(rock.id)}
-                      data-testid={`button-delete-bigrock-${rock.id}`}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {rock.description && (
-                  <p className="text-sm text-muted-foreground mb-4">{rock.description}</p>
-                )}
-                
-                {/* Linked Strategies */}
-                {rock.linkedStrategies && rock.linkedStrategies.length > 0 && (
-                  <div className="mb-3">
-                    <h4 className="font-medium text-sm mb-2">Linked Strategies</h4>
-                    <div className="flex flex-wrap gap-2">
-                      {rock.linkedStrategies.map((strategyId: string) => (
-                        <Badge key={strategyId} variant="outline" className="text-xs">
-                          {getStrategyTitle(strategyId)}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span>Completion</span>
-                    <span className="font-medium">{rock.completionPercentage}%</span>
-                  </div>
-                  <div className="h-2 bg-secondary rounded-full overflow-hidden">
-                    <div
-                      className={cn("h-full transition-all", getStatusColor(effectiveStatus))}
-                      style={{ width: `${rock.completionPercentage}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={getStatusBadgeVariant(effectiveStatus)}
-                        data-testid={`badge-status-${rock.id}`}
-                      >
-                        {effectiveStatus.replace("_", " ")}
-                      </Badge>
-                      {taskCounts?.[rock.id] && taskCounts[rock.id].total > 0 && (
-                        <Badge 
-                          variant="outline" 
-                          className="text-xs"
-                          data-testid={`badge-tasks-${rock.id}`}
-                        >
-                          <CheckSquare className="h-3 w-3 mr-1" />
-                          {taskCounts[rock.id].completed}/{taskCounts[rock.id].total} tasks
-                        </Badge>
-                      )}
-                    </div>
-                    {rock.lastCheckInAt && (
-                      <span className="text-xs text-muted-foreground">
-                        Last check-in: {formatDate(rock.lastCheckInAt)}
-                      </span>
-                    )}
-                  </div>
-                  {rock.lastCheckInNote && (
-                    <p className="text-xs text-muted-foreground italic border-l-2 border-muted pl-2 mt-2">
-                      "{rock.lastCheckInNote.length > 100 ? rock.lastCheckInNote.substring(0, 100) + "..." : rock.lastCheckInNote}"
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          );
-          })}
+          {bigRocks.map((rock: BigRock) => renderBigRockCard(rock))}
         </div>
       )}
     </div>
