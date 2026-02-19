@@ -14,6 +14,7 @@ import { WhatsNewModal } from "@/components/WhatsNewModal";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { ConsultingModeToggle } from "@/components/ConsultingModeToggle";
 import { SynozurLogo } from "@/components/SynozurLogo";
+import { SynozurAppSwitcher } from "@/components/SynozurAppSwitcher";
 import { TenantProvider } from "@/contexts/TenantContext";
 import { VocabularyProvider } from "@/contexts/VocabularyContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -287,6 +288,7 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
         <AnnouncementBanner />
         <header className="flex items-center justify-between p-4 border-b gap-4">
           <div className="flex items-center gap-4">
+            <SynozurAppSwitcher currentApp="vega" variant="light" />
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <div className="flex items-center gap-3 flex-shrink-0">
               <SynozurLogo variant="mark" className="h-8 w-8 flex-shrink-0" />
