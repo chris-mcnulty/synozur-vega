@@ -188,6 +188,7 @@ export default function Landing() {
                   <li><a href="https://www.synozur.com" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">About Synozur</a></li>
                   <li><a href="https://www.synozur.com/contact" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Contact</a></li>
                   <li><a href="https://www.synozur.com/insights" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Blog</a></li>
+                  <li><a href="https://www.synozur.com/applications" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Software</a></li>
                 </ul>
               </div>
               <div>
