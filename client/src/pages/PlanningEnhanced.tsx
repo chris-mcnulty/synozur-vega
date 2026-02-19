@@ -444,7 +444,9 @@ export default function PlanningEnhanced() {
 
   // Fetch enhanced OKR data (uses unified filters)
   const isMultiPeriod = selectedPeriods.length > 1;
-  const fetchQuarter = isMultiPeriod ? null : quarter;
+  const hasAnnualSelected = selectedPeriods.includes(0);
+  const shouldFetchAllQuarters = hasAnnualSelected || isMultiPeriod;
+  const fetchQuarter = shouldFetchAllQuarters ? null : (quarter === 0 ? null : quarter);
 
   const { data: rawObjectives = [], isLoading: loadingObjectives } = useQuery<Objective[]>({
     queryKey: [`/api/okr/objectives`, currentTenant?.id, fetchQuarter, year, level, teamId, selectedPeriods.join(',')],
@@ -463,9 +465,10 @@ export default function PlanningEnhanced() {
   });
 
   const objectives = useMemo(() => {
+    if (hasAnnualSelected) return rawObjectives;
     if (!isMultiPeriod || selectedPeriods.length === 0) return rawObjectives;
     return rawObjectives.filter((obj: any) => selectedPeriods.includes(obj.quarter));
-  }, [rawObjectives, isMultiPeriod, selectedPeriods]);
+  }, [rawObjectives, isMultiPeriod, selectedPeriods, hasAnnualSelected]);
 
   const { data: rawBigRocks = [], isLoading: loadingBigRocks } = useQuery<BigRock[]>({
     queryKey: [`/api/okr/big-rocks`, currentTenant?.id, fetchQuarter, year, selectedPeriods.join(',')],
@@ -482,9 +485,10 @@ export default function PlanningEnhanced() {
   });
 
   const bigRocks = useMemo(() => {
+    if (hasAnnualSelected) return rawBigRocks;
     if (!isMultiPeriod || selectedPeriods.length === 0) return rawBigRocks;
     return rawBigRocks.filter((rock: any) => selectedPeriods.includes(rock.quarter));
-  }, [rawBigRocks, isMultiPeriod, selectedPeriods]);
+  }, [rawBigRocks, isMultiPeriod, selectedPeriods, hasAnnualSelected]);
 
   // Fetch linked objectives from junction table for all big rocks
   const { data: bigRockLinkedObjectives = {} } = useQuery<Record<string, string[]>>({

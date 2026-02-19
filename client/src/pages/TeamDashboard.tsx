@@ -163,6 +163,16 @@ function TeamDashboardContent() {
     newStatus: "on_track",
     note: "",
   });
+
+  // Big Rock check-in dialog state
+  const [bigRockCheckInOpen, setBigRockCheckInOpen] = useState(false);
+  const [bigRockHistoryOpen, setBigRockHistoryOpen] = useState(false);
+  const [selectedBigRock, setSelectedBigRock] = useState<BigRock | null>(null);
+  const [bigRockCheckInForm, setBigRockCheckInForm] = useState({
+    newProgress: 0,
+    newStatus: "on_track",
+    note: "",
+  });
   
   // AI Check-in Rewrite state
   const [aiRewriteState, setAiRewriteState] = useState<{
@@ -253,9 +263,11 @@ function TeamDashboardContent() {
 
   const isMultiPeriod = selectedQuartersList.length > 1;
   const selectedQuarterNums = useMemo(() => selectedQuartersList.map(q => q.quarter), [selectedQuartersList]);
+  const hasAnnualSelected = selectedQuarterNums.includes(0);
+  const shouldFetchAllQuarters = hasAnnualSelected || isMultiPeriod;
 
   const { data: rawObjectives, isLoading: loadingObjectives } = useQuery<Objective[]>({
-    queryKey: ["/api/okr/objectives", currentTenant?.id, isMultiPeriod ? null : currentQuarter?.quarter, globalYear, selectedTeamId, selectedQuarterNums.join(',')],
+    queryKey: ["/api/okr/objectives", currentTenant?.id, shouldFetchAllQuarters ? 'all' : currentQuarter?.quarter, globalYear, selectedTeamId, selectedQuarterNums.join(',')],
     queryFn: async () => {
       if (!currentTenant?.id) return [];
       const params = new URLSearchParams({
@@ -263,7 +275,7 @@ function TeamDashboardContent() {
         year: String(globalYear),
         ...(selectedTeamId && { teamId: selectedTeamId }),
       });
-      if (!isMultiPeriod && currentQuarter?.quarter != null) {
+      if (!shouldFetchAllQuarters && currentQuarter?.quarter != null && currentQuarter.quarter !== 0) {
         params.set('quarter', String(currentQuarter.quarter));
       }
       const res = await fetch(`/api/okr/objectives?${params}`);
@@ -275,12 +287,13 @@ function TeamDashboardContent() {
 
   const objectives = useMemo(() => {
     if (!rawObjectives) return [];
+    if (hasAnnualSelected) return rawObjectives;
     if (!isMultiPeriod) return rawObjectives;
     return rawObjectives.filter((obj: any) => selectedQuarterNums.includes(obj.quarter));
-  }, [rawObjectives, isMultiPeriod, selectedQuarterNums]);
+  }, [rawObjectives, isMultiPeriod, selectedQuarterNums, hasAnnualSelected]);
 
   const { data: rawKeyResults = [], isLoading: loadingKeyResults } = useQuery<KeyResult[]>({
-    queryKey: ["/api/okr/key-results", currentTenant?.id, isMultiPeriod ? null : currentQuarter?.quarter, globalYear, selectedTeamId, selectedQuarterNums.join(',')],
+    queryKey: ["/api/okr/key-results", currentTenant?.id, shouldFetchAllQuarters ? 'all' : currentQuarter?.quarter, globalYear, selectedTeamId, selectedQuarterNums.join(',')],
     queryFn: async () => {
       if (!currentTenant?.id) return [];
       const params = new URLSearchParams({
@@ -288,7 +301,7 @@ function TeamDashboardContent() {
         year: String(globalYear),
         ...(selectedTeamId && { teamId: selectedTeamId }),
       });
-      if (!isMultiPeriod && currentQuarter?.quarter != null) {
+      if (!shouldFetchAllQuarters && currentQuarter?.quarter != null && currentQuarter.quarter !== 0) {
         params.set('quarter', String(currentQuarter.quarter));
       }
       const res = await fetch(`/api/okr/key-results?${params}`);
@@ -299,19 +312,20 @@ function TeamDashboardContent() {
   });
 
   const keyResults = useMemo(() => {
+    if (hasAnnualSelected) return rawKeyResults;
     if (!isMultiPeriod) return rawKeyResults;
     return rawKeyResults.filter((kr: any) => selectedQuarterNums.includes(kr.quarter));
-  }, [rawKeyResults, isMultiPeriod, selectedQuarterNums]);
+  }, [rawKeyResults, isMultiPeriod, selectedQuarterNums, hasAnnualSelected]);
 
   const { data: allBigRocks, isLoading: loadingBigRocks } = useQuery<BigRock[]>({
-    queryKey: ["/api/okr/big-rocks", currentTenant?.id, isMultiPeriod ? null : currentQuarter?.quarter, globalYear, selectedQuarterNums.join(',')],
+    queryKey: ["/api/okr/big-rocks", currentTenant?.id, shouldFetchAllQuarters ? 'all' : currentQuarter?.quarter, globalYear, selectedQuarterNums.join(',')],
     queryFn: async () => {
       if (!currentTenant?.id) return [];
       const params = new URLSearchParams({
         tenantId: currentTenant.id,
         year: String(globalYear),
       });
-      if (!isMultiPeriod && currentQuarter?.quarter != null) {
+      if (!shouldFetchAllQuarters && currentQuarter?.quarter != null && currentQuarter.quarter !== 0) {
         params.set('quarter', String(currentQuarter.quarter));
       }
       const res = await fetch(`/api/okr/big-rocks?${params}`);
@@ -324,11 +338,11 @@ function TeamDashboardContent() {
   const bigRocks = useMemo(() => {
     if (!allBigRocks || !selectedTeamId) return [];
     let filtered = allBigRocks.filter((br) => br.teamId === selectedTeamId);
-    if (isMultiPeriod) {
+    if (!hasAnnualSelected && isMultiPeriod) {
       filtered = filtered.filter((br: any) => selectedQuarterNums.includes(br.quarter));
     }
     return filtered;
-  }, [allBigRocks, selectedTeamId, isMultiPeriod, selectedQuarterNums]);
+  }, [allBigRocks, selectedTeamId, isMultiPeriod, selectedQuarterNums, hasAnnualSelected]);
 
   const { data: strategies, isLoading: loadingStrategies } = useQuery<Strategy[]>({
     queryKey: [`/api/strategies/${currentTenant?.id}`],
@@ -384,8 +398,8 @@ function TeamDashboardContent() {
       return apiRequest("POST", "/api/okr/check-ins", checkInData);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/okr/key-results", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year, selectedTeamId] });
-      queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year, selectedTeamId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/okr/key-results"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives"] });
       queryClient.invalidateQueries({ queryKey: ["/api/okr/check-ins"] });
       setCheckInDialogOpen(false);
       setSelectedKR(null);
@@ -395,6 +409,75 @@ function TeamDashboardContent() {
       toast({ title: "Error", description: error.message || "Failed to record check-in", variant: "destructive" });
     },
   });
+
+  // Big Rock check-in mutation
+  const createBigRockCheckInMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const checkInData = {
+        ...data,
+        userId: user?.id,
+        userEmail: user?.email,
+        tenantId: currentTenant?.id,
+        asOfDate: new Date().toISOString(),
+      };
+      return apiRequest("POST", "/api/okr/check-ins", checkInData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/okr/big-rocks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/okr/check-ins"] });
+      setBigRockCheckInOpen(false);
+      setSelectedBigRock(null);
+      toast({ title: "Check-in recorded", description: "Big Rock progress has been saved" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to record check-in", variant: "destructive" });
+    },
+  });
+
+  // Fetch check-in history for selected Big Rock
+  const { data: bigRockCheckInHistory = [] } = useQuery<CheckIn[]>({
+    queryKey: ["/api/okr/check-ins", "big_rock", selectedBigRock?.id],
+    queryFn: async () => {
+      if (!selectedBigRock) return [];
+      const res = await fetch(`/api/okr/check-ins?entityType=big_rock&entityId=${selectedBigRock.id}`);
+      if (!res.ok) throw new Error("Failed to fetch check-ins");
+      return res.json();
+    },
+    enabled: !!selectedBigRock && bigRockHistoryOpen,
+  });
+
+  const openBigRockCheckIn = (rock: BigRock) => {
+    setSelectedBigRock(rock);
+    setBigRockCheckInForm({
+      newProgress: rock.completionPercentage || 0,
+      newStatus: rock.status || "on_track",
+      note: "",
+    });
+    setBigRockCheckInOpen(true);
+  };
+
+  const openBigRockHistory = (rock: BigRock) => {
+    setSelectedBigRock(rock);
+    setBigRockHistoryOpen(true);
+  };
+
+  const handleBigRockCheckIn = () => {
+    if (!selectedBigRock) return;
+    createBigRockCheckInMutation.mutate({
+      entityType: "big_rock",
+      entityId: selectedBigRock.id,
+      newProgress: bigRockCheckInForm.newProgress,
+      newStatus: bigRockCheckInForm.newStatus,
+      note: bigRockCheckInForm.note,
+    });
+  };
+
+  // Clear selected big rock when dialogs close
+  useEffect(() => {
+    if (!bigRockCheckInOpen && !bigRockHistoryOpen) {
+      setSelectedBigRock(null);
+    }
+  }, [bigRockCheckInOpen, bigRockHistoryOpen]);
 
   // Reset AI rewrite state when dialog closes
   useEffect(() => {
@@ -907,11 +990,12 @@ Status: ${checkInForm.newStatus}`;
                   default: return 'secondary' as const;
                 }
               })();
-              const linkedObjTitle = rock.objectiveId ? objectives?.find((o: any) => o.id === rock.objectiveId)?.title : null;
+              const linkedObjTitle = rock.objectiveId ? rawObjectives?.find((o: any) => o.id === rock.objectiveId)?.title : null;
               const linkedStrategyTitles = (rock.linkedStrategies || []).map((sid: string) => {
                 const s = strategies?.find((st: any) => st.id === sid);
                 return s?.title || sid;
               });
+              const hasPlannerSync = (rock as any).plannerSyncEnabled || (rock as any).plannerPlanId;
               return (
                 <Card key={rock.id} className="hover-elevate" data-testid={`card-big-rock-${rock.id}`}>
                   <CardHeader className="pb-3">
@@ -922,7 +1006,7 @@ Status: ${checkInForm.newStatus}`;
                           <Badge variant="secondary" className="text-xs">
                             {rock.quarter === 0 ? 'Annual' : `Q${rock.quarter}`} {rock.year}
                           </Badge>
-                          {(rock as any).plannerPlanId && (
+                          {hasPlannerSync && (
                             <Badge variant="outline" className="text-xs" data-testid={`badge-planner-linked-${rock.id}`}>
                               <Link2 className="h-3 w-3 mr-1" />
                               Planner
@@ -932,7 +1016,7 @@ Status: ${checkInForm.newStatus}`;
                         {linkedObjTitle && (
                           <p className="text-sm text-muted-foreground mt-1">
                             <Target className="h-3 w-3 inline mr-1" />
-                            {linkedObjTitle}
+                            {t('objective', 'singular')}: {linkedObjTitle}
                           </p>
                         )}
                         {rock.accountableEmail && (
@@ -940,6 +1024,26 @@ Status: ${checkInForm.newStatus}`;
                             Accountable: {rock.accountableEmail}
                           </p>
                         )}
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openBigRockCheckIn(rock)}
+                          title="Check in"
+                          data-testid={`button-checkin-bigrock-${rock.id}`}
+                        >
+                          <Edit3 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openBigRockHistory(rock)}
+                          title="View history"
+                          data-testid={`button-history-bigrock-${rock.id}`}
+                        >
+                          <History className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   </CardHeader>
@@ -1224,6 +1328,164 @@ Status: ${checkInForm.newStatus}`;
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setHistoryDialogOpen(false)}>
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Big Rock Check-in Dialog */}
+      <Dialog open={bigRockCheckInOpen} onOpenChange={setBigRockCheckInOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('bigRock', 'singular')} Check In</DialogTitle>
+            <DialogDescription>
+              Update progress for: {selectedBigRock?.title}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="br-checkin-progress">Completion Percentage</Label>
+              <div className="flex items-center gap-3">
+                <Input
+                  id="br-checkin-progress"
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={bigRockCheckInForm.newProgress}
+                  onChange={(e) => setBigRockCheckInForm(prev => ({ ...prev, newProgress: Math.min(100, Math.max(0, parseInt(e.target.value) || 0)) }))}
+                  className="w-24"
+                  data-testid="input-bigrock-checkin-progress"
+                />
+                <span className="text-sm text-muted-foreground">%</span>
+                <Progress value={bigRockCheckInForm.newProgress} className="flex-1 h-2" />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="br-checkin-status">Status</Label>
+              <Select
+                value={bigRockCheckInForm.newStatus}
+                onValueChange={(value) => setBigRockCheckInForm(prev => ({ ...prev, newStatus: value }))}
+              >
+                <SelectTrigger data-testid="select-bigrock-checkin-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="not_started">Not Started</SelectItem>
+                  <SelectItem value="on_track">On Track</SelectItem>
+                  <SelectItem value="behind">Behind</SelectItem>
+                  <SelectItem value="at_risk">At Risk</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            {selectedBigRock && (selectedBigRock as any).plannerSyncEnabled && (
+              <div className="p-3 bg-primary/5 rounded-md border border-primary/20">
+                <div className="flex items-center gap-2 text-sm">
+                  <Link2 className="h-4 w-4 text-primary" />
+                  <span className="font-medium">Planner Sync Active</span>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Progress is synced with Microsoft Planner tasks. Manual updates here will be reconciled on next sync.
+                </p>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="br-checkin-note">Note (optional)</Label>
+              <Textarea
+                id="br-checkin-note"
+                value={bigRockCheckInForm.note}
+                onChange={(e) => setBigRockCheckInForm(prev => ({ ...prev, note: e.target.value }))}
+                placeholder="Add context about this update..."
+                rows={3}
+                data-testid="textarea-bigrock-checkin-note"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBigRockCheckInOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleBigRockCheckIn}
+              disabled={createBigRockCheckInMutation.isPending}
+              data-testid="button-save-bigrock-checkin"
+            >
+              {createBigRockCheckInMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                "Save Check-in"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Big Rock History Dialog */}
+      <Dialog open={bigRockHistoryOpen} onOpenChange={setBigRockHistoryOpen}>
+        <DialogContent className="max-w-lg max-h-[80vh] overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle>{t('bigRock', 'singular')} Check-in History</DialogTitle>
+            <DialogDescription>
+              {selectedBigRock?.title}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto py-4">
+            {bigRockCheckInHistory.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <History className="h-10 w-10 text-muted-foreground mb-3" />
+                <p className="text-muted-foreground">No check-ins recorded yet</p>
+                <Button
+                  variant="outline"
+                  className="mt-4"
+                  onClick={() => {
+                    setBigRockHistoryOpen(false);
+                    if (selectedBigRock) openBigRockCheckIn(selectedBigRock);
+                  }}
+                  data-testid="button-first-bigrock-checkin"
+                >
+                  <Edit3 className="h-4 w-4 mr-2" />
+                  Record First Check-in
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {bigRockCheckInHistory.map((checkIn) => (
+                  <div
+                    key={checkIn.id}
+                    className="border rounded-lg p-4 space-y-2"
+                    data-testid={`br-history-item-${checkIn.id}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {getStatusIcon(checkIn.newStatus || 'not_started')}
+                        <Badge variant="outline">{checkIn.newProgress}%</Badge>
+                        <Badge variant={checkIn.newStatus === 'completed' ? 'default' : checkIn.newStatus === 'at_risk' ? 'destructive' : 'secondary'}>
+                          {getStatusLabel(checkIn.newStatus || 'not_started')}
+                        </Badge>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {checkIn.createdAt ? format(new Date(checkIn.createdAt), 'MMM d, yyyy h:mm a') : 'Unknown date'}
+                      </span>
+                    </div>
+                    {checkIn.note && (
+                      <p className="text-sm text-muted-foreground">{checkIn.note}</p>
+                    )}
+                    {checkIn.userEmail && (
+                      <p className="text-xs text-muted-foreground">
+                        By: {checkIn.userEmail}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBigRockHistoryOpen(false)}>
               Close
             </Button>
           </DialogFooter>
