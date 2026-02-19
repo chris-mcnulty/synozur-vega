@@ -1,4 +1,5 @@
 import { Switch, Route } from "wouter";
+import { cn } from "@/lib/utils";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -165,8 +166,8 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-function GlobalTimePeriodSelector() {
-  const { selectedQuarterId, setSelectedQuarterId, year: selectedYear } = useTimePeriod();
+function GlobalTimePeriodSelector({ className }: { className?: string }) {
+  const { selectedQuarterIds, toggleQuarterId, setSelectedQuarterIds, year: selectedYear } = useTimePeriod();
   const [browseYear, setBrowseYear] = useState(selectedYear);
   const [open, setOpen] = useState(false);
 
@@ -178,16 +179,44 @@ function GlobalTimePeriodSelector() {
     setBrowseYear(selectedYear);
   }, [selectedYear, open]);
 
-  const isSelected = (qId: string) => selectedQuarterId === qId;
+  const isSelected = (qId: string) => selectedQuarterIds.includes(qId);
 
-  const handleSelect = (qId: string) => {
-    setSelectedQuarterId(qId);
+  const handleToggle = (qId: string) => {
+    toggleQuarterId(qId);
+  };
+
+  const handleSingleSelect = (qId: string) => {
+    setSelectedQuarterIds([qId]);
     setOpen(false);
   };
 
-  const displayLabel = selectedQuarterId.startsWith("annual-")
-    ? `FY ${selectedQuarterId.replace("annual-", "")}`
-    : selectedQuarterId.replace(/^q(\d)-(\d+)$/, "Q$1 $2");
+  const getDisplayLabel = () => {
+    if (selectedQuarterIds.length === 0) return "Select Period";
+    if (selectedQuarterIds.length === 1) {
+      const id = selectedQuarterIds[0];
+      if (id.startsWith("annual-")) return `FY ${id.replace("annual-", "")}`;
+      return id.replace(/^q(\d)-(\d+)$/, "Q$1 $2");
+    }
+    const years = new Set<number>();
+    const parsed: { label: string; year: number }[] = [];
+    for (const id of selectedQuarterIds) {
+      if (id.startsWith("annual-")) {
+        const y = parseInt(id.replace("annual-", ""));
+        years.add(y);
+        parsed.push({ label: "FY", year: y });
+      } else {
+        const match = id.match(/^q(\d)-(\d+)$/);
+        if (match) {
+          years.add(parseInt(match[2]));
+          parsed.push({ label: `Q${match[1]}`, year: parseInt(match[2]) });
+        }
+      }
+    }
+    if (years.size === 1) {
+      return parsed.map(p => p.label).join(" + ") + ` ${Array.from(years)[0]}`;
+    }
+    return parsed.map(p => `${p.label} ${p.year}`).join(" + ");
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -195,15 +224,29 @@ function GlobalTimePeriodSelector() {
         <Button
           variant="outline"
           size="sm"
-          className="hidden sm:flex items-center gap-2"
+          className={cn("flex items-center gap-2", className)}
           data-testid="select-global-period"
         >
           <CalendarRange className="h-3.5 w-3.5 text-muted-foreground" />
-          <span className="text-sm font-medium">{displayLabel}</span>
+          <span className="text-sm font-medium" data-testid="text-selected-period">{getDisplayLabel()}</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[220px] p-3" align="start">
-        <div className="flex items-center justify-between gap-2 mb-3">
+      <PopoverContent className="w-[240px] p-3" align="start">
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Select periods</span>
+          {selectedQuarterIds.length > 1 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-auto py-0 px-1 text-[10px] text-muted-foreground"
+              onClick={() => setSelectedQuarterIds([selectedQuarterIds[0]])}
+              data-testid="button-period-clear-multi"
+            >
+              Clear multi
+            </Button>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-2 mb-3 mt-2">
           <Button
             variant="ghost"
             size="icon"
@@ -227,13 +270,14 @@ function GlobalTimePeriodSelector() {
         <div className="grid grid-cols-2 gap-1.5 mb-2">
           {[1, 2, 3, 4].map((q) => {
             const qId = `q${q}-${browseYear}`;
+            const sel = isSelected(qId);
             return (
               <Button
                 key={qId}
-                variant={isSelected(qId) ? "default" : "outline"}
+                variant={sel ? "default" : "outline"}
                 size="sm"
                 className="text-xs"
-                onClick={() => handleSelect(qId)}
+                onClick={() => handleToggle(qId)}
                 data-testid={`button-period-q${q}`}
               >
                 Q{q}
@@ -245,7 +289,7 @@ function GlobalTimePeriodSelector() {
           variant={isSelected(`annual-${browseYear}`) ? "default" : "outline"}
           size="sm"
           className="w-full text-xs"
-          onClick={() => handleSelect(`annual-${browseYear}`)}
+          onClick={() => handleToggle(`annual-${browseYear}`)}
           data-testid="button-period-annual"
         >
           Annual {browseYear}
@@ -253,7 +297,8 @@ function GlobalTimePeriodSelector() {
         {(() => {
           const { quarter: cq, year: cy } = getCurrentQuarter();
           const currentId = `q${cq}-${cy}`;
-          if (selectedQuarterId !== currentId) {
+          const isCurrent = selectedQuarterIds.length === 1 && selectedQuarterIds[0] === currentId;
+          if (!isCurrent) {
             return (
               <Button
                 variant="ghost"
@@ -261,7 +306,7 @@ function GlobalTimePeriodSelector() {
                 className="w-full text-xs mt-2 text-muted-foreground"
                 onClick={() => {
                   setBrowseYear(cy);
-                  handleSelect(currentId);
+                  handleSingleSelect(currentId);
                 }}
                 data-testid="button-period-go-current"
               >
@@ -286,22 +331,26 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
       <AppSidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <AnnouncementBanner />
-        <header className="flex items-center justify-between p-4 border-b gap-4">
-          <div className="flex items-center gap-4">
-            <SynozurAppSwitcher currentApp="vega" variant="light" />
+        <header className="flex items-center justify-between px-2 md:px-4 py-2 md:py-4 border-b gap-2 md:gap-4">
+          <div className="flex items-center gap-2 md:gap-4 min-w-0">
+            <div className="hidden md:block">
+              <SynozurAppSwitcher currentApp="vega" variant="light" />
+            </div>
             <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <div className="flex items-center gap-3 flex-shrink-0">
-              <SynozurLogo variant="mark" className="h-8 w-8 flex-shrink-0" />
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <SynozurLogo variant="mark" className="h-7 w-7 md:h-8 md:w-8 flex-shrink-0" />
               <span className="font-bold text-lg hidden md:block">Vega</span>
             </div>
-            <GlobalTimePeriodSelector />
+            <GlobalTimePeriodSelector className="hidden sm:flex" />
           </div>
-          <div className="flex items-center gap-4">
-            <ConsultingModeToggle />
+          <div className="flex items-center gap-1 md:gap-4 flex-shrink-0">
+            <div className="hidden lg:block">
+              <ConsultingModeToggle />
+            </div>
             <TenantSwitcher />
             <button
               onClick={() => { setHelpOpen(!helpOpen); if (chatOpen) setChatOpen(false); }}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg hover-elevate active-elevate-2 border"
+              className="flex items-center gap-2 px-2 md:px-3 py-2 rounded-lg hover-elevate active-elevate-2 border"
               data-testid="button-toggle-help-chat"
             >
               <HelpCircle className="h-4 w-4 text-muted-foreground" />
@@ -309,7 +358,7 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
             </button>
             <button
               onClick={() => { setChatOpen(!chatOpen); if (helpOpen) setHelpOpen(false); }}
-              className="flex items-center gap-2 px-3 py-2 rounded-lg hover-elevate active-elevate-2 border"
+              className="flex items-center gap-2 px-2 md:px-3 py-2 rounded-lg hover-elevate active-elevate-2 border"
               data-testid="button-toggle-ai-chat"
             >
               <Sparkles className="h-4 w-4 text-primary" />
@@ -318,8 +367,11 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
             <ThemeToggle />
           </div>
         </header>
+        <div className="sm:hidden px-2 py-1.5 border-b">
+          <GlobalTimePeriodSelector />
+        </div>
         <div className="flex flex-1 overflow-hidden bg-background">
-          <main className="flex-1 overflow-auto p-8 bg-background">
+          <main className="flex-1 overflow-auto p-4 md:p-8 bg-background">
             <RouteErrorBoundary>
               {children}
             </RouteErrorBoundary>

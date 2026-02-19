@@ -12,9 +12,14 @@ type Quarter = {
 };
 
 const STORAGE_KEY_PREFIX = "vega-global-time-period";
+const MULTI_STORAGE_KEY_PREFIX = "vega-global-time-periods";
 
 function getStorageKey(tenantId?: string) {
   return tenantId ? `${STORAGE_KEY_PREFIX}-${tenantId}` : STORAGE_KEY_PREFIX;
+}
+
+function getMultiStorageKey(tenantId?: string) {
+  return tenantId ? `${MULTI_STORAGE_KEY_PREFIX}-${tenantId}` : MULTI_STORAGE_KEY_PREFIX;
 }
 
 const currentYear = new Date().getFullYear();
@@ -37,6 +42,10 @@ interface TimePeriodContextValue {
   year: number;
   allQuarters: Quarter[];
   isAnnual: boolean;
+  selectedQuarterIds: string[];
+  toggleQuarterId: (id: string) => void;
+  setSelectedQuarterIds: (ids: string[]) => void;
+  selectedQuarters: Quarter[];
 }
 
 const TimePeriodContext = createContext<TimePeriodContextValue | null>(null);
@@ -63,7 +72,20 @@ export function TimePeriodProvider({ children }: { children: ReactNode }) {
     return saved || getDefaultQuarterId();
   };
 
+  const getInitialQuarterIds = (): string[] => {
+    const multiKey = getMultiStorageKey(currentTenant?.id);
+    const saved = typeof window !== "undefined" ? localStorage.getItem(multiKey) : null;
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return [getInitialQuarterId()];
+  };
+
   const [selectedQuarterId, setSelectedQuarterIdRaw] = useState(getInitialQuarterId);
+  const [selectedQuarterIds, setSelectedQuarterIdsRaw] = useState<string[]>(getInitialQuarterIds);
 
   useEffect(() => {
     if (!tenantLoading && currentTenant) {
@@ -72,20 +94,70 @@ export function TimePeriodProvider({ children }: { children: ReactNode }) {
         prevTenantIdRef.current = tenantId;
         const storageKey = getStorageKey(tenantId);
         const saved = typeof window !== "undefined" ? localStorage.getItem(storageKey) : null;
-        setSelectedQuarterIdRaw(saved || getDefaultQuarterId());
+        const defaultId = saved || getDefaultQuarterId();
+        setSelectedQuarterIdRaw(defaultId);
+
+        const multiKey = getMultiStorageKey(tenantId);
+        const multiSaved = typeof window !== "undefined" ? localStorage.getItem(multiKey) : null;
+        if (multiSaved) {
+          try {
+            const parsed = JSON.parse(multiSaved);
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setSelectedQuarterIdsRaw(parsed);
+              return;
+            }
+          } catch {}
+        }
+        setSelectedQuarterIdsRaw([defaultId]);
       }
     }
   }, [currentTenant, tenantLoading, getDefaultQuarterId]);
 
   const setSelectedQuarterId = useCallback((id: string) => {
     setSelectedQuarterIdRaw(id);
+    setSelectedQuarterIdsRaw([id]);
     const storageKey = getStorageKey(currentTenant?.id);
     localStorage.setItem(storageKey, id);
+    const multiKey = getMultiStorageKey(currentTenant?.id);
+    localStorage.setItem(multiKey, JSON.stringify([id]));
+  }, [currentTenant?.id]);
+
+  const setSelectedQuarterIds = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    setSelectedQuarterIdsRaw(ids);
+    setSelectedQuarterIdRaw(ids[0]);
+    const storageKey = getStorageKey(currentTenant?.id);
+    localStorage.setItem(storageKey, ids[0]);
+    const multiKey = getMultiStorageKey(currentTenant?.id);
+    localStorage.setItem(multiKey, JSON.stringify(ids));
+  }, [currentTenant?.id]);
+
+  const toggleQuarterId = useCallback((id: string) => {
+    setSelectedQuarterIdsRaw(prev => {
+      let next: string[];
+      if (prev.includes(id)) {
+        next = prev.filter(p => p !== id);
+        if (next.length === 0) next = [id];
+      } else {
+        next = [...prev, id];
+      }
+      setSelectedQuarterIdRaw(next[0]);
+      const storageKey = getStorageKey(currentTenant?.id);
+      localStorage.setItem(storageKey, next[0]);
+      const multiKey = getMultiStorageKey(currentTenant?.id);
+      localStorage.setItem(multiKey, JSON.stringify(next));
+      return next;
+    });
   }, [currentTenant?.id]);
 
   const selectedQuarter = useMemo(
     () => allQuarters.find((q) => q.id === selectedQuarterId),
     [selectedQuarterId]
+  );
+
+  const selectedQuarters = useMemo(
+    () => allQuarters.filter((q) => selectedQuarterIds.includes(q.id)),
+    [selectedQuarterIds]
   );
 
   const value = useMemo<TimePeriodContextValue>(() => ({
@@ -96,7 +168,11 @@ export function TimePeriodProvider({ children }: { children: ReactNode }) {
     year: selectedQuarter?.year ?? getCurrentQuarter().year,
     allQuarters,
     isAnnual: selectedQuarter?.quarter === 0,
-  }), [selectedQuarterId, setSelectedQuarterId, selectedQuarter]);
+    selectedQuarterIds,
+    toggleQuarterId,
+    setSelectedQuarterIds,
+    selectedQuarters,
+  }), [selectedQuarterId, setSelectedQuarterId, selectedQuarter, selectedQuarterIds, toggleQuarterId, setSelectedQuarterIds, selectedQuarters]);
 
   return (
     <TimePeriodContext.Provider value={value}>

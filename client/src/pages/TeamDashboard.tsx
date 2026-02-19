@@ -43,6 +43,9 @@ import {
   Sparkles,
   Check,
   X,
+  Link2,
+  CheckSquare,
+  Activity,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useTenant } from "@/contexts/TenantContext";
@@ -177,7 +180,7 @@ function TeamDashboardContent() {
   // KR filter state - defaults to showing incomplete
   const [krFilter, setKrFilter] = useState<'all' | 'incomplete' | 'at_risk'>('incomplete');
   
-  const { selectedQuarter: currentQuarter } = useTimePeriod();
+  const { selectedQuarter: currentQuarter, selectedQuarters: selectedQuartersList, year: globalYear } = useTimePeriod();
   
   const storageKeys = useMemo(() => {
     if (!currentTenant?.id) return null;
@@ -248,16 +251,21 @@ function TeamDashboardContent() {
     return teams?.find((t) => t.id === selectedTeamId);
   }, [teams, selectedTeamId]);
 
-  const { data: objectives, isLoading: loadingObjectives } = useQuery<Objective[]>({
-    queryKey: ["/api/okr/objectives", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year, selectedTeamId],
+  const isMultiPeriod = selectedQuartersList.length > 1;
+  const selectedQuarterNums = useMemo(() => selectedQuartersList.map(q => q.quarter), [selectedQuartersList]);
+
+  const { data: rawObjectives, isLoading: loadingObjectives } = useQuery<Objective[]>({
+    queryKey: ["/api/okr/objectives", currentTenant?.id, isMultiPeriod ? null : currentQuarter?.quarter, globalYear, selectedTeamId, selectedQuarterNums.join(',')],
     queryFn: async () => {
       if (!currentTenant?.id) return [];
       const params = new URLSearchParams({
         tenantId: currentTenant.id,
-        ...(currentQuarter?.quarter != null && { quarter: String(currentQuarter.quarter) }),
-        ...(currentQuarter?.year != null && { year: String(currentQuarter.year) }),
+        year: String(globalYear),
         ...(selectedTeamId && { teamId: selectedTeamId }),
       });
+      if (!isMultiPeriod && currentQuarter?.quarter != null) {
+        params.set('quarter', String(currentQuarter.quarter));
+      }
       const res = await fetch(`/api/okr/objectives?${params}`);
       if (!res.ok) throw new Error('Failed to fetch objectives');
       return res.json();
@@ -265,16 +273,24 @@ function TeamDashboardContent() {
     enabled: !!currentTenant?.id && !!currentQuarter && !!selectedTeamId,
   });
 
-  const { data: keyResults = [], isLoading: loadingKeyResults } = useQuery<KeyResult[]>({
-    queryKey: ["/api/okr/key-results", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year, selectedTeamId],
+  const objectives = useMemo(() => {
+    if (!rawObjectives) return [];
+    if (!isMultiPeriod) return rawObjectives;
+    return rawObjectives.filter((obj: any) => selectedQuarterNums.includes(obj.quarter));
+  }, [rawObjectives, isMultiPeriod, selectedQuarterNums]);
+
+  const { data: rawKeyResults = [], isLoading: loadingKeyResults } = useQuery<KeyResult[]>({
+    queryKey: ["/api/okr/key-results", currentTenant?.id, isMultiPeriod ? null : currentQuarter?.quarter, globalYear, selectedTeamId, selectedQuarterNums.join(',')],
     queryFn: async () => {
       if (!currentTenant?.id) return [];
       const params = new URLSearchParams({
         tenantId: currentTenant.id,
-        ...(currentQuarter?.quarter != null && { quarter: String(currentQuarter.quarter) }),
-        ...(currentQuarter?.year != null && { year: String(currentQuarter.year) }),
+        year: String(globalYear),
         ...(selectedTeamId && { teamId: selectedTeamId }),
       });
+      if (!isMultiPeriod && currentQuarter?.quarter != null) {
+        params.set('quarter', String(currentQuarter.quarter));
+      }
       const res = await fetch(`/api/okr/key-results?${params}`);
       if (!res.ok) throw new Error('Failed to fetch key results');
       return res.json();
@@ -282,15 +298,22 @@ function TeamDashboardContent() {
     enabled: !!currentTenant?.id && !!currentQuarter && !!selectedTeamId,
   });
 
+  const keyResults = useMemo(() => {
+    if (!isMultiPeriod) return rawKeyResults;
+    return rawKeyResults.filter((kr: any) => selectedQuarterNums.includes(kr.quarter));
+  }, [rawKeyResults, isMultiPeriod, selectedQuarterNums]);
+
   const { data: allBigRocks, isLoading: loadingBigRocks } = useQuery<BigRock[]>({
-    queryKey: ["/api/okr/big-rocks", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year],
+    queryKey: ["/api/okr/big-rocks", currentTenant?.id, isMultiPeriod ? null : currentQuarter?.quarter, globalYear, selectedQuarterNums.join(',')],
     queryFn: async () => {
       if (!currentTenant?.id) return [];
       const params = new URLSearchParams({
         tenantId: currentTenant.id,
-        ...(currentQuarter?.quarter != null && { quarter: String(currentQuarter.quarter) }),
-        ...(currentQuarter?.year != null && { year: String(currentQuarter.year) }),
+        year: String(globalYear),
       });
+      if (!isMultiPeriod && currentQuarter?.quarter != null) {
+        params.set('quarter', String(currentQuarter.quarter));
+      }
       const res = await fetch(`/api/okr/big-rocks?${params}`);
       if (!res.ok) throw new Error('Failed to fetch big rocks');
       return res.json();
@@ -300,8 +323,12 @@ function TeamDashboardContent() {
 
   const bigRocks = useMemo(() => {
     if (!allBigRocks || !selectedTeamId) return [];
-    return allBigRocks.filter((br) => br.teamId === selectedTeamId);
-  }, [allBigRocks, selectedTeamId]);
+    let filtered = allBigRocks.filter((br) => br.teamId === selectedTeamId);
+    if (isMultiPeriod) {
+      filtered = filtered.filter((br: any) => selectedQuarterNums.includes(br.quarter));
+    }
+    return filtered;
+  }, [allBigRocks, selectedTeamId, isMultiPeriod, selectedQuarterNums]);
 
   const { data: strategies, isLoading: loadingStrategies } = useQuery<Strategy[]>({
     queryKey: [`/api/strategies/${currentTenant?.id}`],
@@ -312,6 +339,24 @@ function TeamDashboardContent() {
   const { data: foundation } = useQuery<Foundation>({
     queryKey: [`/api/foundations/${currentTenant?.id}`],
     enabled: !!currentTenant?.id,
+  });
+
+  // Fetch task counts for big rocks
+  const bigRockIds = useMemo(() => bigRocks.map((br) => br.id), [bigRocks]);
+  const { data: taskCounts } = useQuery<Record<string, { total: number; completed: number }>>({
+    queryKey: ["/api/okr/big-rocks/task-counts", bigRockIds.join(',')],
+    queryFn: async () => {
+      if (bigRockIds.length === 0) return {};
+      const res = await fetch('/api/okr/big-rocks/task-counts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bigRockIds }),
+        credentials: 'include',
+      });
+      if (!res.ok) return {};
+      return res.json();
+    },
+    enabled: bigRockIds.length > 0,
   });
 
   // Fetch check-in history for selected KR
@@ -828,51 +873,133 @@ Status: ${checkInForm.newStatus}`;
             <CardContent className="pt-6">
               <div className="flex items-center gap-3 text-muted-foreground">
                 <AlertCircle className="h-5 w-5" />
-                <p>No {t('bigRock', 'plural').toLowerCase()} assigned to this team in {currentQuarter?.label}</p>
+                <p>No {t('bigRock', 'plural').toLowerCase()} assigned to this team for the selected period</p>
               </div>
             </CardContent>
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {bigRocks.map((rock) => (
-              <Card key={rock.id} className="hover-elevate" data-testid={`card-big-rock-${rock.id}`}>
-                <CardContent className="pt-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-2">
-                        {getStatusIcon(rock.status || 'not_started')}
-                        <h3 className="font-medium truncate">{rock.title}</h3>
+            {bigRocks.map((rock) => {
+              const effectiveStatus = (() => {
+                const pct = rock.completionPercentage || 0;
+                if (rock.status && rock.status !== 'not_started') return rock.status;
+                if (pct >= 100) return 'completed';
+                if (pct > 0) return 'on_track';
+                return 'not_started';
+              })();
+              const statusColor = (() => {
+                switch (effectiveStatus) {
+                  case 'completed': return 'bg-green-500';
+                  case 'on_track': return 'bg-blue-500';
+                  case 'behind': return 'bg-yellow-500';
+                  case 'at_risk': return 'bg-red-500';
+                  case 'postponed': return 'bg-gray-500';
+                  case 'closed': return 'bg-gray-700';
+                  default: return 'bg-gray-400';
+                }
+              })();
+              const statusBadgeVariant = (() => {
+                switch (effectiveStatus) {
+                  case 'completed': return 'default' as const;
+                  case 'on_track': return 'secondary' as const;
+                  case 'at_risk': return 'destructive' as const;
+                  case 'behind': return 'outline' as const;
+                  default: return 'secondary' as const;
+                }
+              })();
+              const linkedObjTitle = rock.objectiveId ? objectives?.find((o: any) => o.id === rock.objectiveId)?.title : null;
+              const linkedStrategyTitles = (rock.linkedStrategies || []).map((sid: string) => {
+                const s = strategies?.find((st: any) => st.id === sid);
+                return s?.title || sid;
+              });
+              return (
+                <Card key={rock.id} className="hover-elevate" data-testid={`card-big-rock-${rock.id}`}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <CardTitle className="text-lg leading-tight">{rock.title}</CardTitle>
+                          <Badge variant="secondary" className="text-xs">
+                            {rock.quarter === 0 ? 'Annual' : `Q${rock.quarter}`} {rock.year}
+                          </Badge>
+                          {(rock as any).plannerPlanId && (
+                            <Badge variant="outline" className="text-xs" data-testid={`badge-planner-linked-${rock.id}`}>
+                              <Link2 className="h-3 w-3 mr-1" />
+                              Planner
+                            </Badge>
+                          )}
+                        </div>
+                        {linkedObjTitle && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            <Target className="h-3 w-3 inline mr-1" />
+                            {linkedObjTitle}
+                          </p>
+                        )}
+                        {rock.accountableEmail && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Accountable: {rock.accountableEmail}
+                          </p>
+                        )}
                       </div>
-                      {rock.description && (
-                        <p className="text-sm text-muted-foreground line-clamp-2 mb-3">
-                          {rock.description}
-                        </p>
-                      )}
-                      <div className="flex items-center gap-3">
-                        <Progress 
-                          value={rock.completionPercentage || 0} 
-                          className="h-2 flex-1"
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {rock.description && (
+                      <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{rock.description}</p>
+                    )}
+                    {linkedStrategyTitles.length > 0 && (
+                      <div className="mb-3">
+                        <div className="flex flex-wrap gap-1">
+                          {linkedStrategyTitles.map((title: string, idx: number) => (
+                            <Badge key={idx} variant="outline" className="text-xs">
+                              {title}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    <div className="space-y-3">
+                      <div className="flex justify-between text-sm">
+                        <span>Completion</span>
+                        <span className="font-medium">{rock.completionPercentage || 0}%</span>
+                      </div>
+                      <div className="h-2 bg-secondary rounded-full overflow-hidden">
+                        <div
+                          className={`h-full transition-all ${statusColor}`}
+                          style={{ width: `${rock.completionPercentage || 0}%` }}
                         />
-                        <span className="text-sm font-medium">
-                          {rock.completionPercentage || 0}%
-                        </span>
                       </div>
-                      {rock.ownerEmail && (
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Owner: {rock.ownerEmail}
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={statusBadgeVariant}
+                            data-testid={`badge-status-${rock.id}`}
+                          >
+                            {effectiveStatus.replace('_', ' ')}
+                          </Badge>
+                          {taskCounts?.[rock.id] && taskCounts[rock.id].total > 0 && (
+                            <Badge variant="outline" className="text-xs" data-testid={`badge-tasks-${rock.id}`}>
+                              <CheckSquare className="h-3 w-3 mr-1" />
+                              {taskCounts[rock.id].completed}/{taskCounts[rock.id].total} tasks
+                            </Badge>
+                          )}
+                        </div>
+                        {rock.lastCheckInAt && (
+                          <span className="text-xs text-muted-foreground">
+                            Last check-in: {new Date(rock.lastCheckInAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                        )}
+                      </div>
+                      {rock.lastCheckInNote && (
+                        <p className="text-xs text-muted-foreground italic border-l-2 border-muted pl-2 mt-2">
+                          &ldquo;{rock.lastCheckInNote.length > 100 ? rock.lastCheckInNote.substring(0, 100) + '...' : rock.lastCheckInNote}&rdquo;
                         </p>
                       )}
                     </div>
-                    <Badge 
-                      variant={rock.status === 'completed' ? 'default' : 'outline'}
-                      className="shrink-0"
-                    >
-                      {getStatusLabel(rock.status || 'not_started')}
-                    </Badge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         )}
       </div>
