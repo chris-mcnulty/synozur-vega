@@ -727,7 +727,12 @@ export default function FocusRhythm() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [formData, setFormData] = useState<MeetingFormData>(initialFormData);
-  const [newItem, setNewItem] = useState("");
+  const [newAttendeeInput, setNewAttendeeInput] = useState("");
+  const [newAgendaInput, setNewAgendaInput] = useState("");
+  const [newDecisionInput, setNewDecisionInput] = useState("");
+  const [newActionInput, setNewActionInput] = useState("");
+  const [newRiskInput, setNewRiskInput] = useState("");
+  const [attendeeSearchOpen, setAttendeeSearchOpen] = useState(false);
   
   const { data: foundation } = useQuery<Foundation>({
     queryKey: [`/api/foundations/${currentTenant?.id}`],
@@ -799,6 +804,18 @@ export default function FocusRhythm() {
     },
   });
   
+  interface TenantMember {
+    id: string;
+    email: string;
+    displayName: string;
+    role: string;
+  }
+  
+  const { data: tenantMembers = [] } = useQuery<TenantMember[]>({
+    queryKey: ['/api/tenant-members'],
+    enabled: !!currentTenant?.id,
+  });
+
   const syncToOutlookMutation = useMutation({
     mutationFn: async (meetingId: string) => {
       const res = await apiRequest('POST', `/api/m365/meetings/${meetingId}/sync`, {});
@@ -936,6 +953,12 @@ export default function FocusRhythm() {
   const resetForm = () => {
     setFormData(initialFormData);
     setAiRecapResult(null);
+    setNewAttendeeInput("");
+    setNewAgendaInput("");
+    setNewDecisionInput("");
+    setNewActionInput("");
+    setNewRiskInput("");
+    setAttendeeSearchOpen(false);
   };
 
   const handleAnalyzeNotes = async () => {
@@ -1222,10 +1245,39 @@ export default function FocusRhythm() {
     });
   };
   
-  const addListItem = (field: 'attendees' | 'agenda' | 'decisions' | 'actionItems' | 'risks') => {
-    if (newItem.trim()) {
-      setFormData({ ...formData, [field]: [...formData[field], newItem.trim()] });
-      setNewItem("");
+  const addAttendee = (value: string) => {
+    if (value.trim() && !formData.attendees.includes(value.trim())) {
+      setFormData(prev => ({ ...prev, attendees: [...prev.attendees, value.trim()] }));
+    }
+    setNewAttendeeInput("");
+    setAttendeeSearchOpen(false);
+  };
+
+  const addAgendaItem = () => {
+    if (newAgendaInput.trim()) {
+      setFormData(prev => ({ ...prev, agenda: [...prev.agenda, newAgendaInput.trim()] }));
+      setNewAgendaInput("");
+    }
+  };
+
+  const addDecisionItem = () => {
+    if (newDecisionInput.trim()) {
+      setFormData(prev => ({ ...prev, decisions: [...prev.decisions, newDecisionInput.trim()] }));
+      setNewDecisionInput("");
+    }
+  };
+
+  const addActionItem = () => {
+    if (newActionInput.trim()) {
+      setFormData(prev => ({ ...prev, actionItems: [...prev.actionItems, newActionInput.trim()] }));
+      setNewActionInput("");
+    }
+  };
+
+  const addRiskItem = () => {
+    if (newRiskInput.trim()) {
+      setFormData(prev => ({ ...prev, risks: [...prev.risks, newRiskInput.trim()] }));
+      setNewRiskInput("");
     }
   };
   
@@ -1289,7 +1341,13 @@ export default function FocusRhythm() {
     );
   }
 
-  const MeetingFormFields = ({ isEdit = false }: { isEdit?: boolean }) => (
+  const filteredMembers = tenantMembers.filter(m => {
+    const q = newAttendeeInput.toLowerCase();
+    if (!q) return true;
+    return m.displayName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
+  }).filter(m => !formData.attendees.includes(m.displayName) && !formData.attendees.includes(m.email));
+
+  const meetingFormFields = (
     <Tabs defaultValue="details" className="w-full">
       <TabsList className="grid grid-cols-4 w-full">
         <TabsTrigger value="details">Details</TabsTrigger>
@@ -1419,27 +1477,89 @@ export default function FocusRhythm() {
         
         <div>
           <Label>Attendees</Label>
-          <div className="flex gap-2 mt-2">
-            <Input
-              placeholder="Add attendee"
-              value={newItem}
-              onChange={(e) => setNewItem(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { addListItem('attendees'); e.preventDefault(); }}}
-              data-testid="input-attendee"
-            />
-            <Button type="button" onClick={() => addListItem('attendees')} data-testid="button-add-attendee">
-              Add
-            </Button>
+          <div className="relative mt-2">
+            <div className="flex gap-2">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by name or email, or type to add..."
+                  value={newAttendeeInput}
+                  onChange={(e) => {
+                    setNewAttendeeInput(e.target.value);
+                    setAttendeeSearchOpen(e.target.value.length > 0);
+                  }}
+                  onFocus={() => { if (newAttendeeInput.length > 0) setAttendeeSearchOpen(true); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      if (filteredMembers.length > 0) {
+                        addAttendee(filteredMembers[0].displayName + ' (' + filteredMembers[0].email + ')');
+                      } else if (newAttendeeInput.trim()) {
+                        addAttendee(newAttendeeInput);
+                      }
+                    }
+                    if (e.key === "Escape") {
+                      setAttendeeSearchOpen(false);
+                    }
+                  }}
+                  className="pl-9"
+                  data-testid="input-attendee"
+                />
+                {attendeeSearchOpen && (
+                  <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                    {filteredMembers.length > 0 ? (
+                      filteredMembers.slice(0, 8).map((member) => (
+                        <div
+                          key={member.id}
+                          className="flex items-center gap-2 px-3 py-2 hover:bg-muted cursor-pointer text-sm"
+                          onMouseDown={(e) => {
+                            e.preventDefault();
+                            addAttendee(member.displayName + ' (' + member.email + ')');
+                          }}
+                          data-testid={`attendee-option-${member.id}`}
+                        >
+                          <Users className="w-4 h-4 text-muted-foreground shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{member.displayName}</div>
+                            <div className="text-xs text-muted-foreground truncate">{member.email}</div>
+                          </div>
+                        </div>
+                      ))
+                    ) : newAttendeeInput.trim() ? (
+                      <div
+                        className="flex items-center gap-2 px-3 py-2 hover:bg-muted cursor-pointer text-sm"
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          addAttendee(newAttendeeInput);
+                        }}
+                        data-testid="attendee-option-custom"
+                      >
+                        <Plus className="w-4 h-4 text-muted-foreground shrink-0" />
+                        <span>Add "{newAttendeeInput.trim()}"</span>
+                      </div>
+                    ) : null}
+                  </div>
+                )}
+              </div>
+              <Button 
+                type="button" 
+                onClick={() => { if (newAttendeeInput.trim()) addAttendee(newAttendeeInput); }}
+                data-testid="button-add-attendee"
+              >
+                Add
+              </Button>
+            </div>
           </div>
           <div className="flex flex-wrap gap-2 mt-2">
             {formData.attendees.map((attendee, index) => (
               <Badge
                 key={index}
                 variant="secondary"
-                className="cursor-pointer"
+                className="cursor-pointer gap-1"
                 onClick={() => removeListItem('attendees', index)}
                 data-testid={`badge-attendee-${index}`}
               >
+                <Users className="w-3 h-3" />
                 {attendee} <X className="w-3 h-3 ml-1" />
               </Badge>
             ))}
@@ -1563,12 +1683,12 @@ export default function FocusRhythm() {
           <div className="flex gap-2 mt-2">
             <Input
               placeholder="Add agenda item"
-              value={newItem}
-              onChange={(e) => setNewItem(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { addListItem('agenda'); e.preventDefault(); }}}
+              value={newAgendaInput}
+              onChange={(e) => setNewAgendaInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { addAgendaItem(); e.preventDefault(); }}}
               data-testid="input-agenda-item"
             />
-            <Button type="button" onClick={() => addListItem('agenda')} data-testid="button-add-agenda">
+            <Button type="button" onClick={addAgendaItem} data-testid="button-add-agenda">
               Add
             </Button>
           </div>
@@ -1630,12 +1750,12 @@ export default function FocusRhythm() {
           <div className="flex gap-2 mt-2">
             <Input
               placeholder="Add decision"
-              value={newItem}
-              onChange={(e) => setNewItem(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { addListItem('decisions'); e.preventDefault(); }}}
+              value={newDecisionInput}
+              onChange={(e) => setNewDecisionInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { addDecisionItem(); e.preventDefault(); }}}
               data-testid="input-decision"
             />
-            <Button type="button" onClick={() => addListItem('decisions')} data-testid="button-add-decision">
+            <Button type="button" onClick={addDecisionItem} data-testid="button-add-decision">
               Add
             </Button>
           </div>
@@ -1654,12 +1774,12 @@ export default function FocusRhythm() {
           <div className="flex gap-2 mt-2">
             <Input
               placeholder="Add action item"
-              value={newItem}
-              onChange={(e) => setNewItem(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { addListItem('actionItems'); e.preventDefault(); }}}
+              value={newActionInput}
+              onChange={(e) => setNewActionInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { addActionItem(); e.preventDefault(); }}}
               data-testid="input-action-item"
             />
-            <Button type="button" onClick={() => addListItem('actionItems')} data-testid="button-add-action-item">
+            <Button type="button" onClick={addActionItem} data-testid="button-add-action-item">
               Add
             </Button>
           </div>
@@ -1678,12 +1798,12 @@ export default function FocusRhythm() {
           <div className="flex gap-2 mt-2">
             <Input
               placeholder="Add risk"
-              value={newItem}
-              onChange={(e) => setNewItem(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") { addListItem('risks'); e.preventDefault(); }}}
+              value={newRiskInput}
+              onChange={(e) => setNewRiskInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { addRiskItem(); e.preventDefault(); }}}
               data-testid="input-risk"
             />
-            <Button type="button" onClick={() => addListItem('risks')} data-testid="button-add-risk">
+            <Button type="button" onClick={addRiskItem} data-testid="button-add-risk">
               Add
             </Button>
           </div>
@@ -2019,7 +2139,7 @@ export default function FocusRhythm() {
               <TemplateSelector onSelect={handleTemplateSelect} />
             ) : (
               <>
-                <MeetingFormFields />
+                {meetingFormFields}
                 <DialogFooter className="mt-4">
                   <Button variant="outline" onClick={() => setShowTemplateSelector(true)}>
                     Change Template
@@ -2126,7 +2246,7 @@ export default function FocusRhythm() {
             <DialogHeader>
               <DialogTitle>Edit Meeting</DialogTitle>
             </DialogHeader>
-            <MeetingFormFields isEdit />
+            {meetingFormFields}
             <DialogFooter className="mt-4">
               <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
                 Cancel

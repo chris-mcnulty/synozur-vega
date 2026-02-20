@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Users, Pencil, ArrowLeft, Target, CheckCircle2, AlertTriangle, Link2, Clock, Zap, ChevronRight, X, Sparkles, Copy, ClipboardCheck, ExternalLink, Trash2, Plus, Save } from "lucide-react";
+import { Calendar, Users, Pencil, ArrowLeft, Target, CheckCircle2, AlertTriangle, Link2, Clock, Zap, ChevronRight, X, Sparkles, Copy, ClipboardCheck, ExternalLink, Trash2, Plus, Save, Search } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -214,7 +214,20 @@ export default function MeetingDetail() {
   const [newActionItem, setNewActionItem] = useState("");
   const [newRisk, setNewRisk] = useState("");
   const [newAttendee, setNewAttendee] = useState("");
+  const [attendeeSearchOpen, setAttendeeSearchOpen] = useState(false);
   const [showAiPrep, setShowAiPrep] = useState(false);
+
+  interface TenantMember {
+    id: string;
+    email: string;
+    displayName: string;
+    role: string;
+  }
+
+  const { data: tenantMembers = [] } = useQuery<TenantMember[]>({
+    queryKey: ['/api/tenant-members'],
+    enabled: !!currentTenant?.id,
+  });
 
   interface MeetingPrepSummary {
     meetingTitle: string;
@@ -630,21 +643,112 @@ export default function MeetingDetail() {
 
                     <div>
                       <Label>Attendees</Label>
-                      <div className="flex gap-2 mb-2">
-                        <Input
-                          value={newAttendee}
-                          onChange={(e) => setNewAttendee(e.target.value)}
-                          placeholder="Add attendee"
-                          onKeyDown={(e) => e.key === 'Enter' && addArrayItem('attendees', newAttendee, setNewAttendee)}
-                          data-testid="input-new-attendee"
-                        />
-                        <Button
-                          variant="outline"
-                          onClick={() => addArrayItem('attendees', newAttendee, setNewAttendee)}
-                          data-testid="button-add-attendee"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </Button>
+                      <div className="relative mb-2">
+                        <div className="flex gap-2">
+                          <div className="flex-1 relative">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input
+                              value={newAttendee}
+                              onChange={(e) => {
+                                setNewAttendee(e.target.value);
+                                setAttendeeSearchOpen(e.target.value.length > 0);
+                              }}
+                              onFocus={() => { if (newAttendee.length > 0) setAttendeeSearchOpen(true); }}
+                              placeholder="Search by name or email..."
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const filteredMbrs = tenantMembers.filter(m => {
+                                    const q = newAttendee.toLowerCase();
+                                    return m.displayName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q);
+                                  }).filter(m => !formData.attendees.includes(m.displayName + ' (' + m.email + ')') && !formData.attendees.includes(m.email));
+                                  if (filteredMbrs.length > 0) {
+                                    const member = filteredMbrs[0];
+                                    const val = member.displayName + ' (' + member.email + ')';
+                                    if (!formData.attendees.includes(val)) {
+                                      setFormData(prev => ({ ...prev, attendees: [...prev.attendees, val] }));
+                                    }
+                                  } else if (newAttendee.trim()) {
+                                    if (!formData.attendees.includes(newAttendee.trim())) {
+                                      setFormData(prev => ({ ...prev, attendees: [...prev.attendees, newAttendee.trim()] }));
+                                    }
+                                  }
+                                  setNewAttendee("");
+                                  setAttendeeSearchOpen(false);
+                                }
+                                if (e.key === 'Escape') setAttendeeSearchOpen(false);
+                              }}
+                              className="pl-9"
+                              data-testid="input-new-attendee"
+                            />
+                            {attendeeSearchOpen && (
+                              <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-popover border rounded-md shadow-lg max-h-48 overflow-y-auto">
+                                {(() => {
+                                  const q = newAttendee.toLowerCase();
+                                  const filtered = tenantMembers.filter(m =>
+                                    m.displayName.toLowerCase().includes(q) || m.email.toLowerCase().includes(q)
+                                  ).filter(m => !formData.attendees.includes(m.displayName + ' (' + m.email + ')') && !formData.attendees.includes(m.email));
+                                  if (filtered.length > 0) {
+                                    return filtered.slice(0, 8).map((member) => (
+                                      <div
+                                        key={member.id}
+                                        className="flex items-center gap-2 px-3 py-2 hover:bg-muted cursor-pointer text-sm"
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          const val = member.displayName + ' (' + member.email + ')';
+                                          if (!formData.attendees.includes(val)) {
+                                            setFormData(prev => ({ ...prev, attendees: [...prev.attendees, val] }));
+                                          }
+                                          setNewAttendee("");
+                                          setAttendeeSearchOpen(false);
+                                        }}
+                                        data-testid={`attendee-option-${member.id}`}
+                                      >
+                                        <Users className="w-4 h-4 text-muted-foreground shrink-0" />
+                                        <div className="flex-1 min-w-0">
+                                          <div className="font-medium truncate">{member.displayName}</div>
+                                          <div className="text-xs text-muted-foreground truncate">{member.email}</div>
+                                        </div>
+                                      </div>
+                                    ));
+                                  } else if (newAttendee.trim()) {
+                                    return (
+                                      <div
+                                        className="flex items-center gap-2 px-3 py-2 hover:bg-muted cursor-pointer text-sm"
+                                        onMouseDown={(e) => {
+                                          e.preventDefault();
+                                          if (!formData.attendees.includes(newAttendee.trim())) {
+                                            setFormData(prev => ({ ...prev, attendees: [...prev.attendees, newAttendee.trim()] }));
+                                          }
+                                          setNewAttendee("");
+                                          setAttendeeSearchOpen(false);
+                                        }}
+                                        data-testid="attendee-option-custom"
+                                      >
+                                        <Plus className="w-4 h-4 text-muted-foreground shrink-0" />
+                                        <span>Add "{newAttendee.trim()}"</span>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+                              </div>
+                            )}
+                          </div>
+                          <Button
+                            variant="outline"
+                            onClick={() => {
+                              if (newAttendee.trim() && !formData.attendees.includes(newAttendee.trim())) {
+                                setFormData(prev => ({ ...prev, attendees: [...prev.attendees, newAttendee.trim()] }));
+                              }
+                              setNewAttendee("");
+                              setAttendeeSearchOpen(false);
+                            }}
+                            data-testid="button-add-attendee"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </Button>
+                        </div>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {formData.attendees.map((attendee, idx) => (
