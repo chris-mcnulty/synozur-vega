@@ -6,7 +6,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { ThemeProvider } from "@/components/ThemeProvider";
+import { ThemeProvider, useTheme } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
 import { AIChatPanel } from "@/components/AIChatPanel";
@@ -14,9 +14,7 @@ import { HelpChatPanel } from "@/components/HelpChatPanel";
 import { WhatsNewModal } from "@/components/WhatsNewModal";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { ConsultingModeToggle } from "@/components/ConsultingModeToggle";
-import { SynozurLogo } from "@/components/SynozurLogo";
-
-import { TenantProvider } from "@/contexts/TenantContext";
+import { TenantProvider, useTenant } from "@/contexts/TenantContext";
 import { VocabularyProvider } from "@/contexts/VocabularyContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { TimePeriodProvider, useTimePeriod } from "@/contexts/TimePeriodContext";
@@ -325,6 +323,11 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [, setLocation] = useLocation();
+  const { currentTenant } = useTenant();
+  const { theme } = useTheme();
+  const tenantLogo = theme === 'dark' && currentTenant?.logoUrlDark
+    ? currentTenant.logoUrlDark
+    : currentTenant?.logoUrl;
 
   return (
     <div className="flex h-screen w-full bg-background">
@@ -334,10 +337,13 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
         <header className="flex items-center justify-between px-2 md:px-4 py-2 md:py-4 border-b gap-2 md:gap-4">
           <div className="flex items-center gap-2 md:gap-4 min-w-0">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <SynozurLogo variant="mark" className="h-7 w-7 md:h-8 md:w-8 flex-shrink-0" />
-              <span className="font-bold text-lg hidden md:block">Vega</span>
-            </div>
+            {tenantLogo && (
+              <img
+                src={tenantLogo}
+                alt={currentTenant?.name || "Organization"}
+                className="h-7 md:h-8 w-auto max-w-[120px] object-contain flex-shrink-0"
+              />
+            )}
             <GlobalTimePeriodSelector className="hidden sm:flex" />
           </div>
           <div className="flex items-center gap-1 md:gap-4 flex-shrink-0">
