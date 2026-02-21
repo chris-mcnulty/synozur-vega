@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2, Rocket, Info, FileText, ChevronDown, LifeBuoy, type LucideIcon } from "lucide-react";
+import { SynozurAppSwitcher } from "./SynozurAppSwitcher";
 import {
   Sidebar,
   SidebarContent,
@@ -153,6 +154,7 @@ export function AppSidebar() {
     <Sidebar>
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2 flex-shrink-0">
+          <SynozurAppSwitcher currentApp="vega" />
           {showTenantLogo ? (
             <img 
               src={tenantLogo} 

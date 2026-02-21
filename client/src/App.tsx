@@ -15,7 +15,7 @@ import { WhatsNewModal } from "@/components/WhatsNewModal";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { ConsultingModeToggle } from "@/components/ConsultingModeToggle";
 import { SynozurLogo } from "@/components/SynozurLogo";
-import { SynozurAppSwitcher } from "@/components/SynozurAppSwitcher";
+
 import { TenantProvider } from "@/contexts/TenantContext";
 import { VocabularyProvider } from "@/contexts/VocabularyContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -328,9 +328,6 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen w-full bg-background">
-      <div className="flex flex-col items-center justify-start pt-3 px-1 border-r flex-shrink-0">
-        <SynozurAppSwitcher currentApp="vega" />
-      </div>
       <AppSidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <AnnouncementBanner />
