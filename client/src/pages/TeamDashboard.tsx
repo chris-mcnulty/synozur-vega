@@ -46,6 +46,9 @@ import {
   Link2,
   CheckSquare,
   Activity,
+  Pencil,
+  Trash2,
+  Copy,
 } from "lucide-react";
 import { Link } from "wouter";
 import { useTenant } from "@/contexts/TenantContext";
@@ -57,6 +60,10 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { getQuarterElapsedPercent, getYearElapsedPercent, getRelativeProgressColor, assessRelativeProgress } from "@/lib/fiscal-utils";
 import { format } from "date-fns";
 import type { Objective, KeyResult, BigRock, Strategy, Team, Foundation, CheckIn } from "@shared/schema";
+import { BigRockTasks } from "@/components/okr/BigRockTasks";
+import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
+import { CloneBigRockDialog } from "@/components/okr/CloneBigRockDialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 // Error Boundary for Team Dashboard
 class TeamDashboardErrorBoundary extends Component<
@@ -172,8 +179,37 @@ function TeamDashboardContent() {
     newProgress: 0,
     newStatus: "on_track",
     note: "",
+    asOfDate: new Date().toISOString().split('T')[0],
   });
-  
+
+  const [plannerSyncState, setPlannerSyncState] = useState<{
+    loading: boolean;
+    error: string | null;
+    totalTasks: number;
+    completedTasks: number;
+    progress: number;
+    lastSyncAt: Date | null;
+  }>({
+    loading: false,
+    error: null,
+    totalTasks: 0,
+    completedTasks: 0,
+    progress: 0,
+    lastSyncAt: null,
+  });
+
+  const [bigRockEditOpen, setBigRockEditOpen] = useState(false);
+  const [bigRockDeleteOpen, setBigRockDeleteOpen] = useState(false);
+  const [cloneBigRockDialogOpen, setCloneBigRockDialogOpen] = useState(false);
+  const [bigRockEditForm, setBigRockEditForm] = useState({
+    title: "",
+    description: "",
+    completionPercentage: 0,
+    status: "not_started",
+    ownerEmail: "",
+    accountableEmail: "",
+  });
+
   // AI Check-in Rewrite state
   const [aiRewriteState, setAiRewriteState] = useState<{
     isRewriting: boolean;
@@ -185,6 +221,18 @@ function TeamDashboardContent() {
     suggestion: null,
     error: null,
     mode: 'polish',
+  });
+
+  const [bigRockAiRewriteState, setBigRockAiRewriteState] = useState<{
+    isRewriting: boolean;
+    suggestion: string | null;
+    error: string | null;
+    mode: 'full' | 'clarity' | 'concise' | 'expand';
+  }>({
+    isRewriting: false,
+    suggestion: null,
+    error: null,
+    mode: 'full',
   });
   
   // KR filter state - defaults to showing incomplete
@@ -418,7 +466,7 @@ function TeamDashboardContent() {
         userId: user?.id,
         userEmail: user?.email,
         tenantId: currentTenant?.id,
-        asOfDate: new Date().toISOString(),
+        asOfDate: data.asOfDate ? new Date(data.asOfDate + 'T12:00:00').toISOString() : new Date().toISOString(),
       };
       return apiRequest("POST", "/api/okr/check-ins", checkInData);
     },
@@ -431,6 +479,36 @@ function TeamDashboardContent() {
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to record check-in", variant: "destructive" });
+    },
+  });
+
+  const updateBigRockMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      return apiRequest("PATCH", `/api/okr/big-rocks/${id}`, data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/okr/big-rocks"] });
+      setBigRockEditOpen(false);
+      setSelectedBigRock(null);
+      toast({ title: "Updated", description: "Big Rock has been updated" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to update", variant: "destructive" });
+    },
+  });
+
+  const deleteBigRockMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest("DELETE", `/api/okr/big-rocks/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/okr/big-rocks"] });
+      setBigRockDeleteOpen(false);
+      setSelectedBigRock(null);
+      toast({ title: "Deleted", description: "Big Rock has been deleted" });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to delete", variant: "destructive" });
     },
   });
 
@@ -452,6 +530,7 @@ function TeamDashboardContent() {
       newProgress: rock.completionPercentage || 0,
       newStatus: rock.status || "on_track",
       note: "",
+      asOfDate: new Date().toISOString().split('T')[0],
     });
     setBigRockCheckInOpen(true);
   };
@@ -469,15 +548,47 @@ function TeamDashboardContent() {
       newProgress: bigRockCheckInForm.newProgress,
       newStatus: bigRockCheckInForm.newStatus,
       note: bigRockCheckInForm.note,
+      asOfDate: bigRockCheckInForm.asOfDate,
     });
+  };
+
+  const openBigRockEdit = (rock: BigRock) => {
+    setSelectedBigRock(rock);
+    setBigRockEditForm({
+      title: rock.title || "",
+      description: rock.description || "",
+      completionPercentage: rock.completionPercentage || 0,
+      status: rock.status || "not_started",
+      ownerEmail: rock.ownerEmail || "",
+      accountableEmail: (rock as any).accountableEmail || "",
+    });
+    setBigRockEditOpen(true);
+  };
+
+  const handleBigRockUpdate = () => {
+    if (!selectedBigRock) return;
+    updateBigRockMutation.mutate({
+      id: selectedBigRock.id,
+      data: bigRockEditForm,
+    });
+  };
+
+  const openBigRockClone = (rock: BigRock) => {
+    setSelectedBigRock(rock);
+    setCloneBigRockDialogOpen(true);
+  };
+
+  const openBigRockDelete = (rock: BigRock) => {
+    setSelectedBigRock(rock);
+    setBigRockDeleteOpen(true);
   };
 
   // Clear selected big rock when dialogs close
   useEffect(() => {
-    if (!bigRockCheckInOpen && !bigRockHistoryOpen) {
+    if (!bigRockCheckInOpen && !bigRockHistoryOpen && !bigRockEditOpen && !bigRockDeleteOpen && !cloneBigRockDialogOpen) {
       setSelectedBigRock(null);
     }
-  }, [bigRockCheckInOpen, bigRockHistoryOpen]);
+  }, [bigRockCheckInOpen, bigRockHistoryOpen, bigRockEditOpen, bigRockDeleteOpen, cloneBigRockDialogOpen]);
 
   // Reset AI rewrite state when dialog closes
   useEffect(() => {
@@ -544,6 +655,161 @@ Status: ${checkInForm.newStatus}`;
       setAiRewriteState(prev => ({ ...prev, suggestion: null }));
     }
   };
+
+  const bigRockRewriteMutation = useMutation({
+    mutationFn: async (data: {
+      bigRockId: string;
+      originalNote: string;
+      newProgress: number;
+      mode: 'full' | 'clarity' | 'concise' | 'expand';
+      entityType: 'big_rock';
+    }) => {
+      const response = await apiRequest('POST', '/api/ai/rewrite-checkin', data);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setBigRockAiRewriteState(prev => ({
+        ...prev,
+        isRewriting: false,
+        suggestion: data.rewrittenNote,
+        error: null,
+      }));
+    },
+    onError: (error: any) => {
+      const errorMessage = error instanceof Error ? error.message : String(error) || 'Failed to rewrite note';
+      setBigRockAiRewriteState(prev => ({
+        ...prev,
+        isRewriting: false,
+        error: errorMessage,
+      }));
+      toast({
+        title: "Rewrite Failed",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleBigRockRewriteNote = () => {
+    if (!bigRockCheckInForm.note.trim() || !selectedBigRock) return;
+    setBigRockAiRewriteState(prev => ({ ...prev, isRewriting: true, suggestion: null, error: null }));
+    bigRockRewriteMutation.mutate({
+      bigRockId: selectedBigRock.id,
+      originalNote: bigRockCheckInForm.note,
+      newProgress: bigRockCheckInForm.newProgress,
+      mode: bigRockAiRewriteState.mode,
+      entityType: 'big_rock',
+    });
+  };
+
+  const acceptBigRockRewriteSuggestion = () => {
+    if (bigRockAiRewriteState.suggestion) {
+      setBigRockCheckInForm(prev => ({ ...prev, note: bigRockAiRewriteState.suggestion! }));
+      setBigRockAiRewriteState(prev => ({ ...prev, suggestion: null }));
+      toast({
+        title: "Note Updated",
+        description: "The AI-suggested note has been applied.",
+      });
+    }
+  };
+
+  // Auto-sync Planner progress when opening check-in for Planner-synced Big Rock
+  useEffect(() => {
+    if (bigRockCheckInOpen && selectedBigRock && (selectedBigRock as any).plannerSyncEnabled) {
+      const syncPlannerProgress = async () => {
+        setPlannerSyncState(prev => ({ ...prev, loading: true, error: null }));
+        try {
+          const response = await fetch(`/api/planner/mapping/bigrock/${selectedBigRock.id}/sync`, {
+            method: 'POST',
+            credentials: 'include',
+          });
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || 'Failed to sync Planner progress');
+          }
+          const data = await response.json();
+          setPlannerSyncState({
+            loading: false,
+            error: null,
+            totalTasks: data.totalTasks || 0,
+            completedTasks: data.completedTasks || 0,
+            progress: data.progress || 0,
+            lastSyncAt: new Date(),
+          });
+          setBigRockCheckInForm(prev => ({
+            ...prev,
+            newProgress: Math.round(data.progress || 0),
+          }));
+          queryClient.invalidateQueries({ queryKey: ["/api/okr/big-rocks"] });
+        } catch (error: any) {
+          console.error('[Planner Sync] Error during check-in sync:', error);
+          setPlannerSyncState(prev => ({
+            ...prev,
+            loading: false,
+            error: error.message || 'Failed to sync with Planner',
+          }));
+        }
+      };
+      syncPlannerProgress();
+    }
+  }, [bigRockCheckInOpen, selectedBigRock?.id, (selectedBigRock as any)?.plannerSyncEnabled]);
+
+  // Auto-populate progress from Big Rock tasks when opening check-in
+  useEffect(() => {
+    if (bigRockCheckInOpen && selectedBigRock && !(selectedBigRock as any).plannerSyncEnabled) {
+      const fetchTaskProgress = async () => {
+        try {
+          const res = await fetch('/api/okr/big-rocks/task-counts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ bigRockIds: [selectedBigRock.id] }),
+            credentials: 'include'
+          });
+          if (!res.ok) return;
+          const counts = await res.json();
+          const taskInfo = counts[selectedBigRock.id];
+          if (taskInfo && taskInfo.total > 0) {
+            const taskProgress = Math.round((taskInfo.completed / taskInfo.total) * 100);
+            setPlannerSyncState({
+              loading: false,
+              error: null,
+              totalTasks: taskInfo.total,
+              completedTasks: taskInfo.completed,
+              progress: taskProgress,
+              lastSyncAt: null,
+            });
+            setBigRockCheckInForm(prev => ({
+              ...prev,
+              newProgress: taskProgress,
+            }));
+          }
+        } catch (error) {
+          console.error('[Task Progress] Error fetching task counts for check-in:', error);
+        }
+      };
+      fetchTaskProgress();
+    }
+  }, [bigRockCheckInOpen, selectedBigRock?.id, (selectedBigRock as any)?.plannerSyncEnabled]);
+
+  // Reset planner sync state and AI rewrite state when check-in dialog closes
+  useEffect(() => {
+    if (!bigRockCheckInOpen) {
+      setPlannerSyncState({
+        loading: false,
+        error: null,
+        totalTasks: 0,
+        completedTasks: 0,
+        progress: 0,
+        lastSyncAt: null,
+      });
+      setBigRockAiRewriteState({
+        isRewriting: false,
+        suggestion: null,
+        error: null,
+        mode: 'full',
+      });
+    }
+  }, [bigRockCheckInOpen]);
 
   const relevantStrategies = useMemo(() => {
     if (!strategies || !objectives) return [];
@@ -1044,6 +1310,33 @@ Status: ${checkInForm.newStatus}`;
                         >
                           <History className="h-4 w-4" />
                         </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openBigRockEdit(rock)}
+                          title="Edit"
+                          data-testid={`button-edit-bigrock-${rock.id}`}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openBigRockClone(rock)}
+                          title="Clone to another period"
+                          data-testid={`button-clone-bigrock-${rock.id}`}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openBigRockDelete(rock)}
+                          title="Delete"
+                          data-testid={`button-delete-bigrock-${rock.id}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
                   </CardHeader>
@@ -1338,28 +1631,115 @@ Status: ${checkInForm.newStatus}`;
       <Dialog open={bigRockCheckInOpen} onOpenChange={setBigRockCheckInOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{t('bigRock', 'singular')} Check In</DialogTitle>
+            <DialogTitle>Record Check-In</DialogTitle>
             <DialogDescription>
-              Update progress for: {selectedBigRock?.title}
+              {t('bigRock', 'singular')} - {selectedBigRock?.title}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="br-checkin-progress">Completion Percentage</Label>
-              <div className="flex items-center gap-3">
-                <Input
-                  id="br-checkin-progress"
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={bigRockCheckInForm.newProgress}
-                  onChange={(e) => setBigRockCheckInForm(prev => ({ ...prev, newProgress: Math.min(100, Math.max(0, parseInt(e.target.value) || 0)) }))}
-                  className="w-24"
-                  data-testid="input-bigrock-checkin-progress"
-                />
-                <span className="text-sm text-muted-foreground">%</span>
-                <Progress value={bigRockCheckInForm.newProgress} className="flex-1 h-2" />
-              </div>
+            <div>
+              <Label htmlFor="br-checkin-asofdate">As Of Date</Label>
+              <Input
+                id="br-checkin-asofdate"
+                type="date"
+                value={bigRockCheckInForm.asOfDate}
+                onChange={(e) => setBigRockCheckInForm(prev => ({ ...prev, asOfDate: e.target.value }))}
+                className="dark:bg-background dark:text-foreground dark:[color-scheme:dark]"
+                data-testid="input-bigrock-checkin-asofdate"
+              />
+              <p className="text-sm text-muted-foreground mt-1">
+                When does this check-in data apply? (Defaults to today)
+              </p>
+            </div>
+            <div>
+              <Label htmlFor="br-checkin-progress">Completion ({bigRockCheckInForm.newProgress}%)</Label>
+              {(selectedBigRock as any)?.plannerSyncEnabled ? (
+                <div className="space-y-3">
+                  {plannerSyncState.loading ? (
+                    <div className="p-3 bg-muted rounded-md text-sm flex items-center gap-2">
+                      <div className="animate-spin w-4 h-4 border-2 border-primary border-t-transparent rounded-full" />
+                      <span>Syncing with Microsoft Planner...</span>
+                    </div>
+                  ) : plannerSyncState.error ? (
+                    <div className="p-3 bg-destructive/10 border border-destructive/30 rounded-md text-sm">
+                      <p className="text-destructive font-medium">Sync failed</p>
+                      <p className="text-muted-foreground mt-1">{plannerSyncState.error}</p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="mt-2"
+                        onClick={() => {
+                          setPlannerSyncState(prev => ({ ...prev, loading: true, error: null }));
+                          fetch(`/api/planner/mapping/bigrock/${selectedBigRock!.id}/sync`, {
+                            method: 'POST',
+                            credentials: 'include',
+                          })
+                            .then(r => r.json())
+                            .then(data => {
+                              setPlannerSyncState({
+                                loading: false,
+                                error: null,
+                                totalTasks: data.totalTasks || 0,
+                                completedTasks: data.completedTasks || 0,
+                                progress: data.progress || 0,
+                                lastSyncAt: new Date(),
+                              });
+                              setBigRockCheckInForm(prev => ({ ...prev, newProgress: Math.round(data.progress || 0) }));
+                            })
+                            .catch(e => setPlannerSyncState(prev => ({ ...prev, loading: false, error: e.message })));
+                        }}
+                        data-testid="button-retry-planner-sync"
+                      >
+                        Retry Sync
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="p-3 bg-primary/5 border border-primary/20 rounded-md text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Progress from Planner</span>
+                        <span className="text-lg font-bold">{plannerSyncState.progress}%</span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-2 text-muted-foreground">
+                        <span>{plannerSyncState.completedTasks}/{plannerSyncState.totalTasks} tasks completed</span>
+                        {plannerSyncState.lastSyncAt && (
+                          <span className="text-xs">&bull; Just synced</span>
+                        )}
+                      </div>
+                      <Progress value={plannerSyncState.progress} className="mt-2 h-2" />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {plannerSyncState.totalTasks > 0 && (
+                    <div className="p-3 bg-primary/5 border border-primary/20 rounded-md text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">Progress from Tasks</span>
+                        <span className="text-lg font-bold">{plannerSyncState.progress}%</span>
+                      </div>
+                      <div className="mt-2 flex items-center gap-2 text-muted-foreground">
+                        <CheckSquare className="h-3 w-3" />
+                        <span>{plannerSyncState.completedTasks}/{plannerSyncState.totalTasks} tasks completed</span>
+                      </div>
+                      <Progress value={plannerSyncState.progress} className="mt-2 h-2" />
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <Input
+                      id="br-checkin-progress"
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={bigRockCheckInForm.newProgress}
+                      onChange={(e) => setBigRockCheckInForm(prev => ({ ...prev, newProgress: Math.min(100, Math.max(0, parseInt(e.target.value) || 0)) }))}
+                      className="w-24"
+                      data-testid="input-bigrock-checkin-progress"
+                    />
+                    <span className="text-sm text-muted-foreground">%</span>
+                    <Progress value={bigRockCheckInForm.newProgress} className="flex-1 h-2" />
+                  </div>
+                </div>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="br-checkin-status">Status</Label>
@@ -1371,35 +1751,123 @@ Status: ${checkInForm.newStatus}`;
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="not_started">Not Started</SelectItem>
-                  <SelectItem value="on_track">On Track</SelectItem>
-                  <SelectItem value="behind">Behind</SelectItem>
-                  <SelectItem value="at_risk">At Risk</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="not_started">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-gray-400" />
+                      Not Started
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="on_track">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-green-500" />
+                      On Track
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="behind">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                      Behind
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="at_risk">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-red-500" />
+                      At Risk
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="completed">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-blue-500" />
+                      Completed
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="postponed">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-purple-500" />
+                      Postponed
+                    </span>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            {selectedBigRock && (selectedBigRock as any).plannerSyncEnabled && (
-              <div className="p-3 bg-primary/5 rounded-md border border-primary/20">
-                <div className="flex items-center gap-2 text-sm">
-                  <Link2 className="h-4 w-4 text-primary" />
-                  <span className="font-medium">Planner Sync Active</span>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <Label htmlFor="br-checkin-note">Note</Label>
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={bigRockAiRewriteState.mode}
+                    onValueChange={(value: 'full' | 'clarity' | 'concise' | 'expand') => 
+                      setBigRockAiRewriteState(prev => ({ ...prev, mode: value }))
+                    }
+                  >
+                    <SelectTrigger className="w-[130px] h-8 text-xs" data-testid="select-bigrock-rewrite-mode">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full">Full Rewrite</SelectItem>
+                      <SelectItem value="clarity">Improve Clarity</SelectItem>
+                      <SelectItem value="concise">Make Concise</SelectItem>
+                      <SelectItem value="expand">Add Context</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleBigRockRewriteNote}
+                    disabled={bigRockAiRewriteState.isRewriting || !bigRockCheckInForm.note.trim()}
+                    className="gap-1"
+                    data-testid="button-bigrock-ai-rewrite"
+                  >
+                    {bigRockAiRewriteState.isRewriting ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3 w-3" />
+                    )}
+                    <span className="text-xs">AI Rewrite</span>
+                  </Button>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Progress is synced with Microsoft Planner tasks. Manual updates here will be reconciled on next sync.
-                </p>
               </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="br-checkin-note">Note (optional)</Label>
               <Textarea
                 id="br-checkin-note"
                 value={bigRockCheckInForm.note}
                 onChange={(e) => setBigRockCheckInForm(prev => ({ ...prev, note: e.target.value }))}
-                placeholder="Add context about this update..."
+                placeholder="Add any notes about this check-in..."
                 rows={3}
                 data-testid="textarea-bigrock-checkin-note"
               />
+              {bigRockAiRewriteState.suggestion && (
+                <div className="mt-3 p-3 bg-primary/5 border border-primary/20 rounded-md space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                    <Sparkles className="h-4 w-4" />
+                    AI Suggestion
+                  </div>
+                  <div className="text-sm whitespace-pre-wrap bg-background p-2 rounded border">
+                    {bigRockAiRewriteState.suggestion}
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setBigRockAiRewriteState(prev => ({ ...prev, suggestion: null }))}
+                      data-testid="button-dismiss-bigrock-suggestion"
+                    >
+                      Dismiss
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={acceptBigRockRewriteSuggestion}
+                      className="gap-1"
+                      data-testid="button-accept-bigrock-suggestion"
+                    >
+                      <Check className="h-3 w-3" />
+                      Use This
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
           <DialogFooter>
@@ -1417,7 +1885,7 @@ Status: ${checkInForm.newStatus}`;
                   Saving...
                 </>
               ) : (
-                "Save Check-in"
+                "Record Check-In"
               )}
             </Button>
           </DialogFooter>
@@ -1491,6 +1959,194 @@ Status: ${checkInForm.newStatus}`;
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Big Rock Edit Dialog */}
+      <Dialog open={bigRockEditOpen} onOpenChange={setBigRockEditOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit {t('bigRock', 'singular')}</DialogTitle>
+            <DialogDescription>
+              Update details for: {selectedBigRock?.title}
+            </DialogDescription>
+          </DialogHeader>
+          <Tabs defaultValue="details" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="details" data-testid="tab-bigrock-details">Details</TabsTrigger>
+              <TabsTrigger value="tasks" data-testid="tab-bigrock-tasks">Tasks</TabsTrigger>
+            </TabsList>
+            <TabsContent value="details" className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="br-edit-title">Title</Label>
+                <Input
+                  id="br-edit-title"
+                  value={bigRockEditForm.title}
+                  onChange={(e) => setBigRockEditForm(prev => ({ ...prev, title: e.target.value }))}
+                  data-testid="input-bigrock-edit-title"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="br-edit-description">Description</Label>
+                <Textarea
+                  id="br-edit-description"
+                  value={bigRockEditForm.description}
+                  onChange={(e) => setBigRockEditForm(prev => ({ ...prev, description: e.target.value }))}
+                  rows={3}
+                  data-testid="textarea-bigrock-edit-description"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="br-edit-owner">Owner Email</Label>
+                <Input
+                  id="br-edit-owner"
+                  type="email"
+                  value={bigRockEditForm.ownerEmail}
+                  onChange={(e) => setBigRockEditForm(prev => ({ ...prev, ownerEmail: e.target.value }))}
+                  data-testid="input-bigrock-edit-owner"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="br-edit-accountable">Accountable Email</Label>
+                <Input
+                  id="br-edit-accountable"
+                  type="email"
+                  value={bigRockEditForm.accountableEmail}
+                  onChange={(e) => setBigRockEditForm(prev => ({ ...prev, accountableEmail: e.target.value }))}
+                  data-testid="input-bigrock-edit-accountable"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="br-edit-status">Status</Label>
+                <Select
+                  value={bigRockEditForm.status}
+                  onValueChange={(value) => setBigRockEditForm(prev => ({ ...prev, status: value }))}
+                >
+                  <SelectTrigger data-testid="select-bigrock-edit-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="not_started">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-gray-400" />
+                        Not Started
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="on_track">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-green-500" />
+                        On Track
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="behind">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                        Behind
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="at_risk">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-red-500" />
+                        At Risk
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="completed">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-blue-500" />
+                        Completed
+                      </span>
+                    </SelectItem>
+                    <SelectItem value="postponed">
+                      <span className="flex items-center gap-2">
+                        <span className="w-2 h-2 rounded-full bg-purple-500" />
+                        Postponed
+                      </span>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {selectedBigRock && (
+                <PlannerProgressMapping
+                  entityType="bigrock"
+                  entityId={selectedBigRock.id}
+                  entityTitle={selectedBigRock.title}
+                />
+              )}
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setBigRockEditOpen(false)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleBigRockUpdate}
+                  disabled={updateBigRockMutation.isPending}
+                  data-testid="button-save-bigrock-edit"
+                >
+                  {updateBigRockMutation.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Changes"
+                  )}
+                </Button>
+              </DialogFooter>
+            </TabsContent>
+            <TabsContent value="tasks" className="pt-4">
+              {selectedBigRock && (
+                <BigRockTasks
+                  bigRockId={selectedBigRock.id}
+                  canModify={true}
+                  plannerMapped={!!(selectedBigRock as any).plannerPlanId}
+                  plannerPlanId={(selectedBigRock as any).plannerPlanId}
+                />
+              )}
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      {/* Big Rock Delete Confirmation */}
+      <Dialog open={bigRockDeleteOpen} onOpenChange={setBigRockDeleteOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete {t('bigRock', 'singular')}</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &ldquo;{selectedBigRock?.title}&rdquo;? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBigRockDeleteOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => selectedBigRock && deleteBigRockMutation.mutate(selectedBigRock.id)}
+              disabled={deleteBigRockMutation.isPending}
+              data-testid="button-confirm-delete-bigrock"
+            >
+              {deleteBigRockMutation.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Big Rock Clone Dialog */}
+      {selectedBigRock && (
+        <CloneBigRockDialog
+          open={cloneBigRockDialogOpen}
+          onOpenChange={setCloneBigRockDialogOpen}
+          bigRock={selectedBigRock}
+          tenantId={currentTenant?.id || ""}
+          currentQuarter={currentQuarter?.quarter || 1}
+          currentYear={globalYear}
+        />
+      )}
     </div>
   );
 }
