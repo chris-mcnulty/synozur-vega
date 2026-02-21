@@ -90,7 +90,7 @@ router.get('/calendars', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'M365 features not available for your role' });
     }
     
-    const userId = (user as any)?.id || (req as any).user?.id;
+    const userId = (req as any).user?.id;
     const connected = await checkOutlookConnectionForUser(userId);
     if (!connected) {
       return res.status(401).json({ error: 'Outlook not connected' });
@@ -371,7 +371,7 @@ router.get('/meetings/:id/outlook-event', async (req: Request, res: Response) =>
       return res.status(404).json({ error: 'Meeting not synced to Outlook' });
     }
     
-    const event = await getCalendarEvent(meeting.outlookEventId);
+    const event = await getCalendarEventForUser(user.id, meeting.outlookEventId);
     res.json(event);
   } catch (error: any) {
     console.error('Failed to get Outlook event:', error);
