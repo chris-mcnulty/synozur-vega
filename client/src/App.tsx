@@ -334,7 +334,7 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
         <header className="flex items-center justify-between px-2 md:px-4 py-2 md:py-4 border-b gap-2 md:gap-4">
           <div className="flex items-center gap-2 md:gap-4 min-w-0">
             <div className="hidden md:block">
-              <SynozurAppSwitcher currentApp="vega" variant="light" />
+              <SynozurAppSwitcher currentApp="vega" />
             </div>
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <div className="flex items-center gap-2 flex-shrink-0">

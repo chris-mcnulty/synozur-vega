@@ -60,7 +60,7 @@ export default function Landing() {
           <div className="max-w-5xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between gap-4">
             {/* Logo - Left */}
             <div className="flex items-center gap-2">
-              <SynozurAppSwitcher currentApp="vega" variant="light" />
+              <SynozurAppSwitcher currentApp="vega" />
               <img src={synozurMark} alt="Vega" className="h-8 object-contain" />
               <span className={`text-lg font-semibold ${isScrolled ? 'text-foreground' : 'text-foreground dark:text-white'}`}>Vega</span>
               <Badge variant="secondary" className={`text-xs ${isScrolled ? '' : 'dark:bg-white/20 dark:text-white dark:border-white/30'}`}>Beta</Badge>
