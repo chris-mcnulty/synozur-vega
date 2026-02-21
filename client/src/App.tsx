@@ -328,12 +328,14 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen w-full bg-background">
+      <div className="flex flex-col items-center justify-start pt-3 px-1 border-r flex-shrink-0">
+        <SynozurAppSwitcher currentApp="vega" />
+      </div>
       <AppSidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <AnnouncementBanner />
         <header className="flex items-center justify-between px-2 md:px-4 py-2 md:py-4 border-b gap-2 md:gap-4">
           <div className="flex items-center gap-2 md:gap-4 min-w-0">
-            <SynozurAppSwitcher currentApp="vega" />
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             <div className="flex items-center gap-2 flex-shrink-0">
               <SynozurLogo variant="mark" className="h-7 w-7 md:h-8 md:w-8 flex-shrink-0" />
