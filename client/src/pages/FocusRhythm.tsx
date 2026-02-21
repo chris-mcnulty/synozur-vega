@@ -179,6 +179,8 @@ interface OKRLinkingModalProps {
   linkedBigRockIds: string[];
   onSave: (objectiveIds: string[], keyResultIds: string[], bigRockIds: string[]) => void;
   tenantId: string;
+  quarter?: number;
+  year?: number;
 }
 
 function OKRLinkingModal({ 
@@ -188,16 +190,20 @@ function OKRLinkingModal({
   linkedKeyResultIds, 
   linkedBigRockIds, 
   onSave,
-  tenantId 
+  tenantId,
+  quarter,
+  year
 }: OKRLinkingModalProps) {
   const [selectedObjectives, setSelectedObjectives] = useState<string[]>(linkedObjectiveIds);
   const [selectedKeyResults, setSelectedKeyResults] = useState<string[]>(linkedKeyResultIds);
   const [selectedBigRocks, setSelectedBigRocks] = useState<string[]>(linkedBigRockIds);
   
+  const periodParams = quarter && year ? `&quarter=${quarter}&year=${year}` : '';
+  
   const { data: objectives = [] } = useQuery<Objective[]>({
-    queryKey: ['/api/okr/objectives', tenantId],
+    queryKey: ['/api/okr/objectives', tenantId, quarter, year],
     queryFn: async () => {
-      const res = await fetch(`/api/okr/objectives?tenantId=${tenantId}`);
+      const res = await fetch(`/api/okr/objectives?tenantId=${tenantId}${periodParams}`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -205,9 +211,9 @@ function OKRLinkingModal({
   });
   
   const { data: bigRocks = [] } = useQuery<BigRock[]>({
-    queryKey: ['/api/okr/big-rocks', tenantId],
+    queryKey: ['/api/okr/big-rocks', tenantId, quarter, year],
     queryFn: async () => {
-      const res = await fetch(`/api/okr/big-rocks?tenantId=${tenantId}`);
+      const res = await fetch(`/api/okr/big-rocks?tenantId=${tenantId}${periodParams}`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -215,9 +221,9 @@ function OKRLinkingModal({
   });
   
   const { data: hierarchyData } = useQuery<any[]>({
-    queryKey: ['/api/okr/hierarchy', tenantId],
+    queryKey: ['/api/okr/hierarchy', tenantId, quarter, year],
     queryFn: async () => {
-      const res = await fetch(`/api/okr/hierarchy?tenantId=${tenantId}`);
+      const res = await fetch(`/api/okr/hierarchy?tenantId=${tenantId}${periodParams}`);
       if (!res.ok) return [];
       return res.json();
     },
@@ -774,6 +780,18 @@ export default function FocusRhythm() {
     },
     enabled: !!currentTenant?.id,
   });
+
+  const { data: allHierarchyData } = useQuery<any[]>({
+    queryKey: ['/api/okr/hierarchy', currentTenant?.id, 'all'],
+    queryFn: async () => {
+      if (!currentTenant?.id) return [];
+      const res = await fetch(`/api/okr/hierarchy?tenantId=${currentTenant.id}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: !!currentTenant?.id,
+  });
+  const keyResults: KeyResult[] = allHierarchyData?.flatMap((obj: any) => obj.keyResults || []) || [];
   
   const { data: outlookStatus } = useQuery<{ connected: boolean; user: { displayName: string; email: string } | null }>({
     queryKey: ['/api/m365/status'],
@@ -1252,18 +1270,35 @@ export default function FocusRhythm() {
     
     brief += `---\nGenerated from Vega Company OS\n`;
     
-    navigator.clipboard.writeText(brief).then(() => {
-      toast({
-        title: "Meeting brief copied",
-        description: "Full summary with linked items, outcomes, and action items copied",
-      });
-    }).catch(() => {
-      toast({
-        title: "Copy failed",
-        description: "Could not copy to clipboard",
-        variant: "destructive",
-      });
-    });
+    const copyToClipboard = async (text: string) => {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          const textarea = document.createElement('textarea');
+          textarea.value = text;
+          textarea.style.position = 'fixed';
+          textarea.style.left = '-9999px';
+          textarea.style.top = '-9999px';
+          document.body.appendChild(textarea);
+          textarea.focus();
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+        }
+        toast({
+          title: "Meeting brief copied",
+          description: "Full summary with linked items, outcomes, and action items copied",
+        });
+      } catch {
+        toast({
+          title: "Copy failed",
+          description: "Could not copy to clipboard",
+          variant: "destructive",
+        });
+      }
+    };
+    copyToClipboard(brief);
   };
 
   const handleCreate = () => {
@@ -2350,6 +2385,8 @@ export default function FocusRhythm() {
           linkedBigRockIds={formData.linkedBigRockIds}
           onSave={handleLinksSave}
           tenantId={currentTenant.id}
+          quarter={quarter}
+          year={year}
         />
         
         <Dialog open={outlookImportDialogOpen} onOpenChange={setOutlookImportDialogOpen}>

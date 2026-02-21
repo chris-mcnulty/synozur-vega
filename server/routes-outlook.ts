@@ -6,9 +6,9 @@ import {
   getOutlookIntegrationStatus,
 } from './services/graph-outlook';
 import {
-  createCalendarEvent,
+  createCalendarEventForUser,
   vegaMeetingToOutlookEvent,
-  checkOutlookConnection,
+  checkOutlookConnectionForUser,
 } from './microsoftGraph';
 import { storage } from './storage';
 
@@ -117,7 +117,8 @@ router.post('/schedule-meeting', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Meeting ID is required' });
     }
 
-    const connected = await checkOutlookConnection();
+    const userId = (user as any).id;
+    const connected = await checkOutlookConnectionForUser(userId);
     if (!connected) {
       return res.status(400).json({ error: 'Outlook is not connected. Please connect your Microsoft 365 account first.' });
     }
@@ -224,7 +225,7 @@ router.post('/schedule-meeting', async (req: Request, res: Response) => {
       content: bodyContent,
     };
 
-    const createdEvent = await createCalendarEvent(calendarId || null, outlookEvent);
+    const createdEvent = await createCalendarEventForUser(userId, calendarId || null, outlookEvent);
 
     res.json({
       success: true,

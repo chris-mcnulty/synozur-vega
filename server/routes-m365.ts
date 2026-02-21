@@ -2,14 +2,14 @@ import { Router, Request, Response } from 'express';
 import { storage } from './storage';
 import { hasPermission, PERMISSIONS, Role } from '@shared/rbac';
 import {
-  checkOutlookConnection,
+  checkOutlookConnectionForUser,
   getCurrentUser,
-  listCalendars,
-  listCalendarEvents,
-  createCalendarEvent,
-  updateCalendarEvent,
-  deleteCalendarEvent,
-  getCalendarEvent,
+  listCalendarsForUser,
+  listCalendarEventsForUser,
+  createCalendarEventForUser,
+  updateCalendarEventForUser,
+  deleteCalendarEventForUser,
+  getCalendarEventForUser,
   sendEmail,
   vegaMeetingToOutlookEvent,
   generateMeetingSummaryEmail,
@@ -59,15 +59,19 @@ router.get('/status', async (req: Request, res: Response) => {
   try {
     const user = req.user!;
     
-    // Check M365 permission
     if (!checkM365Permission(req)) {
       return res.status(403).json({ error: 'M365 features not available for your role' });
     }
     
-    const connected = await checkOutlookConnection();
+    const userId = (user as any).id;
+    const connected = await checkOutlookConnectionForUser(userId);
     
     if (connected) {
-      const outlookUser = await getCurrentUser();
+      let outlookUser = null;
+      try {
+        outlookUser = await getCurrentUser();
+      } catch {
+      }
       res.json({
         connected: true,
         user: outlookUser ? { displayName: outlookUser.displayName, email: outlookUser.mail } : null,
@@ -86,12 +90,13 @@ router.get('/calendars', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'M365 features not available for your role' });
     }
     
-    const connected = await checkOutlookConnection();
+    const userId = (user as any)?.id || (req as any).user?.id;
+    const connected = await checkOutlookConnectionForUser(userId);
     if (!connected) {
       return res.status(401).json({ error: 'Outlook not connected' });
     }
     
-    const calendars = await listCalendars();
+    const calendars = await listCalendarsForUser(userId);
     res.json(calendars);
   } catch (error: any) {
     console.error('Failed to list calendars:', error);
@@ -105,7 +110,10 @@ router.get('/calendar/events', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'M365 features not available for your role' });
     }
     
-    const connected = await checkOutlookConnection();
+    const user = req.user!;
+    const userId = user.id || (user as any).id;
+    
+    const connected = await checkOutlookConnectionForUser(userId);
     if (!connected) {
       return res.status(401).json({ error: 'Outlook not connected' });
     }
@@ -115,7 +123,7 @@ router.get('/calendar/events', async (req: Request, res: Response) => {
     const start = startDate ? new Date(startDate as string) : new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const end = endDate ? new Date(endDate as string) : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
     
-    const events = await listCalendarEvents(start, end);
+    const events = await listCalendarEventsForUser(userId, start, end);
     res.json(events);
   } catch (error: any) {
     console.error('Failed to list calendar events:', error);
@@ -129,13 +137,16 @@ router.get('/calendar/events/:eventId', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'M365 features not available for your role' });
     }
     
-    const connected = await checkOutlookConnection();
+    const user = req.user!;
+    const userId = user.id || (user as any).id;
+    
+    const connected = await checkOutlookConnectionForUser(userId);
     if (!connected) {
       return res.status(401).json({ error: 'Outlook not connected' });
     }
     
     const { eventId } = req.params;
-    const event = await getCalendarEvent(eventId);
+    const event = await getCalendarEventForUser(userId, eventId);
     
     if (!event) {
       return res.status(404).json({ error: 'Event not found' });
@@ -153,12 +164,13 @@ router.post('/meetings/:id/sync', async (req: Request, res: Response) => {
     const { id } = req.params;
     const { calendarId, durationMinutes = 60 } = req.body;
     const user = req.user!;
+    const userId = user.id || (user as any).id;
     
     if (!checkM365Permission(req)) {
       return res.status(403).json({ error: 'M365 features not available for your role' });
     }
     
-    const connected = await checkOutlookConnection();
+    const connected = await checkOutlookConnectionForUser(userId);
     if (!connected) {
       return res.status(401).json({ error: 'Outlook not connected. Please connect your Microsoft account in Settings → Integrations.' });
     }
@@ -187,9 +199,9 @@ router.post('/meetings/:id/sync', async (req: Request, res: Response) => {
     
     try {
       if (meeting.outlookEventId) {
-        syncedEvent = await updateCalendarEvent(meeting.outlookEventId, outlookEvent);
+        syncedEvent = await updateCalendarEventForUser(userId, meeting.outlookEventId, outlookEvent);
       } else {
-        syncedEvent = await createCalendarEvent(calendarId || null, outlookEvent);
+        syncedEvent = await createCalendarEventForUser(userId, calendarId || null, outlookEvent);
       }
     } catch (syncErr: any) {
       syncStatus = 'error';
@@ -228,6 +240,8 @@ router.post('/meetings/:id/unlink', async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Not authenticated' });
     }
     
+    const userId = user.id || (user as any).id;
+    
     const meeting = await storage.getMeetingById(id);
     if (!meeting) {
       return res.status(404).json({ error: 'Meeting not found' });
@@ -239,7 +253,7 @@ router.post('/meetings/:id/unlink', async (req: Request, res: Response) => {
     
     if (deleteFromOutlook && meeting.outlookEventId) {
       try {
-        await deleteCalendarEvent(meeting.outlookEventId);
+        await deleteCalendarEventForUser(userId, meeting.outlookEventId);
       } catch (err) {
         console.error('Failed to delete Outlook event:', err);
       }
@@ -271,7 +285,9 @@ router.post('/meetings/:id/send-summary', async (req: Request, res: Response) =>
       return res.status(401).json({ error: 'Not authenticated' });
     }
     
-    const connected = await checkOutlookConnection();
+    const userId = user.id || (user as any).id;
+    
+    const connected = await checkOutlookConnectionForUser(userId);
     if (!connected) {
       return res.status(401).json({ error: 'Outlook not connected. Please connect your Microsoft account in Settings → Integrations.' });
     }

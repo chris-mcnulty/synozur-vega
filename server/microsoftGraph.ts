@@ -495,6 +495,138 @@ export async function createCalendarEvent(
   };
 }
 
+export async function createCalendarEventForUser(
+  userId: string,
+  calendarId: string | null,
+  event: OutlookEvent
+): Promise<OutlookEvent> {
+  const userClient = await getUserGraphClient(userId);
+  
+  if (!userClient) {
+    const connectorClient = await getOutlookClient();
+    const endpoint = calendarId 
+      ? `/me/calendars/${calendarId}/events`
+      : '/me/events';
+    const createdEvent = await connectorClient.api(endpoint).post(event);
+    return {
+      id: createdEvent.id,
+      subject: createdEvent.subject,
+      start: createdEvent.start,
+      end: createdEvent.end,
+      body: createdEvent.body,
+      location: createdEvent.location,
+      attendees: createdEvent.attendees,
+    };
+  }
+
+  const endpoint = calendarId 
+    ? `/me/calendars/${calendarId}/events`
+    : '/me/events';
+  
+  const createdEvent = await userClient.api(endpoint).post(event);
+  
+  return {
+    id: createdEvent.id,
+    subject: createdEvent.subject,
+    start: createdEvent.start,
+    end: createdEvent.end,
+    body: createdEvent.body,
+    location: createdEvent.location,
+    attendees: createdEvent.attendees,
+  };
+}
+
+export async function checkOutlookConnectionForUser(userId: string): Promise<boolean> {
+  const userToken = await getUserGraphToken(userId);
+  if (userToken) return true;
+  
+  try {
+    await getAccessToken();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function getOutlookClientForUser(userId: string): Promise<Client> {
+  const userClient = await getUserGraphClient(userId);
+  if (userClient) return userClient;
+  return getOutlookClient();
+}
+
+export async function listCalendarsForUser(userId: string): Promise<OutlookCalendar[]> {
+  const client = await getOutlookClientForUser(userId);
+  const response = await client.api('/me/calendars')
+    .select('id,name,color,isDefaultCalendar,canEdit')
+    .get();
+  return response.value.map((cal: any) => ({
+    id: cal.id,
+    name: cal.name,
+    color: cal.color,
+    isDefaultCalendar: cal.isDefaultCalendar,
+    canEdit: cal.canEdit,
+  }));
+}
+
+export async function listCalendarEventsForUser(userId: string, start: Date, end: Date): Promise<OutlookEvent[]> {
+  const client = await getOutlookClientForUser(userId);
+  const response = await client.api('/me/calendarview')
+    .query({
+      startDateTime: start.toISOString(),
+      endDateTime: end.toISOString(),
+    })
+    .select('id,subject,start,end,body,location,attendees,organizer')
+    .orderby('start/dateTime')
+    .top(100)
+    .get();
+  return response.value.map((event: any) => ({
+    id: event.id,
+    subject: event.subject,
+    start: event.start,
+    end: event.end,
+    body: event.body,
+    location: event.location,
+    attendees: event.attendees,
+  }));
+}
+
+export async function getCalendarEventForUser(userId: string, eventId: string): Promise<OutlookEvent | null> {
+  try {
+    const client = await getOutlookClientForUser(userId);
+    const event = await client.api(`/me/events/${eventId}`).get();
+    return {
+      id: event.id,
+      subject: event.subject,
+      start: event.start,
+      end: event.end,
+      body: event.body,
+      location: event.location,
+      attendees: event.attendees,
+    };
+  } catch {
+    return null;
+  }
+}
+
+export async function updateCalendarEventForUser(userId: string, eventId: string, updates: Partial<OutlookEvent>): Promise<OutlookEvent> {
+  const client = await getOutlookClientForUser(userId);
+  const updatedEvent = await client.api(`/me/events/${eventId}`).patch(updates);
+  return {
+    id: updatedEvent.id,
+    subject: updatedEvent.subject,
+    start: updatedEvent.start,
+    end: updatedEvent.end,
+    body: updatedEvent.body,
+    location: updatedEvent.location,
+    attendees: updatedEvent.attendees,
+  };
+}
+
+export async function deleteCalendarEventForUser(userId: string, eventId: string): Promise<void> {
+  const client = await getOutlookClientForUser(userId);
+  await client.api(`/me/events/${eventId}`).delete();
+}
+
 export async function updateCalendarEvent(
   eventId: string,
   updates: Partial<OutlookEvent>
