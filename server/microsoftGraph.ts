@@ -170,19 +170,20 @@ export async function searchAzureADUsers(query: string, top: number = 10, azureT
 import { storage } from './storage';
 import { decryptToken, isEncrypted } from './utils/encryption';
 
-async function getUserGraphToken(userId: string): Promise<string | null> {
-  console.log(`[Graph] getUserGraphToken called for userId: ${userId}`);
-  const graphToken = await storage.getGraphToken(userId);
-  console.log(`[Graph] getGraphToken result:`, graphToken ? { 
+async function getUserGraphToken(userId: string, service: string = 'planner'): Promise<string | null> {
+  console.log(`[Graph] getUserGraphToken called for userId: ${userId}, service: ${service}`);
+  const graphToken = await storage.getGraphToken(userId, service);
+  console.log(`[Graph] getGraphToken result (${service}):`, graphToken ? { 
     userId: graphToken.userId, 
     tenantId: graphToken.tenantId, 
     hasAccessToken: !!graphToken.accessToken,
     hasRefreshToken: !!graphToken.refreshToken,
-    expiresAt: graphToken.expiresAt 
+    expiresAt: graphToken.expiresAt,
+    scopes: graphToken.scopes,
   } : 'null');
   
   if (!graphToken || !graphToken.accessToken) {
-    console.log(`[Graph] No token found for user ${userId}`);
+    console.log(`[Graph] No ${service} token found for user ${userId}`);
     return null;
   }
 
@@ -212,9 +213,16 @@ async function getUserGraphToken(userId: string): Promise<string | null> {
         ? decryptToken(graphToken.refreshToken) 
         : graphToken.refreshToken;
       
+      const defaultScopes = service === 'outlook' 
+        ? ['Calendars.Read', 'Calendars.ReadWrite', 'User.Read']
+        : ['Files.Read.All', 'Sites.Read.All', 'User.Read'];
+      const refreshScopes = (graphToken.scopes && graphToken.scopes.length > 0)
+        ? graphToken.scopes.filter((s: string) => s !== 'openid' && s !== 'profile' && s !== 'email' && s !== 'offline_access')
+        : defaultScopes;
+      
       const response = await client.acquireTokenByRefreshToken({
         refreshToken: decryptedRefresh,
-        scopes: ['Files.Read.All', 'Sites.Read.All', 'User.Read'],
+        scopes: refreshScopes,
       });
 
       if (response?.accessToken) {
@@ -223,25 +231,26 @@ async function getUserGraphToken(userId: string): Promise<string | null> {
           userId,
           tenantId: graphToken.tenantId || '',
           accessToken: encryptToken(response.accessToken),
-          refreshToken: graphToken.refreshToken, // Keep existing refresh token
+          refreshToken: graphToken.refreshToken,
           expiresAt: response.expiresOn || null,
-          scopes: graphToken.scopes || ['Files.Read.All', 'Sites.Read.All', 'User.Read'],
+          scopes: graphToken.scopes || defaultScopes,
+          service,
         });
-        console.log(`[Graph] Refreshed token for user ${userId}`);
+        console.log(`[Graph] Refreshed ${service} token for user ${userId}`);
         return response.accessToken;
       }
     } catch (error) {
-      console.error(`[Graph] Token refresh failed for user ${userId}:`, error);
+      console.error(`[Graph] Token refresh failed for user ${userId} (${service}):`, error);
     }
   }
 
   // Token is expired and we couldn't refresh it
-  console.log(`[Graph] Token expired for user ${userId}, needs re-authentication`);
+  console.log(`[Graph] Token expired for user ${userId} (${service}), needs re-authentication`);
   return null;
 }
 
-async function getUserGraphClient(userId: string): Promise<Client | null> {
-  const accessToken = await getUserGraphToken(userId);
+async function getUserGraphClient(userId: string, service: string = 'planner'): Promise<Client | null> {
+  const accessToken = await getUserGraphToken(userId, service);
   if (!accessToken) {
     return null;
   }
@@ -537,7 +546,7 @@ export async function createCalendarEventForUser(
 }
 
 export async function checkOutlookConnectionForUser(userId: string): Promise<boolean> {
-  const userToken = await getUserGraphToken(userId);
+  const userToken = await getUserGraphToken(userId, 'outlook');
   if (userToken) return true;
   
   try {
@@ -549,7 +558,7 @@ export async function checkOutlookConnectionForUser(userId: string): Promise<boo
 }
 
 export async function getOutlookClientForUser(userId: string): Promise<Client> {
-  const userClient = await getUserGraphClient(userId);
+  const userClient = await getUserGraphClient(userId, 'outlook');
   if (userClient) return userClient;
   return getOutlookClient();
 }

@@ -22,6 +22,7 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Meeting, Objective, KeyResult, BigRock } from "@shared/schema";
 import { useTenant } from "@/contexts/TenantContext";
+import { useTimePeriod } from "@/contexts/TimePeriodContext";
 import { format } from "date-fns";
 
 interface LinkedItemDisplayProps {
@@ -190,6 +191,7 @@ export default function MeetingDetail() {
   const meetingId = params?.meetingId;
   const { toast } = useToast();
   const { currentTenant } = useTenant();
+  const { selectedQuarter: currentQuarter, year: globalYear } = useTimePeriod();
 
   const [formData, setFormData] = useState({
     title: "",
@@ -275,30 +277,42 @@ export default function MeetingDetail() {
   });
 
   const { data: objectives = [] } = useQuery<Objective[]>({
-    queryKey: ['/api/okr/objectives', currentTenant?.id],
+    queryKey: ['/api/okr/objectives', currentTenant?.id, currentQuarter?.quarter, globalYear],
     queryFn: async () => {
-      const res = await fetch(`/api/okr/objectives?tenantId=${currentTenant?.id}`);
+      const params = new URLSearchParams({ tenantId: currentTenant!.id, year: String(globalYear) });
+      if (currentQuarter?.quarter != null && currentQuarter.quarter !== 0) {
+        params.set('quarter', String(currentQuarter.quarter));
+      }
+      const res = await fetch(`/api/okr/objectives?${params}`);
       return res.json();
     },
-    enabled: !!currentTenant?.id,
+    enabled: !!currentTenant?.id && !!currentQuarter,
   });
 
   const { data: keyResults = [] } = useQuery<KeyResult[]>({
-    queryKey: ['/api/okr/key-results', currentTenant?.id],
+    queryKey: ['/api/okr/key-results', currentTenant?.id, currentQuarter?.quarter, globalYear],
     queryFn: async () => {
-      const res = await fetch(`/api/okr/key-results?tenantId=${currentTenant?.id}`);
+      const params = new URLSearchParams({ tenantId: currentTenant!.id, year: String(globalYear) });
+      if (currentQuarter?.quarter != null && currentQuarter.quarter !== 0) {
+        params.set('quarter', String(currentQuarter.quarter));
+      }
+      const res = await fetch(`/api/okr/key-results?${params}`);
       return res.json();
     },
-    enabled: !!currentTenant?.id,
+    enabled: !!currentTenant?.id && !!currentQuarter,
   });
 
   const { data: bigRocks = [] } = useQuery<BigRock[]>({
-    queryKey: ['/api/okr/big-rocks', currentTenant?.id],
+    queryKey: ['/api/okr/big-rocks', currentTenant?.id, currentQuarter?.quarter, globalYear],
     queryFn: async () => {
-      const res = await fetch(`/api/okr/big-rocks?tenantId=${currentTenant?.id}`);
+      const params = new URLSearchParams({ tenantId: currentTenant!.id, year: String(globalYear) });
+      if (currentQuarter?.quarter != null && currentQuarter.quarter !== 0) {
+        params.set('quarter', String(currentQuarter.quarter));
+      }
+      const res = await fetch(`/api/okr/big-rocks?${params}`);
       return res.json();
     },
-    enabled: !!currentTenant?.id,
+    enabled: !!currentTenant?.id && !!currentQuarter,
   });
 
   useEffect(() => {
@@ -1159,6 +1173,9 @@ export default function MeetingDetail() {
                                 <Badge className={`${getStatusColor(obj.status)} text-xs`} variant="secondary">
                                   {obj.status?.replace('_', ' ') || 'Not started'}
                                 </Badge>
+                                <span className="text-xs text-muted-foreground">
+                                  {(obj as any).quarter === 0 ? 'Annual' : `Q${(obj as any).quarter}`} {(obj as any).year}
+                                </span>
                               </div>
                             </div>
                           </div>
@@ -1190,6 +1207,9 @@ export default function MeetingDetail() {
                                   {kr.status?.replace('_', ' ') || 'Not started'}
                                 </Badge>
                                 <span className="text-xs text-muted-foreground">{Math.round(kr.progress || 0)}%</span>
+                                <span className="text-xs text-muted-foreground">
+                                  {(kr as any).quarter === 0 ? 'Annual' : `Q${(kr as any).quarter}`} {(kr as any).year}
+                                </span>
                               </div>
                             </div>
                           </div>
