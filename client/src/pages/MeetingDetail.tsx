@@ -8,7 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Users, Pencil, ArrowLeft, Target, CheckCircle2, AlertTriangle, Link2, Clock, Zap, ChevronRight, X, Sparkles, Copy, ClipboardCheck, ExternalLink, Trash2, Plus, Save, Search } from "lucide-react";
+import { Calendar, Users, Pencil, ArrowLeft, Target, CheckCircle2, AlertTriangle, Link2, Clock, Zap, ChevronRight, X, Sparkles, Copy, ClipboardCheck, ExternalLink, Trash2, Plus, Save, Search, Send } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -352,6 +352,116 @@ export default function MeetingDetail() {
     toast({ title: "Link copied", description: "Meeting URL copied to clipboard" });
   };
 
+  const handleCopySummary = () => {
+    const linkedObjs = objectives.filter(o => formData.linkedObjectiveIds.includes(o.id));
+    const linkedKRs = keyResults.filter(kr => formData.linkedKeyResultIds.includes(kr.id));
+    const linkedRocks = bigRocks.filter(b => formData.linkedBigRockIds.includes(b.id));
+
+    let brief = `${formData.title}\n`;
+    brief += `${'='.repeat(formData.title.length)}\n\n`;
+
+    if (formData.date) {
+      brief += `Date: ${format(new Date(formData.date), "PPPP")}\n`;
+    }
+    if (formData.facilitator) {
+      brief += `Facilitator: ${formData.facilitator}\n`;
+    }
+    if (formData.attendees.length > 0) {
+      brief += `Attendees: ${formData.attendees.join(', ')}\n`;
+    }
+    brief += '\n';
+
+    if (formData.agenda.length > 0) {
+      brief += `AGENDA\n${'─'.repeat(25)}\n`;
+      formData.agenda.forEach((item, i) => {
+        brief += `${i + 1}. ${item}\n`;
+      });
+      brief += '\n';
+    }
+
+    if (linkedRocks.length > 0) {
+      brief += `BIG ROCKS (Initiatives)\n${'─'.repeat(25)}\n`;
+      linkedRocks.forEach(rock => {
+        const statusLabel = rock.status === 'at_risk' ? 'AT RISK' : rock.status === 'behind' ? 'BEHIND' : rock.status === 'on_track' ? 'On Track' : rock.status === 'completed' ? 'Complete' : 'Not Started';
+        brief += `- ${rock.title} [${statusLabel}]\n`;
+        if (rock.description) brief += `  ${rock.description}\n`;
+      });
+      brief += '\n';
+    }
+
+    if (linkedObjs.length > 0) {
+      brief += `OBJECTIVES\n${'─'.repeat(25)}\n`;
+      linkedObjs.forEach(obj => {
+        const progress = obj.progress?.toFixed(0) || 0;
+        const statusLabel = obj.status === 'at_risk' ? 'AT RISK' : obj.status === 'behind' ? 'BEHIND' : obj.status === 'on_track' ? 'On Track' : obj.status === 'completed' ? 'Complete' : 'Not Started';
+        brief += `- ${obj.title} [${statusLabel} - ${progress}%]\n`;
+      });
+      brief += '\n';
+    }
+
+    if (linkedKRs.length > 0) {
+      brief += `KEY RESULTS\n${'─'.repeat(25)}\n`;
+      linkedKRs.forEach(kr => {
+        const progress = kr.progress?.toFixed(0) || 0;
+        const statusLabel = kr.status === 'at_risk' ? 'AT RISK' : kr.status === 'behind' ? 'BEHIND' : kr.status === 'on_track' ? 'On Track' : kr.status === 'completed' ? 'Complete' : 'Not Started';
+        brief += `- ${kr.title} [${statusLabel} - ${progress}%]\n`;
+      });
+      brief += '\n';
+    }
+
+    if (formData.summary) {
+      brief += `OUTCOMES / SUMMARY\n${'─'.repeat(25)}\n`;
+      brief += `${formData.summary}\n\n`;
+    }
+
+    if (formData.decisions.length > 0) {
+      brief += `DECISIONS\n${'─'.repeat(25)}\n`;
+      formData.decisions.forEach(d => { brief += `- ${d}\n`; });
+      brief += '\n';
+    }
+
+    if (formData.actionItems.length > 0) {
+      brief += `ACTION ITEMS\n${'─'.repeat(25)}\n`;
+      formData.actionItems.forEach(a => { brief += `- ${a}\n`; });
+      brief += '\n';
+    }
+
+    if (formData.risks.length > 0) {
+      brief += `RISKS\n${'─'.repeat(25)}\n`;
+      formData.risks.forEach(r => { brief += `- ${r}\n`; });
+      brief += '\n';
+    }
+
+    if (formData.meetingNotes) {
+      brief += `MEETING NOTES\n${'─'.repeat(25)}\n`;
+      brief += `${formData.meetingNotes}\n\n`;
+    }
+
+    brief += `---\nGenerated from Vega Company OS\n`;
+
+    navigator.clipboard.writeText(brief).then(() => {
+      toast({ title: "Summary copied", description: "Full meeting summary with linked items, outcomes, and action items" });
+    }).catch(() => {
+      toast({ title: "Copy failed", description: "Could not copy to clipboard", variant: "destructive" });
+    });
+  };
+
+  const scheduleMutation = useMutation({
+    mutationFn: async () => {
+      return apiRequest("POST", "/api/outlook/schedule-meeting", {
+        meetingId,
+        durationMinutes: 60,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "Scheduled in Outlook", description: "Meeting has been added to your Outlook calendar with all linked items" });
+    },
+    onError: (error: any) => {
+      const message = error?.message || "Failed to schedule meeting in Outlook";
+      toast({ title: "Scheduling failed", description: message, variant: "destructive" });
+    },
+  });
+
   const addArrayItem = (field: 'agenda' | 'decisions' | 'actionItems' | 'risks' | 'attendees', value: string, setter: (v: string) => void) => {
     if (value.trim()) {
       setFormData(prev => ({
@@ -447,7 +557,7 @@ export default function MeetingDetail() {
               </div>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <Button 
               variant="outline" 
               onClick={() => setShowAiPrep(!showAiPrep)}
@@ -456,9 +566,18 @@ export default function MeetingDetail() {
               <Sparkles className="w-4 h-4 mr-2" />
               {showAiPrep ? "Hide AI Prep" : "AI Prep"}
             </Button>
-            <Button variant="outline" onClick={handleCopyLink} data-testid="button-copy-link">
-              <ExternalLink className="w-4 h-4 mr-2" />
-              Copy Link
+            <Button variant="outline" onClick={handleCopySummary} data-testid="button-copy-summary">
+              <Copy className="w-4 h-4 mr-2" />
+              Copy Summary
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => scheduleMutation.mutate()} 
+              disabled={scheduleMutation.isPending}
+              data-testid="button-schedule-outlook"
+            >
+              <Send className="w-4 h-4 mr-2" />
+              {scheduleMutation.isPending ? "Scheduling..." : "Schedule to Outlook"}
             </Button>
             <Button onClick={handleSave} disabled={updateMutation.isPending} data-testid="button-save">
               <Save className="w-4 h-4 mr-2" />

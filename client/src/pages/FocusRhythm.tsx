@@ -1141,6 +1141,7 @@ export default function FocusRhythm() {
 
   const handleCopyBrief = (meeting: Meeting) => {
     const linkedObjs = objectives.filter(o => meeting.linkedObjectiveIds?.includes(o.id));
+    const linkedKRs = keyResults.filter(kr => meeting.linkedKeyResultIds?.includes(kr.id));
     const linkedRocks = bigRocks.filter(b => meeting.linkedBigRockIds?.includes(b.id));
     
     let brief = `${meeting.title}\n`;
@@ -1157,6 +1158,15 @@ export default function FocusRhythm() {
     }
     brief += '\n';
     
+    if (meeting.agenda && meeting.agenda.length > 0) {
+      brief += `AGENDA\n`;
+      brief += `${'─'.repeat(25)}\n`;
+      meeting.agenda.forEach((item, i) => {
+        brief += `${i + 1}. ${item}\n`;
+      });
+      brief += '\n';
+    }
+
     if (linkedRocks.length > 0) {
       brief += `BIG ROCKS (Initiatives)\n`;
       brief += `${'─'.repeat(25)}\n`;
@@ -1174,7 +1184,7 @@ export default function FocusRhythm() {
     }
     
     if (linkedObjs.length > 0) {
-      brief += `OBJECTIVES & KEY RESULTS\n`;
+      brief += `OBJECTIVES\n`;
       brief += `${'─'.repeat(25)}\n`;
       linkedObjs.forEach(obj => {
         const progress = obj.progress?.toFixed(0) || 0;
@@ -1186,14 +1196,58 @@ export default function FocusRhythm() {
       });
       brief += '\n';
     }
-    
-    if (meeting.agenda && meeting.agenda.length > 0) {
-      brief += `AGENDA\n`;
+
+    if (linkedKRs.length > 0) {
+      brief += `KEY RESULTS\n`;
       brief += `${'─'.repeat(25)}\n`;
-      meeting.agenda.forEach((item, i) => {
-        brief += `${i + 1}. ${item}\n`;
+      linkedKRs.forEach(kr => {
+        const progress = kr.progress?.toFixed(0) || 0;
+        const statusLabel = kr.status === 'at_risk' ? 'AT RISK' : 
+                           kr.status === 'behind' ? 'BEHIND' :
+                           kr.status === 'on_track' ? 'On Track' :
+                           kr.status === 'completed' ? 'Complete' : 'Not Started';
+        brief += `- ${kr.title} [${statusLabel} - ${progress}%]\n`;
       });
       brief += '\n';
+    }
+
+    if (meeting.summary) {
+      brief += `OUTCOMES / SUMMARY\n`;
+      brief += `${'─'.repeat(25)}\n`;
+      brief += `${meeting.summary}\n\n`;
+    }
+
+    if (meeting.decisions && meeting.decisions.length > 0) {
+      brief += `DECISIONS\n`;
+      brief += `${'─'.repeat(25)}\n`;
+      meeting.decisions.forEach(d => {
+        brief += `- ${d}\n`;
+      });
+      brief += '\n';
+    }
+
+    if (meeting.actionItems && meeting.actionItems.length > 0) {
+      brief += `ACTION ITEMS\n`;
+      brief += `${'─'.repeat(25)}\n`;
+      meeting.actionItems.forEach(a => {
+        brief += `- ${a}\n`;
+      });
+      brief += '\n';
+    }
+
+    if (meeting.risks && meeting.risks.length > 0) {
+      brief += `RISKS\n`;
+      brief += `${'─'.repeat(25)}\n`;
+      meeting.risks.forEach(r => {
+        brief += `- ${r}\n`;
+      });
+      brief += '\n';
+    }
+
+    if (meeting.meetingNotes) {
+      brief += `MEETING NOTES\n`;
+      brief += `${'─'.repeat(25)}\n`;
+      brief += `${meeting.meetingNotes}\n\n`;
     }
     
     brief += `---\nGenerated from Vega Company OS\n`;
@@ -1201,7 +1255,7 @@ export default function FocusRhythm() {
     navigator.clipboard.writeText(brief).then(() => {
       toast({
         title: "Meeting brief copied",
-        description: "Paste into your Outlook calendar invite",
+        description: "Full summary with linked items, outcomes, and action items copied",
       });
     }).catch(() => {
       toast({
