@@ -781,20 +781,30 @@ export class DatabaseStorage implements IStorage {
         attendees: insertMeeting.attendees ? [...insertMeeting.attendees] : null,
         decisions: insertMeeting.decisions ? [...insertMeeting.decisions] : null,
         actionItems: insertMeeting.actionItems ? [...insertMeeting.actionItems] : null,
+        agenda: insertMeeting.agenda ? [...insertMeeting.agenda] : null,
+        risks: insertMeeting.risks ? [...insertMeeting.risks] : null,
+        linkedObjectiveIds: insertMeeting.linkedObjectiveIds ? [...insertMeeting.linkedObjectiveIds] : null,
+        linkedKeyResultIds: insertMeeting.linkedKeyResultIds ? [...insertMeeting.linkedKeyResultIds] : null,
+        linkedBigRockIds: insertMeeting.linkedBigRockIds ? [...insertMeeting.linkedBigRockIds] : null,
       } as any)
       .returning();
     return meeting;
   }
 
   async updateMeeting(id: string, updateData: Partial<InsertMeeting>): Promise<Meeting> {
+    const setData: any = { ...updateData };
+    if (updateData.attendees !== undefined) setData.attendees = updateData.attendees ? [...updateData.attendees] : null;
+    if (updateData.decisions !== undefined) setData.decisions = updateData.decisions ? [...updateData.decisions] : null;
+    if (updateData.actionItems !== undefined) setData.actionItems = updateData.actionItems ? [...updateData.actionItems] : null;
+    if (updateData.agenda !== undefined) setData.agenda = updateData.agenda ? [...updateData.agenda] : null;
+    if (updateData.risks !== undefined) setData.risks = updateData.risks ? [...updateData.risks] : null;
+    if (updateData.linkedObjectiveIds !== undefined) setData.linkedObjectiveIds = updateData.linkedObjectiveIds ? [...updateData.linkedObjectiveIds] : null;
+    if (updateData.linkedKeyResultIds !== undefined) setData.linkedKeyResultIds = updateData.linkedKeyResultIds ? [...updateData.linkedKeyResultIds] : null;
+    if (updateData.linkedBigRockIds !== undefined) setData.linkedBigRockIds = updateData.linkedBigRockIds ? [...updateData.linkedBigRockIds] : null;
+    
     const [meeting] = await db
       .update(meetings)
-      .set({
-        ...updateData,
-        attendees: updateData.attendees ? [...updateData.attendees] : undefined,
-        decisions: updateData.decisions ? [...updateData.decisions] : undefined,
-        actionItems: updateData.actionItems ? [...updateData.actionItems] : undefined,
-      } as any)
+      .set(setData)
       .where(eq(meetings.id, id))
       .returning();
     return meeting;

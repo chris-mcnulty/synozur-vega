@@ -737,7 +737,7 @@ export const insertMeetingSchema = createInsertSchema(meetings).omit({
   linkedKeyResultIds: z.array(z.string()).nullable().optional(),
   linkedBigRockIds: z.array(z.string()).nullable().optional(),
   isRecurring: z.boolean().optional(),
-  recurrencePattern: z.enum(['daily', 'weekly', 'biweekly', 'monthly', 'quarterly']).nullable().optional(),
+  recurrencePattern: z.union([z.enum(['daily', 'weekly', 'biweekly', 'monthly', 'quarterly']), z.literal('')]).transform(val => val === '' ? null : val).nullable().optional(),
   recurrenceEndDate: z.string().datetime().or(z.date()).nullable().optional(),
   recurrenceDay: z.number().nullable().optional(),
 });

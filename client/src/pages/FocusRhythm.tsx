@@ -853,6 +853,7 @@ export default function FocusRhythm() {
         date: data.date ? new Date(data.date).toISOString() : null,
         nextMeetingDate: data.nextMeetingDate ? new Date(data.nextMeetingDate).toISOString() : null,
         recurrenceEndDate: data.recurrenceEndDate ? new Date(data.recurrenceEndDate).toISOString() : null,
+        recurrencePattern: data.recurrencePattern || null,
         seriesId,
         updatedBy: "Current User",
       });
@@ -883,6 +884,7 @@ export default function FocusRhythm() {
         date: data.date ? new Date(data.date).toISOString() : undefined,
         nextMeetingDate: data.nextMeetingDate ? new Date(data.nextMeetingDate).toISOString() : undefined,
         recurrenceEndDate: data.recurrenceEndDate ? new Date(data.recurrenceEndDate).toISOString() : undefined,
+        recurrencePattern: data.recurrencePattern || null,
         updatedBy: "Current User",
       });
     },

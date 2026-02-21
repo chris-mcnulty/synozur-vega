@@ -920,13 +920,21 @@ export async function executeGenerateMeetingPrep(
     throw new Error("Meeting not found");
   }
   
-  const linkedObjectiveIds = (meeting.linkedObjectiveIds || []) as string[];
-  const linkedKeyResultIds = (meeting.linkedKeyResultIds || []) as string[];
-  const linkedBigRockIds = (meeting.linkedBigRockIds || []) as string[];
+  const rawLinkedObjectiveIds = meeting.linkedObjectiveIds;
+  const rawLinkedKeyResultIds = meeting.linkedKeyResultIds;
+  const rawLinkedBigRockIds = meeting.linkedBigRockIds;
+  
+  const linkedObjectiveIds = Array.isArray(rawLinkedObjectiveIds) ? rawLinkedObjectiveIds.filter((id): id is string => typeof id === 'string' && id.length > 0) : [];
+  const linkedKeyResultIds = Array.isArray(rawLinkedKeyResultIds) ? rawLinkedKeyResultIds.filter((id): id is string => typeof id === 'string' && id.length > 0) : [];
+  const linkedBigRockIds = Array.isArray(rawLinkedBigRockIds) ? rawLinkedBigRockIds.filter((id): id is string => typeof id === 'string' && id.length > 0) : [];
+  
+  console.log(`[MeetingPrep] Meeting "${meeting.title}" (${meetingId}): linkedObjectiveIds=${JSON.stringify(linkedObjectiveIds)}, linkedKeyResultIds=${JSON.stringify(linkedKeyResultIds)}, linkedBigRockIds=${JSON.stringify(linkedBigRockIds)}`);
   
   const objectives = await storage.getObjectivesByTenantId(tenantId);
   const keyResults = await storage.getKeyResultsByTenantId(tenantId);
   const bigRocks = await storage.getBigRocksByTenantId(tenantId);
+  
+  console.log(`[MeetingPrep] Found ${objectives.length} objectives, ${keyResults.length} key results, ${bigRocks.length} big rocks for tenant ${tenantId}`);
   
   // Get check-ins for all objectives
   const checkIns: CheckIn[] = [];
