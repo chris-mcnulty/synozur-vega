@@ -73,14 +73,13 @@ router.all('/', async (req: Request, res: Response) => {
     }
 
     const token = authHeader.substring(7);
+    const clientIp = getClientIp(req);
     
-    // SECURITY: Only accept JWT tokens, not raw API keys
-    // Users must first exchange their API key for a short-lived JWT via POST /mcp/token
-    const context = await getAuthContext(token);
+    const context = await getAuthContext(token, clientIp);
     
     if (!context) {
       return res.status(401).json({ 
-        error: 'Invalid or expired token. Use POST /mcp/token with your API key to obtain a short-lived access token.' 
+        error: 'Invalid or expired token. Use POST /mcp/token with your API key to obtain a short-lived access token, or use a direct-auth API key.' 
       });
     }
 
@@ -133,7 +132,8 @@ export async function createApiKeyForUser(
   tenantId: string,
   name: string,
   scopes: string[],
-  expiresAt?: Date
+  expiresAt?: Date,
+  directAuth: boolean = false
 ): Promise<{ apiKey: string; id: string; prefix: string }> {
   const { key, hash, prefix } = generateApiKey();
   
@@ -146,6 +146,7 @@ export async function createApiKeyForUser(
     scopes,
     status: 'active',
     expiresAt,
+    directAuth,
   });
 
   return {

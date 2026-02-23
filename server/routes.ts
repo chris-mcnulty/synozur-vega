@@ -427,7 +427,7 @@ ${changelogContent}`;
 
   app.post("/api/mcp/keys", ...adminOnly, async (req: Request, res: Response) => {
     try {
-      const { name, scopes, expiresInDays } = req.body;
+      const { name, scopes, expiresInDays, directAuth } = req.body;
       
       if (!name || typeof name !== 'string' || name.trim().length === 0) {
         return res.status(400).json({ error: "Key name is required" });
@@ -454,7 +454,8 @@ ${changelogContent}`;
         req.effectiveTenantId!,
         name.trim(),
         scopes,
-        expiresAt
+        expiresAt,
+        directAuth === true
       );
 
       // Return the full API key only once (it won't be stored/retrievable again)

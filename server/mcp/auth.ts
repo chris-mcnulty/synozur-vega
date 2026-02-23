@@ -102,7 +102,30 @@ export function verifyToken(token: string): McpTokenPayload | null {
   }
 }
 
-export async function getAuthContext(token: string): Promise<McpAuthContext | null> {
+export async function getAuthContext(token: string, clientIp?: string): Promise<McpAuthContext | null> {
+  if (token.startsWith(KEY_PREFIX)) {
+    const result = await validateApiKey(token, clientIp);
+    if (!result.apiKey) {
+      return null;
+    }
+    if (!result.apiKey.directAuth) {
+      return null;
+    }
+    const [user, tenant] = await Promise.all([
+      storage.getUser(result.apiKey.userId),
+      storage.getTenantById(result.apiKey.tenantId),
+    ]);
+    if (!user || !tenant) {
+      return null;
+    }
+    return {
+      user,
+      tenant,
+      apiKey: result.apiKey,
+      scopes: result.apiKey.scopes,
+    };
+  }
+
   const payload = verifyToken(token);
   if (!payload) {
     return null;

@@ -1980,6 +1980,7 @@ export const mcpApiKeys = pgTable("mcp_api_keys", {
   revokedBy: varchar("revoked_by"),
   rotatedFromId: varchar("rotated_from_id"), // For key rotation: links to the key this was rotated from
   rotationGracePeriodEnds: timestamp("rotation_grace_period_ends"), // When the old key stops working
+  directAuth: boolean("direct_auth").default(false).notNull(), // When true, API key can be used directly without token exchange
 });
 
 export const insertMcpApiKeySchema = createInsertSchema(mcpApiKeys).omit({
