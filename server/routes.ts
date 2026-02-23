@@ -559,13 +559,13 @@ ${changelogContent}`;
 
       const gracePeriodEnds = new Date(Date.now() + gracePeriodHours * 60 * 60 * 1000);
 
-      // Create new key with same settings as old key
       const newKey = await createApiKeyForUser(
         req.user!.id,
         req.effectiveTenantId!,
         `${oldKey.name} (rotated)`,
         oldKey.scopes,
-        oldKey.expiresAt || undefined
+        oldKey.expiresAt || undefined,
+        oldKey.directAuth ?? false
       );
 
       // If old key had IP restrictions, update new key with same restrictions

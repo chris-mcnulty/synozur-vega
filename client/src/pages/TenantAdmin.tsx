@@ -387,6 +387,7 @@ function McpApiKeysSection() {
   const [newKeyName, setNewKeyName] = useState("");
   const [selectedScopes, setSelectedScopes] = useState<string[]>([]);
   const [expiresInDays, setExpiresInDays] = useState<string>("90");
+  const [directAuth, setDirectAuth] = useState(false);
   const [newlyCreatedKey, setNewlyCreatedKey] = useState<string | null>(null);
   
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -410,7 +411,7 @@ function McpApiKeysSection() {
   const scopes = scopesData?.scopes || [];
 
   const createKeyMutation = useMutation({
-    mutationFn: async (data: { name: string; scopes: string[]; expiresInDays?: number }) => {
+    mutationFn: async (data: { name: string; scopes: string[]; expiresInDays?: number; directAuth?: boolean }) => {
       return await apiRequest("POST", "/api/mcp/keys", data);
     },
     onSuccess: async (response) => {
@@ -419,6 +420,7 @@ function McpApiKeysSection() {
       queryClient.invalidateQueries({ queryKey: ["/api/mcp/keys"] });
       setNewKeyName("");
       setSelectedScopes([]);
+      setDirectAuth(false);
       toast({ title: "API key created successfully" });
     },
     onError: (error: any) => {
@@ -498,6 +500,7 @@ function McpApiKeysSection() {
       name: newKeyName.trim(),
       scopes: selectedScopes,
       expiresInDays: expiresInDays ? parseInt(expiresInDays) : undefined,
+      directAuth,
     });
   };
 
@@ -554,7 +557,14 @@ function McpApiKeysSection() {
               <TableBody>
                 {activeKeys.map((key) => (
                   <TableRow key={key.id} data-testid={`mcp-key-row-${key.id}`}>
-                    <TableCell className="font-medium">{key.name}</TableCell>
+                    <TableCell className="font-medium">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {key.name}
+                        {key.directAuth && (
+                          <Badge variant="outline" className="text-xs">Direct</Badge>
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell className="font-mono text-sm">{key.keyPrefix}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
@@ -780,6 +790,23 @@ function McpApiKeysSection() {
                     <SelectItem value="">Never</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="directAuth">Direct Authentication</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Skip token exchange — use the API key directly as a Bearer token. Recommended for Copilot Studio and similar integrations.
+                    </p>
+                  </div>
+                  <Switch
+                    id="directAuth"
+                    checked={directAuth}
+                    onCheckedChange={setDirectAuth}
+                    data-testid="switch-direct-auth"
+                  />
+                </div>
               </div>
 
               <DialogFooter>
