@@ -32,7 +32,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, AlertCircle, AlertTriangle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, Settings2, HelpCircle, Link, Link2, Loader2, RefreshCw, Bell, ListTodo } from "lucide-react";
+import { CheckCircle2, AlertCircle, AlertTriangle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, Settings2, HelpCircle, Link, Link2, Loader2, RefreshCw, Bell, ListTodo, KeyRound, Copy } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type TenantBranding, vocabularyAlternatives, type VocabularyTerms } from "@shared/schema";
 import { useAuth } from "@/contexts/AuthContext";
@@ -180,6 +180,309 @@ type McpScope = {
   name: string;
   description: string;
 };
+
+type OauthClient = {
+  id: string;
+  clientId: string;
+  name: string;
+  redirectUris: string[];
+  scopes: string[];
+  status: string;
+  createdAt: string;
+  clientSecret?: string;
+};
+
+function OAuthClientsSection() {
+  const { toast } = useToast();
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [newClientName, setNewClientName] = useState("");
+  const [newRedirectUris, setNewRedirectUris] = useState("");
+  const [selectedScopes, setSelectedScopes] = useState<string[]>([]);
+  const [newlyCreatedClient, setNewlyCreatedClient] = useState<OauthClient | null>(null);
+  const [isSecretDialogOpen, setIsSecretDialogOpen] = useState(false);
+  const [deletingClientId, setDeletingClientId] = useState<string | null>(null);
+
+  const { data: clients = [], isLoading } = useQuery<OauthClient[]>({
+    queryKey: ["/api/oauth/clients"],
+  });
+
+  const { data: scopes = [] } = useQuery<McpScope[]>({
+    queryKey: ["/api/mcp/scopes"],
+    select: (data: any) => data.scopes ?? [],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: { name: string; redirectUris: string[]; scopes: string[] }) => {
+      return await apiRequest("POST", "/api/oauth/clients", data);
+    },
+    onSuccess: async (res) => {
+      const client = await res.json();
+      setNewlyCreatedClient(client);
+      setIsCreateDialogOpen(false);
+      setIsSecretDialogOpen(true);
+      setNewClientName("");
+      setNewRedirectUris("");
+      setSelectedScopes([]);
+      queryClient.invalidateQueries({ queryKey: ["/api/oauth/clients"] });
+    },
+    onError: () => toast({ title: "Failed to create OAuth client", variant: "destructive" }),
+  });
+
+  const toggleStatusMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: string; status: string }) => {
+      return await apiRequest("PATCH", `/api/oauth/clients/${id}`, { status });
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/oauth/clients"] }),
+    onError: () => toast({ title: "Failed to update client status", variant: "destructive" }),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("DELETE", `/api/oauth/clients/${id}`);
+    },
+    onSuccess: () => {
+      setDeletingClientId(null);
+      queryClient.invalidateQueries({ queryKey: ["/api/oauth/clients"] });
+      toast({ title: "OAuth client deleted" });
+    },
+    onError: () => toast({ title: "Failed to delete client", variant: "destructive" }),
+  });
+
+  const handleCreate = () => {
+    if (!newClientName.trim() || !newRedirectUris.trim() || selectedScopes.length === 0) {
+      toast({ title: "Name, at least one redirect URI, and at least one scope are required", variant: "destructive" });
+      return;
+    }
+    const uris = newRedirectUris.split("\n").map(u => u.trim()).filter(Boolean);
+    createMutation.mutate({ name: newClientName.trim(), redirectUris: uris, scopes: selectedScopes });
+  };
+
+  const toggleScope = (scopeId: string) => {
+    setSelectedScopes(prev => prev.includes(scopeId) ? prev.filter(s => s !== scopeId) : [...prev, scopeId]);
+  };
+
+  const baseUrl = window.location.origin;
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-md border bg-muted/30 p-4 space-y-1 text-sm">
+        <p className="font-medium text-foreground">OAuth 2.0 Endpoints</p>
+        <div className="grid grid-cols-1 gap-1 text-muted-foreground">
+          <span><span className="font-mono text-xs bg-muted px-1 rounded">Authorization:</span> {baseUrl}/oauth/authorize</span>
+          <span><span className="font-mono text-xs bg-muted px-1 rounded">Token:</span> {baseUrl}/oauth/token</span>
+          <span><span className="font-mono text-xs bg-muted px-1 rounded">Discovery:</span> {baseUrl}/oauth/.well-known/openid-configuration</span>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between gap-2 flex-wrap">
+        <p className="text-sm text-muted-foreground">
+          Register OAuth clients to allow M365 Copilot and other apps to authenticate users with per-user access control.
+        </p>
+        <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-oauth-client">
+          <Plus className="h-4 w-4 mr-2" />
+          New Client
+        </Button>
+      </div>
+
+      {isLoading ? (
+        <Skeleton className="h-24 w-full" />
+      ) : clients.length === 0 ? (
+        <Card>
+          <CardContent className="py-8 text-center text-muted-foreground">
+            <KeyRound className="h-8 w-8 mx-auto mb-2 opacity-40" />
+            <p className="text-sm">No OAuth clients registered yet.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Client ID</TableHead>
+                <TableHead>Scopes</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {clients.map((client) => (
+                <TableRow key={client.id} data-testid={`oauth-client-row-${client.id}`}>
+                  <TableCell className="font-medium">{client.name}</TableCell>
+                  <TableCell>
+                    <code className="text-xs bg-muted px-1 py-0.5 rounded">{client.clientId}</code>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {client.scopes.map(s => (
+                        <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
+                      ))}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={client.status === "active" ? "default" : "secondary"}>
+                      {client.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => toggleStatusMutation.mutate({ id: client.id, status: client.status === "active" ? "inactive" : "active" })}
+                        data-testid={`button-toggle-oauth-client-${client.id}`}
+                      >
+                        {client.status === "active" ? "Disable" : "Enable"}
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        onClick={() => setDeletingClientId(client.id)}
+                        data-testid={`button-delete-oauth-client-${client.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+
+      {/* Create Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent data-testid="dialog-create-oauth-client">
+          <DialogHeader>
+            <DialogTitle>Register OAuth Client</DialogTitle>
+            <DialogDescription>
+              Register a new OAuth 2.0 client for M365 Copilot or other apps that need per-user authentication.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="oauth-client-name">Client Name</Label>
+              <Input
+                id="oauth-client-name"
+                placeholder="e.g. Copilot Studio Agent"
+                value={newClientName}
+                onChange={e => setNewClientName(e.target.value)}
+                data-testid="input-oauth-client-name"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="oauth-redirect-uris">Redirect URIs</Label>
+              <Textarea
+                id="oauth-redirect-uris"
+                placeholder="One URL per line, e.g.&#10;https://make.powerautomate.com/oauth/callback"
+                value={newRedirectUris}
+                onChange={e => setNewRedirectUris(e.target.value)}
+                rows={3}
+                data-testid="input-oauth-redirect-uris"
+              />
+              <p className="text-xs text-muted-foreground">Enter one redirect URI per line</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Scopes</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {scopes.map(scope => (
+                  <div key={scope.id} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`oauth-scope-${scope.id}`}
+                      checked={selectedScopes.includes(scope.id)}
+                      onCheckedChange={() => toggleScope(scope.id)}
+                      data-testid={`checkbox-oauth-scope-${scope.id}`}
+                    />
+                    <Label htmlFor={`oauth-scope-${scope.id}`} className="text-xs font-normal cursor-pointer">{scope.id}</Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreate} disabled={createMutation.isPending} data-testid="button-confirm-create-oauth-client">
+              {createMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Create Client
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Secret Reveal Dialog */}
+      <Dialog open={isSecretDialogOpen} onOpenChange={setIsSecretDialogOpen}>
+        <DialogContent data-testid="dialog-oauth-secret">
+          <DialogHeader>
+            <DialogTitle>OAuth Client Created</DialogTitle>
+            <DialogDescription>
+              Copy your client credentials now. The client secret will not be shown again.
+            </DialogDescription>
+          </DialogHeader>
+          {newlyCreatedClient && (
+            <div className="space-y-4 py-2">
+              <Alert>
+                <Shield className="h-4 w-4" />
+                <AlertDescription>
+                  Store the client secret securely. Once you close this dialog, it cannot be retrieved.
+                </AlertDescription>
+              </Alert>
+              <div className="space-y-3">
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Client ID</Label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-xs bg-muted p-2 rounded break-all">{newlyCreatedClient.clientId}</code>
+                    <Button size="icon" variant="outline" onClick={() => { navigator.clipboard.writeText(newlyCreatedClient.clientId); toast({ title: "Copied" }); }}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Client Secret</Label>
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 text-xs bg-muted p-2 rounded break-all">{newlyCreatedClient.clientSecret}</code>
+                    <Button size="icon" variant="outline" onClick={() => { navigator.clipboard.writeText(newlyCreatedClient.clientSecret!); toast({ title: "Copied" }); }}>
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button onClick={() => { setIsSecretDialogOpen(false); setNewlyCreatedClient(null); }} data-testid="button-close-oauth-secret">
+              Done
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirm Dialog */}
+      <Dialog open={!!deletingClientId} onOpenChange={() => setDeletingClientId(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete OAuth Client</DialogTitle>
+            <DialogDescription>
+              This will permanently remove the client. Any app using this client ID will lose access immediately.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeletingClientId(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              onClick={() => deletingClientId && deleteMutation.mutate(deletingClientId)}
+              disabled={deleteMutation.isPending}
+              data-testid="button-confirm-delete-oauth-client"
+            >
+              {deleteMutation.isPending ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+              Delete Client
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
 
 function isValidIpOrCidr(value: string): boolean {
   const trimmed = value.trim();
@@ -3132,6 +3435,17 @@ export default function TenantAdmin() {
             </p>
           </div>
           <McpApiKeysSection />
+        </div>
+
+        {/* OAuth 2.0 Clients Section */}
+        <div>
+          <div className="mb-4">
+            <h2 className="text-lg md:text-xl font-semibold">OAuth 2.0 Clients</h2>
+            <p className="text-sm text-muted-foreground">
+              Register OAuth clients to enable M365 Copilot and other apps to authenticate users with per-user, per-tenant access control
+            </p>
+          </div>
+          <OAuthClientsSection />
         </div>
       </TabsContent>
     </Tabs>
