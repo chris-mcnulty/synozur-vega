@@ -47,7 +47,7 @@ export function createMcpServer(context: McpAuthContext) {
             await storage.createMcpAuditLog({
               tenantId: context.tenant.id,
               userId: context.user.id,
-              apiKeyId: context.apiKey.id,
+              apiKeyId: context.apiKey?.id || null,
               toolName: name,
               toolParams: params,
               success,

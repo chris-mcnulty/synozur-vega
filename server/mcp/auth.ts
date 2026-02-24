@@ -26,8 +26,9 @@ export interface McpTokenPayload {
 export interface McpAuthContext {
   user: User;
   tenant: Tenant;
-  apiKey: McpApiKey;
+  apiKey: McpApiKey | null;
   scopes: string[];
+  authMethod: 'api_key' | 'jwt_token' | 'oauth';
 }
 
 export function generateApiKey(): { key: string; hash: string; prefix: string } {
@@ -123,6 +124,26 @@ export async function getAuthContext(token: string, clientIp?: string): Promise<
       tenant,
       apiKey: result.apiKey,
       scopes: result.apiKey.scopes,
+      authMethod: 'api_key',
+    };
+  }
+
+  const { verifyOAuthAccessToken } = await import('./oauth');
+  const oauthPayload = verifyOAuthAccessToken(token);
+  if (oauthPayload) {
+    const [user, tenant] = await Promise.all([
+      storage.getUser(oauthPayload.sub),
+      storage.getTenantById(oauthPayload.tenantId),
+    ]);
+    if (!user || !tenant) {
+      return null;
+    }
+    return {
+      user,
+      tenant,
+      apiKey: null,
+      scopes: oauthPayload.scopes,
+      authMethod: 'oauth',
     };
   }
 
@@ -150,6 +171,7 @@ export async function getAuthContext(token: string, clientIp?: string): Promise<
     tenant,
     apiKey,
     scopes: payload.scopes,
+    authMethod: 'jwt_token',
   };
 }
 

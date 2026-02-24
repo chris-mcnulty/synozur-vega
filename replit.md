@@ -36,7 +36,7 @@ Preferred communication style: Simple, everyday language.
     - All date/time operations use America/Los_Angeles timezone.
     - **Job Scheduler Service**: Central service for managing background jobs, including registration, logging, pause/resume, and failure notifications.
     - **Big Rock Tasks**: Manages tasks for "Big Rocks" with status flow, assignee management, and bidirectional sync with Microsoft Planner.
-    - **MCP (Model Context Protocol) Server**: Standardized AI assistant integration for compatible AI tools, featuring JWT auth, API key management, scope-based permissions, read/write tools for platform data, IP allowlisting, and rate limiting.
+    - **MCP (Model Context Protocol) Server**: Standardized AI assistant integration for compatible AI tools, featuring JWT auth, API key management, OAuth 2.0 authorization server, scope-based permissions, read/write tools for platform data, IP allowlisting, and rate limiting. OAuth 2.0 endpoints at `/oauth/authorize`, `/oauth/token`, and `/oauth/.well-known/openid-configuration` enable M365 Copilot deployment with per-user authentication via Authorization Code + PKCE flow. OAuth clients managed via `/api/oauth/clients` (admin only). Schema: `oauth_clients`, `oauth_authorization_codes`, `oauth_refresh_tokens` tables.
 
 ## External Dependencies
 

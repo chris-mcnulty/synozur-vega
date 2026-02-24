@@ -43,6 +43,7 @@ import { ROLES, PERMISSIONS, USER_TYPES, getAvailableRolesForUserType, hasPermis
 import { isPublicEmailDomain } from "../shared/publicDomains";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { mcpRouter, createApiKeyForUser } from "./mcp";
+import { oauthRouter, generateOAuthClientCredentials } from "./mcp/oauth";
 import { MCP_SCOPES } from "@shared/schema";
 
 // Helper function for MCP scope descriptions
@@ -411,6 +412,9 @@ ${changelogContent}`;
   
   // Mount the MCP server router
   app.use("/mcp", mcpRouter);
+  
+  // Mount the OAuth 2.0 authorization server
+  app.use("/oauth", oauthRouter);
 
   // MCP API Key Management (admin only - keys provide API access to tenant data)
   app.get("/api/mcp/keys", ...adminOnly, async (req: Request, res: Response) => {
@@ -601,6 +605,89 @@ ${changelogContent}`;
         description: getScropeDescription(value),
       })),
     });
+  });
+
+  // OAuth Client Management (admin only)
+  app.get("/api/oauth/clients", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const clients = await storage.getOauthClientsByTenantId(req.user!.tenantId);
+      const sanitized = clients.map(c => ({
+        ...c,
+        clientSecretHash: undefined,
+      }));
+      res.json(sanitized);
+    } catch (error) {
+      console.error('[OAuth] List clients error:', error);
+      res.status(500).json({ error: 'Failed to list OAuth clients' });
+    }
+  });
+
+  app.post("/api/oauth/clients", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { name, redirectUris, scopes } = req.body;
+      if (!name || !redirectUris || !Array.isArray(redirectUris) || !scopes || !Array.isArray(scopes)) {
+        return res.status(400).json({ error: 'name, redirectUris (array), and scopes (array) are required' });
+      }
+
+      const { clientId, clientSecret, clientSecretHash } = generateOAuthClientCredentials();
+
+      const client = await storage.createOauthClient({
+        tenantId: req.user!.tenantId,
+        clientId,
+        clientSecretHash,
+        name,
+        redirectUris,
+        scopes,
+        status: 'active',
+        createdBy: req.user!.id,
+      });
+
+      res.status(201).json({
+        ...client,
+        clientSecret,
+        clientSecretHash: undefined,
+      });
+    } catch (error) {
+      console.error('[OAuth] Create client error:', error);
+      res.status(500).json({ error: 'Failed to create OAuth client' });
+    }
+  });
+
+  app.patch("/api/oauth/clients/:clientId", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const client = await storage.getOauthClientById(req.params.clientId);
+      if (!client || client.tenantId !== req.user!.tenantId) {
+        return res.status(404).json({ error: 'OAuth client not found' });
+      }
+
+      const { name, redirectUris, scopes, status } = req.body;
+      const updates: Partial<Pick<typeof client, 'name' | 'redirectUris' | 'scopes' | 'status'>> = {};
+      if (name) updates.name = name;
+      if (redirectUris) updates.redirectUris = redirectUris;
+      if (scopes) updates.scopes = scopes;
+      if (status) updates.status = status;
+
+      const updated = await storage.updateOauthClient(client.id, updates);
+      res.json({ ...updated, clientSecretHash: undefined });
+    } catch (error) {
+      console.error('[OAuth] Update client error:', error);
+      res.status(500).json({ error: 'Failed to update OAuth client' });
+    }
+  });
+
+  app.delete("/api/oauth/clients/:clientId", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const client = await storage.getOauthClientById(req.params.clientId);
+      if (!client || client.tenantId !== req.user!.tenantId) {
+        return res.status(404).json({ error: 'OAuth client not found' });
+      }
+
+      await storage.deleteOauthClient(client.id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error('[OAuth] Delete client error:', error);
+      res.status(500).json({ error: 'Failed to delete OAuth client' });
+    }
   });
 
   // Authentication routes

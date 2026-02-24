@@ -2155,3 +2155,55 @@ export const insertSupportTicketReplySchema = createInsertSchema(supportTicketRe
 
 export type InsertSupportTicketReply = z.infer<typeof insertSupportTicketReplySchema>;
 export type SupportTicketReply = typeof supportTicketReplies.$inferSelect;
+
+export const oauthClients = pgTable("oauth_clients", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  clientId: varchar("client_id").notNull().unique(),
+  clientSecretHash: text("client_secret_hash").notNull(),
+  name: text("name").notNull(),
+  redirectUris: text("redirect_uris").array().notNull(),
+  scopes: text("scopes").array().notNull(),
+  status: text("status").notNull().default("active"),
+  createdBy: varchar("created_by").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertOauthClientSchema = createInsertSchema(oauthClients).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertOauthClient = z.infer<typeof insertOauthClientSchema>;
+export type OauthClient = typeof oauthClients.$inferSelect;
+
+export const oauthAuthorizationCodes = pgTable("oauth_authorization_codes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  code: text("code").notNull().unique(),
+  clientId: varchar("client_id").notNull(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  redirectUri: text("redirect_uri").notNull(),
+  scopes: text("scopes").array().notNull(),
+  codeChallenge: text("code_challenge"),
+  codeChallengeMethod: text("code_challenge_method"),
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type OauthAuthorizationCode = typeof oauthAuthorizationCodes.$inferSelect;
+
+export const oauthRefreshTokens = pgTable("oauth_refresh_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  token: text("token").notNull().unique(),
+  clientId: varchar("client_id").notNull(),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  scopes: text("scopes").array().notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  revoked: boolean("revoked").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type OauthRefreshToken = typeof oauthRefreshTokens.$inferSelect;

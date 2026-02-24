@@ -44,7 +44,10 @@ import {
   scheduledJobs, type ScheduledJob, type InsertScheduledJob,
   jobRuns, type JobRun, type InsertJobRun, JOB_STATUS, JOB_RUN_STATUS,
   supportTickets, type SupportTicket, type InsertSupportTicket,
-  supportTicketReplies, type SupportTicketReply, type InsertSupportTicketReply
+  supportTicketReplies, type SupportTicketReply, type InsertSupportTicketReply,
+  oauthClients, type OauthClient, type InsertOauthClient,
+  oauthAuthorizationCodes, type OauthAuthorizationCode,
+  oauthRefreshTokens, type OauthRefreshToken
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, count } from "drizzle-orm";
@@ -419,6 +422,25 @@ export interface IStorage {
   // Support Ticket Replies methods
   getSupportTicketReplies(ticketId: string, includeInternal?: boolean): Promise<SupportTicketReply[]>;
   createSupportTicketReply(reply: InsertSupportTicketReply): Promise<SupportTicketReply>;
+  
+  // OAuth Client methods
+  getOauthClientsByTenantId(tenantId: string): Promise<OauthClient[]>;
+  getOauthClientByClientId(clientId: string): Promise<OauthClient | undefined>;
+  getOauthClientById(id: string): Promise<OauthClient | undefined>;
+  createOauthClient(client: InsertOauthClient): Promise<OauthClient>;
+  updateOauthClient(id: string, updates: Partial<Pick<OauthClient, 'name' | 'redirectUris' | 'scopes' | 'status'>>): Promise<OauthClient>;
+  deleteOauthClient(id: string): Promise<void>;
+  
+  // OAuth Authorization Code methods
+  createOauthAuthorizationCode(code: Omit<OauthAuthorizationCode, 'id' | 'createdAt'>): Promise<OauthAuthorizationCode>;
+  getOauthAuthorizationCode(code: string): Promise<OauthAuthorizationCode | undefined>;
+  markOauthAuthorizationCodeUsed(id: string): Promise<void>;
+  
+  // OAuth Refresh Token methods
+  createOauthRefreshToken(token: Omit<OauthRefreshToken, 'id' | 'createdAt'>): Promise<OauthRefreshToken>;
+  getOauthRefreshToken(token: string): Promise<OauthRefreshToken | undefined>;
+  revokeOauthRefreshToken(id: string): Promise<void>;
+  revokeOauthRefreshTokensByClientAndUser(clientId: string, userId: string): Promise<void>;
   
   // Admin users methods
   getVegaAdminUsers(): Promise<User[]>;
@@ -3879,6 +3901,70 @@ export class DatabaseStorage implements IStorage {
       .set({ updatedAt: new Date() })
       .where(eq(supportTickets.id, reply.ticketId));
     return created;
+  }
+
+  async getOauthClientsByTenantId(tenantId: string): Promise<OauthClient[]> {
+    return await db.select().from(oauthClients)
+      .where(eq(oauthClients.tenantId, tenantId))
+      .orderBy(desc(oauthClients.createdAt));
+  }
+
+  async getOauthClientByClientId(clientId: string): Promise<OauthClient | undefined> {
+    const [client] = await db.select().from(oauthClients).where(eq(oauthClients.clientId, clientId));
+    return client;
+  }
+
+  async getOauthClientById(id: string): Promise<OauthClient | undefined> {
+    const [client] = await db.select().from(oauthClients).where(eq(oauthClients.id, id));
+    return client;
+  }
+
+  async createOauthClient(client: InsertOauthClient): Promise<OauthClient> {
+    const [created] = await db.insert(oauthClients).values(client).returning();
+    return created;
+  }
+
+  async updateOauthClient(id: string, updates: Partial<Pick<OauthClient, 'name' | 'redirectUris' | 'scopes' | 'status'>>): Promise<OauthClient> {
+    const [updated] = await db.update(oauthClients).set(updates).where(eq(oauthClients.id, id)).returning();
+    return updated;
+  }
+
+  async deleteOauthClient(id: string): Promise<void> {
+    await db.delete(oauthClients).where(eq(oauthClients.id, id));
+  }
+
+  async createOauthAuthorizationCode(code: Omit<OauthAuthorizationCode, 'id' | 'createdAt'>): Promise<OauthAuthorizationCode> {
+    const [created] = await db.insert(oauthAuthorizationCodes).values(code).returning();
+    return created;
+  }
+
+  async getOauthAuthorizationCode(code: string): Promise<OauthAuthorizationCode | undefined> {
+    const [found] = await db.select().from(oauthAuthorizationCodes).where(eq(oauthAuthorizationCodes.code, code));
+    return found;
+  }
+
+  async markOauthAuthorizationCodeUsed(id: string): Promise<void> {
+    await db.update(oauthAuthorizationCodes).set({ used: true }).where(eq(oauthAuthorizationCodes.id, id));
+  }
+
+  async createOauthRefreshToken(token: Omit<OauthRefreshToken, 'id' | 'createdAt'>): Promise<OauthRefreshToken> {
+    const [created] = await db.insert(oauthRefreshTokens).values(token).returning();
+    return created;
+  }
+
+  async getOauthRefreshToken(token: string): Promise<OauthRefreshToken | undefined> {
+    const [found] = await db.select().from(oauthRefreshTokens).where(eq(oauthRefreshTokens.token, token));
+    return found;
+  }
+
+  async revokeOauthRefreshToken(id: string): Promise<void> {
+    await db.update(oauthRefreshTokens).set({ revoked: true }).where(eq(oauthRefreshTokens.id, id));
+  }
+
+  async revokeOauthRefreshTokensByClientAndUser(clientId: string, userId: string): Promise<void> {
+    await db.update(oauthRefreshTokens)
+      .set({ revoked: true })
+      .where(and(eq(oauthRefreshTokens.clientId, clientId), eq(oauthRefreshTokens.userId, userId)));
   }
 }
 
