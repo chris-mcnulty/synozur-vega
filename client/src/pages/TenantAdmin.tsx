@@ -501,7 +501,7 @@ function McpApiKeysSection() {
     createKeyMutation.mutate({
       name: newKeyName.trim(),
       scopes: selectedScopes,
-      expiresInDays: expiresInDays ? parseInt(expiresInDays) : undefined,
+      expiresInDays: expiresInDays && expiresInDays !== "never" ? parseInt(expiresInDays) : undefined,
       directAuth,
     });
   };
@@ -789,7 +789,7 @@ function McpApiKeysSection() {
                     <SelectItem value="90">90 days</SelectItem>
                     <SelectItem value="180">180 days</SelectItem>
                     <SelectItem value="365">1 year</SelectItem>
-                    <SelectItem value="">Never</SelectItem>
+                    <SelectItem value="never">Never</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
