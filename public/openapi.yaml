@@ -534,18 +534,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/CheckIn'
 
-  /api/strategies/{tenantId}:
+  /api/strategies:
     get:
       tags: [Strategies]
       summary: List all strategies for a tenant
       operationId: listStrategies
       parameters:
         - name: tenantId
-          in: path
+          in: query
           required: true
           schema:
             type: string
             format: uuid
+          description: The tenant ID to list strategies for
       responses:
         '200':
           description: List of strategies
@@ -555,8 +556,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Strategy'
-
-  /api/strategies:
     post:
       tags: [Strategies]
       summary: Create a new strategy
@@ -655,18 +654,19 @@ paths:
               schema:
                 $ref: '#/components/schemas/Foundation'
 
-  /api/meetings/{tenantId}:
+  /api/meetings:
     get:
       tags: [Meetings]
       summary: List all Focus Rhythm meetings for a tenant
       operationId: listMeetings
       parameters:
         - name: tenantId
-          in: path
+          in: query
           required: true
           schema:
             type: string
             format: uuid
+          description: The tenant ID to list meetings for
       responses:
         '200':
           description: List of meetings
@@ -676,8 +676,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Meeting'
-
-  /api/meetings:
     post:
       tags: [Meetings]
       summary: Create a new meeting
@@ -758,18 +756,19 @@ paths:
         '200':
           description: Meeting deleted
 
-  /api/teams/{tenantId}:
+  /api/teams:
     get:
       tags: [Teams]
       summary: List all teams for a tenant
       operationId: listTeams
       parameters:
         - name: tenantId
-          in: path
+          in: query
           required: true
           schema:
             type: string
             format: uuid
+          description: The tenant ID to list teams for
       responses:
         '200':
           description: List of teams
@@ -779,8 +778,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Team'
-
-  /api/teams:
     post:
       tags: [Teams]
       summary: Create a new team
@@ -1080,7 +1077,6 @@ components:
           enum: [organization, team, individual]
         quarter:
           type: integer
-          nullable: true
         year:
           type: integer
         progress:
@@ -1097,17 +1093,14 @@ components:
         teamId:
           type: string
           format: uuid
-          nullable: true
         teamName:
           type: string
-          nullable: true
         tenantId:
           type: string
           format: uuid
         parentId:
           type: string
           format: uuid
-          nullable: true
         alignedToObjectiveIds:
           type: array
           items:
@@ -1304,10 +1297,8 @@ components:
         teamId:
           type: string
           format: uuid
-          nullable: true
         teamName:
           type: string
-          nullable: true
         tenantId:
           type: string
           format: uuid
@@ -1397,7 +1388,6 @@ components:
           format: date
         value:
           type: number
-          nullable: true
         status:
           type: string
         notes:
@@ -1685,10 +1675,8 @@ components:
         teamId:
           type: string
           format: uuid
-          nullable: true
         teamName:
           type: string
-          nullable: true
         attendeeIds:
           type: array
           items:
@@ -1799,10 +1787,8 @@ components:
         leaderId:
           type: string
           format: uuid
-          nullable: true
         leaderName:
           type: string
-          nullable: true
         memberIds:
           type: array
           items:
