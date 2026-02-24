@@ -81,11 +81,21 @@ async function ensureSchemaColumns() {
       }
     }
     
+    // Fix misnamed column from earlier migration (rotated_from_key_id -> rotated_from_id)
+    const wrongColCheck = await client.query(`
+      SELECT column_name FROM information_schema.columns 
+      WHERE table_name = 'mcp_api_keys' AND column_name = 'rotated_from_key_id'
+    `);
+    if (wrongColCheck.rows.length > 0) {
+      console.log('  Renaming mcp_api_keys.rotated_from_key_id -> rotated_from_id');
+      await client.query(`ALTER TABLE mcp_api_keys RENAME COLUMN rotated_from_key_id TO rotated_from_id`);
+    }
+
     // Check and add missing columns for mcp_api_keys table
     const mcpApiKeyColumns = [
       { name: 'allowed_ips', type: "TEXT[] DEFAULT '{}'" },
       { name: 'direct_auth', type: 'BOOLEAN NOT NULL DEFAULT false' },
-      { name: 'rotated_from_key_id', type: 'VARCHAR(255)' },
+      { name: 'rotated_from_id', type: 'VARCHAR(255)' },
       { name: 'rotation_grace_period_ends', type: 'TIMESTAMP' },
     ];
     
