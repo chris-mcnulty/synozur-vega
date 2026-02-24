@@ -81,6 +81,26 @@ async function ensureSchemaColumns() {
       }
     }
     
+    // Check and add missing columns for mcp_api_keys table
+    const mcpApiKeyColumns = [
+      { name: 'allowed_ips', type: "TEXT[] DEFAULT '{}'" },
+      { name: 'direct_auth', type: 'BOOLEAN NOT NULL DEFAULT false' },
+      { name: 'rotated_from_key_id', type: 'VARCHAR(255)' },
+      { name: 'rotation_grace_period_ends', type: 'TIMESTAMP' },
+    ];
+    
+    for (const col of mcpApiKeyColumns) {
+      const checkResult = await client.query(`
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_name = 'mcp_api_keys' AND column_name = $1
+      `, [col.name]);
+      
+      if (checkResult.rows.length === 0) {
+        console.log(`  Adding missing column: mcp_api_keys.${col.name}`);
+        await client.query(`ALTER TABLE mcp_api_keys ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
+      }
+    }
+    
     console.log("✓ Database schema verified");
   } catch (error) {
     console.error("Schema check error:", error);
