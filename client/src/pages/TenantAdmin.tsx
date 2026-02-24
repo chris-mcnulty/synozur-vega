@@ -169,6 +169,8 @@ type McpApiKey = {
   revokedBy: string | null;
   lastUsedAt: string | null;
   rotationGracePeriodEnds: string | null;
+  rotatedFromId: string | null;
+  directAuth: boolean;
   createdAt: string;
 };
 
