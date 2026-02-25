@@ -45,8 +45,11 @@ export interface EntraJwtClaims {
   roles?: string[];
 }
 
-function getExpectedAudience(): string | null {
-  return process.env.MCP_ENTRA_CLIENT_ID || process.env.AZURE_CLIENT_ID || null;
+function getExpectedAudiences(): string[] | null {
+  const clientId = process.env.MCP_ENTRA_CLIENT_ID || process.env.AZURE_CLIENT_ID;
+  if (!clientId) return null;
+  const audiences = [clientId, `api://${clientId}`];
+  return audiences;
 }
 
 function getAllowedTenantIds(): string[] | null {
@@ -115,12 +118,12 @@ export async function validateEntraJwt(token: string): Promise<McpAuthContext | 
       return null;
     }
 
-    const expectedAudience = getExpectedAudience();
+    const expectedAudiences = getExpectedAudiences();
     const verifyOptions: jwt.VerifyOptions = {
       algorithms: ['RS256'],
     };
-    if (expectedAudience) {
-      verifyOptions.audience = expectedAudience;
+    if (expectedAudiences) {
+      verifyOptions.audience = expectedAudiences;
     }
 
     let verified: EntraJwtClaims;
