@@ -56,6 +56,7 @@ import { hashPassword } from "./auth";
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByAzureObjectId(azureObjectId: string, tenantId?: string): Promise<User | undefined>;
   getUserByVerificationToken(token: string): Promise<User | undefined>;
   getUserByResetToken(token: string): Promise<User | undefined>;
   getAllUsers(tenantId?: string): Promise<User[]>;
@@ -512,6 +513,17 @@ export class DatabaseStorage implements IStorage {
     const [user] = await db.select().from(users).where(
       sql`lower(${users.email}) = lower(${email})`
     );
+    return user || undefined;
+  }
+
+  async getUserByAzureObjectId(azureObjectId: string, tenantId?: string): Promise<User | undefined> {
+    if (tenantId) {
+      const [user] = await db.select().from(users).where(
+        and(eq(users.azureObjectId, azureObjectId), eq(users.tenantId, tenantId))
+      );
+      return user || undefined;
+    }
+    const [user] = await db.select().from(users).where(eq(users.azureObjectId, azureObjectId));
     return user || undefined;
   }
 

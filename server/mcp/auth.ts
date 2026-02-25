@@ -28,7 +28,7 @@ export interface McpAuthContext {
   tenant: Tenant;
   apiKey: McpApiKey | null;
   scopes: string[];
-  authMethod: 'api_key' | 'jwt_token' | 'oauth';
+  authMethod: 'api_key' | 'jwt_token' | 'oauth' | 'entra_jwt';
 }
 
 export function generateApiKey(): { key: string; hash: string; prefix: string } {
@@ -145,6 +145,12 @@ export async function getAuthContext(token: string, clientIp?: string): Promise<
       scopes: oauthPayload.scopes,
       authMethod: 'oauth',
     };
+  }
+
+  const { validateEntraJwt } = await import('./entra-jwt');
+  const entraContext = await validateEntraJwt(token);
+  if (entraContext) {
+    return entraContext;
   }
 
   const payload = verifyToken(token);

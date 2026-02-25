@@ -265,18 +265,33 @@ function OAuthClientsSection() {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border bg-muted/30 p-4 space-y-1 text-sm">
-        <p className="font-medium text-foreground">OAuth 2.0 Endpoints</p>
-        <div className="grid grid-cols-1 gap-1 text-muted-foreground">
-          <span><span className="font-mono text-xs bg-muted px-1 rounded">Authorization:</span> {baseUrl}/oauth/authorize</span>
-          <span><span className="font-mono text-xs bg-muted px-1 rounded">Token:</span> {baseUrl}/oauth/token</span>
-          <span><span className="font-mono text-xs bg-muted px-1 rounded">Discovery:</span> {baseUrl}/oauth/.well-known/openid-configuration</span>
+      <div className="rounded-md border bg-muted/30 p-4 space-y-3 text-sm">
+        <div>
+          <p className="font-medium text-foreground mb-1">Option A: Entra ID Authentication (Recommended for M365 Copilot)</p>
+          <p className="text-muted-foreground text-xs mb-1">
+            Use "Authenticate with Microsoft" in Copilot Studio. Vega validates Entra-issued JWT tokens automatically — no OAuth client registration needed.
+          </p>
+          <div className="grid grid-cols-1 gap-0.5 text-muted-foreground text-xs">
+            <span><span className="font-mono bg-muted px-1 rounded">Audience (Client ID):</span> Set <code className="bg-muted px-1 rounded">MCP_ENTRA_CLIENT_ID</code> env var to your Entra app registration's Application ID</span>
+            <span><span className="font-mono bg-muted px-1 rounded">Scope:</span> Define a custom scope (e.g. <code className="bg-muted px-1 rounded">mcp.tools.invoke</code>) on your Entra app registration</span>
+          </div>
+        </div>
+        <div className="border-t pt-2">
+          <p className="font-medium text-foreground mb-1">Option B: Vega OAuth 2.0 (Manual Mode in Copilot Studio MCP Wizard)</p>
+          <p className="text-muted-foreground text-xs mb-1">
+            Use these endpoints when configuring MCP tools with "OAuth 2.0 → Manual" in Copilot Studio.
+          </p>
+          <div className="grid grid-cols-1 gap-0.5 text-muted-foreground text-xs">
+            <span><span className="font-mono bg-muted px-1 rounded">Authorization:</span> {baseUrl}/oauth/authorize</span>
+            <span><span className="font-mono bg-muted px-1 rounded">Token:</span> {baseUrl}/oauth/token</span>
+            <span><span className="font-mono bg-muted px-1 rounded">Discovery:</span> {baseUrl}/oauth/.well-known/openid-configuration</span>
+          </div>
         </div>
       </div>
 
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <p className="text-sm text-muted-foreground">
-          Register OAuth clients to allow M365 Copilot and other apps to authenticate users with per-user access control.
+          OAuth clients below are for Option B only. Option A (Entra JWT) requires no client registration in Vega.
         </p>
         <Button onClick={() => setIsCreateDialogOpen(true)} data-testid="button-create-oauth-client">
           <Plus className="h-4 w-4 mr-2" />
@@ -3437,12 +3452,12 @@ export default function TenantAdmin() {
           <McpApiKeysSection />
         </div>
 
-        {/* OAuth 2.0 Clients Section */}
+        {/* Copilot Studio & OAuth 2.0 Section */}
         <div>
           <div className="mb-4">
-            <h2 className="text-lg md:text-xl font-semibold">OAuth 2.0 Clients</h2>
+            <h2 className="text-lg md:text-xl font-semibold">Copilot Studio & OAuth 2.0</h2>
             <p className="text-sm text-muted-foreground">
-              Register OAuth clients to enable M365 Copilot and other apps to authenticate users with per-user, per-tenant access control
+              Connect M365 Copilot to Vega's MCP tools using Entra ID tokens (recommended) or Vega's built-in OAuth 2.0 authorization
             </p>
           </div>
           <OAuthClientsSection />
