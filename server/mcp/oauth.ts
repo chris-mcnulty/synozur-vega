@@ -283,12 +283,19 @@ router.get('/.well-known/openid-configuration', (_req: Request, res: Response) =
     issuer: baseUrl,
     authorization_endpoint: `${baseUrl}/oauth/authorize`,
     token_endpoint: `${baseUrl}/oauth/token`,
+    jwks_uri: `${baseUrl}/oauth/jwks`,
     scopes_supported: Object.values(MCP_SCOPES),
     response_types_supported: ['code'],
     grant_types_supported: ['authorization_code', 'refresh_token'],
+    subject_types_supported: ['public'],
+    id_token_signing_alg_values_supported: ['RS256', 'HS256'],
     token_endpoint_auth_methods_supported: ['client_secret_post', 'client_secret_basic'],
     code_challenge_methods_supported: ['S256', 'plain'],
   });
+});
+
+router.get('/jwks', (_req: Request, res: Response) => {
+  res.json({ keys: [] });
 });
 
 export const oauthRouter = router;
