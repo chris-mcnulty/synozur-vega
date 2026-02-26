@@ -210,6 +210,110 @@ router.all('/', async (req: Request, res: Response) => {
   }
 });
 
+// ============================================
+// REST-style endpoints for Copilot Studio
+// Each tool gets its own endpoint - no JSON-RPC needed
+// ============================================
+
+router.get('/tools', async (req: Request, res: Response) => {
+  try {
+    const context = await authenticateRequest(req, res);
+    if (!context) return;
+    const tools = Object.entries(mcpTools).map(([name, tool]) => ({
+      name,
+      description: tool.description,
+    }));
+    res.json({ tools });
+  } catch (error) {
+    console.error('[MCP REST] Error listing tools:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+async function executeToolREST(req: Request, res: Response, toolName: keyof typeof mcpTools) {
+  try {
+    const context = await authenticateRequest(req, res);
+    if (!context) return;
+
+    const toolDef = mcpTools[toolName];
+    const toolArgs = { ...req.query, ...req.body };
+
+    // Parse numeric args
+    for (const [key, val] of Object.entries(toolArgs)) {
+      if (typeof val === 'string' && /^\d+$/.test(val)) {
+        toolArgs[key] = parseInt(val, 10);
+      }
+    }
+
+    const startTime = Date.now();
+    let success = true;
+    let errorMessage: string | undefined;
+
+    try {
+      const result = await toolDef.execute(toolArgs as never, context);
+      if (result.isError) {
+        success = false;
+        errorMessage = result.content[0]?.text;
+      }
+
+      try {
+        await storage.createMcpAuditLog({
+          tenantId: context.tenant.id,
+          userId: context.user.id,
+          apiKeyId: context.apiKey?.id || null,
+          toolName,
+          toolParams: toolArgs,
+          success,
+          errorMessage,
+          durationMs: Date.now() - startTime,
+        });
+      } catch (logError) {
+        console.error('[MCP REST] Failed to create audit log:', logError);
+      }
+
+      const parsed = JSON.parse(result.content[0]?.text || '{}');
+      return res.json(parsed);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      try {
+        await storage.createMcpAuditLog({
+          tenantId: context.tenant.id,
+          userId: context.user.id,
+          apiKeyId: context.apiKey?.id || null,
+          toolName,
+          toolParams: toolArgs,
+          success: false,
+          errorMessage: msg,
+          durationMs: Date.now() - startTime,
+        });
+      } catch (logError) {
+        console.error('[MCP REST] Failed to create audit log:', logError);
+      }
+      return res.status(500).json({ error: msg });
+    }
+  } catch (error) {
+    console.error('[MCP REST] Error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  }
+}
+
+router.get('/mission', (req, res) => executeToolREST(req, res, 'get_mission'));
+router.get('/vision', (req, res) => executeToolREST(req, res, 'get_vision'));
+router.get('/values', (req, res) => executeToolREST(req, res, 'get_values'));
+router.get('/foundation', (req, res) => executeToolREST(req, res, 'get_foundation'));
+router.get('/strategies', (req, res) => executeToolREST(req, res, 'get_strategies'));
+router.get('/okrs', (req, res) => executeToolREST(req, res, 'get_okrs'));
+router.get('/big-rocks', (req, res) => executeToolREST(req, res, 'get_big_rocks'));
+router.get('/annual-goals', (req, res) => executeToolREST(req, res, 'get_annual_goals'));
+router.get('/ambitions', (req, res) => executeToolREST(req, res, 'get_ambitions'));
+router.get('/teams', (req, res) => executeToolREST(req, res, 'get_teams'));
+router.get('/meetings', (req, res) => executeToolREST(req, res, 'get_meetings'));
+router.post('/update-kr-progress', (req, res) => executeToolREST(req, res, 'update_kr_progress'));
+router.post('/add-check-in-note', (req, res) => executeToolREST(req, res, 'add_check_in_note'));
+router.post('/update-big-rock-status', (req, res) => executeToolREST(req, res, 'update_big_rock_status'));
+
 router.get('/info', (_req: Request, res: Response) => {
   res.json({
     name: 'Vega MCP Server',
