@@ -11,7 +11,7 @@ export interface McpToolResult {
 
 function success(data: unknown): McpToolResult {
   return {
-    content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
+    content: [{ type: 'text', text: JSON.stringify(data) }],
   };
 }
 
@@ -45,8 +45,23 @@ export const mcpTools = {
         objectives.map(async (obj) => {
           const keyResults = await storage.getKeyResultsByObjectiveId(obj.id);
           return {
-            ...obj,
-            keyResults,
+            id: obj.id,
+            title: obj.title,
+            status: obj.status,
+            progress: obj.progress,
+            quarter: obj.quarter,
+            year: obj.year,
+            ownerName: obj.ownerName,
+            keyResults: keyResults.map(kr => ({
+              id: kr.id,
+              title: kr.title,
+              status: kr.status,
+              progress: kr.progress,
+              currentValue: kr.currentValue,
+              targetValue: kr.targetValue,
+              unit: kr.unit,
+              ownerName: kr.ownerName,
+            })),
           };
         })
       );
@@ -78,7 +93,15 @@ export const mcpTools = {
 
       return success({
         count: bigRocks.length,
-        bigRocks,
+        bigRocks: bigRocks.map(br => ({
+          id: br.id,
+          title: br.title,
+          status: br.status,
+          completionPercentage: br.completionPercentage,
+          quarter: br.quarter,
+          year: br.year,
+          ownerName: br.ownerName,
+        })),
       });
     },
   },
@@ -96,7 +119,12 @@ export const mcpTools = {
 
       return success({
         count: strategies.length,
-        strategies,
+        strategies: strategies.map(s => ({
+          id: s.id,
+          title: s.title,
+          description: s.description,
+          status: s.status,
+        })),
       });
     },
   },
@@ -147,6 +175,26 @@ export const mcpTools = {
       const foundation = await storage.getFoundationByTenantId(context.tenant.id);
 
       return success({
+        values: foundation?.values || [],
+      });
+    },
+  },
+
+  get_foundation: {
+    description: 'Get the complete organization foundation: mission, vision, values, and purpose in one call.',
+    inputSchema: z.object({}),
+    requiredScope: MCP_SCOPES.READ_FOUNDATIONS,
+    execute: async (_params: Record<string, never>, context: McpAuthContext): Promise<McpToolResult> => {
+      if (!hasScope(context, MCP_SCOPES.READ_FOUNDATIONS)) {
+        return error('Permission denied: read:foundations scope required');
+      }
+
+      const foundation = await storage.getFoundationByTenantId(context.tenant.id);
+
+      return success({
+        mission: foundation?.mission || null,
+        vision: foundation?.vision || null,
+        purpose: foundation?.purpose || null,
         values: foundation?.values || [],
       });
     },
@@ -265,7 +313,13 @@ export const mcpTools = {
 
       return success({
         count: meetings.length,
-        meetings,
+        meetings: meetings.map(m => ({
+          id: m.id,
+          title: m.title,
+          date: m.date,
+          status: m.status,
+          type: m.type,
+        })),
       });
     },
   },
