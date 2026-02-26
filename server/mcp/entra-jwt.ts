@@ -101,24 +101,33 @@ export async function validateEntraJwt(token: string): Promise<McpAuthContext | 
   try {
     const decoded = jwt.decode(token, { complete: true });
     if (!decoded || typeof decoded === 'string') {
+      console.log('[Entra JWT] Token could not be decoded as JWT');
       return null;
     }
 
     const payload = decoded.payload as Record<string, unknown>;
     const iss = payload.iss as string | undefined;
+    const aud = payload.aud as string | undefined;
+    const oid = payload.oid as string | undefined;
+    const tid = payload.tid as string | undefined;
+    console.log(`[Entra JWT] Token decoded: iss=${iss}, aud=${aud}, oid=${oid}, tid=${tid}, alg=${decoded.header.alg}, kid=${decoded.header.kid}`);
+
     if (!iss || !iss.startsWith(MICROSOFT_ISSUER_PREFIX)) {
+      console.log(`[Entra JWT] Issuer does not match Microsoft prefix: ${iss}`);
       return null;
     }
 
     let signingKey: string;
     try {
       signingKey = await getSigningKey(decoded.header);
-    } catch {
-      console.error('[Entra JWT] Failed to get signing key');
+      console.log('[Entra JWT] Signing key retrieved successfully');
+    } catch (err) {
+      console.error('[Entra JWT] Failed to get signing key:', err instanceof Error ? err.message : err);
       return null;
     }
 
     const expectedAudiences = getExpectedAudiences();
+    console.log(`[Entra JWT] Expected audiences: ${JSON.stringify(expectedAudiences)}, token aud: ${aud}`);
     const verifyOptions: jwt.VerifyOptions = {
       algorithms: ['RS256'],
     };
@@ -129,6 +138,7 @@ export async function validateEntraJwt(token: string): Promise<McpAuthContext | 
     let verified: EntraJwtClaims;
     try {
       verified = jwt.verify(token, signingKey, verifyOptions) as EntraJwtClaims;
+      console.log(`[Entra JWT] Token signature and claims verified successfully`);
     } catch (err) {
       console.error('[Entra JWT] Token verification failed:', err instanceof Error ? err.message : err);
       return null;
@@ -146,12 +156,14 @@ export async function validateEntraJwt(token: string): Promise<McpAuthContext | 
     }
 
     const allTenants = await storage.getAllTenants();
+    console.log(`[Entra JWT] Looking for Azure tenant ${verified.tid} in ${allTenants.length} Vega tenants. Mapped tenants: ${allTenants.filter(t => t.azureTenantId).map(t => `${t.name}=${t.azureTenantId}`).join(', ')}`);
     const vegaTenant = allTenants.find(t => t.azureTenantId === verified.tid);
     if (!vegaTenant) {
       console.error(`[Entra JWT] No Vega tenant mapped to Azure tenant ${verified.tid}`);
       return null;
     }
 
+    console.log(`[Entra JWT] Matched Vega tenant: ${vegaTenant.name} (${vegaTenant.id})`);
     let user = await storage.getUserByAzureObjectId(verified.oid, vegaTenant.id);
 
     if (!user) {
