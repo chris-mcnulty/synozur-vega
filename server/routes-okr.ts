@@ -1004,7 +1004,8 @@ okrRouter.get("/check-ins", async (req, res) => {
     }
     
     if (entityType === 'all' && entityId === 'all') {
-      const tenantId = (req.session as any).currentTenantId || (req as any).user?.tenantId;
+      const headerTenantId = req.headers['x-tenant-id'] as string | undefined;
+      const tenantId = headerTenantId || (req.session as any).currentTenantId || (req as any).user?.tenantId;
       if (!tenantId) {
         return res.status(400).json({ error: "Tenant context required" });
       }
