@@ -60,6 +60,15 @@ function getAllowedTenantIds(): string[] | null {
   return envVal.split(',').map(t => t.trim()).filter(Boolean);
 }
 
+const ALL_READ_SCOPES = [
+  'read:okrs', 'read:big_rocks', 'read:strategies', 'read:foundations',
+  'read:teams', 'read:meetings',
+];
+
+const ALL_WRITE_SCOPES = [
+  'write:okrs', 'write:big_rocks',
+];
+
 function mapEntraScopes(claims: EntraJwtClaims): string[] {
   const scopes: string[] = [];
 
@@ -67,13 +76,11 @@ function mapEntraScopes(claims: EntraJwtClaims): string[] {
     const entraScopes = claims.scp.split(' ');
     for (const s of entraScopes) {
       const lower = s.toLowerCase();
-      if (lower.includes('read')) {
-        scopes.push('read:okrs', 'read:kpis', 'read:meetings', 'read:foundation', 'read:strategy');
+      if (lower.includes('read') || lower.includes('access')) {
+        scopes.push(...ALL_READ_SCOPES);
       }
       if (lower.includes('write') || lower.includes('invoke')) {
-        scopes.push('read:okrs', 'write:okrs', 'read:kpis', 'write:kpis',
-          'read:meetings', 'write:meetings', 'read:foundation', 'write:foundation',
-          'read:strategy', 'write:strategy');
+        scopes.push(...ALL_READ_SCOPES, ...ALL_WRITE_SCOPES);
       }
     }
   }
@@ -81,19 +88,17 @@ function mapEntraScopes(claims: EntraJwtClaims): string[] {
   if (claims.roles) {
     for (const role of claims.roles) {
       const lower = role.toLowerCase();
-      if (lower.includes('read')) {
-        scopes.push('read:okrs', 'read:kpis', 'read:meetings', 'read:foundation', 'read:strategy');
+      if (lower.includes('read') || lower.includes('access')) {
+        scopes.push(...ALL_READ_SCOPES);
       }
       if (lower.includes('write') || lower.includes('invoke')) {
-        scopes.push('read:okrs', 'write:okrs', 'read:kpis', 'write:kpis',
-          'read:meetings', 'write:meetings', 'read:foundation', 'write:foundation',
-          'read:strategy', 'write:strategy');
+        scopes.push(...ALL_READ_SCOPES, ...ALL_WRITE_SCOPES);
       }
     }
   }
 
   if (scopes.length === 0) {
-    scopes.push('read:okrs', 'read:kpis', 'read:meetings', 'read:foundation', 'read:strategy');
+    scopes.push(...ALL_READ_SCOPES);
   }
 
   return [...new Set(scopes)];
