@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import { storage } from "./storage";
-import type { Foundation, Strategy, Objective, KeyResult, BigRock, Team, GroundingDocument, Meeting } from "@shared/schema";
+import type { Foundation, Strategy, Objective, KeyResult, BigRock, Team, GroundingDocument, Meeting, VocabularyTerms } from "@shared/schema";
 
 const router = Router();
 
@@ -75,7 +75,7 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
       includeMeetings: req.query.includeMeetings === "true",
     };
 
-    const [foundation, strategies, objectives, keyResults, bigRocks, teams, groundingDocs, meetings] = await Promise.all([
+    const [foundation, strategies, objectives, keyResults, bigRocks, teams, groundingDocs, meetings, vocabulary] = await Promise.all([
       filters.includeFoundations ? storage.getFoundationByTenantId(effectiveTenantId) : Promise.resolve(undefined),
       filters.includeStrategies ? storage.getStrategiesByTenantId(effectiveTenantId) : Promise.resolve([]),
       storage.getObjectivesByTenantId(effectiveTenantId, filters.quarter, filters.year),
@@ -84,7 +84,10 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
       filters.includeTeams ? storage.getTeamsByTenantId(effectiveTenantId) : Promise.resolve([]),
       filters.includeGroundingDocs ? storage.getTenantGroundingDocuments(effectiveTenantId) : Promise.resolve([]),
       filters.includeMeetings ? storage.getMeetingsByTenantId(effectiveTenantId) : Promise.resolve([]),
+      storage.getEffectiveVocabulary(effectiveTenantId),
     ]);
+
+    const v = (key: keyof VocabularyTerms, form: 'singular' | 'plural' = 'singular') => vocabulary[key]?.[form] || key;
 
     let filteredObjectives = objectives;
     if (filters.level && filters.level.length > 0) {
@@ -172,35 +175,12 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
           markdown += `\n`;
         }
       }
-
-      if (foundation.annualGoals && foundation.annualGoals.length > 0) {
-        markdown += `### Annual Goals (${filters.year || new Date().getFullYear()})\n\n`;
-        foundation.annualGoals.forEach((goal, index: number) => {
-          // Handle both string goals and object goals with title property
-          const goalTitle = typeof goal === 'string' ? goal : (goal.title || 'Untitled Goal');
-          const goalDescription = typeof goal === 'object' ? goal.description : undefined;
-          const linkedAmbitionId = typeof goal === 'object' ? goal.linkedAmbitionId : undefined;
-          markdown += `${index + 1}. **${goalTitle}**`;
-          if (goalDescription) {
-            markdown += ` - ${goalDescription}`;
-          }
-          // Show linked ambition if present
-          if (linkedAmbitionId && ambitions) {
-            const linkedAmbition = ambitions.find(a => a.id === linkedAmbitionId);
-            if (linkedAmbition) {
-              markdown += ` *(Links to: ${linkedAmbition.title})*`;
-            }
-          }
-          markdown += `\n`;
-        });
-        markdown += `\n`;
-      }
       
       markdown += `---\n\n`;
     }
 
     if (filters.includeStrategies && strategies.length > 0) {
-      markdown += `## Strategies\n\n`;
+      markdown += `## ${v('strategy', 'plural')}\n\n`;
       
       strategies.forEach((strategy: Strategy, index: number) => {
         markdown += `### ${index + 1}. ${strategy.title}\n\n`;
@@ -217,8 +197,33 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
       markdown += `---\n\n`;
     }
 
+    // Annual Goals in Outcomes section (moved from Foundations)
+    if (filters.includeFoundations && foundation) {
+      const ambitions = foundation.ambitions as Array<{ id?: string; title?: string; description?: string; targetYear?: number; status?: string; linkedValueTitles?: string[] }> | null;
+      if (foundation.annualGoals && foundation.annualGoals.length > 0) {
+        markdown += `## Annual ${v('goal', 'plural')} (${filters.year || new Date().getFullYear()})\n\n`;
+        foundation.annualGoals.forEach((goal, index: number) => {
+          const goalTitle = typeof goal === 'string' ? goal : (goal.title || 'Untitled Goal');
+          const goalDescription = typeof goal === 'object' ? goal.description : undefined;
+          const linkedAmbitionId = typeof goal === 'object' ? goal.linkedAmbitionId : undefined;
+          markdown += `${index + 1}. **${goalTitle}**`;
+          if (goalDescription) {
+            markdown += ` - ${goalDescription}`;
+          }
+          if (linkedAmbitionId && ambitions) {
+            const linkedAmbition = ambitions.find(a => a.id === linkedAmbitionId);
+            if (linkedAmbition) {
+              markdown += ` *(Links to: ${linkedAmbition.title})*`;
+            }
+          }
+          markdown += `\n`;
+        });
+        markdown += `\n---\n\n`;
+      }
+    }
+
     if (filters.includeObjectives && filteredObjectives.length > 0) {
-      markdown += `## Objectives & Key Results\n\n`;
+      markdown += `## ${v('objective', 'plural')} & ${v('keyResult', 'plural')}\n\n`;
       
       const companyObjectives = filteredObjectives.filter((obj: Objective) => obj.level === "company" || obj.level === "organization");
       const departmentObjectives = filteredObjectives.filter((obj: Objective) => obj.level === "department");
@@ -228,7 +233,7 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
       const renderObjectives = (objs: Objective[], levelName: string) => {
         if (objs.length === 0) return;
         
-        markdown += `### ${levelName} Objectives\n\n`;
+        markdown += `### ${levelName} ${v('objective', 'plural')}\n\n`;
         
         objs.forEach((obj: Objective, index: number) => {
           const team = teams.find((t: Team) => t.id === obj.teamId);
@@ -260,7 +265,7 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
           }
           
           if (krs.length > 0) {
-            markdown += `**Key Results:**\n\n`;
+            markdown += `**${v('keyResult', 'plural')}:**\n\n`;
             krs.forEach((kr: KeyResult, krIndex: number) => {
               const krProgress = kr.targetValue > 0 
                 ? Math.min(100, Math.round(((kr.currentValue ?? 0) / kr.targetValue) * 100))
@@ -282,7 +287,7 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
     }
 
     if (filters.includeBigRocks && bigRocks.length > 0) {
-      markdown += `## Big Rocks\n\n`;
+      markdown += `## ${v('bigRock', 'plural')}\n\n`;
       
       const completedRocks = bigRocks.filter((br: BigRock) => br.status === "completed");
       const inProgressRocks = bigRocks.filter((br: BigRock) => br.status === "in_progress");
@@ -319,8 +324,8 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
         if (team.description) {
           markdown += `${team.description}\n\n`;
         }
-        markdown += `- **Objectives:** ${teamObjs.length}\n`;
-        markdown += `- **Big Rocks:** ${teamRocks.length}\n\n`;
+        markdown += `- **${v('objective', 'plural')}:** ${teamObjs.length}\n`;
+        markdown += `- **${v('bigRock', 'plural')}:** ${teamRocks.length}\n\n`;
       });
       
       markdown += `---\n\n`;
@@ -357,7 +362,7 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
     }
 
     if (filters.includeMeetings && meetings.length > 0) {
-      markdown += `## Focus Rhythm - Meeting Schedule\n\n`;
+      markdown += `## ${v('focusRhythm')} - ${v('meeting')} Schedule\n\n`;
       
       // Group meetings by type/cadence
       const meetingsByType: Record<string, Meeting[]> = {};
@@ -378,7 +383,7 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
       orderedTypes.forEach(type => {
         const typeMeetings = meetingsByType[type];
         const displayType = type.charAt(0).toUpperCase() + type.slice(1).replace('_', ' ');
-        markdown += `### ${displayType} Meetings\n\n`;
+        markdown += `### ${displayType} ${v('meeting', 'plural')}\n\n`;
         
         typeMeetings.forEach((meeting: Meeting, index: number) => {
           markdown += `${index + 1}. **${meeting.title}**\n`;
@@ -423,11 +428,11 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
     markdown += `## Summary Statistics\n\n`;
     markdown += `| Metric | Value |\n`;
     markdown += `|--------|-------|\n`;
-    markdown += `| Total Objectives | ${totalObjectives} |\n`;
-    markdown += `| Completed Objectives | ${completedObjectives} |\n`;
+    markdown += `| Total ${v('objective', 'plural')} | ${totalObjectives} |\n`;
+    markdown += `| Completed ${v('objective', 'plural')} | ${completedObjectives} |\n`;
     markdown += `| Average Progress | ${avgProgress}% |\n`;
-    markdown += `| Total Big Rocks | ${bigRocks.length} |\n`;
-    markdown += `| Completed Big Rocks | ${bigRocks.filter((br: BigRock) => br.status === "completed").length} |\n`;
+    markdown += `| Total ${v('bigRock', 'plural')} | ${bigRocks.length} |\n`;
+    markdown += `| Completed ${v('bigRock', 'plural')} | ${bigRocks.filter((br: BigRock) => br.status === "completed").length} |\n`;
     markdown += `| Total Teams | ${teams.length} |\n`;
 
     markdown += `\n---\n\n`;
@@ -436,12 +441,18 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
     const format = req.query.format || "markdown";
     
     if (format === "json") {
+      const foundationForJson = filters.includeFoundations && foundation ? {
+        ...foundation,
+        annualGoals: undefined,
+      } : undefined;
+      
       res.json({
         tenant: { name: tenant.name },
         exportDate,
         filters,
-        foundation: filters.includeFoundations ? foundation : undefined,
+        foundation: foundationForJson,
         strategies: filters.includeStrategies ? strategies : undefined,
+        annualGoals: filters.includeFoundations && foundation?.annualGoals ? foundation.annualGoals : undefined,
         objectives: filters.includeObjectives ? filteredObjectives.map((obj: Objective) => ({
           ...obj,
           keyResults: keyResultsMap[obj.id] || [],

@@ -1883,6 +1883,11 @@ export type LaunchpadProposal = {
     priority: string;
     quarter?: number;
   }>;
+  ambitions?: Array<{
+    title: string;
+    description?: string;
+    targetYear: number;
+  }>;
 };
 
 // Existing data reference for Launchpad review UI
@@ -1890,6 +1895,7 @@ export type LaunchpadExistingData = {
   mission: string | null;
   vision: string | null;
   values: Array<{ title: string; description: string }>;
+  ambitions: Ambition[];
   annualGoals: AnnualGoal[];
   strategies: Array<{ id: string; title: string; description: string | null }>;
   objectives: Array<{ id: string; title: string; description: string | null }>;
@@ -1915,6 +1921,7 @@ export const launchpadSessions = pgTable("launchpad_sessions", {
   approveStrategies: boolean("approve_strategies").default(true),
   approveObjectives: boolean("approve_objectives").default(true),
   approveBigRocks: boolean("approve_big_rocks").default(true),
+  approveAmbitions: boolean("approve_ambitions").default(true),
   
   status: text("status").notNull().default("draft"),
   targetYear: integer("target_year").notNull(),

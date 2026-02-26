@@ -476,10 +476,12 @@ router.get("/reports/:id/pdf", requireAuth, async (req: Request, res: Response) 
       snapshot = await storage.getReviewSnapshotById(report.snapshotId);
     }
 
+    const vocabulary = await storage.getEffectiveVocabulary(report.tenantId);
     const pdfBuffer = await generateReportPDF({
       report,
       snapshot: snapshot || undefined,
       tenant,
+      vocabulary,
     });
 
     const filename = `${report.title.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
@@ -529,11 +531,13 @@ router.get("/reports/:id/pptx", requireAuth, async (req: Request, res: Response)
     if (req.query.periodComparison !== undefined) slideOptions.periodComparison = req.query.periodComparison === 'true';
     if (req.query.checkInHighlights !== undefined) slideOptions.checkInHighlights = req.query.checkInHighlights === 'true';
 
+    const vocabulary = await storage.getEffectiveVocabulary(report.tenantId);
     const pptxBuffer = await generateReportPPTX({
       report,
       snapshot: snapshot || undefined,
       tenant,
       slideOptions,
+      vocabulary,
     });
 
     const filename = `${report.title.replace(/[^a-zA-Z0-9]/g, '_')}_${new Date().toISOString().split('T')[0]}.pptx`;

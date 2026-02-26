@@ -230,6 +230,9 @@ router.post("/:sessionId/analyze", async (req: Request, res: Response) => {
       if (existingFoundation.values && existingFoundation.values.length > 0) {
         existingContext += `- Existing Values: ${existingFoundation.values.map(v => v.title).join(", ")}\n`;
       }
+      if (existingFoundation.ambitions && existingFoundation.ambitions.length > 0) {
+        existingContext += `- Existing Ambitions: ${existingFoundation.ambitions.map(a => a.title).join(", ")}\n`;
+      }
       if (existingFoundation.annualGoals && existingFoundation.annualGoals.length > 0) {
         existingContext += `- Existing Annual Goals: ${existingFoundation.annualGoals.map(g => typeof g === 'string' ? g : g.title).join(", ")}\n`;
       }
@@ -264,6 +267,7 @@ Return a JSON object with these fields:
 - mission: Mission statement if present (extract verbatim)
 - vision: Vision statement if present (extract verbatim)
 - values: Array of {title, description} - extract ALL values listed
+- ambitions: Array of {title, description, targetYear} for 3-5 year strategic targets (BHAGs, long-term aspirations). These are multi-year aspirational goals that define where the organization wants to be in 3-5 years. Examples: "Become the #1 market leader in our space", "Achieve $100M ARR by 2028", "Expand to 10 international markets"
 - goals: Array of {title, description} for annual goals/targets
   IMPORTANT: Goal titles MUST be descriptive phrases (3-8 words), not single words
 - strategies: Array of {title, description, linkedGoals} - extract ALL strategies
@@ -323,6 +327,7 @@ Return a JSON object with these fields:
 - mission: A concise mission statement (1-2 sentences) - extract if present, or infer from document
 - vision: A compelling vision statement (1-2 sentences) - extract if present, or infer from document
 - values: Array of {title, description} for core values - extract or infer from document
+- ambitions: Array of {title, description, targetYear} for 3-5 year strategic targets (BHAGs, long-term aspirations). These are multi-year aspirational goals that define where the organization wants to be in 3-5 years. Generate 2-4 ambitious, aspirational targets. Examples: "Become the #1 market leader in our space", "Achieve $100M ARR by 2028", "Expand to 10 international markets". Set targetYear to 3-5 years from the current target year.
 - goals: Array of {title, description} for annual goals/targets
   IMPORTANT: Goal titles MUST be descriptive phrases of 3-8 words that convey the goal's intent.
   Examples of GOOD goal titles: "Increase recurring revenue by 25%", "Expand into European markets"
@@ -447,6 +452,11 @@ Return valid JSON with your proposed Company OS structure.`;
       proposal.bigRocks = proposal.bigRocks.map(normalizeItem).filter((br: any) => br?.title);
     }
 
+    // Normalize ambitions
+    if (proposal.ambitions && Array.isArray(proposal.ambitions)) {
+      proposal.ambitions = proposal.ambitions.map(normalizeItem).filter((a: any) => a?.title);
+    }
+
     // Normalize strategies
     if (proposal.strategies && Array.isArray(proposal.strategies)) {
       proposal.strategies = proposal.strategies.map(normalizeItem).filter((s: any) => s?.title);
@@ -457,6 +467,7 @@ Return valid JSON with your proposed Company OS structure.`;
       mission: existingFoundation?.mission || null,
       vision: existingFoundation?.vision || null,
       values: existingFoundation?.values || [],
+      ambitions: existingFoundation?.ambitions || [],
       annualGoals: existingFoundation?.annualGoals || [],
       strategies: existingStrategies.map(s => ({ id: s.id, title: s.title, description: s.description })),
       objectives: existingObjectives.map(o => ({ id: o.id, title: o.title, description: o.description })),
@@ -548,8 +559,18 @@ router.patch("/:sessionId", async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Access denied" });
     }
 
-    const { userEdits } = req.body;
-    const updated = await storage.updateLaunchpadSession(session.id, { userEdits });
+    const { userEdits, ...approvalFields } = req.body;
+    const updateData: any = {};
+    if (userEdits !== undefined) updateData.userEdits = userEdits;
+    if (approvalFields.approveMission !== undefined) updateData.approveMission = approvalFields.approveMission;
+    if (approvalFields.approveVision !== undefined) updateData.approveVision = approvalFields.approveVision;
+    if (approvalFields.approveValues !== undefined) updateData.approveValues = approvalFields.approveValues;
+    if (approvalFields.approveAmbitions !== undefined) updateData.approveAmbitions = approvalFields.approveAmbitions;
+    if (approvalFields.approveGoals !== undefined) updateData.approveGoals = approvalFields.approveGoals;
+    if (approvalFields.approveStrategies !== undefined) updateData.approveStrategies = approvalFields.approveStrategies;
+    if (approvalFields.approveObjectives !== undefined) updateData.approveObjectives = approvalFields.approveObjectives;
+    if (approvalFields.approveBigRocks !== undefined) updateData.approveBigRocks = approvalFields.approveBigRocks;
+    const updated = await storage.updateLaunchpadSession(session.id, updateData);
     res.json(updated);
   } catch (error: any) {
     res.status(500).json({ error: error.message });
@@ -587,6 +608,7 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
       approveVision = session.approveVision ?? true,
       approveValues = session.approveValues ?? true,
       approveGoals = session.approveGoals ?? true,
+      approveAmbitions = (session as any).approveAmbitions ?? true,
       approveStrategies = session.approveStrategies ?? true,
       approveObjectives = session.approveObjectives ?? true,
       approveBigRocks = (session as any).approveBigRocks ?? true,
@@ -595,6 +617,7 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
     const createdEntities = {
       foundation: false,
       values: 0,
+      ambitions: 0,
       goals: 0,
       strategies: 0,
       objectives: 0,
@@ -674,14 +697,41 @@ router.post("/:sessionId/approve", async (req: Request, res: Response) => {
       createdEntities.skipped.push('goals');
     }
     
+    // Ambitions - only if approved
+    let newAmbitions = existingFoundation?.ambitions || [];
+    if (approveAmbitions && proposal.ambitions && proposal.ambitions.length > 0) {
+      const existingAmbitions = existingFoundation?.ambitions || [];
+      const existingAmbitionTitles = new Set(existingAmbitions.map(a => normalizeTitle(a.title)));
+      
+      const ambitionsToAdd = proposal.ambitions
+        .filter((a: any) => a.title && !existingAmbitionTitles.has(normalizeTitle(a.title)))
+        .map((a: any) => ({
+          id: crypto.randomUUID(),
+          title: a.title,
+          description: a.description || "",
+          targetYear: a.targetYear || session.targetYear + 3,
+          status: 'active' as const,
+          createdAt: new Date().toISOString(),
+        }));
+
+      if (ambitionsToAdd.length > 0) {
+        newAmbitions = [...existingAmbitions, ...ambitionsToAdd];
+        createdEntities.ambitions = ambitionsToAdd.length;
+      }
+      createdEntities.duplicatesSkipped += proposal.ambitions.length - ambitionsToAdd.length;
+    } else if (!approveAmbitions && proposal.ambitions?.length) {
+      createdEntities.skipped.push('ambitions');
+    }
+
     // Single upsert for all foundation fields to avoid overwriting
-    const shouldUpdateFoundation = shouldUpdateMission || shouldUpdateVision || shouldUpdateValues || createdEntities.goals > 0;
+    const shouldUpdateFoundation = shouldUpdateMission || shouldUpdateVision || shouldUpdateValues || createdEntities.goals > 0 || createdEntities.ambitions > 0;
     if (shouldUpdateFoundation) {
       await storage.upsertFoundation({
         tenantId: session.tenantId,
         mission: newMission,
         vision: newVision,
         values: newValues,
+        ambitions: newAmbitions,
         annualGoals: newAnnualGoals,
       });
       createdEntities.foundation = true;

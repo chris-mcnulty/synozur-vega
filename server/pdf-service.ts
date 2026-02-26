@@ -1,5 +1,5 @@
 import PDFDocument from 'pdfkit';
-import { Tenant, ReportInstance, ReviewSnapshot } from '@shared/schema';
+import { Tenant, ReportInstance, ReviewSnapshot, VocabularyTerms, defaultVocabulary } from '@shared/schema';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -7,6 +7,7 @@ interface ReportData {
   report: ReportInstance;
   snapshot?: ReviewSnapshot;
   tenant: Tenant;
+  vocabulary?: VocabularyTerms;
 }
 
 const FONT_PATH = path.join(process.cwd(), 'client/public/fonts');
@@ -83,6 +84,8 @@ export async function generateReportPDF(data: ReportData): Promise<Buffer> {
       const fontBold = useCustomFont ? 'Avenir-Bold' : 'Helvetica-Bold';
 
       const { report, snapshot, tenant } = data;
+      const vocab = data.vocabulary || defaultVocabulary;
+      const vt = (key: keyof VocabularyTerms, form: 'singular' | 'plural' = 'singular') => vocab[key]?.[form] || key;
       const branding = tenant.branding || {};
       const primaryColor = branding.primaryColor || '#810FFB';
       const content = report.reportData as any;
@@ -156,14 +159,14 @@ export async function generateReportPDF(data: ReportData): Promise<Buffer> {
         const col3X = 340;
         const metricsY = boxY + 35;
         
-        doc.font(fontMedium).text('Objectives', col1X, metricsY);
+        doc.font(fontMedium).text(vt('objective', 'plural'), col1X, metricsY);
         doc.font(fontBold).fontSize(18).fillColor(primaryColor)
           .text(`${summary.completedObjectives || 0}/${summary.totalObjectives || 0}`, col1X, metricsY + 18);
         doc.font(fontRegular).fontSize(9).fillColor('#6b7280')
           .text('completed', col1X, metricsY + 40);
         
         doc.font(fontMedium).fontSize(11).fillColor('#374151')
-          .text('Key Results', col2X, metricsY);
+          .text(vt('keyResult', 'plural'), col2X, metricsY);
         doc.font(fontBold).fontSize(18).fillColor(primaryColor)
           .text(`${summary.completedKeyResults || 0}/${summary.totalKeyResults || 0}`, col2X, metricsY + 18);
         doc.font(fontRegular).fontSize(9).fillColor('#6b7280')
@@ -230,7 +233,7 @@ export async function generateReportPDF(data: ReportData): Promise<Buffer> {
         }
         
         doc.font(fontDemi).fontSize(14).fillColor(primaryColor)
-          .text('Objectives & Key Results', 50);
+          .text(`${vt('objective', 'plural')} & ${vt('keyResult', 'plural')}`, 50);
         doc.moveDown(0.5);
         
         // Separator line
@@ -287,7 +290,7 @@ export async function generateReportPDF(data: ReportData): Promise<Buffer> {
         
         doc.moveDown(1);
         doc.font(fontDemi).fontSize(14).fillColor(primaryColor)
-          .text('Initiatives (Big Rocks)', 50);
+          .text(`${vt('bigRock', 'plural')}`, 50);
         doc.moveDown(0.5);
         
         doc.moveTo(50, doc.y).lineTo(50 + pageWidth, doc.y).lineWidth(1).stroke('#e5e7eb');

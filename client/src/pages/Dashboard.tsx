@@ -509,14 +509,14 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Quarterly Rocks and OKRs Grid */}
+        {/* Quarterly Big Rocks and OKRs Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Quarterly Rocks */}
+          {/* Quarterly Big Rocks */}
           <div>
             <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-primary" />
-              <h2 className="text-xl font-semibold">Quarterly Rocks</h2>
+              <h2 className="text-xl font-semibold">Quarterly {t('bigRock', 'plural')}</h2>
             </div>
             <Link href="/planning">
               <Button variant="ghost" size="sm" className="gap-2" data-testid="link-rocks">
@@ -530,7 +530,7 @@ export default function Dashboard() {
               {bigRocksError ? (
                 <div className="flex items-center gap-3 p-4 text-sm text-muted-foreground">
                   <AlertCircle className="h-5 w-5 text-muted-foreground" />
-                  <p>Unable to load big rocks</p>
+                  <p>Unable to load {t('bigRock', 'plural').toLowerCase()}</p>
                 </div>
               ) : bigRocks && bigRocks.length > 0 ? (
                 bigRocks.map((rock) => {
@@ -899,7 +899,7 @@ export default function Dashboard() {
                 </div>
                 <div>
                   <h3 className="font-medium text-sm mb-1" data-testid="text-ai-suggestions-title">AI Suggestions</h3>
-                  <p className="text-xs text-muted-foreground">Get AI-generated OKRs, Big Rocks, goals, and strategy drafts grounded in your organization's context.</p>
+                  <p className="text-xs text-muted-foreground">Get AI-generated OKRs, {t('bigRock', 'plural').toLowerCase()}, goals, and strategy drafts grounded in your organization's context.</p>
                 </div>
               </div>
             </CardContent>

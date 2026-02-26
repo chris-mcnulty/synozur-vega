@@ -1,6 +1,6 @@
 import PptxGenJSModule from 'pptxgenjs';
 const PptxGenJS = (PptxGenJSModule as any).default || PptxGenJSModule;
-import { Tenant, ReportInstance, ReviewSnapshot } from '@shared/schema';
+import { Tenant, ReportInstance, ReviewSnapshot, VocabularyTerms, defaultVocabulary } from '@shared/schema';
 
 // Type aliases for PptxGenJS to avoid namespace issues
 type PptxInstance = InstanceType<typeof PptxGenJSModule>;
@@ -35,7 +35,11 @@ interface ReportData {
   snapshot?: ReviewSnapshot;
   tenant: Tenant;
   slideOptions?: Partial<SlideOptions>;
+  vocabulary?: VocabularyTerms;
 }
+
+type VocabFn = (key: keyof VocabularyTerms, form?: 'singular' | 'plural') => string;
+let _vt: VocabFn = (key) => key;
 
 async function fetchImageAsBase64(url: string): Promise<string | null> {
   try {
@@ -68,6 +72,8 @@ function formatProgress(progress: number): string {
 
 export async function generateReportPPTX(data: ReportData): Promise<Buffer> {
   const { report, snapshot, tenant } = data;
+  const vocab = data.vocabulary || defaultVocabulary;
+  _vt = (key: keyof VocabularyTerms, form: 'singular' | 'plural' = 'singular') => vocab[key]?.[form] || key;
   const options: SlideOptions = { ...DEFAULT_SLIDE_OPTIONS, ...data.slideOptions };
   const branding = tenant.branding || {};
   const primaryColor = (branding.primaryColor || '#810FFB').replace('#', '');
@@ -474,17 +480,17 @@ function addExecutiveSummarySlide(
   // Key Metrics Row at bottom - 4 compact boxes
   const metrics = [
     { 
-      label: 'Objectives', 
+      label: _vt('objective', 'plural'), 
       value: `${summary.completedObjectives || 0}/${summary.totalObjectives || 0}`,
       pct: summary.totalObjectives > 0 ? Math.round((summary.completedObjectives || 0) / summary.totalObjectives * 100) : 0
     },
     { 
-      label: 'Key Results', 
+      label: _vt('keyResult', 'plural'), 
       value: `${summary.completedKeyResults || 0}/${summary.totalKeyResults || 0}`,
       pct: summary.totalKeyResults > 0 ? Math.round((summary.completedKeyResults || 0) / summary.totalKeyResults * 100) : 0
     },
     { 
-      label: 'Initiatives', 
+      label: _vt('bigRock', 'plural'), 
       value: `${summary.completedBigRocks || 0}/${summary.totalBigRocks || 0}`,
       pct: summary.totalBigRocks > 0 ? Math.round((summary.completedBigRocks || 0) / summary.totalBigRocks * 100) : 0
     },
@@ -544,9 +550,9 @@ function addExecutiveScorecardSlide(pptx: PptxInstance, summary: any, primaryCol
   });
   
   const metrics = [
-    { label: 'Objectives', value: summary.totalObjectives || 0, completed: summary.completedObjectives || 0 },
-    { label: 'Key Results', value: summary.totalKeyResults || 0, completed: summary.completedKeyResults || 0 },
-    { label: 'Initiatives', value: summary.totalBigRocks || 0, completed: summary.completedBigRocks || 0 },
+    { label: _vt('objective', 'plural'), value: summary.totalObjectives || 0, completed: summary.completedObjectives || 0 },
+    { label: _vt('keyResult', 'plural'), value: summary.totalKeyResults || 0, completed: summary.completedKeyResults || 0 },
+    { label: _vt('bigRock', 'plural'), value: summary.totalBigRocks || 0, completed: summary.completedBigRocks || 0 },
     { label: 'Avg Progress', value: `${summary.averageProgress || 0}%`, isProgress: true, progress: summary.averageProgress || 0 },
   ];
   
@@ -707,7 +713,7 @@ function addTeamPerformanceSlide(pptx: PptxInstance, objectives: any[], teams: a
     const tableData: TableRow[] = [
       [
         { text: 'Team', options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'left' } },
-        { text: 'Objectives', options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'center' } },
+        { text: _vt('objective', 'plural'), options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'center' } },
         { text: 'Progress', options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'center' } },
         { text: 'Status', options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'center' } },
       ]
@@ -761,7 +767,7 @@ function addTeamPerformanceSlide(pptx: PptxInstance, objectives: any[], teams: a
 function addObjectivesDeepDiveSlides(pptx: PptxInstance, objectives: any[], keyResults: any[], primaryColor: string) {
   const slide = pptx.addSlide();
   
-  slide.addText('Objectives Overview', {
+  slide.addText(`${_vt('objective', 'plural')} Overview`, {
     x: 0.4, y: 0.2, w: 9.5, h: 0.5,
     fontSize: 24, color: primaryColor, bold: true
   });
@@ -770,7 +776,7 @@ function addObjectivesDeepDiveSlides(pptx: PptxInstance, objectives: any[], keyR
   
   const tableData: TableRow[] = [
     [
-      { text: 'Objective', options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'left' } },
+      { text: _vt('objective'), options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'left' } },
       { text: 'Owner', options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'left' } },
       { text: 'Progress', options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'center' } },
       { text: 'Status', options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'center' } },
@@ -796,7 +802,7 @@ function addObjectivesDeepDiveSlides(pptx: PptxInstance, objectives: any[], keyR
   });
   
   if (sortedObjectives.length > 12) {
-    slide.addText(`+ ${sortedObjectives.length - 12} more objectives`, {
+    slide.addText(`+ ${sortedObjectives.length - 12} more ${_vt('objective', 'plural').toLowerCase()}`, {
       x: 0.4, y: 4.9, w: 9.5, h: 0.25,
       fontSize: 10, color: '6B7280', italic: true,
       align: 'center'
@@ -807,7 +813,7 @@ function addObjectivesDeepDiveSlides(pptx: PptxInstance, objectives: any[], keyR
 function addKeyResultsTrendSlide(pptx: PptxInstance, keyResults: any[], checkIns: any[], primaryColor: string) {
   const slide = pptx.addSlide();
   
-  slide.addText('Key Results Progress', {
+  slide.addText(`${_vt('keyResult', 'plural')} Progress`, {
     x: 0.4, y: 0.2, w: 9.5, h: 0.5,
     fontSize: 24, color: primaryColor, bold: true
   });
@@ -834,7 +840,7 @@ function addKeyResultsTrendSlide(pptx: PptxInstance, keyResults: any[], checkIns
     
     const tableData: TableRow[] = [
       [
-        { text: 'Key Result', options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'left' } },
+        { text: _vt('keyResult'), options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'left' } },
         { text: 'Current', options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'center' } },
         { text: 'Target', options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'center' } },
         { text: '%', options: { bold: true, fill: { color: primaryColor }, color: 'FFFFFF', align: 'center' } },
@@ -881,20 +887,20 @@ function addAtRiskSlide(pptx: PptxInstance, atRiskObjectives: any[], atRiskKRs: 
     fill: { color: 'FEF2F2' },
     line: { color: 'FECACA', width: 1 }
   });
-  slide.addText(`${atRiskObjectives.length} Objectives and ${atRiskKRs.length} Key Results below 40% progress`, {
+  slide.addText(`${atRiskObjectives.length} ${_vt('objective', 'plural')} and ${atRiskKRs.length} ${_vt('keyResult', 'plural')} below 40% progress`, {
     x: 0.5, y: 0.85, w: 9.3, h: 0.3,
     fontSize: 12, color: '991B1B'
   });
   
   if (atRiskObjectives.length > 0) {
-    slide.addText('At-Risk Objectives', {
+    slide.addText(`At-Risk ${_vt('objective', 'plural')}`, {
       x: 0.4, y: 1.4, w: 4.5, h: 0.35,
       fontSize: 14, color: '374151', bold: true
     });
     
     const objTableData: TableRow[] = [
       [
-        { text: 'Objective', options: { bold: true, fill: { color: 'EF4444' }, color: 'FFFFFF', align: 'left' } },
+        { text: _vt('objective'), options: { bold: true, fill: { color: 'EF4444' }, color: 'FFFFFF', align: 'left' } },
         { text: '%', options: { bold: true, fill: { color: 'EF4444' }, color: 'FFFFFF', align: 'center' } },
       ]
     ];
@@ -915,14 +921,14 @@ function addAtRiskSlide(pptx: PptxInstance, atRiskObjectives: any[], atRiskKRs: 
   }
   
   if (atRiskKRs.length > 0) {
-    slide.addText('At-Risk Key Results', {
+    slide.addText(`At-Risk ${_vt('keyResult', 'plural')}`, {
       x: 5.2, y: 1.4, w: 4.5, h: 0.35,
       fontSize: 14, color: '374151', bold: true
     });
     
     const krTableData: TableRow[] = [
       [
-        { text: 'Key Result', options: { bold: true, fill: { color: 'EF4444' }, color: 'FFFFFF', align: 'left' } },
+        { text: _vt('keyResult'), options: { bold: true, fill: { color: 'EF4444' }, color: 'FFFFFF', align: 'left' } },
         { text: '%', options: { bold: true, fill: { color: 'EF4444' }, color: 'FFFFFF', align: 'center' } },
       ]
     ];
@@ -946,7 +952,7 @@ function addAtRiskSlide(pptx: PptxInstance, atRiskObjectives: any[], atRiskKRs: 
 function addBigRocksKanbanSlide(pptx: PptxInstance, bigRocks: any[], primaryColor: string) {
   const slide = pptx.addSlide();
   
-  slide.addText('Initiatives (Big Rocks)', {
+  slide.addText(_vt('bigRock', 'plural'), {
     x: 0.4, y: 0.2, w: 9.5, h: 0.5,
     fontSize: 24, color: primaryColor, bold: true
   });
@@ -1042,12 +1048,12 @@ function addPeriodComparisonSlide(pptx: PptxInstance, currentSummary: any, snaps
       after: currentSummary?.averageProgress || 0,
     },
     {
-      label: 'Objectives Completed',
+      label: `${_vt('objective', 'plural')} Completed`,
       before: snapshot.objectivesCompleted || 0,
       after: currentSummary?.completedObjectives || 0,
     },
     {
-      label: 'Key Results Completed',
+      label: `${_vt('keyResult', 'plural')} Completed`,
       before: snapshot.keyResultsCompleted || 0,
       after: currentSummary?.completedKeyResults || 0,
     },
@@ -1129,7 +1135,7 @@ function addCheckInHighlightsSlide(pptx: PptxInstance, checkIns: any[], keyResul
     });
     
     const dateStr = new Date(checkIn.createdAt).toLocaleDateString();
-    slide.addText(`${kr?.title?.substring(0, 40) || 'Key Result'} • ${dateStr}`, {
+    slide.addText(`${kr?.title?.substring(0, 40) || _vt('keyResult')} • ${dateStr}`, {
       x: 0.5, y: yPos + 0.08, w: 9.3, h: 0.25,
       fontSize: 10, color: primaryColor, bold: true
     });

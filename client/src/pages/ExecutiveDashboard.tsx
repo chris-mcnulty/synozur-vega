@@ -1606,7 +1606,7 @@ export default function ExecutiveDashboard() {
             </CardContent>
           </Card>
 
-          {metrics.trendData.length > 0 && (
+          {metrics.trendData.length >= 2 && (
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">

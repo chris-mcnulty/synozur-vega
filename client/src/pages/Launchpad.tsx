@@ -26,6 +26,7 @@ interface SectionApprovals {
   mission: boolean;
   vision: boolean;
   values: boolean;
+  ambitions: boolean;
   goals: boolean;
   strategies: boolean;
   objectives: boolean;
@@ -46,6 +47,7 @@ export default function Launchpad() {
     mission: true,
     vision: true,
     values: true,
+    ambitions: true,
     goals: true,
     strategies: true,
     objectives: true,
@@ -118,6 +120,7 @@ export default function Launchpad() {
         mission: (session as any).approveMission ?? true,
         vision: (session as any).approveVision ?? true,
         values: (session as any).approveValues ?? true,
+        ambitions: (session as any).approveAmbitions ?? true,
         goals: (session as any).approveGoals ?? true,
         strategies: (session as any).approveStrategies ?? true,
         objectives: (session as any).approveObjectives ?? true,
@@ -149,6 +152,7 @@ export default function Launchpad() {
         approveMission: sectionApprovals.mission,
         approveVision: sectionApprovals.vision,
         approveValues: sectionApprovals.values,
+        approveAmbitions: sectionApprovals.ambitions,
         approveGoals: sectionApprovals.goals,
         approveStrategies: sectionApprovals.strategies,
         approveObjectives: sectionApprovals.objectives,
@@ -170,9 +174,10 @@ export default function Launchpad() {
       
       const skippedCount = result.created?.skipped?.length || 0;
       const skippedText = skippedCount > 0 ? ` (${skippedCount} sections skipped)` : '';
+      const ambitionsText = result.created?.ambitions > 0 ? `, ${result.created.ambitions} ambitions` : '';
       toast({
         title: 'Company OS updated!',
-        description: `Created ${result.created.objectives} objectives, ${result.created.strategies} strategies, and ${result.created.goals} goals.${skippedText}`,
+        description: `Created ${result.created.objectives} objectives, ${result.created.strategies} strategies, ${result.created.goals} goals${ambitionsText}.${skippedText}`,
       });
     },
     onError: (error: any) => {
@@ -218,6 +223,7 @@ export default function Launchpad() {
       mission: (session as any).approveMission ?? true,
       vision: (session as any).approveVision ?? true,
       values: (session as any).approveValues ?? true,
+      ambitions: (session as any).approveAmbitions ?? true,
       goals: (session as any).approveGoals ?? true,
       strategies: (session as any).approveStrategies ?? true,
       objectives: (session as any).approveObjectives ?? true,
@@ -241,6 +247,7 @@ export default function Launchpad() {
       mission: true,
       vision: true,
       values: true,
+      ambitions: true,
       goals: true,
       strategies: true,
       objectives: true,
@@ -258,6 +265,7 @@ export default function Launchpad() {
         mission: 'approveMission',
         vision: 'approveVision',
         values: 'approveValues',
+        ambitions: 'approveAmbitions',
         goals: 'approveGoals',
         strategies: 'approveStrategies',
         objectives: 'approveObjectives',
@@ -477,7 +485,7 @@ export default function Launchpad() {
             </AlertDescription>
           </Alert>
 
-          <Accordion type="multiple" defaultValue={['foundation', 'goals', 'strategies', 'objectives']} className="space-y-4">
+          <Accordion type="multiple" defaultValue={['foundation', 'ambitions', 'goals', 'strategies', 'objectives']} className="space-y-4">
             <AccordionItem value="foundation" className="border rounded-lg px-4">
               <AccordionTrigger className="hover:no-underline">
                 <div className="flex items-center gap-2 flex-1">
@@ -640,6 +648,89 @@ export default function Launchpad() {
                     )}
                   </div>
                 ) : null}
+              </AccordionContent>
+            </AccordionItem>
+
+            <AccordionItem value="ambitions" className="border rounded-lg px-4">
+              <AccordionTrigger className="hover:no-underline">
+                <div className="flex items-center gap-2 flex-1">
+                  <Rocket className="h-4 w-4 text-primary" />
+                  <span>Ambitions (3-5 Year Targets)</span>
+                  <Badge variant="secondary" className="ml-2">
+                    {editedProposal.ambitions?.length || 0} proposed
+                  </Badge>
+                  {existingData?.ambitions && existingData.ambitions.length > 0 && (
+                    <Badge variant="outline" className="ml-auto mr-2 text-xs">{existingData.ambitions.length} existing</Badge>
+                  )}
+                </div>
+              </AccordionTrigger>
+              <AccordionContent className="space-y-3 pt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-sm text-muted-foreground">Long-term strategic targets that define where the organization wants to be in 3-5 years</p>
+                  {editedProposal.ambitions?.length ? (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground">
+                        {sectionApprovals.ambitions ? 'Will add' : 'Skip adding'}
+                      </span>
+                      <Switch
+                        checked={sectionApprovals.ambitions}
+                        onCheckedChange={(checked) => updateApprovalState('ambitions', checked)}
+                        data-testid="switch-approve-ambitions"
+                      />
+                    </div>
+                  ) : null}
+                </div>
+                {existingData?.ambitions && existingData.ambitions.length > 0 && (
+                  <div className="p-3 bg-muted/50 rounded-lg mb-3">
+                    <p className="text-xs text-muted-foreground mb-2">Current Ambitions ({existingData.ambitions.length}):</p>
+                    <ul className="list-disc list-inside text-sm space-y-1">
+                      {existingData.ambitions.map((a, i) => (
+                        <li key={i}>{a.title} {a.targetYear ? `(Target: ${a.targetYear})` : ''}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {sectionApprovals.ambitions && editedProposal.ambitions?.map((ambition, idx) => (
+                  <div key={idx} className="p-3 border rounded-lg space-y-2">
+                    <div className="flex gap-2">
+                      <Input
+                        value={ambition.title}
+                        onChange={(e) => {
+                          const newAmbitions = [...(editedProposal.ambitions || [])];
+                          newAmbitions[idx] = { ...newAmbitions[idx], title: e.target.value };
+                          setEditedProposal({ ...editedProposal, ambitions: newAmbitions });
+                        }}
+                        className="font-medium flex-1"
+                        data-testid={`input-ambition-title-${idx}`}
+                      />
+                      <Badge variant="outline">{ambition.targetYear}</Badge>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          const newAmbitions = editedProposal.ambitions?.filter((_, i) => i !== idx);
+                          setEditedProposal({ ...editedProposal, ambitions: newAmbitions });
+                        }}
+                        data-testid={`button-remove-ambition-${idx}`}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Textarea
+                      value={ambition.description || ''}
+                      onChange={(e) => {
+                        const newAmbitions = [...(editedProposal.ambitions || [])];
+                        newAmbitions[idx] = { ...newAmbitions[idx], description: e.target.value };
+                        setEditedProposal({ ...editedProposal, ambitions: newAmbitions });
+                      }}
+                      className="text-sm"
+                      data-testid={`input-ambition-desc-${idx}`}
+                    />
+                  </div>
+                ))}
+                {(!editedProposal.ambitions || editedProposal.ambitions.length === 0) && (
+                  <p className="text-sm text-muted-foreground italic">No ambitions proposed from the document.</p>
+                )}
               </AccordionContent>
             </AccordionItem>
 
