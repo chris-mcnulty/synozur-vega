@@ -4,8 +4,10 @@ import { storage } from '../storage';
 import type { McpAuthContext } from './auth';
 
 const MICROSOFT_JWKS_URI = 'https://login.microsoftonline.com/common/discovery/v2.0/keys';
-const MICROSOFT_ISSUER_PREFIX = 'https://login.microsoftonline.com/';
-const MICROSOFT_ISSUER_V2_PREFIX = 'https://login.microsoftonline.com/';
+const MICROSOFT_ISSUER_PREFIXES = [
+  'https://login.microsoftonline.com/',
+  'https://sts.windows.net/',
+];
 
 const jwksClient = jwksRsa({
   jwksUri: MICROSOFT_JWKS_URI,
@@ -112,8 +114,9 @@ export async function validateEntraJwt(token: string): Promise<McpAuthContext | 
     const tid = payload.tid as string | undefined;
     console.log(`[Entra JWT] Token decoded: iss=${iss}, aud=${aud}, oid=${oid}, tid=${tid}, alg=${decoded.header.alg}, kid=${decoded.header.kid}`);
 
-    if (!iss || !iss.startsWith(MICROSOFT_ISSUER_PREFIX)) {
-      console.log(`[Entra JWT] Issuer does not match Microsoft prefix: ${iss}`);
+    const isValidIssuer = iss && MICROSOFT_ISSUER_PREFIXES.some(prefix => iss.startsWith(prefix));
+    if (!isValidIssuer) {
+      console.log(`[Entra JWT] Issuer does not match any Microsoft prefix: ${iss}`);
       return null;
     }
 
