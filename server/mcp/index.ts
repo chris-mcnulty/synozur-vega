@@ -65,33 +65,130 @@ router.post('/token', async (req: Request, res: Response) => {
   }
 });
 
+async function authenticateRequest(req: Request, res: Response): Promise<ReturnType<typeof getAuthContext> extends Promise<infer T> ? T : never> {
+  const authHeader = req.headers.authorization;
+  if (!authHeader?.startsWith('Bearer ')) {
+    res.status(401).json({ error: 'Missing or invalid Authorization header' });
+    return null;
+  }
+
+  const token = authHeader.substring(7);
+  const clientIp = getClientIp(req);
+  
+  const context = await getAuthContext(token, clientIp);
+  
+  if (!context) {
+    res.status(401).json({ 
+      error: 'Invalid or expired token. Use POST /mcp/token with your API key to obtain a short-lived access token, or use a direct-auth API key.' 
+    });
+    return null;
+  }
+
+  const rateLimitResult = checkMcpRateLimit(context.tenant.id);
+  const headers = getRateLimitHeaders(rateLimitResult);
+  Object.entries(headers).forEach(([key, value]) => res.setHeader(key, value));
+  
+  if (!rateLimitResult.allowed) {
+    res.status(429).json({ 
+      error: 'Rate limit exceeded. Please try again later.',
+      retry_after: Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000),
+    });
+    return null;
+  }
+
+  return context;
+}
+
+function clientAcceptsSSE(req: Request): boolean {
+  const accept = req.headers.accept || '';
+  return accept.includes('text/event-stream');
+}
+
+async function handleJsonRpc(req: Request, res: Response, context: NonNullable<Awaited<ReturnType<typeof getAuthContext>>>) {
+  const { method, params, id } = req.body;
+
+  if (method === 'tools/list') {
+    const tools = Object.entries(mcpTools).map(([name, tool]) => ({
+      name,
+      description: tool.description,
+      inputSchema: {
+        type: 'object',
+        properties: Object.fromEntries(
+          Object.entries(tool.inputSchema.shape).map(([key, val]: [string, any]) => [
+            key,
+            { type: val._def?.typeName === 'ZodNumber' ? 'number' : 'string', description: val.description || key }
+          ])
+        ),
+      },
+    }));
+    return res.json({ jsonrpc: '2.0', result: { tools }, id });
+  }
+
+  if (method === 'tools/call') {
+    const toolName = params?.name as string;
+    const toolArgs = params?.arguments || {};
+    const toolDef = mcpTools[toolName as keyof typeof mcpTools];
+    if (!toolDef) {
+      return res.json({ jsonrpc: '2.0', error: { code: -32601, message: `Unknown tool: ${toolName}` }, id });
+    }
+
+    const startTime = Date.now();
+    let success = true;
+    let errorMessage: string | undefined;
+
+    try {
+      const result = await toolDef.execute(toolArgs as never, context);
+      if (result.isError) {
+        success = false;
+        errorMessage = result.content[0]?.text;
+      }
+
+      try {
+        await storage.createMcpAuditLog({
+          tenantId: context.tenant.id,
+          userId: context.user.id,
+          apiKeyId: context.apiKey?.id || null,
+          toolName,
+          toolParams: toolArgs,
+          success,
+          errorMessage,
+          durationMs: Date.now() - startTime,
+        });
+      } catch (logError) {
+        console.error('[MCP] Failed to create audit log:', logError);
+      }
+
+      return res.json({ jsonrpc: '2.0', result: { content: result.content, isError: result.isError }, id });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      try {
+        await storage.createMcpAuditLog({
+          tenantId: context.tenant.id,
+          userId: context.user.id,
+          apiKeyId: context.apiKey?.id || null,
+          toolName,
+          toolParams: toolArgs,
+          success: false,
+          errorMessage: msg,
+          durationMs: Date.now() - startTime,
+        });
+      } catch (logError) {
+        console.error('[MCP] Failed to create audit log:', logError);
+      }
+      return res.json({ jsonrpc: '2.0', error: { code: -32000, message: msg }, id });
+    }
+  }
+
+  return res.json({ jsonrpc: '2.0', error: { code: -32601, message: `Unsupported method: ${method}` }, id });
+}
+
 router.all('/', async (req: Request, res: Response) => {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      return res.status(401).json({ error: 'Missing or invalid Authorization header' });
-    }
+    const context = await authenticateRequest(req, res);
+    if (!context) return;
 
-    const token = authHeader.substring(7);
-    const clientIp = getClientIp(req);
-    
-    const context = await getAuthContext(token, clientIp);
-    
-    if (!context) {
-      return res.status(401).json({ 
-        error: 'Invalid or expired token. Use POST /mcp/token with your API key to obtain a short-lived access token, or use a direct-auth API key.' 
-      });
-    }
-
-    const rateLimitResult = checkMcpRateLimit(context.tenant.id);
-    const headers = getRateLimitHeaders(rateLimitResult);
-    Object.entries(headers).forEach(([key, value]) => res.setHeader(key, value));
-    
-    if (!rateLimitResult.allowed) {
-      return res.status(429).json({ 
-        error: 'Rate limit exceeded. Please try again later.',
-        retry_after: Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000),
-      });
+    if (!clientAcceptsSSE(req)) {
+      return handleJsonRpc(req, res, context);
     }
 
     const server = createMcpServer(context);
