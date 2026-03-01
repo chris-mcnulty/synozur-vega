@@ -197,31 +197,6 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
       markdown += `---\n\n`;
     }
 
-    // Annual Goals in Outcomes section (moved from Foundations)
-    if (filters.includeFoundations && foundation) {
-      const ambitions = foundation.ambitions as Array<{ id?: string; title?: string; description?: string; targetYear?: number; status?: string; linkedValueTitles?: string[] }> | null;
-      if (foundation.annualGoals && foundation.annualGoals.length > 0) {
-        markdown += `## Annual ${v('goal', 'plural')} (${filters.year || new Date().getFullYear()})\n\n`;
-        foundation.annualGoals.forEach((goal, index: number) => {
-          const goalTitle = typeof goal === 'string' ? goal : (goal.title || 'Untitled Goal');
-          const goalDescription = typeof goal === 'object' ? goal.description : undefined;
-          const linkedAmbitionId = typeof goal === 'object' ? goal.linkedAmbitionId : undefined;
-          markdown += `${index + 1}. **${goalTitle}**`;
-          if (goalDescription) {
-            markdown += ` - ${goalDescription}`;
-          }
-          if (linkedAmbitionId && ambitions) {
-            const linkedAmbition = ambitions.find(a => a.id === linkedAmbitionId);
-            if (linkedAmbition) {
-              markdown += ` *(Links to: ${linkedAmbition.title})*`;
-            }
-          }
-          markdown += `\n`;
-        });
-        markdown += `\n---\n\n`;
-      }
-    }
-
     if (filters.includeObjectives && filteredObjectives.length > 0) {
       markdown += `## ${v('objective', 'plural')} & ${v('keyResult', 'plural')}\n\n`;
       
@@ -311,6 +286,31 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
       });
       
       markdown += `\n---\n\n`;
+    }
+
+    // Annual Goals in Outcomes section (after OKRs and Big Rocks)
+    if (filters.includeFoundations && foundation) {
+      const ambitions = foundation.ambitions as Array<{ id?: string; title?: string; description?: string; targetYear?: number; status?: string; linkedValueTitles?: string[] }> | null;
+      if (foundation.annualGoals && foundation.annualGoals.length > 0) {
+        markdown += `## Annual ${v('goal', 'plural')} (${filters.year || new Date().getFullYear()})\n\n`;
+        foundation.annualGoals.forEach((goal, index: number) => {
+          const goalTitle = typeof goal === 'string' ? goal : (goal.title || 'Untitled Goal');
+          const goalDescription = typeof goal === 'object' ? goal.description : undefined;
+          const linkedAmbitionId = typeof goal === 'object' ? goal.linkedAmbitionId : undefined;
+          markdown += `${index + 1}. **${goalTitle}**`;
+          if (goalDescription) {
+            markdown += ` - ${goalDescription}`;
+          }
+          if (linkedAmbitionId && ambitions) {
+            const linkedAmbition = ambitions.find(a => a.id === linkedAmbitionId);
+            if (linkedAmbition) {
+              markdown += ` *(Links to: ${linkedAmbition.title})*`;
+            }
+          }
+          markdown += `\n`;
+        });
+        markdown += `\n---\n\n`;
+      }
     }
 
     if (filters.includeTeams && teams.length > 0) {
