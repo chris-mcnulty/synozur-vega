@@ -99,6 +99,12 @@ const roadmap: RoadmapPhase[] = [
         description: "PDF and PPTX export with AI period summaries, dynamic date selectors, and import/export capabilities",
         status: "completed",
         icon: FileText
+      },
+      {
+        title: "M365 Copilot Agent",
+        description: "Natural language interaction with Vega through Microsoft 365 Copilot and Copilot Studio using Entra JWT authentication and REST-based tool actions",
+        status: "completed",
+        icon: Sparkles
       }
     ]
   },
@@ -106,13 +112,6 @@ const roadmap: RoadmapPhase[] = [
     name: "In Progress",
     timeframe: "Q1 2026",
     items: [
-      {
-        title: "M365 Copilot Agent",
-        description: "Natural language interaction with Vega through Microsoft 365 Copilot using the OpenAPI specification",
-        status: "in_progress",
-        progress: 60,
-        icon: Sparkles
-      },
       {
         title: "Excel Data Binding",
         description: "Link Key Results directly to Excel cells for automatic progress updates via Microsoft Graph",
@@ -126,6 +125,12 @@ const roadmap: RoadmapPhase[] = [
     name: "Committed Next",
     timeframe: "Q2 2026",
     items: [
+      {
+        title: "Copilot Agent Write Actions",
+        description: "Extend the M365 Copilot Agent with write capabilities — update key result progress, add check-in notes, and change big rock status directly from natural language conversation",
+        status: "planned",
+        icon: Bot
+      },
       {
         title: "Meeting Prep AI",
         description: "Auto-generate meeting preparation summaries by analyzing linked OKRs before Focus Rhythm meetings",
