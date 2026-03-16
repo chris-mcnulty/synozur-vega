@@ -858,68 +858,6 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* AI-Powered Tools */}
-      <div>
-        <div className="flex items-center gap-2 mb-4">
-          <Sparkles className="h-5 w-5 text-primary" />
-          <h2 className="text-xl font-semibold">AI-Powered Tools</h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="hover-elevate">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <div className="rounded-md bg-primary/10 p-2 shrink-0">
-                  <Sparkles className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-sm mb-1" data-testid="text-ai-chat-title">AI Chat Assistant</h3>
-                  <p className="text-xs text-muted-foreground">Ask questions about your OKRs, strategies, and performance. Click the sparkle icon in the top bar.</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="hover-elevate">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <div className="rounded-md bg-primary/10 p-2 shrink-0">
-                  <TrendingUp className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-sm mb-1" data-testid="text-ai-pace-title">Pace & Velocity</h3>
-                  <p className="text-xs text-muted-foreground">Track whether objectives are on pace with predictive badges on the Executive Dashboard.</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="hover-elevate">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <div className="rounded-md bg-primary/10 p-2 shrink-0">
-                  <Target className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-sm mb-1" data-testid="text-ai-suggestions-title">AI Suggestions</h3>
-                  <p className="text-xs text-muted-foreground">Get AI-generated OKRs, {t('bigRock', 'plural').toLowerCase()}, goals, and strategy drafts grounded in your organization's context.</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-          <Card className="hover-elevate">
-            <CardContent className="p-4">
-              <div className="flex items-start gap-3">
-                <div className="rounded-md bg-primary/10 p-2 shrink-0">
-                  <CheckCircle2 className="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <h3 className="font-medium text-sm mb-1" data-testid="text-ai-checkin-title">Check-in Rewriter</h3>
-                  <p className="text-xs text-muted-foreground">Improve check-in notes with AI. Choose from full rewrite, clarity, concise, or expand modes.</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-
       {/* Strategic Alignment Flow */}
       <StrategicAlignmentSankey 
         year={currentQuarter?.year || new Date().getFullYear()} 
