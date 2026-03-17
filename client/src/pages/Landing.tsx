@@ -1,17 +1,42 @@
 import { LandingHero } from "@/components/LandingHero";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
 import { SynozurAppSwitcher } from "@/components/SynozurAppSwitcher";
+import { Sparkles, TrendingUp, Target, CheckCircle2 } from "lucide-react";
 import microsoftPartnerBadgeWhite from "@/assets/brand/MSFT-CAPP-PREFERRED-White_1767641957468.png";
 import microsoftPartnerBadgeBlack from "@/assets/brand/MSFT-CAPP-PREFERRED-BlackColor_1767641891731.png";
 import vegaLogo from "@/assets/brand/VegaTight_1766605018223.png";
 import synozurMark from "@/assets/brand/SynozurMark_color1400_1766606244412.png";
 import synozurLogoColor from "@/assets/brand/SA-Logo-Horizontal-color_1768839624375.png";
 import synozurLogoWhite from "@/assets/brand/SA-Logo-Horizontal-white_1768839624376.png";
+
+const AI_TOOLS = [
+  {
+    icon: Sparkles,
+    title: "AI Chat Assistant",
+    description: "Ask questions about your OKRs, strategies, and performance. Get instant, context-aware answers grounded in your organization's data.",
+  },
+  {
+    icon: TrendingUp,
+    title: "Pace & Velocity",
+    description: "Track whether objectives are on pace with predictive badges, velocity projections, and behind-pace alerts on the Executive Dashboard.",
+  },
+  {
+    icon: Target,
+    title: "AI Suggestions",
+    description: "Get AI-generated OKRs, big rocks, goals, and strategy drafts grounded in your organization's context and uploaded documents.",
+  },
+  {
+    icon: CheckCircle2,
+    title: "Check-in Rewriter",
+    description: "Improve check-in notes with AI. Choose from full rewrite, clarity, concise, or expand modes to communicate progress clearly.",
+  },
+];
 
 export default function Landing() {
   const { isAuthenticated, isLoading } = useAuth();
@@ -114,6 +139,38 @@ export default function Landing() {
       {/* Main Content - account for header + potential banner */}
       <div className="pt-16">
         <LandingHero />
+
+        {/* AI-Powered Tools Section */}
+        <section className="py-16 md:py-24 bg-background border-t">
+          <div className="max-w-6xl mx-auto px-6">
+            <div className="text-center mb-12">
+              <Badge variant="outline" className="mb-4">
+                <Sparkles className="h-3 w-3 mr-1" />
+                Built-in AI
+              </Badge>
+              <h2 className="text-3xl md:text-4xl font-semibold">AI-Powered Tools</h2>
+              <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
+                Every Vega plan includes AI tools purpose-built for strategy execution — not generic chatbots bolted on after the fact.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+              {AI_TOOLS.map((tool) => {
+                const Icon = tool.icon;
+                return (
+                  <Card key={tool.title} className="hover-elevate">
+                    <CardContent className="p-6">
+                      <div className="rounded-md bg-primary/10 p-2.5 w-fit mb-4">
+                        <Icon className="h-5 w-5 text-primary" />
+                      </div>
+                      <h3 className="font-semibold mb-2">{tool.title}</h3>
+                      <p className="text-sm text-muted-foreground leading-relaxed">{tool.description}</p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+        </section>
 
         {/* From Synozur Section */}
         <section className="py-16 bg-muted/30 border-t">
