@@ -10,7 +10,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -34,7 +33,7 @@ import { OKRDetailPane } from "@/components/okr/OKRDetailPane";
 import { ProgressSummaryBar } from "@/components/okr/ProgressSummaryBar";
 import { MilestoneEditor, type PhasedTargets } from "@/components/okr/MilestoneEditor";
 import { MilestoneTimeline } from "@/components/okr/MilestoneTimeline";
-import { TrendingUp, Target, Activity, AlertCircle, AlertTriangle, CheckCircle, CheckSquare, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink, Calendar, X, Filter, Users, ChevronDown } from "lucide-react";
+import { TrendingUp, Target, Activity, AlertCircle, AlertTriangle, CheckCircle, CheckSquare, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink, Calendar, X, Filter, Users } from "lucide-react";
 import { ExcelFilePicker } from "@/components/ExcelFilePicker";
 import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
 import { PlannerCreatePlanDialog } from "@/components/planner/PlannerCreatePlanDialog";
@@ -186,41 +185,30 @@ export default function PlanningEnhanced() {
   const savedFilters = getSavedPlanningFilters();
   
   const [selectedTab, setSelectedTab] = useState(savedFilters?.selectedTab || "hierarchy");
-  const initQuarters = (): number[] => {
-    if (savedFilters?.selectedPeriods && Array.isArray(savedFilters.selectedPeriods)) {
-      return savedFilters.selectedPeriods;
-    }
-    if (savedFilters?.quarter !== undefined) {
-      return savedFilters.quarter === null ? [] : [savedFilters.quarter];
-    }
-    return globalIsAnnual ? [0] : [globalQuarter];
-  };
-  const [selectedPeriods, setSelectedPeriods] = useState<number[]>(initQuarters);
-  const quarter = selectedPeriods.length === 0 ? null : selectedPeriods.length === 1 ? selectedPeriods[0] : null;
-  const setQuarter = (q: number | null) => {
-    if (q === null) setSelectedPeriods([]);
-    else setSelectedPeriods([q]);
-  };
-  const [year, setYear] = useState(savedFilters?.year || globalYear);
+  // Period is driven entirely by the global time period selector
+  const selectedPeriods = globalSelectedIds.map((id: string) => {
+    if (id.startsWith('annual-')) return 0;
+    const m = id.match(/^q(\d+)-/);
+    return m ? parseInt(m[1]) : 0;
+  });
+  const quarter = selectedPeriods.length === 1 ? selectedPeriods[0] : null;
+  const year = globalYear;
   const [level, setLevel] = useState<string>(savedFilters?.level || "all");
   const [teamId, setTeamId] = useState<string>(savedFilters?.teamId || "all");
   const [statusFilter, setStatusFilter] = useState<string>(savedFilters?.statusFilter || "all");
   const [filtersInitialized, setFiltersInitialized] = useState(!!savedFilters);
   
-  // Save filters to localStorage whenever they change
+  // Save filters to localStorage whenever they change (period is managed by global context)
   useEffect(() => {
     if (filtersInitialized) {
       localStorage.setItem("planningFilters", JSON.stringify({
         selectedTab,
-        quarter,
-        selectedPeriods,
-        year,
         level,
         teamId,
         statusFilter,
       }));
     }
-  }, [selectedTab, quarter, selectedPeriods, year, level, teamId, statusFilter, filtersInitialized]);
+  }, [selectedTab, level, teamId, statusFilter, filtersInitialized]);
   
   // Detail pane state
   const [detailPaneOpen, setDetailPaneOpen] = useState(false);
@@ -2177,80 +2165,6 @@ export default function PlanningEnhanced() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="w-auto min-w-[120px] justify-between gap-2" data-testid="select-quarter">
-                  <span className="text-sm">
-                    {selectedPeriods.length === 0 ? 'All Periods' :
-                     selectedPeriods.map(p => p === 0 ? 'Annual' : `Q${p}`).join(' + ')}
-                  </span>
-                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-[200px] p-3" align="end">
-                <div className="space-y-1.5">
-                  <Button
-                    variant={selectedPeriods.length === 0 ? "default" : "outline"}
-                    size="sm"
-                    className="w-full text-xs justify-start"
-                    onClick={() => setSelectedPeriods([])}
-                    data-testid="button-period-all"
-                  >
-                    All Periods
-                  </Button>
-                  <Button
-                    variant={selectedPeriods.includes(0) ? "default" : "outline"}
-                    size="sm"
-                    className="w-full text-xs justify-start"
-                    onClick={() => {
-                      setSelectedPeriods(prev =>
-                        prev.includes(0) ? prev.filter(p => p !== 0) : [...prev.filter(p => p !== -1), 0]
-                      );
-                    }}
-                    data-testid="button-period-annual-filter"
-                  >
-                    Annual
-                  </Button>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {[1, 2, 3, 4].map(q => (
-                      <Button
-                        key={q}
-                        variant={selectedPeriods.includes(q) ? "default" : "outline"}
-                        size="sm"
-                        className="text-xs"
-                        onClick={() => {
-                          setSelectedPeriods(prev =>
-                            prev.includes(q) ? prev.filter(p => p !== q) : [...prev, q]
-                          );
-                        }}
-                        data-testid={`button-period-q${q}-filter`}
-                      >
-                        Q{q}
-                      </Button>
-                    ))}
-                  </div>
-                  {selectedPeriods.length > 1 && (
-                    <button
-                      className="text-[10px] text-muted-foreground hover:text-foreground transition-colors w-full text-center pt-1"
-                      onClick={() => setSelectedPeriods([selectedPeriods[0]])}
-                      data-testid="button-period-clear-multi-outcomes"
-                    >
-                      Clear multi-select
-                    </button>
-                  )}
-                </div>
-              </PopoverContent>
-            </Popover>
-            <Select value={year.toString()} onValueChange={(v) => setYear(parseInt(v))}>
-              <SelectTrigger className="w-24" data-testid="select-year">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2024">2024</SelectItem>
-                <SelectItem value="2025">2025</SelectItem>
-                <SelectItem value="2026">2026</SelectItem>
-              </SelectContent>
-            </Select>
             <Select value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-32" data-testid="select-status">
                 <SelectValue placeholder="Status" />

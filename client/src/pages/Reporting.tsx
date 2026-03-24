@@ -3,6 +3,7 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
+import { useTimePeriod } from "@/contexts/TimePeriodContext";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -178,8 +179,8 @@ export default function Reporting() {
   const { toast } = useToast();
   const { currentTenant } = useTenant();
   const currentTenantId = currentTenant?.id;
+  const { quarter, year } = useTimePeriod();
   const [activeTab, setActiveTab] = useState("overview");
-  const [selectedQuarter, setSelectedQuarter] = useState(`${currentYear}-Q${getCurrentQuarter()}`);
   const [createSnapshotOpen, setCreateSnapshotOpen] = useState(false);
   const [generateReportOpen, setGenerateReportOpen] = useState(false);
   const [viewSnapshotOpen, setViewSnapshotOpen] = useState(false);
@@ -203,10 +204,6 @@ export default function Reporting() {
     checkInHighlights: true,
   });
   
-  const parsedQuarter = quarterOptions.find(q => q.value === selectedQuarter);
-  const quarter = parsedQuarter?.quarter || getCurrentQuarter();
-  const year = parsedQuarter?.year || currentYear;
-
   // Helper to get tenant header for API calls - use context tenant
   const getTenantHeader = (): Record<string, string> => {
     return currentTenantId ? { "x-tenant-id": currentTenantId } : {};
@@ -391,20 +388,6 @@ export default function Reporting() {
           <p className="text-muted-foreground mt-1">
             Capture snapshots, generate reports, and track progress over time
           </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
-            <SelectTrigger className="w-[140px]" data-testid="select-quarter">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {quarterOptions.map((q) => (
-                <SelectItem key={q.value} value={q.value}>
-                  {q.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
       </div>
 
@@ -947,20 +930,8 @@ export default function Reporting() {
               )}
               
               {reportPeriodType === 'quarter' && (
-                <div>
-                  <Label>Select Quarter</Label>
-                  <Select value={selectedQuarter} onValueChange={setSelectedQuarter}>
-                    <SelectTrigger data-testid="select-report-quarter">
-                      <SelectValue placeholder="Select quarter" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {quarterOptions.map((q) => (
-                        <SelectItem key={q.value} value={q.value}>
-                          {q.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                  Report period: <span className="font-medium text-foreground">Q{quarter} {year}</span> (from global selector)
                 </div>
               )}
               
@@ -993,7 +964,7 @@ export default function Reporting() {
                     reportPeriodType === 'year' ? `${selectedReportYear} Annual Review` :
                     `Q${quarter} ${year} Progress Report`
                   }
-                  key={`${reportPeriodType}-${selectedWeek}-${selectedMonth}-${selectedQuarter}-${selectedReportYear}`}
+                  key={`${reportPeriodType}-${selectedWeek}-${selectedMonth}-${quarter}-${year}-${selectedReportYear}`}
                   required
                   data-testid="input-report-title"
                 />
