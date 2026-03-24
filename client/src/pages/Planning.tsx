@@ -36,9 +36,9 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Okr, Kpi, BigRock, Foundation, Strategy } from "@shared/schema";
 import { useTenant } from "@/contexts/TenantContext";
-import { getCurrentQuarter } from "@/lib/quarters";
 import { BigRockTasks } from "@/components/okr/BigRockTasks";
 import { usePermissions } from "@/hooks/use-permissions";
+import { useTimePeriod } from "@/contexts/TimePeriodContext";
 
 const availablePeople = [
   "Sarah Chen",
@@ -52,35 +52,25 @@ export default function Planning() {
   const { currentTenant, isLoading: tenantLoading } = useTenant();
   const [selectedTab, setSelectedTab] = useState("okrs");
   
-  const [quarter, setQuarter] = useState(1);
-  const [year, setYear] = useState(new Date().getFullYear());
-  
+  const { quarter, year, isAnnual } = useTimePeriod();
+
   // Fetch foundation to get fiscal year start month and annual goals
   const { data: foundation } = useQuery<Foundation>({
     queryKey: [`/api/foundations/${currentTenant?.id}`],
     enabled: !!currentTenant?.id,
   });
-  
+
   // Fetch strategies for linking
   const { data: strategies = [] } = useQuery<Strategy[]>({
     queryKey: [`/api/strategies/${currentTenant?.id}`],
     enabled: !!currentTenant?.id,
   });
-  
-  // Set initial quarter/year based on tenant's fiscal year when foundation loads
-  useEffect(() => {
-    if (foundation) {
-      const fiscalYearStartMonth = foundation.fiscalYearStartMonth || 1;
-      const currentPeriod = getCurrentQuarter(fiscalYearStartMonth);
-      setQuarter(currentPeriod.quarter);
-      setYear(currentPeriod.year);
-    }
-  }, [foundation?.fiscalYearStartMonth]);
 
   const { data: okrs = [], isLoading: loadingOkrs } = useQuery<Okr[]>({
     queryKey: [`/api/okrs/${currentTenant?.id}`, { quarter, year }],
     queryFn: async () => {
-      const res = await fetch(`/api/okrs/${currentTenant!.id}?quarter=${quarter}&year=${year}`);
+      const qParam = isAnnual ? '' : `&quarter=${quarter}`;
+      const res = await fetch(`/api/okrs/${currentTenant!.id}?year=${year}${qParam}`);
       if (!res.ok) throw new Error("Failed to fetch OKRs");
       return res.json();
     },
@@ -90,7 +80,8 @@ export default function Planning() {
   const { data: kpis = [], isLoading: loadingKpis } = useQuery<Kpi[]>({
     queryKey: [`/api/kpis/${currentTenant?.id}`, { quarter, year }],
     queryFn: async () => {
-      const res = await fetch(`/api/kpis/${currentTenant!.id}?quarter=${quarter}&year=${year}`);
+      const qParam = isAnnual ? '' : `&quarter=${quarter}`;
+      const res = await fetch(`/api/kpis/${currentTenant!.id}?year=${year}${qParam}`);
       if (!res.ok) throw new Error("Failed to fetch KPIs");
       return res.json();
     },
@@ -100,7 +91,8 @@ export default function Planning() {
   const { data: rocks = [], isLoading: loadingRocks } = useQuery<BigRock[]>({
     queryKey: [`/api/rocks/${currentTenant?.id}`, { quarter, year }],
     queryFn: async () => {
-      const res = await fetch(`/api/rocks/${currentTenant!.id}?quarter=${quarter}&year=${year}`);
+      const qParam = isAnnual ? '' : `&quarter=${quarter}`;
+      const res = await fetch(`/api/rocks/${currentTenant!.id}?year=${year}${qParam}`);
       if (!res.ok) throw new Error("Failed to fetch rocks");
       return res.json();
     },
@@ -157,31 +149,8 @@ export default function Planning() {
           <div>
             <h1 className="text-3xl font-semibold">Quarterly Planning</h1>
             <p className="text-muted-foreground mt-1">
-              Manage OKRs, KPIs, and quarterly rocks for Q{quarter} {year}
+              {isAnnual ? `Full Year ${year}` : `Q${quarter} ${year}`}
             </p>
-          </div>
-          <div className="flex gap-2">
-            <Select value={quarter.toString()} onValueChange={(v) => setQuarter(parseInt(v))}>
-              <SelectTrigger className="w-32" data-testid="select-quarter">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">Q1</SelectItem>
-                <SelectItem value="2">Q2</SelectItem>
-                <SelectItem value="3">Q3</SelectItem>
-                <SelectItem value="4">Q4</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={year.toString()} onValueChange={(v) => setYear(parseInt(v))}>
-              <SelectTrigger className="w-32" data-testid="select-year">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2024">2024</SelectItem>
-                <SelectItem value="2025">2025</SelectItem>
-                <SelectItem value="2026">2026</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </div>
 

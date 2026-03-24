@@ -34,8 +34,9 @@ import { MEETING_TEMPLATES } from "@shared/schema";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
-import { getCurrentQuarter, getQuarterDateRange } from "@/lib/quarters";
+import { getQuarterDateRange } from "@/lib/quarters";
 import { hasPermission, PERMISSIONS, ROLES, type Role } from "@shared/rbac";
+import { useTimePeriod } from "@/contexts/TimePeriodContext";
 
 interface MeetingFormData {
   title: string;
@@ -753,9 +754,9 @@ export default function FocusRhythm() {
   } | null>(null);
   const [isAnalyzingNotes, setIsAnalyzingNotes] = useState(false);
   
-  const [quarter, setQuarter] = useState(1);
-  const [year, setYear] = useState(new Date().getFullYear());
-  
+  const { quarter, year, isAnnual } = useTimePeriod();
+  const [openQuarters, setOpenQuarters] = useState<number[]>([1, 2, 3, 4]);
+
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -773,15 +774,6 @@ export default function FocusRhythm() {
     enabled: !!currentTenant?.id,
   });
   
-  useEffect(() => {
-    if (foundation) {
-      const fiscalYearStartMonth = foundation.fiscalYearStartMonth || 1;
-      const currentPeriod = getCurrentQuarter(fiscalYearStartMonth);
-      setQuarter(currentPeriod.quarter);
-      setYear(currentPeriod.year);
-    }
-  }, [foundation?.fiscalYearStartMonth]);
-
   const { data: meetings = [], isLoading } = useQuery<Meeting[]>({
     queryKey: [`/api/meetings/${currentTenant?.id}`],
     enabled: !!currentTenant?.id,
@@ -1408,11 +1400,16 @@ export default function FocusRhythm() {
   };
 
   const fiscalYearStartMonth = foundation?.fiscalYearStartMonth || 1;
-  const quarterRange = getQuarterDateRange(quarter, year, fiscalYearStartMonth);
   const meetingsInQuarter = meetings.filter(meeting => {
     if (!meeting.date) return false;
     const meetingDate = new Date(meeting.date);
-    return meetingDate >= quarterRange.start && meetingDate <= quarterRange.end;
+    if (isAnnual) {
+      const yearStart = getQuarterDateRange(1, year, fiscalYearStartMonth).start;
+      const yearEnd = getQuarterDateRange(4, year, fiscalYearStartMonth).end;
+      return meetingDate >= yearStart && meetingDate <= yearEnd;
+    }
+    const { start, end } = getQuarterDateRange(quarter, year, fiscalYearStartMonth);
+    return meetingDate >= start && meetingDate <= end;
   });
 
   const searchFilteredMeetings = meetingsInQuarter.filter(meeting => {
@@ -2327,7 +2324,7 @@ export default function FocusRhythm() {
                   <p className="text-muted-foreground text-center mb-4">
                     Schedule your first meeting to get started
                   </p>
-                  <Button 
+                  <Button
                     onClick={() => { setCreateDialogOpen(true); setShowTemplateSelector(true); }}
                     data-testid="button-create-first-meeting"
                   >
@@ -2336,6 +2333,51 @@ export default function FocusRhythm() {
                   </Button>
                 </CardContent>
               </Card>
+            ) : isAnnual ? (
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map(q => {
+                  const quarterMeetings = filteredMeetings.filter(m => {
+                    if (!m.date) return false;
+                    const { start, end } = getQuarterDateRange(q, year, fiscalYearStartMonth);
+                    const d = new Date(m.date);
+                    return d >= start && d <= end;
+                  });
+                  return (
+                    <div key={q} className="border rounded-lg overflow-hidden">
+                      <button
+                        className="w-full flex items-center justify-between px-4 py-3 text-left bg-muted/30 hover:bg-muted/50 transition-colors"
+                        onClick={() => setOpenQuarters(prev => prev.includes(q) ? prev.filter(x => x !== q) : [...prev, q])}
+                        data-testid={`button-quarter-${q}`}
+                      >
+                        <span className="font-medium text-sm">Q{q} — {quarterMeetings.length} meeting{quarterMeetings.length !== 1 ? 's' : ''}</span>
+                        <ChevronRight className={`h-4 w-4 transition-transform text-muted-foreground ${openQuarters.includes(q) ? 'rotate-90' : ''}`} />
+                      </button>
+                      {openQuarters.includes(q) && (
+                        <div className="divide-y">
+                          {quarterMeetings.length === 0 ? (
+                            <p className="px-4 py-3 text-sm text-muted-foreground">No meetings this quarter</p>
+                          ) : (
+                            quarterMeetings.map(meeting => (
+                              <div key={meeting.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20">
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="font-medium text-sm truncate">{meeting.title}</span>
+                                  <Badge variant="outline" className="text-xs shrink-0 capitalize">{meeting.meetingType}</Badge>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0 ml-2">
+                                  <span className="text-xs text-muted-foreground">{meeting.date ? format(new Date(meeting.date), "MMM d") : "—"}</span>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditDialog(meeting)}>
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             ) : (
               <div className="grid gap-4">
                 {filteredMeetings.map((meeting) => (
