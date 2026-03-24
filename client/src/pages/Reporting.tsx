@@ -930,9 +930,15 @@ export default function Reporting() {
               )}
               
               {reportPeriodType === 'quarter' && (
-                <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
-                  Report period: <span className="font-medium text-foreground">Q{quarter} {year}</span> (from global selector)
-                </div>
+                quarter === 0 ? (
+                  <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                    Quarterly reports are not available when the global period is set to Annual. Please switch the global period or choose a different report period type.
+                  </div>
+                ) : (
+                  <div className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+                    Report period: <span className="font-medium text-foreground">Q{quarter} {year}</span> (from global selector)
+                  </div>
+                )
               )}
               
               {reportPeriodType === 'year' && (
