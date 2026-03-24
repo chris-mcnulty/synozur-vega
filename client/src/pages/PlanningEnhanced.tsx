@@ -186,11 +186,19 @@ export default function PlanningEnhanced() {
   
   const [selectedTab, setSelectedTab] = useState(savedFilters?.selectedTab || "hierarchy");
   // Period is driven entirely by the global time period selector
-  const selectedPeriods = globalSelectedIds.map((id: string) => {
-    if (id.startsWith('annual-')) return 0;
-    const m = id.match(/^q(\d+)-/);
-    return m ? parseInt(m[1]) : 0;
-  });
+  // Only include periods that belong to the current globalYear to avoid mixing years.
+  const selectedPeriods = globalSelectedIds
+    .filter((id: string) => {
+      const yearMatch = id.match(/-(\d{4})$/);
+      if (!yearMatch) return true; // keep legacy IDs without an explicit year
+      const idYear = parseInt(yearMatch[1], 10);
+      return idYear === globalYear;
+    })
+    .map((id: string) => {
+      if (id.startsWith("annual-")) return 0;
+      const m = id.match(/^q(\d+)-/);
+      return m ? parseInt(m[1], 10) : 0;
+    });
   const quarter = selectedPeriods.length === 1 ? selectedPeriods[0] : null;
   const year = globalYear;
   const [level, setLevel] = useState<string>(savedFilters?.level || "all");
