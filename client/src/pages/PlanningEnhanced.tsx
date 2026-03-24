@@ -290,12 +290,12 @@ export default function PlanningEnhanced() {
   const activeAmbitions = ambitions.filter(a => a.status === 'active');
 
   // Get unique years from goals for display
-  const uniqueGoalYears = [...new Set(goals.map(g => g.year))].sort((a, b) => b - a);
+  const uniqueGoalYears = Array.from(new Set(goals.map(g => g.year))).sort((a, b) => b - a);
   
   // Generate available years for goal year selection
   const yearsFromGoals = goals.map(g => g.year);
   const standardYears = [currentYear + 1, currentYear, currentYear - 1, currentYear - 2, currentYear - 3];
-  const availableGoalYears = [...new Set([...yearsFromGoals, ...standardYears])].sort((a, b) => b - a);
+  const availableGoalYears = Array.from(new Set([...yearsFromGoals, ...standardYears])).sort((a, b) => b - a);
 
   // Goal suggestions for quick add
   const goalSuggestions = [

@@ -2199,27 +2199,6 @@ export default function FocusRhythm() {
                 Outlook Not Connected
               </Badge>
             )}
-            <Select value={quarter.toString()} onValueChange={(v) => setQuarter(parseInt(v))}>
-              <SelectTrigger className="w-24" data-testid="select-quarter">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">Q1</SelectItem>
-                <SelectItem value="2">Q2</SelectItem>
-                <SelectItem value="3">Q3</SelectItem>
-                <SelectItem value="4">Q4</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={year.toString()} onValueChange={(v) => setYear(parseInt(v))}>
-              <SelectTrigger className="w-28" data-testid="select-year">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2024">2024</SelectItem>
-                <SelectItem value="2025">2025</SelectItem>
-                <SelectItem value="2026">2026</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
         </div>
 

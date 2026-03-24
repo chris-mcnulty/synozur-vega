@@ -168,11 +168,11 @@ export default function Planning() {
           </TabsList>
 
           <TabsContent value="okrs">
-            <OkrsSection okrs={okrs} quarter={quarter} year={year} />
+            <OkrsSection okrs={okrs} quarter={quarter} year={year} foundation={foundation} strategies={strategies} />
           </TabsContent>
 
           <TabsContent value="kpis">
-            <KpisSection kpis={kpis} quarter={quarter} year={year} />
+            <KpisSection kpis={kpis} quarter={quarter} year={year} foundation={foundation} />
           </TabsContent>
 
           <TabsContent value="rocks">
@@ -190,10 +190,12 @@ export default function Planning() {
   );
 }
 
-function OkrsSection({ okrs, quarter, year }: { okrs: Okr[]; quarter: number; year: number }) {
+function OkrsSection({ okrs, quarter, year, foundation, strategies = [] }: { okrs: Okr[]; quarter: number; year: number; foundation?: Foundation; strategies?: Strategy[] }) {
   const { toast } = useToast();
   const { currentTenant } = useTenant();
   const tenantId = currentTenant!.id;
+  const availableGoals: string[] = (foundation?.annualGoals || []).map(g => g.title);
+  const availableStrategies: string[] = strategies.map(s => s.title);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -749,10 +751,11 @@ function OkrsSection({ okrs, quarter, year }: { okrs: Okr[]; quarter: number; ye
   );
 }
 
-function KpisSection({ kpis, quarter, year }: { kpis: Kpi[]; quarter: number; year: number }) {
+function KpisSection({ kpis, quarter, year, foundation }: { kpis: Kpi[]; quarter: number; year: number; foundation?: Foundation }) {
   const { toast } = useToast();
   const { currentTenant } = useTenant();
   const tenantId = currentTenant!.id;
+  const availableGoals: string[] = (foundation?.annualGoals || []).map(g => g.title);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
