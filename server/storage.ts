@@ -36,6 +36,7 @@ import {
   blockedDomains, type BlockedDomain, type InsertBlockedDomain,
   pageVisits, type PageVisit, type InsertPageVisit,
   systemBanners, type SystemBanner, type InsertSystemBanner, BANNER_STATUS,
+  seoConfig, type SeoConfig, type InsertSeoConfig,
   landingPageSettings, type LandingPageSettings, type InsertLandingPageSettings,
   capabilitySection, type CapabilitySection, type InsertCapabilitySection,
   capabilityTabs, type CapabilityTab, type InsertCapabilityTab,
@@ -338,6 +339,10 @@ export interface IStorage {
   updateBanner(id: string, banner: Partial<InsertSystemBanner>): Promise<SystemBanner>;
   deleteBanner(id: string): Promise<void>;
   
+  // SEO Config
+  getSeoConfig(): Promise<SeoConfig | undefined>;
+  updateSeoConfig(config: Partial<InsertSeoConfig>, updatedBy?: string): Promise<SeoConfig>;
+
   // Landing Page Settings
   getLandingPageSettings(): Promise<LandingPageSettings | undefined>;
   updateLandingPageSettings(settings: Partial<InsertLandingPageSettings>): Promise<LandingPageSettings>;
@@ -3215,6 +3220,35 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBanner(id: string): Promise<void> {
     await db.delete(systemBanners).where(eq(systemBanners.id, id));
+  }
+
+  async getSeoConfig(): Promise<SeoConfig | undefined> {
+    const [config] = await db.select().from(seoConfig).limit(1);
+    return config || undefined;
+  }
+
+  async updateSeoConfig(config: Partial<InsertSeoConfig>, updatedBy?: string): Promise<SeoConfig> {
+    const existing = await this.getSeoConfig();
+    const updates = { ...config, updatedAt: new Date(), ...(updatedBy ? { updatedBy } : {}) };
+    if (existing) {
+      const [updated] = await db.update(seoConfig)
+        .set(updates)
+        .where(eq(seoConfig.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(seoConfig)
+        .values({
+          title: config.title || "Vega - The Synozur Alliance Company OS",
+          description: config.description || "Vega delivers the ultimate Company Operating System experience with AI-powered foundations, strategy, planning, and focus rhythm modules for modern organizations. Designed by former Microsoft Viva product leadership.",
+          ogDescription: config.ogDescription || "Vega delivers the ultimate Company Operating System experience. Designed by former Microsoft Viva product leadership.",
+          keywords: config.keywords || "company operating system, OKR software, strategy execution, AI-powered OKRs, business alignment, leadership cadence, Synozur, Vega",
+          canonicalUrl: config.canonicalUrl || "https://vega.synozur.com",
+          ...updates,
+        })
+        .returning();
+      return created;
+    }
   }
 
   async getLandingPageSettings(): Promise<LandingPageSettings | undefined> {

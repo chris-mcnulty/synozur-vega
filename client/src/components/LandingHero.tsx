@@ -119,6 +119,14 @@ function getSessionHeadlineIndex(): number {
   return index;
 }
 
+type SeoConfig = {
+  title: string;
+  description: string;
+  ogDescription: string;
+  keywords: string;
+  canonicalUrl: string;
+};
+
 export function LandingHero() {
   const [headlineIndex] = useState(() => {
     if (typeof window !== 'undefined') {
@@ -130,8 +138,17 @@ export function LandingHero() {
   const { data: landingSettings } = useQuery<{ heroMediaType: string }>({
     queryKey: ["/api/landing-settings"],
   });
+
+  const { data: seoConfig } = useQuery<SeoConfig>({
+    queryKey: ["/api/seo/config"],
+    staleTime: 5 * 60 * 1000,
+  });
   
   const heroMediaType = landingSettings?.heroMediaType || 'image';
+
+  const topicKeywords = seoConfig?.keywords
+    ? seoConfig.keywords.split(",").map(k => k.trim()).filter(Boolean).slice(0, 4)
+    : [];
 
   return (
     <>
@@ -164,9 +181,23 @@ export function LandingHero() {
               {heroHeadlines[headlineIndex]}
             </h1>
             
-            <p className="text-lg md:text-xl text-white/90 mb-6 md:mb-8 max-w-3xl mx-auto leading-relaxed" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
+            <p className="text-lg md:text-xl text-white/90 mb-4 md:mb-6 max-w-3xl mx-auto leading-relaxed" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
               Vega is an AI-augmented Company Operating System™ that connects strategy, OKRs, and leadership cadence in one place.
             </p>
+
+            {topicKeywords.length > 0 && (
+              <div className="flex flex-wrap justify-center gap-2 mb-6 md:mb-8" data-testid="hero-topic-tags">
+                {topicKeywords.map((kw) => (
+                  <span
+                    key={kw}
+                    className="text-xs bg-white/15 backdrop-blur-sm border border-white/25 text-white/90 px-3 py-1 rounded-full"
+                    data-testid={`topic-tag-${kw.replace(/\s+/g, '-').toLowerCase()}`}
+                  >
+                    {kw}
+                  </span>
+                ))}
+              </div>
+            )}
             
             <div className="flex flex-col sm:flex-row justify-center gap-4 mb-4">
               <Link href="/login?mode=signup">

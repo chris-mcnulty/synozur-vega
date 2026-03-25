@@ -1,4 +1,6 @@
+import { Helmet } from "react-helmet-async";
 import { LandingHero } from "@/components/LandingHero";
+import { LandingStructuredData } from "@/components/StructuredData";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -6,8 +8,10 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { SynozurAppSwitcher } from "@/components/SynozurAppSwitcher";
 import { Sparkles, TrendingUp, Target, CheckCircle2 } from "lucide-react";
+import type { SeoConfig } from "@shared/schema";
 import microsoftPartnerBadgeWhite from "@/assets/brand/MSFT-CAPP-PREFERRED-White_1767641957468.png";
 import microsoftPartnerBadgeBlack from "@/assets/brand/MSFT-CAPP-PREFERRED-BlackColor_1767641891731.png";
 import vegaLogo from "@/assets/brand/VegaTight_1766605018223.png";
@@ -38,10 +42,25 @@ const AI_TOOLS = [
   },
 ];
 
+const DEFAULT_SEO = {
+  title: "Vega - The Synozur Alliance Company OS",
+  description: "Vega delivers the ultimate Company Operating System experience with AI-powered foundations, strategy, planning, and focus rhythm modules for modern organizations. Designed by former Microsoft Viva product leadership.",
+  ogDescription: "Vega delivers the ultimate Company Operating System experience. Designed by former Microsoft Viva product leadership.",
+  keywords: "company operating system, OKR software, strategy execution, AI-powered OKRs, business alignment, leadership cadence, Synozur, Vega",
+  canonicalUrl: "https://vega.synozur.com",
+};
+
 export default function Landing() {
   const { isAuthenticated, isLoading } = useAuth();
   const [, setLocation] = useLocation();
   const [isScrolled, setIsScrolled] = useState(false);
+
+  const { data: seoConfig } = useQuery<SeoConfig>({
+    queryKey: ["/api/seo/config"],
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const seo = seoConfig || DEFAULT_SEO;
 
   useEffect(() => {
     if (!isLoading && isAuthenticated) {
@@ -79,6 +98,27 @@ export default function Landing() {
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden">
+      <Helmet>
+        <title>{seo.title}</title>
+        <meta name="description" content={seo.description} />
+        <meta name="keywords" content={seo.keywords} />
+        <link rel="canonical" href={seo.canonicalUrl} />
+        <meta property="og:type" content="website" />
+        <meta property="og:title" content={seo.title} />
+        <meta property="og:description" content={seo.ogDescription} />
+        <meta property="og:url" content={seo.canonicalUrl} />
+        <meta property="og:site_name" content="Vega" />
+        <meta property="og:image" content="https://vega.synozur.com/og-image.png?v=2" />
+        <meta property="og:image:width" content="1280" />
+        <meta property="og:image:height" content="720" />
+        <meta property="og:image:alt" content="Vega - Company Operating System | The Synozur Alliance" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={seo.title} />
+        <meta name="twitter:description" content={seo.ogDescription} />
+        <meta name="twitter:image" content="https://vega.synozur.com/og-image.png?v=2" />
+        <meta name="twitter:image:alt" content="Vega - Company Operating System | The Synozur Alliance" />
+      </Helmet>
+      <LandingStructuredData config={seo} />
       {/* Sticky Header */}
       <div className="fixed top-0 left-0 right-0 z-50">
         <nav className={`transition-all duration-200 border-b ${isScrolled ? 'bg-background/95 backdrop-blur-md border-border' : 'bg-white/95 dark:bg-black/50 backdrop-blur-sm border-transparent'}`}>

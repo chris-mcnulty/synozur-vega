@@ -3000,7 +3000,90 @@ ${changelogContent}`;
     }
   });
 
-  // Get landing page settings (public - for display on homepage)
+  // ============================================
+  // SEO CONFIG
+  // ============================================
+
+  // Serve robots.txt (public)
+  app.get("/robots.txt", async (req: Request, res: Response) => {
+    try {
+      const config = await storage.getSeoConfig();
+      const canonicalUrl = config?.canonicalUrl || "https://vega.synozur.com";
+      const sitemapUrl = `${canonicalUrl}/sitemap.xml`;
+      const content = `User-agent: *\nAllow: /\nDisallow: /dashboard\nDisallow: /api/\nSitemap: ${sitemapUrl}\n`;
+      res.type("text/plain").send(content);
+    } catch (error) {
+      console.error("Error serving robots.txt:", error);
+      res.type("text/plain").send("User-agent: *\nAllow: /\n");
+    }
+  });
+
+  // Serve sitemap.xml (public)
+  app.get("/sitemap.xml", async (req: Request, res: Response) => {
+    try {
+      const config = await storage.getSeoConfig();
+      const baseUrl = config?.canonicalUrl || "https://vega.synozur.com";
+      const today = new Date().toISOString().split("T")[0];
+      const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>${baseUrl}/</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}/login</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
+  <url>
+    <loc>${baseUrl}/about</loc>
+    <lastmod>${today}</lastmod>
+    <changefreq>monthly</changefreq>
+    <priority>0.5</priority>
+  </url>
+</urlset>`;
+      res.type("application/xml").send(xml);
+    } catch (error) {
+      console.error("Error serving sitemap.xml:", error);
+      res.status(500).send("<?xml version=\"1.0\" encoding=\"UTF-8\"?><urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\"></urlset>");
+    }
+  });
+
+  // Get SEO config (public - used by landing page)
+  app.get("/api/seo/config", async (req: Request, res: Response) => {
+    try {
+      const config = await storage.getSeoConfig();
+      res.json(config || {
+        title: "Vega - The Synozur Alliance Company OS",
+        description: "Vega delivers the ultimate Company Operating System experience with AI-powered foundations, strategy, planning, and focus rhythm modules for modern organizations. Designed by former Microsoft Viva product leadership.",
+        ogDescription: "Vega delivers the ultimate Company Operating System experience. Designed by former Microsoft Viva product leadership.",
+        keywords: "company operating system, OKR software, strategy execution, AI-powered OKRs, business alignment, leadership cadence, Synozur, Vega",
+        canonicalUrl: "https://vega.synozur.com",
+      });
+    } catch (error) {
+      console.error("Error fetching SEO config:", error);
+      res.status(500).json({ error: "Failed to fetch SEO config" });
+    }
+  });
+
+  // Update SEO config (platform admin only)
+  app.patch("/api/seo/config", ...platformAdminOnly, async (req: Request, res: Response) => {
+    try {
+      const { title, description, ogDescription, keywords, canonicalUrl } = req.body;
+      const config = await storage.updateSeoConfig(
+        { title, description, ogDescription, keywords, canonicalUrl },
+        req.user!.id
+      );
+      res.json(config);
+    } catch (error) {
+      console.error("Error updating SEO config:", error);
+      res.status(500).json({ error: "Failed to update SEO config" });
+    }
+  });
+
   app.get("/api/landing-settings", async (req: Request, res: Response) => {
     try {
       const settings = await storage.getLandingPageSettings();

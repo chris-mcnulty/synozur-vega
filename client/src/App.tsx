@@ -1,3 +1,4 @@
+import { HelmetProvider } from "react-helmet-async";
 import { Switch, Route } from "wouter";
 import { cn } from "@/lib/utils";
 import { queryClient } from "./lib/queryClient";
@@ -547,6 +548,7 @@ function App() {
   };
 
   return (
+    <HelmetProvider>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <ThemeProvider>
@@ -567,6 +569,7 @@ function App() {
         </ThemeProvider>
       </QueryClientProvider>
     </ErrorBoundary>
+    </HelmetProvider>
   );
 }
 

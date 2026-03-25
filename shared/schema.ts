@@ -99,6 +99,26 @@ export const insertSystemBannerSchema = createInsertSchema(systemBanners).omit({
 export type InsertSystemBanner = z.infer<typeof insertSystemBannerSchema>;
 export type SystemBanner = typeof systemBanners.$inferSelect;
 
+// SEO Config - manages landing page SEO metadata
+export const seoConfig = pgTable("seo_config", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  title: text("title").notNull().default("Vega - The Synozur Alliance Company OS"),
+  description: text("description").notNull().default("Vega delivers the ultimate Company Operating System experience with AI-powered foundations, strategy, planning, and focus rhythm modules for modern organizations. Designed by former Microsoft Viva product leadership."),
+  ogDescription: text("og_description").notNull().default("Vega delivers the ultimate Company Operating System experience. Designed by former Microsoft Viva product leadership."),
+  keywords: text("keywords").notNull().default("company operating system, OKR software, strategy execution, AI-powered OKRs, business alignment, leadership cadence, Synozur, Vega"),
+  canonicalUrl: text("canonical_url").notNull().default("https://vega.synozur.com"),
+  updatedBy: varchar("updated_by"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const insertSeoConfigSchema = createInsertSchema(seoConfig).omit({
+  id: true,
+  updatedAt: true,
+});
+
+export type InsertSeoConfig = z.infer<typeof insertSeoConfigSchema>;
+export type SeoConfig = typeof seoConfig.$inferSelect;
+
 // Landing page settings - controls landing page hero media and other settings
 export const HERO_MEDIA_TYPE = {
   IMAGE: 'image',

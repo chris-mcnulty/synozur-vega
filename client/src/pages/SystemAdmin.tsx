@@ -936,7 +936,7 @@ export default function SystemAdmin() {
       <Tabs defaultValue={(() => {
         const params = new URLSearchParams(window.location.search);
         const tab = params.get('tab');
-        const validTabs = ['vocabulary', 'ai-usage', 'ai-config', 'plans', 'security', 'tenants', 'traffic', 'announcements', 'jobs', 'support'];
+        const validTabs = ['vocabulary', 'ai-usage', 'ai-config', 'plans', 'security', 'tenants', 'traffic', 'announcements', 'jobs', 'support', 'seo'];
         return tab && validTabs.includes(tab) ? tab : 'vocabulary';
       })()} className="space-y-4">
         <div className="w-full overflow-x-auto pb-1">
@@ -980,6 +980,10 @@ export default function SystemAdmin() {
             <TabsTrigger value="support" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-support">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span className="text-xs sm:text-sm">Support</span>
+            </TabsTrigger>
+            <TabsTrigger value="seo" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-seo">
+              <Globe className="h-4 w-4 shrink-0" />
+              <span className="text-xs sm:text-sm">SEO</span>
             </TabsTrigger>
           </TabsList>
         </div>
@@ -1879,6 +1883,9 @@ export default function SystemAdmin() {
         </TabsContent>
         <TabsContent value="support" className="space-y-4">
           <AdminSupportTab />
+        </TabsContent>
+        <TabsContent value="seo" className="space-y-4">
+          <SeoSettingsPanel />
         </TabsContent>
       </Tabs>
 
@@ -2983,5 +2990,255 @@ function CapabilityShowcaseSettings() {
         </DialogContent>
       </Dialog>
     </>
+  );
+}
+
+type SeoConfigData = {
+  title: string;
+  description: string;
+  ogDescription: string;
+  keywords: string;
+  canonicalUrl: string;
+};
+
+function SeoSettingsPanel() {
+  const { toast } = useToast();
+
+  const { data: config, isLoading } = useQuery<SeoConfigData>({
+    queryKey: ["/api/seo/config"],
+  });
+
+  const [formData, setFormData] = useState<SeoConfigData>({
+    title: "",
+    description: "",
+    ogDescription: "",
+    keywords: "",
+    canonicalUrl: "",
+  });
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    if (config) {
+      setFormData({
+        title: config.title || "",
+        description: config.description || "",
+        ogDescription: config.ogDescription || "",
+        keywords: config.keywords || "",
+        canonicalUrl: config.canonicalUrl || "",
+      });
+      setHasChanges(false);
+    }
+  }, [config]);
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: SeoConfigData) => {
+      const res = await apiRequest("PATCH", "/api/seo/config", data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/seo/config"] });
+      setHasChanges(false);
+      toast({ title: "SEO settings saved", description: "Changes are live on the landing page." });
+    },
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to save SEO settings", variant: "destructive" });
+    },
+  });
+
+  const updateField = (field: keyof SeoConfigData, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    setHasChanges(true);
+  };
+
+  const handleSave = () => {
+    updateMutation.mutate(formData);
+  };
+
+  const handleReset = () => {
+    if (config) {
+      setFormData({
+        title: config.title || "",
+        description: config.description || "",
+        ogDescription: config.ogDescription || "",
+        keywords: config.keywords || "",
+        canonicalUrl: config.canonicalUrl || "",
+      });
+      setHasChanges(false);
+    }
+  };
+
+  if (isLoading) {
+    return <div className="text-muted-foreground text-sm">Loading SEO settings...</div>;
+  }
+
+  const titlePreview = formData.title || "Vega - The Synozur Alliance Company OS";
+  const descPreview = formData.description || "";
+  const urlPreview = formData.canonicalUrl || "https://vega.synozur.com";
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Globe className="h-5 w-5" />
+            SEO Settings
+          </CardTitle>
+          <CardDescription>
+            Manage the landing page's search engine metadata. Changes take effect immediately.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="seo-title">Page Title</Label>
+            <Input
+              id="seo-title"
+              value={formData.title}
+              onChange={(e) => updateField("title", e.target.value)}
+              placeholder="Vega - The Synozur Alliance Company OS"
+              maxLength={70}
+              data-testid="input-seo-title"
+            />
+            <p className="text-xs text-muted-foreground">{formData.title.length}/70 characters — recommended 50–60</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="seo-description">Meta Description</Label>
+            <Textarea
+              id="seo-description"
+              value={formData.description}
+              onChange={(e) => updateField("description", e.target.value)}
+              placeholder="Describe the landing page for search engines..."
+              rows={3}
+              maxLength={160}
+              data-testid="input-seo-description"
+            />
+            <p className="text-xs text-muted-foreground">{formData.description.length}/160 characters — recommended 120–155</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="seo-og-description">OG / Social Description</Label>
+            <Textarea
+              id="seo-og-description"
+              value={formData.ogDescription}
+              onChange={(e) => updateField("ogDescription", e.target.value)}
+              placeholder="Shorter description for social media previews..."
+              rows={2}
+              maxLength={200}
+              data-testid="input-seo-og-description"
+            />
+            <p className="text-xs text-muted-foreground">Shown in Open Graph and Twitter Card previews</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="seo-keywords">Keywords</Label>
+            <Input
+              id="seo-keywords"
+              value={formData.keywords}
+              onChange={(e) => updateField("keywords", e.target.value)}
+              placeholder="company operating system, OKR software, strategy execution..."
+              data-testid="input-seo-keywords"
+            />
+            <p className="text-xs text-muted-foreground">Comma-separated list of target keywords</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="seo-canonical">Canonical URL</Label>
+            <Input
+              id="seo-canonical"
+              value={formData.canonicalUrl}
+              onChange={(e) => updateField("canonicalUrl", e.target.value)}
+              placeholder="https://vega.synozur.com"
+              data-testid="input-seo-canonical"
+            />
+            <p className="text-xs text-muted-foreground">The authoritative URL — also used in sitemap.xml and robots.txt</p>
+          </div>
+
+          <div className="flex gap-2 pt-2">
+            <Button
+              onClick={handleSave}
+              disabled={!hasChanges || updateMutation.isPending}
+              data-testid="button-seo-save"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {updateMutation.isPending ? "Saving..." : "Save SEO Settings"}
+            </Button>
+            {hasChanges && (
+              <Button variant="outline" onClick={handleReset} data-testid="button-seo-reset">
+                <RotateCcw className="h-4 w-4 mr-2" />
+                Reset
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Google Search Result Preview */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Search Result Preview</CardTitle>
+          <CardDescription>How this page may appear in Google search results</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-md border bg-muted/30 p-4 space-y-1 font-sans">
+            <p className="text-xs text-muted-foreground truncate">{urlPreview}</p>
+            <p
+              className="text-base font-medium text-blue-600 dark:text-blue-400 leading-snug line-clamp-1"
+              data-testid="preview-seo-title"
+            >
+              {titlePreview}
+            </p>
+            <p
+              className="text-sm text-muted-foreground line-clamp-2 leading-snug"
+              data-testid="preview-seo-description"
+            >
+              {descPreview}
+            </p>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            Actual appearance may vary. Google may rewrite titles and descriptions.
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Quick links */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Technical SEO Files</CardTitle>
+          <CardDescription>Automatically generated from the canonical URL above</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">robots.txt</p>
+              <p className="text-xs text-muted-foreground">Allows all crawlers, blocks /api/ and /dashboard</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open("/robots.txt", "_blank")}
+              data-testid="button-view-robots"
+            >
+              <ExternalLink className="h-3 w-3 mr-1" />
+              View
+            </Button>
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium">sitemap.xml</p>
+              <p className="text-xs text-muted-foreground">Lists all public pages with priority and changefreq</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open("/sitemap.xml", "_blank")}
+              data-testid="button-view-sitemap"
+            >
+              <ExternalLink className="h-3 w-3 mr-1" />
+              View
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 }
