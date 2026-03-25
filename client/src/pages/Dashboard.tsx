@@ -509,14 +509,14 @@ export default function Dashboard() {
           </CardContent>
         </Card>
 
-        {/* Quarterly Big Rocks and OKRs Grid */}
+        {/* Big Rocks and OKRs Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {/* Quarterly Big Rocks */}
+          {/* Big Rocks */}
           <div>
             <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 text-primary" />
-              <h2 className="text-xl font-semibold">Quarterly {t('bigRock', 'plural')}</h2>
+              <h2 className="text-xl font-semibold">{t('bigRock', 'plural')}</h2>
             </div>
             <Link href="/planning">
               <Button variant="ghost" size="sm" className="gap-2" data-testid="link-rocks">

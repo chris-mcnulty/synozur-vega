@@ -76,7 +76,8 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
     };
 
     const [foundation, strategies, objectives, keyResults, bigRocks, teams, groundingDocs, meetings, vocabulary] = await Promise.all([
-      filters.includeFoundations ? storage.getFoundationByTenantId(effectiveTenantId) : Promise.resolve(undefined),
+      // Always fetch foundation - needed for Goals (Outcomes section) even when includeFoundations is false
+      storage.getFoundationByTenantId(effectiveTenantId),
       filters.includeStrategies ? storage.getStrategiesByTenantId(effectiveTenantId) : Promise.resolve([]),
       storage.getObjectivesByTenantId(effectiveTenantId, filters.quarter, filters.year),
       storage.getKeyResultsByTenantId(effectiveTenantId),
@@ -289,7 +290,8 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
     }
 
     // Annual Goals in Outcomes section (after OKRs and Big Rocks)
-    if (filters.includeFoundations && foundation) {
+    // Gated on includeObjectives since Goals belong in Outcomes, not Foundations
+    if (filters.includeObjectives && foundation) {
       const ambitions = foundation.ambitions as Array<{ id?: string; title?: string; description?: string; targetYear?: number; status?: string; linkedValueTitles?: string[] }> | null;
       if (foundation.annualGoals && foundation.annualGoals.length > 0) {
         markdown += `## Annual ${v('goal', 'plural')} (${filters.year || new Date().getFullYear()})\n\n`;
@@ -452,7 +454,7 @@ router.get("/company-os", requireAuth, async (req: Request, res: Response) => {
         filters,
         foundation: foundationForJson,
         strategies: filters.includeStrategies ? strategies : undefined,
-        annualGoals: filters.includeFoundations && foundation?.annualGoals ? foundation.annualGoals : undefined,
+        annualGoals: filters.includeObjectives && foundation?.annualGoals ? foundation.annualGoals : undefined,
         objectives: filters.includeObjectives ? filteredObjectives.map((obj: Objective) => ({
           ...obj,
           keyResults: keyResultsMap[obj.id] || [],

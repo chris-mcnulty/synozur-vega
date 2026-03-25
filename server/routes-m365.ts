@@ -998,6 +998,7 @@ router.post('/key-results/:id/sync-excel', async (req: Request, res: Response) =
     let excelLastSyncValue: number | null = null;
     let excelSyncError: string | null = null;
     
+    let needsRelink = false;
     try {
       const cellRef = keyResult.excelSheetName 
         ? `${keyResult.excelSheetName}!${keyResult.excelCellReference}`
@@ -1020,7 +1021,11 @@ router.post('/key-results/:id/sync-excel', async (req: Request, res: Response) =
       }
     } catch (err: any) {
       console.error('[Excel] Failed to read cell during sync:', err);
-      excelSyncError = `Failed to read cell: ${err.message}`;
+      // Detect token/auth failures and surface them as a reconnect prompt
+      needsRelink = /token|expired|unauthorized|unauthenticated|forbidden|401|403/i.test(err.message || '');
+      excelSyncError = needsRelink
+        ? 'Microsoft 365 token expired — please reconnect your OneDrive/SharePoint account via My Settings'
+        : `Failed to read cell: ${err.message}`;
     }
     
     // Update the key result
@@ -1090,6 +1095,7 @@ router.post('/key-results/:id/sync-excel', async (req: Request, res: Response) =
       keyResult: updatedKR,
       syncedValue: excelLastSyncValue,
       syncError: excelSyncError,
+      needsRelink,
       previousValue: keyResult.currentValue,
     });
   } catch (error: any) {

@@ -267,7 +267,7 @@ Return a JSON object with these fields:
 - mission: Mission statement if present (extract verbatim)
 - vision: Vision statement if present (extract verbatim)
 - values: Array of {title, description} - extract ALL values listed
-- ambitions: Array of {title, description, targetYear} for 3-5 year strategic targets (BHAGs, long-term aspirations). These are multi-year aspirational goals that define where the organization wants to be in 3-5 years. Examples: "Become the #1 market leader in our space", "Achieve $100M ARR by 2028", "Expand to 10 international markets"
+- ambitions: Array of {title, description, targetYear} for 3-5 year strategic targets (BHAGs, long-term aspirations). These are multi-year aspirational goals that define where the organization wants to be in 3-5 years. Examples: "Become the #1 market leader in our space", "Achieve $100M ARR by 2028", "Expand to 10 international markets". IMPORTANT: Always include 2-4 ambitions — extract from the document if explicitly stated, otherwise infer them from the overall strategic direction of the document. Set targetYear to a number (e.g., 2028) 3-5 years from now.
 - goals: Array of {title, description} for annual goals/targets
   IMPORTANT: Goal titles MUST be descriptive phrases (3-8 words), not single words
 - strategies: Array of {title, description, linkedGoals} - extract ALL strategies
@@ -327,7 +327,7 @@ Return a JSON object with these fields:
 - mission: A concise mission statement (1-2 sentences) - extract if present, or infer from document
 - vision: A compelling vision statement (1-2 sentences) - extract if present, or infer from document
 - values: Array of {title, description} for core values - extract or infer from document
-- ambitions: Array of {title, description, targetYear} for 3-5 year strategic targets (BHAGs, long-term aspirations). These are multi-year aspirational goals that define where the organization wants to be in 3-5 years. Generate 2-4 ambitious, aspirational targets. Examples: "Become the #1 market leader in our space", "Achieve $100M ARR by 2028", "Expand to 10 international markets". Set targetYear to 3-5 years from the current target year.
+- ambitions: Array of {title, description, targetYear} for 3-5 year strategic targets (BHAGs, long-term aspirations). These are multi-year aspirational goals that define where the organization wants to be in 3-5 years. IMPORTANT: Always generate 2-4 ambitious, aspirational targets inferred from the document. Examples: "Become the #1 market leader in our space", "Achieve $100M ARR by 2028", "Expand to 10 international markets". Set targetYear to a specific year number (e.g., 2028) 3-5 years from now.
 - goals: Array of {title, description} for annual goals/targets
   IMPORTANT: Goal titles MUST be descriptive phrases of 3-8 words that convey the goal's intent.
   Examples of GOOD goal titles: "Increase recurring revenue by 25%", "Expand into European markets"

@@ -351,12 +351,25 @@ async function getMicrosoftClient(connectorType: ConnectorType = 'outlook', user
   // If userId is provided, try user's delegated token first (for multi-tenant access)
   if (userId) {
     console.log(`[Graph] Attempting user delegated token for ${connectorType}...`);
-    const userClient = await getUserGraphClient(userId);
-    if (userClient) {
-      console.log(`[Graph] SUCCESS: Using user delegated token for ${connectorType}`);
-      return userClient;
+
+    // Map connector type to the primary and fallback services to try.
+    // Entra SSO tokens are stored under 'planner'; OneDrive/SharePoint tokens may be stored
+    // separately. Try the most specific match first, then broader fallbacks.
+    const serviceOrder: string[] =
+      connectorType === 'outlook'
+        ? ['outlook', 'planner']
+        : connectorType === 'sharepoint'
+        ? ['sharepoint', 'onedrive', 'planner']
+        : ['onedrive', 'sharepoint', 'planner']; // onedrive + excel
+
+    for (const service of serviceOrder) {
+      const userClient = await getUserGraphClient(userId, service);
+      if (userClient) {
+        console.log(`[Graph] SUCCESS: Using user delegated token (${service}) for ${connectorType}`);
+        return userClient;
+      }
     }
-    console.log(`[Graph] User token not available, trying Entra app fallback for ${connectorType}`);
+    console.log(`[Graph] User token not available for any service, trying Entra app fallback for ${connectorType}`);
   }
   
   // Try Entra app credentials as second priority (for tenant-level access)

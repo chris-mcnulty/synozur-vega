@@ -3527,6 +3527,138 @@ ${changelogContent}`;
     }
   );
 
+  // Register Excel auto-sync job - runs every 2 hours
+  await jobScheduler.registerJob(
+    'excel-auto-sync',
+    'Excel Key Result Auto-Sync',
+    'Automatically syncs all Excel-linked Key Results for all tenants using stored user tokens',
+    'integration',
+    'Every 2 hours',
+    7200000, // 2 hours
+    async () => {
+      const { getExcelCellValue } = await import('./microsoftGraph');
+      const allKRs = await storage.getAllKeyResults();
+      const excelLinkedKRs = allKRs.filter(
+        (kr: any) => kr.excelFileId && kr.excelCellReference
+      );
+
+      if (excelLinkedKRs.length === 0) {
+        return { summary: 'No Excel-linked Key Results found' };
+      }
+
+      let synced = 0;
+      let skipped = 0;
+      let failed = 0;
+      const details: any[] = [];
+
+      for (const kr of excelLinkedKRs) {
+        // Find a user in the tenant to use as the auth context.
+        // Prefer the KR owner, then any tenant user with a graph token.
+        let authUserId: string | undefined;
+        try {
+          const tenantUsers = await storage.getAllUsers(kr.tenantId);
+          // Try the KR's ownerEmail first
+          if (kr.ownerEmail) {
+            const owner = tenantUsers.find((u: any) => u.email === kr.ownerEmail);
+            if (owner) authUserId = owner.id;
+          }
+          // Fall back to any tenant user that has a graph token on record (try all service types)
+          if (!authUserId) {
+            const tokenServices = ['onedrive', 'sharepoint', 'planner'];
+            outer: for (const u of tenantUsers) {
+              for (const svc of tokenServices) {
+                const tok = await storage.getGraphToken(u.id, svc);
+                if (tok?.accessToken) { authUserId = u.id; break outer; }
+              }
+            }
+          }
+        } catch (_) {}
+
+        if (!authUserId) {
+          skipped++;
+          details.push({ kr: kr.title, status: 'skipped', reason: 'No auth user found' });
+          continue;
+        }
+
+        try {
+          const cellRef = kr.excelSheetName
+            ? `${kr.excelSheetName}!${kr.excelCellReference}`
+            : kr.excelCellReference;
+
+          const cellValue = await getExcelCellValue(
+            kr.excelFileId,
+            cellRef,
+            (kr.excelSourceType as 'onedrive' | 'sharepoint') || 'onedrive',
+            undefined,
+            kr.excelDriveId || undefined,
+            authUserId
+          );
+
+          if (cellValue.numberValue !== undefined) {
+            const initial = kr.initialValue ?? 0;
+            const target = kr.targetValue ?? 100;
+            const range = target - initial;
+            const updateData: any = {
+              excelLastSyncAt: new Date(),
+              excelLastSyncValue: cellValue.numberValue,
+              excelSyncError: null,
+            };
+
+            if (range !== 0) {
+              const previousValue = kr.currentValue ?? initial;
+              updateData.currentValue = cellValue.numberValue;
+              updateData.progress = Math.min(100, Math.max(0, ((cellValue.numberValue - initial) / range) * 100));
+
+              if (cellValue.numberValue !== previousValue) {
+                const prevProgress = Math.min(100, Math.max(0, ((previousValue - initial) / range) * 100));
+                const newProgress = updateData.progress;
+                try {
+                  await storage.createCheckIn({
+                    tenantId: kr.tenantId,
+                    entityType: 'key_result',
+                    entityId: kr.id,
+                    previousValue,
+                    newValue: cellValue.numberValue,
+                    previousProgress: prevProgress,
+                    newProgress,
+                    note: `Auto-synced from Excel: ${kr.excelFileName || 'linked file'}`,
+                    userId: authUserId,
+                    userEmail: '',
+                    asOfDate: new Date() as any,
+                  });
+                } catch (_) {}
+              }
+            }
+
+            await storage.updateKeyResult(kr.id, updateData);
+            synced++;
+            details.push({ kr: kr.title, status: 'synced', value: cellValue.numberValue });
+          } else {
+            skipped++;
+            details.push({ kr: kr.title, status: 'skipped', reason: 'No numeric value in cell' });
+          }
+        } catch (err: any) {
+          failed++;
+          const errorMsg = err.message || 'Unknown error';
+          const needsRelink = /token|expired|unauthorized|unauthenticated|forbidden|401|403/i.test(errorMsg);
+          await storage.updateKeyResult(kr.id, {
+            excelLastSyncAt: new Date(),
+            excelSyncError: needsRelink
+              ? 'Token expired — owner needs to reconnect via the Key Result settings'
+              : `Sync failed: ${errorMsg}`,
+          });
+          details.push({ kr: kr.title, status: 'failed', error: errorMsg, needsRelink });
+          console.error(`[ExcelAutoSync] Failed for KR "${kr.title}":`, errorMsg);
+        }
+      }
+
+      return {
+        summary: `Excel sync: ${synced} synced, ${skipped} skipped, ${failed} failed`,
+        details: { synced, skipped, failed, keyResults: details },
+      };
+    }
+  );
+
   // Register reminder cache reset job - runs once daily at midnight Pacific  
   await jobScheduler.registerJob(
     'reminder-cache-reset',

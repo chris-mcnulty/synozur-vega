@@ -272,7 +272,8 @@ export default function ExecutiveDashboard() {
     queryKey: ["/api/okr/check-ins/all", currentTenant?.id],
     queryFn: async () => {
       if (!currentTenant) return [];
-      const res = await fetch(`/api/okr/check-ins?entityType=all&entityId=all`, {
+      const params = new URLSearchParams({ entityType: 'all', entityId: 'all', tenantId: currentTenant.id });
+      const res = await fetch(`/api/okr/check-ins?${params}`, {
         credentials: 'include',
         headers: getHeaders(),
       });
@@ -500,11 +501,13 @@ export default function ExecutiveDashboard() {
       .slice(0, 3);
 
     // Progress trend data from check-ins (aggregate by week)
-    // Only use key result check-ins as they have reliable progress data
+    // Only use key result check-ins from the current selected year
+    const trendYear = currentQuarter?.year ?? new Date().getFullYear();
     const weekMap = new Map<string, { totalProgress: number; count: number; timestamp: number }>();
     
     allCheckIns.forEach(ci => {
-      if (ci.createdAt && ci.entityType === 'key_result') {
+      if (ci.createdAt && ci.entityType === 'key_result' &&
+          new Date(ci.createdAt).getFullYear() === trendYear) {
         const date = new Date(ci.createdAt);
         const weekStart = new Date(date);
         weekStart.setDate(date.getDate() - date.getDay());
@@ -680,7 +683,7 @@ export default function ExecutiveDashboard() {
       paceDistribution,
       avgProjectedProgress,
     };
-  }, [objectives, keyResultsMap, teams, allCheckIns, bigRocks]);
+  }, [objectives, keyResultsMap, teams, allCheckIns, bigRocks, currentQuarter]);
   
   // Extract pace distribution for easier access in JSX
   const paceDistribution = metrics?.paceDistribution || { ahead: 0, onTrack: 0, behind: 0, atRisk: 0, noData: 0, completed: 0 };
