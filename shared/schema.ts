@@ -717,7 +717,7 @@ export const meetings = pgTable("meetings", {
   attendees: jsonb("attendees").$type<string[]>(),
   summary: text("summary"),
   decisions: jsonb("decisions").$type<string[]>(),
-  actionItems: jsonb("action_items").$type<ActionItem[]>(),
+  actionItems: jsonb("action_items").$type<string[]>(),
   nextMeetingDate: timestamp("next_meeting_date"),
 
   // Focus Rhythm enhancements
