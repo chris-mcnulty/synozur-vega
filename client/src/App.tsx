@@ -20,7 +20,7 @@ import { VocabularyProvider } from "@/contexts/VocabularyContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { TimePeriodProvider, useTimePeriod } from "@/contexts/TimePeriodContext";
 import { ErrorBoundary, RouteErrorBoundary, PageLoadingFallback, FullPageLoadingFallback } from "@/components/ErrorBoundary";
-import { Sparkles, HelpCircle, CalendarRange, ChevronLeft, ChevronRight } from "lucide-react";
+import { Sparkles, HelpCircle, CalendarRange, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -28,6 +28,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { getCurrentQuarter } from "@/lib/fiscal-utils";
+import { CommandPalette } from "@/components/CommandPalette";
 import React, { useState, Suspense, lazy } from "react";
 import { useLocation } from "wouter";
 
@@ -49,6 +50,7 @@ import NotFound from "@/pages/not-found";
 // reducing the initial bundle size significantly
 
 const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const MyFocus = lazy(() => import("@/pages/MyFocus"));
 const ExecutiveDashboard = lazy(() => import("@/pages/ExecutiveDashboard"));
 const TeamDashboard = lazy(() => import("@/pages/TeamDashboard"));
 const Foundations = lazy(() => import("@/pages/Foundations"));
@@ -323,7 +325,19 @@ function GlobalTimePeriodSelector({ className }: { className?: string }) {
 function ModuleLayout({ children }: { children: React.ReactNode }) {
   const [chatOpen, setChatOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
   const [, setLocation] = useLocation();
+
+  React.useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.key === "k" && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault();
+        setCommandOpen((open) => !open);
+      }
+    };
+    document.addEventListener("keydown", down);
+    return () => document.removeEventListener("keydown", down);
+  }, []);
   const { currentTenant } = useTenant();
   const { theme } = useTheme();
   const tenantLogo = theme === 'dark' && currentTenant?.logoUrlDark
@@ -348,6 +362,19 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
             <GlobalTimePeriodSelector className="hidden sm:flex" />
           </div>
           <div className="flex items-center gap-1 md:gap-4 flex-shrink-0">
+            <Button
+              variant="outline"
+              size="sm"
+              className="hidden md:flex items-center gap-2 text-muted-foreground"
+              onClick={() => setCommandOpen(true)}
+              data-testid="button-command-palette"
+            >
+              <Search className="h-3.5 w-3.5" />
+              <span className="text-sm">Search...</span>
+              <kbd className="ml-2 pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
+                <span className="text-xs">⌘</span>K
+              </kbd>
+            </Button>
             <div className="hidden lg:block">
               <ConsultingModeToggle />
             </div>
@@ -393,6 +420,7 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
         </div>
       </div>
       <WhatsNewModal />
+      <CommandPalette open={commandOpen} onOpenChange={setCommandOpen} />
     </div>
   );
 }
@@ -427,6 +455,11 @@ function Router() {
       <Route path="/dashboard">
         <LazyProtectedRoute>
           <Dashboard />
+        </LazyProtectedRoute>
+      </Route>
+      <Route path="/focus">
+        <LazyProtectedRoute>
+          <MyFocus />
         </LazyProtectedRoute>
       </Route>
       <Route path="/executive">
