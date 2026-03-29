@@ -80,8 +80,9 @@ interface RowData {
 }
 
 function buildRows(snapshots: HeatmapSnapshot[]): RowData[] {
-  // Group snapshots by reviewType and period
+  // Group snapshots by reviewType and period, tracking the most recent snapshot date
   const reviewTypeMap: Record<string, Record<string, number | null>> = {};
+  const latestDateMap: Record<string, Record<string, string>> = {};
 
   for (const s of snapshots) {
     const periodKey = s.quarter && s.year
@@ -97,11 +98,14 @@ function buildRows(snapshots: HeatmapSnapshot[]): RowData[] {
 
     if (!reviewTypeMap[rowKey]) {
       reviewTypeMap[rowKey] = {};
+      latestDateMap[rowKey] = {};
     }
-    // If multiple snapshots for same period+reviewType, take latest (highest progress or most recent)
-    const existing = reviewTypeMap[rowKey][periodKey];
-    if (existing === undefined || existing === null || (s.overallProgress !== null && s.overallProgress > existing)) {
+
+    // If multiple snapshots exist for the same period+reviewType, keep the most recent by snapshotDate
+    const existingDate = latestDateMap[rowKey][periodKey];
+    if (!existingDate || s.snapshotDate > existingDate) {
       reviewTypeMap[rowKey][periodKey] = s.overallProgress;
+      latestDateMap[rowKey][periodKey] = s.snapshotDate;
     }
   }
 
