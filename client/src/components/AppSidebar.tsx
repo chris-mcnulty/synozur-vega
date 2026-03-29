@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2, Rocket, Info, FileText, ChevronDown, LifeBuoy, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2, Rocket, Info, FileText, ChevronDown, LifeBuoy, Activity, type LucideIcon } from "lucide-react";
 import { SynozurAppSwitcher } from "./SynozurAppSwitcher";
 import {
   Sidebar,
@@ -57,6 +57,7 @@ const navigationSections: NavigationSection[] = [
     defaultExpanded: true,
     items: [
       { title: 'Company OS', url: '/dashboard', icon: LayoutDashboard, testId: 'sidebar-company-os' },
+      { title: 'My Focus', url: '/focus', icon: Activity, testId: 'sidebar-my-focus' },
       { title: 'Executive', url: '/executive', icon: BarChart2, testId: 'sidebar-executive' },
       { title: 'Team Mode', url: '/team', icon: Users, testId: 'sidebar-team-mode' }
     ]

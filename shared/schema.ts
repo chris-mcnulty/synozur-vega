@@ -697,24 +697,35 @@ export const MEETING_TEMPLATES: MeetingTemplate[] = [
   },
 ];
 
+export type ActionItem = {
+  id: string;
+  description: string;
+  assignee?: string;
+  dueDate?: string;         // ISO date string, e.g. "2026-04-15"
+  priority?: 'high' | 'medium' | 'low';
+  completed: boolean;
+};
+
 export const meetings = pgTable("meetings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
   meetingType: text("meeting_type"),
   title: text("title").notNull(),
   date: timestamp("date"),
+  meetingTime: text("meeting_time"),          // HH:MM, e.g. "14:30"
+  duration: integer("duration"),              // minutes, e.g. 60
   attendees: jsonb("attendees").$type<string[]>(),
   summary: text("summary"),
   decisions: jsonb("decisions").$type<string[]>(),
   actionItems: jsonb("action_items").$type<string[]>(),
   nextMeetingDate: timestamp("next_meeting_date"),
-  
+
   // Focus Rhythm enhancements
   templateId: text("template_id"), // Reference to MeetingTemplate.id
   facilitator: text("facilitator"),
   agenda: jsonb("agenda").$type<string[]>(), // Meeting agenda items
   risks: jsonb("risks").$type<string[]>(), // Risks identified in meeting
-  
+
   // OKR linkage for Focus Rhythm
   linkedObjectiveIds: jsonb("linked_objective_ids").$type<string[]>(),
   linkedKeyResultIds: jsonb("linked_key_result_ids").$type<string[]>(),
@@ -742,8 +753,17 @@ export const meetings = pgTable("meetings", {
   updatedBy: varchar("updated_by"),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
-  uniqueTenantMeeting: unique().on(table.tenantId, table.title, table.date),
+  uniqueTenantMeeting: unique().on(table.tenantId, table.title, table.date, table.meetingTime),
 }));
+
+const actionItemSchema = z.object({
+  id: z.string(),
+  description: z.string(),
+  assignee: z.string().optional(),
+  dueDate: z.string().optional(),
+  priority: z.enum(['high', 'medium', 'low']).optional(),
+  completed: z.boolean(),
+});
 
 export const insertMeetingSchema = createInsertSchema(meetings).omit({
   id: true,
@@ -751,6 +771,9 @@ export const insertMeetingSchema = createInsertSchema(meetings).omit({
 }).extend({
   date: z.string().datetime().or(z.date()).nullable().optional(),
   nextMeetingDate: z.string().datetime().or(z.date()).nullable().optional(),
+  meetingTime: z.string().nullable().optional(),
+  duration: z.number().int().positive().nullable().optional(),
+  actionItems: z.array(actionItemSchema).nullable().optional(),
   agenda: z.array(z.string()).nullable().optional(),
   risks: z.array(z.string()).nullable().optional(),
   linkedObjectiveIds: z.array(z.string()).nullable().optional(),

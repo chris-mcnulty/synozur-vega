@@ -825,6 +825,8 @@ export class DatabaseStorage implements IStorage {
         linkedObjectiveIds: insertMeeting.linkedObjectiveIds ? [...insertMeeting.linkedObjectiveIds] : null,
         linkedKeyResultIds: insertMeeting.linkedKeyResultIds ? [...insertMeeting.linkedKeyResultIds] : null,
         linkedBigRockIds: insertMeeting.linkedBigRockIds ? [...insertMeeting.linkedBigRockIds] : null,
+        meetingTime: insertMeeting.meetingTime ?? null,
+        duration: insertMeeting.duration ?? null,
       } as any)
       .returning();
     return meeting;

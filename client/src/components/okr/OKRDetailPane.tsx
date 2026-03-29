@@ -45,6 +45,7 @@ import { format, startOfYear, endOfYear, startOfQuarter, endOfQuarter, differenc
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import type { CheckIn, Objective, KeyResult, Strategy, BigRock } from "@shared/schema";
 import { MilestoneTimeline, type PhasedTargets } from "./MilestoneTimeline";
+import { ForecastingPanel } from "./ForecastingPanel";
 import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
 import { PlannerTaskLinkPanel } from "@/components/planner/PlannerTaskLinkPanel";
 import { usePermissions } from "@/hooks/use-permissions";
@@ -511,6 +512,7 @@ export function OKRDetailPane({
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="w-full justify-start">
                 <TabsTrigger value="overview" data-testid="tab-detail-overview">Overview</TabsTrigger>
+                <TabsTrigger value="forecast" data-testid="tab-detail-forecast">Forecast</TabsTrigger>
                 <TabsTrigger value="activity" data-testid="tab-detail-activity">Activity</TabsTrigger>
                 {entityType === "objective" && (
                   <TabsTrigger value="bigrocks" data-testid="tab-detail-bigrocks">Big Rocks</TabsTrigger>
@@ -699,6 +701,13 @@ export function OKRDetailPane({
                     entityTitle={entity.title}
                   />
                 )}
+              </TabsContent>
+
+              <TabsContent value="forecast" className="mt-4">
+                <ForecastingPanel
+                  entity={entity}
+                  checkIns={checkInHistory}
+                />
               </TabsContent>
 
               <TabsContent value="activity" className="mt-4">

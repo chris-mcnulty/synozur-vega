@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { QuarterlyHeatmap } from "@/components/QuarterlyHeatmap";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
@@ -28,15 +29,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
-import { 
-  Camera, 
-  FileText, 
-  LayoutTemplate, 
-  Plus, 
-  Trash2, 
-  Calendar, 
-  Target, 
-  CheckCircle2, 
+import {
+  Camera,
+  FileText,
+  LayoutTemplate,
+  Plus,
+  Trash2,
+  Calendar,
+  Target,
+  CheckCircle2,
   AlertTriangle,
   TrendingUp,
   Download,
@@ -50,7 +51,8 @@ import {
   AlertCircle,
   Layers,
   GitCompare,
-  MessageSquare
+  MessageSquare,
+  Grid3X3,
 } from "lucide-react";
 import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, addWeeks, subWeeks } from "date-fns";
 
@@ -404,6 +406,10 @@ export default function Reporting() {
           <TabsTrigger value="reports" className="gap-2" data-testid="tab-reports">
             <FileText className="h-4 w-4" />
             Reports
+          </TabsTrigger>
+          <TabsTrigger value="heatmap" className="gap-2" data-testid="tab-heatmap">
+            <Grid3X3 className="h-4 w-4" />
+            Heatmap
           </TabsTrigger>
         </TabsList>
 
@@ -773,6 +779,18 @@ export default function Reporting() {
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="heatmap" className="space-y-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">Cross-Quarter Performance</h3>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Visual comparison of OKR progress across periods. Each cell shows overall progress from the snapshot captured for that period.
+              </p>
+            </div>
+          </div>
+          <QuarterlyHeatmap snapshots={snapshots} isLoading={snapshotsLoading} />
         </TabsContent>
       </Tabs>
 
