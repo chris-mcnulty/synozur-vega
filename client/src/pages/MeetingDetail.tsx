@@ -8,7 +8,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Users, Pencil, ArrowLeft, Target, CheckCircle2, AlertTriangle, Link2, Clock, Zap, ChevronRight, X, Sparkles, Copy, ClipboardCheck, ExternalLink, Trash2, Plus, Save, Search, Send } from "lucide-react";
+import { Calendar, Users, Pencil, ArrowLeft, Target, CheckCircle2, AlertTriangle, Link2, Clock, Zap, ChevronRight, X, Sparkles, Copy, ClipboardCheck, ExternalLink, Trash2, Plus, Save, Search, Send, ChevronUp, ChevronDown, User, Flag } from "lucide-react";
+import type { ActionItem } from "@shared/schema";
 import {
   Select,
   SelectContent,
@@ -197,12 +198,14 @@ export default function MeetingDetail() {
     title: "",
     meetingType: "weekly",
     date: "",
+    meetingTime: "",
+    duration: "" as string | number,
     attendees: [] as string[],
     facilitator: "",
     agenda: [] as string[],
     summary: "",
     decisions: [] as string[],
-    actionItems: [] as string[],
+    actionItems: [] as ActionItem[],
     risks: [] as string[],
     nextMeetingDate: "",
     linkedObjectiveIds: [] as string[],
@@ -214,6 +217,9 @@ export default function MeetingDetail() {
   const [newAgendaItem, setNewAgendaItem] = useState("");
   const [newDecision, setNewDecision] = useState("");
   const [newActionItem, setNewActionItem] = useState("");
+  const [newActionAssignee, setNewActionAssignee] = useState("");
+  const [newActionDueDate, setNewActionDueDate] = useState("");
+  const [newActionPriority, setNewActionPriority] = useState<'high' | 'medium' | 'low' | ''>("");
   const [newRisk, setNewRisk] = useState("");
   const [newAttendee, setNewAttendee] = useState("");
   const [attendeeSearchOpen, setAttendeeSearchOpen] = useState(false);
@@ -317,16 +323,31 @@ export default function MeetingDetail() {
 
   useEffect(() => {
     if (meeting) {
+      // Normalise actionItems: old string[] rows become ActionItem objects
+      const rawActions = (meeting.actionItems || []) as unknown[];
+      const normalisedActions: ActionItem[] = rawActions.map((item, i) => {
+        if (typeof item === 'object' && item !== null && 'description' in item) {
+          return item as ActionItem;
+        }
+        return {
+          id: `legacy-${i}`,
+          description: String(item),
+          completed: false,
+        };
+      });
+
       setFormData({
         title: meeting.title || "",
         meetingType: meeting.meetingType || "weekly",
         date: meeting.date ? format(new Date(meeting.date), 'yyyy-MM-dd') : "",
+        meetingTime: (meeting as any).meetingTime || "",
+        duration: (meeting as any).duration || "",
         attendees: meeting.attendees || [],
         facilitator: meeting.facilitator || "",
         agenda: meeting.agenda || [],
         summary: meeting.summary || "",
         decisions: meeting.decisions || [],
-        actionItems: meeting.actionItems || [],
+        actionItems: normalisedActions,
         risks: meeting.risks || [],
         nextMeetingDate: meeting.nextMeetingDate ? format(new Date(meeting.nextMeetingDate), 'yyyy-MM-dd') : "",
         linkedObjectiveIds: meeting.linkedObjectiveIds || [],
@@ -343,6 +364,8 @@ export default function MeetingDetail() {
         ...data,
         date: data.date ? new Date(data.date).toISOString() : null,
         nextMeetingDate: data.nextMeetingDate ? new Date(data.nextMeetingDate).toISOString() : null,
+        meetingTime: data.meetingTime || null,
+        duration: data.duration !== "" ? Number(data.duration) : null,
       };
       return apiRequest("PATCH", `/api/meetings/${meetingId}`, payload);
     },
@@ -404,8 +427,18 @@ export default function MeetingDetail() {
 
     if (formData.agenda.length > 0) {
       brief += `AGENDA\n${'─'.repeat(25)}\n`;
-      formData.agenda.forEach((item, i) => {
-        brief += `${i + 1}. ${item}\n`;
+      let itemNum = 0;
+      formData.agenda.forEach(item => {
+        const isSection = item.startsWith('---') && item.endsWith('---');
+        const isOkrItem = item.startsWith('[OKR]');
+        if (isSection) {
+          const sectionText = item.replace(/^---\s*/, '').replace(/\s*---$/, '');
+          brief += `\n${sectionText.toUpperCase()}\n`;
+        } else {
+          itemNum++;
+          const displayText = isOkrItem ? item.replace('[OKR] ', '') : item;
+          brief += `  ${itemNum}. ${displayText}\n`;
+        }
       });
       brief += '\n';
     }
@@ -453,7 +486,13 @@ export default function MeetingDetail() {
 
     if (formData.actionItems.length > 0) {
       brief += `ACTION ITEMS\n${'─'.repeat(25)}\n`;
-      formData.actionItems.forEach(a => { brief += `- ${a}\n`; });
+      formData.actionItems.forEach(a => {
+        const status = a.completed ? '[✓]' : '[ ]';
+        const priority = a.priority ? ` [${a.priority.toUpperCase()}]` : '';
+        const assignee = a.assignee ? ` — ${a.assignee}` : '';
+        const due = a.dueDate ? ` (due: ${a.dueDate})` : '';
+        brief += `${status}${priority} ${a.description}${assignee}${due}\n`;
+      });
       brief += '\n';
     }
 
@@ -510,20 +549,58 @@ export default function MeetingDetail() {
     },
   });
 
-  const addArrayItem = (field: 'agenda' | 'decisions' | 'actionItems' | 'risks' | 'attendees', value: string, setter: (v: string) => void) => {
+  const addArrayItem = (field: 'agenda' | 'decisions' | 'risks' | 'attendees', value: string, setter: (v: string) => void) => {
     if (value.trim()) {
       setFormData(prev => ({
         ...prev,
-        [field]: [...prev[field], value.trim()]
+        [field]: [...(prev[field] as string[]), value.trim()]
       }));
       setter("");
     }
   };
 
-  const removeArrayItem = (field: 'agenda' | 'decisions' | 'actionItems' | 'risks' | 'attendees', index: number) => {
+  const removeArrayItem = (field: 'agenda' | 'decisions' | 'risks' | 'attendees', index: number) => {
     setFormData(prev => ({
       ...prev,
-      [field]: prev[field].filter((_, i) => i !== index)
+      [field]: (prev[field] as string[]).filter((_, i) => i !== index)
+    }));
+  };
+
+  const moveAgendaItem = (index: number, direction: 'up' | 'down') => {
+    setFormData(prev => {
+      const arr = [...prev.agenda];
+      const swapIdx = direction === 'up' ? index - 1 : index + 1;
+      if (swapIdx < 0 || swapIdx >= arr.length) return prev;
+      [arr[index], arr[swapIdx]] = [arr[swapIdx], arr[index]];
+      return { ...prev, agenda: arr };
+    });
+  };
+
+  const addActionItemEntry = () => {
+    if (!newActionItem.trim()) return;
+    const item: ActionItem = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      description: newActionItem.trim(),
+      assignee: newActionAssignee.trim() || undefined,
+      dueDate: newActionDueDate || undefined,
+      priority: newActionPriority || undefined,
+      completed: false,
+    };
+    setFormData(prev => ({ ...prev, actionItems: [...prev.actionItems, item] }));
+    setNewActionItem("");
+    setNewActionAssignee("");
+    setNewActionDueDate("");
+    setNewActionPriority("");
+  };
+
+  const removeActionItem = (id: string) => {
+    setFormData(prev => ({ ...prev, actionItems: prev.actionItems.filter(a => a.id !== id) }));
+  };
+
+  const toggleActionItemDone = (id: string) => {
+    setFormData(prev => ({
+      ...prev,
+      actionItems: prev.actionItems.map(a => a.id === id ? { ...a, completed: !a.completed } : a),
     }));
   };
 
@@ -797,6 +874,51 @@ export default function MeetingDetail() {
                       </div>
                     </div>
 
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="meetingTime">Start Time</Label>
+                        <Input
+                          id="meetingTime"
+                          type="time"
+                          value={formData.meetingTime}
+                          onChange={(e) => setFormData({ ...formData, meetingTime: e.target.value })}
+                          data-testid="input-meeting-time"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="duration">Duration</Label>
+                        <Select
+                          value={String(formData.duration || "")}
+                          onValueChange={(v) => setFormData({ ...formData, duration: v })}
+                        >
+                          <SelectTrigger data-testid="select-duration">
+                            <SelectValue placeholder="Select duration" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="15">15 min</SelectItem>
+                            <SelectItem value="30">30 min</SelectItem>
+                            <SelectItem value="45">45 min</SelectItem>
+                            <SelectItem value="60">1 hour</SelectItem>
+                            <SelectItem value="90">1.5 hours</SelectItem>
+                            <SelectItem value="120">2 hours</SelectItem>
+                            <SelectItem value="180">3 hours</SelectItem>
+                            <SelectItem value="240">4 hours</SelectItem>
+                            <SelectItem value="480">Full day (8 hr)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {formData.meetingTime && formData.duration && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Ends at{" "}
+                            {(() => {
+                              const [h, m] = formData.meetingTime.split(":").map(Number);
+                              const endMin = h * 60 + m + Number(formData.duration);
+                              return `${String(Math.floor(endMin / 60) % 24).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`;
+                            })()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
                     <div>
                       <Label htmlFor="facilitator">Facilitator</Label>
                       <Input
@@ -956,12 +1078,11 @@ export default function MeetingDetail() {
 
                   <TabsContent value="agenda" className="space-y-4 mt-4">
                     <div>
-                      <Label>Agenda Items</Label>
-                      <div className="flex gap-2 mb-2">
+                      <div className="flex gap-2 mb-3">
                         <Input
                           value={newAgendaItem}
                           onChange={(e) => setNewAgendaItem(e.target.value)}
-                          placeholder="Add agenda item"
+                          placeholder="Add agenda item (or type --- Section Name --- for a header)"
                           onKeyDown={(e) => e.key === 'Enter' && addArrayItem('agenda', newAgendaItem, setNewAgendaItem)}
                           data-testid="input-new-agenda"
                         />
@@ -973,22 +1094,51 @@ export default function MeetingDetail() {
                           <Plus className="w-4 h-4" />
                         </Button>
                       </div>
-                      <div className="space-y-2">
-                        {formData.agenda.map((item, idx) => (
-                          <div key={idx} className="flex items-center gap-2 p-2 bg-muted/50 rounded">
-                            <span className="text-muted-foreground">{idx + 1}.</span>
-                            <span className="flex-1">{item}</span>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeArrayItem('agenda', idx)}
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        ))}
+
+                      <div className="space-y-1">
+                        {formData.agenda.map((item, idx) => {
+                          const isSection = item.startsWith('---') && item.endsWith('---');
+                          const isOkrItem = item.startsWith('[OKR]');
+                          const displayText = isOkrItem ? item.replace('[OKR] ', '') : item;
+                          const sectionText = isSection ? item.replace(/^---\s*/, '').replace(/\s*---$/, '') : '';
+
+                          if (isSection) {
+                            return (
+                              <div key={idx} className="flex items-center gap-1 py-2 mt-2 group">
+                                <div className="h-px bg-border flex-1" />
+                                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider px-2">
+                                  {sectionText}
+                                </span>
+                                <div className="h-px bg-border flex-1" />
+                                <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 ml-1">
+                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveAgendaItem(idx, 'up')} disabled={idx === 0}><ChevronUp className="w-3 h-3" /></Button>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveAgendaItem(idx, 'down')} disabled={idx === formData.agenda.length - 1}><ChevronDown className="w-3 h-3" /></Button>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeArrayItem('agenda', idx)}><X className="w-3 h-3" /></Button>
+                                </div>
+                              </div>
+                            );
+                          }
+
+                          return (
+                            <div key={idx} className={`flex items-center gap-2 p-2 rounded-md group hover:bg-muted/50 ${isOkrItem ? 'bg-primary/5 border border-primary/10' : ''}`}>
+                              {isOkrItem ? (
+                                <Target className="w-4 h-4 text-primary shrink-0" />
+                              ) : (
+                                <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+                              )}
+                              <span className={`flex-1 text-sm ${isOkrItem ? 'text-primary font-medium' : ''}`}>
+                                {displayText}
+                              </span>
+                              <div className="flex gap-0.5 opacity-0 group-hover:opacity-100">
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveAgendaItem(idx, 'up')} disabled={idx === 0}><ChevronUp className="w-3 h-3" /></Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => moveAgendaItem(idx, 'down')} disabled={idx === formData.agenda.length - 1}><ChevronDown className="w-3 h-3" /></Button>
+                                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeArrayItem('agenda', idx)}><X className="w-3 h-3" /></Button>
+                              </div>
+                            </div>
+                          );
+                        })}
                         {formData.agenda.length === 0 && (
-                          <p className="text-muted-foreground text-center py-4">No agenda items yet</p>
+                          <p className="text-muted-foreground text-center py-8 text-sm">No agenda items yet. Add items above, or select a template when creating a meeting.</p>
                         )}
                       </div>
                     </div>
@@ -1027,31 +1177,103 @@ export default function MeetingDetail() {
 
                     <div>
                       <Label>Action Items</Label>
-                      <div className="flex gap-2 mb-2">
+                      {/* Add form */}
+                      <div className="border rounded-md p-3 space-y-2 mb-3 bg-muted/30">
                         <Input
                           value={newActionItem}
                           onChange={(e) => setNewActionItem(e.target.value)}
-                          placeholder="Add action item"
-                          onKeyDown={(e) => e.key === 'Enter' && addArrayItem('actionItems', newActionItem, setNewActionItem)}
+                          placeholder="Describe the action item…"
+                          onKeyDown={(e) => e.key === 'Enter' && addActionItemEntry()}
                           data-testid="input-new-action"
                         />
-                        <Button
-                          variant="outline"
-                          onClick={() => addArrayItem('actionItems', newActionItem, setNewActionItem)}
-                        >
-                          <Plus className="w-4 h-4" />
+                        <div className="grid grid-cols-3 gap-2">
+                          <div className="relative">
+                            <User className="absolute left-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                            <Input
+                              value={newActionAssignee}
+                              onChange={(e) => setNewActionAssignee(e.target.value)}
+                              placeholder="Assignee"
+                              className="pl-7 text-sm"
+                            />
+                          </div>
+                          <Input
+                            type="date"
+                            value={newActionDueDate}
+                            onChange={(e) => setNewActionDueDate(e.target.value)}
+                            className="text-sm"
+                          />
+                          <Select value={newActionPriority} onValueChange={(v) => setNewActionPriority(v as 'high' | 'medium' | 'low' | '')}>
+                            <SelectTrigger className="text-sm">
+                              <SelectValue placeholder="Priority" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="high">High</SelectItem>
+                              <SelectItem value="medium">Medium</SelectItem>
+                              <SelectItem value="low">Low</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <Button size="sm" variant="outline" onClick={addActionItemEntry} className="w-full" data-testid="button-add-action">
+                          <Plus className="w-4 h-4 mr-1" /> Add Action Item
                         </Button>
                       </div>
+
+                      {/* List */}
                       <div className="space-y-2">
-                        {formData.actionItems.map((item, idx) => (
-                          <div key={idx} className="flex items-center gap-2 p-2 bg-blue-500/10 rounded border border-blue-500/20">
-                            <ChevronRight className="w-4 h-4 text-blue-600" />
-                            <span className="flex-1">{item}</span>
-                            <Button variant="ghost" size="icon" onClick={() => removeArrayItem('actionItems', idx)}>
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        ))}
+                        {formData.actionItems.map((item) => {
+                          const priorityColors: Record<string, string> = {
+                            high: "border-red-300 dark:border-red-700",
+                            medium: "border-amber-300 dark:border-amber-700",
+                            low: "border-blue-200 dark:border-blue-800",
+                          };
+                          const priorityBadgeColors: Record<string, string> = {
+                            high: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-400",
+                            medium: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-400",
+                            low: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-400",
+                          };
+                          return (
+                            <div
+                              key={item.id}
+                              className={`flex items-start gap-2 p-3 rounded-md border bg-card ${item.priority ? priorityColors[item.priority] : 'border-border'}`}
+                            >
+                              <button
+                                onClick={() => toggleActionItemDone(item.id)}
+                                className={`mt-0.5 h-4 w-4 rounded border shrink-0 flex items-center justify-center transition-colors ${item.completed ? 'bg-green-500 border-green-500 text-white' : 'border-muted-foreground hover:border-primary'}`}
+                                aria-label="Toggle complete"
+                              >
+                                {item.completed && <CheckCircle2 className="w-3 h-3" />}
+                              </button>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-medium ${item.completed ? 'line-through text-muted-foreground' : ''}`}>
+                                  {item.description}
+                                </p>
+                                <div className="flex flex-wrap items-center gap-2 mt-1">
+                                  {item.assignee && (
+                                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <User className="w-3 h-3" />{item.assignee}
+                                    </span>
+                                  )}
+                                  {item.dueDate && (
+                                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <Clock className="w-3 h-3" />{item.dueDate}
+                                    </span>
+                                  )}
+                                  {item.priority && (
+                                    <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${priorityBadgeColors[item.priority]}`}>
+                                      {item.priority}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              <Button variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => removeActionItem(item.id)}>
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          );
+                        })}
+                        {formData.actionItems.length === 0 && (
+                          <p className="text-muted-foreground text-center py-4 text-sm">No action items yet</p>
+                        )}
                       </div>
                     </div>
 

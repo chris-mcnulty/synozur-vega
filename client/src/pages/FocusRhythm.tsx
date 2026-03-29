@@ -29,7 +29,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import type { Meeting, Foundation, Objective, KeyResult, BigRock, MeetingTemplate } from "@shared/schema";
+import type { Meeting, Foundation, Objective, KeyResult, BigRock, MeetingTemplate, ActionItem } from "@shared/schema";
 import { MEETING_TEMPLATES } from "@shared/schema";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -48,7 +48,7 @@ interface MeetingFormData {
   agenda: string[];
   summary: string;
   decisions: string[];
-  actionItems: string[];
+  actionItems: ActionItem[];
   risks: string[];
   nextMeetingDate: string;
   linkedObjectiveIds: string[];
@@ -645,15 +645,25 @@ function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResu
           <div>
             <div className="text-sm font-medium mb-1">Agenda</div>
             <ul className="text-sm text-muted-foreground space-y-1">
-              {meeting.agenda.slice(0, 3).map((item, i) => (
-                <li key={i} className="flex items-start gap-2">
-                  <ChevronRight className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  {item}
-                </li>
-              ))}
-              {meeting.agenda.length > 3 && (
+              {meeting.agenda
+                .filter(item => !(item.startsWith('---') && item.endsWith('---')))
+                .slice(0, 3)
+                .map((item, i) => {
+                  const isOkr = item.startsWith('[OKR]');
+                  const text = isOkr ? item.replace('[OKR] ', '') : item;
+                  return (
+                    <li key={i} className="flex items-start gap-2">
+                      {isOkr
+                        ? <Target className="w-3.5 h-3.5 mt-0.5 flex-shrink-0 text-primary" />
+                        : <ChevronRight className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      }
+                      {text}
+                    </li>
+                  );
+                })}
+              {meeting.agenda.filter(i => !(i.startsWith('---') && i.endsWith('---'))).length > 3 && (
                 <li className="text-xs text-muted-foreground">
-                  +{meeting.agenda.length - 3} more items
+                  +{meeting.agenda.filter(i => !(i.startsWith('---') && i.endsWith('---'))).length - 3} more items
                 </li>
               )}
             </ul>
@@ -1059,17 +1069,21 @@ export default function FocusRhythm() {
     
     // Only add action items if AI found any
     if (aiRecapResult.actionItems.length > 0) {
-      const newActionItems = [...formData.actionItems];
-      aiRecapResult.actionItems.forEach(item => {
-        const text = item.assignee 
-          ? `${item.description} (${item.assignee}${item.dueDate ? `, due: ${item.dueDate}` : ''})`
-          : item.description;
-        if (!newActionItems.includes(text)) {
-          newActionItems.push(text);
-          addedCount++;
-        }
-      });
-      updates.actionItems = newActionItems;
+      const existingDescriptions = formData.actionItems.map(a => a.description.toLowerCase());
+      const newItems: ActionItem[] = aiRecapResult.actionItems
+        .filter(item => !existingDescriptions.includes(item.description.toLowerCase()))
+        .map(item => ({
+          id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+          description: item.description,
+          assignee: item.assignee || undefined,
+          dueDate: item.dueDate || undefined,
+          priority: (item.priority as 'high' | 'medium' | 'low') || undefined,
+          completed: false,
+        }));
+      if (newItems.length > 0) {
+        updates.actionItems = [...formData.actionItems, ...newItems];
+        addedCount += newItems.length;
+      }
     }
 
     // Only add decisions if AI found any
@@ -1148,6 +1162,14 @@ export default function FocusRhythm() {
       }
     };
 
+    const rawActions = (meeting.actionItems || []) as unknown[];
+    const normalisedActions: ActionItem[] = rawActions.map((item, i) => {
+      if (typeof item === 'object' && item !== null && 'description' in item) {
+        return item as ActionItem;
+      }
+      return { id: `legacy-${i}`, description: String(item), completed: false };
+    });
+
     setFormData({
       title: meeting.title,
       meetingType: meeting.meetingType || "weekly",
@@ -1158,7 +1180,7 @@ export default function FocusRhythm() {
       agenda: meeting.agenda || [],
       summary: meeting.summary || "",
       decisions: meeting.decisions || [],
-      actionItems: meeting.actionItems || [],
+      actionItems: normalisedActions,
       risks: meeting.risks || [],
       nextMeetingDate: formatDateForInput(meeting.nextMeetingDate),
       linkedObjectiveIds: meeting.linkedObjectiveIds || [],
@@ -1199,8 +1221,16 @@ export default function FocusRhythm() {
     if (meeting.agenda && meeting.agenda.length > 0) {
       brief += `AGENDA\n`;
       brief += `${'─'.repeat(25)}\n`;
-      meeting.agenda.forEach((item, i) => {
-        brief += `${i + 1}. ${item}\n`;
+      let itemNum = 0;
+      meeting.agenda.forEach(item => {
+        const isSection = item.startsWith('---') && item.endsWith('---');
+        const isOkr = item.startsWith('[OKR]');
+        if (isSection) {
+          brief += `\n${item.replace(/^---\s*/, '').replace(/\s*---$/, '').toUpperCase()}\n`;
+        } else {
+          itemNum++;
+          brief += `  ${itemNum}. ${isOkr ? item.replace('[OKR] ', '') : item}\n`;
+        }
       });
       brief += '\n';
     }
@@ -1267,8 +1297,17 @@ export default function FocusRhythm() {
     if (meeting.actionItems && meeting.actionItems.length > 0) {
       brief += `ACTION ITEMS\n`;
       brief += `${'─'.repeat(25)}\n`;
-      meeting.actionItems.forEach(a => {
-        brief += `- ${a}\n`;
+      (meeting.actionItems as unknown[]).forEach(a => {
+        if (typeof a === 'object' && a !== null && 'description' in a) {
+          const item = a as ActionItem;
+          const status = item.completed ? '[✓]' : '[ ]';
+          const priority = item.priority ? ` [${item.priority.toUpperCase()}]` : '';
+          const assignee = item.assignee ? ` — ${item.assignee}` : '';
+          const due = item.dueDate ? ` (due: ${item.dueDate})` : '';
+          brief += `${status}${priority} ${item.description}${assignee}${due}\n`;
+        } else {
+          brief += `- ${String(a)}\n`;
+        }
       });
       brief += '\n';
     }
@@ -1380,7 +1419,12 @@ export default function FocusRhythm() {
 
   const addActionItem = () => {
     if (newActionInput.trim()) {
-      setFormData(prev => ({ ...prev, actionItems: [...prev.actionItems, newActionInput.trim()] }));
+      const item: ActionItem = {
+        id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+        description: newActionInput.trim(),
+        completed: false,
+      };
+      setFormData(prev => ({ ...prev, actionItems: [...prev.actionItems, item] }));
       setNewActionInput("");
     }
   };
@@ -1393,10 +1437,10 @@ export default function FocusRhythm() {
   };
   
   const removeListItem = (field: 'attendees' | 'agenda' | 'decisions' | 'actionItems' | 'risks', index: number) => {
-    setFormData({
-      ...formData,
-      [field]: formData[field].filter((_, i) => i !== index),
-    });
+    setFormData(prev => ({
+      ...prev,
+      [field]: (prev[field] as unknown[]).filter((_, i) => i !== index),
+    }));
   };
 
   const fiscalYearStartMonth = foundation?.fiscalYearStartMonth || 1;
@@ -1422,7 +1466,7 @@ export default function FocusRhythm() {
       meeting.attendees?.some(a => a?.toLowerCase().includes(query)) ||
       meeting.agenda?.some(a => a?.toLowerCase().includes(query)) ||
       meeting.decisions?.some(d => d?.toLowerCase().includes(query)) ||
-      meeting.actionItems?.some(a => a?.toLowerCase().includes(query))
+      meeting.actionItems?.some(a => (a as ActionItem)?.description?.toLowerCase().includes(query))
     );
   });
 
@@ -1901,9 +1945,11 @@ export default function FocusRhythm() {
           </div>
           <div className="flex flex-wrap gap-2 mt-2">
             {formData.actionItems.map((item, index) => (
-              <Badge key={index} variant="secondary" className="cursor-pointer" onClick={() => removeListItem('actionItems', index)}>
-                <Target className="w-3 h-3 mr-1 text-blue-500" />
-                {item} <X className="w-3 h-3 ml-1" />
+              <Badge key={item.id} variant="secondary" className="cursor-pointer gap-1" onClick={() => removeListItem('actionItems', index)}>
+                <Target className="w-3 h-3 text-blue-500 shrink-0" />
+                <span className={item.completed ? 'line-through opacity-60' : ''}>{item.description}</span>
+                {item.assignee && <span className="text-muted-foreground">({item.assignee})</span>}
+                <X className="w-3 h-3 ml-0.5 shrink-0" />
               </Badge>
             ))}
           </div>

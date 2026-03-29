@@ -163,7 +163,7 @@ export default function MyFocus() {
       (o) =>
         o.ownerId === user.id ||
         o.ownerEmail === user.email ||
-        (o.coOwners as string[] | null)?.includes(user.id) ||
+        (o.coOwnerIds as string[] | null)?.includes(user.id) ||
         o.checkInOwnerId === user.id
     );
   }, [objectives, user]);
@@ -171,7 +171,7 @@ export default function MyFocus() {
   const myKeyResults = useMemo(() => {
     if (!user) return [];
     return keyResults.filter(
-      (kr) => kr.ownerId === user.id || kr.ownerEmail === user.email
+      (kr) => kr.ownerId === user.id || (kr as any).ownerEmail === user.email
     );
   }, [keyResults, user]);
 
@@ -236,7 +236,7 @@ export default function MyFocus() {
     const tasks: Array<{ title: string; bigRockTitle: string; dueDate: string; bigRockId: string }> = [];
     for (const br of bigRocks) {
       if (!br.tasks) continue;
-      const brTasks = br.tasks as Array<{ title: string; status: string; dueDate?: string; assigneeId?: string }>;
+      const brTasks = br.tasks as unknown as Array<{ title: string; status: string; dueDate?: string; assigneeId?: string }>;
       for (const task of brTasks) {
         if (task.status === "completed") continue;
         if (task.dueDate) {
