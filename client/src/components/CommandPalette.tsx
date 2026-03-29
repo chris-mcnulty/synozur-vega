@@ -32,7 +32,7 @@ import type { Objective, KeyResult, Strategy } from "@shared/schema";
 interface Meeting {
   id: string;
   title: string;
-  meetingDate: string;
+  date: string | null;
   meetingType: string;
 }
 
@@ -96,9 +96,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   });
 
   const { data: meetings = [] } = useQuery<Meeting[]>({
-    queryKey: ["/api/focus-rhythm/meetings", tenantId],
+    queryKey: [`/api/meetings/${tenantId}`],
     queryFn: async () => {
-      const res = await fetch(`/api/focus-rhythm/meetings?tenantId=${tenantId}`, {
+      const res = await fetch(`/api/meetings/${tenantId}`, {
         credentials: "include",
       });
       if (!res.ok) return [];
@@ -230,9 +230,9 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 >
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <span className="truncate">{m.title}</span>
-                  {m.meetingDate && (
+                  {m.date && (
                     <span className="ml-auto text-xs text-muted-foreground shrink-0">
-                      {new Date(m.meetingDate).toLocaleDateString()}
+                      {new Date(m.date).toLocaleDateString()}
                     </span>
                   )}
                 </CommandItem>

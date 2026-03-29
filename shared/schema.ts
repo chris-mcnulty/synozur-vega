@@ -753,7 +753,7 @@ export const meetings = pgTable("meetings", {
   updatedBy: varchar("updated_by"),
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
-  uniqueTenantMeeting: unique().on(table.tenantId, table.title, table.date),
+  uniqueTenantMeeting: unique().on(table.tenantId, table.title, table.date, table.meetingTime),
 }));
 
 const actionItemSchema = z.object({

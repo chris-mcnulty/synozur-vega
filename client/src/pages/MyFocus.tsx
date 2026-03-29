@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,12 +24,12 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTimePeriod } from "@/contexts/TimePeriodContext";
 import { differenceInDays, format, isAfter, isBefore, addDays, startOfWeek, endOfWeek } from "date-fns";
 import { cn } from "@/lib/utils";
-import type { Objective, KeyResult, BigRock } from "@shared/schema";
+import type { Objective, KeyResult, BigRock, BigRockTask } from "@shared/schema";
 
 interface Meeting {
   id: string;
   title: string;
-  meetingDate: string;
+  date: string | null;
   meetingType: string;
   attendees?: string[];
 }
@@ -143,9 +143,9 @@ export default function MyFocus() {
   });
 
   const { data: meetings = [], isLoading: meetingsLoading } = useQuery<Meeting[]>({
-    queryKey: ["/api/focus-rhythm/meetings", tenantId],
+    queryKey: [`/api/meetings/${tenantId}`],
     queryFn: async () => {
-      const res = await fetch(`/api/focus-rhythm/meetings?tenantId=${tenantId}`, {
+      const res = await fetch(`/api/meetings/${tenantId}`, {
         credentials: "include",
       });
       if (!res.ok) return [];
@@ -153,6 +153,21 @@ export default function MyFocus() {
     },
     enabled: !!tenantId,
     staleTime: 60 * 1000,
+  });
+
+  // Fetch tasks for each big rock to get full task metadata (dueDate, status, assigneeId)
+  const bigRockTaskResults = useQueries({
+    queries: bigRocks.map((br) => ({
+      queryKey: [`/api/okr/big-rocks/${br.id}/tasks`],
+      queryFn: async (): Promise<(BigRockTask & { bigRockTitle: string; bigRockId: string })[]> => {
+        const res = await fetch(`/api/okr/big-rocks/${br.id}/tasks`, { credentials: "include" });
+        if (!res.ok) return [];
+        const tasks: BigRockTask[] = await res.json();
+        return tasks.map((t) => ({ ...t, bigRockTitle: br.title, bigRockId: br.id }));
+      },
+      enabled: !!tenantId && bigRocks.length > 0,
+      staleTime: 60 * 1000,
+    })),
   });
 
   const isLoading = objectivesLoading || krLoading || bigRocksLoading || meetingsLoading;
@@ -231,34 +246,28 @@ export default function MyFocus() {
     ];
   }, [myObjectives, myKeyResults, quarter, year]);
 
-  // Tasks due this week from big rocks
+  // Tasks due this week from big rock task endpoints (which include dueDate, status, assigneeId)
   const tasksDueThisWeek = useMemo(() => {
-    const tasks: Array<{ title: string; bigRockTitle: string; dueDate: string; bigRockId: string }> = [];
-    for (const br of bigRocks) {
-      if (!br.tasks) continue;
-      const brTasks = br.tasks as unknown as Array<{ title: string; status: string; dueDate?: string; assigneeId?: string }>;
-      for (const task of brTasks) {
-        if (task.status === "completed") continue;
-        if (task.dueDate) {
-          const due = new Date(task.dueDate);
-          if (!isAfter(due, weekEnd) && !isBefore(due, startOfWeek(today, { weekStartsOn: 1 }))) {
-            tasks.push({ title: task.title, bigRockTitle: br.title, dueDate: task.dueDate, bigRockId: br.id });
-          }
-        }
-      }
-    }
-    return tasks;
-  }, [bigRocks, today, weekEnd]);
+    const weekStart = startOfWeek(today, { weekStartsOn: 1 });
+    const allTasks = bigRockTaskResults.flatMap((r) => r.data ?? []);
+    return allTasks.filter((task) => {
+      if (task.status === "completed") return false;
+      if (!task.dueDate) return false;
+      const due = new Date(task.dueDate);
+      return !isBefore(due, weekStart) && !isAfter(due, weekEnd);
+    });
+  }, [bigRockTaskResults, today, weekEnd]);
 
   // Upcoming meetings in the next 48 hours
   const upcomingMeetings = useMemo(() => {
     const cutoff = addDays(today, 2);
     return meetings
       .filter((m) => {
-        const d = new Date(m.meetingDate);
+        if (!m.date) return false;
+        const d = new Date(m.date);
         return isAfter(d, today) && isBefore(d, cutoff);
       })
-      .sort((a, b) => new Date(a.meetingDate).getTime() - new Date(b.meetingDate).getTime())
+      .sort((a, b) => new Date(a.date ?? 0).getTime() - new Date(b.date ?? 0).getTime())
       .slice(0, 5);
   }, [meetings, today]);
 
@@ -401,10 +410,10 @@ export default function MyFocus() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium">{task.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    {task.bigRockTitle} · Due {format(new Date(task.dueDate), "MMM d")}
+                    {task.bigRockTitle} · Due {task.dueDate ? format(new Date(task.dueDate), "MMM d") : "TBD"}
                   </p>
                 </div>
-                <Link href="/planning">
+                <Link href={`/planning?bigRockId=${task.bigRockId}`}>
                   <Button variant="ghost" size="sm" className="h-7 px-2 flex-shrink-0">
                     <ArrowRight className="h-3.5 w-3.5" />
                   </Button>
@@ -432,7 +441,7 @@ export default function MyFocus() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{meeting.title}</p>
                   <p className="text-xs text-muted-foreground">
-                    {format(new Date(meeting.meetingDate), "EEEE, MMM d 'at' h:mm a")}
+                    {meeting.date ? format(new Date(meeting.date), "EEEE, MMM d 'at' h:mm a") : "Date TBD"}
                   </p>
                 </div>
                 <Link href={`/focus-rhythm/${meeting.id}`}>
