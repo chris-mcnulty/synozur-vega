@@ -1466,7 +1466,10 @@ export default function FocusRhythm() {
       meeting.attendees?.some(a => a?.toLowerCase().includes(query)) ||
       meeting.agenda?.some(a => a?.toLowerCase().includes(query)) ||
       meeting.decisions?.some(d => d?.toLowerCase().includes(query)) ||
-      meeting.actionItems?.some(a => (a as ActionItem)?.description?.toLowerCase().includes(query))
+      meeting.actionItems?.some(a =>
+        (typeof a === "string" && a.toLowerCase().includes(query)) ||
+        ((a as ActionItem)?.description?.toLowerCase().includes(query))
+      )
     );
   });
 
