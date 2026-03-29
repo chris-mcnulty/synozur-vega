@@ -199,9 +199,17 @@ function buildProjectionChartData(
   }
 
   // Add current point as projected start
-  const currentProgress = checkIns.length > 0
-    ? Math.max(...checkIns.map((ci) => ci.newProgress ?? 0))
-    : 0;
+  const currentProgress = (() => {
+    const checkInsWithProgress = checkIns.filter((ci) => ci.createdAt && ci.newProgress != null);
+    if (checkInsWithProgress.length > 0) {
+      const latest = checkInsWithProgress.reduce((latestCi, ci) => {
+        if (!latestCi) return ci;
+        return new Date(ci.createdAt!).getTime() > new Date(latestCi.createdAt!).getTime() ? ci : latestCi;
+      }, undefined as CheckIn | undefined);
+      return latest?.newProgress ?? entity.progress ?? 0;
+    }
+    return entity.progress ?? 0;
+  })();
 
   points.push({ day: daysElapsed, projected: currentProgress, expected: Math.round((daysElapsed / totalDays) * 100) });
   points.push({ day: totalDays, projected: Math.round(Math.min(projectedEndProgress, 100)), expected: 100 });
