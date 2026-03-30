@@ -242,18 +242,19 @@ export default function MyFocus() {
     }
 
     for (const br of myBigRocks) {
-      if ((br as any).status === "completed" || (br as any).status === "cancelled") continue;
-      const days = daysSinceCheckIn((br as any).lastCheckInAt);
+      if (br.status === "completed" || br.status === "cancelled") continue;
+      const days = daysSinceCheckIn(br.lastCheckInAt);
       if (days === null || days >= 7) {
+        const bigRockProgress = br.completionPercentage ?? br.progress ?? 0;
         items.push({
           id: br.id,
           title: br.title,
           type: "big_rock",
           daysSince: days,
-          progress: (br as any).completionPercentage ?? (br as any).progress ?? 0,
-          status: (br as any).status ?? "not_started",
+          progress: bigRockProgress,
+          status: br.status ?? "not_started",
           paceStatus: calculatePaceStatus(
-            (br as any).completionPercentage ?? (br as any).progress ?? 0,
+            bigRockProgress,
             quarter,
             year,
           ),
