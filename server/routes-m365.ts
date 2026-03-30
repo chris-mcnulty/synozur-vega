@@ -13,6 +13,8 @@ import {
   sendEmail,
   vegaMeetingToOutlookEvent,
   generateMeetingSummaryEmail,
+  getFreeBusyForAttendees,
+  computeSuggestedTimeSlots,
   // OneDrive
   checkOneDriveConnection,
   listOneDriveRoot,
@@ -162,7 +164,7 @@ router.get('/calendar/events/:eventId', async (req: Request, res: Response) => {
 router.post('/meetings/:id/sync', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { calendarId, durationMinutes = 60 } = req.body;
+    const { calendarId, durationMinutes = 60, startDateTime } = req.body;
     const user = req.user!;
     const userId = user.id || (user as any).id;
     
@@ -183,10 +185,20 @@ router.post('/meetings/:id/sync', async (req: Request, res: Response) => {
     if (meeting.tenantId !== user.tenantId) {
       return res.status(403).json({ error: 'Access denied' });
     }
+
+    // Use organizer-confirmed startDateTime (from availability suggestions or manual picker) if provided
+    let effectiveDate = meeting.date;
+    if (startDateTime) {
+      const parsedStart = new Date(startDateTime);
+      if (isNaN(parsedStart.getTime())) {
+        return res.status(400).json({ error: 'Invalid startDateTime value' });
+      }
+      effectiveDate = parsedStart;
+    }
     
     const outlookEvent = vegaMeetingToOutlookEvent({
       title: meeting.title,
-      date: meeting.date,
+      date: effectiveDate,
       attendees: meeting.attendees,
       agenda: meeting.agenda,
       summary: meeting.summary,
@@ -227,6 +239,87 @@ router.post('/meetings/:id/sync', async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error('Failed to sync meeting to Outlook:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+router.post('/suggest-times', async (req: Request, res: Response) => {
+  try {
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'M365 features not available for your role' });
+    }
+
+    const user = req.user!;
+    const userId = user.id || (user as any).id;
+
+    const connected = await checkOutlookConnectionForUser(userId);
+    if (!connected) {
+      return res.status(401).json({ error: 'Outlook not connected. Please connect your Microsoft account in Settings → Integrations.' });
+    }
+
+    const { attendeeEmails, durationMinutes: rawDuration = 60, windowStartDate, windowEndDate, timezone } = req.body;
+    const durationMinutes = Number(rawDuration);
+    if (!Number.isInteger(durationMinutes) || durationMinutes < 1 || durationMinutes > 480) {
+      return res.status(400).json({ error: 'durationMinutes must be an integer between 1 and 480' });
+    }
+
+    if (!attendeeEmails || !Array.isArray(attendeeEmails) || attendeeEmails.length === 0) {
+      return res.status(400).json({ error: 'attendeeEmails array is required' });
+    }
+
+    const validEmails = attendeeEmails.filter((e: any) => typeof e === 'string' && e.includes('@'));
+    if (validEmails.length === 0) {
+      return res.status(400).json({ error: 'No valid email addresses provided' });
+    }
+
+    const windowStart = windowStartDate ? new Date(windowStartDate) : (() => {
+      const d = new Date();
+      d.setDate(d.getDate() + 1);
+      d.setUTCHours(9, 0, 0, 0);
+      return d;
+    })();
+    if (isNaN(windowStart.getTime())) {
+      return res.status(400).json({ error: 'Invalid windowStartDate value' });
+    }
+
+    const windowEnd = windowEndDate ? new Date(windowEndDate) : (() => {
+      const d = new Date(windowStart);
+      d.setDate(d.getDate() + 7);
+      return d;
+    })();
+    if (isNaN(windowEnd.getTime())) {
+      return res.status(400).json({ error: 'Invalid windowEndDate value' });
+    }
+
+    if (windowEnd.getTime() - windowStart.getTime() < durationMinutes * 60 * 1000) {
+      return res.status(400).json({ error: 'Search window is too small for the requested duration' });
+    }
+
+    // Validate the timezone string if provided, fall back to UTC on invalid input
+    let organizerTimezone = 'UTC';
+    if (timezone && typeof timezone === 'string') {
+      try {
+        Intl.DateTimeFormat(undefined, { timeZone: timezone });
+        organizerTimezone = timezone;
+      } catch {
+        // Invalid timezone — silently fall back to UTC
+      }
+    }
+
+    const schedules = await getFreeBusyForAttendees(userId, validEmails, windowStart, windowEnd);
+    const suggestions = computeSuggestedTimeSlots(schedules, durationMinutes, windowStart, windowEnd, 5, organizerTimezone);
+
+    res.json({
+      suggestions,
+      attendeeCount: validEmails.length,
+      windowStart: windowStart.toISOString(),
+      windowEnd: windowEnd.toISOString(),
+    });
+  } catch (error: any) {
+    console.error('[M365] suggest-times error:', error);
+    if (error.message?.includes('not connected') || error.message?.includes('unavailable')) {
+      return res.status(401).json({ error: 'Outlook not connected' });
+    }
+    res.status(500).json({ error: error.message || 'Failed to fetch availability suggestions' });
   }
 });
 

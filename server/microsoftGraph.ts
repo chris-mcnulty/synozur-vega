@@ -811,6 +811,187 @@ export function vegaMeetingToOutlookEvent(
   return event;
 }
 
+export interface FreeBusySlot {
+  start: string;
+  end: string;
+  status: 'free' | 'busy' | 'tentative' | 'oof' | 'workingElsewhere' | 'unknown';
+}
+
+export interface AttendeeSchedule {
+  email: string;
+  slots: FreeBusySlot[];
+  error?: string;
+}
+
+export interface SuggestedTimeSlot {
+  start: string;
+  end: string;
+  freeCount: number;
+  totalAttendees: number;
+  label: string;
+}
+
+export async function getFreeBusyForAttendees(
+  userId: string,
+  attendeeEmails: string[],
+  startTime: Date,
+  endTime: Date,
+  intervalMinutes: number = 30
+): Promise<AttendeeSchedule[]> {
+  const client = await getOutlookClientForUser(userId);
+
+  const scheduleRequest = {
+    schedules: attendeeEmails,
+    startTime: {
+      dateTime: startTime.toISOString(),
+      timeZone: 'UTC',
+    },
+    endTime: {
+      dateTime: endTime.toISOString(),
+      timeZone: 'UTC',
+    },
+    availabilityViewInterval: intervalMinutes,
+  };
+
+  try {
+    const response = await client.api('/me/calendar/getSchedule').post(scheduleRequest);
+    const schedules: AttendeeSchedule[] = [];
+
+    for (const schedule of (response.value || [])) {
+      const email = schedule.scheduleId;
+      const slots: FreeBusySlot[] = (schedule.scheduleItems || []).map((item: any) => ({
+        start: item.start?.dateTime || '',
+        end: item.end?.dateTime || '',
+        status: item.status || 'unknown',
+      }));
+      schedules.push({ email, slots, error: schedule.error?.message });
+    }
+
+    return schedules;
+  } catch (error: any) {
+    console.error('[Graph] getFreeBusyForAttendees failed:', error);
+    throw error;
+  }
+}
+
+/**
+ * Given a UTC Date and an IANA timezone string, return the local hour (0-23)
+ * and day-of-week (0=Sunday … 6=Saturday) in that timezone using the built-in
+ * Intl API — no external package required.
+ */
+function getLocalHourAndDay(date: Date, timezone: string): { hour: number; dayOfWeek: number } {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      hour: 'numeric',
+      weekday: 'long',
+      hourCycle: 'h23',
+    }).formatToParts(date);
+
+    const hourStr = parts.find(p => p.type === 'hour')?.value ?? '0';
+    const weekdayStr = parts.find(p => p.type === 'weekday')?.value ?? 'Monday';
+    const weekdays = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    return {
+      hour: parseInt(hourStr, 10),
+      dayOfWeek: weekdays.indexOf(weekdayStr),
+    };
+  } catch {
+    // Fallback to UTC if the timezone string is unrecognised
+    return { hour: date.getUTCHours(), dayOfWeek: date.getUTCDay() };
+  }
+}
+
+export function computeSuggestedTimeSlots(
+  schedules: AttendeeSchedule[],
+  durationMinutes: number,
+  windowStart: Date,
+  windowEnd: Date,
+  maxSlots: number = 5,
+  /** IANA timezone for business-hours scoring, e.g. "America/New_York". Defaults to UTC. */
+  organizerTimezone: string = 'UTC'
+): SuggestedTimeSlot[] {
+  const stepMs = 30 * 60 * 1000;
+  const durationMs = durationMinutes * 60 * 1000;
+  const totalAttendees = schedules.length;
+
+  // Build a set of busy intervals per attendee (in ms since epoch)
+  const busyIntervals: Array<Array<{ start: number; end: number }>> = schedules.map(s =>
+    s.slots
+      .filter(slot => slot.status !== 'free' && slot.status !== 'unknown')
+      .map(slot => ({
+        start: new Date(slot.start + (slot.start.endsWith('Z') ? '' : 'Z')).getTime(),
+        end: new Date(slot.end + (slot.end.endsWith('Z') ? '' : 'Z')).getTime(),
+      }))
+      .filter(iv => iv.start && iv.end)
+  );
+
+  interface Candidate {
+    start: string;
+    end: string;
+    freeCount: number;
+    totalAttendees: number;
+    label: string;
+    isBusinessHours: boolean;
+    startMs: number;
+  }
+
+  const candidates: Candidate[] = [];
+  let cursor = windowStart.getTime();
+  const windowEndMs = windowEnd.getTime();
+
+  while (cursor + durationMs <= windowEndMs) {
+    const slotStart = cursor;
+    const slotEnd = cursor + durationMs;
+
+    // Count how many attendees are free during this slot
+    let freeCount = 0;
+    for (const intervals of busyIntervals) {
+      const isBusy = intervals.some(iv => iv.start < slotEnd && iv.end > slotStart);
+      if (!isBusy) freeCount++;
+    }
+
+    // Determine whether the slot falls inside 9am–4pm on a weekday in the
+    // organizer's own timezone (used only as a ranking tiebreaker, not a filter).
+    const { hour, dayOfWeek } = getLocalHourAndDay(new Date(slotStart), organizerTimezone);
+    const isWeekday = dayOfWeek !== 0 && dayOfWeek !== 6;
+    const isBusinessHours = isWeekday && hour >= 9 && hour < 16;
+
+    candidates.push({
+      start: new Date(slotStart).toISOString(),
+      end: new Date(slotEnd).toISOString(),
+      freeCount,
+      totalAttendees,
+      label: '',
+      isBusinessHours,
+      startMs: slotStart,
+    });
+
+    cursor += stepMs;
+  }
+
+  // Sort: most free attendees first, then prefer organizer business hours, then earlier times
+  candidates.sort((a, b) => {
+    if (b.freeCount !== a.freeCount) return b.freeCount - a.freeCount;
+    if (a.isBusinessHours !== b.isBusinessHours) return a.isBusinessHours ? -1 : 1;
+    return a.startMs - b.startMs;
+  });
+
+  // Deduplicate: keep slots at least 1 hour apart
+  const selected: SuggestedTimeSlot[] = [];
+  for (const slot of candidates) {
+    if (selected.length >= maxSlots) break;
+    const tooClose = selected.some(
+      s => Math.abs(new Date(s.start).getTime() - slot.startMs) < 60 * 60 * 1000
+    );
+    if (!tooClose) {
+      const { isBusinessHours: _bh, startMs: _ms, ...rest } = slot;
+      selected.push(rest);
+    }
+  }
+
+  return selected;
+}
+
 export function generateMeetingSummaryEmail(
   meeting: {
     title: string;
