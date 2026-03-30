@@ -33,14 +33,14 @@ import { OKRDetailPane } from "@/components/okr/OKRDetailPane";
 import { ProgressSummaryBar } from "@/components/okr/ProgressSummaryBar";
 import { MilestoneEditor, type PhasedTargets } from "@/components/okr/MilestoneEditor";
 import { MilestoneTimeline } from "@/components/okr/MilestoneTimeline";
-import { TrendingUp, Target, Activity, AlertCircle, AlertTriangle, CheckCircle, CheckSquare, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink, Calendar, X, Filter, Users } from "lucide-react";
+import { TrendingUp, Target, Activity, AlertCircle, AlertTriangle, CheckCircle, CheckSquare, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink, Calendar, X, Filter, Users, Circle, Clock } from "lucide-react";
 import { ExcelFilePicker } from "@/components/ExcelFilePicker";
 import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
 import { PlannerCreatePlanDialog } from "@/components/planner/PlannerCreatePlanDialog";
 import { PlannerTaskLinkPanel } from "@/components/planner/PlannerTaskLinkPanel";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { Foundation, CompanyValue, AnnualGoal, Ambition } from "@shared/schema";
+import type { Foundation, CompanyValue, AnnualGoal, Ambition, BigRockTask } from "@shared/schema";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Save } from "lucide-react";
 import { AIGoalsSuggestionDialog } from "@/components/AIGoalsSuggestionDialog";
@@ -636,6 +636,7 @@ export default function PlanningEnhanced() {
   const [selectedBigRockForLink, setSelectedBigRockForLink] = useState<string | null>(null);
   const [showCreatePlanDialog, setShowCreatePlanDialog] = useState(false);
   const [checkInEntity, setCheckInEntity] = useState<{ type: string; id: string; current?: any } | null>(null);
+  const [pendingTaskUpdates, setPendingTaskUpdates] = useState<Record<string, string>>({});
 
   // Value tag states
   const [objectiveValueTags, setObjectiveValueTags] = useState<string[]>([]);
@@ -1550,6 +1551,18 @@ export default function PlanningEnhanced() {
     enabled: !!selectedBigRockForHistory && bigRockCheckInHistoryDialogOpen,
   });
 
+  // Fetch tasks for the big rock being checked in
+  const { data: checkInBigRockTasks = [] } = useQuery<BigRockTask[]>({
+    queryKey: ['/api/okr/big-rocks', checkInEntity?.id, 'tasks'],
+    queryFn: async () => {
+      if (!checkInEntity?.id) return [];
+      const res = await fetch(`/api/okr/big-rocks/${checkInEntity.id}/tasks`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: checkInDialogOpen && checkInEntity?.type === 'big_rock' && !!checkInEntity?.id,
+  });
+
   // Helper functions for toggling strategies and goals
   const toggleObjectiveStrategy = (strategyId: string) => {
     setObjectiveForm(prev => {
@@ -1800,6 +1813,7 @@ export default function PlanningEnhanced() {
       current: rock,
     });
     setEditingCheckIn(null);
+    setPendingTaskUpdates({});
     setCheckInForm({
       newValue: 0,
       newProgress: rock.completionPercentage || 0,
@@ -4380,6 +4394,63 @@ export default function PlanningEnhanced() {
                   </SelectContent>
                 </Select>
               </div>
+              {/* Task updates — only for big_rock check-ins */}
+              {checkInEntity?.type === "big_rock" && checkInBigRockTasks.length > 0 && (
+                <div className="space-y-2" data-testid="section-task-updates">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm">
+                      Tasks
+                      <span className="ml-1.5 text-xs text-muted-foreground font-normal">
+                        ({Object.values({ ...Object.fromEntries(checkInBigRockTasks.map(t => [t.id, t.status])), ...pendingTaskUpdates }).filter(s => s === 'completed').length}/{checkInBigRockTasks.length} complete)
+                      </span>
+                    </Label>
+                  </div>
+                  <div className="rounded-md border divide-y">
+                    {checkInBigRockTasks.map((task) => {
+                      const currentStatus = pendingTaskUpdates[task.id] ?? task.status;
+                      const cycleStatus = (s: string) => s === 'open' ? 'in_progress' : s === 'in_progress' ? 'completed' : 'open';
+                      return (
+                        <div key={task.id} className="flex items-center gap-3 px-3 py-2" data-testid={`row-task-${task.id}`}>
+                          <button
+                            type="button"
+                            onClick={() => setPendingTaskUpdates(prev => ({ ...prev, [task.id]: cycleStatus(currentStatus) }))}
+                            className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+                            data-testid={`button-task-status-${task.id}`}
+                            title={`Status: ${currentStatus.replace('_', ' ')} — click to advance`}
+                          >
+                            {currentStatus === 'completed' ? (
+                              <CheckCircle className="w-5 h-5 text-green-500" />
+                            ) : currentStatus === 'in_progress' ? (
+                              <Clock className="w-5 h-5 text-amber-500" />
+                            ) : (
+                              <Circle className="w-5 h-5" />
+                            )}
+                          </button>
+                          <div className="flex-1 min-w-0">
+                            <span className={`text-sm ${currentStatus === 'completed' ? 'line-through text-muted-foreground' : ''}`}>
+                              {task.title}
+                            </span>
+                            {(task.assigneeEmail || task.dueDate) && (
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {task.assigneeEmail && (
+                                  <span className="text-xs text-muted-foreground truncate max-w-[140px]">{task.assigneeEmail}</span>
+                                )}
+                                {task.dueDate && (
+                                  <span className="text-xs text-muted-foreground">{new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                          {pendingTaskUpdates[task.id] && pendingTaskUpdates[task.id] !== task.status && (
+                            <span className="text-xs text-primary font-medium shrink-0">changed</span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {isParentObjective && checkInEntity?.type === "objective" && (
                 <div className="p-3 bg-primary/5 border border-primary/20 rounded-md space-y-3" data-testid="section-ai-draft-checkin">
                   <div className="flex items-center justify-between flex-wrap gap-2">
@@ -4562,6 +4633,30 @@ export default function PlanningEnhanced() {
                       submissionData.newProgress = 0;
                     }
                     
+                    // Flush any pending task status updates in parallel
+                    const taskUpdateEntries = Object.entries(pendingTaskUpdates).filter(
+                      ([taskId, newStatus]) => {
+                        const original = checkInBigRockTasks.find(t => t.id === taskId);
+                        return original && original.status !== newStatus;
+                      }
+                    );
+                    if (taskUpdateEntries.length > 0) {
+                      Promise.all(
+                        taskUpdateEntries.map(([taskId, newStatus]) =>
+                          fetch(`/api/okr/big-rocks/${checkInEntity.id}/tasks/${taskId}`, {
+                            method: 'PATCH',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ status: newStatus }),
+                          })
+                        )
+                      ).then(() => {
+                        queryClient.invalidateQueries({ queryKey: ['/api/okr/big-rocks', checkInEntity.id, 'tasks'] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/okr/big-rocks'] });
+                      });
+                      setPendingTaskUpdates({});
+                    }
+
                     if (editingCheckIn) {
                       // Update existing check-in
                       updateCheckInMutation.mutate({
