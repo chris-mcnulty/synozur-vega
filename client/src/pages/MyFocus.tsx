@@ -186,22 +186,69 @@ export default function MyFocus() {
     );
   }, [objectives, user]);
 
+  const myObjectiveIds = useMemo(() => {
+    return new Set(myObjectives.map((o) => o.id));
+  }, [myObjectives]);
+
   const myKeyResults = useMemo(() => {
     if (!user) return [];
-    return keyResults.filter(
-      (kr) => kr.ownerId === user.id || (kr as any).ownerEmail === user.email
-    );
-  }, [keyResults, user]);
+    const seen = new Set<string>();
+    const result: KeyResult[] = [];
+    for (const kr of keyResults) {
+      if (seen.has(kr.id)) continue;
+      const directOwner = kr.ownerId === user.id || (kr as any).ownerEmail === user.email;
+      const krOwnerEmail = (kr as any).ownerEmail as string | undefined;
+      const hasExplicitOtherOwner =
+        (kr.ownerId && kr.ownerId !== user.id) ||
+        (krOwnerEmail && krOwnerEmail !== user.email);
+      const inheritedFromObjective =
+        !directOwner &&
+        !hasExplicitOtherOwner &&
+        kr.objectiveId &&
+        myObjectiveIds.has(kr.objectiveId);
+      if (directOwner || inheritedFromObjective) {
+        seen.add(kr.id);
+        result.push(kr);
+      }
+    }
+    return result;
+  }, [keyResults, user, myObjectiveIds]);
+
+  const myKeyResultIds = useMemo(() => {
+    return new Set(myKeyResults.map((kr) => kr.id));
+  }, [myKeyResults]);
 
   const myBigRocks = useMemo(() => {
     if (!user) return [];
-    return bigRocks.filter(
-      (br) =>
+    const seen = new Set<string>();
+    const result: typeof bigRocks = [];
+    for (const br of bigRocks) {
+      if (seen.has(br.id)) continue;
+      const directOwner =
         br.ownerId === user.id ||
         br.ownerEmail === user.email ||
-        br.accountableId === user.id
-    );
-  }, [bigRocks, user]);
+        br.accountableId === user.id;
+      const hasExplicitOtherOwner =
+        (br.ownerId && br.ownerId !== user.id) ||
+        (br.ownerEmail && br.ownerEmail !== user.email) ||
+        (br.accountableId && br.accountableId !== user.id);
+      const inheritedFromObjective =
+        !directOwner &&
+        !hasExplicitOtherOwner &&
+        br.objectiveId &&
+        myObjectiveIds.has(br.objectiveId);
+      const inheritedFromKR =
+        !directOwner &&
+        !hasExplicitOtherOwner &&
+        br.keyResultId &&
+        myKeyResultIds.has(br.keyResultId);
+      if (directOwner || inheritedFromObjective || inheritedFromKR) {
+        seen.add(br.id);
+        result.push(br);
+      }
+    }
+    return result;
+  }, [bigRocks, user, myObjectiveIds, myKeyResultIds]);
 
   // Overdue check-ins: items where last check-in is > 7 days ago or never (objectives, key results, and big rocks)
   const overdueCheckIns = useMemo(() => {
