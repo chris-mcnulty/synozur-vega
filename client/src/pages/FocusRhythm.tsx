@@ -219,12 +219,13 @@ function OKRLinkingModal({
   const [selectedKeyResults, setSelectedKeyResults] = useState<string[]>(linkedKeyResultIds);
   const [selectedBigRocks, setSelectedBigRocks] = useState<string[]>(linkedBigRockIds);
   
-  const effectiveQuarter = quarter ?? fallbackQuarter;
   const effectiveYear = year ?? fallbackYear;
-  const periodParams = effectiveYear ? (effectiveQuarter !== undefined ? `&quarter=${effectiveQuarter}&year=${effectiveYear}` : `&year=${effectiveYear}`) : '';
+  // Do not filter by quarter in the linking modal — show all annual AND quarterly
+  // objectives for the year so users aren't blocked by their global period mode.
+  const periodParams = effectiveYear ? `&year=${effectiveYear}` : '';
   
   const { data: rawObjectives = [] } = useQuery<Objective[]>({
-    queryKey: ['/api/okr/objectives', tenantId, effectiveQuarter, effectiveYear],
+    queryKey: ['/api/okr/objectives', tenantId, effectiveYear],
     queryFn: async () => {
       const res = await fetch(`/api/okr/objectives?tenantId=${tenantId}${periodParams}`);
       if (!res.ok) return [];
@@ -235,7 +236,7 @@ function OKRLinkingModal({
   const objectives = sortByPeriod(rawObjectives);
   
   const { data: rawBigRocks = [] } = useQuery<BigRock[]>({
-    queryKey: ['/api/okr/big-rocks', tenantId, effectiveQuarter, effectiveYear],
+    queryKey: ['/api/okr/big-rocks', tenantId, effectiveYear],
     queryFn: async () => {
       const res = await fetch(`/api/okr/big-rocks?tenantId=${tenantId}${periodParams}`);
       if (!res.ok) return [];
@@ -246,7 +247,7 @@ function OKRLinkingModal({
   const bigRocks = sortByPeriod(rawBigRocks);
   
   const { data: hierarchyData } = useQuery<any[]>({
-    queryKey: ['/api/okr/hierarchy', tenantId, effectiveQuarter, effectiveYear],
+    queryKey: ['/api/okr/hierarchy', tenantId, effectiveYear],
     queryFn: async () => {
       const res = await fetch(`/api/okr/hierarchy?tenantId=${tenantId}${periodParams}`);
       if (!res.ok) return [];

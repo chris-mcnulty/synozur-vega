@@ -1257,10 +1257,7 @@ export async function generateMeetingAgenda(params: {
 
   const guide = meetingTypeGuide[meetingType] || meetingTypeGuide['ad-hoc'];
 
-  const messages: ChatMessage[] = [
-    {
-      role: 'user',
-      content: `You are an expert facilitator for strategic business meetings. Generate a focused, actionable meeting agenda.
+  const prompt = `You are an expert facilitator for strategic business meetings. Generate a focused, actionable meeting agenda.
 
 **Meeting Title:** ${meetingTitle || 'Team Meeting'}
 **Meeting Type:** ${meetingType} — ${guide}${okrContext}${atRiskContext}
@@ -1284,27 +1281,29 @@ Rules:
 - If at-risk items exist, include a focused section to address them
 - If linked OKRs exist, include review of their status
 - Tailor depth to meeting cadence (weekly = tactical, quarterly/annual = strategic)
-- Return ONLY valid JSON, no additional text`,
-    },
-  ];
+- Return ONLY valid JSON, no markdown, no preamble, no extra text`;
 
   try {
-    const response = await getChatCompletion(messages, {
-      tenantId,
-      maxTokens: 1500,
-    }, AI_FEATURES.MEETING_AGENDA);
+    const response = await getSimpleCompletion(prompt, { tenantId, maxTokens: 4000 });
 
-    const cleanedResponse = response
-      .replace(/```json\s*/g, '')
+    // Extract JSON from the response — handle markdown code blocks and extra prose
+    let cleanedResponse = response
+      .replace(/```json\s*/gi, '')
       .replace(/```\s*/g, '')
-      .replace(/^[^{]*/, '')
-      .replace(/[^}]*$/, '')
       .trim();
+
+    // Find the outermost JSON object
+    const firstBrace = cleanedResponse.indexOf('{');
+    const lastBrace = cleanedResponse.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      cleanedResponse = cleanedResponse.slice(firstBrace, lastBrace + 1);
+    }
 
     let parsed: any;
     try {
       parsed = JSON.parse(cleanedResponse);
     } catch {
+      console.error('[Meeting Agenda] JSON parse failed. Raw response:', response.slice(0, 500));
       throw new Error('AI response was not in valid JSON format. Please try again.');
     }
 
