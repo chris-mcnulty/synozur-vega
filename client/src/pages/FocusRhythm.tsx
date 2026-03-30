@@ -1258,6 +1258,9 @@ export default function FocusRhythm() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
+  const [newlyCreatedMeetingId, setNewlyCreatedMeetingId] = useState<string | null>(null);
+  const [postCreateScheduleOpen, setPostCreateScheduleOpen] = useState(false);
+  const [postCreateMeetingData, setPostCreateMeetingData] = useState<Meeting | null>(null);
   const [formData, setFormData] = useState<MeetingFormData>(initialFormData);
   const [newAttendeeInput, setNewAttendeeInput] = useState("");
   const [newAgendaInput, setNewAgendaInput] = useState("");
@@ -1382,29 +1385,40 @@ export default function FocusRhythm() {
     },
   });
 
+  const dateToNoonISO = (dateStr: string | undefined | null) => {
+    if (!dateStr) return null;
+    return new Date(`${dateStr}T12:00:00`).toISOString();
+  };
+
   const createMutation = useMutation({
     mutationFn: async (data: MeetingFormData) => {
       const seriesId = data.isRecurring ? crypto.randomUUID() : undefined;
-      return apiRequest("POST", "/api/meetings", {
+      const res = await apiRequest("POST", "/api/meetings", {
         tenantId: currentTenant?.id,
         ...data,
-        date: data.date ? new Date(data.date).toISOString() : null,
-        nextMeetingDate: data.nextMeetingDate ? new Date(data.nextMeetingDate).toISOString() : null,
-        recurrenceEndDate: data.recurrenceEndDate ? new Date(data.recurrenceEndDate).toISOString() : null,
+        date: dateToNoonISO(data.date),
+        nextMeetingDate: dateToNoonISO(data.nextMeetingDate),
+        recurrenceEndDate: dateToNoonISO(data.recurrenceEndDate),
         recurrencePattern: data.recurrencePattern || null,
         seriesId,
         updatedBy: "Current User",
       });
+      return res.json();
     },
-    onSuccess: () => {
+    onSuccess: (created: any) => {
       queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant?.id}`] });
       setCreateDialogOpen(false);
       setShowTemplateSelector(false);
       resetForm();
-      toast({
-        title: "Meeting Created",
-        description: "Successfully created new meeting",
-      });
+      if (outlookStatus?.connected && created?.id) {
+        setNewlyCreatedMeetingId(created.id);
+        setPostCreateMeetingData(created as Meeting);
+      } else {
+        toast({
+          title: "Meeting Created",
+          description: "Successfully created new meeting",
+        });
+      }
     },
     onError: (error: Error) => {
       toast({
@@ -1421,9 +1435,9 @@ export default function FocusRhythm() {
     mutationFn: async ({ id, data }: { id: string; data: Partial<MeetingFormData> }) => {
       return apiRequest("PATCH", `/api/meetings/${id}`, {
         ...data,
-        date: data.date ? new Date(data.date).toISOString() : undefined,
-        nextMeetingDate: data.nextMeetingDate ? new Date(data.nextMeetingDate).toISOString() : undefined,
-        recurrenceEndDate: data.recurrenceEndDate ? new Date(data.recurrenceEndDate).toISOString() : undefined,
+        date: data.date ? dateToNoonISO(data.date) : undefined,
+        nextMeetingDate: data.nextMeetingDate ? dateToNoonISO(data.nextMeetingDate) : undefined,
+        recurrenceEndDate: data.recurrenceEndDate ? dateToNoonISO(data.recurrenceEndDate) : undefined,
         recurrencePattern: data.recurrencePattern || null,
         updatedBy: "Current User",
       });
@@ -2945,6 +2959,64 @@ export default function FocusRhythm() {
           </DialogContent>
         </Dialog>
         
+        <Dialog open={!!newlyCreatedMeetingId} onOpenChange={(open) => { if (!open) setNewlyCreatedMeetingId(null); }}>
+          <DialogContent className="max-w-sm">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <CalendarCheck className="w-5 h-5" />
+                Meeting Created
+              </DialogTitle>
+              <DialogDescription>
+                Would you like to schedule a time and send an Outlook calendar invite?
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  toast({ title: "Meeting Created", description: "You can schedule it to Outlook later from the meeting card." });
+                  setNewlyCreatedMeetingId(null);
+                  setPostCreateMeetingData(null);
+                }}
+                data-testid="button-skip-outlook"
+              >
+                Not Now
+              </Button>
+              <Button
+                onClick={() => {
+                  setNewlyCreatedMeetingId(null);
+                  if (postCreateMeetingData) {
+                    setPostCreateScheduleOpen(true);
+                  } else {
+                    toast({ title: "Meeting Created", description: "Could not open scheduler. You can schedule from the meeting card." });
+                  }
+                }}
+                data-testid="button-schedule-outlook-now"
+              >
+                <CalendarCheck className="w-4 h-4 mr-1" />
+                Schedule
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {postCreateMeetingData && (
+          <ScheduleToOutlookDialog
+            open={postCreateScheduleOpen}
+            onOpenChange={(open) => {
+              setPostCreateScheduleOpen(open);
+              if (!open) setPostCreateMeetingData(null);
+            }}
+            meeting={postCreateMeetingData}
+            onConfirm={(startDateTime, durationMinutes) => {
+              syncToOutlookMutation.mutate({ meetingId: postCreateMeetingData.id, startDateTime, durationMinutes });
+              setPostCreateScheduleOpen(false);
+              setPostCreateMeetingData(null);
+            }}
+            isSyncing={syncToOutlookMutation.isPending}
+          />
+        )}
+
         <OKRLinkingModal
           open={linkingModalOpen}
           onOpenChange={setLinkingModalOpen}
