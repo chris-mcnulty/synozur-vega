@@ -182,6 +182,24 @@ interface OKRLinkingModalProps {
   tenantId: string;
   quarter?: number;
   year?: number;
+  fallbackQuarter?: number;
+  fallbackYear?: number;
+}
+
+function getQuarterLabel(quarter: number | null | undefined, year: number | null | undefined): string {
+  if (quarter === 0) return `Annual ${year ?? ''}`.trim();
+  if (quarter) return `Q${quarter} ${year ?? ''}`.trim();
+  return year ? String(year) : '';
+}
+
+function sortByPeriod<T extends { quarter?: number | null; year?: number | null }>(items: T[]): T[] {
+  return [...items].sort((a, b) => {
+    const yearDiff = (b.year ?? 0) - (a.year ?? 0);
+    if (yearDiff !== 0) return yearDiff;
+    const aq = a.quarter ?? 999;
+    const bq = b.quarter ?? 999;
+    return aq - bq;
+  });
 }
 
 function OKRLinkingModal({ 
@@ -193,16 +211,20 @@ function OKRLinkingModal({
   onSave,
   tenantId,
   quarter,
-  year
+  year,
+  fallbackQuarter,
+  fallbackYear,
 }: OKRLinkingModalProps) {
   const [selectedObjectives, setSelectedObjectives] = useState<string[]>(linkedObjectiveIds);
   const [selectedKeyResults, setSelectedKeyResults] = useState<string[]>(linkedKeyResultIds);
   const [selectedBigRocks, setSelectedBigRocks] = useState<string[]>(linkedBigRockIds);
   
-  const periodParams = year ? (quarter ? `&quarter=${quarter}&year=${year}` : `&year=${year}`) : '';
+  const effectiveQuarter = quarter ?? fallbackQuarter;
+  const effectiveYear = year ?? fallbackYear;
+  const periodParams = effectiveYear ? (effectiveQuarter !== undefined ? `&quarter=${effectiveQuarter}&year=${effectiveYear}` : `&year=${effectiveYear}`) : '';
   
-  const { data: objectives = [] } = useQuery<Objective[]>({
-    queryKey: ['/api/okr/objectives', tenantId, quarter, year],
+  const { data: rawObjectives = [] } = useQuery<Objective[]>({
+    queryKey: ['/api/okr/objectives', tenantId, effectiveQuarter, effectiveYear],
     queryFn: async () => {
       const res = await fetch(`/api/okr/objectives?tenantId=${tenantId}${periodParams}`);
       if (!res.ok) return [];
@@ -210,9 +232,10 @@ function OKRLinkingModal({
     },
     enabled: open && !!tenantId,
   });
+  const objectives = sortByPeriod(rawObjectives);
   
-  const { data: bigRocks = [] } = useQuery<BigRock[]>({
-    queryKey: ['/api/okr/big-rocks', tenantId, quarter, year],
+  const { data: rawBigRocks = [] } = useQuery<BigRock[]>({
+    queryKey: ['/api/okr/big-rocks', tenantId, effectiveQuarter, effectiveYear],
     queryFn: async () => {
       const res = await fetch(`/api/okr/big-rocks?tenantId=${tenantId}${periodParams}`);
       if (!res.ok) return [];
@@ -220,9 +243,10 @@ function OKRLinkingModal({
     },
     enabled: open && !!tenantId,
   });
+  const bigRocks = sortByPeriod(rawBigRocks);
   
   const { data: hierarchyData } = useQuery<any[]>({
-    queryKey: ['/api/okr/hierarchy', tenantId, quarter, year],
+    queryKey: ['/api/okr/hierarchy', tenantId, effectiveQuarter, effectiveYear],
     queryFn: async () => {
       const res = await fetch(`/api/okr/hierarchy?tenantId=${tenantId}${periodParams}`);
       if (!res.ok) return [];
@@ -330,7 +354,7 @@ function OKRLinkingModal({
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{obj.title}</div>
                       <div className="text-xs text-muted-foreground">
-                        Q{obj.quarter} {obj.year} • {obj.progress?.toFixed(0)}%
+                        {getQuarterLabel(obj.quarter, obj.year)} • {obj.progress?.toFixed(0)}%
                       </div>
                     </div>
                   </div>
@@ -398,7 +422,7 @@ function OKRLinkingModal({
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{rock.title}</div>
                       <div className="text-xs text-muted-foreground">
-                        Q{rock.quarter} {rock.year}
+                        {getQuarterLabel(rock.quarter, rock.year)}
                       </div>
                     </div>
                   </div>
@@ -916,10 +940,12 @@ export default function FocusRhythm() {
         description: "Successfully created new meeting",
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
-        title: "Error",
-        description: "Failed to create meeting",
+        title: "Error Creating Meeting",
+        description: error?.message?.includes('409') || error?.message?.includes('unique')
+          ? "A meeting with this title and date already exists."
+          : (error?.message || "Failed to create meeting"),
         variant: "destructive",
       });
     },
@@ -945,10 +971,12 @@ export default function FocusRhythm() {
         description: "Successfully updated meeting",
       });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
-        title: "Error",
-        description: "Failed to update meeting",
+        title: "Error Saving Meeting",
+        description: error?.message?.includes('403')
+          ? "You don't have permission to edit this meeting."
+          : (error?.message || "Failed to update meeting"),
         variant: "destructive",
       });
     },
@@ -2235,7 +2263,7 @@ export default function FocusRhythm() {
           <div>
             <h1 className="text-3xl font-semibold">Focus Rhythm</h1>
             <p className="text-muted-foreground mt-1">
-              Meetings for Q{quarter} {year}
+              {isAnnual ? `Meetings for ${year}` : `Meetings for Q${quarter} ${year}`}
             </p>
           </div>
           <div className="flex gap-2 items-center">
@@ -2488,6 +2516,8 @@ export default function FocusRhythm() {
           tenantId={currentTenant.id}
           quarter={meetingPeriod.quarter ?? undefined}
           year={meetingPeriod.year}
+          fallbackQuarter={isAnnual ? undefined : quarter}
+          fallbackYear={year}
         />
         
         <Dialog open={outlookImportDialogOpen} onOpenChange={setOutlookImportDialogOpen}>

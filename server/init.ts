@@ -111,6 +111,24 @@ async function ensureSchemaColumns() {
       }
     }
     
+    // Check and add missing columns for meetings table
+    const meetingColumns = [
+      { name: 'meeting_time', type: 'text' },
+      { name: 'duration', type: 'integer' },
+    ];
+    
+    for (const col of meetingColumns) {
+      const checkResult = await client.query(`
+        SELECT column_name FROM information_schema.columns 
+        WHERE table_name = 'meetings' AND column_name = $1
+      `, [col.name]);
+      
+      if (checkResult.rows.length === 0) {
+        console.log(`  Adding missing column: meetings.${col.name}`);
+        await client.query(`ALTER TABLE meetings ADD COLUMN IF NOT EXISTS ${col.name} ${col.type}`);
+      }
+    }
+    
     console.log("✓ Database schema verified");
   } catch (error) {
     console.error("Schema check error:", error);
