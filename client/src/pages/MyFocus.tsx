@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,7 +18,10 @@ import {
   Loader2,
   Activity,
   Bell,
+  Mountain,
+  PlayCircle,
 } from "lucide-react";
+import { SerialCheckInDialog, type CheckInQueueItem } from "@/components/okr/SerialCheckInDialog";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTimePeriod } from "@/contexts/TimePeriodContext";
@@ -190,9 +193,19 @@ export default function MyFocus() {
     );
   }, [keyResults, user]);
 
-  // Overdue check-ins: items where last check-in is > 7 days ago or never
+  const myBigRocks = useMemo(() => {
+    if (!user) return [];
+    return bigRocks.filter(
+      (br) =>
+        (br as any).ownerId === user.id ||
+        (br as any).ownerEmail === user.email ||
+        (br as any).accountableId === user.id
+    );
+  }, [bigRocks, user]);
+
+  // Overdue check-ins: items where last check-in is > 7 days ago or never (objectives, key results, and big rocks)
   const overdueCheckIns = useMemo(() => {
-    const items: Array<{ id: string; title: string; type: "objective" | "key_result"; daysSince: number | null; progress: number; status: string; paceStatus: PaceStatus }> = [];
+    const items: CheckInQueueItem[] = [];
 
     for (const obj of myObjectives) {
       if (obj.status === "completed" || obj.status === "cancelled") continue;
@@ -206,6 +219,7 @@ export default function MyFocus() {
           progress: obj.progress ?? 0,
           status: obj.status ?? "not_started",
           paceStatus: calculatePaceStatus(obj.progress ?? 0, quarter, year),
+          entityData: obj,
         });
       }
     }
@@ -222,21 +236,55 @@ export default function MyFocus() {
           progress: kr.progress ?? 0,
           status: kr.status ?? "not_started",
           paceStatus: calculatePaceStatus(kr.progress ?? 0, quarter, year),
+          entityData: kr,
+        });
+      }
+    }
+
+    for (const br of myBigRocks) {
+      if ((br as any).status === "completed" || (br as any).status === "cancelled") continue;
+      const days = daysSinceCheckIn((br as any).lastCheckInAt);
+      if (days === null || days >= 7) {
+        items.push({
+          id: br.id,
+          title: br.title,
+          type: "big_rock",
+          daysSince: days,
+          progress: (br as any).completionPercentage ?? (br as any).progress ?? 0,
+          status: (br as any).status ?? "not_started",
+          paceStatus: calculatePaceStatus(
+            (br as any).completionPercentage ?? (br as any).progress ?? 0,
+            quarter,
+            year,
+          ),
+          entityData: br,
         });
       }
     }
 
     return items.sort((a, b) => {
-      // Sort by most urgent: at_risk first, then by days since check-in descending
-      const urgency: Record<PaceStatus, number> = { at_risk: 0, behind: 1, no_data: 2, on_track: 3, ahead: 4, completed: 5 };
-      if (urgency[a.paceStatus] !== urgency[b.paceStatus]) {
-        return urgency[a.paceStatus] - urgency[b.paceStatus];
-      }
-      const aD = a.daysSince ?? 999;
-      const bD = b.daysSince ?? 999;
+      // Urgency tiers: at_risk → behind → stalled (≥21 days, any pace) → no_data → on_track/ahead
+      const isStalled = (item: CheckInQueueItem) =>
+        item.daysSince === null || item.daysSince >= 21;
+
+      const urgencyTier = (item: CheckInQueueItem): number => {
+        if (item.paceStatus === "at_risk") return 0;
+        if (item.paceStatus === "behind") return 1;
+        if (isStalled(item)) return 2;
+        if (item.paceStatus === "no_data") return 3;
+        return 4; // on_track / ahead
+      };
+
+      const tA = urgencyTier(a);
+      const tB = urgencyTier(b);
+      if (tA !== tB) return tA - tB;
+
+      // Within tier: stalest first (null = never → treated as most stale)
+      const aD = a.daysSince ?? 9999;
+      const bD = b.daysSince ?? 9999;
       return bD - aD;
     });
-  }, [myObjectives, myKeyResults, quarter, year]);
+  }, [myObjectives, myKeyResults, myBigRocks, quarter, year]);
 
   // At-risk items I own
   const atRiskItems = useMemo(() => {
@@ -270,6 +318,47 @@ export default function MyFocus() {
       .sort((a, b) => new Date(a.date ?? 0).getTime() - new Date(b.date ?? 0).getTime())
       .slice(0, 5);
   }, [meetings, today]);
+
+  // Serial check-in queue state
+  const [checkInQueue, setCheckInQueue] = useState<CheckInQueueItem[]>([]);
+  const [currentQueueIndex, setCurrentQueueIndex] = useState(0);
+  const [isQueueOpen, setIsQueueOpen] = useState(false);
+
+  // Build a map of bigRockId → tasks for the serial dialog
+  const bigRockTasksMap = useMemo(() => {
+    const map: Record<string, any[]> = {};
+    bigRockTaskResults.forEach((result, i) => {
+      const br = bigRocks[i];
+      if (br && result.data) {
+        map[br.id] = result.data;
+      }
+    });
+    return map;
+  }, [bigRockTaskResults, bigRocks]);
+
+  const startCheckInQueue = () => {
+    // Freeze the sorted overdue list into a queue at session start
+    setCheckInQueue([...overdueCheckIns]);
+    setCurrentQueueIndex(0);
+    setIsQueueOpen(true);
+  };
+
+  const handleQueueAdvance = () => {
+    const nextIndex = currentQueueIndex + 1;
+    if (nextIndex >= checkInQueue.length) {
+      setIsQueueOpen(false);
+    } else {
+      setCurrentQueueIndex(nextIndex);
+    }
+  };
+
+  const handleQueuePrev = () => {
+    setCurrentQueueIndex((i) => Math.max(0, i - 1));
+  };
+
+  const handleQueueClose = () => {
+    setIsQueueOpen(false);
+  };
 
   if (isLoading) {
     return (
@@ -312,12 +401,22 @@ export default function MyFocus() {
       {overdueCheckIns.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Bell className="h-4 w-4 text-amber-500" />
-              Overdue Check-ins
-              <Badge variant="outline" className="ml-1">{overdueCheckIns.length}</Badge>
-            </CardTitle>
-            <CardDescription>Objectives and key results you own that haven't been checked in on recently</CardDescription>
+            <div className="flex items-center justify-between gap-2">
+              <CardTitle className="text-base flex items-center gap-2">
+                <Bell className="h-4 w-4 text-amber-500" />
+                Overdue Check-ins
+                <Badge variant="outline" className="ml-1">{overdueCheckIns.length}</Badge>
+              </CardTitle>
+              <Button
+                size="sm"
+                className="gap-1.5 shrink-0"
+                onClick={startCheckInQueue}
+              >
+                <PlayCircle className="h-3.5 w-3.5" />
+                Start Check-Ins ({overdueCheckIns.length})
+              </Button>
+            </div>
+            <CardDescription>Items you own that haven't been checked in on recently</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             {overdueCheckIns.map((item) => (
@@ -325,6 +424,8 @@ export default function MyFocus() {
                 <div className="flex-shrink-0">
                   {item.type === "objective" ? (
                     <Target className="h-4 w-4 text-muted-foreground" />
+                  ) : item.type === "big_rock" ? (
+                    <Mountain className="h-4 w-4 text-muted-foreground" />
                   ) : (
                     <Activity className="h-4 w-4 text-muted-foreground" />
                   )}
@@ -477,6 +578,24 @@ export default function MyFocus() {
           </Button>
         </Link>
       </div>
+
+      {/* Serial Check-In Dialog */}
+      {isQueueOpen && checkInQueue.length > 0 && (
+        <SerialCheckInDialog
+          open={isQueueOpen}
+          queue={checkInQueue}
+          currentIndex={currentQueueIndex}
+          bigRockTasksMap={bigRockTasksMap}
+          onAdvance={handleQueueAdvance}
+          onPrev={handleQueuePrev}
+          onClose={handleQueueClose}
+          tenantId={tenantId ?? ""}
+          userId={user?.id}
+          userEmail={user?.email}
+          quarter={quarter}
+          year={year}
+        />
+      )}
     </div>
   );
 }
