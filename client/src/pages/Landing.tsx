@@ -8,6 +8,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { Link, useLocation } from "wouter";
 import { useAuth } from "@/contexts/AuthContext";
 import { useEffect, useState } from "react";
+import { useScrollReveal } from "@/hooks/use-scroll-reveal";
 import { useQuery } from "@tanstack/react-query";
 import { SynozurAppSwitcher } from "@/components/SynozurAppSwitcher";
 import { Sparkles, TrendingUp, Target, CheckCircle2 } from "lucide-react";
@@ -87,6 +88,8 @@ export default function Landing() {
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
+
+  const aiToolsRef = useScrollReveal<HTMLElement>();
 
   if (isLoading) {
     return (
@@ -191,9 +194,9 @@ export default function Landing() {
         <LandingHero />
 
         {/* AI-Powered Tools Section */}
-        <section className="py-16 md:py-24 bg-background border-t">
+        <section ref={aiToolsRef} className="py-16 md:py-24 bg-background border-t">
           <div className="max-w-6xl mx-auto px-6">
-            <div className="text-center mb-12">
+            <div className="text-center mb-12 fade-up-hidden">
               <Badge variant="outline" className="mb-4">
                 <Sparkles className="h-3 w-3 mr-1" />
                 Built-in AI
@@ -204,10 +207,14 @@ export default function Landing() {
               </p>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              {AI_TOOLS.map((tool) => {
+              {AI_TOOLS.map((tool, index) => {
                 const Icon = tool.icon;
                 return (
-                  <Card key={tool.title} className="hover-elevate">
+                  <Card
+                    key={tool.title}
+                    className="hover-elevate fade-up-hidden"
+                    style={{ transitionDelay: `${index * 60}ms` }}
+                  >
                     <CardContent className="p-6">
                       <div className="rounded-md bg-primary/10 p-2.5 w-fit mb-4">
                         <Icon className="h-5 w-5 text-primary" />

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useScrollReveal } from "@/hooks/use-scroll-reveal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -167,6 +168,13 @@ export function LandingHero() {
     }
     return 0;
   });
+
+  const aiSectionRef = useScrollReveal<HTMLElement>();
+  const trustBandRef = useScrollReveal<HTMLElement>();
+  const outcomesSectionRef = useScrollReveal<HTMLElement>();
+  const differentiatorsRef = useScrollReveal<HTMLElement>();
+  const forNotForRef = useScrollReveal<HTMLElement>();
+  const securityRef = useScrollReveal<HTMLElement>();
   
   const { data: landingSettings } = useQuery<{ heroMediaType: string }>({
     queryKey: ["/api/landing-settings"],
@@ -196,6 +204,8 @@ export function LandingHero() {
           backgroundRepeat: 'no-repeat'
         }}
       >
+        {/* Starfield: lowest z-index layer beneath the dark wash */}
+        <div className="starfield" aria-hidden="true" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/80" />
         
         <div className="relative z-10 w-full max-w-5xl mx-auto px-4 md:px-6 text-white">
@@ -324,12 +334,14 @@ export function LandingHero() {
         </div>
       </section>
       {/* Trust Band Section */}
-      <section className="py-12 md:py-16 bg-background border-b" data-testid="trust-band-section">
+      <section ref={trustBandRef} className="py-12 md:py-16 bg-background border-b" data-testid="trust-band-section">
         <div className="max-w-5xl mx-auto px-6">
           {/* Stat Tiles */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
-            {TRUST_STATS.map((stat) => (
-              <StatTile key={stat.label} value={stat.value} label={stat.label} icon={stat.icon} />
+            {TRUST_STATS.map((stat, index) => (
+              <div key={stat.label} className="fade-up-hidden" style={{ transitionDelay: `${index * 60}ms` }}>
+                <StatTile value={stat.value} label={stat.label} icon={stat.icon} />
+              </div>
             ))}
           </div>
 
@@ -428,16 +440,21 @@ export function LandingHero() {
         </div>
       </section>
       {/* Outcomes Section */}
-      <section className="py-16 md:py-24 bg-background">
+      <section ref={outcomesSectionRef} className="py-16 md:py-24 bg-background">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-12">
+          <div className="text-center mb-12 fade-up-hidden">
             <Badge variant="secondary" className="mb-4">What You'll Achieve</Badge>
             <h2 className="text-h2-section font-semibold">Three outcomes that matter</h2>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {outcomeCards.map((card, index) => (
-              <Card key={index} className="hover-elevate" data-testid={`outcome-card-${index}`}>
+              <Card
+                key={index}
+                className="hover-elevate fade-up-hidden"
+                style={{ transitionDelay: `${index * 80}ms` }}
+                data-testid={`outcome-card-${index}`}
+              >
                 <CardContent className="p-6 text-center">
                   <div className="w-14 h-14 bg-primary/10 rounded-lg flex items-center justify-center mx-auto mb-4">
                     <card.icon className="h-7 w-7 text-primary" />
@@ -453,9 +470,9 @@ export function LandingHero() {
         </div>
       </section>
       {/* How Vega is Different */}
-      <section id="features" className="py-16 md:py-24 bg-muted/30">
+      <section ref={differentiatorsRef} id="features" className="py-16 md:py-24 bg-muted/30">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="text-center mb-12">
+          <div className="text-center mb-12 fade-up-hidden">
             <Badge variant="outline" className="mb-4">Why Vega</Badge>
             <h2 className="text-h2-section font-semibold">How Vega is Different</h2>
             <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
@@ -465,7 +482,12 @@ export function LandingHero() {
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {differentiators.map((item, index) => (
-              <Card key={index} className="hover-elevate" data-testid={`differentiator-card-${index}`}>
+              <Card
+                key={index}
+                className="hover-elevate fade-up-hidden"
+                style={{ transitionDelay: `${index * 80}ms` }}
+                data-testid={`differentiator-card-${index}`}
+              >
                 <CardContent className="p-6">
                   <h3 className="text-lg font-semibold mb-2">{item.title}</h3>
                   <p className="text-muted-foreground">{item.description}</p>
@@ -476,14 +498,14 @@ export function LandingHero() {
         </div>
       </section>
       {/* Who It's For / Not For */}
-      <section className="py-16 md:py-24 bg-background">
+      <section ref={forNotForRef} className="py-16 md:py-24 bg-background">
         <div className="max-w-5xl mx-auto px-6">
-          <div className="text-center mb-12">
+          <div className="text-center mb-12 fade-up-hidden">
             <h2 className="text-h2-section font-semibold">Is Vega right for you?</h2>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card data-testid="who-for-card">
+            <Card className="fade-up-hidden" style={{ transitionDelay: "60ms" }} data-testid="who-for-card">
               <CardContent className="p-6">
                 <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
                   <CheckCircle2 className="h-6 w-6 text-green-500" />
@@ -500,7 +522,7 @@ export function LandingHero() {
               </CardContent>
             </Card>
             
-            <Card data-testid="who-not-for-card">
+            <Card className="fade-up-hidden" style={{ transitionDelay: "120ms" }} data-testid="who-not-for-card">
               <CardContent className="p-6">
                 <h3 className="text-xl font-semibold mb-4 flex items-center gap-2">
                   <X className="h-6 w-6 text-muted-foreground" />
@@ -589,9 +611,9 @@ export function LandingHero() {
         </div>
       </section>
       {/* Security Section */}
-      <section id="security" className="py-16 md:py-24 bg-card">
+      <section ref={securityRef} id="security" className="py-16 md:py-24 bg-card">
         <div className="max-w-4xl mx-auto px-6">
-          <div className="text-center mb-10">
+          <div className="text-center mb-10 fade-up-hidden">
             <Badge variant="outline" className="mb-4">Enterprise Grade</Badge>
             <h2 className="text-h2-section font-semibold">Enterprise-ready by design</h2>
           </div>
@@ -600,7 +622,8 @@ export function LandingHero() {
             {securityBullets.map((item, index) => (
               <div 
                 key={index}
-                className="flex items-center gap-2 bg-muted rounded-full px-5 py-2.5"
+                className="flex items-center gap-2 bg-muted rounded-full px-5 py-2.5 fade-in-hidden"
+                style={{ transitionDelay: `${index * 50}ms` }}
                 data-testid={`security-badge-${index}`}
               >
                 <Shield className="h-4 w-4 text-primary" />

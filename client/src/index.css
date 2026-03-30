@@ -252,6 +252,92 @@
  * Even without handling focused or not, this is six possible combinations that
  * need to be distinguished from eachother visually.
  */
+/* ============================================================
+ * Starfield — pure CSS static star layer for the splash page
+ * Sits at the lowest z-index beneath any aurora/blob layer.
+ * Stars are white dots at very low opacity; only visible in
+ * dark conditions (dark mode or over the dark hero images).
+ * ============================================================ */
+.starfield {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.starfield::before,
+.starfield::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Small distant stars — tight repeating dot grid */
+.starfield::before {
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,0.55) 1px, transparent 1px),
+    radial-gradient(circle, rgba(255,255,255,0.30) 1px, transparent 1px),
+    radial-gradient(circle, rgba(255,255,255,0.20) 1px, transparent 1px);
+  background-size:
+    137px 137px,
+    211px 211px,
+    97px  97px;
+  background-position:
+    13px 27px,
+    71px 54px,
+    41px 83px;
+}
+
+/* Larger, even dimmer mid-field stars */
+.starfield::after {
+  background-image:
+    radial-gradient(circle, rgba(255,255,255,0.18) 1.5px, transparent 1.5px),
+    radial-gradient(circle, rgba(255,255,255,0.12) 1px,   transparent 1px);
+  background-size:
+    293px 293px,
+    173px 173px;
+  background-position:
+    107px 61px,
+    53px  139px;
+}
+
+/* ============================================================
+ * Scroll-reveal utilities
+ * Elements start hidden/translated and transition to visible
+ * when the `is-visible` class is added via IntersectionObserver.
+ * All animation rules are wrapped in prefers-reduced-motion:no-preference
+ * so users who prefer reduced motion see content immediately.
+ * ============================================================ */
+@media (prefers-reduced-motion: no-preference) {
+  .fade-up-hidden {
+    opacity: 0;
+    transform: translateY(28px);
+    transition: opacity 0.55s ease-out, transform 0.55s ease-out;
+  }
+
+  .fade-up-hidden.is-visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .fade-in-hidden {
+    opacity: 0;
+    transition: opacity 0.55s ease-out;
+  }
+
+  .fade-in-hidden.is-visible {
+    opacity: 1;
+  }
+}
+
+/* Ensure content is always visible for reduced-motion users */
+.fade-up-hidden,
+.fade-in-hidden {
+  /* default: visible — overridden above when no-preference */
+}
+
 @layer utilities {
 
   /* Hide ugly search cancel button in Chrome until we can style it properly */
