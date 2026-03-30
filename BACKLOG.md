@@ -1,6 +1,6 @@
 # Vega Platform Master Backlog
 
-**Last Updated:** February 8, 2026 (Help Chatbot & Support Ticket System completed)
+**Last Updated:** March 30, 2026 (Serial Check-In Step-Through design added to backlog)
 
 > **Note:** This is the single source of truth for all Vega feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference this document for backlog-related questions.
 
@@ -1874,6 +1874,156 @@ Visual progress trends and real-time activity feed:
 - Interactive line charts showing KR progress over time
 - Global activity feed with filters
 - Sparkline mini-charts on objective cards
+
+---
+
+### Serial Check-In Step-Through (My Focus)
+
+**Status:** Proposed  
+**Effort:** 2–3 days  
+**Priority:** Medium-High  
+**Category:** UX / Engagement
+
+#### What it is
+
+A guided, step-through workflow that lets a user clear their entire backlog of stale check-ins in one focused session without navigating away from a single dialog. A "Start Check-Ins (N)" button on the My Focus page's **Overdue Check-ins** card assembles a prioritised queue of every objective, key result, and big rock the user owns that hasn't been checked in on within the last 7 days. The existing check-in dialog is then pre-loaded with the first item in the queue and gains Prev / Skip / Next / Record navigation controls. The user works through the queue item by item — recording a check-in, skipping an item entirely, or stepping back to revisit a previous one — and the dialog closes automatically when the last item is saved or skipped.
+
+#### Why it matters
+
+Today, My Focus shows the overdue check-in list but each item's arrow button just links to the general `/planning` page, leaving the user to hunt for and open each individual check-in dialog themselves. This makes catching up on 5–10 stale items an unnecessarily tedious, multi-click process. The serial step-through turns it into a single focused session: open once, work through everything, done.
+
+Additional motivation:
+- Big rocks are currently **absent** from the overdue check-ins list entirely — they must be added to the queue as a prerequisite.
+- The new Big Rock check-in dialog already supports inline task status updates; those pending task edits should carry through correctly when "Record & Next" is pressed.
+- Regular check-in cadence is one of the strongest predictors of OKR success; removing friction directly improves adoption.
+
+---
+
+#### Queue Building Logic
+
+The queue is assembled once when the user clicks "Start Check-Ins" and is not rebuilt mid-session (so skipped items stay skipped even if the user refreshes).
+
+**Included items (all three types):**
+- Objectives the user owns (`ownerId`, `ownerEmail`, `coOwnerIds`, or `checkInOwnerId` matches) where status is not `completed` or `cancelled` and `lastCheckInAt` is `null` or ≥ 7 days ago.
+- Key results the user owns (`ownerId` or `ownerEmail` matches) under the same conditions.
+- Big rocks the user owns (`ownerId`, `ownerEmail`, or `accountableId` matches) where status is not `completed` or `cancelled` and `lastCheckInAt` is `null` or ≥ 7 days ago. *(Currently missing from My Focus — must be added.)*
+
+**Sort order (most urgent first):**
+1. `at_risk` pace items
+2. `behind` pace items
+3. `no_data` items (never checked in)
+4. `on_track` / `ahead` items that are simply stale
+
+Within each urgency tier, items are sorted by days-since-last-check-in descending (stalest first). Items with `null` (never checked in) rank ahead of items with a known date within the same tier.
+
+---
+
+#### UX Specification
+
+##### Entry Point
+
+The "Start Check-Ins" button lives in the header row of the **Overdue Check-ins** card on My Focus, right-aligned next to the badge count. It is only rendered when the queue is non-empty.
+
+```
+┌─ Overdue Check-ins  [6]  ─────────────────────  [Start Check-Ins (6)] ─┐
+│ ...existing overdue items list...                                         │
+└──────────────────────────────────────────────────────────────────────────┘
+```
+
+##### Dialog Layout
+
+The dialog reuses the existing check-in dialog in `PlanningEnhanced.tsx` with three additions: a counter in the header, a context line below the title, and Prev / Skip / Next / Record controls in the footer.
+
+```
+┌─ Check-in (2 of 6) ───────────────────────────────────────────────────────┐
+│ Grow Annual Recurring Revenue                                               │
+│ Key Result  ·  18 days ago  ·  At Risk  ·  34%  ████░░░░░░░░              │
+│ ─────────────────────────────────────────────────────────────────────────  │
+│                                                                             │
+│  New Progress    [slider / value input]                                     │
+│  Status          [on track ▾]                                               │
+│  Note            [textarea]                                                 │
+│                                                                             │
+│ ─────────────────────────────────────────────────────────────────────────  │
+│  [← Prev]   [Skip →]                      [Cancel]   [Record & Next →]    │
+└────────────────────────────────────────────────────────────────────────────┘
+```
+
+On the **last item** in the queue, the primary button reads **"Record & Finish"** instead of "Record & Next", and pressing it saves the check-in and closes the dialog.
+
+##### Button Behaviours
+
+| Button | Action |
+|---|---|
+| **Record & Next** | Saves the current check-in (calls the same create/update mutation), invalidates relevant query cache, advances `currentIndex` by 1. If this was the last item, closes the dialog. |
+| **Record & Finish** | Same as Record & Next but shown on the last item; closes dialog on success. |
+| **Skip →** | Advances `currentIndex` without saving anything. If this was the last item, closes the dialog. |
+| **← Prev** | Decrements `currentIndex` by 1 (does NOT undo a previously saved check-in). Disabled on the first item. |
+| **Cancel** | Closes the dialog without saving. Any already-recorded check-ins in the session remain saved. |
+
+##### Counter Display
+
+The dialog title shows **"Check-in (X of Y)"** where Y is the **initial** queue length captured when "Start Check-Ins" was clicked. X is the 1-based current position. This gives the user a clear sense of how many items are left.
+
+---
+
+#### State Management
+
+All queue state lives in `MyFocus.tsx`:
+
+```
+checkInQueue: CheckInQueueItem[]   // built once on "Start Check-Ins"
+currentQueueIndex: number          // 0-based position in queue
+isQueueOpen: boolean               // controls dialog visibility
+```
+
+`CheckInQueueItem` shape:
+```typescript
+{
+  id: string;
+  title: string;
+  type: "objective" | "key_result" | "big_rock";
+  daysSince: number | null;
+  progress: number;
+  status: string;
+  paceStatus: PaceStatus;
+}
+```
+
+The queue is passed down to the check-in dialog (or the dialog is mounted in `MyFocus.tsx` directly). When a check-in is recorded, `currentQueueIndex` increments. When the index reaches `checkInQueue.length`, the dialog is closed.
+
+The existing `pendingTaskUpdates` pattern from the Big Rock check-in (in `PlanningEnhanced.tsx`) must be preserved: when the current item is a big rock and the user has changed task statuses in the inline task section, all pending task PATCHes fire in parallel before or alongside the main check-in mutation — same as the current behaviour when saving from the check-in dialog directly.
+
+---
+
+#### Cache Invalidation
+
+After each "Record" action, invalidate:
+- `['/api/okr/objectives', tenantId, quarter, year]` — if item type is `objective`
+- `['/api/okr/key-results', tenantId, quarter, year]` — if item type is `key_result`
+- `['/api/okr/big-rocks', tenantId, quarter, year]` — if item type is `big_rock`
+- `['/api/okr/big-rocks', bigRockId, 'tasks']` — if big rock task updates were flushed
+
+This causes the My Focus overdue count badge to decrement live as the user works through the queue, providing immediate positive feedback.
+
+---
+
+#### Implementation Plan
+
+1. **Add big rocks to My Focus overdue list** — Extend `overdueCheckIns` memo in `MyFocus.tsx` to include big rocks owned by the user (same 7-day threshold). Add a `"big_rock"` discriminant to the item type union.
+
+2. **Add queue state to MyFocus** — Add `checkInQueue`, `currentQueueIndex`, and `isQueueOpen` state. Add "Start Check-Ins (N)" button to the Overdue Check-ins card header.
+
+3. **Extend check-in dialog for queue mode** — Add optional `queueMode` props to the check-in dialog section in `PlanningEnhanced.tsx` (or extract a shared dialog component): `totalInQueue`, `currentIndex`, `onSkip`, `onPrev`. Wire footer buttons accordingly. Render context line (type pill · days since · pace badge · progress bar) below the dialog title.
+
+4. **Wire "Record" to advance queue** — Modify `createCheckInMutation.onSuccess` (and `updateCheckInMutation.onSuccess`) when in queue mode to increment `currentQueueIndex` instead of just closing the dialog. Fire cache invalidation for the just-recorded item type.
+
+5. **Flush pending task updates per-item** — Ensure `pendingTaskUpdates` is reset to `{}` when navigating between queue items (Skip or Record), not only at the outer save point.
+
+#### Relevant Files
+
+- `client/src/pages/MyFocus.tsx` — queue state, "Start Check-Ins" button, big rocks inclusion
+- `client/src/pages/PlanningEnhanced.tsx` — check-in dialog, mutation handlers, pending task updates logic
 
 ---
 
