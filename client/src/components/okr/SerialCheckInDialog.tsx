@@ -213,11 +213,13 @@ export function SerialCheckInDialog({
           queryClient.invalidateQueries({
             queryKey: ["/api/okr/key-results", tenantId, quarter, year],
           });
+          queryClient.invalidateQueries({ queryKey: ["/api/okr/key-results"] });
           queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives"] });
         } else if (item.type === "big_rock") {
           queryClient.invalidateQueries({
             queryKey: ["/api/okr/big-rocks", tenantId, quarter, year],
           });
+          queryClient.invalidateQueries({ queryKey: ["/api/okr/big-rocks"] });
         }
         queryClient.invalidateQueries({ queryKey: ["/api/okr/check-ins"] });
         queryClient.invalidateQueries({
