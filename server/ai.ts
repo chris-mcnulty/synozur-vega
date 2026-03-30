@@ -1222,6 +1222,112 @@ IMPORTANT:
 }
 
 // ============================================
+// MEETING AGENDA GENERATOR
+// ============================================
+
+export interface GenerateMeetingAgendaResult {
+  agenda: string[];
+  focusTheme: string;
+}
+
+export async function generateMeetingAgenda(params: {
+  meetingType: string;
+  meetingTitle?: string;
+  tenantId?: string;
+  linkedOKRs?: Array<{ type: string; title: string; status?: string; progress?: number }>;
+  atRiskItems?: string[];
+}): Promise<GenerateMeetingAgendaResult> {
+  const { meetingType, meetingTitle, tenantId, linkedOKRs = [], atRiskItems = [] } = params;
+
+  const okrContext = linkedOKRs.length
+    ? `\n\n**Linked OKRs/Big Rocks:**\n${linkedOKRs.map(o => `- ${o.type}: ${o.title}${o.status ? ` (${o.status}${o.progress !== undefined ? `, ${o.progress}%` : ''})` : ''}`).join('\n')}`
+    : '';
+
+  const atRiskContext = atRiskItems.length
+    ? `\n\n**At-Risk / Behind Items:**\n${atRiskItems.map(i => `- ${i}`).join('\n')}`
+    : '';
+
+  const meetingTypeGuide: Record<string, string> = {
+    weekly: 'Weekly Team Check-in: focus on Big Rock progress, blockers, and weekly commitments. Keep it action-oriented.',
+    monthly: 'Monthly Business Review: review OKR progress, strategic alignment, and decisions needed.',
+    quarterly: 'Quarterly Strategy Review: evaluate OKR performance, plan next quarter Big Rocks, and validate values alignment.',
+    annual: 'Annual Planning Session: full year retrospective, set annual goals, define 3-5 year ambitions.',
+    'ad-hoc': 'Ad-hoc Working Session: problem-solving or decision-making meeting. Focus on the specific issue at hand.',
+  };
+
+  const guide = meetingTypeGuide[meetingType] || meetingTypeGuide['ad-hoc'];
+
+  const messages: ChatMessage[] = [
+    {
+      role: 'user',
+      content: `You are an expert facilitator for strategic business meetings. Generate a focused, actionable meeting agenda.
+
+**Meeting Title:** ${meetingTitle || 'Team Meeting'}
+**Meeting Type:** ${meetingType} — ${guide}${okrContext}${atRiskContext}
+
+Generate a structured agenda as a JSON object with this exact format:
+{
+  "focusTheme": "A 5-8 word theme summarizing the meeting's focus",
+  "agenda": [
+    "Agenda item 1",
+    "--- SECTION HEADER ---",
+    "Agenda item 2",
+    "Agenda item 3"
+  ]
+}
+
+Rules:
+- Use "--- SECTION TITLE ---" format (with dashes) for section headers that group related items
+- Include 8-14 agenda items total (mix of headers and action items)
+- Make items concrete and actionable (avoid vague items like "Discussion")
+- Lead with a brief check-in/alignment item, end with action items and next steps
+- If at-risk items exist, include a focused section to address them
+- If linked OKRs exist, include review of their status
+- Tailor depth to meeting cadence (weekly = tactical, quarterly/annual = strategic)
+- Return ONLY valid JSON, no additional text`,
+    },
+  ];
+
+  try {
+    const response = await getChatCompletion(messages, {
+      tenantId,
+      maxTokens: 1500,
+    }, AI_FEATURES.MEETING_AGENDA);
+
+    const cleanedResponse = response
+      .replace(/```json\s*/g, '')
+      .replace(/```\s*/g, '')
+      .replace(/^[^{]*/, '')
+      .replace(/[^}]*$/, '')
+      .trim();
+
+    let parsed: any;
+    try {
+      parsed = JSON.parse(cleanedResponse);
+    } catch {
+      throw new Error('AI response was not in valid JSON format. Please try again.');
+    }
+
+    const agenda = Array.isArray(parsed.agenda)
+      ? parsed.agenda.filter((item: any) => typeof item === 'string' && item.trim()).map((item: string) => item.trim())
+      : [];
+
+    const focusTheme = typeof parsed.focusTheme === 'string' && parsed.focusTheme.trim()
+      ? parsed.focusTheme.trim()
+      : `${meetingType.charAt(0).toUpperCase() + meetingType.slice(1)} Meeting`;
+
+    if (agenda.length === 0) {
+      throw new Error('AI returned no agenda items. Please try again.');
+    }
+
+    return { agenda, focusTheme };
+  } catch (error: any) {
+    console.error('[AI Service] Error generating meeting agenda:', error.message);
+    throw new Error(`Failed to generate agenda: ${error.message}`);
+  }
+}
+
+// ============================================
 // OKR QUALITY SCORING
 // ============================================
 

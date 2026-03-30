@@ -1,7 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
 import { insertGroundingDocumentSchema, AI_FEATURES } from "@shared/schema";
-import { getChatCompletion, getSimpleCompletion, streamChatCompletion, streamChatWithTools, generateOKRSuggestions, suggestBigRocks, streamProgressSummary, streamGoalSuggestions, streamStrategyDraft, parseMeetingRecap, scoreOKRQuality, type ChatMessage, type ProgressSummaryData, type GoalSuggestionContext, type StrategyDraftContext, type MeetingRecapResult, type OKRQualityScoreResult } from "./ai";
+import { getChatCompletion, getSimpleCompletion, streamChatCompletion, streamChatWithTools, generateOKRSuggestions, suggestBigRocks, streamProgressSummary, streamGoalSuggestions, streamStrategyDraft, parseMeetingRecap, scoreOKRQuality, generateMeetingAgenda, type ChatMessage, type ProgressSummaryData, type GoalSuggestionContext, type StrategyDraftContext, type MeetingRecapResult, type OKRQualityScoreResult, type GenerateMeetingAgendaResult } from "./ai";
 import { z } from "zod";
 import { hasPermission, PERMISSIONS, Role } from "@shared/rbac";
 import { loadCurrentUser, requireTenantAccess } from "./middleware/rbac";
@@ -717,6 +717,41 @@ aiRouter.post("/parse-meeting-recap", requireAIChat, async (req: Request, res: R
       return res.status(400).json({ error: "Invalid request format", details: error.errors });
     }
     res.status(500).json({ error: error.message || "Failed to parse meeting notes" });
+  }
+});
+
+// ============================================
+// MEETING AGENDA GENERATOR
+// ============================================
+
+const generateAgendaSchema = z.object({
+  meetingType: z.string().min(1),
+  meetingTitle: z.string().optional(),
+  tenantId: z.string(),
+  linkedOKRs: z.array(z.object({
+    type: z.string(),
+    title: z.string(),
+    status: z.string().optional(),
+    progress: z.number().optional(),
+  })).optional(),
+  atRiskItems: z.array(z.string()).optional(),
+});
+
+aiRouter.post("/generate-agenda", requireAIChat, async (req: Request, res: Response) => {
+  try {
+    const params = generateAgendaSchema.parse(req.body);
+    console.log("[Meeting Agenda] Generating agenda for type:", params.meetingType, "| linked OKRs:", params.linkedOKRs?.length ?? 0);
+
+    const result = await generateMeetingAgenda(params);
+
+    console.log("[Meeting Agenda] Generated", result.agenda.length, "items. Theme:", result.focusTheme);
+    res.json(result);
+  } catch (error: any) {
+    console.error("[Meeting Agenda] Error:", error.message || error);
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid request format", details: error.errors });
+    }
+    res.status(500).json({ error: error.message || "Failed to generate agenda" });
   }
 });
 

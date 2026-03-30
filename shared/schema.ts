@@ -1710,6 +1710,7 @@ export const AI_FEATURES = {
   OKR_QUALITY_SCORING: 'okr_quality_scoring', // OKR quality scoring during creation
   CHECK_IN_REWRITE: 'check_in_rewrite',  // AI rewriting of check-in notes
   CHECK_IN_DRAFT: 'check_in_draft',      // AI drafting check-in summary from children
+  MEETING_AGENDA: 'meeting_agenda',      // AI generating meeting agenda items
   OTHER: 'other',
 } as const;
 

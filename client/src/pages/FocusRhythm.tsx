@@ -787,6 +787,7 @@ export default function FocusRhythm() {
     keyTakeaways: string[];
   } | null>(null);
   const [isAnalyzingNotes, setIsAnalyzingNotes] = useState(false);
+  const [isGeneratingAgenda, setIsGeneratingAgenda] = useState(false);
   
   const { quarter, year, isAnnual } = useTimePeriod();
   const [openQuarters, setOpenQuarters] = useState<number[]>([1, 2, 3, 4]);
@@ -1086,6 +1087,55 @@ export default function FocusRhythm() {
       });
     } finally {
       setIsAnalyzingNotes(false);
+    }
+  };
+
+  const handleGenerateAgenda = async () => {
+    if (!currentTenant?.id) return;
+    setIsGeneratingAgenda(true);
+    try {
+      const linkedOKRs: Array<{ type: string; title: string; status?: string; progress?: number }> = [];
+      formData.linkedObjectiveIds.forEach(id => {
+        const obj = objectives.find(o => o.id === id);
+        if (obj) linkedOKRs.push({ type: "Objective", title: obj.title, status: obj.status || undefined, progress: obj.progress ?? undefined });
+      });
+      formData.linkedBigRockIds.forEach(id => {
+        const rock = bigRocks.find(b => b.id === id);
+        if (rock) linkedOKRs.push({ type: "Big Rock", title: rock.title, status: rock.status || undefined, progress: rock.completionPercentage ?? undefined });
+      });
+
+      const atRiskItems: string[] = [
+        ...objectives.filter(o => o.status === 'at_risk' || o.status === 'behind').map(o => `Objective: ${o.title} (${o.progress ?? 0}%)`),
+        ...bigRocks.filter(b => b.status === 'at_risk' || b.status === 'behind').map(b => `Big Rock: ${b.title}`),
+      ];
+
+      const res = await apiRequest("POST", "/api/ai/generate-agenda", {
+        meetingType: formData.meetingType || 'weekly',
+        meetingTitle: formData.title || undefined,
+        tenantId: currentTenant.id,
+        linkedOKRs: linkedOKRs.length > 0 ? linkedOKRs : undefined,
+        atRiskItems: atRiskItems.length > 0 ? atRiskItems : undefined,
+      });
+
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Failed to generate agenda');
+
+      setFormData(prev => ({
+        ...prev,
+        agenda: [...prev.agenda, ...result.agenda],
+      }));
+      toast({
+        title: "Agenda Generated",
+        description: `AI built ${result.agenda.filter((i: string) => !(i.startsWith('---') && i.endsWith('---'))).length} agenda items${result.focusTheme ? ` — ${result.focusTheme}` : ''}.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Agenda Generation Failed",
+        description: error.message || "Could not generate agenda. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingAgenda(false);
     }
   };
 
@@ -1780,97 +1830,16 @@ export default function FocusRhythm() {
               type="button" 
               variant="outline" 
               size="sm"
-              onClick={() => {
-                const atRiskObj = objectives.filter(o => o.status === 'at_risk' || o.status === 'behind');
-                const atRiskRocks = bigRocks.filter(b => b.status === 'at_risk' || b.status === 'behind');
-                const newAgendaItems: string[] = [];
-                const meetingType = formData.meetingType;
-                
-                if (meetingType === 'weekly') {
-                  // Weekly: Big Rocks first, then related KRs
-                  if (atRiskRocks.length > 0) {
-                    newAgendaItems.push('--- BIG ROCK CHECK-INS ---');
-                    atRiskRocks.forEach(rock => {
-                      const status = rock.status === 'at_risk' ? 'At Risk' : 'Behind';
-                      newAgendaItems.push(`Initiative: ${rock.title} (${status})`);
-                    });
-                  }
-                  if (atRiskObj.length > 0) {
-                    newAgendaItems.push('--- RELATED MEASURES ---');
-                    atRiskObj.forEach(obj => {
-                      const status = obj.status === 'at_risk' ? 'At Risk' : 'Behind';
-                      newAgendaItems.push(`Objective: ${obj.title} (${status} - ${obj.progress?.toFixed(0) || 0}%)`);
-                    });
-                  }
-                  if (newAgendaItems.length === 0) {
-                    newAgendaItems.push('All initiatives on track - celebrate wins!');
-                  }
-                  newAgendaItems.push('Blockers and dependencies');
-                  newAgendaItems.push('Commitments for this week');
-                } else if (meetingType === 'monthly') {
-                  // Monthly: OKRs and outcomes linked to strategies
-                  if (atRiskObj.length > 0) {
-                    newAgendaItems.push('--- OBJECTIVES REVIEW ---');
-                    atRiskObj.forEach(obj => {
-                      const status = obj.status === 'at_risk' ? 'At Risk' : 'Behind';
-                      newAgendaItems.push(`Objective: ${obj.title} (${status} - ${obj.progress?.toFixed(0) || 0}%)`);
-                    });
-                  }
-                  if (newAgendaItems.length === 0) {
-                    newAgendaItems.push('All objectives on track!');
-                  }
-                  newAgendaItems.push('Strategic alignment check');
-                  newAgendaItems.push('Decisions and next steps');
-                } else if (meetingType === 'quarterly') {
-                  // Quarterly: Strategy review, Big Rock planning, Values
-                  newAgendaItems.push('--- STRATEGY REVIEW ---');
-                  if (atRiskObj.length > 0) {
-                    atRiskObj.forEach(obj => {
-                      const status = obj.status === 'at_risk' ? 'At Risk' : 'Behind';
-                      newAgendaItems.push(`OKR vs Goals: ${obj.title} (${status})`);
-                    });
-                  } else {
-                    newAgendaItems.push('Review OKR performance against linked goals');
-                  }
-                  newAgendaItems.push('--- BIG ROCK PLANNING ---');
-                  newAgendaItems.push('Validate Big Rocks for next quarter');
-                  if (atRiskRocks.length > 0) {
-                    atRiskRocks.forEach(rock => {
-                      newAgendaItems.push(`Evaluate: ${rock.title} - continue or adjust?`);
-                    });
-                  }
-                  newAgendaItems.push('Identify additions and subtractions');
-                  newAgendaItems.push('--- VALUES ALIGNMENT ---');
-                  newAgendaItems.push('Reflect on values alignment this quarter');
-                  newAgendaItems.push('Celebrate values-driven wins');
-                } else {
-                  // Default/Annual: Generic at-risk review
-                  if (atRiskObj.length > 0 || atRiskRocks.length > 0) {
-                    newAgendaItems.push('Review At-Risk Items');
-                  }
-                  atRiskObj.forEach(obj => {
-                    const status = obj.status === 'at_risk' ? 'At Risk' : 'Behind';
-                    newAgendaItems.push(`Objective: ${obj.title} (${status} - ${obj.progress?.toFixed(0) || 0}%)`);
-                  });
-                  atRiskRocks.forEach(rock => {
-                    const status = rock.status === 'at_risk' ? 'At Risk' : 'Behind';
-                    newAgendaItems.push(`Initiative: ${rock.title} (${status})`);
-                  });
-                  if (newAgendaItems.length === 0) {
-                    newAgendaItems.push('All items on track');
-                  }
-                  newAgendaItems.push('Action items and next steps');
-                }
-                
-                setFormData(prev => ({
-                  ...prev,
-                  agenda: [...prev.agenda, ...newAgendaItems]
-                }));
-              }}
+              onClick={handleGenerateAgenda}
+              disabled={isGeneratingAgenda}
               data-testid="button-auto-agenda"
             >
-              <Sparkles className="w-4 h-4 mr-1" />
-              Auto-generate Agenda
+              {isGeneratingAgenda ? (
+                <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
+              ) : (
+                <Sparkles className="w-4 h-4 mr-1" />
+              )}
+              {isGeneratingAgenda ? "Generating..." : "Build AI Agenda"}
             </Button>
           </div>
           <div className="flex gap-2 mt-2">
