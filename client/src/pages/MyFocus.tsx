@@ -264,26 +264,36 @@ export default function MyFocus() {
     }
 
     return items.sort((a, b) => {
-      // Urgency tiers: at_risk → behind → stalled (≥21 days, any pace) → no_data → on_track/ahead
+      // Primary: bottom-up type level so children are checked in before parents
+      // (Big Rocks → Key Results → Child Objectives → Root Objectives)
+      const typeLevelOf = (item: CheckInQueueItem): number => {
+        if (item.type === "big_rock") return 0;
+        if (item.type === "key_result") return 1;
+        // Objective: child before root
+        if (item.type === "objective") return (item.entityData?.parentId ? 2 : 3);
+        return 4;
+      };
+
+      const tA = typeLevelOf(a);
+      const tB = typeLevelOf(b);
+      if (tA !== tB) return tA - tB;
+
+      // Secondary: urgency (at_risk → behind → stalled → no_data → on_track)
       const isStalled = (item: CheckInQueueItem) =>
         item.daysSince === null || item.daysSince >= 21;
-
       const urgencyTier = (item: CheckInQueueItem): number => {
         if (item.paceStatus === "at_risk") return 0;
         if (item.paceStatus === "behind") return 1;
         if (isStalled(item)) return 2;
         if (item.paceStatus === "no_data") return 3;
-        return 4; // on_track / ahead
+        return 4;
       };
+      const uA = urgencyTier(a);
+      const uB = urgencyTier(b);
+      if (uA !== uB) return uA - uB;
 
-      const tA = urgencyTier(a);
-      const tB = urgencyTier(b);
-      if (tA !== tB) return tA - tB;
-
-      // Within tier: stalest first (null = never → treated as most stale)
-      const aD = a.daysSince ?? 9999;
-      const bD = b.daysSince ?? 9999;
-      return bD - aD;
+      // Tertiary: stalest first
+      return (b.daysSince ?? 9999) - (a.daysSince ?? 9999);
     });
   }, [myObjectives, myKeyResults, myBigRocks, quarter, year]);
 

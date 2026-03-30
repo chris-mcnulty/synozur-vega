@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -22,9 +22,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CheckCircle, Circle, Clock, ChevronLeft, ChevronRight, SkipForward } from "lucide-react";
+import {
+  CheckCircle,
+  Circle,
+  Clock,
+  ChevronLeft,
+  ChevronRight,
+  SkipForward,
+  Sparkles,
+  Loader2,
+  History,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { format } from "date-fns";
 import type { BigRockTask } from "@shared/schema";
 
 type PaceStatus = "ahead" | "on_track" | "behind" | "at_risk" | "no_data" | "completed";
@@ -159,6 +170,11 @@ export function SerialCheckInDialog({
     Record<string, string>
   >({});
 
+  // AI rewrite state
+  const [aiRewriteMode, setAiRewriteMode] = useState<"full" | "clarity" | "concise" | "expand">("full");
+  const [aiRewriteSuggestion, setAiRewriteSuggestion] = useState<string | null>(null);
+  const [isRewriting, setIsRewriting] = useState(false);
+
   // Reset form whenever the current item changes
   useEffect(() => {
     if (!item) return;
@@ -168,6 +184,8 @@ export function SerialCheckInDialog({
     setFormNote("");
     setFormAsOfDate(new Date().toISOString().split("T")[0]);
     setPendingTaskUpdates({});
+    setAiRewriteSuggestion(null);
+    setIsRewriting(false);
 
     if (item.type === "key_result") {
       const currentVal = entity?.currentValue ?? 0;
@@ -177,12 +195,75 @@ export function SerialCheckInDialog({
     }
   }, [currentIndex, item?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Recent check-in history for the current item
+  const { data: recentCheckIns = [] } = useQuery<any[]>({
+    queryKey: ["/api/okr/check-ins", item?.type, item?.id],
+    queryFn: async () => {
+      if (!item) return [];
+      const res = await fetch(
+        `/api/okr/check-ins?entityType=${item.type}&entityId=${item.id}`,
+        { credentials: "include" }
+      );
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: open && !!item?.id,
+    staleTime: 30 * 1000,
+  });
+
+  // Show the 3 most recent (sorted desc by date)
+  const lastThreeCheckIns = [...recentCheckIns]
+    .sort((a, b) => new Date(b.asOfDate ?? b.createdAt).getTime() - new Date(a.asOfDate ?? a.createdAt).getTime())
+    .slice(0, 3);
+
   const handleValueChange = (inputVal: string) => {
     setValueInputDraft(inputVal);
     if (!item || item.type !== "key_result" || !item.entityData) return;
     const newVal = parseFloat(inputVal);
     if (inputVal === "" || isNaN(newVal)) return;
     setFormProgress(calcProgressFromValue(item.entityData, newVal));
+  };
+
+  const handleAiRewrite = async () => {
+    if (!formNote.trim()) {
+      toast({
+        title: "Note required",
+        description: "Write a note first, then AI can improve it.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!item) return;
+    setIsRewriting(true);
+    setAiRewriteSuggestion(null);
+    try {
+      const payload: any = {
+        originalNote: formNote,
+        newProgress: formProgress,
+        mode: aiRewriteMode,
+        entityType: item.type,
+      };
+      if (item.type === "key_result") {
+        payload.keyResultId = item.id;
+        const v = parseFloat(valueInputDraft);
+        if (!isNaN(v)) payload.newValue = v;
+      } else if (item.type === "big_rock") {
+        payload.bigRockId = item.id;
+      } else if (item.type === "objective") {
+        payload.objectiveId = item.id;
+      }
+      const res = await apiRequest("POST", "/api/ai/rewrite-checkin", payload);
+      const data = await res.json();
+      setAiRewriteSuggestion(data.rewrittenNote);
+    } catch (err: any) {
+      toast({
+        title: "AI Rewrite failed",
+        description: err?.message || "Could not rewrite note. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRewriting(false);
+    }
   };
 
   const createCheckInMutation = useMutation({
@@ -222,6 +303,9 @@ export function SerialCheckInDialog({
           queryClient.invalidateQueries({ queryKey: ["/api/okr/big-rocks"] });
         }
         queryClient.invalidateQueries({ queryKey: ["/api/okr/check-ins"] });
+        queryClient.invalidateQueries({
+          queryKey: ["/api/okr/check-ins", item.type, item.id],
+        });
         queryClient.invalidateQueries({
           queryKey: ["/api/okr/hierarchy"],
           exact: false,
@@ -301,6 +385,7 @@ export function SerialCheckInDialog({
 
   const handleSkip = () => {
     setPendingTaskUpdates({});
+    setAiRewriteSuggestion(null);
     onAdvance();
   };
 
@@ -352,6 +437,36 @@ export function SerialCheckInDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {/* Recent check-in history */}
+        {lastThreeCheckIns.length > 0 && (
+          <div className="rounded-md border bg-muted/30 p-3 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <History className="h-3 w-3" />
+              Recent History
+            </div>
+            {lastThreeCheckIns.map((ci, i) => {
+              const dateStr = ci.asOfDate || ci.createdAt;
+              const displayDate = dateStr ? format(new Date(dateStr), "MMM d") : "—";
+              const progressLabel = ci.newProgress !== undefined && ci.previousProgress !== undefined
+                ? `${ci.previousProgress}% → ${ci.newProgress}%`
+                : ci.newProgress !== undefined ? `${ci.newProgress}%` : null;
+              return (
+                <div key={ci.id ?? i} className="flex items-start gap-2 text-xs">
+                  <span className="text-muted-foreground shrink-0 w-10">{displayDate}</span>
+                  {progressLabel && (
+                    <span className="text-muted-foreground shrink-0">{progressLabel}</span>
+                  )}
+                  {ci.note ? (
+                    <span className="text-foreground/80 line-clamp-1 flex-1">{ci.note}</span>
+                  ) : (
+                    <span className="text-muted-foreground italic flex-1">No note</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <div className="space-y-4">
           {/* As Of Date */}
           <div>
@@ -363,6 +478,7 @@ export function SerialCheckInDialog({
               onChange={(e) => setFormAsOfDate(e.target.value)}
               className="dark:bg-background dark:text-foreground dark:[color-scheme:dark]"
             />
+            <p className="text-xs text-muted-foreground mt-0.5">When does this check-in data apply?</p>
           </div>
 
           {/* Key Result: Value Input */}
@@ -569,9 +685,43 @@ export function SerialCheckInDialog({
             </div>
           )}
 
-          {/* Note */}
+          {/* Note + AI Rewrite */}
           <div>
-            <Label htmlFor="serial-ci-note">Note</Label>
+            <div className="flex items-center justify-between mb-1 flex-wrap gap-2">
+              <Label htmlFor="serial-ci-note">Note</Label>
+              <div className="flex items-center gap-2">
+                <Select
+                  value={aiRewriteMode}
+                  onValueChange={(v: any) => setAiRewriteMode(v)}
+                >
+                  <SelectTrigger className="h-7 w-[130px] text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="z-[60]">
+                    <SelectItem value="full">Full Rewrite</SelectItem>
+                    <SelectItem value="clarity">Improve Clarity</SelectItem>
+                    <SelectItem value="concise">Make Concise</SelectItem>
+                    <SelectItem value="expand">Add Context</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1 text-xs"
+                  onClick={handleAiRewrite}
+                  disabled={isRewriting || !formNote.trim()}
+                  data-testid="button-serial-ai-rewrite"
+                >
+                  {isRewriting ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3 w-3" />
+                  )}
+                  AI Rewrite
+                </Button>
+              </div>
+            </div>
             <Textarea
               id="serial-ci-note"
               value={formNote}
@@ -579,6 +729,39 @@ export function SerialCheckInDialog({
               placeholder="What progress was made? Any blockers?"
               rows={3}
             />
+
+            {/* AI suggestion */}
+            {aiRewriteSuggestion && (
+              <div className="mt-2 p-3 bg-primary/5 border border-primary/20 rounded-md space-y-2">
+                <div className="flex items-center gap-2 text-xs font-medium text-primary">
+                  <Sparkles className="h-3.5 w-3.5" />
+                  AI Suggestion
+                </div>
+                <p className="text-sm whitespace-pre-wrap bg-background p-2 rounded border">
+                  {aiRewriteSuggestion}
+                </p>
+                <div className="flex gap-2 justify-end">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setAiRewriteSuggestion(null)}
+                  >
+                    Dismiss
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      setFormNote(aiRewriteSuggestion);
+                      setAiRewriteSuggestion(null);
+                    }}
+                  >
+                    Use This
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

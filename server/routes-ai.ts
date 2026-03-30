@@ -1035,11 +1035,12 @@ aiRouter.get("/usage/model-comparison", async (req: Request, res: Response) => {
 const checkInRewriteSchema = z.object({
   keyResultId: z.string().optional(),
   bigRockId: z.string().optional(),
+  objectiveId: z.string().optional(),
   originalNote: z.string().min(1, "Original note is required"),
   newValue: z.number().optional(),
   newProgress: z.number().optional(),
   mode: z.enum(["full", "clarity", "concise", "expand"]).default("full"),
-  entityType: z.enum(["key_result", "big_rock"]).default("key_result"),
+  entityType: z.enum(["key_result", "big_rock", "objective"]).default("key_result"),
 });
 
 aiRouter.post("/rewrite-checkin", requireAIChat, async (req: Request, res: Response) => {
@@ -1091,6 +1092,20 @@ aiRouter.post("/rewrite-checkin", requireAIChat, async (req: Request, res: Respo
             context.quarter = objective.quarter;
             context.year = objective.year;
           }
+        }
+      }
+    } else if (input.entityType === "objective" && input.objectiveId) {
+      const objective = await storage.getObjectiveById(input.objectiveId);
+      if (objective) {
+        context.title = objective.title;
+        context.description = objective.description;
+        context.progress = objective.progress || 0;
+        context.status = objective.status;
+        context.quarter = objective.quarter;
+        context.year = objective.year;
+        if (objective.parentId) {
+          const parent = await storage.getObjectiveById(objective.parentId);
+          if (parent) context.parentTitle = parent.title;
         }
       }
     }
@@ -1170,6 +1185,15 @@ CRITICAL: Output ONLY the rewritten note text. No explanations, no quotes, no pr
 - Current Value: ${input.newValue !== undefined ? input.newValue : context.currentValue || 0} ${context.unit || ""}
 - Progress: ${displayProgress}%${expectedProgress !== null ? ` (expected at this point in the period: ${expectedProgress}%)` : ""}${paceStatus ? `\n- Pace: ${paceStatus}` : ""}
 ${context.objectiveTitle ? `- Objective: ${context.objectiveTitle}` : ""}
+
+Original note to rewrite:
+"${input.originalNote}"`;
+    } else if (input.entityType === "objective") {
+      userPrompt = `Context:
+- Objective: ${context.title || "Unknown"}
+- Status: ${context.status || "unknown"}
+- Progress: ${input.newProgress || context.progress || 0}%
+${context.parentTitle ? `- Parent Objective: ${context.parentTitle}` : ""}
 
 Original note to rewrite:
 "${input.originalNote}"`;

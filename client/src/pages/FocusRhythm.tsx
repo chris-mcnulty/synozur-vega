@@ -799,18 +799,19 @@ function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResu
   const linkedItemCount = linkedObjectives.length + linkedKeyResults.length + linkedBigRocks.length;
 
   const startMeetingCheckIn = () => {
+    // Bottom-up: Big Rocks → Key Results → Child Objectives → Root Objectives
     const queue: CheckInQueueItem[] = [
-      ...linkedObjectives
-        .filter(o => o.status !== "completed" && o.status !== "cancelled")
-        .map(o => ({
-          id: o.id,
-          title: o.title,
-          type: "objective" as const,
+      ...linkedBigRocks
+        .filter(br => br.status !== "completed" && br.status !== "cancelled")
+        .map(br => ({
+          id: br.id,
+          title: br.title,
+          type: "big_rock" as const,
           daysSince: null,
-          progress: o.progress ?? 0,
-          status: o.status ?? "in_progress",
+          progress: (br as any).completionPercentage ?? br.progress ?? 0,
+          status: br.status ?? "in_progress",
           paceStatus: "no_data" as const,
-          entityData: o,
+          entityData: br,
         })),
       ...linkedKeyResults
         .filter(kr => kr.status !== "completed" && kr.status !== "cancelled")
@@ -824,17 +825,30 @@ function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResu
           paceStatus: "no_data" as const,
           entityData: kr,
         })),
-      ...linkedBigRocks
-        .filter(br => br.status !== "completed" && br.status !== "cancelled")
-        .map(br => ({
-          id: br.id,
-          title: br.title,
-          type: "big_rock" as const,
+      // Child objectives before root objectives
+      ...linkedObjectives
+        .filter(o => o.status !== "completed" && o.status !== "cancelled" && (o as any).parentId)
+        .map(o => ({
+          id: o.id,
+          title: o.title,
+          type: "objective" as const,
           daysSince: null,
-          progress: (br as any).completionPercentage ?? br.progress ?? 0,
-          status: br.status ?? "in_progress",
+          progress: o.progress ?? 0,
+          status: o.status ?? "in_progress",
           paceStatus: "no_data" as const,
-          entityData: br,
+          entityData: o,
+        })),
+      ...linkedObjectives
+        .filter(o => o.status !== "completed" && o.status !== "cancelled" && !(o as any).parentId)
+        .map(o => ({
+          id: o.id,
+          title: o.title,
+          type: "objective" as const,
+          daysSince: null,
+          progress: o.progress ?? 0,
+          status: o.status ?? "in_progress",
+          paceStatus: "no_data" as const,
+          entityData: o,
         })),
     ];
     if (queue.length === 0) return;
