@@ -207,14 +207,14 @@ export function LandingHero() {
             </div>
             
             <h1 
-              className="text-3xl md:text-5xl lg:text-6xl font-semibold leading-tight mb-4 md:mb-6 transition-opacity duration-500" 
+              className="text-display font-semibold leading-tight mb-4 md:mb-6 transition-opacity duration-500" 
               style={{ textShadow: '0 4px 16px rgba(0,0,0,0.9)' }}
               data-testid="hero-headline"
             >
               {heroHeadlines[headlineIndex]}
             </h1>
             
-            <p className="text-lg md:text-xl text-white/90 mb-4 md:mb-6 max-w-3xl mx-auto leading-relaxed" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
+            <p className="text-body-lg text-white/90 mb-4 md:mb-6 max-w-3xl mx-auto" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
               Vega is an AI-augmented Company Operating System™ that connects strategy, OKRs, and leadership cadence in one place.
             </p>
 
@@ -300,7 +300,7 @@ export function LandingHero() {
           <p className="text-xs uppercase tracking-wider text-muted-foreground mb-3">
             Built on our proven Company Operating System™
           </p>
-          <p className="text-base md:text-lg text-foreground/90 leading-relaxed mb-4">Vega is built on the Company Operating System™ created by Synozur with former Microsoft product leadership, and shaped by decades of strategy consulting. It reflects how real leadership teams align strategy, planning, and execution—refined through hands-on work with dozens of organizations, from growing mid-market companies to complex global enterprises.</p>
+          <p className="text-body-lg text-foreground/90 mb-4">Vega is built on the Company Operating System™ created by Synozur with former Microsoft product leadership, and shaped by decades of strategy consulting. It reflects how real leadership teams align strategy, planning, and execution—refined through hands-on work with dozens of organizations, from growing mid-market companies to complex global enterprises.</p>
           <p className="text-sm text-muted-foreground">
             See how this approach has been applied in practice:{" "}
             <a 
@@ -371,7 +371,7 @@ export function LandingHero() {
         <div className="absolute inset-0 bg-gradient-to-b from-black/80 via-black/70 to-black/80" />
         <div className="relative z-10 max-w-4xl mx-auto px-6 text-white">
           <div className="text-center mb-10">
-            <h2 className="text-3xl md:text-4xl font-semibold mb-4" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
+            <h2 className="text-h2-section font-semibold mb-4" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
               What you'll do in your first 15 minutes
             </h2>
           </div>
@@ -380,7 +380,7 @@ export function LandingHero() {
             {onboardingSteps.map((item) => (
               <div 
                 key={item.step} 
-                className="flex items-center gap-4 bg-white/10 backdrop-blur-sm rounded-lg p-4"
+                className="flex items-center gap-4 bg-white/10 backdrop-blur-sm rounded-none p-4"
                 data-testid={`onboarding-step-${item.step}`}
               >
                 <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center flex-shrink-0 text-white font-semibold">
@@ -407,9 +407,9 @@ export function LandingHero() {
       {/* How Access Works Section */}
       <section className="py-10 md:py-14 bg-muted/50 border-b">
         <div className="max-w-3xl mx-auto px-6">
-          <h2 className="text-xl md:text-2xl font-semibold text-center mb-6">How access works</h2>
+          <h2 className="text-h2-section font-semibold text-center mb-6">How access works</h2>
           <div className="flex flex-col md:flex-row justify-center items-center gap-4 md:gap-8">
-            <div className="flex items-center gap-3 bg-background rounded-lg px-5 py-3 shadow-sm border" data-testid="access-step-1">
+            <div className="flex items-center gap-3 bg-background rounded-none px-5 py-3 shadow-sm border" data-testid="access-step-1">
               <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold text-sm">
                 1
               </div>
@@ -418,7 +418,7 @@ export function LandingHero() {
             <div className="hidden md:block text-muted-foreground">
               <ArrowRight className="h-5 w-5" />
             </div>
-            <div className="flex items-center gap-3 bg-background rounded-lg px-5 py-3 shadow-sm border" data-testid="access-step-2">
+            <div className="flex items-center gap-3 bg-background rounded-none px-5 py-3 shadow-sm border" data-testid="access-step-2">
               <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center text-primary-foreground font-semibold text-sm">
                 2
               </div>
@@ -432,7 +432,7 @@ export function LandingHero() {
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
             <Badge variant="secondary" className="mb-4">What You'll Achieve</Badge>
-            <h2 className="text-3xl md:text-4xl font-semibold">Three outcomes that matter</h2>
+            <h2 className="text-h2-section font-semibold">Three outcomes that matter</h2>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -457,7 +457,7 @@ export function LandingHero() {
         <div className="max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
             <Badge variant="outline" className="mb-4">Why Vega</Badge>
-            <h2 className="text-3xl md:text-4xl font-semibold">How Vega is Different</h2>
+            <h2 className="text-h2-section font-semibold">How Vega is Different</h2>
             <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
               Unlike generic tools, Vega codifies the Company OS developed by Synozur through real strategy and transformation work.
             </p>
@@ -479,7 +479,7 @@ export function LandingHero() {
       <section className="py-16 md:py-24 bg-background">
         <div className="max-w-5xl mx-auto px-6">
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-semibold">Is Vega right for you?</h2>
+            <h2 className="text-h2-section font-semibold">Is Vega right for you?</h2>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -536,7 +536,7 @@ export function LandingHero() {
         <div className="relative z-10 max-w-6xl mx-auto px-6">
           <div className="text-center mb-12">
             <Badge variant="secondary" className="bg-white/20 text-white border-white/30 mb-4">The Platform</Badge>
-            <h2 className="text-3xl md:text-4xl font-semibold text-white" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
+            <h2 className="text-h2-section font-semibold text-white" style={{ textShadow: '0 2px 8px rgba(0,0,0,0.8)' }}>
               Five integrated modules
             </h2>
           </div>
@@ -545,7 +545,7 @@ export function LandingHero() {
             {modules.map((module, index) => (
               <div 
                 key={index}
-                className="bg-white/10 backdrop-blur-sm rounded-lg p-4 text-center text-white border border-white/20"
+                className="bg-white/10 backdrop-blur-sm rounded-none p-4 text-center text-white border border-white/20"
                 data-testid={`module-card-${index}`}
               >
                 <div className="w-12 h-12 bg-white/20 rounded-lg flex items-center justify-center mx-auto mb-3">
@@ -558,7 +558,7 @@ export function LandingHero() {
           </div>
           
           {/* M365 Integration Callout */}
-          <div className="mt-10 bg-white/10 backdrop-blur-sm rounded-xl p-6 border border-white/20">
+          <div className="mt-10 bg-white/10 backdrop-blur-sm rounded-none p-6 border border-white/20">
             <div className="flex flex-col md:flex-row items-center justify-center gap-4 text-white">
               <div className="flex items-center gap-3">
                 <Lock className="h-5 w-5 text-white/80" />
@@ -593,7 +593,7 @@ export function LandingHero() {
         <div className="max-w-4xl mx-auto px-6">
           <div className="text-center mb-10">
             <Badge variant="outline" className="mb-4">Enterprise Grade</Badge>
-            <h2 className="text-3xl md:text-4xl font-semibold">Enterprise-ready by design</h2>
+            <h2 className="text-h2-section font-semibold">Enterprise-ready by design</h2>
           </div>
           
           <div className="flex flex-wrap justify-center gap-4">
@@ -614,14 +614,14 @@ export function LandingHero() {
       <section id="screenshot-section" className="relative bg-background py-12 md:py-20 px-4 md:px-6">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-6 md:mb-10">
-            <h2 className="text-2xl md:text-3xl font-semibold mb-2">See Vega in Action</h2>
+            <h2 className="text-h2-section font-semibold mb-2">See Vega in Action</h2>
             <p className="text-muted-foreground">
               {heroMediaType === 'video' 
                 ? 'From business plan to AI-powered check-in in less than 90 seconds'
                 : 'Hierarchical OKRs, Big Rocks, and Progress Tracking'}
             </p>
           </div>
-          <div className="relative rounded-xl overflow-hidden shadow-2xl border">
+          <div className="relative rounded-none overflow-hidden shadow-2xl border">
             {heroMediaType === 'video' ? (
               <video 
                 src={vegaDemoVideo}
@@ -648,8 +648,8 @@ export function LandingHero() {
       {/* Final CTA Band */}
       <section className="py-16 md:py-20 bg-primary text-primary-foreground">
         <div className="max-w-4xl mx-auto px-6 text-center">
-          <h2 className="text-3xl md:text-4xl font-semibold mb-4">Ready to turn strategy into action?</h2>
-          <p className="text-xl mb-8 opacity-90">
+          <h2 className="text-h2-section font-semibold mb-4">Ready to turn strategy into action?</h2>
+          <p className="text-body-lg mb-8 opacity-90">
             Join leaders who align, execute, and adapt—every week.
           </p>
           <Link href="/login?mode=signup">

@@ -6,9 +6,9 @@ export default {
   theme: {
     extend: {
       borderRadius: {
-        lg: ".5625rem", /* 9px */
-        md: ".375rem", /* 6px */
-        sm: ".1875rem", /* 3px */
+        lg: "var(--radius)",
+        md: "var(--radius)",
+        sm: "var(--radius)",
       },
       colors: {
         // Flat / base colors (regular buttons)
@@ -86,6 +86,11 @@ export default {
         sans: ["var(--font-sans)"],
         serif: ["var(--font-serif)"],
         mono: ["var(--font-mono)"],
+      },
+      fontSize: {
+        display: ["var(--font-size-display)", { lineHeight: "1.05" }],
+        "h2-section": ["var(--font-size-h2)", { lineHeight: "1.1" }],
+        "body-lg": ["var(--font-size-body-lg)", { lineHeight: "1.5" }],
       },
       keyframes: {
         "accordion-down": {

@@ -188,8 +188,8 @@ export default function Landing() {
                 <Sparkles className="h-3 w-3 mr-1" />
                 Built-in AI
               </Badge>
-              <h2 className="text-3xl md:text-4xl font-semibold">AI-Powered Tools</h2>
-              <p className="text-muted-foreground mt-4 max-w-2xl mx-auto">
+              <h2 className="text-h2-section font-semibold">AI-Powered Tools</h2>
+              <p className="text-body-lg text-muted-foreground mt-4 max-w-2xl mx-auto">
                 Every Vega plan includes AI tools purpose-built for strategy execution — not generic chatbots bolted on after the fact.
               </p>
             </div>
