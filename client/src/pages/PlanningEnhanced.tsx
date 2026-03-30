@@ -185,7 +185,9 @@ export default function PlanningEnhanced() {
   
   const savedFilters = getSavedPlanningFilters();
   
-  const [selectedTab, setSelectedTab] = useState(savedFilters?.selectedTab || "hierarchy");
+  const [selectedTab, setSelectedTab] = useState(
+    savedFilters?.selectedTab === "progress" ? "hierarchy" : (savedFilters?.selectedTab || "hierarchy")
+  );
   // Period is driven entirely by the global time period selector
   // Only include periods that belong to the current globalYear to avoid mixing years.
   const selectedPeriods = globalSelectedIds
@@ -2270,9 +2272,10 @@ export default function PlanningEnhanced() {
             <TabsTrigger value="big-rocks" data-testid="tab-big-rocks">
               Big Rocks ({bigRocks.length})
             </TabsTrigger>
-            <TabsTrigger value="progress" data-testid="tab-progress">
+            {/* Hidden: Progress Dashboard tab - see BACKLOG.md Technical Debt for removal */}
+            {/* <TabsTrigger value="progress" data-testid="tab-progress">
               Progress Dashboard
-            </TabsTrigger>
+            </TabsTrigger> */}
             <TabsTrigger value="annual-goals" data-testid="tab-annual-goals">
               Annual Goals ({goals.filter(g => (g.year || currentYear) === goalsYearFilter).length})
             </TabsTrigger>
@@ -2650,9 +2653,10 @@ export default function PlanningEnhanced() {
             />
           </TabsContent>
 
-          <TabsContent value="progress">
+          {/* Hidden: Progress Dashboard content - see BACKLOG.md Technical Debt for removal */}
+          {/* <TabsContent value="progress">
             <ProgressDashboard objectives={enrichedObjectives} bigRocks={bigRocks} />
-          </TabsContent>
+          </TabsContent> */}
 
           {/* Annual Goals Tab */}
           <TabsContent value="annual-goals">

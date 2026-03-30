@@ -3148,4 +3148,10 @@ For future features requiring database changes:
 
 ---
 
+## Technical Debt
+
+- **Remove ProgressDashboard component and related dead code from PlanningEnhanced.tsx** — The `ProgressDashboard` function component (currently at the bottom of `client/src/pages/PlanningEnhanced.tsx`) and its corresponding `TabsTrigger`/`TabsContent` entries have been commented out (hidden from users). The component code, including helper functions (`getProgressColor`, `getStatusIcon`, sorted objectives logic), should be fully deleted once confirmed no longer needed.
+
+---
+
 **For questions about this backlog, consult replit.md for project architecture context.**
