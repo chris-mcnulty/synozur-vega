@@ -276,22 +276,14 @@ export function SerialCheckInDialog({
     }
 
     let finalProgress = formProgress;
-    let finalValue = 0;
-
-    if (item.type === "key_result" && item.entityData) {
-      finalValue = parseFloat(valueInputDraft);
-      if (isNaN(finalValue)) return;
-      finalProgress = calcProgressFromValue(item.entityData, finalValue);
-    }
 
     if (typeof finalProgress !== "number" || isNaN(finalProgress)) {
       finalProgress = 0;
     }
 
-    createCheckInMutation.mutate({
+    const checkInPayload: Record<string, unknown> = {
       entityType: item.type,
       entityId: item.id,
-      newValue: finalValue,
       newProgress: finalProgress,
       newStatus: formStatus,
       note: formNote,
@@ -300,8 +292,20 @@ export function SerialCheckInDialog({
       nextSteps: [],
       asOfDate: formAsOfDate,
       previousProgress: item.entityData?.progress ?? item.progress ?? 0,
-      previousValue: item.entityData?.currentValue ?? 0,
-    });
+    };
+
+    if (item.type === "key_result" && item.entityData) {
+      const finalValue = parseFloat(valueInputDraft);
+      if (isNaN(finalValue)) return;
+      checkInPayload.newProgress = calcProgressFromValue(
+        item.entityData,
+        finalValue,
+      );
+      checkInPayload.newValue = finalValue;
+      checkInPayload.previousValue = item.entityData?.currentValue ?? 0;
+    }
+
+    createCheckInMutation.mutate(checkInPayload);
   };
 
   const handleSkip = () => {
