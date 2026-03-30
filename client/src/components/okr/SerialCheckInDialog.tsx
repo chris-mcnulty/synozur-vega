@@ -187,9 +187,10 @@ export function SerialCheckInDialog({
     setAiRewriteSuggestion(null);
     setIsRewriting(false);
 
-    if (item.type === "key_result") {
-      const currentVal = entity?.currentValue ?? 0;
+    if (item.type === "key_result" && entity) {
+      const currentVal = entity.currentValue ?? 0;
       setValueInputDraft(currentVal.toString());
+      setFormProgress(calcProgressFromValue(entity, currentVal));
     } else {
       setValueInputDraft("");
     }
