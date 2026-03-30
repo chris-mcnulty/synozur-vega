@@ -1279,3 +1279,180 @@ aiRouter.post("/parent-objective-checkin-draft", requireAIChat, async (req: Requ
     res.status(500).json({ error: error.message || "Failed to generate check-in draft" });
   }
 });
+
+// Narrative Update Parser endpoint
+interface NarrativeSuggestion {
+  entityType: 'objective' | 'key_result' | 'big_rock';
+  entityId: string;
+  entityTitle: string;
+  suggestedValue: number | null;
+  suggestedProgress: number | null;
+  suggestedStatus: string | null;
+  note: string;
+  confidence: 'high' | 'medium' | 'low';
+  reasoning: string;
+}
+
+const narrativeUpdateSchema = z.object({
+  text: z.string().min(1),
+  tenantId: z.string().optional(), // Ignored server-side; tenant derived from session via requireTenantAccess
+  quarter: z.number().optional(),
+  year: z.number().optional(),
+});
+
+aiRouter.post("/parse-narrative-update", requireAIChat, requireTenantAccess, async (req: Request, res: Response) => {
+  try {
+    const { text, quarter, year } = narrativeUpdateSchema.parse(req.body);
+
+    // Use the session-resolved tenant (validated by requireTenantAccess middleware)
+    const tenantId = req.effectiveTenantId || (req.session as any).currentTenantId || req.user?.tenantId;
+    if (!tenantId) {
+      return res.status(403).json({ error: "No tenant context available" });
+    }
+
+    // Fetch current OKRs and Big Rocks for the tenant/period
+    const [objectives, keyResults, bigRocks] = await Promise.all([
+      storage.getObjectivesByTenantId(tenantId, quarter, year),
+      storage.getKeyResultsByTenantId(tenantId, quarter, year),
+      storage.getBigRocksByTenantId(tenantId, quarter, year),
+    ]);
+
+    // Build entity context for the prompt
+    const objectiveList = objectives.map(o => ({
+      type: 'objective',
+      id: o.id,
+      title: o.title,
+      description: o.description || '',
+      progress: o.progress,
+      status: o.status,
+    }));
+
+    const keyResultList = keyResults.map(kr => ({
+      type: 'key_result',
+      id: kr.id,
+      title: kr.title,
+      description: kr.description || '',
+      currentValue: kr.currentValue,
+      targetValue: kr.targetValue,
+      unit: kr.unit || '',
+      progress: kr.progress,
+      status: kr.status,
+      metricType: kr.metricType,
+    }));
+
+    const bigRockList = bigRocks.map(br => ({
+      type: 'big_rock',
+      id: br.id,
+      title: br.title,
+      description: br.description || '',
+      completionPercentage: br.completionPercentage,
+      status: br.status,
+    }));
+
+    const allEntities = [...objectiveList, ...keyResultList, ...bigRockList];
+
+    const systemPrompt = `You are an OKR progress assistant. Your job is to analyze a narrative text (such as an executive report, team recap, or meeting notes) and identify which existing OKRs (Objectives, Key Results) and Big Rocks are mentioned or implied, then suggest check-in updates for each.
+
+You must only suggest updates for existing entities — never suggest creating new ones.
+
+For each match, extract:
+- Which entity it refers to (by semantic match to entity title/description)
+- The updated value or progress percentage (if mentioned)
+- A suggested status (not_started, on_track, behind, at_risk, completed)
+- A concise pre-written check-in note summarizing what was reported
+- Your confidence level (high, medium, low)
+- Brief reasoning for the match
+
+Return a JSON array of suggestions. Each suggestion must have:
+{
+  "entityType": "objective" | "key_result" | "big_rock",
+  "entityId": "<id from entity list>",
+  "entityTitle": "<entity title>",
+  "suggestedValue": <number or null>,
+  "suggestedProgress": <0-100 or null>,
+  "suggestedStatus": "<status string or null>",
+  "note": "<concise check-in note>",
+  "confidence": "high" | "medium" | "low",
+  "reasoning": "<why you matched this>"
+}
+
+Return ONLY a valid JSON array. No markdown, no explanation outside the JSON.`;
+
+    const userMessage = `Here are the existing OKRs and Big Rocks:
+
+${JSON.stringify(allEntities, null, 2)}
+
+Here is the narrative text to analyze:
+
+---
+${text}
+---
+
+Return JSON array of suggested check-in updates for matched entities only. Do not invent entity IDs — only use IDs from the list above.`;
+
+    const rawResponse = await getSimpleCompletion(
+      systemPrompt,
+      userMessage,
+      { tenantId, maxTokens: 3000 },
+      AI_FEATURES.CHAT
+    );
+
+    // Parse the JSON response
+    let rawSuggestions: unknown[] = [];
+    try {
+      const cleaned = rawResponse.trim().replace(/^```json\s*/i, '').replace(/```\s*$/, '');
+      const parsed: unknown = JSON.parse(cleaned);
+      if (Array.isArray(parsed)) rawSuggestions = parsed;
+    } catch (parseErr) {
+      console.error("[parse-narrative-update] Failed to parse AI response:", rawResponse);
+      rawSuggestions = [];
+    }
+
+    // Zod schema to validate each individual suggestion from the AI
+    const suggestionItemSchema = z.object({
+      entityType: z.enum(['objective', 'key_result', 'big_rock']),
+      entityId: z.string(),
+      entityTitle: z.string(),
+      suggestedValue: z.number().nullable().optional().default(null),
+      suggestedProgress: z.number().nullable().optional().default(null),
+      suggestedStatus: z.string().nullable().optional().default(null),
+      note: z.string(),
+      confidence: z.enum(['high', 'medium', 'low']),
+      reasoning: z.string(),
+    });
+
+    // Build entity lookup map for strict (id, type) pair validation
+    const entityMap = new Map(allEntities.map(e => [e.id, e.type]));
+
+    const suggestions: NarrativeSuggestion[] = rawSuggestions
+      .map((item): NarrativeSuggestion | null => {
+        const parsed = suggestionItemSchema.safeParse(item);
+        if (!parsed.success) return null;
+        const s = parsed.data;
+        // Enforce that entityId and entityType match the actual entity
+        const actualType = entityMap.get(s.entityId);
+        if (!actualType || actualType !== s.entityType) return null;
+        return {
+          entityType: s.entityType,
+          entityId: s.entityId,
+          entityTitle: s.entityTitle,
+          suggestedValue: s.suggestedValue ?? null,
+          suggestedProgress: s.suggestedProgress ?? null,
+          suggestedStatus: s.suggestedStatus ?? null,
+          note: s.note,
+          confidence: s.confidence,
+          reasoning: s.reasoning,
+        };
+      })
+      .filter((s): s is NarrativeSuggestion => s !== null);
+
+    res.json({ suggestions });
+  } catch (error: unknown) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: "Invalid request format", details: error.errors });
+    }
+    const msg = error instanceof Error ? error.message : "Failed to parse narrative update";
+    console.error("[parse-narrative-update] Error:", msg);
+    res.status(500).json({ error: msg });
+  }
+});

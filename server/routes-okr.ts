@@ -1080,12 +1080,14 @@ okrRouter.post("/check-ins", async (req, res) => {
     // entityType and entityId already declared above
     
     if (entityType === "objective") {
-      const updateData: any = {
-        progress: checkIn.newProgress,
+      const updateData: Record<string, unknown> = {
         lastCheckInAt: checkIn.createdAt,
         lastCheckInNote: checkIn.note || undefined,
       };
-      
+      // Only overwrite progress when explicitly provided to avoid corrupting existing values
+      if (checkIn.newProgress !== undefined && checkIn.newProgress !== null) {
+        updateData.progress = checkIn.newProgress;
+      }
       if (checkIn.newStatus) {
         updateData.status = checkIn.newStatus;
         updateData.statusOverride = 'true';
@@ -1095,11 +1097,14 @@ okrRouter.post("/check-ins", async (req, res) => {
     } else if (entityType === "key_result") {
       // Get the Key Result to recalculate progress from values
       const keyResult = await storage.getKeyResultById(entityId);
-      
-      // Recalculate progress server-side to ensure accuracy
-      let calculatedProgress = checkIn.newProgress || 0;
-      if (keyResult && checkIn.newValue !== undefined && checkIn.newValue !== null) {
-        const currentValue = checkIn.newValue;
+
+      const hasNewValue = checkIn.newValue !== undefined && checkIn.newValue !== null;
+      const hasNewProgress = checkIn.newProgress !== undefined && checkIn.newProgress !== null;
+
+      // Recalculate progress server-side only when new value/progress is explicitly provided
+      let calculatedProgress: number | undefined;
+      if (keyResult && hasNewValue) {
+        const currentValue = checkIn.newValue as number;
         const targetValue = keyResult.targetValue ?? 0;
         const initialValue = keyResult.initialValue ?? 0;
         const metricType = keyResult.metricType || "increase";
@@ -1110,19 +1115,24 @@ okrRouter.post("/check-ins", async (req, res) => {
           initialValue,
           metricType
         );
+      } else if (hasNewProgress) {
+        calculatedProgress = checkIn.newProgress as number;
       }
+      // If neither value nor progress provided, leave progress unchanged
       
-      // Update the key result with recalculated progress
-      await storage.updateKeyResult(entityId, {
-        currentValue: checkIn.newValue,
-        progress: calculatedProgress,
+      // Update the key result — only include fields that are explicitly provided
+      const krUpdate: Record<string, unknown> = {
         status: checkIn.newStatus || undefined,
         lastCheckInAt: checkIn.createdAt,
         lastCheckInNote: checkIn.note || undefined,
-      });
+      };
+      if (hasNewValue) krUpdate.currentValue = checkIn.newValue;
+      if (calculatedProgress !== undefined) krUpdate.progress = calculatedProgress;
+
+      await storage.updateKeyResult(entityId, krUpdate);
       
       // Recalculate parent objective's progress (includes both KRs and child objectives)
-      if (keyResult && keyResult.objectiveId) {
+      if (keyResult && keyResult.objectiveId && (hasNewValue || hasNewProgress)) {
         const objective = await storage.getObjectiveById(keyResult.objectiveId);
         
         // Only recalculate if using rollup mode
@@ -1136,12 +1146,16 @@ okrRouter.post("/check-ins", async (req, res) => {
         }
       }
     } else if (entityType === "big_rock") {
-      await storage.updateBigRock(entityId, {
-        completionPercentage: checkIn.newProgress,
+      const brUpdate: Record<string, unknown> = {
         status: checkIn.newStatus || undefined,
         lastCheckInAt: checkIn.createdAt,
         lastCheckInNote: checkIn.note || undefined,
-      });
+      };
+      // Only overwrite completionPercentage when explicitly provided
+      if (checkIn.newProgress !== undefined && checkIn.newProgress !== null) {
+        brUpdate.completionPercentage = checkIn.newProgress;
+      }
+      await storage.updateBigRock(entityId, brUpdate);
     }
     
     res.json(checkIn);

@@ -50,6 +50,7 @@ import { CloneBigRockDialog } from "@/components/okr/CloneBigRockDialog";
 import { OKRQualityScore } from "@/components/okr/OKRQualityScore";
 import { BigRockTasks } from "@/components/okr/BigRockTasks";
 import { Copy } from "lucide-react";
+import { NarrativeUpdatePanel } from "@/components/NarrativeUpdatePanel";
 
 interface Objective {
   id: string;
@@ -617,6 +618,7 @@ export default function PlanningEnhanced() {
   const [closingNote, setClosingNote] = useState("");
   const [weightManagementDialogOpen, setWeightManagementDialogOpen] = useState(false);
   const [progressSummaryDialogOpen, setProgressSummaryDialogOpen] = useState(false);
+  const [narrativeUpdatePanelOpen, setNarrativeUpdatePanelOpen] = useState(false);
   const [saveToMeetingDialogOpen, setSaveToMeetingDialogOpen] = useState(false);
   const [alignmentDialogOpen, setAlignmentDialogOpen] = useState(false);
   const [alignmentTargetObjective, setAlignmentTargetObjective] = useState<string | null>(null);
@@ -2227,6 +2229,14 @@ export default function PlanningEnhanced() {
             >
               <Sparkles className="h-4 w-4 mr-2" />
               Generate Summary
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => setNarrativeUpdatePanelOpen(true)}
+              data-testid="button-paste-update"
+            >
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Paste Update
             </Button>
             <Button
               onClick={() => handleCreateObjective()}
@@ -4838,6 +4848,17 @@ export default function PlanningEnhanced() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Narrative Update Panel */}
+        {currentTenant && (
+          <NarrativeUpdatePanel
+            open={narrativeUpdatePanelOpen}
+            onClose={() => setNarrativeUpdatePanelOpen(false)}
+            quarter={quarter ?? 0}
+            year={year}
+            tenantId={currentTenant.id}
+          />
+        )}
 
         {/* Progress Summary Dialog */}
         <ProgressSummaryDialog
