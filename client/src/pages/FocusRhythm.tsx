@@ -218,6 +218,7 @@ function OKRLinkingModal({
   const [selectedObjectives, setSelectedObjectives] = useState<string[]>(linkedObjectiveIds);
   const [selectedKeyResults, setSelectedKeyResults] = useState<string[]>(linkedKeyResultIds);
   const [selectedBigRocks, setSelectedBigRocks] = useState<string[]>(linkedBigRockIds);
+  const [searchQuery, setSearchQuery] = useState('');
   
   const effectiveYear = year ?? fallbackYear;
   // Do not filter by quarter in the linking modal — show all annual AND quarterly
@@ -255,14 +256,51 @@ function OKRLinkingModal({
     },
     enabled: open && !!tenantId,
   });
+
+  const { data: teams = [] } = useQuery<any[]>({
+    queryKey: ['/api/okr/teams', tenantId],
+    queryFn: async () => {
+      const res = await fetch(`/api/okr/teams?tenantId=${tenantId}`);
+      if (!res.ok) return [];
+      return res.json();
+    },
+    enabled: open && !!tenantId,
+  });
+  const teamMap = Object.fromEntries(teams.map((t: any) => [t.id, t.name]));
   
   const keyResults: KeyResult[] = hierarchyData?.flatMap((obj: any) => obj.keyResults || []) || [];
+  // Map KR id → parent objective title for context display
+  const krParentMap: Record<string, string> = {};
+  (hierarchyData || []).forEach((obj: any) => {
+    (obj.keyResults || []).forEach((kr: any) => { krParentMap[kr.id] = obj.title; });
+  });
   
   useEffect(() => {
     setSelectedObjectives(linkedObjectiveIds);
     setSelectedKeyResults(linkedKeyResultIds);
     setSelectedBigRocks(linkedBigRockIds);
   }, [linkedObjectiveIds, linkedKeyResultIds, linkedBigRockIds]);
+
+  // Reset search when modal opens
+  useEffect(() => { if (open) setSearchQuery(''); }, [open]);
+
+  const q = searchQuery.toLowerCase();
+  const filteredObjectives = q ? objectives.filter(o => o.title.toLowerCase().includes(q) || o.ownerEmail?.toLowerCase().includes(q)) : objectives;
+  const filteredKeyResults = q ? keyResults.filter(kr => kr.title.toLowerCase().includes(q) || krParentMap[kr.id]?.toLowerCase().includes(q)) : keyResults;
+  const filteredBigRocks = q ? bigRocks.filter(b => b.title.toLowerCase().includes(q)) : bigRocks;
+
+  const levelLabel = (level?: string | null) => {
+    if (level === 'organization') return 'Org';
+    if (level === 'team') return 'Team';
+    if (level === 'individual') return 'Individual';
+    return level ?? '';
+  };
+  const statusColor = (status?: string | null) => {
+    if (status === 'on_track' || status === 'completed') return 'text-green-600 dark:text-green-400';
+    if (status === 'at_risk') return 'text-amber-600 dark:text-amber-400';
+    if (status === 'behind') return 'text-red-500 dark:text-red-400';
+    return 'text-muted-foreground';
+  };
   
   const toggleObjective = (id: string) => {
     setSelectedObjectives(prev => 
@@ -287,153 +325,146 @@ function OKRLinkingModal({
     onOpenChange(false);
   };
   
-  const atRiskObjectives = objectives.filter(o => o.status === 'at_risk' || o.status === 'behind');
-  const atRiskBigRocks = bigRocks.filter(b => b.status === 'at_risk' || b.status === 'behind');
-  
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh]">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle>Link OKRs & Big Rocks</DialogTitle>
+          <DialogTitle>Link OKRs &amp; Big Rocks</DialogTitle>
           <DialogDescription>
             Select objectives, key results, and initiatives to discuss in this meeting
           </DialogDescription>
         </DialogHeader>
+
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
+          <input
+            className="w-full rounded-md border bg-background pl-9 pr-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            placeholder="Search by title, owner, or parent…"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            data-testid="input-okr-search"
+          />
+        </div>
         
-        <Tabs defaultValue="objectives" className="mt-4">
-          <TabsList className="grid grid-cols-3 w-full">
+        <Tabs defaultValue="objectives" className="flex-1 flex flex-col min-h-0">
+          <TabsList className="grid grid-cols-3 w-full shrink-0">
             <TabsTrigger value="objectives" data-testid="tab-link-objectives">
-              Objectives ({selectedObjectives.length})
+              Objectives {selectedObjectives.length > 0 && <span className="ml-1 text-xs opacity-70">({selectedObjectives.length})</span>}
             </TabsTrigger>
             <TabsTrigger value="keyresults" data-testid="tab-link-keyresults">
-              Key Results ({selectedKeyResults.length})
+              Key Results {selectedKeyResults.length > 0 && <span className="ml-1 text-xs opacity-70">({selectedKeyResults.length})</span>}
             </TabsTrigger>
             <TabsTrigger value="bigrocks" data-testid="tab-link-bigrocks">
-              Big Rocks ({selectedBigRocks.length})
+              Big Rocks {selectedBigRocks.length > 0 && <span className="ml-1 text-xs opacity-70">({selectedBigRocks.length})</span>}
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="objectives" className="mt-4">
-            {atRiskObjectives.length > 0 && (
-              <div className="mb-4">
-                <div className="flex items-center gap-2 mb-2 text-sm font-medium text-amber-600 dark:text-amber-400">
-                  <AlertTriangle className="w-4 h-4" />
-                  At Risk / Behind
+          <TabsContent value="objectives" className="flex-1 mt-3 min-h-0">
+            <ScrollArea className="h-72 rounded-md border">
+              {filteredObjectives.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-20 text-sm text-muted-foreground gap-1">
+                  <Target className="w-4 h-4" />
+                  {q ? 'No objectives match your search' : 'No objectives found for this period'}
                 </div>
-                <ScrollArea className="h-32 rounded-md border p-2">
-                  {atRiskObjectives.map((obj) => (
-                    <div key={obj.id} className="flex items-center gap-2 p-2 hover:bg-muted rounded">
-                      <Checkbox 
-                        checked={selectedObjectives.includes(obj.id)}
-                        onCheckedChange={() => toggleObjective(obj.id)}
-                        data-testid={`checkbox-objective-${obj.id}`}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{obj.title}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {obj.progress?.toFixed(0)}% complete
-                        </div>
-                      </div>
-                      <Badge variant={obj.status === 'at_risk' ? 'secondary' : 'destructive'} className="text-xs">
-                        {obj.status?.replace('_', ' ')}
-                      </Badge>
-                    </div>
-                  ))}
-                </ScrollArea>
-              </div>
-            )}
-            <div>
-              <div className="text-sm font-medium mb-2">All Objectives</div>
-              <ScrollArea className="h-48 rounded-md border p-2">
-                {objectives.map((obj) => (
-                  <div key={obj.id} className="flex items-center gap-2 p-2 hover:bg-muted rounded">
-                    <Checkbox 
-                      checked={selectedObjectives.includes(obj.id)}
-                      onCheckedChange={() => toggleObjective(obj.id)}
-                      data-testid={`checkbox-objective-all-${obj.id}`}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{obj.title}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {getQuarterLabel(obj.quarter, obj.year)} • {obj.progress?.toFixed(0)}%
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </ScrollArea>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="keyresults" className="mt-4">
-            <ScrollArea className="h-64 rounded-md border p-2">
-              {keyResults.map((kr) => (
-                <div key={kr.id} className="flex items-center gap-2 p-2 hover:bg-muted rounded">
-                  <Checkbox 
-                    checked={selectedKeyResults.includes(kr.id)}
-                    onCheckedChange={() => toggleKeyResult(kr.id)}
-                    data-testid={`checkbox-keyresult-${kr.id}`}
+              ) : filteredObjectives.map((obj) => (
+                <label
+                  key={obj.id}
+                  className="flex items-start gap-3 px-3 py-2.5 hover:bg-muted/50 cursor-pointer border-b last:border-0"
+                  data-testid={`row-objective-${obj.id}`}
+                >
+                  <Checkbox
+                    checked={selectedObjectives.includes(obj.id)}
+                    onCheckedChange={() => toggleObjective(obj.id)}
+                    className="mt-0.5 shrink-0"
+                    data-testid={`checkbox-objective-${obj.id}`}
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{kr.title}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {kr.currentValue} / {kr.targetValue} {kr.unit}
+                    <div className="text-sm font-medium leading-snug">{obj.title}</div>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                      <span className="text-xs text-muted-foreground">{getQuarterLabel(obj.quarter, obj.year)}</span>
+                      {obj.level && <span className="text-xs text-muted-foreground">{levelLabel(obj.level)}</span>}
+                      {obj.teamId && teamMap[obj.teamId] && <span className="text-xs text-muted-foreground">{teamMap[obj.teamId]}</span>}
+                      {obj.ownerEmail && !obj.teamId && <span className="text-xs text-muted-foreground truncate max-w-[160px]">{obj.ownerEmail}</span>}
+                      <span className={`text-xs font-medium ${statusColor(obj.status)}`}>
+                        {obj.progress != null ? `${obj.progress.toFixed(0)}%` : ''}{obj.status ? ` · ${obj.status.replace(/_/g, ' ')}` : ''}
+                      </span>
                     </div>
                   </div>
-                </div>
+                </label>
               ))}
             </ScrollArea>
           </TabsContent>
           
-          <TabsContent value="bigrocks" className="mt-4">
-            {atRiskBigRocks.length > 0 && (
-              <div className="mb-4">
-                <div className="flex items-center gap-2 mb-2 text-sm font-medium text-amber-600 dark:text-amber-400">
-                  <AlertTriangle className="w-4 h-4" />
-                  At Risk / Behind
+          <TabsContent value="keyresults" className="flex-1 mt-3 min-h-0">
+            <ScrollArea className="h-72 rounded-md border">
+              {filteredKeyResults.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-20 text-sm text-muted-foreground gap-1">
+                  <CheckCircle2 className="w-4 h-4" />
+                  {q ? 'No key results match your search' : 'No key results found'}
                 </div>
-                <ScrollArea className="h-32 rounded-md border p-2">
-                  {atRiskBigRocks.map((rock) => (
-                    <div key={rock.id} className="flex items-center gap-2 p-2 hover:bg-muted rounded">
-                      <Checkbox 
-                        checked={selectedBigRocks.includes(rock.id)}
-                        onCheckedChange={() => toggleBigRock(rock.id)}
-                        data-testid={`checkbox-bigrock-${rock.id}`}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{rock.title}</div>
-                      </div>
-                      <Badge variant={rock.status === 'at_risk' ? 'secondary' : 'destructive'} className="text-xs">
-                        {rock.status?.replace('_', ' ')}
-                      </Badge>
-                    </div>
-                  ))}
-                </ScrollArea>
-              </div>
-            )}
-            <div>
-              <div className="text-sm font-medium mb-2">All Big Rocks</div>
-              <ScrollArea className="h-48 rounded-md border p-2">
-                {bigRocks.map((rock) => (
-                  <div key={rock.id} className="flex items-center gap-2 p-2 hover:bg-muted rounded">
-                    <Checkbox 
-                      checked={selectedBigRocks.includes(rock.id)}
-                      onCheckedChange={() => toggleBigRock(rock.id)}
-                      data-testid={`checkbox-bigrock-all-${rock.id}`}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{rock.title}</div>
-                      <div className="text-xs text-muted-foreground">
-                        {getQuarterLabel(rock.quarter, rock.year)}
-                      </div>
+              ) : filteredKeyResults.map((kr) => (
+                <label
+                  key={kr.id}
+                  className="flex items-start gap-3 px-3 py-2.5 hover:bg-muted/50 cursor-pointer border-b last:border-0"
+                  data-testid={`row-keyresult-${kr.id}`}
+                >
+                  <Checkbox
+                    checked={selectedKeyResults.includes(kr.id)}
+                    onCheckedChange={() => toggleKeyResult(kr.id)}
+                    className="mt-0.5 shrink-0"
+                    data-testid={`checkbox-keyresult-${kr.id}`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium leading-snug">{kr.title}</div>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                      {krParentMap[kr.id] && <span className="text-xs text-muted-foreground truncate max-w-xs">{krParentMap[kr.id]}</span>}
+                      {(kr.currentValue != null || kr.targetValue != null) && (
+                        <span className="text-xs text-muted-foreground">
+                          {kr.currentValue ?? '—'} / {kr.targetValue ?? '—'}{kr.unit ? ` ${kr.unit}` : ''}
+                        </span>
+                      )}
                     </div>
                   </div>
-                ))}
-              </ScrollArea>
-            </div>
+                </label>
+              ))}
+            </ScrollArea>
+          </TabsContent>
+          
+          <TabsContent value="bigrocks" className="flex-1 mt-3 min-h-0">
+            <ScrollArea className="h-72 rounded-md border">
+              {filteredBigRocks.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-20 text-sm text-muted-foreground gap-1">
+                  <Target className="w-4 h-4" />
+                  {q ? 'No big rocks match your search' : 'No big rocks found for this period'}
+                </div>
+              ) : filteredBigRocks.map((rock) => (
+                <label
+                  key={rock.id}
+                  className="flex items-start gap-3 px-3 py-2.5 hover:bg-muted/50 cursor-pointer border-b last:border-0"
+                  data-testid={`row-bigrock-${rock.id}`}
+                >
+                  <Checkbox
+                    checked={selectedBigRocks.includes(rock.id)}
+                    onCheckedChange={() => toggleBigRock(rock.id)}
+                    className="mt-0.5 shrink-0"
+                    data-testid={`checkbox-bigrock-${rock.id}`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium leading-snug">{rock.title}</div>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
+                      <span className="text-xs text-muted-foreground">{getQuarterLabel(rock.quarter, rock.year)}</span>
+                      {rock.ownerEmail && <span className="text-xs text-muted-foreground truncate max-w-[160px]">{rock.ownerEmail}</span>}
+                      {rock.status && <span className={`text-xs font-medium ${statusColor(rock.status)}`}>{rock.status.replace(/_/g, ' ')}</span>}
+                    </div>
+                  </div>
+                </label>
+              ))}
+            </ScrollArea>
           </TabsContent>
         </Tabs>
         
-        <DialogFooter>
+        <DialogFooter className="shrink-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button onClick={handleSave} data-testid="button-save-links">
             Save Links

@@ -1284,7 +1284,12 @@ Rules:
 - Return ONLY valid JSON, no markdown, no preamble, no extra text`;
 
   try {
-    const response = await getSimpleCompletion(prompt, { tenantId, maxTokens: 4000 });
+    const response = await getSimpleCompletion(
+      "You are an expert facilitator for strategic business meetings that returns only valid JSON.",
+      prompt,
+      { tenantId, maxTokens: 4000 },
+      AI_FEATURES.MEETING_AGENDA,
+    );
 
     // Extract JSON from the response — handle markdown code blocks and extra prose
     let cleanedResponse = response
