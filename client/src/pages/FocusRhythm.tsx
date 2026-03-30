@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Users, Pencil, Trash2, Plus, Target, CheckCircle2, FileText, AlertTriangle, AlertCircle, Link2, Clock, Zap, ChevronRight, X, Sparkles, Search, Copy, ClipboardCheck, ExternalLink, Mail, RefreshCw, Cloud, CloudOff, CalendarCheck, Loader2 } from "lucide-react";
+import { Calendar, Users, Pencil, Trash2, Plus, Target, CheckCircle2, FileText, AlertTriangle, AlertCircle, Link2, Clock, Zap, ChevronRight, X, Sparkles, Search, Copy, ClipboardCheck, ExternalLink, Mail, RefreshCw, Cloud, CloudOff, CalendarCheck, Loader2, PlayCircle } from "lucide-react";
 import { Link } from "wouter";
 import {
   Dialog,
@@ -37,6 +37,7 @@ import { format } from "date-fns";
 import { getQuarterDateRange, getMeetingQuarterYear } from "@/lib/quarters";
 import { hasPermission, PERMISSIONS, ROLES, type Role } from "@shared/rbac";
 import { useTimePeriod } from "@/contexts/TimePeriodContext";
+import { SerialCheckInDialog, type CheckInQueueItem } from "@/components/okr/SerialCheckInDialog";
 
 interface MeetingFormData {
   title: string;
@@ -772,9 +773,14 @@ interface MeetingCardProps {
   onSendSummary?: (meetingId: string) => void;
   isSyncing?: boolean;
   isSendingSummary?: boolean;
+  tenantId?: string;
+  userId?: string;
+  userEmail?: string;
+  quarter?: number | null;
+  year?: number;
 }
 
-function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResults, bigRocks, onCopyBrief, outlookConnected, onSyncToOutlook, onSendSummary, isSyncing, isSendingSummary }: MeetingCardProps) {
+function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResults, bigRocks, onCopyBrief, outlookConnected, onSyncToOutlook, onSendSummary, isSyncing, isSendingSummary, tenantId, userId, userEmail, quarter, year }: MeetingCardProps) {
   const linkedObjectives = objectives.filter(o => 
     meeting.linkedObjectiveIds?.includes(o.id)
   );
@@ -786,7 +792,57 @@ function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResu
   );
 
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
-  
+  const [checkInQueueOpen, setCheckInQueueOpen] = useState(false);
+  const [checkInQueue, setCheckInQueue] = useState<CheckInQueueItem[]>([]);
+  const [checkInQueueIndex, setCheckInQueueIndex] = useState(0);
+
+  const linkedItemCount = linkedObjectives.length + linkedKeyResults.length + linkedBigRocks.length;
+
+  const startMeetingCheckIn = () => {
+    const queue: CheckInQueueItem[] = [
+      ...linkedObjectives
+        .filter(o => o.status !== "completed" && o.status !== "cancelled")
+        .map(o => ({
+          id: o.id,
+          title: o.title,
+          type: "objective" as const,
+          daysSince: null,
+          progress: o.progress ?? 0,
+          status: o.status ?? "in_progress",
+          paceStatus: "no_data" as const,
+          entityData: o,
+        })),
+      ...linkedKeyResults
+        .filter(kr => kr.status !== "completed" && kr.status !== "cancelled")
+        .map(kr => ({
+          id: kr.id,
+          title: kr.title,
+          type: "key_result" as const,
+          daysSince: null,
+          progress: kr.progress ?? 0,
+          status: kr.status ?? "in_progress",
+          paceStatus: "no_data" as const,
+          entityData: kr,
+        })),
+      ...linkedBigRocks
+        .filter(br => br.status !== "completed" && br.status !== "cancelled")
+        .map(br => ({
+          id: br.id,
+          title: br.title,
+          type: "big_rock" as const,
+          daysSince: null,
+          progress: (br as any).completionPercentage ?? br.progress ?? 0,
+          status: br.status ?? "in_progress",
+          paceStatus: "no_data" as const,
+          entityData: br,
+        })),
+    ];
+    if (queue.length === 0) return;
+    setCheckInQueue(queue);
+    setCheckInQueueIndex(0);
+    setCheckInQueueOpen(true);
+  };
+
   const getMeetingTypeVariant = (type: string) => {
     switch (type) {
       case "weekly": return "default";
@@ -1040,9 +1096,20 @@ function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResu
       </CardContent>
       
       <CardFooter className="pt-0 flex flex-wrap items-center justify-between gap-2">
-        <div className="text-xs text-muted-foreground">
+        <div className="flex items-center gap-2 flex-wrap">
           {meeting.nextMeetingDate && (
-            <span>Next meeting: {format(new Date(meeting.nextMeetingDate), "PPP")}</span>
+            <span className="text-xs text-muted-foreground">Next meeting: {format(new Date(meeting.nextMeetingDate), "PPP")}</span>
+          )}
+          {linkedItemCount > 0 && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={startMeetingCheckIn}
+              data-testid={`button-checkin-meeting-${meeting.id}`}
+            >
+              <PlayCircle className="w-4 h-4 mr-1.5" />
+              Check In ({linkedItemCount} item{linkedItemCount !== 1 ? "s" : ""})
+            </Button>
           )}
         </div>
         
@@ -1090,6 +1157,29 @@ function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResu
         }}
         isSyncing={isSyncing}
       />
+      {checkInQueueOpen && checkInQueue.length > 0 && (
+        <SerialCheckInDialog
+          open={checkInQueueOpen}
+          queue={checkInQueue}
+          currentIndex={checkInQueueIndex}
+          bigRockTasksMap={{}}
+          onAdvance={() => {
+            const next = checkInQueueIndex + 1;
+            if (next >= checkInQueue.length) {
+              setCheckInQueueOpen(false);
+            } else {
+              setCheckInQueueIndex(next);
+            }
+          }}
+          onPrev={() => setCheckInQueueIndex(i => Math.max(0, i - 1))}
+          onClose={() => setCheckInQueueOpen(false)}
+          tenantId={tenantId ?? ""}
+          userId={userId}
+          userEmail={userEmail}
+          quarter={quarter ?? 1}
+          year={year ?? new Date().getFullYear()}
+        />
+      )}
     </Card>
   );
 }
@@ -2752,6 +2842,11 @@ export default function FocusRhythm() {
                     onSendSummary={(id) => sendSummaryMutation.mutate(id)}
                     isSyncing={syncToOutlookMutation.isPending}
                     isSendingSummary={sendSummaryMutation.isPending}
+                    tenantId={currentTenant?.id}
+                    userId={user?.id}
+                    userEmail={user?.email}
+                    quarter={quarter}
+                    year={year}
                   />
                 ))}
               </div>
