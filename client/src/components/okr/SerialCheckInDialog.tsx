@@ -250,14 +250,22 @@ export function SerialCheckInDialog({
     );
     if (taskUpdateEntries.length > 0) {
       await Promise.all(
-        taskUpdateEntries.map(([taskId, newStatus]) =>
-          fetch(`/api/okr/big-rocks/${item.id}/tasks/${taskId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-            body: JSON.stringify({ status: newStatus }),
-          }),
-        ),
+        taskUpdateEntries.map(async ([taskId, newStatus]) => {
+          const res = await apiRequest(
+            `/api/okr/big-rocks/${item.id}/tasks/${taskId}`,
+            {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              credentials: "include",
+              body: JSON.stringify({ status: newStatus }),
+            },
+          );
+          if (!res.ok) {
+            throw new Error(
+              `Failed to update task ${taskId} for Big Rock ${item.id}: ${res.status} ${res.statusText}`,
+            );
+          }
+        }),
       );
       queryClient.invalidateQueries({
         queryKey: ["/api/okr/big-rocks", item.id, "tasks"],
