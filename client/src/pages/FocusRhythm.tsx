@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -286,9 +286,34 @@ function OKRLinkingModal({
   useEffect(() => { if (open) setSearchQuery(''); }, [open]);
 
   const q = searchQuery.toLowerCase();
-  const filteredObjectives = q ? objectives.filter(o => o.title.toLowerCase().includes(q) || o.ownerEmail?.toLowerCase().includes(q)) : objectives;
+  const rawFilteredObjectives = q ? objectives.filter(o => o.title.toLowerCase().includes(q) || o.ownerEmail?.toLowerCase().includes(q)) : objectives;
   const filteredKeyResults = q ? keyResults.filter(kr => kr.title.toLowerCase().includes(q) || krParentMap[kr.id]?.toLowerCase().includes(q)) : keyResults;
   const filteredBigRocks = q ? bigRocks.filter(b => b.title.toLowerCase().includes(q)) : bigRocks;
+
+  const filteredObjectives = useMemo(() => {
+    const list = rawFilteredObjectives;
+    const idSet = new Set(list.map(o => o.id));
+    const roots: typeof list = [];
+    const childrenOf: Record<string, typeof list> = {};
+    for (const o of list) {
+      const pid = (o as any).parentId;
+      if (!pid || !idSet.has(pid)) {
+        roots.push(o);
+      } else {
+        (childrenOf[pid] ??= []).push(o);
+      }
+    }
+    const result: typeof list = [];
+    const addWithChildren = (obj: (typeof list)[0], depth: number) => {
+      (obj as any)._depth = depth;
+      result.push(obj);
+      for (const child of childrenOf[obj.id] || []) {
+        addWithChildren(child, depth + 1);
+      }
+    };
+    for (const root of roots) addWithChildren(root, 0);
+    return result;
+  }, [rawFilteredObjectives]);
 
   const levelLabel = (level?: string | null) => {
     if (level === 'organization') return 'Org';
@@ -368,10 +393,13 @@ function OKRLinkingModal({
                   <Target className="w-4 h-4" />
                   {q ? 'No objectives match your search' : 'No objectives found for this period'}
                 </div>
-              ) : filteredObjectives.map((obj) => (
+              ) : filteredObjectives.map((obj) => {
+                const depth = (obj as any)._depth || 0;
+                return (
                 <label
                   key={obj.id}
-                  className="flex items-start gap-3 px-3 py-2.5 hover:bg-muted/50 cursor-pointer border-b last:border-0"
+                  className="flex items-start gap-3 py-2.5 hover:bg-muted/50 cursor-pointer border-b last:border-0"
+                  style={{ paddingLeft: `${12 + depth * 20}px`, paddingRight: 12 }}
                   data-testid={`row-objective-${obj.id}`}
                 >
                   <Checkbox
@@ -381,7 +409,10 @@ function OKRLinkingModal({
                     data-testid={`checkbox-objective-${obj.id}`}
                   />
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium leading-snug">{obj.title}</div>
+                    <div className="text-sm font-medium leading-snug">
+                      {depth > 0 && <span className="text-muted-foreground mr-1">↳</span>}
+                      {obj.title}
+                    </div>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 mt-0.5">
                       <span className="text-xs text-muted-foreground">{getQuarterLabel(obj.quarter, obj.year)}</span>
                       {obj.level && <span className="text-xs text-muted-foreground">{levelLabel(obj.level)}</span>}
@@ -393,7 +424,8 @@ function OKRLinkingModal({
                     </div>
                   </div>
                 </label>
-              ))}
+              );
+              })}
             </ScrollArea>
           </TabsContent>
           
