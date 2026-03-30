@@ -1318,11 +1318,12 @@ aiRouter.post("/parse-narrative-update", requireAIChat, requireTenantAccess, asy
     ]);
 
     // Build entity context for the prompt
+    // Keep entity context lean — omit verbose descriptions to reduce prompt token usage.
+    // Reasoning models (e.g. GPT-5) consume tokens internally; we need headroom for output.
     const objectiveList = objectives.map(o => ({
       type: 'objective',
       id: o.id,
       title: o.title,
-      description: o.description || '',
       progress: o.progress,
       status: o.status,
     }));
@@ -1331,7 +1332,6 @@ aiRouter.post("/parse-narrative-update", requireAIChat, requireTenantAccess, asy
       type: 'key_result',
       id: kr.id,
       title: kr.title,
-      description: kr.description || '',
       currentValue: kr.currentValue,
       targetValue: kr.targetValue,
       unit: kr.unit || '',
@@ -1344,7 +1344,6 @@ aiRouter.post("/parse-narrative-update", requireAIChat, requireTenantAccess, asy
       type: 'big_rock',
       id: br.id,
       title: br.title,
-      description: br.description || '',
       completionPercentage: br.completionPercentage,
       status: br.status,
     }));
@@ -1378,9 +1377,9 @@ Return a JSON array of suggestions. Each suggestion must have:
 
 Return ONLY a valid JSON array. No markdown, no explanation outside the JSON.`;
 
-    const userMessage = `Here are the existing OKRs and Big Rocks:
+    const userMessage = `Here are the existing OKRs and Big Rocks (JSON, compact):
 
-${JSON.stringify(allEntities, null, 2)}
+${JSON.stringify(allEntities)}
 
 Here is the narrative text to analyze:
 
@@ -1390,10 +1389,13 @@ ${text}
 
 Return JSON array of suggested check-in updates for matched entities only. Do not invent entity IDs — only use IDs from the list above.`;
 
+    // Use a high maxTokens budget: reasoning models (GPT-5) consume tokens internally for
+    // chain-of-thought before producing output. 3000 is insufficient — all tokens get used
+    // on reasoning, leaving nothing for the JSON response. 16000 gives ample headroom.
     const rawResponse = await getSimpleCompletion(
       systemPrompt,
       userMessage,
-      { tenantId, maxTokens: 3000 },
+      { tenantId, maxTokens: 16000 },
       AI_FEATURES.CHAT
     );
 
