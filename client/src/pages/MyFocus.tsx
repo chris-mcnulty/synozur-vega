@@ -197,9 +197,9 @@ export default function MyFocus() {
     if (!user) return [];
     return bigRocks.filter(
       (br) =>
-        (br as any).ownerId === user.id ||
-        (br as any).ownerEmail === user.email ||
-        (br as any).accountableId === user.id
+        br.ownerId === user.id ||
+        br.ownerEmail === user.email ||
+        br.accountableId === user.id
     );
   }, [bigRocks, user]);
 
@@ -327,7 +327,7 @@ export default function MyFocus() {
 
   // Build a map of bigRockId → tasks for the serial dialog
   const bigRockTasksMap = useMemo(() => {
-    const map: Record<string, any[]> = {};
+    const map: Record<string, BigRockTask[]> = {};
     bigRockTaskResults.forEach((result, i) => {
       const br = bigRocks[i];
       if (br && result.data) {
