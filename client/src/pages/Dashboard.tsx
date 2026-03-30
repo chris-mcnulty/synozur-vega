@@ -535,19 +535,39 @@ export default function Dashboard() {
               ) : bigRocks && bigRocks.length > 0 ? (
                 bigRocks.map((rock) => {
                   // Derive effective status from completion percentage if status is not set or is "not_started"
-                  const deriveEffectiveStatus = (status?: string | null, completion?: number | null): string => {
+                  const isStaleCheckIn = (lastCheckInAt?: string | null): boolean => {
+                    if (!lastCheckInAt) return false;
+                    const daysSinceCheckIn = (Date.now() - new Date(lastCheckInAt).getTime()) / (1000 * 60 * 60 * 24);
+                    return daysSinceCheckIn > 30;
+                  };
+                  
+                  const deriveEffectiveStatus = (status?: string | null, completion?: number | null, lastCheckInAt?: string | null): string => {
                     const pct = completion || 0;
+                    const stale = isStaleCheckIn(lastCheckInAt);
                     // If status is explicitly set to something meaningful, use it
                     if (status && status !== 'not_started') {
+                      if (status === 'completed') return status;
+                      // Staleness guard: only override on_track to behind when stale
+                      if (status === 'on_track' && stale) return 'behind';
                       return status;
                     }
                     // Auto-derive status from completion percentage
                     if (pct >= 100) return 'completed';
-                    if (pct > 0) return 'on_track';
+                    if (pct > 0) {
+                      // Staleness guard: if last check-in is >30 days ago, override to behind
+                      if (stale) return 'behind';
+                      return 'on_track';
+                    }
+                    // not_started: staleness guard also applies
+                    if (stale) return 'behind';
                     return 'not_started';
                   };
                   
-                  const effectiveStatus = deriveEffectiveStatus(rock.status, rock.completionPercentage);
+                  const isStale = rock.status !== 'completed' &&
+                    (rock.completionPercentage || 0) < 100 &&
+                    isStaleCheckIn(rock.lastCheckInAt);
+                  
+                  const effectiveStatus = deriveEffectiveStatus(rock.status, rock.completionPercentage, rock.lastCheckInAt);
                   
                   const getStatusColor = (status?: string | null) => {
                     switch (status) {
@@ -599,6 +619,9 @@ export default function Dashboard() {
                           <Badge variant={getStatusBadgeVariant(effectiveStatus)} className="text-xs">
                             {effectiveStatus.replace("_", " ")}
                           </Badge>
+                          {isStale && (
+                            <span className="text-xs text-muted-foreground" data-testid={`status-stale-${rock.id}`}>stale</span>
+                          )}
                           <span className="text-sm font-medium">{rock.completionPercentage || 0}%</span>
                         </div>
                       </div>

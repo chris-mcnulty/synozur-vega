@@ -1030,13 +1030,9 @@ okrRouter.post("/check-ins", async (req, res) => {
   try {
     const validatedData = insertCheckInSchema.parse(req.body);
     
-    // Ensure previousProgress has a default value if not provided
-    if (validatedData.previousProgress === undefined || validatedData.previousProgress === null) {
-      validatedData.previousProgress = 0;
-    }
-    
     // Check if entity is closed - block check-ins on closed OKRs
     const { entityType, entityId } = validatedData;
+    let entityCurrentProgress: number | null = null;
     if (entityType === "objective") {
       const objective = await storage.getObjectiveById(entityId);
       if (objective?.status === 'closed') {
@@ -1044,6 +1040,7 @@ okrRouter.post("/check-ins", async (req, res) => {
           error: "Cannot check in on a closed objective. Reopen it first." 
         });
       }
+      entityCurrentProgress = objective?.progress ?? null;
     } else if (entityType === "key_result") {
       const keyResult = await storage.getKeyResultById(entityId);
       if (keyResult?.status === 'closed') {
@@ -1051,6 +1048,7 @@ okrRouter.post("/check-ins", async (req, res) => {
           error: "Cannot check in on a closed key result. Reopen it first." 
         });
       }
+      entityCurrentProgress = keyResult?.progress ?? null;
       // Also check parent objective
       if (keyResult?.objectiveId) {
         const parentObjective = await storage.getObjectiveById(keyResult.objectiveId);
@@ -1067,6 +1065,16 @@ okrRouter.post("/check-ins", async (req, res) => {
           error: "Cannot check in on a closed Big Rock. Reopen it first." 
         });
       }
+      entityCurrentProgress = bigRock?.completionPercentage ?? null;
+    }
+    
+    // Default previousProgress to entity's current progress when not provided
+    if (validatedData.previousProgress === undefined || validatedData.previousProgress === null) {
+      validatedData.previousProgress = entityCurrentProgress ?? 0;
+    }
+    // Default newProgress to entity's current progress when not provided (status/note-only check-ins)
+    if (validatedData.newProgress === undefined || validatedData.newProgress === null) {
+      validatedData.newProgress = entityCurrentProgress ?? 0;
     }
     
     // Convert asOfDate from ISO string to Date object for Drizzle
