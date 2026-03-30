@@ -38,6 +38,7 @@ import { useLocation } from "wouter";
 // These are loaded in the main bundle for fast initial access
 import Login from "@/pages/Login";
 import Landing from "@/pages/Landing";
+import Pricing from "@/pages/Pricing";
 import VerifyEmail from "@/pages/VerifyEmail";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
@@ -446,6 +447,7 @@ function Router() {
     <Switch>
       {/* Public routes - eagerly loaded */}
       <Route path="/" component={Landing} />
+      <Route path="/pricing" component={Pricing} />
       <Route path="/login" component={Login} />
       <Route path="/verify-email" component={VerifyEmail} />
       <Route path="/forgot-password" component={ForgotPassword} />

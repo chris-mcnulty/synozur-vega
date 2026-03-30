@@ -157,6 +157,16 @@ export default function Landing() {
               >
                 Modules
               </Button>
+              <Link href="/pricing">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  className={isScrolled ? '' : 'dark:text-white dark:hover:bg-white/10'}
+                  data-testid="link-nav-pricing"
+                >
+                  Pricing
+                </Button>
+              </Link>
             </div>
             
             {/* CTA + Theme - Right */}
@@ -278,7 +288,7 @@ export default function Landing() {
                   <li><a href="#features" className="hover:text-foreground">Features</a></li>
                   <li><a href="#modules" className="hover:text-foreground">Modules</a></li>
                   <li><a href="#security" className="hover:text-foreground">Security</a></li>
-                  <li><a href="https://www.synozur.com" target="_blank" rel="noopener noreferrer" className="hover:text-foreground">Pricing</a></li>
+                  <li><Link href="/pricing" className="hover:text-foreground" data-testid="link-footer-pricing">Pricing</Link></li>
                 </ul>
               </div>
               <div>
