@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { ArrowRight, Shield, Lock, Users, FileCheck, CheckCircle2, X, Compass, Target, RefreshCcw, Layers, BarChart3, Calendar, Sparkles, Building2, Play } from "lucide-react";
+import { ArrowRight, Shield, Lock, Users, FileCheck, CheckCircle2, X, Compass, Target, RefreshCcw, Layers, BarChart3, Calendar, Sparkles, Building2, Play, TrendingUp, Globe, Award, type LucideIcon } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { CapabilityShowcase } from "./CapabilityShowcase";
@@ -13,6 +13,11 @@ import vegaLogo from "@/assets/brand/VegaTight_1766605018223.png";
 import vegaLogoWhite from "@/assets/brand/Vega_-_White_1767549184769.png";
 import vegaScreenshot from "@/assets/brand/VegaSS4_1767644736409.jpg";
 import vegaDemoVideo from "@/assets/brand/VegaDemo_1767846856426.mp4";
+import microsoftIcon from "@/assets/brand/Microsoft_Icon_6_1765741102026.jpeg";
+import outlookIcon from "@/assets/brand/Outlook_512_1765494903276.png";
+import sharePointIcon from "@/assets/brand/SharePoint_512_1765494903279.png";
+import excelIcon from "@/assets/brand/Excel_512_1765494903271.png";
+import oneDriveIcon from "@/assets/brand/OneDrive_512_1765494903274.png";
 
 const trustBadges = [
   { icon: Shield, label: "SOC 2 Type II" },
@@ -88,6 +93,34 @@ const securityBullets = [
   "Audit logging",
   "Multi-tenant isolation",
 ];
+
+const TRUST_STATS = [
+  { value: "10,000+", label: "Sites governed", icon: Globe },
+  { value: "99.9%", label: "Platform uptime", icon: TrendingUp },
+  { value: "SOC 2", label: "Type II ready", icon: Shield },
+  { value: "Dozens", label: "Organizations served", icon: Award },
+];
+
+const MICROSOFT_ECOSYSTEM = [
+  { name: "Microsoft 365", abbr: "Microsoft 365", logo: microsoftIcon },
+  { name: "Microsoft Outlook Calendar", abbr: "Outlook Calendar", logo: outlookIcon },
+  { name: "Microsoft SharePoint", abbr: "SharePoint", logo: sharePointIcon },
+  { name: "Microsoft Excel", abbr: "Excel", logo: excelIcon },
+  { name: "Microsoft OneDrive", abbr: "OneDrive", logo: oneDriveIcon },
+];
+
+function StatTile({ value, label, icon: Icon }: { value: string; label: string; icon: LucideIcon }) {
+  return (
+    <div
+      className="flex flex-col items-center justify-center gap-2 bg-white/10 dark:bg-white/5 backdrop-blur-sm border border-white/20 dark:border-white/10 rounded-lg px-6 py-5 text-center"
+      data-testid={`stat-tile-${label.replace(/\s+/g, '-').toLowerCase()}`}
+    >
+      <Icon className="h-5 w-5 text-primary" />
+      <span className="text-2xl md:text-3xl font-bold text-foreground leading-none">{value}</span>
+      <span className="text-sm text-muted-foreground">{label}</span>
+    </div>
+  );
+}
 
 function CTAButton({ className = "" }: { className?: string }) {
   return (
@@ -290,6 +323,41 @@ export function LandingHero() {
           </p>
         </div>
       </section>
+      {/* Trust Band Section */}
+      <section className="py-12 md:py-16 bg-background border-b" data-testid="trust-band-section">
+        <div className="max-w-5xl mx-auto px-6">
+          {/* Stat Tiles */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
+            {TRUST_STATS.map((stat) => (
+              <StatTile key={stat.label} value={stat.value} label={stat.label} icon={stat.icon} />
+            ))}
+          </div>
+
+          {/* Microsoft Ecosystem Logos */}
+          <div className="text-center mb-6">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-6">
+              Designed for the Microsoft ecosystem
+            </p>
+            <div className="flex flex-wrap justify-center items-center gap-3 md:gap-4">
+              {MICROSOFT_ECOSYSTEM.map((item) => (
+                <div
+                  key={item.name}
+                  className="flex items-center gap-2 bg-muted/60 border border-border rounded-md px-4 py-2.5"
+                  data-testid={`msft-badge-${item.abbr.replace(/\s+/g, '-').toLowerCase()}`}
+                >
+                  <img
+                    src={item.logo}
+                    alt={item.name}
+                    className="h-5 w-5 object-contain flex-shrink-0 rounded-sm"
+                  />
+                  <span className="text-sm font-medium text-foreground">{item.abbr}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* First 15 Minutes Section */}
       <section 
         className="relative py-16 md:py-24"
