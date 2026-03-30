@@ -34,7 +34,7 @@ import { MEETING_TEMPLATES } from "@shared/schema";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
-import { getQuarterDateRange } from "@/lib/quarters";
+import { getQuarterDateRange, getMeetingQuarterYear } from "@/lib/quarters";
 import { hasPermission, PERMISSIONS, ROLES, type Role } from "@shared/rbac";
 import { useTimePeriod } from "@/contexts/TimePeriodContext";
 
@@ -199,7 +199,7 @@ function OKRLinkingModal({
   const [selectedKeyResults, setSelectedKeyResults] = useState<string[]>(linkedKeyResultIds);
   const [selectedBigRocks, setSelectedBigRocks] = useState<string[]>(linkedBigRockIds);
   
-  const periodParams = quarter && year ? `&quarter=${quarter}&year=${year}` : '';
+  const periodParams = year ? (quarter ? `&quarter=${quarter}&year=${year}` : `&year=${year}`) : '';
   
   const { data: objectives = [] } = useQuery<Objective[]>({
     queryKey: ['/api/okr/objectives', tenantId, quarter, year],
@@ -1394,6 +1394,8 @@ export default function FocusRhythm() {
       linkedBigRockIds: bigRockIds,
     });
   };
+
+  const meetingPeriod = getMeetingQuarterYear(formData.date);
   
   const addAttendee = (value: string) => {
     if (value.trim() && !formData.attendees.includes(value.trim())) {
@@ -2484,8 +2486,8 @@ export default function FocusRhythm() {
           linkedBigRockIds={formData.linkedBigRockIds}
           onSave={handleLinksSave}
           tenantId={currentTenant.id}
-          quarter={quarter}
-          year={year}
+          quarter={meetingPeriod.quarter ?? undefined}
+          year={meetingPeriod.year}
         />
         
         <Dialog open={outlookImportDialogOpen} onOpenChange={setOutlookImportDialogOpen}>

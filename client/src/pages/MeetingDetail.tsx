@@ -23,8 +23,8 @@ import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Meeting, Objective, KeyResult, BigRock } from "@shared/schema";
 import { useTenant } from "@/contexts/TenantContext";
-import { useTimePeriod } from "@/contexts/TimePeriodContext";
 import { format } from "date-fns";
+import { getMeetingQuarterYear } from "@/lib/quarters";
 
 interface LinkedItemDisplayProps {
   objectives: Objective[];
@@ -192,7 +192,6 @@ export default function MeetingDetail() {
   const meetingId = params?.meetingId;
   const { toast } = useToast();
   const { currentTenant } = useTenant();
-  const { selectedQuarter: currentQuarter, year: globalYear } = useTimePeriod();
 
   const [formData, setFormData] = useState({
     title: "",
@@ -282,43 +281,45 @@ export default function MeetingDetail() {
     enabled: !!meetingId,
   });
 
+  const { quarter: meetingQuarter, year: meetingYear } = getMeetingQuarterYear(formData.date || meeting?.date || null);
+
   const { data: objectives = [] } = useQuery<Objective[]>({
-    queryKey: ['/api/okr/objectives', currentTenant?.id, currentQuarter?.quarter, globalYear],
+    queryKey: ['/api/okr/objectives', currentTenant?.id, meetingQuarter, meetingYear],
     queryFn: async () => {
-      const params = new URLSearchParams({ tenantId: currentTenant!.id, year: String(globalYear) });
-      if (currentQuarter?.quarter != null && currentQuarter.quarter !== 0) {
-        params.set('quarter', String(currentQuarter.quarter));
+      const params = new URLSearchParams({ tenantId: currentTenant!.id, year: String(meetingYear) });
+      if (meetingQuarter != null) {
+        params.set('quarter', String(meetingQuarter));
       }
       const res = await fetch(`/api/okr/objectives?${params}`);
       return res.json();
     },
-    enabled: !!currentTenant?.id && !!currentQuarter,
+    enabled: !!currentTenant?.id,
   });
 
   const { data: keyResults = [] } = useQuery<KeyResult[]>({
-    queryKey: ['/api/okr/key-results', currentTenant?.id, currentQuarter?.quarter, globalYear],
+    queryKey: ['/api/okr/key-results', currentTenant?.id, meetingQuarter, meetingYear],
     queryFn: async () => {
-      const params = new URLSearchParams({ tenantId: currentTenant!.id, year: String(globalYear) });
-      if (currentQuarter?.quarter != null && currentQuarter.quarter !== 0) {
-        params.set('quarter', String(currentQuarter.quarter));
+      const params = new URLSearchParams({ tenantId: currentTenant!.id, year: String(meetingYear) });
+      if (meetingQuarter != null) {
+        params.set('quarter', String(meetingQuarter));
       }
       const res = await fetch(`/api/okr/key-results?${params}`);
       return res.json();
     },
-    enabled: !!currentTenant?.id && !!currentQuarter,
+    enabled: !!currentTenant?.id,
   });
 
   const { data: bigRocks = [] } = useQuery<BigRock[]>({
-    queryKey: ['/api/okr/big-rocks', currentTenant?.id, currentQuarter?.quarter, globalYear],
+    queryKey: ['/api/okr/big-rocks', currentTenant?.id, meetingQuarter, meetingYear],
     queryFn: async () => {
-      const params = new URLSearchParams({ tenantId: currentTenant!.id, year: String(globalYear) });
-      if (currentQuarter?.quarter != null && currentQuarter.quarter !== 0) {
-        params.set('quarter', String(currentQuarter.quarter));
+      const params = new URLSearchParams({ tenantId: currentTenant!.id, year: String(meetingYear) });
+      if (meetingQuarter != null) {
+        params.set('quarter', String(meetingQuarter));
       }
       const res = await fetch(`/api/okr/big-rocks?${params}`);
       return res.json();
     },
-    enabled: !!currentTenant?.id && !!currentQuarter,
+    enabled: !!currentTenant?.id,
   });
 
   useEffect(() => {

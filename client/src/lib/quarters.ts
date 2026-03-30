@@ -27,6 +27,36 @@ export function getAllQuarters(): number[] {
   return [1, 2, 3, 4];
 }
 
+export function getMeetingQuarterYear(dateStr: string | null | undefined): { quarter: number | null; year: number } {
+  const now = new Date();
+  if (!dateStr) {
+    return { quarter: null, year: now.getFullYear() };
+  }
+  // Parse date-only strings (YYYY-MM-DD) directly to avoid UTC-to-local
+  // timezone shifts that can change the month (and thus the quarter).
+  const isoDateOnly = /^(\d{4})-(\d{2})-(\d{2})/.exec(dateStr);
+  let month: number;
+  let year: number;
+  if (isoDateOnly) {
+    year = parseInt(isoDateOnly[1], 10);
+    month = parseInt(isoDateOnly[2], 10); // 1-12 directly
+  } else {
+    // Fall back to Date parsing for ISO datetime strings (they include TZ info)
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      return { quarter: null, year: now.getFullYear() };
+    }
+    month = date.getMonth() + 1; // 1-12
+    year = date.getFullYear();
+  }
+  if (month < 1 || month > 12) {
+    return { quarter: null, year: now.getFullYear() };
+  }
+  // Calendar quarters: Q1=Jan-Mar, Q2=Apr-Jun, Q3=Jul-Sep, Q4=Oct-Dec
+  const quarter = Math.ceil(month / 3);
+  return { quarter, year };
+}
+
 export function getQuarterDateRange(quarter: number, year: number, fiscalYearStartMonth: number = 1): { start: Date; end: Date } {
   // Calculate the start month of the quarter
   const quarterStartOffset = (quarter - 1) * 3;
