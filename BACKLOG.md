@@ -1911,8 +1911,9 @@ The queue is assembled once when the user clicks "Start Check-Ins" and is not re
 **Sort order (most urgent first):**
 1. `at_risk` pace items
 2. `behind` pace items
-3. `no_data` items (never checked in)
-4. `on_track` / `ahead` items that are simply stale
+3. `stalled` items (no check-in for ≥ 21 days regardless of pace — same threshold used by the `HierarchicalOKRTable` risk signal)
+4. `no_data` items (never checked in, or newly created with no progress)
+5. `on_track` / `ahead` items that are simply stale (≥ 7 days since last check-in but not stalled)
 
 Within each urgency tier, items are sorted by days-since-last-check-in descending (stalest first). Items with `null` (never checked in) rank ahead of items with a known date within the same tier.
 
