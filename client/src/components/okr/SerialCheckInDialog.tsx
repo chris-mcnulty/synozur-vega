@@ -268,7 +268,7 @@ export function SerialCheckInDialog({
         }),
       );
       queryClient.invalidateQueries({
-        queryKey: ["/api/okr/big-rocks", item.id, "tasks"],
+        queryKey: [`/api/okr/big-rocks/${item.id}/tasks`],
       });
       queryClient.invalidateQueries({ queryKey: ["/api/okr/big-rocks"] });
     }
