@@ -762,6 +762,7 @@ export function vegaMeetingToOutlookEvent(
     agenda?: string[] | null;
     summary?: string | null;
     meetingType?: string | null;
+    meetingUrl?: string | null;
   },
   durationMinutes: number = 60
 ): OutlookEvent {
@@ -770,6 +771,10 @@ export function vegaMeetingToOutlookEvent(
   
   let bodyContent = '';
   
+  if (meeting.meetingUrl) {
+    bodyContent += `<p style="background:#f0ebff;border-left:3px solid #810FFB;padding:8px 12px;border-radius:4px;"><strong>Open Vega meeting dashboard:</strong> <a href="${meeting.meetingUrl}" style="color:#810FFB;">${meeting.meetingUrl}</a><br><em style="color:#666;font-size:12px;">Check in on OKRs and Big Rocks live during the meeting</em></p>`;
+  }
+
   if (meeting.meetingType) {
     bodyContent += `<p><strong>Meeting Type:</strong> ${meeting.meetingType}</p>`;
   }
@@ -1008,6 +1013,7 @@ export function generateMeetingSummaryEmail(
     decisions?: string[] | null;
     actionItems?: string[] | null;
     risks?: string[] | null;
+    meetingUrl?: string | null;
   },
   toEmails: string[]
 ): EmailMessage {
@@ -1015,6 +1021,7 @@ export function generateMeetingSummaryEmail(
     <div style="font-family: Arial, sans-serif; max-width: 600px;">
       <h2 style="color: #810FFB;">Meeting Summary: ${meeting.title}</h2>
       <p style="color: #666;">Date: ${meeting.date ? new Date(meeting.date).toLocaleDateString() : 'Not specified'}</p>
+      ${meeting.meetingUrl ? `<p><a href="${meeting.meetingUrl}" style="color:#810FFB;font-weight:bold;">Open the Vega meeting dashboard</a></p>` : ''}
   `;
   
   if (meeting.summary) {

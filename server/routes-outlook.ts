@@ -151,6 +151,7 @@ router.post('/schedule-meeting', async (req: Request, res: Response) => {
 
     const duration = typeof durationMinutes === 'number' && durationMinutes > 0 ? durationMinutes : 60;
 
+    const appBaseUrl = `${req.protocol}://${req.get('host')}`;
     const outlookEvent = vegaMeetingToOutlookEvent(
       {
         title: meeting.title,
@@ -159,6 +160,7 @@ router.post('/schedule-meeting', async (req: Request, res: Response) => {
         agenda: meeting.agenda,
         summary: meeting.summary,
         meetingType: meeting.meetingType,
+        meetingUrl: `${appBaseUrl}/focus-rhythm/${meetingId}`,
       },
       duration
     );

@@ -201,6 +201,7 @@ router.post('/meetings/:id/sync', async (req: Request, res: Response) => {
       effectiveDate = parsedStart;
     }
     
+    const appBaseUrl = `${req.protocol}://${req.get('host')}`;
     const outlookEvent = vegaMeetingToOutlookEvent({
       title: meeting.title,
       date: effectiveDate,
@@ -208,6 +209,7 @@ router.post('/meetings/:id/sync', async (req: Request, res: Response) => {
       agenda: meeting.agenda,
       summary: meeting.summary,
       meetingType: meeting.meetingType,
+      meetingUrl: `${appBaseUrl}/focus-rhythm/${id}`,
     }, durationMinutes);
     
     let syncedEvent;
@@ -411,6 +413,7 @@ router.post('/meetings/:id/send-summary', async (req: Request, res: Response) =>
       return res.status(400).json({ error: 'No valid email recipients. Add attendees with email addresses.' });
     }
     
+    const appBaseUrl = `${req.protocol}://${req.get('host')}`;
     const emailMessage = generateMeetingSummaryEmail({
       title: meeting.title,
       date: meeting.date,
@@ -419,6 +422,7 @@ router.post('/meetings/:id/send-summary', async (req: Request, res: Response) =>
       decisions: meeting.decisions,
       actionItems: meeting.actionItems,
       risks: meeting.risks,
+      meetingUrl: `${appBaseUrl}/focus-rhythm/${id}`,
     }, allRecipients);
     
     let summaryEmailStatus = 'sent';
