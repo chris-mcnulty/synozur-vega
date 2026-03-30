@@ -546,7 +546,7 @@ export default function MeetingDetail() {
     },
     onError: (error: any) => {
       const message = error?.message || "Failed to schedule meeting in Outlook";
-      toast({ title: "Scheduling failed", description: message, variant: "destructive" });
+      toast({ title: "Could not schedule", description: message });
     },
   });
 

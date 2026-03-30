@@ -2,7 +2,7 @@ import { Router, Request, Response } from 'express';
 import { storage } from './storage';
 import { hasPermission, PERMISSIONS, Role } from '@shared/rbac';
 import {
-  checkOutlookConnectionForUser,
+  checkOutlookConnectionForUser, type OutlookConnectionStatus,
   getCurrentUser,
   listCalendarsForUser,
   listCalendarEventsForUser,
@@ -50,7 +50,12 @@ import {
 
 const router = Router();
 
-// Helper to check M365 permission (all routes protected by authWithTenant middleware)
+function outlookDisconnectedError(status: OutlookConnectionStatus & { connected: false }) {
+  return status.reason === 'token_expired'
+    ? 'Your Outlook connection has expired. Please go to Settings and reconnect your Microsoft 365 account.'
+    : 'Outlook is not yet connected. Please go to Settings and connect your Microsoft 365 account.';
+}
+
 function checkM365Permission(req: Request): boolean {
   const user = req.user;
   if (!user) return false;
@@ -66,9 +71,9 @@ router.get('/status', async (req: Request, res: Response) => {
     }
     
     const userId = (user as any).id;
-    const connected = await checkOutlookConnectionForUser(userId);
+    const connectionStatus = await checkOutlookConnectionForUser(userId);
     
-    if (connected) {
+    if (connectionStatus.connected) {
       let outlookUser = null;
       try {
         outlookUser = await getCurrentUser();
@@ -79,7 +84,7 @@ router.get('/status', async (req: Request, res: Response) => {
         user: outlookUser ? { displayName: outlookUser.displayName, email: outlookUser.mail } : null,
       });
     } else {
-      res.json({ connected: false, user: null });
+      res.json({ connected: false, user: null, reason: connectionStatus.reason });
     }
   } catch (error: any) {
     res.json({ connected: false, user: null, error: error.message });
@@ -93,9 +98,9 @@ router.get('/calendars', async (req: Request, res: Response) => {
     }
     
     const userId = (req as any).user?.id;
-    const connected = await checkOutlookConnectionForUser(userId);
-    if (!connected) {
-      return res.status(401).json({ error: 'Outlook not connected' });
+    const connectionStatus = await checkOutlookConnectionForUser(userId);
+    if (!connectionStatus.connected) {
+      return res.status(401).json({ error: outlookDisconnectedError(connectionStatus), reason: connectionStatus.reason });
     }
     
     const calendars = await listCalendarsForUser(userId);
@@ -115,9 +120,9 @@ router.get('/calendar/events', async (req: Request, res: Response) => {
     const user = req.user!;
     const userId = user.id || (user as any).id;
     
-    const connected = await checkOutlookConnectionForUser(userId);
-    if (!connected) {
-      return res.status(401).json({ error: 'Outlook not connected' });
+    const connectionStatus = await checkOutlookConnectionForUser(userId);
+    if (!connectionStatus.connected) {
+      return res.status(401).json({ error: outlookDisconnectedError(connectionStatus), reason: connectionStatus.reason });
     }
     
     const { startDate, endDate } = req.query;
@@ -142,9 +147,9 @@ router.get('/calendar/events/:eventId', async (req: Request, res: Response) => {
     const user = req.user!;
     const userId = user.id || (user as any).id;
     
-    const connected = await checkOutlookConnectionForUser(userId);
-    if (!connected) {
-      return res.status(401).json({ error: 'Outlook not connected' });
+    const connectionStatus = await checkOutlookConnectionForUser(userId);
+    if (!connectionStatus.connected) {
+      return res.status(401).json({ error: outlookDisconnectedError(connectionStatus), reason: connectionStatus.reason });
     }
     
     const { eventId } = req.params;
@@ -172,9 +177,9 @@ router.post('/meetings/:id/sync', async (req: Request, res: Response) => {
       return res.status(403).json({ error: 'M365 features not available for your role' });
     }
     
-    const connected = await checkOutlookConnectionForUser(userId);
-    if (!connected) {
-      return res.status(401).json({ error: 'Outlook not connected. Please connect your Microsoft account in Settings → Integrations.' });
+    const connectionStatus = await checkOutlookConnectionForUser(userId);
+    if (!connectionStatus.connected) {
+      return res.status(401).json({ error: outlookDisconnectedError(connectionStatus), reason: connectionStatus.reason });
     }
     
     const meeting = await storage.getMeetingById(id);
@@ -251,9 +256,12 @@ router.post('/suggest-times', async (req: Request, res: Response) => {
     const user = req.user!;
     const userId = user.id || (user as any).id;
 
-    const connected = await checkOutlookConnectionForUser(userId);
-    if (!connected) {
-      return res.status(401).json({ error: 'Outlook not connected. Please connect your Microsoft account in Settings → Integrations.' });
+    const connectionStatus = await checkOutlookConnectionForUser(userId);
+    if (!connectionStatus.connected) {
+      const msg = connectionStatus.reason === 'token_expired'
+        ? 'Your Outlook connection has expired. Please go to Settings and reconnect your Microsoft 365 account.'
+        : 'Outlook is not yet connected. Please go to Settings and connect your Microsoft 365 account.';
+      return res.status(401).json({ error: msg, reason: connectionStatus.reason });
     }
 
     const { attendeeEmails, durationMinutes: rawDuration = 60, windowStartDate, windowEndDate, timezone } = req.body;
@@ -316,8 +324,8 @@ router.post('/suggest-times', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('[M365] suggest-times error:', error);
-    if (error.message?.includes('not connected') || error.message?.includes('unavailable')) {
-      return res.status(401).json({ error: 'Outlook not connected' });
+    if (error.message?.includes('not connected') || error.message?.includes('unavailable') || error.message?.includes('token')) {
+      return res.status(401).json({ error: 'Your Outlook connection may have expired. Please go to Settings and reconnect your Microsoft 365 account.', reason: 'token_expired' });
     }
     res.status(500).json({ error: error.message || 'Failed to fetch availability suggestions' });
   }
@@ -380,9 +388,9 @@ router.post('/meetings/:id/send-summary', async (req: Request, res: Response) =>
     
     const userId = user.id || (user as any).id;
     
-    const connected = await checkOutlookConnectionForUser(userId);
-    if (!connected) {
-      return res.status(401).json({ error: 'Outlook not connected. Please connect your Microsoft account in Settings → Integrations.' });
+    const connectionStatus = await checkOutlookConnectionForUser(userId);
+    if (!connectionStatus.connected) {
+      return res.status(401).json({ error: outlookDisconnectedError(connectionStatus), reason: connectionStatus.reason });
     }
     
     const meeting = await storage.getMeetingById(id);

@@ -558,15 +558,22 @@ export async function createCalendarEventForUser(
   };
 }
 
-export async function checkOutlookConnectionForUser(userId: string): Promise<boolean> {
+export type OutlookConnectionStatus = 
+  | { connected: true }
+  | { connected: false; reason: 'token_expired' | 'not_connected' };
+
+export async function checkOutlookConnectionForUser(userId: string): Promise<OutlookConnectionStatus> {
   const userToken = await getUserGraphToken(userId, 'outlook');
-  if (userToken) return true;
+  if (userToken) return { connected: true };
+  
+  const graphToken = await storage.getGraphToken(userId, 'outlook');
+  const hadTokenBefore = !!graphToken?.accessToken;
   
   try {
     await getAccessToken();
-    return true;
+    return { connected: true };
   } catch {
-    return false;
+    return { connected: false, reason: hadTokenBefore ? 'token_expired' : 'not_connected' };
   }
 }
 

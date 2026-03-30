@@ -118,9 +118,12 @@ router.post('/schedule-meeting', async (req: Request, res: Response) => {
     }
 
     const userId = (user as any).id;
-    const connected = await checkOutlookConnectionForUser(userId);
-    if (!connected) {
-      return res.status(400).json({ error: 'Outlook is not connected. Please connect your Microsoft 365 account first.' });
+    const connectionStatus = await checkOutlookConnectionForUser(userId);
+    if (!connectionStatus.connected) {
+      const msg = connectionStatus.reason === 'token_expired'
+        ? 'Your Outlook connection has expired. Please go to Settings and reconnect your Microsoft 365 account.'
+        : 'Outlook is not yet connected. Please go to Settings and connect your Microsoft 365 account.';
+      return res.status(400).json({ error: msg, reason: connectionStatus.reason });
     }
 
     const meeting = await storage.getMeetingById(meetingId);
@@ -234,10 +237,10 @@ router.post('/schedule-meeting', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('[Outlook API] Schedule meeting error:', error);
-    if (error.message?.includes('not connected') || error.message?.includes('unavailable')) {
-      return res.status(400).json({ error: 'Outlook is not connected. Please connect your Microsoft 365 account first.' });
+    if (error.message?.includes('not connected') || error.message?.includes('unavailable') || error.message?.includes('token')) {
+      return res.status(400).json({ error: 'Your Outlook connection may have expired. Please go to Settings and reconnect your Microsoft 365 account.', reason: 'token_expired' });
     }
-    res.status(500).json({ error: 'Failed to schedule meeting in Outlook' });
+    res.status(500).json({ error: 'Something went wrong scheduling to Outlook. Please try again, or reconnect in Settings if the problem persists.' });
   }
 });
 
