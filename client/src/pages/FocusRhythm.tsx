@@ -532,6 +532,7 @@ interface MeetingCardProps {
 }
 
 function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResults, bigRocks, onCopyBrief, outlookConnected, onSyncToOutlook, onSendSummary, isSyncing, isSendingSummary, tenantId, userId, userEmail, quarter, year }: MeetingCardProps) {
+  const { toast } = useToast();
   const linkedObjectives = objectives.filter(o => 
     meeting.linkedObjectiveIds?.includes(o.id)
   );
@@ -658,7 +659,11 @@ function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResu
                 </Badge>
               )}
             </div>
-            <CardTitle className="mt-2 text-xl">{meeting.title}</CardTitle>
+            <Link href={`/focus-rhythm/${meeting.id}`}>
+              <CardTitle className="mt-2 text-xl hover:text-primary cursor-pointer transition-colors">
+                {meeting.title}
+              </CardTitle>
+            </Link>
             <CardDescription className="mt-1">
               <div className="flex items-center gap-4 flex-wrap">
                 {meeting.date && (
@@ -681,17 +686,36 @@ function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResu
               <Button 
                 variant="ghost" 
                 size="icon"
-                title="Open meeting details"
+                title="Open meeting dashboard"
                 data-testid={`button-open-meeting-${meeting.id}`}
               >
                 <ExternalLink className="w-4 h-4" />
               </Button>
             </Link>
+            <Button
+              variant="ghost"
+              size="icon"
+              title={outlookConnected ? "Schedule in Outlook" : "Connect Outlook in Settings to schedule"}
+              data-testid={`button-schedule-outlook-${meeting.id}`}
+              onClick={() => {
+                if (outlookConnected) {
+                  setScheduleDialogOpen(true);
+                } else {
+                  toast({
+                    title: "Outlook not connected",
+                    description: "Go to Settings → M365 Integration to connect your Outlook account.",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            >
+              <CalendarCheck className={`w-4 h-4 ${!outlookConnected ? "opacity-40" : ""}`} />
+            </Button>
             <Button 
               variant="ghost" 
               size="icon"
               onClick={() => onCopyBrief(meeting)}
-              title="Copy meeting brief for Outlook"
+              title="Copy meeting brief"
               data-testid={`button-copy-brief-${meeting.id}`}
             >
               <Copy className="w-4 h-4" />
@@ -1034,7 +1058,7 @@ export default function FocusRhythm() {
   
   const { data: outlookStatus } = useQuery<{ connected: boolean; user: { displayName: string; email: string } | null }>({
     queryKey: ['/api/m365/status'],
-    staleTime: 60000,
+    staleTime: 0,
     queryFn: async () => {
       const res = await fetch('/api/m365/status');
       if (res.status === 401) {
