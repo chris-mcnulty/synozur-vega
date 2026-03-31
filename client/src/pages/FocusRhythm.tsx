@@ -1000,6 +1000,7 @@ export default function FocusRhythm() {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [listScheduleOpen, setListScheduleOpen] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<Meeting | null>(null);
   const [newlyCreatedMeetingId, setNewlyCreatedMeetingId] = useState<string | null>(null);
   const [postCreateScheduleOpen, setPostCreateScheduleOpen] = useState(false);
@@ -2609,14 +2610,37 @@ export default function FocusRhythm() {
                             quarterMeetings.map(meeting => (
                               <div key={meeting.id} className="flex items-center justify-between px-4 py-2.5 hover:bg-muted/20">
                                 <div className="flex items-center gap-2 min-w-0">
-                                  <span className="font-medium text-sm truncate">{meeting.title}</span>
+                                  <Link href={`/focus-rhythm/${meeting.id}`}>
+                                    <span className="font-medium text-sm truncate cursor-pointer hover:text-primary transition-colors">{meeting.title}</span>
+                                  </Link>
                                   <Badge variant="outline" className="text-xs shrink-0 capitalize">{meeting.meetingType}</Badge>
                                 </div>
-                                <div className="flex items-center gap-2 shrink-0 ml-2">
-                                  <span className="text-xs text-muted-foreground">{meeting.date ? format(new Date(meeting.date), "MMM d") : "—"}</span>
-                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEditDialog(meeting)}>
+                                <div className="flex items-center gap-1 shrink-0 ml-2">
+                                  <span className="text-xs text-muted-foreground mr-1">{meeting.date ? format(new Date(meeting.date), "MMM d") : "—"}</span>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-7 w-7"
+                                    title={outlookStatus?.connected ? "Schedule in Outlook" : "Connect Outlook in Settings to schedule"}
+                                    onClick={() => {
+                                      setSelectedMeeting(meeting);
+                                      if (outlookStatus?.connected) {
+                                        setListScheduleOpen(true);
+                                      } else {
+                                        toast({ title: "Outlook not connected", description: "Go to Settings → M365 Integration to connect your Outlook account.", variant: "destructive" });
+                                      }
+                                    }}
+                                  >
+                                    <CalendarCheck className={`h-3.5 w-3.5 ${!outlookStatus?.connected ? "opacity-40" : ""}`} />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit meeting" onClick={() => openEditDialog(meeting)}>
                                     <Pencil className="h-3 w-3" />
                                   </Button>
+                                  {canDeleteMeeting && (
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" title="Delete meeting" onClick={() => openDeleteDialog(meeting)}>
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  )}
                                 </div>
                               </div>
                             ))
@@ -2701,6 +2725,23 @@ export default function FocusRhythm() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {selectedMeeting && (
+          <ScheduleToOutlookDialog
+            open={listScheduleOpen}
+            onOpenChange={(open) => {
+              setListScheduleOpen(open);
+              if (!open) setSelectedMeeting(null);
+            }}
+            meeting={selectedMeeting}
+            onConfirm={(startDateTime, durationMinutes) => {
+              syncToOutlookMutation.mutate({ meetingId: selectedMeeting.id, startDateTime, durationMinutes });
+              setListScheduleOpen(false);
+              setSelectedMeeting(null);
+            }}
+            isSyncing={syncToOutlookMutation.isPending}
+          />
+        )}
         
         <Dialog open={!!newlyCreatedMeetingId} onOpenChange={(open) => { if (!open) setNewlyCreatedMeetingId(null); }}>
           <DialogContent className="max-w-sm">
