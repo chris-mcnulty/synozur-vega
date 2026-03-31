@@ -39,6 +39,50 @@ const getBaseUrl = () => {
 
 const REDIRECT_URI = `${getBaseUrl()}/auth/entra/callback`;
 
+/**
+ * Exchange an authorization code for tokens using a direct HTTP POST to Microsoft's
+ * token endpoint. Unlike MSAL's acquireTokenByCode, this returns the raw refresh_token
+ * so we can persist it for long-lived offline access.
+ */
+async function exchangeCodeDirectly(params: {
+  code: string;
+  redirectUri: string;
+  codeVerifier: string;
+  scopes: string[];
+  tenantId?: string;
+}): Promise<{ accessToken: string; refreshToken: string | null; expiresAt: Date }> {
+  const clientId = process.env.AZURE_CLIENT_ID || '';
+  const clientSecret = process.env.AZURE_CLIENT_SECRET || '';
+  const tenant = params.tenantId || 'common';
+
+  const body = new URLSearchParams({
+    grant_type: 'authorization_code',
+    client_id: clientId,
+    client_secret: clientSecret,
+    code: params.code,
+    redirect_uri: params.redirectUri,
+    code_verifier: params.codeVerifier,
+    scope: params.scopes.join(' '),
+  });
+
+  const response = await fetch(
+    `https://login.microsoftonline.com/${tenant}/oauth2/v2.0/token`,
+    { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() }
+  );
+
+  if (!response.ok) {
+    const errText = await response.text();
+    throw new Error(`Direct token exchange failed: ${errText}`);
+  }
+
+  const data = await response.json();
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token || null,
+    expiresAt: new Date(Date.now() + (data.expires_in || 3600) * 1000),
+  };
+}
+
 // Include SharePoint/Files scopes for Excel binding feature
 const SCOPES = [
   'openid', 
@@ -652,32 +696,26 @@ router.get('/planner-callback', async (req: Request, res: Response) => {
       return res.redirect('/settings?error=missing_pkce');
     }
 
-    const tokenRequest: AuthorizationCodeRequest = {
-      code,
-      scopes: PLANNER_SCOPES,
-      redirectUri: PLANNER_REDIRECT_URI,
-      codeVerifier: pkceVerifier,
-    };
-
-    const tokenResponse = await client.acquireTokenByCode(tokenRequest);
-
-    if (!tokenResponse) {
-      return res.redirect('/settings?error=token_failed');
-    }
-
     const user = await storage.getUser(userId);
     if (!user || !user.tenantId) {
       return res.redirect('/settings?error=user_not_found');
     }
 
-    const refreshToken = (tokenResponse as any).refreshToken || null;
-    
+    const tokenResult = await exchangeCodeDirectly({
+      code,
+      redirectUri: PLANNER_REDIRECT_URI,
+      codeVerifier: pkceVerifier,
+      scopes: PLANNER_SCOPES,
+    });
+
+    console.log(`[Entra Planner] Token exchange: hasRefreshToken=${!!tokenResult.refreshToken}, expiresAt=${tokenResult.expiresAt.toISOString()}`);
+
     await storage.upsertGraphToken({
       userId,
       tenantId: user.tenantId,
-      accessToken: encryptToken(tokenResponse.accessToken),
-      refreshToken: refreshToken ? encryptToken(refreshToken) : null,
-      expiresAt: tokenResponse.expiresOn ? new Date(tokenResponse.expiresOn) : null,
+      accessToken: encryptToken(tokenResult.accessToken),
+      refreshToken: tokenResult.refreshToken ? encryptToken(tokenResult.refreshToken) : null,
+      expiresAt: tokenResult.expiresAt,
       scopes: PLANNER_SCOPES,
       service: 'planner',
     });
@@ -804,32 +842,26 @@ router.get('/outlook-callback', async (req: Request, res: Response) => {
       return res.redirect('/settings?error=missing_pkce');
     }
 
-    const tokenRequest: AuthorizationCodeRequest = {
-      code,
-      scopes: OUTLOOK_SCOPES,
-      redirectUri: OUTLOOK_REDIRECT_URI,
-      codeVerifier: pkceVerifier,
-    };
-
-    const tokenResponse = await client.acquireTokenByCode(tokenRequest);
-
-    if (!tokenResponse) {
-      return res.redirect('/settings?error=token_failed');
-    }
-
     const user = await storage.getUser(userId);
     if (!user || !user.tenantId) {
       return res.redirect('/settings?error=user_not_found');
     }
 
-    const refreshToken = (tokenResponse as any).refreshToken || null;
-    
+    const tokenResult = await exchangeCodeDirectly({
+      code,
+      redirectUri: OUTLOOK_REDIRECT_URI,
+      codeVerifier: pkceVerifier,
+      scopes: OUTLOOK_SCOPES,
+    });
+
+    console.log(`[Entra Outlook] Token exchange: hasRefreshToken=${!!tokenResult.refreshToken}, expiresAt=${tokenResult.expiresAt.toISOString()}`);
+
     await storage.upsertGraphToken({
       userId,
       tenantId: user.tenantId,
-      accessToken: encryptToken(tokenResponse.accessToken),
-      refreshToken: refreshToken ? encryptToken(refreshToken) : null,
-      expiresAt: tokenResponse.expiresOn ? new Date(tokenResponse.expiresOn) : null,
+      accessToken: encryptToken(tokenResult.accessToken),
+      refreshToken: tokenResult.refreshToken ? encryptToken(tokenResult.refreshToken) : null,
+      expiresAt: tokenResult.expiresAt,
       scopes: OUTLOOK_SCOPES,
       service: 'outlook',
     });
