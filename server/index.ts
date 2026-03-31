@@ -6,6 +6,14 @@ import { setupVite, serveStatic, log } from "./vite";
 import { pool } from "./db";
 import { initializeDatabase } from "./init";
 
+// Prevent transient DB/network errors from crashing the process
+process.on('unhandledRejection', (reason: unknown) => {
+  console.error('[Process] Unhandled promise rejection (non-fatal):', reason);
+});
+process.on('uncaughtException', (err: Error) => {
+  console.error('[Process] Uncaught exception (non-fatal):', err.message);
+});
+
 const app = express();
 const PgStore = connectPgSimple(session);
 
