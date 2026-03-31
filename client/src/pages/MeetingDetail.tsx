@@ -107,10 +107,9 @@ export default function MeetingDetail() {
   const { quarter: meetingQuarter, year: meetingYear } = getMeetingQuarterYear(meeting?.date || null);
 
   const { data: objectives = [] } = useQuery<Objective[]>({
-    queryKey: ['/api/okr/objectives', currentTenant?.id, meetingQuarter, meetingYear],
+    queryKey: ['/api/okr/objectives', currentTenant?.id, meetingYear],
     queryFn: async () => {
       const p = new URLSearchParams({ tenantId: currentTenant!.id, year: String(meetingYear) });
-      if (meetingQuarter != null) p.set('quarter', String(meetingQuarter));
       const res = await fetch(`/api/okr/objectives?${p}`);
       return res.json();
     },
@@ -118,10 +117,9 @@ export default function MeetingDetail() {
   });
 
   const { data: keyResults = [] } = useQuery<KeyResult[]>({
-    queryKey: ['/api/okr/key-results', currentTenant?.id, meetingQuarter, meetingYear],
+    queryKey: ['/api/okr/key-results', currentTenant?.id, meetingYear],
     queryFn: async () => {
       const p = new URLSearchParams({ tenantId: currentTenant!.id, year: String(meetingYear) });
-      if (meetingQuarter != null) p.set('quarter', String(meetingQuarter));
       const res = await fetch(`/api/okr/key-results?${p}`);
       return res.json();
     },
@@ -129,10 +127,9 @@ export default function MeetingDetail() {
   });
 
   const { data: bigRocks = [] } = useQuery<BigRock[]>({
-    queryKey: ['/api/okr/big-rocks', currentTenant?.id, meetingQuarter, meetingYear],
+    queryKey: ['/api/okr/big-rocks', currentTenant?.id, meetingYear],
     queryFn: async () => {
       const p = new URLSearchParams({ tenantId: currentTenant!.id, year: String(meetingYear) });
-      if (meetingQuarter != null) p.set('quarter', String(meetingQuarter));
       const res = await fetch(`/api/okr/big-rocks?${p}`);
       return res.json();
     },
