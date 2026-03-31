@@ -95,7 +95,7 @@ export default function MeetingDetail() {
 
   const { data: outlookStatus } = useQuery<{ connected: boolean; user: { displayName: string; email: string } | null }>({
     queryKey: ['/api/m365/status'],
-    staleTime: 60000,
+    staleTime: 0,
     queryFn: async () => {
       const res = await fetch('/api/m365/status');
       if (res.status === 401) return { connected: false, user: null };
@@ -491,16 +491,32 @@ export default function MeetingDetail() {
               <TooltipContent>AI Meeting Prep — talking points and at-risk items</TooltipContent>
             </Tooltip>
 
-            {outlookStatus?.connected && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="ghost" size="icon" onClick={() => setScheduleDialogOpen(true)} data-testid="button-schedule-outlook" aria-label="Schedule in Outlook">
-                    <CalendarCheck className="w-4 h-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Schedule or update this meeting in Outlook</TooltipContent>
-              </Tooltip>
-            )}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  data-testid="button-schedule-outlook"
+                  aria-label="Schedule in Outlook"
+                  onClick={() => {
+                    if (outlookStatus?.connected) {
+                      setScheduleDialogOpen(true);
+                    } else {
+                      toast({
+                        title: "Outlook not connected",
+                        description: "Go to Settings → M365 Integration to connect your Outlook account first.",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  <CalendarCheck className={`w-4 h-4 ${!outlookStatus?.connected ? "opacity-40" : ""}`} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {outlookStatus?.connected ? "Schedule or update this meeting in Outlook" : "Connect Outlook in Settings to enable scheduling"}
+              </TooltipContent>
+            </Tooltip>
 
             <Tooltip>
               <TooltipTrigger asChild>
