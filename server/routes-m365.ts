@@ -213,9 +213,8 @@ router.post('/meetings/:id/sync', async (req: Request, res: Response) => {
     }, durationMinutes);
     
     let syncedEvent;
-    let syncStatus = 'synced';
-    let syncError = null;
-    
+    let syncError: string | null = null;
+
     try {
       if (meeting.outlookEventId) {
         syncedEvent = await updateCalendarEventForUser(userId, meeting.outlookEventId, outlookEvent);
@@ -223,25 +222,34 @@ router.post('/meetings/:id/sync', async (req: Request, res: Response) => {
         syncedEvent = await createCalendarEventForUser(userId, calendarId || null, outlookEvent);
       }
     } catch (syncErr: any) {
-      syncStatus = 'error';
-      syncError = syncErr.message;
+      syncError = syncErr.message || 'Failed to create calendar event';
       console.error('Calendar sync error:', syncErr);
     }
-    
+
+    if (syncError) {
+      // Record the failure but return a proper error so the client onError handler fires
+      await storage.updateMeeting(id, {
+        syncedAt: new Date(),
+        syncStatus: 'error',
+        syncError,
+        updatedBy: user.id,
+      });
+      return res.status(502).json({ error: `Outlook calendar error: ${syncError}` });
+    }
+
     const updatedMeeting = await storage.updateMeeting(id, {
       outlookEventId: syncedEvent?.id || meeting.outlookEventId,
       outlookCalendarId: calendarId || meeting.outlookCalendarId,
       syncedAt: new Date(),
-      syncStatus,
-      syncError,
+      syncStatus: 'synced',
+      syncError: null,
       updatedBy: user.id,
     });
-    
+
     res.json({
-      success: syncStatus === 'synced',
+      success: true,
       meeting: updatedMeeting,
       outlookEventId: syncedEvent?.id,
-      error: syncError,
     });
   } catch (error: any) {
     console.error('Failed to sync meeting to Outlook:', error);
