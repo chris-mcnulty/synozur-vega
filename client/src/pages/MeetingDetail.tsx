@@ -1180,6 +1180,8 @@ export default function MeetingDetail() {
               queryClient.invalidateQueries({ queryKey: ['/api/okr/big-rocks'] });
             }}
             tenantId={currentTenant!.id}
+            userId={user?.id}
+            userEmail={user?.email ?? undefined}
             quarter={meetingQuarter ?? 1}
             year={meetingYear}
           />
