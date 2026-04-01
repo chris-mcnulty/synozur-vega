@@ -768,19 +768,23 @@ export function SerialCheckInDialog({
 
         <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onPrev}
-              disabled={isFirst}
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Prev
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleSkip}>
-              Skip
-              <SkipForward className="h-4 w-4 ml-1" />
-            </Button>
+            {queue.length > 1 && (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onPrev}
+                  disabled={isFirst}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Prev
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleSkip}>
+                  Skip
+                  <SkipForward className="h-4 w-4 ml-1" />
+                </Button>
+              </>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={onClose}>
