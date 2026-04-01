@@ -26,7 +26,7 @@ interface ScheduleToOutlookDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   meeting: Meeting;
-  onConfirm: (startDateTime: string, durationMinutes: number) => void;
+  onConfirm: (startDateTime: string, durationMinutes: number, meetingTime: string) => void;
   isSyncing?: boolean;
 }
 
@@ -103,6 +103,13 @@ export function ScheduleToOutlookDialog({ open, onOpenChange, meeting, onConfirm
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to fetch suggestions");
       const slots: SuggestedTimeSlot[] = data.suggestions || [];
+      // noData: Graph returned empty scheduleItems for all attendees — no calendar access.
+      if (data.noData) {
+        setSuggestions([]);
+        setFetchError("Availability data isn't accessible for these attendees (likely a different Microsoft tenant). Please pick a time manually.");
+        setShowManual(true);
+        return;
+      }
       setSuggestions(slots);
       if (slots.length > 0) {
         setSelectedSlot(slots[0]);
@@ -140,10 +147,13 @@ export function ScheduleToOutlookDialog({ open, onOpenChange, meeting, onConfirm
         toast({ title: "Invalid date", description: "Please enter a valid date and time.", variant: "destructive" });
         return;
       }
-      onConfirm(localDate.toISOString(), durationMinutes);
+      // manualTime is already "HH:mm" local — pass it directly for DB storage.
+      onConfirm(localDate.toISOString(), durationMinutes, manualTime);
     } else {
       if (!selectedSlot) return;
-      onConfirm(selectedSlot.start, durationMinutes);
+      // Extract local "HH:mm" from the slot's ISO start time so the DB gets the local time string.
+      const localTime = dateToLocalInputValue(selectedSlot.start).time;
+      onConfirm(selectedSlot.start, durationMinutes, localTime);
     }
     onOpenChange(false);
   }

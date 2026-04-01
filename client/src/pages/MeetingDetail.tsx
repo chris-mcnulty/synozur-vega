@@ -241,10 +241,11 @@ export default function MeetingDetail() {
   });
 
   const syncToOutlookMutation = useMutation({
-    mutationFn: async ({ startDateTime, durationMinutes }: { startDateTime?: string; durationMinutes?: number }) => {
+    mutationFn: async ({ startDateTime, durationMinutes, meetingTime }: { startDateTime?: string; durationMinutes?: number; meetingTime?: string }) => {
       const body: Record<string, any> = {};
       if (durationMinutes) body.durationMinutes = durationMinutes;
       if (startDateTime) body.startDateTime = startDateTime;
+      if (meetingTime) body.meetingTime = meetingTime;
       const res = await apiRequest('POST', `/api/m365/meetings/${meetingId}/sync`, body);
       return res.json();
     },
@@ -1009,8 +1010,8 @@ export default function MeetingDetail() {
             open={scheduleDialogOpen}
             onOpenChange={setScheduleDialogOpen}
             meeting={meeting}
-            onConfirm={(startDateTime, durationMinutes) => {
-              syncToOutlookMutation.mutate({ startDateTime, durationMinutes });
+            onConfirm={(startDateTime, durationMinutes, meetingTime) => {
+              syncToOutlookMutation.mutate({ startDateTime, durationMinutes, meetingTime });
             }}
             isSyncing={syncToOutlookMutation.isPending}
           />

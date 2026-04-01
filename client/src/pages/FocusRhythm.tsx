@@ -520,7 +520,7 @@ interface MeetingCardProps {
   bigRocks: BigRock[];
   onCopyBrief: (meeting: Meeting) => void;
   outlookConnected?: boolean;
-  onSyncToOutlook?: (meetingId: string, startDateTime?: string, durationMinutes?: number) => void;
+  onSyncToOutlook?: (meetingId: string, startDateTime?: string, durationMinutes?: number, meetingTime?: string) => void;
   onSendSummary?: (meetingId: string) => void;
   isSyncing?: boolean;
   isSendingSummary?: boolean;
@@ -941,8 +941,8 @@ function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResu
         open={scheduleDialogOpen}
         onOpenChange={setScheduleDialogOpen}
         meeting={meeting}
-        onConfirm={(startDateTime, durationMinutes) => {
-          onSyncToOutlook?.(meeting.id, startDateTime, durationMinutes);
+        onConfirm={(startDateTime, durationMinutes, meetingTime) => {
+          onSyncToOutlook?.(meeting.id, startDateTime, durationMinutes, meetingTime);
         }}
         isSyncing={isSyncing}
       />
@@ -1099,10 +1099,11 @@ export default function FocusRhythm() {
   });
 
   const syncToOutlookMutation = useMutation({
-    mutationFn: async ({ meetingId, startDateTime, durationMinutes }: { meetingId: string; startDateTime?: string; durationMinutes?: number }) => {
+    mutationFn: async ({ meetingId, startDateTime, durationMinutes, meetingTime }: { meetingId: string; startDateTime?: string; durationMinutes?: number; meetingTime?: string }) => {
       const body: Record<string, any> = {};
       if (durationMinutes) body.durationMinutes = durationMinutes;
       if (startDateTime) body.startDateTime = startDateTime;
+      if (meetingTime) body.meetingTime = meetingTime;
       const res = await apiRequest('POST', `/api/m365/meetings/${meetingId}/sync`, body);
       return res.json();
     },
@@ -2665,7 +2666,7 @@ export default function FocusRhythm() {
                     bigRocks={bigRocks}
                     onCopyBrief={handleCopyBrief}
                     outlookConnected={outlookStatus?.connected}
-                    onSyncToOutlook={(id, startDateTime, durationMinutes) => syncToOutlookMutation.mutate({ meetingId: id, startDateTime, durationMinutes })}
+                    onSyncToOutlook={(id, startDateTime, durationMinutes, meetingTime) => syncToOutlookMutation.mutate({ meetingId: id, startDateTime, durationMinutes, meetingTime })}
                     onSendSummary={(id) => sendSummaryMutation.mutate(id)}
                     isSyncing={syncToOutlookMutation.isPending}
                     isSendingSummary={sendSummaryMutation.isPending}
@@ -2734,8 +2735,8 @@ export default function FocusRhythm() {
               if (!open) setSelectedMeeting(null);
             }}
             meeting={selectedMeeting}
-            onConfirm={(startDateTime, durationMinutes) => {
-              syncToOutlookMutation.mutate({ meetingId: selectedMeeting.id, startDateTime, durationMinutes });
+            onConfirm={(startDateTime, durationMinutes, meetingTime) => {
+              syncToOutlookMutation.mutate({ meetingId: selectedMeeting.id, startDateTime, durationMinutes, meetingTime });
               setListScheduleOpen(false);
               setSelectedMeeting(null);
             }}
@@ -2792,8 +2793,8 @@ export default function FocusRhythm() {
               if (!open) setPostCreateMeetingData(null);
             }}
             meeting={postCreateMeetingData}
-            onConfirm={(startDateTime, durationMinutes) => {
-              syncToOutlookMutation.mutate({ meetingId: postCreateMeetingData.id, startDateTime, durationMinutes });
+            onConfirm={(startDateTime, durationMinutes, meetingTime) => {
+              syncToOutlookMutation.mutate({ meetingId: postCreateMeetingData.id, startDateTime, durationMinutes, meetingTime });
               setPostCreateScheduleOpen(false);
               setPostCreateMeetingData(null);
             }}

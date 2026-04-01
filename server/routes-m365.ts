@@ -169,7 +169,7 @@ router.get('/calendar/events/:eventId', async (req: Request, res: Response) => {
 router.post('/meetings/:id/sync', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const { calendarId, durationMinutes = 60, startDateTime } = req.body;
+    const { calendarId, durationMinutes = 60, startDateTime, meetingTime } = req.body;
     const user = req.user!;
     const userId = user.id || (user as any).id;
     
@@ -249,6 +249,14 @@ router.post('/meetings/:id/sync', async (req: Request, res: Response) => {
     // so the Vega UI reflects the confirmed date/time (not the old placeholder date).
     if (startDateTime && effectiveDate) {
       meetingUpdate.date = effectiveDate;
+      // Also persist the local meetingTime ("HH:mm") so the Clock row appears in the UI.
+      if (meetingTime && typeof meetingTime === 'string' && /^\d{2}:\d{2}$/.test(meetingTime)) {
+        meetingUpdate.meetingTime = meetingTime;
+      }
+    }
+    // Persist the confirmed duration so it's reflected in the meeting card.
+    if (typeof durationMinutes === 'number' && durationMinutes > 0) {
+      meetingUpdate.duration = durationMinutes;
     }
     const updatedMeeting = await storage.updateMeeting(id, meetingUpdate);
 
@@ -332,8 +340,13 @@ router.post('/suggest-times', async (req: Request, res: Response) => {
     const schedules = await getFreeBusyForAttendees(userId, validEmails, windowStart, windowEnd);
     const suggestions = computeSuggestedTimeSlots(schedules, durationMinutes, windowStart, windowEnd, 5, organizerTimezone);
 
+    // Detect when Graph returned no schedule data for any attendee (cross-tenant or permission gap).
+    // Empty scheduleItems + no error → Graph "succeeded" but has nothing useful to show.
+    const noData = schedules.length > 0 && schedules.every(s => s.slots.length === 0 && !s.error);
+
     res.json({
       suggestions,
+      noData,
       attendeeCount: validEmails.length,
       windowStart: windowStart.toISOString(),
       windowEnd: windowEnd.toISOString(),
