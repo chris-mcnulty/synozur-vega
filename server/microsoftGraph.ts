@@ -200,10 +200,14 @@ async function getUserGraphToken(userId: string, service: string = 'planner'): P
   if (graphToken.refreshToken) {
     try {
       const { ConfidentialClientApplication } = await import('@azure/msal-node');
+      // IMPORTANT: graphToken.tenantId is the Vega internal tenant UUID, NOT the
+      // Azure AD tenant ID. Using it as the MSAL authority causes AADSTS90002
+      // ("Tenant not found"). Always use 'common' for multi-tenant refresh flows —
+      // the refresh token itself carries the correct Azure tenant binding.
       const msalConfig = {
         auth: {
           clientId: process.env.AZURE_CLIENT_ID || '',
-          authority: `https://login.microsoftonline.com/${graphToken.tenantId || 'common'}`,
+          authority: `https://login.microsoftonline.com/common`,
           clientSecret: process.env.AZURE_CLIENT_SECRET || '',
         },
       };
@@ -216,8 +220,11 @@ async function getUserGraphToken(userId: string, service: string = 'planner'): P
       const defaultScopes = service === 'outlook' 
         ? ['Calendars.Read', 'Calendars.ReadWrite', 'User.Read']
         : ['Files.Read.All', 'Sites.Read.All', 'User.Read'];
+      // Filter out OIDC-only scopes — they aren't valid for acquireTokenByRefreshToken
+      // and can cause "invalid_scope" errors from the token endpoint.
+      const OIDC_SCOPES = new Set(['openid', 'profile', 'email', 'offline_access']);
       const refreshScopes = (graphToken.scopes && graphToken.scopes.length > 0)
-        ? graphToken.scopes.filter((s: string) => s !== 'openid' && s !== 'profile' && s !== 'email' && s !== 'offline_access')
+        ? graphToken.scopes.filter((s: string) => !OIDC_SCOPES.has(s))
         : defaultScopes;
       
       const response = await client.acquireTokenByRefreshToken({
@@ -981,8 +988,13 @@ export function computeSuggestedTimeSlots(
     cursor += stepMs;
   }
 
+  // Only show slots where ALL attendees are free. If no fully-free slots exist,
+  // fall back to best-effort (most free) — but prefer all-free first.
+  const allFree = candidates.filter(c => c.freeCount === totalAttendees || totalAttendees === 0);
+  const pool = allFree.length > 0 ? allFree : candidates;
+
   // Sort: most free attendees first, then prefer organizer business hours, then earlier times
-  candidates.sort((a, b) => {
+  pool.sort((a, b) => {
     if (b.freeCount !== a.freeCount) return b.freeCount - a.freeCount;
     if (a.isBusinessHours !== b.isBusinessHours) return a.isBusinessHours ? -1 : 1;
     return a.startMs - b.startMs;
@@ -990,7 +1002,7 @@ export function computeSuggestedTimeSlots(
 
   // Deduplicate: keep slots at least 1 hour apart
   const selected: SuggestedTimeSlot[] = [];
-  for (const slot of candidates) {
+  for (const slot of pool) {
     if (selected.length >= maxSlots) break;
     const tooClose = selected.some(
       s => Math.abs(new Date(s.start).getTime() - slot.startMs) < 60 * 60 * 1000
