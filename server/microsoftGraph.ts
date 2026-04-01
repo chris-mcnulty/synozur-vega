@@ -866,7 +866,9 @@ export async function getFreeBusyForAttendees(
         end: item.end?.dateTime || '',
         status: item.status || 'unknown',
       }));
-      schedules.push({ email, slots, error: schedule.error?.message });
+      const errorMsg = schedule.error?.message;
+      console.log(`[Graph] FreeBusy ${email}: ${slots.length} items, availabilityView="${schedule.availabilityView?.substring(0,20)}", error=${errorMsg || 'none'}`);
+      schedules.push({ email, slots, error: errorMsg });
     }
 
     return schedules;

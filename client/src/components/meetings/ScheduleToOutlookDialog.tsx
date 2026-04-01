@@ -103,10 +103,10 @@ export function ScheduleToOutlookDialog({ open, onOpenChange, meeting, onConfirm
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to fetch suggestions");
       const slots: SuggestedTimeSlot[] = data.suggestions || [];
-      // noData: Graph returned empty scheduleItems for all attendees — no calendar access.
+      // noData: Graph returned errors for all attendees — no calendar data available.
       if (data.noData) {
         setSuggestions([]);
-        setFetchError("Availability data isn't accessible for these attendees (likely a different Microsoft tenant). Please pick a time manually.");
+        setFetchError("Could not retrieve calendar availability for these attendees. Please pick a time manually.");
         setShowManual(true);
         return;
       }

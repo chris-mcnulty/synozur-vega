@@ -340,9 +340,9 @@ router.post('/suggest-times', async (req: Request, res: Response) => {
     const schedules = await getFreeBusyForAttendees(userId, validEmails, windowStart, windowEnd);
     const suggestions = computeSuggestedTimeSlots(schedules, durationMinutes, windowStart, windowEnd, 5, organizerTimezone);
 
-    // Detect when Graph returned no schedule data for any attendee (cross-tenant or permission gap).
-    // Empty scheduleItems + no error → Graph "succeeded" but has nothing useful to show.
-    const noData = schedules.length > 0 && schedules.every(s => s.slots.length === 0 && !s.error);
+    // If ALL attendees returned a Graph-level error (e.g. mailbox not found, access denied),
+    // we genuinely have no useful availability data — flag for the UI to fall back to manual.
+    const noData = schedules.length > 0 && schedules.every(s => !!s.error);
 
     res.json({
       suggestions,
