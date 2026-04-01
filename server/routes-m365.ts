@@ -237,14 +237,20 @@ router.post('/meetings/:id/sync', async (req: Request, res: Response) => {
       return res.status(502).json({ error: `Outlook calendar error: ${syncError}` });
     }
 
-    const updatedMeeting = await storage.updateMeeting(id, {
+    const meetingUpdate: Record<string, any> = {
       outlookEventId: syncedEvent?.id || meeting.outlookEventId,
       outlookCalendarId: calendarId || meeting.outlookCalendarId,
       syncedAt: new Date(),
       syncStatus: 'synced',
       syncError: null,
       updatedBy: user.id,
-    });
+    };
+    // When the organizer picks a specific start time, persist it back to the meeting
+    // so the Vega UI reflects the confirmed date/time (not the old placeholder date).
+    if (startDateTime && effectiveDate) {
+      meetingUpdate.date = effectiveDate;
+    }
+    const updatedMeeting = await storage.updateMeeting(id, meetingUpdate);
 
     res.json({
       success: true,

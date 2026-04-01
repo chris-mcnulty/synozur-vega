@@ -529,31 +529,14 @@ export async function createCalendarEventForUser(
   calendarId: string | null,
   event: OutlookEvent
 ): Promise<OutlookEvent> {
-  const userClient = await getUserGraphClient(userId);
-  
-  if (!userClient) {
-    const connectorClient = await getOutlookClient();
-    const endpoint = calendarId 
-      ? `/me/calendars/${calendarId}/events`
-      : '/me/events';
-    const createdEvent = await connectorClient.api(endpoint).post(event);
-    return {
-      id: createdEvent.id,
-      subject: createdEvent.subject,
-      start: createdEvent.start,
-      end: createdEvent.end,
-      body: createdEvent.body,
-      location: createdEvent.location,
-      attendees: createdEvent.attendees,
-    };
-  }
-
-  const endpoint = calendarId 
+  // Always use the outlook-specific token chain so a freshly reconnected
+  // Outlook token is found (getUserGraphClient defaults to 'planner' which
+  // would miss a dedicated outlook token and fall straight to the connector).
+  const client = await getOutlookClientForUser(userId);
+  const endpoint = calendarId
     ? `/me/calendars/${calendarId}/events`
     : '/me/events';
-  
-  const createdEvent = await userClient.api(endpoint).post(event);
-  
+  const createdEvent = await client.api(endpoint).post(event);
   return {
     id: createdEvent.id,
     subject: createdEvent.subject,

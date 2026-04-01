@@ -248,7 +248,11 @@ export default function MeetingDetail() {
       const res = await apiRequest('POST', `/api/m365/meetings/${meetingId}/sync`, body);
       return res.json();
     },
-    onSuccess: () => toast({ title: "Scheduled to Outlook", description: "Meeting added to your Outlook calendar." }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/meeting', meetingId] });
+      queryClient.invalidateQueries({ queryKey: [`/api/meetings/${currentTenant?.id}`] });
+      toast({ title: "Scheduled to Outlook", description: "Meeting added to your Outlook calendar." });
+    },
     onError: (e: any) => toast({ title: "Sync Failed", description: e.message || "Failed to schedule meeting.", variant: "destructive" }),
   });
 
