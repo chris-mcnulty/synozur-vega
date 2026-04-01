@@ -7,7 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Calendar, Users, Pencil, Trash2, Plus, Target, CheckCircle2, FileText, AlertTriangle, AlertCircle, Link2, Clock, Zap, ChevronRight, X, Sparkles, Search, Copy, ClipboardCheck, ExternalLink, Mail, RefreshCw, Cloud, CloudOff, CalendarCheck, Loader2, PlayCircle } from "lucide-react";
+import { Calendar, Users, Pencil, Trash2, Plus, Target, CheckCircle2, FileText, AlertTriangle, AlertCircle, Link2, Clock, Zap, ChevronRight, ChevronDown, X, Sparkles, Search, Copy, ClipboardCheck, ExternalLink, Mail, RefreshCw, Cloud, CloudOff, CalendarCheck, Loader2, PlayCircle } from "lucide-react";
 import { Link } from "wouter";
 import {
   Dialog,
@@ -547,6 +547,7 @@ function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResu
   const [checkInQueueOpen, setCheckInQueueOpen] = useState(false);
   const [checkInQueue, setCheckInQueue] = useState<CheckInQueueItem[]>([]);
   const [checkInQueueIndex, setCheckInQueueIndex] = useState(0);
+  const [linkedItemsExpanded, setLinkedItemsExpanded] = useState(false);
 
   const linkedItemCount = linkedObjectives.length + linkedKeyResults.length + linkedBigRocks.length;
 
@@ -745,76 +746,131 @@ function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResu
       <CardContent className="space-y-4">
         {(linkedObjectives.length > 0 || linkedKeyResults.length > 0 || linkedBigRocks.length > 0) && (
           <div className="space-y-2">
-            {linkedObjectives.length > 0 && (
-              <div className="space-y-1">
-                <div className="text-xs text-muted-foreground font-medium">Linked Objectives</div>
-                {linkedObjectives.map(obj => {
-                  const progress = obj.progress || 0;
-                  const statusColor = progress >= 70 ? 'text-green-600' : progress >= 40 ? 'text-amber-600' : 'text-red-600';
-                  const bgColor = progress >= 70 ? 'bg-green-500' : progress >= 40 ? 'bg-amber-500' : 'bg-red-500';
+            {/* Collapsed summary row — always visible */}
+            <button
+              className="w-full flex items-center gap-3 p-2 rounded-md hover-elevate text-left"
+              onClick={() => setLinkedItemsExpanded(prev => !prev)}
+              data-testid={`button-toggle-linked-items-${meeting.id}`}
+            >
+              <div className="flex items-center gap-2 flex-1 flex-wrap">
+                {linkedObjectives.length > 0 && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Target className="w-3.5 h-3.5" />
+                    {linkedObjectives.length} {linkedObjectives.length === 1 ? 'objective' : 'objectives'}
+                  </span>
+                )}
+                {linkedKeyResults.length > 0 && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    {linkedKeyResults.length} {linkedKeyResults.length === 1 ? 'key result' : 'key results'}
+                  </span>
+                )}
+                {linkedBigRocks.length > 0 && (
+                  <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Zap className="w-3.5 h-3.5" />
+                    {linkedBigRocks.length} {linkedBigRocks.length === 1 ? 'big rock' : 'big rocks'}
+                  </span>
+                )}
+                {/* Mini aggregate progress bar */}
+                {(() => {
+                  const allProgresses = [
+                    ...linkedObjectives.map(o => o.progress || 0),
+                    ...linkedKeyResults.map(kr => kr.progress || 0),
+                    ...linkedBigRocks.map(br => br.completionPercentage || 0),
+                  ];
+                  const avg = allProgresses.length > 0 ? Math.round(allProgresses.reduce((a, b) => a + b, 0) / allProgresses.length) : 0;
+                  const barColor = avg >= 70 ? 'bg-green-500' : avg >= 40 ? 'bg-amber-500' : 'bg-red-500';
                   return (
-                    <div key={obj.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
-                      <Target className="w-4 h-4 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{obj.title}</div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
-                            <div className={`h-full ${bgColor} transition-all`} style={{ width: `${Math.min(progress, 100)}%` }} />
-                          </div>
-                          <span className={`text-xs font-medium ${statusColor}`}>{progress}%</span>
-                        </div>
+                    <div className="flex items-center gap-1.5 ml-1">
+                      <div className="w-16 h-1.5 bg-secondary rounded-full overflow-hidden">
+                        <div className={`h-full ${barColor} transition-all`} style={{ width: `${Math.min(avg, 100)}%` }} />
                       </div>
+                      <span className="text-xs text-muted-foreground">{avg}%</span>
                     </div>
                   );
-                })}
+                })()}
               </div>
-            )}
-            {linkedKeyResults.length > 0 && (
-              <div className="space-y-1">
-                <div className="text-xs text-muted-foreground font-medium">Linked Key Results</div>
-                {linkedKeyResults.map(kr => {
-                  const progress = kr.progress || 0;
-                  const statusColor = progress >= 70 ? 'text-green-600' : progress >= 40 ? 'text-amber-600' : 'text-red-600';
-                  const bgColor = progress >= 70 ? 'bg-green-500' : progress >= 40 ? 'bg-amber-500' : 'bg-red-500';
-                  return (
-                    <div key={kr.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
-                      <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{kr.title}</div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
-                            <div className={`h-full ${bgColor} transition-all`} style={{ width: `${Math.min(progress, 100)}%` }} />
+              {linkedItemsExpanded
+                ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" />
+                : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
+              }
+            </button>
+
+            {/* Expanded full list */}
+            {linkedItemsExpanded && (
+              <div className="space-y-2 pt-1">
+                {linkedObjectives.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="text-xs text-muted-foreground font-medium">Linked Objectives</div>
+                    {linkedObjectives.map(obj => {
+                      const progress = obj.progress || 0;
+                      const statusColor = progress >= 70 ? 'text-green-600' : progress >= 40 ? 'text-amber-600' : 'text-red-600';
+                      const bgColor = progress >= 70 ? 'bg-green-500' : progress >= 40 ? 'bg-amber-500' : 'bg-red-500';
+                      return (
+                        <div key={obj.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
+                          <Target className="w-4 h-4 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">{obj.title}</div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                                <div className={`h-full ${bgColor} transition-all`} style={{ width: `${Math.min(progress, 100)}%` }} />
+                              </div>
+                              <span className={`text-xs font-medium ${statusColor}`}>{progress}%</span>
+                            </div>
                           </div>
-                          <span className={`text-xs font-medium ${statusColor}`}>{progress}%</span>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-            {linkedBigRocks.length > 0 && (
-              <div className="space-y-1">
-                <div className="text-xs text-muted-foreground font-medium">Linked Big Rocks</div>
-                {linkedBigRocks.map(rock => {
-                  const progress = rock.completionPercentage || 0;
-                  const statusColor = progress >= 70 ? 'text-green-600' : progress >= 40 ? 'text-amber-600' : 'text-red-600';
-                  const bgColor = progress >= 70 ? 'bg-green-500' : progress >= 40 ? 'bg-amber-500' : 'bg-red-500';
-                  return (
-                    <div key={rock.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
-                      <Zap className="w-4 h-4 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium truncate">{rock.title}</div>
-                        <div className="flex items-center gap-2 mt-1">
-                          <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
-                            <div className={`h-full ${bgColor} transition-all`} style={{ width: `${Math.min(progress, 100)}%` }} />
+                      );
+                    })}
+                  </div>
+                )}
+                {linkedKeyResults.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="text-xs text-muted-foreground font-medium">Linked Key Results</div>
+                    {linkedKeyResults.map(kr => {
+                      const progress = kr.progress || 0;
+                      const statusColor = progress >= 70 ? 'text-green-600' : progress >= 40 ? 'text-amber-600' : 'text-red-600';
+                      const bgColor = progress >= 70 ? 'bg-green-500' : progress >= 40 ? 'bg-amber-500' : 'bg-red-500';
+                      return (
+                        <div key={kr.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
+                          <CheckCircle2 className="w-4 h-4 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">{kr.title}</div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                                <div className={`h-full ${bgColor} transition-all`} style={{ width: `${Math.min(progress, 100)}%` }} />
+                              </div>
+                              <span className={`text-xs font-medium ${statusColor}`}>{progress}%</span>
+                            </div>
                           </div>
-                          <span className={`text-xs font-medium ${statusColor}`}>{progress}%</span>
                         </div>
-                      </div>
-                    </div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                )}
+                {linkedBigRocks.length > 0 && (
+                  <div className="space-y-1">
+                    <div className="text-xs text-muted-foreground font-medium">Linked Big Rocks</div>
+                    {linkedBigRocks.map(rock => {
+                      const progress = rock.completionPercentage || 0;
+                      const statusColor = progress >= 70 ? 'text-green-600' : progress >= 40 ? 'text-amber-600' : 'text-red-600';
+                      const bgColor = progress >= 70 ? 'bg-green-500' : progress >= 40 ? 'bg-amber-500' : 'bg-red-500';
+                      return (
+                        <div key={rock.id} className="flex items-center gap-2 p-2 rounded-md bg-muted/50">
+                          <Zap className="w-4 h-4 flex-shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="text-sm font-medium truncate">{rock.title}</div>
+                            <div className="flex items-center gap-2 mt-1">
+                              <div className="flex-1 h-1.5 bg-secondary rounded-full overflow-hidden">
+                                <div className={`h-full ${bgColor} transition-all`} style={{ width: `${Math.min(progress, 100)}%` }} />
+                              </div>
+                              <span className={`text-xs font-medium ${statusColor}`}>{progress}%</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             )}
           </div>

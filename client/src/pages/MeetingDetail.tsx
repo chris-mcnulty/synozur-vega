@@ -13,10 +13,10 @@ import {
 } from "@/components/ui/alert-dialog";
 import {
   Calendar, Users, ArrowLeft, Target, CheckCircle2, AlertTriangle,
-  Link2, Clock, Zap, ChevronRight, ChevronLeft, X, Sparkles, Copy,
+  Link2, Clock, Zap, ChevronRight, ChevronDown, ChevronLeft, X, Sparkles, Copy,
   Save, Flag, FileText, PlayCircle, Compass, ArrowUpRight, MessageSquare,
   Maximize2, Minimize2, CalendarCheck, Share2, StopCircle, SkipForward,
-  User, Timer, Trash2,
+  User, Timer, Trash2, TrendingUp,
 } from "lucide-react";
 import type { Meeting, Objective, KeyResult, BigRock, Strategy, Foundation } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
@@ -74,6 +74,7 @@ export default function MeetingDetail() {
   const [checkInOpen, setCheckInOpen] = useState(false);
   const [checkInQueue, setCheckInQueue] = useState<CheckInQueueItem[]>([]);
   const [checkInIndex, setCheckInIndex] = useState(0);
+  const [showCompletedLinked, setShowCompletedLinked] = useState(false);
   const [activeAgendaIdx, setActiveAgendaIdx] = useState(0);
   const [showAiPrep, setShowAiPrep] = useState(false);
   const [scheduleDialogOpen, setScheduleDialogOpen] = useState(false);
@@ -365,6 +366,19 @@ export default function MeetingDetail() {
     setCheckInQueue(queue);
     setCheckInIndex(0);
     setCheckInOpen(true);
+  };
+
+  const startSingleItemCheckIn = (item: CheckInQueueItem) => {
+    setCheckInQueue([item]);
+    setCheckInIndex(0);
+    setCheckInOpen(true);
+  };
+
+  const inferPaceStatus = (status: string | null | undefined): "ahead" | "on_track" | "behind" | "at_risk" | "no_data" => {
+    if (status === "on_track") return "on_track";
+    if (status === "at_risk") return "at_risk";
+    if (status === "behind") return "behind";
+    return "no_data";
   };
 
   if (meetingLoading) {
@@ -767,123 +781,290 @@ export default function MeetingDetail() {
             <ScrollArea className="flex-1">
               <div className="p-4 space-y-5">
 
-                {/* Linked Objectives */}
-                {linkedObjectives.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-2">
-                      <Target className="w-3.5 h-3.5" />
-                      Objectives ({linkedObjectives.length})
-                    </h3>
-                    <div className="space-y-2">
-                      {linkedObjectives.map(obj => (
-                        <Card key={obj.id} className="p-3" data-testid={`linked-obj-${obj.id}`}>
-                          <div className="flex items-start justify-between gap-2 mb-1.5">
-                            <p className="text-sm font-medium leading-snug flex-1">{obj.title}</p>
-                            <Badge className={`${getStatusColor(obj.status)} text-xs shrink-0`} variant="secondary">
-                              {statusLabel(obj.status)}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                              <div className={`h-full rounded-full transition-all ${progressColor(obj.progress || 0)}`} style={{ width: `${Math.min(obj.progress || 0, 100)}%` }} />
-                            </div>
-                            <span className="text-xs font-medium text-muted-foreground w-8 text-right">{Math.round(obj.progress || 0)}%</span>
-                          </div>
-                          {obj.lastCheckInNote && (
-                            <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2 italic">
-                              "{obj.lastCheckInNote}"
-                              {obj.lastCheckInAt && <span className="ml-1 not-italic">— {formatDistanceToNow(new Date(obj.lastCheckInAt), { addSuffix: true })}</span>}
-                            </p>
-                          )}
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                {/* Linked Objectives — sorted ascending by progress, active first */}
+                {(() => {
+                  const isCompleted = (s: string | null | undefined) => s === "completed" || s === "cancelled";
+                  const activeObjs = linkedObjectives.filter(o => !isCompleted(o.status)).sort((a, b) => (a.progress || 0) - (b.progress || 0));
+                  const completedObjs = linkedObjectives.filter(o => isCompleted(o.status));
 
-                {/* Linked Key Results */}
-                {linkedKeyResults.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-2">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Key Results ({linkedKeyResults.length})
-                    </h3>
-                    <div className="space-y-2">
-                      {linkedKeyResults.map(kr => {
-                        const parentObj = objectives.find(o => o.id === kr.objectiveId);
-                        return (
-                          <Card key={kr.id} className="p-3" data-testid={`linked-kr-${kr.id}`}>
-                            {parentObj && (
-                              <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1 truncate">
-                                <Target className="w-3 h-3 shrink-0" />{parentObj.title}
-                              </p>
-                            )}
-                            <div className="flex items-start justify-between gap-2 mb-1.5">
-                              <p className="text-sm font-medium leading-snug flex-1">{kr.title}</p>
-                              <Badge className={`${getStatusColor(kr.status)} text-xs shrink-0`} variant="secondary">
-                                {statusLabel(kr.status)}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                                <div className={`h-full rounded-full transition-all ${progressColor(kr.progress || 0)}`} style={{ width: `${Math.min(kr.progress || 0, 100)}%` }} />
+                  // KRs grouped: linked KRs whose parent obj is also linked show under their objective
+                  // KRs whose parent is not linked appear separately
+                  const linkedObjIds = new Set(linkedObjectives.map(o => o.id));
+                  const activeKRs = linkedKeyResults.filter(kr => !isCompleted(kr.status));
+                  const completedKRs = linkedKeyResults.filter(kr => isCompleted(kr.status));
+                  // KRs grouped under a linked objective
+                  const groupedKRsByObjId = new Map<string, typeof linkedKeyResults>();
+                  const orphanKRs: typeof linkedKeyResults = [];
+                  activeKRs.forEach(kr => {
+                    if (kr.objectiveId && linkedObjIds.has(kr.objectiveId)) {
+                      const existing = groupedKRsByObjId.get(kr.objectiveId) || [];
+                      existing.push(kr);
+                      groupedKRsByObjId.set(kr.objectiveId, existing);
+                    } else {
+                      orphanKRs.push(kr);
+                    }
+                  });
+
+                  const activeBRs = linkedBigRocks.filter(br => !isCompleted(br.status));
+                  const completedBRs = linkedBigRocks.filter(br => isCompleted(br.status));
+                  const completedCount = completedObjs.length + completedKRs.length + completedBRs.length;
+
+                  const renderCheckInBtn = (queueItem: CheckInQueueItem) => (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="shrink-0 opacity-60 hover:opacity-100"
+                      title="Check in this item"
+                      data-testid={`button-checkin-${queueItem.type}-${queueItem.id}`}
+                      onClick={() => startSingleItemCheckIn(queueItem)}
+                    >
+                      <TrendingUp className="w-3.5 h-3.5" />
+                    </Button>
+                  );
+
+                  return (
+                    <>
+                      {/* Active Objectives + their grouped KRs */}
+                      {(activeObjs.length > 0 || orphanKRs.length > 0) && (
+                        <div>
+                          {activeObjs.length > 0 && (
+                            <>
+                              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-2">
+                                <Target className="w-3.5 h-3.5" />
+                                Objectives ({activeObjs.length})
+                              </h3>
+                              <div className="space-y-2">
+                                {activeObjs.map(obj => {
+                                  const krsForObj = groupedKRsByObjId.get(obj.id) || [];
+                                  return (
+                                    <div key={obj.id}>
+                                      <Card className="p-3" data-testid={`linked-obj-${obj.id}`}>
+                                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                                          <p className="text-sm font-medium leading-snug flex-1">{obj.title}</p>
+                                          <div className="flex items-center gap-1 shrink-0">
+                                            <Badge className={`${getStatusColor(obj.status)} text-xs`} variant="secondary">
+                                              {statusLabel(obj.status)}
+                                            </Badge>
+                                            {renderCheckInBtn({
+                                              id: obj.id, title: obj.title, type: "objective", daysSince: null,
+                                              progress: obj.progress ?? 0, status: obj.status ?? "not_started",
+                                              paceStatus: inferPaceStatus(obj.status), entityData: obj,
+                                            })}
+                                          </div>
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                          <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                                            <div className={`h-full rounded-full transition-all ${progressColor(obj.progress || 0)}`} style={{ width: `${Math.min(obj.progress || 0, 100)}%` }} />
+                                          </div>
+                                          <span className="text-xs font-medium text-muted-foreground w-8 text-right">{Math.round(obj.progress || 0)}%</span>
+                                        </div>
+                                        {obj.lastCheckInNote && (
+                                          <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2 italic">
+                                            "{obj.lastCheckInNote}"
+                                            {obj.lastCheckInAt && <span className="ml-1 not-italic">— {formatDistanceToNow(new Date(obj.lastCheckInAt), { addSuffix: true })}</span>}
+                                          </p>
+                                        )}
+                                      </Card>
+                                      {/* KRs grouped under this objective */}
+                                      {krsForObj.length > 0 && (
+                                        <div className="ml-4 mt-1 space-y-1 border-l-2 border-muted pl-3">
+                                          {krsForObj.map(kr => (
+                                            <Card key={kr.id} className="p-3" data-testid={`linked-kr-${kr.id}`}>
+                                              <div className="flex items-start justify-between gap-2 mb-1.5">
+                                                <p className="text-sm font-medium leading-snug flex-1">{kr.title}</p>
+                                                <div className="flex items-center gap-1 shrink-0">
+                                                  <Badge className={`${getStatusColor(kr.status)} text-xs`} variant="secondary">
+                                                    {statusLabel(kr.status)}
+                                                  </Badge>
+                                                  {renderCheckInBtn({
+                                                    id: kr.id, title: kr.title, type: "key_result", daysSince: null,
+                                                    progress: kr.progress ?? 0, status: kr.status ?? "not_started",
+                                                    paceStatus: inferPaceStatus(kr.status), entityData: kr,
+                                                  })}
+                                                </div>
+                                              </div>
+                                              <div className="flex items-center gap-2">
+                                                <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                                                  <div className={`h-full rounded-full transition-all ${progressColor(kr.progress || 0)}`} style={{ width: `${Math.min(kr.progress || 0, 100)}%` }} />
+                                                </div>
+                                                <span className="text-xs font-medium text-muted-foreground w-8 text-right">{Math.round(kr.progress || 0)}%</span>
+                                              </div>
+                                              {(kr as any).currentValue != null && (kr as any).targetValue != null && (
+                                                <p className="text-xs text-muted-foreground mt-1">
+                                                  {(kr as any).currentValue}{(kr as any).unit ? ` ${(kr as any).unit}` : ''} / {(kr as any).targetValue}{(kr as any).unit ? ` ${(kr as any).unit}` : ''}
+                                                </p>
+                                              )}
+                                              {kr.lastCheckInNote && (
+                                                <p className="text-xs text-muted-foreground mt-1 line-clamp-2 italic">
+                                                  "{kr.lastCheckInNote}"
+                                                  {kr.lastCheckInAt && <span className="ml-1 not-italic">— {formatDistanceToNow(new Date(kr.lastCheckInAt), { addSuffix: true })}</span>}
+                                                </p>
+                                              )}
+                                            </Card>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
                               </div>
-                              <span className="text-xs font-medium text-muted-foreground w-8 text-right">{Math.round(kr.progress || 0)}%</span>
-                            </div>
-                            {(kr as any).currentValue != null && (kr as any).targetValue != null && (
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {(kr as any).currentValue}{(kr as any).unit ? ` ${(kr as any).unit}` : ''} / {(kr as any).targetValue}{(kr as any).unit ? ` ${(kr as any).unit}` : ''}
-                              </p>
-                            )}
-                            {kr.lastCheckInNote && (
-                              <p className="text-xs text-muted-foreground mt-1 line-clamp-2 italic">
-                                "{kr.lastCheckInNote}"
-                                {kr.lastCheckInAt && <span className="ml-1 not-italic">— {formatDistanceToNow(new Date(kr.lastCheckInAt), { addSuffix: true })}</span>}
-                              </p>
-                            )}
-                          </Card>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {/* Linked Big Rocks */}
-                {linkedBigRocks.length > 0 && (
-                  <div>
-                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-2">
-                      <Zap className="w-3.5 h-3.5" />
-                      Big Rocks ({linkedBigRocks.length})
-                    </h3>
-                    <div className="space-y-2">
-                      {linkedBigRocks.map(br => (
-                        <Card key={br.id} className="p-3" data-testid={`linked-br-${br.id}`}>
-                          <div className="flex items-start justify-between gap-2 mb-1.5">
-                            <p className="text-sm font-medium leading-snug flex-1">{br.title}</p>
-                            <Badge className={`${getStatusColor(br.status)} text-xs shrink-0`} variant="secondary">
-                              {statusLabel(br.status)}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                              <div
-                                className={`h-full rounded-full transition-all ${progressColor((br as any).completionPercentage || 0)}`}
-                                style={{ width: `${Math.min((br as any).completionPercentage || 0, 100)}%` }}
-                              />
-                            </div>
-                            <span className="text-xs font-medium text-muted-foreground w-8 text-right">{Math.round((br as any).completionPercentage || 0)}%</span>
-                          </div>
-                          {br.lastCheckInNote && (
-                            <p className="text-xs text-muted-foreground mt-1 line-clamp-2 italic">
-                              "{br.lastCheckInNote}"
-                              {br.lastCheckInAt && <span className="ml-1 not-italic">— {formatDistanceToNow(new Date(br.lastCheckInAt), { addSuffix: true })}</span>}
-                            </p>
+                            </>
                           )}
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                )}
+
+                          {/* Orphan KRs (parent obj not linked) */}
+                          {orphanKRs.length > 0 && (
+                            <div className={activeObjs.length > 0 ? "mt-4" : ""}>
+                              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-2">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                Key Results ({orphanKRs.length})
+                              </h3>
+                              <div className="space-y-2">
+                                {orphanKRs.map(kr => {
+                                  const parentObj = objectives.find(o => o.id === kr.objectiveId);
+                                  return (
+                                    <Card key={kr.id} className="p-3" data-testid={`linked-kr-${kr.id}`}>
+                                      {parentObj && (
+                                        <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1 truncate">
+                                          <Target className="w-3 h-3 shrink-0" />{parentObj.title}
+                                        </p>
+                                      )}
+                                      <div className="flex items-start justify-between gap-2 mb-1.5">
+                                        <p className="text-sm font-medium leading-snug flex-1">{kr.title}</p>
+                                        <div className="flex items-center gap-1 shrink-0">
+                                          <Badge className={`${getStatusColor(kr.status)} text-xs`} variant="secondary">
+                                            {statusLabel(kr.status)}
+                                          </Badge>
+                                          {renderCheckInBtn({
+                                            id: kr.id, title: kr.title, type: "key_result", daysSince: null,
+                                            progress: kr.progress ?? 0, status: kr.status ?? "not_started",
+                                            paceStatus: inferPaceStatus(kr.status), entityData: kr,
+                                          })}
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                                          <div className={`h-full rounded-full transition-all ${progressColor(kr.progress || 0)}`} style={{ width: `${Math.min(kr.progress || 0, 100)}%` }} />
+                                        </div>
+                                        <span className="text-xs font-medium text-muted-foreground w-8 text-right">{Math.round(kr.progress || 0)}%</span>
+                                      </div>
+                                      {(kr as any).currentValue != null && (kr as any).targetValue != null && (
+                                        <p className="text-xs text-muted-foreground mt-1">
+                                          {(kr as any).currentValue}{(kr as any).unit ? ` ${(kr as any).unit}` : ''} / {(kr as any).targetValue}{(kr as any).unit ? ` ${(kr as any).unit}` : ''}
+                                        </p>
+                                      )}
+                                      {kr.lastCheckInNote && (
+                                        <p className="text-xs text-muted-foreground mt-1 line-clamp-2 italic">
+                                          "{kr.lastCheckInNote}"
+                                          {kr.lastCheckInAt && <span className="ml-1 not-italic">— {formatDistanceToNow(new Date(kr.lastCheckInAt), { addSuffix: true })}</span>}
+                                        </p>
+                                      )}
+                                    </Card>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Active Big Rocks */}
+                      {activeBRs.length > 0 && (
+                        <div>
+                          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-2">
+                            <Zap className="w-3.5 h-3.5" />
+                            Big Rocks ({activeBRs.length})
+                          </h3>
+                          <div className="space-y-2">
+                            {activeBRs.map(br => (
+                              <Card key={br.id} className="p-3" data-testid={`linked-br-${br.id}`}>
+                                <div className="flex items-start justify-between gap-2 mb-1.5">
+                                  <p className="text-sm font-medium leading-snug flex-1">{br.title}</p>
+                                  <div className="flex items-center gap-1 shrink-0">
+                                    <Badge className={`${getStatusColor(br.status)} text-xs`} variant="secondary">
+                                      {statusLabel(br.status)}
+                                    </Badge>
+                                    {renderCheckInBtn({
+                                      id: br.id, title: br.title, type: "big_rock", daysSince: null,
+                                      progress: (br as any).completionPercentage ?? br.progress ?? 0,
+                                      status: br.status ?? "in_progress",
+                                      paceStatus: inferPaceStatus(br.status), entityData: br,
+                                    })}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                                    <div
+                                      className={`h-full rounded-full transition-all ${progressColor((br as any).completionPercentage || 0)}`}
+                                      style={{ width: `${Math.min((br as any).completionPercentage || 0, 100)}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-xs font-medium text-muted-foreground w-8 text-right">{Math.round((br as any).completionPercentage || 0)}%</span>
+                                </div>
+                                {br.lastCheckInNote && (
+                                  <p className="text-xs text-muted-foreground mt-1 line-clamp-2 italic">
+                                    "{br.lastCheckInNote}"
+                                    {br.lastCheckInAt && <span className="ml-1 not-italic">— {formatDistanceToNow(new Date(br.lastCheckInAt), { addSuffix: true })}</span>}
+                                  </p>
+                                )}
+                              </Card>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Completed / Cancelled toggle */}
+                      {completedCount > 0 && (
+                        <div>
+                          <button
+                            className="flex items-center gap-1.5 text-xs text-muted-foreground hover-elevate px-2 py-1 rounded-md"
+                            onClick={() => setShowCompletedLinked(prev => !prev)}
+                            data-testid="button-toggle-completed-linked"
+                          >
+                            {showCompletedLinked
+                              ? <ChevronDown className="w-3.5 h-3.5" />
+                              : <ChevronRight className="w-3.5 h-3.5" />
+                            }
+                            {showCompletedLinked ? "Hide" : `Show ${completedCount} completed`}
+                          </button>
+                          {showCompletedLinked && (
+                            <div className="mt-2 space-y-1 opacity-60">
+                              {completedObjs.map(obj => (
+                                <Card key={obj.id} className="p-3" data-testid={`linked-obj-${obj.id}`}>
+                                  <div className="flex items-start justify-between gap-2">
+                                    <p className="text-sm font-medium leading-snug flex-1 line-through">{obj.title}</p>
+                                    <Badge className={`${getStatusColor(obj.status)} text-xs shrink-0`} variant="secondary">
+                                      {statusLabel(obj.status)}
+                                    </Badge>
+                                  </div>
+                                </Card>
+                              ))}
+                              {completedKRs.map(kr => (
+                                <Card key={kr.id} className="p-3" data-testid={`linked-kr-${kr.id}`}>
+                                  <div className="flex items-start justify-between gap-2">
+                                    <p className="text-sm font-medium leading-snug flex-1 line-through">{kr.title}</p>
+                                    <Badge className={`${getStatusColor(kr.status)} text-xs shrink-0`} variant="secondary">
+                                      {statusLabel(kr.status)}
+                                    </Badge>
+                                  </div>
+                                </Card>
+                              ))}
+                              {completedBRs.map(br => (
+                                <Card key={br.id} className="p-3" data-testid={`linked-br-${br.id}`}>
+                                  <div className="flex items-start justify-between gap-2">
+                                    <p className="text-sm font-medium leading-snug flex-1 line-through">{br.title}</p>
+                                    <Badge className={`${getStatusColor(br.status)} text-xs shrink-0`} variant="secondary">
+                                      {statusLabel(br.status)}
+                                    </Badge>
+                                  </div>
+                                </Card>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
 
                 {linkedItemCount === 0 && (
                   <div className="text-center py-8">
