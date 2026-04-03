@@ -905,13 +905,35 @@ function getLocalHourAndDay(date: Date, timezone: string): { hour: number; dayOf
   }
 }
 
+/**
+ * Compute "tomorrow at 9 AM" expressed as a UTC Date, correctly anchored to
+ * the given IANA timezone.  Works by probing what UTC 9 AM looks like in the
+ * target timezone and adjusting accordingly.
+ */
+export function localNineAMTomorrow(timezone: string): Date {
+  const now = new Date();
+  // Get tomorrow's calendar date in the target timezone
+  const tomorrowLabel = new Intl.DateTimeFormat('en-CA', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(now.getTime() + 24 * 60 * 60 * 1000)); // "YYYY-MM-DD"
+
+  // Probe: treat "YYYY-MM-DDT09:00:00Z" as a UTC instant and find what local
+  // hour that maps to in the target timezone.  Then shift until local hour = 9.
+  const probe = new Date(`${tomorrowLabel}T09:00:00Z`);
+  const { hour: probeLocalHour } = getLocalHourAndDay(probe, timezone);
+  return new Date(probe.getTime() + (9 - probeLocalHour) * 60 * 60 * 1000);
+}
+
 export function computeSuggestedTimeSlots(
   schedules: AttendeeSchedule[],
   durationMinutes: number,
   windowStart: Date,
   windowEnd: Date,
   maxSlots: number = 5,
-  /** IANA timezone for business-hours scoring, e.g. "America/New_York". Defaults to UTC. */
+  /** IANA timezone for business-hours filtering, e.g. "America/New_York". Defaults to UTC. */
   organizerTimezone: string = 'UTC'
 ): SuggestedTimeSlot[] {
   const stepMs = 30 * 60 * 1000;
@@ -935,7 +957,6 @@ export function computeSuggestedTimeSlots(
     freeCount: number;
     totalAttendees: number;
     label: string;
-    isBusinessHours: boolean;
     startMs: number;
   }
 
@@ -947,6 +968,19 @@ export function computeSuggestedTimeSlots(
     const slotStart = cursor;
     const slotEnd = cursor + durationMs;
 
+    // Hard filter: only consider slots that start AND end within local business
+    // hours (9 AM – 5 PM) on a weekday.  Both endpoints must be in-bounds so
+    // a meeting starting at 4:45 PM doesn't get included for a 60-min slot.
+    const { hour: startHour, dayOfWeek } = getLocalHourAndDay(new Date(slotStart), organizerTimezone);
+    const { hour: endHour } = getLocalHourAndDay(new Date(slotEnd), organizerTimezone);
+    const isWeekday = dayOfWeek !== 0 && dayOfWeek !== 6;
+    const withinBusinessHours = isWeekday && startHour >= 9 && endHour <= 17;
+
+    if (!withinBusinessHours) {
+      cursor += stepMs;
+      continue;
+    }
+
     // Count how many attendees are free during this slot
     let freeCount = 0;
     for (const intervals of busyIntervals) {
@@ -954,19 +988,12 @@ export function computeSuggestedTimeSlots(
       if (!isBusy) freeCount++;
     }
 
-    // Determine whether the slot falls inside 9am–4pm on a weekday in the
-    // organizer's own timezone (used only as a ranking tiebreaker, not a filter).
-    const { hour, dayOfWeek } = getLocalHourAndDay(new Date(slotStart), organizerTimezone);
-    const isWeekday = dayOfWeek !== 0 && dayOfWeek !== 6;
-    const isBusinessHours = isWeekday && hour >= 9 && hour < 16;
-
     candidates.push({
       start: new Date(slotStart).toISOString(),
       end: new Date(slotEnd).toISOString(),
       freeCount,
       totalAttendees,
       label: '',
-      isBusinessHours,
       startMs: slotStart,
     });
 
@@ -974,14 +1001,13 @@ export function computeSuggestedTimeSlots(
   }
 
   // Only show slots where ALL attendees are free. If no fully-free slots exist,
-  // fall back to best-effort (most free) — but prefer all-free first.
+  // fall back to best-effort (most free).
   const allFree = candidates.filter(c => c.freeCount === totalAttendees || totalAttendees === 0);
   const pool = allFree.length > 0 ? allFree : candidates;
 
-  // Sort: most free attendees first, then prefer organizer business hours, then earlier times
+  // Sort: most free attendees first, then earliest time
   pool.sort((a, b) => {
     if (b.freeCount !== a.freeCount) return b.freeCount - a.freeCount;
-    if (a.isBusinessHours !== b.isBusinessHours) return a.isBusinessHours ? -1 : 1;
     return a.startMs - b.startMs;
   });
 
@@ -993,7 +1019,7 @@ export function computeSuggestedTimeSlots(
       s => Math.abs(new Date(s.start).getTime() - slot.startMs) < 60 * 60 * 1000
     );
     if (!tooClose) {
-      const { isBusinessHours: _bh, startMs: _ms, ...rest } = slot;
+      const { startMs: _ms, ...rest } = slot;
       selected.push(rest);
     }
   }

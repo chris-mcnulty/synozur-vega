@@ -15,6 +15,7 @@ import {
   generateMeetingSummaryEmail,
   getFreeBusyForAttendees,
   computeSuggestedTimeSlots,
+  localNineAMTomorrow,
   // OneDrive
   checkOneDriveConnection,
   listOneDriveRoot,
@@ -303,12 +304,18 @@ router.post('/suggest-times', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'No valid email addresses provided' });
     }
 
-    const windowStart = windowStartDate ? new Date(windowStartDate) : (() => {
-      const d = new Date();
-      d.setDate(d.getDate() + 1);
-      d.setUTCHours(9, 0, 0, 0);
-      return d;
-    })();
+    // Validate the timezone string first — needed for window start fallback and slot filtering
+    let organizerTimezone = 'UTC';
+    if (timezone && typeof timezone === 'string') {
+      try {
+        Intl.DateTimeFormat(undefined, { timeZone: timezone });
+        organizerTimezone = timezone;
+      } catch {
+        // Invalid timezone — silently fall back to UTC
+      }
+    }
+
+    const windowStart = windowStartDate ? new Date(windowStartDate) : localNineAMTomorrow(organizerTimezone);
     if (isNaN(windowStart.getTime())) {
       return res.status(400).json({ error: 'Invalid windowStartDate value' });
     }
@@ -324,17 +331,6 @@ router.post('/suggest-times', async (req: Request, res: Response) => {
 
     if (windowEnd.getTime() - windowStart.getTime() < durationMinutes * 60 * 1000) {
       return res.status(400).json({ error: 'Search window is too small for the requested duration' });
-    }
-
-    // Validate the timezone string if provided, fall back to UTC on invalid input
-    let organizerTimezone = 'UTC';
-    if (timezone && typeof timezone === 'string') {
-      try {
-        Intl.DateTimeFormat(undefined, { timeZone: timezone });
-        organizerTimezone = timezone;
-      } catch {
-        // Invalid timezone — silently fall back to UTC
-      }
     }
 
     const schedules = await getFreeBusyForAttendees(userId, validEmails, windowStart, windowEnd);
