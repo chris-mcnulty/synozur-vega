@@ -106,6 +106,12 @@ const roadmap: RoadmapPhase[] = [
         description: "Natural language interaction with Vega through Microsoft 365 Copilot and Copilot Studio using Entra JWT authentication and REST-based tool actions",
         status: "completed",
         icon: Sparkles
+      },
+      {
+        title: "Unified Time Period Selector",
+        description: "Global quarter/year picker in the header with persistent selection, multi-period support, and quick shortcuts — synced consistently across all modules",
+        status: "completed",
+        icon: SlidersHorizontal
       }
     ]
   },
@@ -126,12 +132,6 @@ const roadmap: RoadmapPhase[] = [
     name: "Committed Next",
     timeframe: "Q2 2026",
     items: [
-      {
-        title: "Unified Time Period Selector",
-        description: "A global quarter/year picker in the header that persists as you navigate across all modules — no more switching period selectors on each page individually",
-        status: "planned",
-        icon: SlidersHorizontal
-      },
       {
         title: "OKR Creation Wizard",
         description: "A step-through flow (type → title → key results → owner → period) to simplify creating well-structured OKRs, with AI suggestions integrated throughout",

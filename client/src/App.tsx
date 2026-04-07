@@ -299,24 +299,44 @@ function GlobalTimePeriodSelector({ className }: { className?: string }) {
         {(() => {
           const { quarter: cq, year: cy } = getCurrentQuarter();
           const currentId = `q${cq}-${cy}`;
+          const prevQ = cq === 1 ? 4 : cq - 1;
+          const prevY = cq === 1 ? cy - 1 : cy;
+          const prevId = `q${prevQ}-${prevY}`;
           const isCurrent = selectedQuarterIds.length === 1 && selectedQuarterIds[0] === currentId;
-          if (!isCurrent) {
-            return (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="w-full text-xs mt-2 text-muted-foreground"
-                onClick={() => {
-                  setBrowseYear(cy);
-                  handleSingleSelect(currentId);
-                }}
-                data-testid="button-period-go-current"
-              >
-                Go to current period
-              </Button>
-            );
-          }
-          return null;
+          const isPrev = selectedQuarterIds.length === 1 && selectedQuarterIds[0] === prevId;
+          if (isCurrent && isPrev) return null;
+          return (
+            <div className="flex flex-col gap-1 mt-2">
+              {!isCurrent && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs text-muted-foreground"
+                  onClick={() => {
+                    setBrowseYear(cy);
+                    handleSingleSelect(currentId);
+                  }}
+                  data-testid="button-period-go-current"
+                >
+                  Current quarter (Q{cq} {cy})
+                </Button>
+              )}
+              {!isPrev && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="w-full text-xs text-muted-foreground"
+                  onClick={() => {
+                    setBrowseYear(prevY);
+                    handleSingleSelect(prevId);
+                  }}
+                  data-testid="button-period-go-previous"
+                >
+                  Previous quarter (Q{prevQ} {prevY})
+                </Button>
+              )}
+            </div>
+          );
         })()}
       </PopoverContent>
     </Popover>

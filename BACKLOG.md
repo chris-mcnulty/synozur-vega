@@ -839,14 +839,18 @@ Features:
 
 ### Enhancement 2: Unified Time Period Selector
 
-**Status:** Committed — on Roadmap (Q2 2026)  
+**Status:** Completed  
 **Effort:** 1 week  
-**Priority:** Critical (RECOMMENDED NEXT)
+**Priority:** Critical
 
 Global time period component in header:
-- Consistent quarter/year selection across modules
-- Persistent selection as user navigates
-- Quick shortcuts (Current Quarter, Previous Quarter, etc.)
+- Consistent quarter/year selection across modules ✓
+- Persistent selection as user navigates ✓
+- Quick shortcuts (Current Quarter, Previous Quarter) ✓
+- Multi-period selection with clear multi ✓
+- Annual mode support ✓
+- Tenant-aware defaults ✓
+- Annual Goals and Alignment Goal year filters sync to global period ✓
 
 ---
 

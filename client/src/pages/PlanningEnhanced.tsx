@@ -233,8 +233,16 @@ export default function PlanningEnhanced() {
   const [customGoal, setCustomGoal] = useState("");
   const [cloneSourceYear, setCloneSourceYear] = useState<number | null>(null);
   const [aiGoalsSuggestionOpen, setAiGoalsSuggestionOpen] = useState(false);
-  const [goalsYearFilter, setGoalsYearFilter] = useState<number>(currentYear);
-  const [alignmentGoalYear, setAlignmentGoalYear] = useState<number>(currentYear);
+  const [goalsYearFilter, setGoalsYearFilter] = useState<number>(globalYear);
+  const [alignmentGoalYear, setAlignmentGoalYear] = useState<number>(globalYear);
+
+  useEffect(() => {
+    setGoalsYearFilter(globalYear);
+  }, [globalYear]);
+
+  useEffect(() => {
+    setAlignmentGoalYear(globalYear);
+  }, [globalYear]);
 
   // Fetch teams for filtering
   const { data: teamsData = [] } = useQuery<{ id: string; name: string }[]>({

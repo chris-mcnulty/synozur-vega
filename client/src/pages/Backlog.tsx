@@ -169,7 +169,7 @@ const backlogItems: BacklogItem[] = [
   {
     title: "Unified Time Period Selector",
     description: "Global time period component in header with consistent quarter/year selection across all modules, persistent selection, and quick shortcuts",
-    status: "proposed",
+    status: "completed",
     category: "ux",
     effort: "1 week",
     priority: "High",
