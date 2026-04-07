@@ -85,8 +85,12 @@ export function UserPicker({
     queryFn: async () => {
       const params = new URLSearchParams();
       if (searchQuery) params.set('q', searchQuery);
-      // tenantId is resolved server-side from the authenticated session — never from client params
-      const res = await fetch(`/api/users/search?${params}`, { credentials: "include" });
+      // tenantId is resolved server-side from the authenticated session, with x-tenant-id
+      // providing the active tenant context for multi-tenant users.
+      const res = await fetch(`/api/users/search?${params}`, {
+        credentials: "include",
+        headers: tenantId ? { "x-tenant-id": tenantId } : undefined,
+      });
       if (!res.ok) throw new Error('Failed to search users');
       return res.json();
     },
