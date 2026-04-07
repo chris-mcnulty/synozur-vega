@@ -1462,34 +1462,15 @@ ${changelogContent}`;
       const parsedLimit = parseInt(req.query.limit as string);
       const limit = Math.max(1, Math.min(parsedLimit || 20, 50));
 
-      const users = await storage.getAllUsers(tenantId);
-      let results = users.map(user => ({
+      const users = await storage.searchUsers(tenantId, query, limit);
+      const results = users.map(user => ({
         id: user.id,
         email: user.email,
         name: user.name || user.email.split('@')[0],
         role: user.role,
       }));
 
-      // Filter by search query if provided
-      if (query) {
-        results = results.filter(u =>
-          u.name.toLowerCase().includes(query) ||
-          u.email.toLowerCase().includes(query)
-        );
-      }
-
-      // Sort: exact matches first, then alphabetically by name
-      results.sort((a, b) => {
-        if (query) {
-          const aExact = a.name.toLowerCase() === query || a.email.toLowerCase() === query;
-          const bExact = b.name.toLowerCase() === query || b.email.toLowerCase() === query;
-          if (aExact && !bExact) return -1;
-          if (!aExact && bExact) return 1;
-        }
-        return a.name.localeCompare(b.name);
-      });
-
-      res.json(results.slice(0, limit));
+      res.json(results);
     } catch (error) {
       console.error("Error searching users:", error);
       res.status(500).json({ error: "Failed to search users" });
