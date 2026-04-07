@@ -5,7 +5,8 @@ import { Progress } from "@/components/ui/progress";
 import {
   ArrowLeft, CheckCircle2, Clock, Sparkles, Target, Users, BarChart3,
   Puzzle, Database, Shield, Calendar, Bot, Ticket, Briefcase, Layers,
-  FileText, ListChecks, ClipboardList, SlidersHorizontal
+  FileText, ListChecks, ClipboardList, SlidersHorizontal,
+  Wand2, Navigation, UserSearch, LayoutDashboard
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -130,6 +131,30 @@ const roadmap: RoadmapPhase[] = [
         description: "A global quarter/year picker in the header that persists as you navigate across all modules — no more switching period selectors on each page individually",
         status: "planned",
         icon: SlidersHorizontal
+      },
+      {
+        title: "OKR Creation Wizard",
+        description: "A step-through flow (type → title → key results → owner → period) to simplify creating well-structured OKRs, with AI suggestions integrated throughout",
+        status: "planned",
+        icon: Wand2
+      },
+      {
+        title: "Contextual Breadcrumbs",
+        description: "Breadcrumb navigation with quick-action buttons contextual to your current location in the app — create, edit, or jump to related items without backtracking",
+        status: "planned",
+        icon: Navigation
+      },
+      {
+        title: "User Lookup for Item Assignment",
+        description: "Search/autocomplete for assigning owners and assignees by name or email against the tenant user directory, replacing free-text email entry",
+        status: "planned",
+        icon: UserSearch
+      },
+      {
+        title: "Executive Dashboard Personalization",
+        description: "Saved widget layout, pinned metrics, and configurable dashboard sections so each executive sees the data most relevant to them",
+        status: "planned",
+        icon: LayoutDashboard
       },
       {
         title: "Copilot Agent Write Actions",

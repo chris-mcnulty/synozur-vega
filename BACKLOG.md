@@ -218,7 +218,7 @@ Enable the AI to combine multiple tool calls intelligently to answer complex que
 
 ### 5. Executive Dashboard Personalization
 
-**Status:** Not Started  
+**Status:** Committed — on Roadmap (Q2 2026)  
 **Priority:** High  
 **Effort:** 2-3 weeks
 
@@ -821,7 +821,7 @@ Reorganized sidebar navigation into logical, collapsible sections:
 
 ### Enhancement 1: Contextual Breadcrumbs with Quick Actions
 
-**Status:** Documented, Not Implemented  
+**Status:** Committed — on Roadmap (Q2 2026)  
 **Effort:** 1 week  
 **Priority:** High
 
@@ -852,7 +852,7 @@ Global time period component in header:
 
 ### Enhancement 3: Streamlined OKR Creation Wizard
 
-**Status:** Documented, Not Implemented  
+**Status:** Committed — on Roadmap (Q2 2026)  
 **Effort:** 2 weeks  
 **Priority:** High
 
@@ -888,7 +888,7 @@ Standardized multi-select time period picker allowing selection of multiple quar
 
 ### User Lookup for Item Assignment
 
-**Status:** Not Started  
+**Status:** Committed — on Roadmap (Q2 2026)  
 **Priority:** High  
 **Effort:** 1 week  
 **Added:** January 11, 2026
