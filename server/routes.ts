@@ -1458,6 +1458,19 @@ ${changelogContent}`;
         return res.status(403).json({ error: "No tenant context available" });
       }
 
+      // Exact email lookup (used for fetching recent selections)
+      const emailsParam = req.query.emails as string | undefined;
+      if (emailsParam) {
+        const emails = emailsParam.split(",").map(e => e.trim()).filter(Boolean).slice(0, 50);
+        const users = await storage.getUsersByEmails(tenantId, emails);
+        return res.json(users.map(user => ({
+          id: user.id,
+          email: user.email,
+          name: user.name || user.email.split('@')[0],
+          role: user.role,
+        })));
+      }
+
       const query = (req.query.q as string || "").trim().toLowerCase();
       const parsedLimit = parseInt(req.query.limit as string);
       const limit = Math.max(1, Math.min(parsedLimit || 20, 50));

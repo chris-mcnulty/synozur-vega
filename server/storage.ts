@@ -62,6 +62,7 @@ export interface IStorage {
   getUserByResetToken(token: string): Promise<User | undefined>;
   getAllUsers(tenantId?: string): Promise<User[]>;
   searchUsers(tenantId: string, query: string, limit: number): Promise<Pick<User, "id" | "email" | "name" | "role">[]>;
+  getUsersByEmails(tenantId: string, emails: string[]): Promise<Pick<User, "id" | "email" | "name" | "role">[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User>;
   updateUserPassword(id: string, newPassword: string): Promise<void>;
@@ -583,6 +584,16 @@ export class DatabaseStorage implements IStorage {
       .where(tenantFilter)
       .orderBy(asc(users.name))
       .limit(limit);
+  }
+
+  async getUsersByEmails(tenantId: string, emails: string[]): Promise<Pick<User, "id" | "email" | "name" | "role">[]> {
+    if (emails.length === 0) return [];
+    const normalised = emails.map(e => e.toLowerCase());
+    return await db
+      .select({ id: users.id, email: users.email, name: users.name, role: users.role })
+      .from(users)
+      .where(and(eq(users.tenantId, tenantId), inArray(sql`lower(${users.email})`, normalised)))
+      .orderBy(asc(users.name));
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {

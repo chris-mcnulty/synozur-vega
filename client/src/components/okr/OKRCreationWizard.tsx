@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import type { ElementType } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -57,7 +58,7 @@ interface OKRCreationWizardProps {
   onComplete?: () => void;
 }
 
-const STEPS: { key: WizardStep; label: string; icon: React.ElementType }[] = [
+const STEPS: { key: WizardStep; label: string; icon: ElementType }[] = [
   { key: "objective", label: "Objective", icon: Target },
   { key: "key-results", label: "Key Results", icon: TrendingUp },
   { key: "big-rocks", label: "Big Rocks", icon: Activity },

@@ -5027,7 +5027,7 @@ export default function PlanningEnhanced() {
         <OKRCreationWizard
           open={wizardOpen}
           onOpenChange={setWizardOpen}
-          quarter={quarter || getCurrentQuarter()}
+          quarter={quarter ?? getCurrentQuarter()}
           year={year}
         />
 

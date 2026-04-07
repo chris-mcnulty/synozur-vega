@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, ChevronsUpDown, User, Mail } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -74,17 +74,28 @@ export function UserPicker({
 }: UserPickerProps) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [manualEmail, setManualEmail] = useState("");
   const [showManualEntry, setShowManualEntry] = useState(false);
   const { currentTenant } = useTenant();
   const tenantId = currentTenant?.id;
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Fetch users via search endpoint with debounced query
+  // Debounce search input: only update the query sent to the server after 300 ms of inactivity
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => setDebouncedQuery(searchQuery), 300);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [searchQuery]);
+
+  // Main search query – fires only after debounce settles
   const { data: users = [], isLoading } = useQuery<UserResult[]>({
-    queryKey: ['/api/users/search', tenantId, searchQuery],
+    queryKey: ['/api/users/search', tenantId, debouncedQuery],
     queryFn: async () => {
       const params = new URLSearchParams();
-      if (searchQuery) params.set('q', searchQuery);
+      if (debouncedQuery) params.set('q', debouncedQuery);
       // tenantId is resolved server-side from the authenticated session, with x-tenant-id
       // providing the active tenant context for multi-tenant users.
       const res = await fetch(`/api/users/search?${params}`, {
@@ -99,9 +110,27 @@ export function UserPicker({
   });
 
   const recentEmails = tenantId ? getRecentSelections(tenantId) : [];
-  const recentUsers = users.filter(u => recentEmails.includes(u.email));
+
+  // Fetch recent users explicitly by email so they always appear regardless of the main page
+  const { data: recentUsers = [] } = useQuery<UserResult[]>({
+    queryKey: ['/api/users/search/recents', tenantId, recentEmails.join(',')],
+    queryFn: async () => {
+      if (recentEmails.length === 0) return [];
+      const params = new URLSearchParams({ emails: recentEmails.join(',') });
+      const res = await fetch(`/api/users/search?${params}`, {
+        credentials: "include",
+        headers: tenantId ? { "x-tenant-id": tenantId } : undefined,
+      });
+      if (!res.ok) throw new Error('Failed to fetch recent users');
+      return res.json();
+    },
+    enabled: !!tenantId && recentEmails.length > 0,
+    staleTime: 60000,
+  });
 
   const selectedUser = users.find(
+    u => u.email.toLowerCase() === value?.toLowerCase()
+  ) ?? recentUsers.find(
     u => u.email.toLowerCase() === value?.toLowerCase()
   );
 
@@ -278,6 +307,7 @@ export function UserPicker({
                       <div className="flex gap-1">
                         <input
                           type="email"
+                          aria-label="Email address for user not in this organization"
                           className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm"
                           placeholder="user@example.com"
                           value={manualEmail}
