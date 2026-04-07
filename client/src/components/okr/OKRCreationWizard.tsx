@@ -247,7 +247,6 @@ export function OKRCreationWizard({
       const objRes = await apiRequest("POST", "/api/okr/objectives", {
         ...objective,
         parentId: null,
-        tenantId,
       });
       const createdObjective = await objRes.json();
 
@@ -258,7 +257,6 @@ export function OKRCreationWizard({
         const krRes = await apiRequest("POST", "/api/okr/key-results", {
           ...kr,
           objectiveId: createdObjective.id,
-          tenantId,
         });
         createdKRs.push(await krRes.json());
       }
@@ -273,7 +271,6 @@ export function OKRCreationWizard({
           priority: br.priority,
           objectiveId: createdObjective.id,
           keyResultId: null,
-          tenantId,
           quarter: objective.quarter,
           year: objective.year,
         });
