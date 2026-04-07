@@ -168,7 +168,12 @@ export function OKRCreationWizard({
     queryKey: [`/api/okr/teams`, tenantId],
     queryFn: async () => {
       if (!tenantId) return [];
-      const res = await fetch(`/api/okr/teams?tenantId=${tenantId}`, { credentials: "include" });
+      const res = await fetch(`/api/okr/teams`, {
+        credentials: "include",
+        headers: {
+          "x-tenant-id": tenantId,
+        },
+      });
       if (!res.ok) return [];
       return res.json();
     },
