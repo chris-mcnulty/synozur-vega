@@ -839,7 +839,7 @@ Features:
 
 ### Enhancement 2: Unified Time Period Selector
 
-**Status:** Documented, Not Implemented  
+**Status:** Committed — on Roadmap (Q2 2026)  
 **Effort:** 1 week  
 **Priority:** Critical (RECOMMENDED NEXT)
 

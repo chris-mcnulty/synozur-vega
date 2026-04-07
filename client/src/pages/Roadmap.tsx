@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import {
   ArrowLeft, CheckCircle2, Clock, Sparkles, Target, Users, BarChart3,
   Puzzle, Database, Shield, Calendar, Bot, Ticket, Briefcase, Layers,
-  FileText, ListChecks, ClipboardList
+  FileText, ListChecks, ClipboardList, SlidersHorizontal
 } from "lucide-react";
 import { Link } from "wouter";
 
@@ -125,6 +125,12 @@ const roadmap: RoadmapPhase[] = [
     name: "Committed Next",
     timeframe: "Q2 2026",
     items: [
+      {
+        title: "Unified Time Period Selector",
+        description: "A global quarter/year picker in the header that persists as you navigate across all modules — no more switching period selectors on each page individually",
+        status: "planned",
+        icon: SlidersHorizontal
+      },
       {
         title: "Copilot Agent Write Actions",
         description: "Extend the M365 Copilot Agent with write capabilities — update key result progress, add check-in notes, and change big rock status directly from natural language conversation",
