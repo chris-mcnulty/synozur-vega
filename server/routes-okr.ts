@@ -236,6 +236,12 @@ okrRouter.post("/objectives", async (req, res) => {
   try {
     const validatedData = insertObjectiveSchema.parse(req.body);
     
+    // Always use the server-resolved tenant context – ignore any client-supplied tenantId
+    const effectiveTenantId = req.effectiveTenantId;
+    if (!effectiveTenantId) {
+      return res.status(403).json({ error: "No tenant context available" });
+    }
+    
     // Validate weight bounds if provided (0-100 or null)
     if (validatedData.weight !== undefined && validatedData.weight !== null) {
       const weight = Number(validatedData.weight);
@@ -254,6 +260,7 @@ okrRouter.post("/objectives", async (req, res) => {
     
     const objectiveData = {
       ...validatedData,
+      tenantId: effectiveTenantId,
       createdBy: validatedData.createdBy || userId || null,
       ownerEmail: validatedData.ownerEmail || userEmail || null,
     };
@@ -449,7 +456,12 @@ okrRouter.get("/key-results/:id", async (req, res) => {
 okrRouter.post("/key-results", async (req, res) => {
   try {
     const validatedData = insertKeyResultSchema.parse(req.body);
-    const keyResult = await storage.createKeyResult(validatedData);
+    // Always use the server-resolved tenant context – ignore any client-supplied tenantId
+    const effectiveTenantId = req.effectiveTenantId;
+    if (!effectiveTenantId) {
+      return res.status(403).json({ error: "No tenant context available" });
+    }
+    const keyResult = await storage.createKeyResult({ ...validatedData, tenantId: effectiveTenantId });
     res.json(keyResult);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -602,7 +614,12 @@ okrRouter.get("/key-results/:keyResultId/big-rocks", async (req, res) => {
 okrRouter.post("/big-rocks", async (req, res) => {
   try {
     const validatedData = insertBigRockSchema.parse(req.body);
-    const bigRock = await storage.createBigRock(validatedData);
+    // Always use the server-resolved tenant context – ignore any client-supplied tenantId
+    const effectiveTenantId = req.effectiveTenantId;
+    if (!effectiveTenantId) {
+      return res.status(403).json({ error: "No tenant context available" });
+    }
+    const bigRock = await storage.createBigRock({ ...validatedData, tenantId: effectiveTenantId });
     res.json(bigRock);
   } catch (error) {
     if (error instanceof z.ZodError) {

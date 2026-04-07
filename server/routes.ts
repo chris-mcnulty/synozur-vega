@@ -1450,6 +1450,46 @@ ${changelogContent}`;
     }
   });
 
+  // Search users within tenant for assignment (any authenticated user)
+  app.get("/api/users/search", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.effectiveTenantId;
+      if (!tenantId) {
+        return res.status(403).json({ error: "No tenant context available" });
+      }
+
+      // Exact email lookup (used for fetching recent selections)
+      const emailsParam = req.query.emails as string | undefined;
+      if (emailsParam) {
+        const emails = emailsParam.split(",").map(e => e.trim()).filter(Boolean).slice(0, 50);
+        const users = await storage.getUsersByEmails(tenantId, emails);
+        return res.json(users.map(user => ({
+          id: user.id,
+          email: user.email,
+          name: user.name || user.email.split('@')[0],
+          role: user.role,
+        })));
+      }
+
+      const query = (req.query.q as string || "").trim().toLowerCase();
+      const parsedLimit = parseInt(req.query.limit as string);
+      const limit = Math.max(1, Math.min(parsedLimit || 20, 50));
+
+      const users = await storage.searchUsers(tenantId, query, limit);
+      const results = users.map(user => ({
+        id: user.id,
+        email: user.email,
+        name: user.name || user.email.split('@')[0],
+        role: user.role,
+      }));
+
+      res.json(results);
+    } catch (error) {
+      console.error("Error searching users:", error);
+      res.status(500).json({ error: "Failed to search users" });
+    }
+  });
+
   // User CRUD endpoints (tenant admin can manage users in their tenant)
   app.get("/api/users", ...adminWithOptionalTenant, async (req: Request, res: Response) => {
     try {

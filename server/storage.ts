@@ -51,7 +51,7 @@ import {
   oauthRefreshTokens, type OauthRefreshToken
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, count } from "drizzle-orm";
+import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, count, ilike, asc } from "drizzle-orm";
 import { hashPassword } from "./auth";
 
 export interface IStorage {
@@ -61,6 +61,8 @@ export interface IStorage {
   getUserByVerificationToken(token: string): Promise<User | undefined>;
   getUserByResetToken(token: string): Promise<User | undefined>;
   getAllUsers(tenantId?: string): Promise<User[]>;
+  searchUsers(tenantId: string, query: string, limit: number): Promise<Pick<User, "id" | "email" | "name" | "role">[]>;
+  getUsersByEmails(tenantId: string, emails: string[]): Promise<Pick<User, "id" | "email" | "name" | "role">[]>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, user: Partial<InsertUser>): Promise<User>;
   updateUserPassword(id: string, newPassword: string): Promise<void>;
@@ -558,6 +560,40 @@ export class DatabaseStorage implements IStorage {
       return await db.select().from(users).where(eq(users.tenantId, tenantId));
     }
     return await db.select().from(users);
+  }
+
+  async searchUsers(tenantId: string, query: string, limit: number): Promise<Pick<User, "id" | "email" | "name" | "role">[]> {
+    const columns = {
+      id: users.id,
+      email: users.email,
+      name: users.name,
+      role: users.role,
+    };
+    const tenantFilter = eq(users.tenantId, tenantId);
+    const baseQuery = db.select(columns).from(users);
+
+    if (query) {
+      const pattern = `%${query}%`;
+      return await baseQuery
+        .where(and(tenantFilter, or(ilike(users.name, pattern), ilike(users.email, pattern))))
+        .orderBy(asc(users.name))
+        .limit(limit);
+    }
+
+    return await baseQuery
+      .where(tenantFilter)
+      .orderBy(asc(users.name))
+      .limit(limit);
+  }
+
+  async getUsersByEmails(tenantId: string, emails: string[]): Promise<Pick<User, "id" | "email" | "name" | "role">[]> {
+    if (emails.length === 0) return [];
+    const normalised = emails.map(e => e.toLowerCase());
+    return await db
+      .select({ id: users.id, email: users.email, name: users.name, role: users.role })
+      .from(users)
+      .where(and(eq(users.tenantId, tenantId), inArray(sql`lower(${users.email})`, normalised)))
+      .orderBy(asc(users.name));
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {

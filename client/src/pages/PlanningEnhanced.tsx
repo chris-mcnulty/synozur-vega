@@ -47,6 +47,7 @@ import { AIGoalsSuggestionDialog } from "@/components/AIGoalsSuggestionDialog";
 import { ProgressSummaryDialog } from "@/components/ProgressSummaryDialog";
 import { CloneObjectiveDialog } from "@/components/okr/CloneObjectiveDialog";
 import { CloneBigRockDialog } from "@/components/okr/CloneBigRockDialog";
+import { OKRCreationWizard } from "@/components/okr/OKRCreationWizard";
 import { OKRQualityScore } from "@/components/okr/OKRQualityScore";
 import { BigRockTasks } from "@/components/okr/BigRockTasks";
 import { Copy } from "lucide-react";
@@ -604,6 +605,7 @@ export default function PlanningEnhanced() {
   }, [JSON.stringify(objectives.map(o => ({ id: o.id, progress: o.progress }))), JSON.stringify(bigRocks.map(b => ({ id: b.id, completionPercentage: b.completionPercentage })))]);
 
   // Dialog states
+  const [wizardOpen, setWizardOpen] = useState(false);
   const [objectiveDialogOpen, setObjectiveDialogOpen] = useState(false);
   const [keyResultDialogOpen, setKeyResultDialogOpen] = useState(false);
   const [bigRockDialogOpen, setBigRockDialogOpen] = useState(false);
@@ -2268,6 +2270,14 @@ export default function PlanningEnhanced() {
             >
               <Plus className="h-4 w-4 mr-2" />
               Add Objective
+            </Button>
+            <Button
+              variant="default"
+              onClick={() => setWizardOpen(true)}
+              data-testid="button-okr-wizard"
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              OKR Wizard
             </Button>
           </div>
         </div>
@@ -5011,6 +5021,14 @@ export default function PlanningEnhanced() {
           tenantId={currentTenant?.id || ""}
           currentQuarter={quarter || getCurrentQuarter()}
           currentYear={year}
+        />
+
+        {/* OKR Creation Wizard */}
+        <OKRCreationWizard
+          open={wizardOpen}
+          onOpenChange={setWizardOpen}
+          quarter={quarter ?? getCurrentQuarter()}
+          year={year}
         />
 
         {/* Save to Meeting Dialog */}
