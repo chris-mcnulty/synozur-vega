@@ -112,6 +112,18 @@ const roadmap: RoadmapPhase[] = [
         description: "Global quarter/year picker in the header with persistent selection, multi-period support, and quick shortcuts — synced consistently across all modules",
         status: "completed",
         icon: SlidersHorizontal
+      },
+      {
+        title: "OKR Creation Wizard",
+        description: "Multi-step wizard (Objective → Key Results → Big Rocks → Review) to create a complete OKR hierarchy in one session",
+        status: "completed",
+        icon: Wand2
+      },
+      {
+        title: "User Lookup for Item Assignment",
+        description: "Searchable user picker with avatar initials, recent selections, and manual email fallback — tenant-scoped for secure assignment",
+        status: "completed",
+        icon: UserSearch
       }
     ]
   },
@@ -133,22 +145,10 @@ const roadmap: RoadmapPhase[] = [
     timeframe: "Q2 2026",
     items: [
       {
-        title: "OKR Creation Wizard",
-        description: "A step-through flow (type → title → key results → owner → period) to simplify creating well-structured OKRs, with AI suggestions integrated throughout",
-        status: "planned",
-        icon: Wand2
-      },
-      {
         title: "Contextual Breadcrumbs",
         description: "Breadcrumb navigation with quick-action buttons contextual to your current location in the app — create, edit, or jump to related items without backtracking",
         status: "planned",
         icon: Navigation
-      },
-      {
-        title: "User Lookup for Item Assignment",
-        description: "Search/autocomplete for assigning owners and assignees by name or email against the tenant user directory, replacing free-text email entry",
-        status: "planned",
-        icon: UserSearch
       },
       {
         title: "Executive Dashboard Personalization",

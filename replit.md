@@ -32,6 +32,7 @@ Preferred communication style: Simple, everyday language.
     - Session-based authentication with Express sessions, `connect-pg-simple`, bcryptjs, and SendGrid for email verification.
     - **Microsoft Entra ID SSO**: Multi-tenant MSAL-based Azure AD authentication with PKCE, JIT user provisioning, and tenant mapping.
     - Multi-tenancy with data isolation using `TenantContext` and `TenantSwitcher`.
+    - **Tenant Data Boundary Protection (Critical)**: Every API endpoint that returns tenant-scoped data **must** resolve the tenant ID from the authenticated session (`req.effectiveTenantId`) — never from client-supplied query parameters or request bodies. This prevents cross-tenant data leakage. The `authWithTenant` middleware chain (`requireAuth` → `loadCurrentUser` → `requireTenantAccess`) enforces this. All storage methods that accept a `tenantId` parameter filter at the database level with `WHERE tenant_id = ?`. New endpoints must follow this pattern: use `req.effectiveTenantId` for data scoping, reject requests when it is missing, and never trust client-provided tenant identifiers for data access.
     - Full RBAC enforcement with 6 defined roles (`tenant_user`, `tenant_admin`, `admin`, `global_admin`, `vega_consultant`, `vega_admin`), including fine-grained OKR permissions.
     - All date/time operations use America/Los_Angeles timezone.
     - **Job Scheduler Service**: Central service for managing background jobs, including registration, logging, pause/resume, and failure notifications.

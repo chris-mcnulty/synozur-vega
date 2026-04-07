@@ -1450,6 +1450,51 @@ ${changelogContent}`;
     }
   });
 
+  // Search users within tenant for assignment (any authenticated user)
+  app.get("/api/users/search", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.effectiveTenantId;
+      if (!tenantId) {
+        return res.status(403).json({ error: "No tenant context available" });
+      }
+
+      const query = (req.query.q as string || "").trim().toLowerCase();
+      const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+
+      const users = await storage.getAllUsers(tenantId);
+      let results = users.map(user => ({
+        id: user.id,
+        email: user.email,
+        name: user.name || user.email.split('@')[0],
+        role: user.role,
+      }));
+
+      // Filter by search query if provided
+      if (query) {
+        results = results.filter(u =>
+          u.name.toLowerCase().includes(query) ||
+          u.email.toLowerCase().includes(query)
+        );
+      }
+
+      // Sort: exact matches first, then alphabetically by name
+      results.sort((a, b) => {
+        if (query) {
+          const aExact = a.name.toLowerCase() === query || a.email.toLowerCase() === query;
+          const bExact = b.name.toLowerCase() === query || b.email.toLowerCase() === query;
+          if (aExact && !bExact) return -1;
+          if (!aExact && bExact) return 1;
+        }
+        return a.name.localeCompare(b.name);
+      });
+
+      res.json(results.slice(0, limit));
+    } catch (error) {
+      console.error("Error searching users:", error);
+      res.status(500).json({ error: "Failed to search users" });
+    }
+  });
+
   // User CRUD endpoints (tenant admin can manage users in their tenant)
   app.get("/api/users", ...adminWithOptionalTenant, async (req: Request, res: Response) => {
     try {

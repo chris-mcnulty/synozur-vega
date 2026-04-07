@@ -177,8 +177,8 @@ const backlogItems: BacklogItem[] = [
   },
   {
     title: "Streamlined OKR Creation Wizard",
-    description: "Multi-step guided wizard: Objective > Key Results > Big Rocks > Review. With AI suggestions, templates, draft auto-save, and alignment checks",
-    status: "proposed",
+    description: "Multi-step guided wizard: Objective > Key Results > Big Rocks > Review. Create a complete OKR hierarchy in one session with the UserPicker for owner assignment",
+    status: "completed",
     category: "ux",
     effort: "2 weeks",
     priority: "High",
@@ -186,8 +186,8 @@ const backlogItems: BacklogItem[] = [
   },
   {
     title: "User Lookup for Item Assignment",
-    description: "Replace manual email entry with a searchable user picker when assigning owners. Type-ahead search, avatar display, recent selections, and tenant scoping",
-    status: "proposed",
+    description: "Searchable user picker for assigning owners by name or email. Avatar initials, recent selections, manual email fallback, and tenant-scoped data boundary protection",
+    status: "completed",
     category: "ux",
     effort: "1 week",
     priority: "High",
