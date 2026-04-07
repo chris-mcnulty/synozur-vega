@@ -1459,7 +1459,8 @@ ${changelogContent}`;
       }
 
       const query = (req.query.q as string || "").trim().toLowerCase();
-      const limit = Math.min(parseInt(req.query.limit as string) || 20, 50);
+      const parsedLimit = parseInt(req.query.limit as string);
+      const limit = Math.max(1, Math.min(parsedLimit || 20, 50));
 
       const users = await storage.getAllUsers(tenantId);
       let results = users.map(user => ({
