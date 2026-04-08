@@ -421,7 +421,7 @@ export interface IStorage {
   // Support Tickets methods
   getSupportTicketsByTenantId(tenantId: string, status?: string): Promise<SupportTicket[]>;
   getSupportTicketsByUserId(userId: string): Promise<SupportTicket[]>;
-  getAllSupportTickets(filters?: { status?: string; priority?: string; category?: string; tenantId?: string }): Promise<SupportTicket[]>;
+  getAllSupportTickets(filters?: { status?: string; priority?: string; category?: string; tenantId?: string; assignedTo?: string }): Promise<SupportTicket[]>;
   getSupportTicketById(id: string): Promise<SupportTicket | undefined>;
   createSupportTicket(ticket: InsertSupportTicket): Promise<SupportTicket>;
   updateSupportTicket(id: string, updates: Partial<InsertSupportTicket>): Promise<SupportTicket>;
@@ -3751,7 +3751,9 @@ export class DatabaseStorage implements IStorage {
 
   async getVegaAdminUsers(): Promise<User[]> {
     return await db.select().from(users)
-      .where(eq(users.role, 'vega_admin'))
+      .where(
+        or(eq(users.role, 'vega_admin'), eq(users.role, 'vega_consultant'))
+      )
       .orderBy(users.email);
   }
 
@@ -3930,12 +3932,13 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(supportTickets.createdAt));
   }
 
-  async getAllSupportTickets(filters?: { status?: string; priority?: string; category?: string; tenantId?: string }): Promise<SupportTicket[]> {
+  async getAllSupportTickets(filters?: { status?: string; priority?: string; category?: string; tenantId?: string; assignedTo?: string }): Promise<SupportTicket[]> {
     const conditions: any[] = [];
     if (filters?.status) conditions.push(eq(supportTickets.status, filters.status));
     if (filters?.priority) conditions.push(eq(supportTickets.priority, filters.priority));
     if (filters?.category) conditions.push(eq(supportTickets.category, filters.category));
     if (filters?.tenantId) conditions.push(eq(supportTickets.tenantId, filters.tenantId));
+    if (filters?.assignedTo) conditions.push(eq(supportTickets.assignedTo, filters.assignedTo));
     
     const query = conditions.length > 0
       ? db.select().from(supportTickets).where(and(...conditions))

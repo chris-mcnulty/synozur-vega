@@ -17,11 +17,19 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 
 **Improvements**
 - **OKR Wizard Query Invalidation**: The wizard now invalidates OKR caches via the shared `invalidateOKRQueries()` helper, ensuring tenant-scoped composite query keys refresh correctly after creating a new objective hierarchy.
+- **Support Ticket Staff Assignment**: Admins can now assign tickets to any Vega Admin or Consultant staff member via a new "Assign To" dropdown in the ticket detail sidebar. Assignee avatar and name display in the ticket list. New `GET /api/support/staff` endpoint serves the staff roster.
+- **Support Ticket Reply Email Notifications**: Bidirectional email notifications for ticket replies. When staff posts a non-internal reply, the ticket author receives an email. When a user replies, the assigned staff member (or all admins if unassigned) gets notified. Internal notes never trigger email.
+- **Support Admin "Pending" Filter**: New compound status filter combining Open + In Progress tickets. Available as a status dropdown option and as a clickable stat card for quick access.
+- **Support Admin "My Assigned" Filter**: New stat card and filter preset showing only tickets assigned to the current admin. Dedicated "Assigned To" dropdown filter lets admins filter by any staff member.
+- **Category-to-Priority Defaults**: New ticket form now auto-sets priority based on category selection (bug → high, question/feature request → medium, feedback → low). Users can still manually override. Changing category resets the auto-default.
+- **`getVegaAdminUsers()` scope expanded**: Now returns both `vega_admin` and `vega_consultant` role users for consistent staff roster across the platform.
 
 **Documentation & Planning**
 - BACKLOG.md Executive Summary refreshed — stale 2025-dated phase references replaced with current Q2 2026 priorities
 - OKR Creation Wizard and Contextual Breadcrumbs marked as shipped
 - New "Support Ticket Finishing Pass" plan added to BACKLOG.md with a 10-item gap list based on the current Vega codebase (staff assignment UI, status history, SLA timers, bidirectional reply notifications, bulk actions, resolution templates, admin search, and more)
+- Support Ticket Finishing Pass Week 1 items (1, 4, 5, 9) marked complete in BACKLOG.md
+- Aurora UX Parity Analysis added to BACKLOG.md — evaluated and deferred (Constellation-specific branding incompatible with Vega theme)
 
 ---
 

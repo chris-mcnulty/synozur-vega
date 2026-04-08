@@ -1649,12 +1649,11 @@ Phase 3: Recovery (Week 3-4)
 **Priority:** Medium  
 **Added:** April 8, 2026
 
-**Note on scope:** A full comparison against Constellation's support system is
-pending — the Vega session currently has read access restricted to
-`chris-mcnulty/synozur-vega`, so `chris-mcnulty/synozur-scdp` cannot be
-inspected for pattern alignment. This plan is based on gaps visible in the
-Vega codebase alone. Revisit for cross-product UX parity once Constellation
-source access is granted.
+**Note on scope:** A full comparison against Constellation's support system
+(`chris-mcnulty/synozur-scdp`) has been completed (April 8, 2026). Week 1
+items have been implemented. Week 2 items remain scoped and ready to build.
+Aurora UX parity was evaluated and deferred — see "Aurora UX Parity Analysis"
+section below.
 
 #### What's shipped today
 - Schema: `supportTickets` + `supportTicketReplies` (`shared/schema.ts` ~2163)
@@ -1666,11 +1665,11 @@ source access is granted.
 
 #### Concrete gaps to close
 
-1. **Staff assignment UI (currently schema-only).**
-   The `assignedTo` column already exists on `supportTickets`. Surface it in
-   `AdminSupportTab.tsx` via a "Assign to" dropdown populated from
-   `vega_admin` + `vega_consultant` users. Show the current assignee as an
-   avatar in the ticket list.
+1. **Staff assignment UI ✅ COMPLETE.**
+   The `assignedTo` column surfaces in `AdminSupportTab.tsx` via an "Assign to"
+   dropdown populated from `vega_admin` + `vega_consultant` users (fetched via
+   `GET /api/support/staff`). Current assignee shown as avatar + name in the
+   ticket list and detail sidebar.
 
 2. **Per-ticket status history.**
    Today `status` is a mutable column with no audit trail. Add a
@@ -1685,16 +1684,18 @@ source access is granted.
    configurable thresholds (e.g. >24h no staff reply = red). No schema change
    — computed on the fly from `createdAt` and the latest non-internal reply.
 
-4. **Reply notifications (bidirectional).**
-   Currently only *creation* triggers email. Add:
-   - User email when staff posts a non-internal reply
-   - Admin email when user posts a reply on an existing ticket
-   Wire through `sendSupportTicket*` helpers in the support routes, mirroring
-   the existing acknowledgement pattern so failures don't block the write.
+4. **Reply notifications (bidirectional) ✅ COMPLETE.**
+   `sendSupportTicketReplyNotification()` added to `server/email.ts` with
+   `staff_to_user` and `user_to_staff` directions. Staff non-internal replies
+   email the ticket author. User replies email the assigned staff member (or
+   all admins if unassigned). Internal notes never trigger email. Failures
+   don't block the write.
 
-5. **"My assigned tickets" view for staff.**
-   Add a filter preset on `AdminSupportTab.tsx` that scopes to `assignedTo =
-   currentUser.id`. This is a one-line filter addition once #1 ships.
+5. **"My assigned tickets" view for staff ✅ COMPLETE.**
+   "My Assigned" stat card + filter preset in `AdminSupportTab.tsx` scopes to
+   `assignedTo = currentUser.id`. Also added "Assigned To" dropdown filter
+   to select any staff member. "Pending" compound status filter (open +
+   in_progress) added as status option and stat card.
 
 6. **Bulk close / bulk status change.**
    Select multiple tickets from the admin list and apply a status transition
@@ -1712,9 +1713,11 @@ source access is granted.
    admin list. Backend adds a `q` query param; frontend adds a search input
    next to the existing filter dropdowns.
 
-9. **Category-to-priority defaults.**
-   When a user selects category "bug", default priority to "high"; feedback
-   defaults to "low"; etc. Pure frontend change in the new-ticket form.
+9. **Category-to-priority defaults ✅ COMPLETE.**
+   When a user selects category "bug", priority defaults to "high"; question
+   and feature_request default to "medium"; feedback defaults to "low".
+   Manual priority override is preserved — changing category resets the
+   auto-default unless the user has manually selected a priority.
 
 10. **Help Chatbot ticket deflection metric.**
     Track how often the help chatbot answered vs. escalated to a ticket.
@@ -1725,11 +1728,11 @@ source access is granted.
 #### Recommended implementation order
 
 ```
-Week 1 (high-value, low-risk):
-├── (1) Staff assignment dropdown in AdminSupportTab
-├── (4) Bidirectional reply email notifications
-├── (5) "My assigned tickets" preset filter
-└── (9) Category-to-priority defaults
+Week 1 (high-value, low-risk): ✅ ALL COMPLETE
+├── (1) Staff assignment dropdown in AdminSupportTab ✅
+├── (4) Bidirectional reply email notifications ✅
+├── (5) "My assigned tickets" preset filter ✅
+└── (9) Category-to-priority defaults ✅
 
 Week 2 (structural):
 ├── (2) supportTicketStatusHistory table + detail-view timeline
@@ -1738,6 +1741,39 @@ Week 2 (structural):
 ├── (7) Resolution templates
 └── (8) Admin search
 ```
+
+---
+
+### Aurora UX Parity Analysis
+
+**Status:** Evaluated — deferred  
+**Added:** April 8, 2026
+
+**Summary:** Constellation's "Aurora" module was evaluated for cross-product
+UX parity. It consists of three elements:
+
+1. **Aurora Background Component** (`aurora.tsx`): An animated gradient blob
+   canvas using CSS keyframe animations with purple/magenta HSL tokens. Used
+   for hero sections and page backgrounds in Constellation.
+
+2. **Aurora Theme CSS** (`aurora.css`): A complete design token system with
+   purple-centric color variables, custom sidebar gradient indicators, and
+   page header gradient bars.
+
+3. **Particle/star field layer**: An optional decorative overlay with subtle
+   animated dots.
+
+**Decision:** Not porting. Aurora's visual identity is purpose-built for
+Constellation's purple branding and would conflict with Vega's existing
+design language (which aligns with Orion.synozur.com). The animated blob
+patterns, gradient indicators, and purple HSL tokens are all
+Constellation-specific chrome that would require a full theme rework in Vega.
+
+**Portable patterns (future consideration):**
+- The `animate-blob` CSS keyframe technique could be adapted if Vega adds
+  decorative hero sections in the future, using Vega's own color palette.
+- The sidebar active-item gradient indicator pattern is interesting but
+  unnecessary given Vega's existing sidebar highlighting.
 
 ---
 

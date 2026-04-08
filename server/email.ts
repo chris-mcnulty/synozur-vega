@@ -837,6 +837,77 @@ export async function sendSupportTicketInternalNotification(
   await client.send(msg);
 }
 
+export async function sendSupportTicketReplyNotification(
+  to: string,
+  userName: string,
+  ticketNumber: number,
+  subject: string,
+  replierName: string,
+  replyMessage: string,
+  direction: 'staff_to_user' | 'user_to_staff'
+) {
+  const { client, fromEmail } = await getUncachableSendGridClient();
+  const isStaffToUser = direction === 'staff_to_user';
+  const ticketUrl = isStaffToUser ? `${APP_URL}/support` : `${APP_URL}/system-admin?tab=support`;
+  const headerBg = isStaffToUser
+    ? 'linear-gradient(135deg, #2563eb 0%, #7c3aed 100%)'
+    : 'linear-gradient(135deg, #d97706 0%, #dc2626 100%)';
+  const heading = isStaffToUser
+    ? `New Reply on Ticket #${ticketNumber}`
+    : `User Reply on Ticket #${ticketNumber}`;
+  const intro = isStaffToUser
+    ? `The Vega support team has replied to your ticket.`
+    : `${replierName} has posted a reply on support ticket #${ticketNumber}.`;
+  const buttonLabel = isStaffToUser ? 'View My Tickets' : 'View in Admin';
+
+  const msg = {
+    to,
+    from: fromEmail,
+    subject: `[Vega Support] ${heading} - ${subject}`,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a; color: #ffffff;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #0a0a0a;">
+            <tr>
+              <td style="padding: 40px 20px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #1a1a1a; border-radius: 12px; overflow: hidden;">
+                  <tr>
+                    <td style="padding: 30px 40px; background: ${headerBg};">
+                      <h1 style="margin: 0; font-size: 20px; color: #ffffff;">${heading}</h1>
+                      <p style="margin: 5px 0 0; font-size: 14px; color: rgba(255,255,255,0.8);">${subject}</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 30px 40px;">
+                      <p style="margin: 0 0 20px; font-size: 16px; color: #e0e0e0;">Hi ${userName || 'there'},</p>
+                      <p style="margin: 0 0 20px; font-size: 14px; color: #b0b0b0;">${intro}</p>
+                      <div style="padding: 16px; background: #111; border-radius: 8px; margin: 0 0 20px; border-left: 3px solid #2563eb;">
+                        <p style="margin: 0 0 8px; font-size: 12px; color: #888;">${replierName} wrote:</p>
+                        <p style="margin: 0; font-size: 14px; color: #e0e0e0; white-space: pre-wrap;">${replyMessage.substring(0, 1000)}${replyMessage.length > 1000 ? '...' : ''}</p>
+                      </div>
+                      <a href="${ticketUrl}" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px;">${buttonLabel}</a>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 20px 40px; border-top: 1px solid #2a2a2a; text-align: center;">
+                      <p style="margin: 0; font-size: 12px; color: #666666;">&copy; ${new Date().getFullYear()} Synozur Alliance LLC. All rights reserved.</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `,
+    text: `Hi ${userName || 'there'},\n\n${intro}\n\n${replierName} wrote:\n${replyMessage.substring(0, 1000)}\n\nView ticket: ${ticketUrl}\n\nThe Vega Team`
+  };
+
+  await client.send(msg);
+}
+
 // Hash a token for secure storage (similar to password hashing)
 export function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');

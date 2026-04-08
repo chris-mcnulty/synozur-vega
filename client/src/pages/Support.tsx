@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -176,6 +176,13 @@ function TicketList({
   );
 }
 
+const CATEGORY_PRIORITY_DEFAULTS: Record<string, string> = {
+  bug: "high",
+  feature_request: "medium",
+  question: "medium",
+  feedback: "low",
+};
+
 function NewTicketForm({ onBack, initialDescription }: { onBack: () => void; initialDescription?: string }) {
   const { toast } = useToast();
 
@@ -188,6 +195,18 @@ function NewTicketForm({ onBack, initialDescription }: { onBack: () => void; ini
       priority: "medium",
     },
   });
+
+  const watchedCategory = form.watch("category");
+  const [hasManuallySetPriority, setHasManuallySetPriority] = useState(false);
+
+  useEffect(() => {
+    if (!hasManuallySetPriority && watchedCategory) {
+      const defaultPriority = CATEGORY_PRIORITY_DEFAULTS[watchedCategory];
+      if (defaultPriority) {
+        form.setValue("priority", defaultPriority as any);
+      }
+    }
+  }, [watchedCategory, hasManuallySetPriority, form]);
 
   const createTicket = useMutation({
     mutationFn: async (values: TicketFormValues) => {
@@ -226,7 +245,13 @@ function NewTicketForm({ onBack, initialDescription }: { onBack: () => void; ini
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Category</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select
+                      value={field.value}
+                      onValueChange={(val) => {
+                        field.onChange(val);
+                        setHasManuallySetPriority(false);
+                      }}
+                    >
                       <FormControl>
                         <SelectTrigger data-testid="select-category">
                           <SelectValue placeholder="Select category" />
@@ -283,7 +308,13 @@ function NewTicketForm({ onBack, initialDescription }: { onBack: () => void; ini
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Priority</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <Select
+                      value={field.value}
+                      onValueChange={(val) => {
+                        field.onChange(val);
+                        setHasManuallySetPriority(true);
+                      }}
+                    >
                       <FormControl>
                         <SelectTrigger data-testid="select-priority">
                           <SelectValue placeholder="Select priority" />

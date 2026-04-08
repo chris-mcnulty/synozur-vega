@@ -22,7 +22,7 @@ Preferred communication style: Simple, everyday language.
     - **Vocabulary Module**: Customizable terminology.
     - **Public Domain Handling**: Enforces invite-only tenants for public email domains to prevent squatting.
     - **Help Chatbot**: AI-powered assistant grounded on documentation, with support ticket escalation.
-    - **Support Ticket System**: Manages user-submitted tickets with categories, priorities, statuses, and email notifications.
+    - **Support Ticket System**: Manages user-submitted tickets with categories, priorities, statuses, and email notifications. Staff assignment with `GET /api/support/staff` roster endpoint. Bidirectional reply email notifications (staff→user, user→staff). Admin dashboard with "Pending" (open+in_progress) and "My Assigned" filter presets. Category-to-priority auto-defaults on new ticket form (bug→high, feedback→low).
 
 ### Backend
 - **Server**: Express.js with Node.js, providing a RESTful API.

@@ -3,7 +3,7 @@ import { storage } from "./storage";
 import { loadCurrentUser, requireTenantAccess } from "./middleware/rbac";
 import { hasPermission, PERMISSIONS, Role } from "@shared/rbac";
 import { z } from "zod";
-import { sendSupportTicketAcknowledgement, sendSupportTicketInternalNotification } from "./email";
+import { sendSupportTicketAcknowledgement, sendSupportTicketInternalNotification, sendSupportTicketReplyNotification } from "./email";
 import { TICKET_CATEGORIES, TICKET_PRIORITIES, TICKET_STATUSES } from "@shared/schema";
 import fs from "fs";
 import path from "path";
@@ -42,6 +42,25 @@ const updateTicketSchema = z.object({
   priority: z.enum(TICKET_PRIORITIES).optional(),
   assignedTo: z.string().optional(),
   category: z.enum(TICKET_CATEGORIES).optional(),
+});
+
+supportRouter.get("/staff", async (req: Request, res: Response) => {
+  try {
+    if (!req.user || !isAdminRole(req.user.role)) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    const staffUsers = await storage.getVegaAdminUsers();
+    return res.json(staffUsers.map(u => ({
+      id: u.id,
+      email: u.email,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      role: u.role,
+    })));
+  } catch (error) {
+    console.error("Error fetching staff users:", error);
+    return res.status(500).json({ error: "Failed to fetch staff users" });
+  }
 });
 
 supportRouter.post("/tickets", async (req: Request, res: Response) => {
@@ -116,12 +135,35 @@ supportRouter.get("/tickets", async (req: Request, res: Response) => {
     }
 
     if (isAdminRole(req.user.role)) {
-      const { status, priority, category, tenantId } = req.query as Record<string, string | undefined>;
+      const { status, priority, category, tenantId, assignedTo } = req.query as Record<string, string | undefined>;
+
+      if (status === "pending") {
+        const openTickets = await storage.getAllSupportTickets({
+          status: "open",
+          priority: priority || undefined,
+          category: category || undefined,
+          tenantId: tenantId || undefined,
+          assignedTo: assignedTo || undefined,
+        });
+        const inProgressTickets = await storage.getAllSupportTickets({
+          status: "in_progress",
+          priority: priority || undefined,
+          category: category || undefined,
+          tenantId: tenantId || undefined,
+          assignedTo: assignedTo || undefined,
+        });
+        const combined = [...openTickets, ...inProgressTickets].sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        return res.json(combined);
+      }
+
       const tickets = await storage.getAllSupportTickets({
         status: status || undefined,
         priority: priority || undefined,
         category: category || undefined,
         tenantId: tenantId || undefined,
+        assignedTo: assignedTo || undefined,
       });
       return res.json(tickets);
     }
@@ -200,6 +242,57 @@ supportRouter.post("/tickets/:id/replies", async (req: Request, res: Response) =
       isInternal: isAdmin && isInternal ? true : false,
     });
 
+    const replierName = `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.email;
+    const isInternalNote = isAdmin && isInternal;
+
+    if (!isInternalNote) {
+      try {
+        if (isAdmin) {
+          const ticketAuthor = await storage.getUser(ticket.userId);
+          if (ticketAuthor) {
+            await sendSupportTicketReplyNotification(
+              ticketAuthor.email,
+              ticketAuthor.firstName || ticketAuthor.email,
+              ticket.ticketNumber,
+              ticket.subject,
+              replierName,
+              message,
+              'staff_to_user'
+            );
+          }
+        } else {
+          const staffUsers = await storage.getVegaAdminUsers();
+          const recipients: { email: string; name: string }[] = [];
+          if (ticket.assignedTo) {
+            const assignee = staffUsers.find(u => u.id === ticket.assignedTo);
+            if (assignee) {
+              recipients.push({ email: assignee.email, name: assignee.firstName || assignee.email });
+            }
+          }
+          if (recipients.length === 0) {
+            for (const admin of staffUsers) {
+              recipients.push({ email: admin.email, name: admin.firstName || admin.email });
+            }
+          }
+          for (const r of recipients) {
+            try {
+              await sendSupportTicketReplyNotification(
+                r.email,
+                r.name,
+                ticket.ticketNumber,
+                ticket.subject,
+                replierName,
+                message,
+                'user_to_staff'
+              );
+            } catch (e) { /* individual email failure ok */ }
+          }
+        }
+      } catch (emailErr) {
+        console.error("Failed to send reply notification email:", emailErr);
+      }
+    }
+
     return res.status(201).json(reply);
   } catch (error) {
     console.error("Error creating ticket reply:", error);
@@ -228,6 +321,10 @@ supportRouter.patch("/tickets/:id", async (req: Request, res: Response) => {
     }
 
     const updates: any = { ...parsed.data };
+
+    if (updates.assignedTo === "") {
+      updates.assignedTo = null;
+    }
 
     if (updates.status === "resolved") {
       updates.resolvedAt = new Date();

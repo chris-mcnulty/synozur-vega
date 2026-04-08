@@ -7,10 +7,18 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ArrowLeft, Send, LifeBuoy, Clock, AlertCircle, CheckCircle2, MessageSquare, Eye } from "lucide-react";
+import { Loader2, ArrowLeft, Send, LifeBuoy, Clock, AlertCircle, CheckCircle2, MessageSquare, Eye, UserCheck, Filter } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+
+interface StaffUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  role: string;
+}
 
 interface TicketListItem {
   id: string;
@@ -22,6 +30,7 @@ interface TicketListItem {
   description: string;
   priority: string;
   status: string;
+  assignedTo: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -116,44 +125,119 @@ function getStatusIcon(status: string) {
   }
 }
 
+function getStaffDisplayName(staff: StaffUser) {
+  const name = `${staff.firstName || ''} ${staff.lastName || ''}`.trim();
+  return name || staff.email;
+}
+
 export function AdminSupportTab() {
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [assignedFilter, setAssignedFilter] = useState<string>("all");
+
+  const { data: staffUsers } = useQuery<StaffUser[]>({
+    queryKey: ["/api/support/staff"],
+  });
+
+  const { data: currentUser } = useQuery<{ id: string }>({
+    queryKey: ["/api/auth/me"],
+  });
 
   const filters: Record<string, string> = {};
   if (statusFilter !== "all") filters.status = statusFilter;
   if (priorityFilter !== "all") filters.priority = priorityFilter;
   if (categoryFilter !== "all") filters.category = categoryFilter;
+  if (assignedFilter !== "all" && assignedFilter !== "my_assigned") filters.assignedTo = assignedFilter;
 
   const { data: tickets, isLoading } = useQuery<TicketListItem[]>({
     queryKey: ["/api/support/tickets", filters],
   });
 
+  const displayedTickets = assignedFilter === "my_assigned" && currentUser
+    ? tickets?.filter((t) => t.assignedTo === currentUser.id)
+    : tickets;
+
   const openCount = tickets?.filter((t) => t.status === "open").length ?? 0;
   const inProgressCount = tickets?.filter((t) => t.status === "in_progress").length ?? 0;
-  const totalCount = tickets?.length ?? 0;
+  const pendingCount = openCount + inProgressCount;
+  const myAssignedCount = currentUser
+    ? tickets?.filter((t) => t.assignedTo === currentUser.id && (t.status === "open" || t.status === "in_progress")).length ?? 0
+    : 0;
+  const totalCount = displayedTickets?.length ?? 0;
 
   if (selectedTicketId) {
     return (
       <TicketDetailView
         ticketId={selectedTicketId}
         onBack={() => setSelectedTicketId(null)}
+        staffUsers={staffUsers || []}
       />
     );
   }
 
+  const applyPreset = (preset: string) => {
+    if (preset === "pending") {
+      setStatusFilter("pending");
+      setPriorityFilter("all");
+      setCategoryFilter("all");
+      setAssignedFilter("all");
+    } else if (preset === "my_assigned") {
+      setStatusFilter("pending");
+      setPriorityFilter("all");
+      setCategoryFilter("all");
+      setAssignedFilter("my_assigned");
+    } else if (preset === "all") {
+      setStatusFilter("all");
+      setPriorityFilter("all");
+      setCategoryFilter("all");
+      setAssignedFilter("all");
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card data-testid="stat-card-total">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+        <Card
+          data-testid="stat-card-total"
+          className="cursor-pointer hover-elevate"
+          onClick={() => applyPreset("all")}
+        >
           <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Tickets</CardTitle>
             <LifeBuoy className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold" data-testid="stat-total-count">{totalCount}</div>
+            <div className="text-2xl font-bold" data-testid="stat-total-count">{tickets?.length ?? 0}</div>
+          </CardContent>
+        </Card>
+        <Card
+          data-testid="stat-card-pending"
+          className="cursor-pointer hover-elevate"
+          onClick={() => applyPreset("pending")}
+        >
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending</CardTitle>
+            <Filter className="h-4 w-4 text-orange-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-orange-600 dark:text-orange-400" data-testid="stat-pending-count">{pendingCount}</div>
+            <p className="text-xs text-muted-foreground mt-1">Open + In Progress</p>
+          </CardContent>
+        </Card>
+        <Card
+          data-testid="stat-card-my-assigned"
+          className="cursor-pointer hover-elevate"
+          onClick={() => applyPreset("my_assigned")}
+        >
+          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">My Assigned</CardTitle>
+            <UserCheck className="h-4 w-4 text-purple-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-purple-600 dark:text-purple-400" data-testid="stat-my-assigned-count">{myAssignedCount}</div>
+            <p className="text-xs text-muted-foreground mt-1">Assigned to me</p>
           </CardContent>
         </Card>
         <Card data-testid="stat-card-open">
@@ -163,15 +247,6 @@ export function AdminSupportTab() {
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-blue-600 dark:text-blue-400" data-testid="stat-open-count">{openCount}</div>
-          </CardContent>
-        </Card>
-        <Card data-testid="stat-card-in-progress">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">In Progress</CardTitle>
-            <Clock className="h-4 w-4 text-yellow-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400" data-testid="stat-in-progress-count">{inProgressCount}</div>
           </CardContent>
         </Card>
       </div>
@@ -190,6 +265,7 @@ export function AdminSupportTab() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="pending">Pending (Open + In Progress)</SelectItem>
                   <SelectItem value="open">Open</SelectItem>
                   <SelectItem value="in_progress">In Progress</SelectItem>
                   <SelectItem value="resolved">Resolved</SelectItem>
@@ -226,6 +302,23 @@ export function AdminSupportTab() {
                 </SelectContent>
               </Select>
             </div>
+            <div className="min-w-[160px]">
+              <Label className="text-xs text-muted-foreground mb-1 block">Assigned To</Label>
+              <Select value={assignedFilter} onValueChange={setAssignedFilter} data-testid="select-assigned-filter">
+                <SelectTrigger data-testid="trigger-assigned-filter">
+                  <SelectValue placeholder="All" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All</SelectItem>
+                  <SelectItem value="my_assigned">My Assigned</SelectItem>
+                  {staffUsers?.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {getStaffDisplayName(s)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -234,7 +327,7 @@ export function AdminSupportTab() {
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      ) : !tickets || tickets.length === 0 ? (
+      ) : !displayedTickets || displayedTickets.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 text-center">
           <LifeBuoy className="h-12 w-12 text-muted-foreground mb-4" />
           <p className="text-muted-foreground" data-testid="text-empty-admin-tickets">No tickets found</p>
@@ -244,49 +337,64 @@ export function AdminSupportTab() {
         </div>
       ) : (
         <div className="space-y-3">
-          {tickets.map((ticket) => (
-            <Card
-              key={ticket.id}
-              className="hover-elevate cursor-pointer"
-              onClick={() => setSelectedTicketId(ticket.id)}
-              data-testid={`card-admin-ticket-${ticket.id}`}
-            >
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4 flex-wrap">
-                  <div className="space-y-1.5 min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-xs text-muted-foreground font-mono" data-testid={`text-ticket-number-${ticket.id}`}>
-                        #{ticket.ticketNumber}
-                      </span>
-                      <Badge className={getStatusBadgeClass(ticket.status)} data-testid={`badge-status-${ticket.id}`}>
-                        {formatLabel(ticket.status)}
-                      </Badge>
-                      <Badge className={`text-xs ${getPriorityBadgeClass(ticket.priority)}`} data-testid={`badge-priority-${ticket.id}`}>
-                        {formatLabel(ticket.priority)}
-                      </Badge>
-                      <Badge variant="outline" className={`text-xs ${getCategoryBadgeClass()}`} data-testid={`badge-category-${ticket.id}`}>
-                        {formatLabel(ticket.category)}
-                      </Badge>
+          {displayedTickets.map((ticket) => {
+            const assignee = staffUsers?.find(s => s.id === ticket.assignedTo);
+            return (
+              <Card
+                key={ticket.id}
+                className="hover-elevate cursor-pointer"
+                onClick={() => setSelectedTicketId(ticket.id)}
+                data-testid={`card-admin-ticket-${ticket.id}`}
+              >
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-4 flex-wrap">
+                    <div className="space-y-1.5 min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs text-muted-foreground font-mono" data-testid={`text-ticket-number-${ticket.id}`}>
+                          #{ticket.ticketNumber}
+                        </span>
+                        <Badge className={getStatusBadgeClass(ticket.status)} data-testid={`badge-status-${ticket.id}`}>
+                          {formatLabel(ticket.status)}
+                        </Badge>
+                        <Badge className={`text-xs ${getPriorityBadgeClass(ticket.priority)}`} data-testid={`badge-priority-${ticket.id}`}>
+                          {formatLabel(ticket.priority)}
+                        </Badge>
+                        <Badge variant="outline" className={`text-xs ${getCategoryBadgeClass()}`} data-testid={`badge-category-${ticket.id}`}>
+                          {formatLabel(ticket.category)}
+                        </Badge>
+                      </div>
+                      <p className="font-medium truncate" data-testid={`text-ticket-subject-${ticket.id}`}>
+                        {ticket.subject}
+                      </p>
                     </div>
-                    <p className="font-medium truncate" data-testid={`text-ticket-subject-${ticket.id}`}>
-                      {ticket.subject}
-                    </p>
+                    <div className="flex items-center gap-3 shrink-0">
+                      {assignee && (
+                        <div className="flex items-center gap-1.5" data-testid={`assignee-badge-${ticket.id}`}>
+                          <Avatar className="h-5 w-5">
+                            <AvatarFallback className="text-[10px]">
+                              {(assignee.firstName?.[0] ?? '').toUpperCase()}{(assignee.lastName?.[0] ?? '').toUpperCase()}
+                            </AvatarFallback>
+                          </Avatar>
+                          <span className="text-xs text-muted-foreground">{getStaffDisplayName(assignee)}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                        <Clock className="h-3 w-3" />
+                        <span data-testid={`text-ticket-date-${ticket.id}`}>{formatDate(ticket.createdAt)}</span>
+                      </div>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground shrink-0">
-                    <Clock className="h-3 w-3" />
-                    <span data-testid={`text-ticket-date-${ticket.id}`}>{formatDate(ticket.createdAt)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
 
-function TicketDetailView({ ticketId, onBack }: { ticketId: string; onBack: () => void }) {
+function TicketDetailView({ ticketId, onBack, staffUsers }: { ticketId: string; onBack: () => void; staffUsers: StaffUser[] }) {
   const { toast } = useToast();
   const [replyMessage, setReplyMessage] = useState("");
   const [isInternal, setIsInternal] = useState(false);
@@ -296,7 +404,7 @@ function TicketDetailView({ ticketId, onBack }: { ticketId: string; onBack: () =
   });
 
   const updateTicket = useMutation({
-    mutationFn: async (updates: { status?: string; priority?: string }) => {
+    mutationFn: async (updates: { status?: string; priority?: string; assignedTo?: string }) => {
       const res = await apiRequest("PATCH", `/api/support/tickets/${ticketId}`, updates);
       return res.json();
     },
@@ -349,6 +457,7 @@ function TicketDetailView({ ticketId, onBack }: { ticketId: string; onBack: () =
     : "Unknown";
   const authorEmail = ticket.author?.email ?? "N/A";
   const tenantName = ticket.tenant?.name ?? "Unknown Tenant";
+  const currentAssignee = staffUsers.find(s => s.id === ticket.assignedTo);
 
   return (
     <div className="space-y-6">
@@ -506,6 +615,23 @@ function TicketDetailView({ ticketId, onBack }: { ticketId: string; onBack: () =
                 </div>
               </div>
               <div>
+                <Label className="text-xs text-muted-foreground">Assigned To</Label>
+                <div className="mt-1 flex items-center gap-2" data-testid="text-detail-assignee">
+                  {currentAssignee ? (
+                    <>
+                      <Avatar className="h-5 w-5">
+                        <AvatarFallback className="text-[10px]">
+                          {(currentAssignee.firstName?.[0] ?? '').toUpperCase()}{(currentAssignee.lastName?.[0] ?? '').toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-sm font-medium">{getStaffDisplayName(currentAssignee)}</span>
+                    </>
+                  ) : (
+                    <span className="text-sm text-muted-foreground">Unassigned</span>
+                  )}
+                </div>
+              </div>
+              <div>
                 <Label className="text-xs text-muted-foreground">Created</Label>
                 <p className="text-sm" data-testid="text-detail-created">{formatDate(ticket.createdAt)}</p>
               </div>
@@ -575,6 +701,29 @@ function TicketDetailView({ ticketId, onBack }: { ticketId: string; onBack: () =
                     <SelectItem value="high">High</SelectItem>
                     <SelectItem value="medium">Medium</SelectItem>
                     <SelectItem value="low">Low</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label className="text-xs text-muted-foreground mb-1 block">Assign To</Label>
+                <Select
+                  value={ticket.assignedTo || "unassigned"}
+                  onValueChange={(value) => updateTicket.mutate({ assignedTo: value === "unassigned" ? "" : value })}
+                  data-testid="select-update-assignee"
+                >
+                  <SelectTrigger data-testid="trigger-update-assignee">
+                    <SelectValue placeholder="Select assignee" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                    {staffUsers.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        <div className="flex items-center gap-2">
+                          <UserCheck className="h-3 w-3" />
+                          {getStaffDisplayName(s)}
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
