@@ -475,7 +475,7 @@ export default function PlanningEnhanced() {
   const objectives = useMemo(() => {
     if (hasAnnualSelected) return rawObjectives;
     if (!isMultiPeriod || selectedPeriods.length === 0) return rawObjectives;
-    return rawObjectives.filter((obj: any) => selectedPeriods.includes(obj.quarter));
+    return rawObjectives.filter((obj: any) => obj.quarter == null || selectedPeriods.includes(obj.quarter));
   }, [rawObjectives, isMultiPeriod, selectedPeriods, hasAnnualSelected]);
 
   const { data: rawBigRocks = [], isLoading: loadingBigRocks } = useQuery<BigRock[]>({

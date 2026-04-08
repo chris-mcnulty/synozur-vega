@@ -916,8 +916,12 @@ export class DatabaseStorage implements IStorage {
         eq(objectives.quarter, 0)
       ));
     } else if (quarter !== undefined && quarter > 0 && year !== undefined) {
-      // Show only the exact quarter requested - do NOT include Annual objectives
-      conditions.push(eq(objectives.quarter, quarter));
+      // Show exact quarter AND objectives with no quarter set (annual/unquartered objectives
+      // are always visible regardless of which quarter filter is active)
+      conditions.push(or(
+        eq(objectives.quarter, quarter),
+        isNull(objectives.quarter)
+      ));
     }
     
     // Add level filter if provided (organization, team, individual)

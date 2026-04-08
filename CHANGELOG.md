@@ -24,6 +24,9 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 - **Category-to-Priority Defaults**: New ticket form now auto-sets priority based on category selection (bug → high, question/feature request → medium, feedback → low). Users can still manually override. Changing category resets the auto-default.
 - **`getVegaAdminUsers()` scope expanded**: Now returns both `vega_admin` and `vega_consultant` role users for consistent staff roster across the platform.
 
+**Bug Fixes**
+- **Executive Dashboard — Empty Objectives (Production)**: Fixed a production bug where the Executive Dashboard showed "No objectives found" for all quarterly views. Root cause: objectives created without a quarter assignment (`quarter=NULL`) represent annual/unquartered OKRs, but the backend storage query only matched objectives with the exact quarter number requested — silently excluding all null-quarter records. Fix: quarterly view queries now use `quarter = N OR quarter IS NULL`, so annual OKRs are always visible regardless of the time period filter. The same fix applies to the Company OS Dashboard, hierarchy view, and key results roll-ups. Multi-period client-side filter in the Outcomes page updated to also always include null-quarter objectives.
+
 **Documentation & Planning**
 - BACKLOG.md Executive Summary refreshed — stale 2025-dated phase references replaced with current Q2 2026 priorities
 - OKR Creation Wizard and Contextual Breadcrumbs marked as shipped
