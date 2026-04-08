@@ -15,6 +15,7 @@ import starTrailsBg from "@/assets/brand/AdobeStock_362805421_1763398687511.jpeg
 import vegaLogo from "@/assets/brand/VegaTight_1766605018223.png";
 import vegaLogoWhite from "@/assets/brand/Vega_-_White_1767549184769.png";
 import ReCAPTCHA from "react-google-recaptcha";
+import { Aurora } from "@/components/aurora";
 
 const ORGANIZATION_SIZES = [
   { value: "1-10", label: "1-10 employees" },
@@ -333,6 +334,7 @@ export default function Login() {
         }}
       />
       <div className="fixed inset-0 z-0 bg-gradient-to-br from-primary/40 via-purple-900/30 to-background/80" />
+      <Aurora intensity="high" theme="dark" particles className="fixed inset-0 z-[1]" />
       
       <div className="relative z-10 w-full max-w-md space-y-6">
         <Link href="/">

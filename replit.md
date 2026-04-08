@@ -1,7 +1,7 @@
 # Vega - AI-Augmented Company OS Platform
 
 ## Overview
-Vega is a responsive web application serving as a comprehensive Company Operating System (Company OS). Its core purpose is to align organizational strategy with execution using AI-powered modules for foundational elements, strategy development, and focus rhythm management. The platform supports both consultant-led and self-service models, integrates with Microsoft 365, and ensures brand continuity through a consistent UI/UX with Orion.synozur.com. It aims to deliver a holistic solution for strategic objective management and implementation, enhancing market potential through AI-driven insights and streamlined operations.
+Vega is a responsive web application serving as a comprehensive Company Operating System (Company OS). Its core purpose is to align organizational strategy with execution using AI-powered modules for foundational elements, strategy development, and focus rhythm management. The platform supports both consultant-led and self-service models, integrates with Microsoft 365, and ensures brand continuity through the Aurora Visual System aligned with the Constellation (Oconee) brand standard. It aims to deliver a holistic solution for strategic objective management and implementation, enhancing market potential through AI-driven insights and streamlined operations.
 
 ## User Preferences
 Preferred communication style: Simple, everyday language.
@@ -11,7 +11,7 @@ Preferred communication style: Simple, everyday language.
 ### Frontend
 - **Framework**: React with TypeScript, Wouter for routing, and shadcn/ui (Radix UI) for components.
 - **State Management**: React hooks and TanStack Query.
-- **Styling**: TailwindCSS, Avenir Next LT Pro font, CSS variables for design tokens, and responsive design, mimicking Orion.synozur.com's aesthetic with whitespace, card-based layouts, and subtle animations.
+- **Styling**: TailwindCSS, Avenir Next LT Pro font, CSS variables for design tokens, and responsive design aligned with the Constellation (Oconee) brand standard. **Aurora Visual System** ported from Constellation: `Aurora` animated blob background component (`client/src/components/aurora.tsx`), `cosmic-text` gradient headings, `synozur-gradient`/`synozur-gradient-text` brand gradient utilities, `glow-primary`/`primary-cta-glow` glow effects, `sidebar-active-item`/`sidebar-hover-item` sidebar glow classes, `animate-blob` + `animation-delay-*` blob animations, `animate-fade-in-up` + `stagger-1..6` entrance animations, `nebula-shimmer` branded skeleton loading, `nebula-card` animated rotating gradient border (dark mode), `sidebar-item-active-gradient` (3px gradient left bar), `page-header-gradient-bar` (gradient top border on module header). Purple-tinted shadows (hsl 277) in both light and dark modes.
 - **Key Features**:
     - **Dashboards**: Company OS, Executive (advanced analytics, velocity projections), and Team Dashboards (weekly execution focus).
     - **Core Modules**: Foundations (mission, vision, values, ambitions), Strategy (AI drafting, goal alignment), Outcomes (hierarchical OKRs, "big rocks", annual goals with AI suggestions), Focus Rhythm (meeting management), Reporting (PDF/PPTX export).

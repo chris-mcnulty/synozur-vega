@@ -371,7 +371,7 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
       <AppSidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <AnnouncementBanner />
-        <header className="flex items-center justify-between px-2 md:px-4 py-2 md:py-4 border-b gap-2 md:gap-4">
+        <header className="flex items-center justify-between px-2 md:px-4 py-2 md:py-4 border-b page-header-gradient-bar gap-2 md:gap-4">
           <div className="flex items-center gap-2 md:gap-4 min-w-0">
             <SidebarTrigger data-testid="button-sidebar-toggle" />
             {tenantLogo && (

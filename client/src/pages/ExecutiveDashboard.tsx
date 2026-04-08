@@ -742,7 +742,7 @@ export default function ExecutiveDashboard() {
     <div className="max-w-7xl mx-auto space-y-6 p-6">
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-3xl font-semibold mb-2" data-testid="text-executive-title">Executive Dashboard</h1>
+          <h1 className="text-3xl font-semibold mb-2 cosmic-text" data-testid="text-executive-title">Executive Dashboard</h1>
           <p className="text-muted-foreground">
             Strategic overview and organizational health for {currentQuarter?.label}
           </p>

@@ -29,7 +29,7 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 - OKR Creation Wizard and Contextual Breadcrumbs marked as shipped
 - New "Support Ticket Finishing Pass" plan added to BACKLOG.md with a 10-item gap list based on the current Vega codebase (staff assignment UI, status history, SLA timers, bidirectional reply notifications, bulk actions, resolution templates, admin search, and more)
 - Support Ticket Finishing Pass Week 1 items (1, 4, 5, 9) marked complete in BACKLOG.md
-- Aurora UX Parity Analysis added to BACKLOG.md — evaluated and deferred (Constellation-specific branding incompatible with Vega theme)
+- **Aurora Visual System implemented** — full port from Constellation brand standard, including animated blob background component, cosmic-text gradient headings, synozur-gradient/glow/shimmer utilities, nebula-card animated border, sidebar active-gradient indicator, page header gradient bar, and purple-tinted shadows
 
 ---
 

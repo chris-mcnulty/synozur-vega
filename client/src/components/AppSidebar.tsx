@@ -184,12 +184,15 @@ export function AppSidebar() {
                 <CollapsibleContent>
                   <SidebarGroupContent>
                     <SidebarMenu>
-                      {section.items.map((item) => (
+                      {section.items.map((item) => {
+                        const active = location === item.url;
+                        return (
                         <SidebarMenuItem key={item.title}>
                           <SidebarMenuButton
                             asChild
-                            isActive={location === item.url}
+                            isActive={active}
                             data-testid={item.testId}
+                            className={active ? "sidebar-item-active-gradient" : ""}
                           >
                             <a href={item.url} className="pl-6">
                               <item.icon className="h-4 w-4" />
@@ -197,7 +200,8 @@ export function AppSidebar() {
                             </a>
                           </SidebarMenuButton>
                         </SidebarMenuItem>
-                      ))}
+                        );
+                      })}
                     </SidebarMenu>
                   </SidebarGroupContent>
                 </CollapsibleContent>

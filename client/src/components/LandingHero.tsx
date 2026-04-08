@@ -15,6 +15,7 @@ import vegaLogoWhite from "@/assets/brand/Vega_-_White_1767549184769.png";
 import vegaScreenshot from "@/assets/brand/VegaSS4_1767644736409.jpg";
 import vegaDemoVideo from "@/assets/brand/VegaDemo_1767846856426.mp4";
 import microsoftIcon from "@/assets/brand/Microsoft_Icon_6_1765741102026.jpeg";
+import { Aurora } from "@/components/aurora";
 import outlookIcon from "@/assets/brand/Outlook_512_1765494903276.png";
 import sharePointIcon from "@/assets/brand/SharePoint_512_1765494903279.png";
 import excelIcon from "@/assets/brand/Excel_512_1765494903271.png";
@@ -204,9 +205,9 @@ export function LandingHero() {
           backgroundRepeat: 'no-repeat'
         }}
       >
-        {/* Starfield: lowest z-index layer beneath the dark wash */}
         <div className="starfield" aria-hidden="true" />
         <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/60 to-black/80" />
+        <Aurora intensity="medium" theme="dark" particles className="z-[1]" />
         
         <div className="relative z-10 w-full max-w-5xl mx-auto px-4 md:px-6 text-white">
           <div className="max-w-4xl mx-auto text-center">
@@ -246,7 +247,7 @@ export function LandingHero() {
               <Link href="/login?mode=signup">
                 <Button
                   size="lg"
-                  className="text-base px-8 shadow-xl w-full sm:w-auto"
+                  className="text-base px-8 shadow-xl w-full sm:w-auto primary-cta-glow"
                   data-testid="button-get-started"
                 >
                   Get started now

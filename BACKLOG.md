@@ -1652,7 +1652,7 @@ Phase 3: Recovery (Week 3-4)
 **Note on scope:** A full comparison against Constellation's support system
 (`chris-mcnulty/synozur-scdp`) has been completed (April 8, 2026). Week 1
 items have been implemented. Week 2 items remain scoped and ready to build.
-Aurora UX parity was evaluated and deferred — see "Aurora UX Parity Analysis"
+Aurora Visual System fully implemented — see "Aurora Visual System — Implemented"
 section below.
 
 #### What's shipped today
@@ -1744,36 +1744,49 @@ Week 2 (structural):
 
 ---
 
-### Aurora UX Parity Analysis
+### Aurora Visual System — Implemented
 
-**Status:** Evaluated — deferred  
+**Status:** ✅ Complete  
 **Added:** April 8, 2026
 
-**Summary:** Constellation's "Aurora" module was evaluated for cross-product
-UX parity. It consists of three elements:
+**Summary:** Full Aurora Visual System ported from Constellation (the current
+Oconee brand standard). Constellation replaces Orion as the authoritative
+brand reference.
 
-1. **Aurora Background Component** (`aurora.tsx`): An animated gradient blob
-   canvas using CSS keyframe animations with purple/magenta HSL tokens. Used
-   for hero sections and page backgrounds in Constellation.
+**Implemented components:**
 
-2. **Aurora Theme CSS** (`aurora.css`): A complete design token system with
-   purple-centric color variables, custom sidebar gradient indicators, and
-   page header gradient bars.
+1. **Aurora Background Component** (`client/src/components/aurora.tsx`):
+   Animated gradient blob background with three blur-3xl blobs using
+   primary purple (277) and accent magenta (328) HSL colors. Supports
+   `intensity` prop (low/medium/high), `theme` override, and optional
+   `particles` canvas (dark mode only, 70 animated dots).
 
-3. **Particle/star field layer**: An optional decorative overlay with subtle
-   animated dots.
+2. **CSS Utility Suite** (in `client/src/index.css`):
+   - `synozur-gradient` / `synozur-gradient-text` — brand gradient fills
+   - `cosmic-text` — three-stop gradient text effect for headings
+   - `glow-primary` / `primary-cta-glow` — box-shadow glow on hover/focus
+   - `sidebar-active-item` / `sidebar-hover-item` — sidebar glow classes
+   - `animate-blob` + `animation-delay-2000/4000` — 12s blob animation
+   - `animate-fade-in-up` + `stagger-1..6` — entrance animations
+   - `nebula-shimmer` — branded loading skeleton (replaces pulse)
+   - `nebula-card` — animated rotating gradient border (dark mode only)
+   - `sidebar-item-active-gradient` — 3px gradient left bar on active item
+   - `page-header-gradient-bar` — gradient top border on module header
 
-**Decision:** Not porting. Aurora's visual identity is purpose-built for
-Constellation's purple branding and would conflict with Vega's existing
-design language (which aligns with Orion.synozur.com). The animated blob
-patterns, gradient indicators, and purple HSL tokens are all
-Constellation-specific chrome that would require a full theme rework in Vega.
+3. **Purple-tinted shadows**: Light mode uses `hsl(277 50% 30%)` at subtle
+   opacity; dark mode uses `hsl(277 30% 2%)` at higher opacity. Replaces
+   the previous zero-opacity (invisible) shadow tokens.
 
-**Portable patterns (future consideration):**
-- The `animate-blob` CSS keyframe technique could be adapted if Vega adds
-  decorative hero sections in the future, using Vega's own color palette.
-- The sidebar active-item gradient indicator pattern is interesting but
-  unnecessary given Vega's existing sidebar highlighting.
+**Integration points:**
+- Login page: Aurora background with `intensity="high"` and particles
+- Landing hero: Aurora background with `intensity="medium"` and particles
+- Company OS Dashboard heading: `cosmic-text` gradient
+- Executive Dashboard heading: `cosmic-text` gradient
+- Landing AI Tools heading: `cosmic-text` gradient
+- Landing CTA button: `primary-cta-glow` hover effect
+- Module header (all authenticated pages): `page-header-gradient-bar`
+- Sidebar active items: `sidebar-item-active-gradient`
+- Skeleton loading component: `nebula-shimmer` (replaces pulse)
 
 ---
 
