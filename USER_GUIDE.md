@@ -210,11 +210,37 @@ The left sidebar provides access to all major modules:
 ![Vega main interface showing navigation and controls](/guide-images/02-main-navigation.png)
 *Screenshot highlighting the left sidebar navigation and top bar elements including AI chat icon, theme toggle, and profile menu*
 
+#### Contextual Breadcrumbs (New in v1.10)
+
+Below the top bar, every authenticated page now shows a contextual
+breadcrumb trail — a chain of clickable links that shows where you are in
+the app. For example, when you're looking at a Meeting inside Focus Rhythm
+the trail reads:
+
+```
+Home › Focus Rhythm › Meeting
+```
+
+**Using breadcrumbs:**
+
+- **Jump back** — Click any earlier segment (like **Home** or **Focus Rhythm**)
+  to navigate directly to that page without using the browser back button.
+- **Quick actions** — Section-root segments (Planning, Focus Rhythm, About,
+  Administration) open a small dropdown menu when clicked. Use it to jump
+  sideways to related pages. For example, clicking **About** reveals quick
+  links to Roadmap, Changelog, and Backlog.
+- **Long paths** — If the trail becomes too long, middle segments collapse
+  into a "…" menu. Click the ellipsis to see the hidden segments.
+- **Type icons** — Each segment shows an icon that reflects its content
+  (Home, Target, Calendar, etc.) so you can identify the module at a glance.
+
+Breadcrumbs automatically update as you navigate — no configuration required.
+
 ---
 
 ## What's New & Changelog
 
-Vega keeps you informed about platform updates through two features added in v1.8.
+Vega keeps you informed about platform updates through two features added in v1.8 and enhanced in v1.10.
 
 ### What's New Modal
 
@@ -232,6 +258,28 @@ Tenant admins can turn this feature on or off for their organization:
 2. Go to the **General** tab
 3. Find **Notifications** section
 4. Toggle **"Show What's New on Login"** on or off
+
+### Monthly Release Workflow (Platform Admins)
+
+Vega follows a monthly release cadence. When a new version ships, the What's
+New modal automatically surfaces the changes to every user who hasn't yet
+seen that version — no per-user configuration required.
+
+**Behind the scenes:**
+
+1. The CHANGELOG.md file is edited with a new `### Month Day, Year - Version X.Y` section at the top
+2. The server auto-detects the newest version marker from CHANGELOG.md and stores it as the "current" version
+3. Each user's `lastDismissedChangelogVersion` is compared to the current version — if different, they see the modal on their next visit
+4. When a user clicks "Got it", their dismissed version is recorded so they don't see the same modal again
+5. The modal's AI-generated summary is cached per version to avoid repeated generation
+
+**Refreshing without a restart:** After editing CHANGELOG.md in production, platform admins can hit the refresh endpoint to re-detect the current version and clear the summary cache without restarting the server:
+
+```
+POST /api/admin/changelog/refresh
+```
+
+This requires the `vega_admin` or `global_admin` role. The response returns the previous version, the newly detected version, and confirms the cache was cleared. All logged-in users will see the new What's New modal on their next request.
 
 ### Changelog Page
 
@@ -558,6 +606,17 @@ Vega supports four levels of objectives:
 
 ### Creating an Objective
 
+You have two ways to create an objective in Vega:
+
+1. **Add Objective** — a single-step dialog that creates just the objective.
+   Use this when you already know you want to add Key Results and Big Rocks
+   later, or when you're cloning something quickly.
+2. **OKR Wizard** — a guided multi-step flow (Objective → Key Results →
+   Big Rocks → Review) that builds a complete OKR hierarchy in one session.
+   See **Using the OKR Creation Wizard** below for details.
+
+**To create an objective via the single-step dialog:**
+
 1. Click **"Add Objective"**
 2. Fill in the form:
    - **Title**: Clear, aspirational goal statement
@@ -575,6 +634,39 @@ Vega supports four levels of objectives:
    - **Values**: Which company values does this embody?
 
 4. Click **"Save"**
+
+### Using the OKR Creation Wizard
+
+The **OKR Wizard** button sits next to "Add Objective" in the Planning header.
+It opens a four-step dialog that guides you through creating an objective
+along with its Key Results and Big Rocks in a single session.
+
+**Steps:**
+
+1. **Objective** — Title, description, level (Organization / Team /
+   Individual), owner, quarter, year, and team assignment. Only the title is
+   required to continue; everything else can be set later.
+2. **Key Results** — Add one or more measurable Key Results. Each KR has a
+   title, metric type (increase / decrease / maintain / complete), target
+   value, and unit. You need at least one KR with a non-zero target to move
+   past this step. Use the "Add Key Result" button to add more.
+3. **Big Rocks** — Optionally add major initiatives that will drive the
+   objective. Each Big Rock has a title, owner (via the User Picker), and
+   priority. This step is skippable — you can always add Big Rocks later
+   from the objective detail view.
+4. **Review** — A summary of everything you've entered. Confirm and click
+   **"Create OKR"** to submit. The wizard creates the objective, Key Results,
+   and Big Rocks in sequence and refreshes the Planning page.
+
+**Draft auto-save:** As soon as you start typing, the wizard continuously
+saves your progress to your browser. If you close the dialog, switch to
+another page, or even close the tab, your draft will be restored the next
+time you open the wizard. A small banner at the top of the dialog lets you
+know when a draft has been restored, and gives you a **"Discard draft"**
+button if you'd rather start fresh. Drafts are tenant-scoped — switching
+organizations never mixes drafts.
+
+Drafts clear automatically when you successfully create the OKR.
 
 ![Create Objective form showing all input fields and options](/guide-images/06-create-objective.png)
 *Screenshot of the Add/Edit Objective form showing all fields including title, description, level selector, owner assignment, time period, parent objective selection, and value/strategy tagging options*
@@ -2571,6 +2663,11 @@ Vega uses role-based permissions to control access:
   - Updated Getting Help section with chatbot-first approach
   - Added Help & Support category to Feature Overview
   - Added glossary terms: Help Chatbot, Support Ticket
+- **v1.6** (April 8, 2026): Version 1.10 updates:
+  - Added Contextual Breadcrumbs section under Understanding the Interface
+  - Added "Using the OKR Creation Wizard" section with draft auto-save details
+  - Added Monthly Release Workflow documentation under What's New & Changelog
+  - Documented `POST /api/admin/changelog/refresh` endpoint for platform admins
 
 ---
 

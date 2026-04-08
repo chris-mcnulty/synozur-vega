@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import type { ElementType } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,11 +12,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { UserPicker } from "@/components/UserPicker";
 import { useToast } from "@/hooks/use-toast";
 import { useTenant } from "@/contexts/TenantContext";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { apiRequest, invalidateOKRQueries } from "@/lib/queryClient";
 import { cn } from "@/lib/utils";
 import {
   Target, TrendingUp, Activity, Check, ChevronRight, ChevronLeft,
-  Plus, Trash2, Loader2, CheckCircle2, AlertCircle,
+  Plus, Trash2, Loader2, CheckCircle2,
 } from "lucide-react";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -148,8 +148,12 @@ export function OKRCreationWizard({
   const { currentTenant } = useTenant();
   const tenantId = currentTenant?.id;
 
+  // Draft auto-save: scope the localStorage key to tenant so drafts don't leak across tenants.
+  const draftKey = tenantId ? `okr-wizard-draft:${tenantId}` : null;
+
   const [step, setStep] = useState<WizardStep>("objective");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
 
   // Form state
   const [objective, setObjective] = useState<ObjectiveData>({
@@ -163,6 +167,56 @@ export function OKRCreationWizard({
   });
   const [keyResults, setKeyResults] = useState<KeyResultData[]>([{ ...DEFAULT_KR }]);
   const [bigRocks, setBigRocks] = useState<BigRockData[]>([]);
+
+  // Restore draft on open
+  const hasRestoredRef = useRef(false);
+  useEffect(() => {
+    if (!open || !draftKey || hasRestoredRef.current) return;
+    try {
+      const raw = localStorage.getItem(draftKey);
+      if (raw) {
+        const draft = JSON.parse(raw);
+        if (draft && typeof draft === "object") {
+          if (draft.objective) setObjective((prev) => ({ ...prev, ...draft.objective }));
+          if (Array.isArray(draft.keyResults) && draft.keyResults.length > 0) setKeyResults(draft.keyResults);
+          if (Array.isArray(draft.bigRocks)) setBigRocks(draft.bigRocks);
+          if (draft.step) setStep(draft.step);
+          setDraftRestored(true);
+        }
+      }
+    } catch {
+      // Ignore malformed drafts
+    }
+    hasRestoredRef.current = true;
+  }, [open, draftKey]);
+
+  // Auto-save draft as the user edits (debounced via effect dependency batching)
+  useEffect(() => {
+    if (!open || !draftKey) return;
+    const hasContent =
+      objective.title.trim().length > 0 ||
+      objective.description.trim().length > 0 ||
+      keyResults.some((kr) => kr.title.trim().length > 0) ||
+      bigRocks.some((br) => br.title.trim().length > 0);
+    if (!hasContent) return;
+    try {
+      localStorage.setItem(
+        draftKey,
+        JSON.stringify({ objective, keyResults, bigRocks, step, savedAt: Date.now() }),
+      );
+    } catch {
+      // Quota exceeded or storage unavailable — ignore
+    }
+  }, [open, draftKey, objective, keyResults, bigRocks, step]);
+
+  const clearDraft = useCallback(() => {
+    if (!draftKey) return;
+    try {
+      localStorage.removeItem(draftKey);
+    } catch {
+      // Ignore
+    }
+  }, [draftKey]);
 
   // Fetch teams for dropdown
   const { data: teamsData = [] } = useQuery<{ id: string; name: string }[]>({
@@ -276,17 +330,16 @@ export function OKRCreationWizard({
         });
       }
 
-      // Invalidate all OKR queries
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`] });
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`] });
+      // Invalidate all OKR queries (prefix-based so tenant-scoped composite keys match)
+      await invalidateOKRQueries();
 
       toast({
         title: "OKR Created",
         description: `Created "${objective.title}" with ${createdKRs.length} Key Result${createdKRs.length !== 1 ? "s" : ""} and ${bigRocks.filter(b => b.title.trim()).length} Big Rock${bigRocks.filter(b => b.title.trim()).length !== 1 ? "s" : ""}`,
       });
 
-      // Reset and close
+      // Reset, clear draft, and close
+      clearDraft();
       resetWizard();
       onOpenChange(false);
       onComplete?.();
@@ -315,11 +368,21 @@ export function OKRCreationWizard({
     });
     setKeyResults([{ ...DEFAULT_KR }]);
     setBigRocks([]);
+    setDraftRestored(false);
+    hasRestoredRef.current = false;
+  };
+
+  const discardDraft = () => {
+    clearDraft();
+    resetWizard();
+    toast({ title: "Draft discarded", description: "Your saved wizard draft has been cleared." });
   };
 
   const handleClose = (isOpen: boolean) => {
+    // Closing the wizard keeps the draft in localStorage so the user can resume later.
+    // The draft is only cleared on successful submit or explicit discard.
     if (!isOpen) {
-      resetWizard();
+      hasRestoredRef.current = false;
     }
     onOpenChange(isOpen);
   };
@@ -665,6 +728,25 @@ export function OKRCreationWizard({
         </DialogHeader>
 
         <StepIndicator currentStep={step} steps={STEPS} />
+
+        {draftRestored && (
+          <div
+            className="flex items-center justify-between gap-2 rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-primary"
+            data-testid="wizard-draft-restored"
+          >
+            <span>Resumed from a saved draft.</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs"
+              onClick={discardDraft}
+              disabled={isSubmitting}
+              data-testid="wizard-discard-draft"
+            >
+              Discard draft
+            </Button>
+          </div>
+        )}
 
         <div className="flex-1 overflow-auto min-h-0">
           {step === "objective" && renderObjectiveStep()}
