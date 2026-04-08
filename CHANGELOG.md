@@ -6,6 +6,25 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 
 ---
 
+## April 2026
+
+### April 8, 2026 - Version 1.10
+
+**New Features**
+- **OKR Creation Wizard — Draft Auto-Save**: The Create OKR wizard now automatically saves your progress as you type. Close the dialog, navigate away, or come back tomorrow — your draft objective, key results, and big rocks are waiting for you. Drafts are scoped per tenant so your work never leaks across organizations. A banner lets you know when a draft has been restored, with a one-click "Discard draft" button if you want a fresh start. Drafts clear automatically on successful submit.
+- **Contextual Breadcrumbs**: A new breadcrumb trail now appears below the main header on every authenticated page. It shows the path from Home to your current location, with type icons on each level. Section roots (Planning, Focus Rhythm, About, Administration) carry a quick-action dropdown that lets you jump sideways without navigating back first. Long paths are smart-truncated into an ellipsis dropdown so the trail never overwhelms the header.
+- **Monthly What's New Refresh Endpoint**: Platform admins can now trigger `POST /api/admin/changelog/refresh` after editing CHANGELOG.md in production. The server re-reads the changelog, picks up the new version, and clears the What's New summary cache so every user sees the fresh modal on their next request — no server restart required. Supports the new monthly release cadence.
+
+**Improvements**
+- **OKR Wizard Query Invalidation**: The wizard now invalidates OKR caches via the shared `invalidateOKRQueries()` helper, ensuring tenant-scoped composite query keys refresh correctly after creating a new objective hierarchy.
+
+**Documentation & Planning**
+- BACKLOG.md Executive Summary refreshed — stale 2025-dated phase references replaced with current Q2 2026 priorities
+- OKR Creation Wizard and Contextual Breadcrumbs marked as shipped
+- New "Support Ticket Finishing Pass" plan added to BACKLOG.md with a 10-item gap list based on the current Vega codebase (staff assignment UI, status history, SLA timers, bidirectional reply notifications, bulk actions, resolution templates, admin search, and more)
+
+---
+
 ## February 2026
 
 ### February 8, 2026 - Version 1.9

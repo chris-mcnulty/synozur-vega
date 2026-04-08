@@ -115,9 +115,15 @@ const roadmap: RoadmapPhase[] = [
       },
       {
         title: "OKR Creation Wizard",
-        description: "Multi-step wizard (Objective → Key Results → Big Rocks → Review) to create a complete OKR hierarchy in one session",
+        description: "Multi-step wizard (Objective → Key Results → Big Rocks → Review) with tenant-scoped draft auto-save and resume — build a complete OKR hierarchy in one session",
         status: "completed",
         icon: Wand2
+      },
+      {
+        title: "Contextual Breadcrumbs",
+        description: "Route-aware breadcrumb trail below the header with type icons, smart truncation for long paths, and quick-action menus on section-root segments",
+        status: "completed",
+        icon: Navigation
       },
       {
         title: "User Lookup for Item Assignment",
@@ -129,7 +135,7 @@ const roadmap: RoadmapPhase[] = [
   },
   {
     name: "In Progress",
-    timeframe: "Q1 2026",
+    timeframe: "Q2 2026",
     items: [
       {
         title: "Excel Data Binding",
@@ -144,12 +150,6 @@ const roadmap: RoadmapPhase[] = [
     name: "Committed Next",
     timeframe: "Q2 2026",
     items: [
-      {
-        title: "Contextual Breadcrumbs",
-        description: "Breadcrumb navigation with quick-action buttons contextual to your current location in the app — create, edit, or jump to related items without backtracking",
-        status: "planned",
-        icon: Navigation
-      },
       {
         title: "Executive Dashboard Personalization",
         description: "Saved widget layout, pinned metrics, and configurable dashboard sections so each executive sees the data most relevant to them",
@@ -179,6 +179,12 @@ const roadmap: RoadmapPhase[] = [
         description: "Feature entitlement system to gate premium features by service plan tier",
         status: "planned",
         icon: Shield
+      },
+      {
+        title: "Support Ticket Finishing Pass",
+        description: "Staff assignment UI, status history, SLA timers, bidirectional reply notifications, bulk actions, resolution templates, and admin search on the existing support ticket system",
+        status: "planned",
+        icon: Ticket
       }
     ]
   }

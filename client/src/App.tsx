@@ -15,6 +15,7 @@ import { HelpChatPanel } from "@/components/HelpChatPanel";
 import { WhatsNewModal } from "@/components/WhatsNewModal";
 import { AnnouncementBanner } from "@/components/AnnouncementBanner";
 import { ConsultingModeToggle } from "@/components/ConsultingModeToggle";
+import { ContextualBreadcrumbs } from "@/components/ContextualBreadcrumbs";
 import { TenantProvider, useTenant } from "@/contexts/TenantContext";
 import { VocabularyProvider } from "@/contexts/VocabularyContext";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
@@ -422,6 +423,7 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
         <div className="sm:hidden px-2 py-1.5 border-b">
           <GlobalTimePeriodSelector />
         </div>
+        <ContextualBreadcrumbs />
         <div className="flex flex-1 overflow-hidden bg-background">
           <main className="flex-1 overflow-auto p-4 md:p-8 bg-background">
             <RouteErrorBoundary>

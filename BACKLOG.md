@@ -1,6 +1,6 @@
 # Vega Platform Master Backlog
 
-**Last Updated:** March 30, 2026 (Serial Check-In Step-Through design added to backlog)
+**Last Updated:** April 8, 2026 (OKR Creation Wizard finalized with draft auto-save; Contextual Breadcrumbs shipped; monthly What's New refresh workflow added)
 
 > **Note:** This is the single source of truth for all Vega feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference this document for backlog-related questions.
 
@@ -23,7 +23,7 @@
 
 ## EXECUTIVE SUMMARY & PRIORITY SEQUENCE
 
-### Current Status Assessment (February 8, 2026)
+### Current Status Assessment (April 8, 2026)
 
 | Item | Status | Notes |
 |------|--------|-------|
@@ -50,20 +50,23 @@
 ### Recommended Priority Sequence
 
 ```
-PHASE 1: M365 Copilot Agent Completion (January 2025)
-├── OAuth setup in Copilot Studio (pending client Azure AD setup)
-├── Testing in M365 dev tenant
+PHASE 1: M365 Copilot Agent Write Actions (Q2 2026)
+├── Extend Copilot Agent with write tools (update KR, add check-in, update big rock)
+├── Re-test OAuth + tool registration in M365 dev tenant
 └── Client deployment + refinement
 
-PHASE 2: UX Enhancements (January-February 2025)
-├── Unified Time Period Selector (1 week)
-├── Contextual Breadcrumbs (1 week)
-└── OKR Creation Wizard (2 weeks)
+PHASE 2: UX Enhancements (Q2 2026)
+├── ✅ Unified Time Period Selector (shipped)
+├── ✅ Contextual Breadcrumbs (shipped Apr 8, 2026)
+├── ✅ OKR Creation Wizard (shipped; finalized Apr 8, 2026 with draft auto-save)
+├── Executive Dashboard Personalization (pinned metrics, saved layout)
+└── User Lookup for Item Assignment — Big Rocks & Meetings phases
 
-PHASE 3: Advanced Features (February-March 2025)
+PHASE 3: Advanced Features (Q2–Q3 2026)
 ├── Strategy Cascade Visualization (2-3 weeks)
 ├── OKR Health Scoring & Predictive Analytics (3-4 weeks)
-└── Cross-Team Dependencies & Collaboration Hub (2-3 weeks)
+├── Cross-Team Dependencies & Collaboration Hub (2-3 weeks)
+└── Support Ticket Finishing Pass (assignment UI, SLA timers, Planner sync)
 ```
 
 ---
@@ -819,21 +822,24 @@ Reorganized sidebar navigation into logical, collapsible sections:
 
 ---
 
-### Enhancement 1: Contextual Breadcrumbs with Quick Actions
+### Enhancement 1: Contextual Breadcrumbs with Quick Actions ✅ COMPLETE
 
-**Status:** Committed — on Roadmap (Q2 2026)  
+**Status:** Shipped (April 8, 2026)  
 **Effort:** 1 week  
 **Priority:** High
 
-Display navigation path with interactive elements:
-```
-Planning > Q4 2025 > Marketing Team > Objective > Key Result
-```
+Display navigation path with interactive elements. Implemented as
+`client/src/components/ContextualBreadcrumbs.tsx` and integrated into
+`ModuleLayout` in `client/src/App.tsx`.
 
-Features:
-- Quick action menu on each breadcrumb segment
-- Smart truncation for long paths
-- Type indicators (icons) for each level
+Shipped features:
+- Route-aware breadcrumb trail derived from the current wouter path
+- Type indicators (lucide icons) on each segment
+- Smart truncation for long paths — first segment + last two segments visible,
+  middle segments collapsed into an ellipsis dropdown
+- Quick-action dropdown menus on section-root segments (Planning, Focus
+  Rhythm, Administration, About) that jump to sibling pages
+- Honors the existing shadcn `breadcrumb` primitive for styling consistency
 
 ---
 
@@ -854,17 +860,29 @@ Global time period component in header:
 
 ---
 
-### Enhancement 3: Streamlined OKR Creation Wizard
+### Enhancement 3: Streamlined OKR Creation Wizard ✅ COMPLETE
 
-**Status:** Committed — on Roadmap (Q2 2026)  
+**Status:** Shipped (finalized April 8, 2026)  
 **Effort:** 2 weeks  
 **Priority:** High
 
-Multi-step wizard: Objective → Key Results → Big Rocks → Review
-- Create complete OKR hierarchy in one session
-- AI suggestions integrated throughout
-- Draft auto-save functionality
-- Template library
+Multi-step wizard: Objective → Key Results → Big Rocks → Review. Implemented
+as `client/src/components/okr/OKRCreationWizard.tsx` and launched from the
+"OKR Wizard" button on `client/src/pages/PlanningEnhanced.tsx` (header
+toolbar, left of "Add Objective").
+
+Shipped features:
+- ✅ Create complete OKR hierarchy (objective + KRs + big rocks) in one session
+- ✅ Step indicator with completed/active/pending states
+- ✅ Review step with per-section summary before submit
+- ✅ Tenant-scoped query invalidation via `invalidateOKRQueries()` helper
+- ✅ Draft auto-save to `localStorage` keyed by `okr-wizard-draft:{tenantId}` —
+  survives closing the dialog, clears on successful submit or explicit discard
+- ✅ "Resumed from a saved draft" banner with Discard button on reopen
+
+Deferred to future enhancement (not blocking completion):
+- AI suggestions integrated throughout each step (uses existing AI tools)
+- Template library (save wizard inputs as a reusable starting point)
 
 ---
 
@@ -1620,6 +1638,105 @@ Phase 3: Recovery (Week 3-4)
 ├── Preview/dry-run capability
 ├── Admin UI components
 └── Notification system
+```
+
+---
+
+### Support Ticket Finishing Pass
+
+**Status:** Scoped — ready to build  
+**Effort:** 1-2 weeks (excluding Planner sync, which is tracked separately below)  
+**Priority:** Medium  
+**Added:** April 8, 2026
+
+**Note on scope:** A full comparison against Constellation's support system is
+pending — the Vega session currently has read access restricted to
+`chris-mcnulty/synozur-vega`, so `chris-mcnulty/synozur-scdp` cannot be
+inspected for pattern alignment. This plan is based on gaps visible in the
+Vega codebase alone. Revisit for cross-product UX parity once Constellation
+source access is granted.
+
+#### What's shipped today
+- Schema: `supportTickets` + `supportTicketReplies` (`shared/schema.ts` ~2163)
+- API: `POST/GET/PATCH /api/support/tickets`, reply threads, help-chat stream (`server/routes-support.ts`)
+- User UI: `client/src/pages/Support.tsx` (list / new / detail with replies)
+- Admin UI: `client/src/components/admin/AdminSupportTab.tsx` (filters, status/priority dropdowns, internal notes)
+- Email: SendGrid acknowledgement + admin notification on create
+- Help chatbot escalation: pre-fills ticket form from conversation summary
+
+#### Concrete gaps to close
+
+1. **Staff assignment UI (currently schema-only).**
+   The `assignedTo` column already exists on `supportTickets`. Surface it in
+   `AdminSupportTab.tsx` via a "Assign to" dropdown populated from
+   `vega_admin` + `vega_consultant` users. Show the current assignee as an
+   avatar in the ticket list.
+
+2. **Per-ticket status history.**
+   Today `status` is a mutable column with no audit trail. Add a
+   `supportTicketStatusHistory` table (ticketId, fromStatus, toStatus,
+   changedByUserId, note, changedAt) and write an entry on every PATCH that
+   mutates `status` or `assignedTo`. Render as a small timeline in the detail
+   view — consistent with the existing OKR check-in history pattern.
+
+3. **SLA / response-time timers.**
+   Add three derived fields to the ticket list: time since creation, time
+   since last staff reply, and time since last user reply. Colour-code at
+   configurable thresholds (e.g. >24h no staff reply = red). No schema change
+   — computed on the fly from `createdAt` and the latest non-internal reply.
+
+4. **Reply notifications (bidirectional).**
+   Currently only *creation* triggers email. Add:
+   - User email when staff posts a non-internal reply
+   - Admin email when user posts a reply on an existing ticket
+   Wire through `sendSupportTicket*` helpers in the support routes, mirroring
+   the existing acknowledgement pattern so failures don't block the write.
+
+5. **"My assigned tickets" view for staff.**
+   Add a filter preset on `AdminSupportTab.tsx` that scopes to `assignedTo =
+   currentUser.id`. This is a one-line filter addition once #1 ships.
+
+6. **Bulk close / bulk status change.**
+   Select multiple tickets from the admin list and apply a status transition
+   in one action. Uses the existing PATCH endpoint per ticket; no new API
+   surface required.
+
+7. **Resolution templates.**
+   A dropdown of pre-canned resolution messages (e.g. "Fixed in v1.10",
+   "Duplicate of #42", "Cannot reproduce") that pre-fills the reply textarea.
+   Store templates in a new `support_reply_templates` table, platform-admin
+   managed.
+
+8. **Search across tickets.**
+   Add free-text search over subject + description + reply messages on the
+   admin list. Backend adds a `q` query param; frontend adds a search input
+   next to the existing filter dropdowns.
+
+9. **Category-to-priority defaults.**
+   When a user selects category "bug", default priority to "high"; feedback
+   defaults to "low"; etc. Pure frontend change in the new-ticket form.
+
+10. **Help Chatbot ticket deflection metric.**
+    Track how often the help chatbot answered vs. escalated to a ticket.
+    Store a boolean `escalatedToTicket` on chatbot conversation logs (if we
+    have them) or fall back to a simple counter. Expose on the System Admin
+    AI Usage dashboard.
+
+#### Recommended implementation order
+
+```
+Week 1 (high-value, low-risk):
+├── (1) Staff assignment dropdown in AdminSupportTab
+├── (4) Bidirectional reply email notifications
+├── (5) "My assigned tickets" preset filter
+└── (9) Category-to-priority defaults
+
+Week 2 (structural):
+├── (2) supportTicketStatusHistory table + detail-view timeline
+├── (3) SLA timer badges in admin list
+├── (6) Bulk status change
+├── (7) Resolution templates
+└── (8) Admin search
 ```
 
 ---

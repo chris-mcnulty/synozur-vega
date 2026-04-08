@@ -146,28 +146,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // ============================================================================
   // "What's New" Changelog Modal API (pattern from Constellation)
+  //
+  // Monthly release workflow:
+  //   1. Add a new `### Month Day, Year - Version X.Y` section at the TOP of
+  //      CHANGELOG.md under the relevant month header.
+  //   2. Either restart the server OR hit `POST /api/admin/changelog/refresh`
+  //      (vega_admin / global_admin only) to re-detect the current version and
+  //      clear the in-memory summary cache.
+  //   3. Every user whose `lastDismissedChangelogVersion` differs from the new
+  //      version will see the What's New modal on their next request.
   // ============================================================================
 
-  // Auto-detect current version from CHANGELOG.md at startup
+  // Current version detected from CHANGELOG.md. Exposed via refresh endpoint
+  // so monthly releases can update it without a server restart.
   let currentChangelogVersion = "";
-  (function seedChangelogVersion() {
-    try {
-      const changelogPath = join(process.cwd(), "CHANGELOG.md");
-      if (existsSync(changelogPath)) {
-        const content = readFileSync(changelogPath, "utf-8");
-        const match = content.match(/Version\s+([\d.]+)/);
-        if (match) {
-          currentChangelogVersion = match[1];
-          console.log(`[CHANGELOG] Auto-detected version: ${currentChangelogVersion}`);
-        }
-      }
-    } catch (err: any) {
-      console.error("[CHANGELOG] Failed to seed changelog version:", err.message);
-    }
-  })();
 
   // In-memory cache for AI-generated summaries (keyed by version)
   const changelogSummaryCache = new Map<string, { summary: string; highlights: Array<{ icon: string; title: string; description: string }> }>();
+
+  function detectCurrentChangelogVersion(): string {
+    try {
+      const changelogPath = join(process.cwd(), "CHANGELOG.md");
+      if (!existsSync(changelogPath)) {
+        return "";
+      }
+      const content = readFileSync(changelogPath, "utf-8");
+      // The first `Version X.Y` marker in the file is the newest release
+      // (CHANGELOG.md is ordered newest-first by convention).
+      const match = content.match(/Version\s+([\d.]+)/);
+      return match ? match[1] : "";
+    } catch (err: any) {
+      console.error("[CHANGELOG] Failed to read CHANGELOG.md:", err.message);
+      return "";
+    }
+  }
+
+  // Seed on startup
+  (function seedChangelogVersion() {
+    currentChangelogVersion = detectCurrentChangelogVersion();
+    if (currentChangelogVersion) {
+      console.log(`[CHANGELOG] Auto-detected version: ${currentChangelogVersion}`);
+    }
+  })();
 
   // Extract structured highlights from markdown as fallback when AI is unavailable
   function extractFallbackHighlights(markdown: string): Array<{ icon: string; title: string; description: string }> {
@@ -344,6 +364,27 @@ ${changelogContent}`;
       console.error("[CHANGELOG] Failed to dismiss changelog:", error);
       return res.status(500).json({ message: "Failed to dismiss changelog" });
     }
+  });
+
+  // Platform admin: re-detect the current changelog version and clear the
+  // summary cache. Used as part of the monthly What's New release workflow
+  // after editing CHANGELOG.md in production without restarting the server.
+  app.post("/api/admin/changelog/refresh", platformAdminOnly, async (_req: any, res: Response) => {
+    const previousVersion = currentChangelogVersion;
+    const detected = detectCurrentChangelogVersion();
+    currentChangelogVersion = detected;
+    changelogSummaryCache.clear();
+
+    console.log(
+      `[CHANGELOG] Refreshed via admin endpoint. Previous: ${previousVersion || "none"} → Current: ${detected || "none"}`,
+    );
+
+    return res.json({
+      success: true,
+      previousVersion,
+      currentVersion: detected,
+      cacheCleared: true,
+    });
   });
 
   // OpenAPI specification for M365 Copilot Agent integration
