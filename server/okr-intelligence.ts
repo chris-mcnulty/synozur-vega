@@ -294,6 +294,13 @@ export function calculateCompletionForecast(params: {
     endDate = endDate || qd.end;
   }
 
+  // For annual/unquartered objectives (quarter is null, 0, or absent), use full-year date range
+  if ((!startDate || !endDate) && params.year) {
+    const yr = params.year;
+    startDate = startDate || new Date(yr, 0, 1);   // Jan 1
+    endDate = endDate || new Date(yr, 11, 31, 23, 59, 59); // Dec 31
+  }
+
   if (!startDate || !endDate) {
     return {
       completionProbability: progress >= targetValue ? 100 : 50,

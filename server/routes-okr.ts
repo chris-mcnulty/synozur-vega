@@ -1689,14 +1689,13 @@ okrRouter.get("/forecasts", async (req, res) => {
       return res.status(400).json({ error: "tenantId is required" });
     }
 
-    let objectives = await storage.getObjectivesByTenantId(tenantId as string);
-
-    if (quarter && year) {
-      objectives = objectives.filter(obj =>
-        obj.quarter === parseInt(quarter as string) &&
-        obj.year === parseInt(year as string)
-      );
-    }
+    const quarterNum = quarter ? parseInt(quarter as string) : undefined;
+    const yearNum = year ? parseInt(year as string) : undefined;
+    const objectives = await storage.getObjectivesByTenantId(
+      tenantId as string,
+      quarterNum,
+      yearNum
+    );
 
     const forecasts: Array<{
       objectiveId: string;
