@@ -1379,13 +1379,36 @@ Platform administrators can manage support tickets across all tenants from the S
 **Accessing the Admin Dashboard:**
 Navigate to **System Admin** → **Support** tab.
 
-**Features:**
-- **Global Ticket View**: See all tickets across all organizations
-- **Filters**: Filter by status, priority, category, or specific tenant
+**At-a-glance stat cards:**
+- **Total Tickets** — all tickets (click to reset filters)
+- **Pending** — open + in-progress combined (click to apply Pending filter)
+- **My Assigned** — tickets assigned to you that are still open or in-progress (click to apply)
+- **Open** — unassigned open count
+
+**Filters:**
+- **Status**: All, Pending (Open + In Progress), Open, In Progress, Resolved, Closed
+- **Priority**: All, High, Medium, Low
+- **Category**: All, Bug, Feature Request, Question, Feedback
+- **Assigned To**: All, My Assigned, or pick a specific staff member
+
+**Ticket List:**
+- Each row shows ticket number, status badge, priority badge, category badge, subject, assignee avatar + name (if assigned), and submission date
+
+**Ticket Detail:**
 - **Status Management**: Update ticket status (Open, In Progress, Resolved, Closed)
 - **Priority Updates**: Change ticket priority as needed
-- **Internal Notes**: Add notes visible only to other admins (not visible to the ticket creator)
-- **Reply Threads**: Respond directly to users within ticket detail views
+- **Staff Assignment**: Assign tickets to any Vega Admin or Consultant from the "Assign To" dropdown; the current assignee appears as an avatar with name in both the list and detail views
+- **Reply Threads**: Respond directly to users — replies trigger an email notification to the ticket author
+- **Internal Notes**: Check "Internal note" before submitting a reply to add a note visible only to other staff members (never emailed to the user)
+- **Email Notifications**: When staff posts a non-internal reply, the ticket author is notified by email. When a user replies, the assigned staff member receives the notification (or all admins if unassigned).
+
+**New Ticket Defaults:**
+When users submit a new ticket, the priority field auto-defaults based on category:
+- **Bug** → High priority
+- **Feature Request** or **Question** → Medium priority
+- **Feedback** → Low priority
+
+Users can override the default at any time.
 
 ---
 

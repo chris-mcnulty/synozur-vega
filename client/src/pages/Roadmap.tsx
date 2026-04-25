@@ -130,6 +130,24 @@ const roadmap: RoadmapPhase[] = [
         description: "Searchable user picker with avatar initials, recent selections, and manual email fallback — tenant-scoped for secure assignment",
         status: "completed",
         icon: UserSearch
+      },
+      {
+        title: "Aurora UX Parity & Visual Polish",
+        description: "Global rounded corners on all UI primitives, deep navy-purple dark mode palette with clear elevation hierarchy, purple-tinted shadows, and active sidebar gradient fill — aligned with Constellation brand standard",
+        status: "completed",
+        icon: Sparkles
+      },
+      {
+        title: "Predictive Analytics (Completion Forecast)",
+        description: "Velocity-based OKR completion forecasting with confidence bands (low/mid/high), trend detection (accelerating/steady/decelerating), risk flagging, and probability distribution visualization on the Executive Dashboard",
+        status: "completed",
+        icon: BarChart3
+      },
+      {
+        title: "Support Ticket Staff Enhancements",
+        description: "Staff assignment dropdown with avatar display, bidirectional reply email notifications, Pending compound filter (open + in_progress), My Assigned stat card and filter, and category-to-priority auto-defaults on new tickets",
+        status: "completed",
+        icon: Ticket
       }
     ]
   },
@@ -143,6 +161,13 @@ const roadmap: RoadmapPhase[] = [
         status: "in_progress",
         progress: 40,
         icon: Puzzle
+      },
+      {
+        title: "Support Ticket Week 2",
+        description: "Status history timeline, SLA response-time badges, bulk status change, resolution templates, and admin full-text search — building on the completed Week 1 staff enhancements",
+        status: "in_progress",
+        progress: 0,
+        icon: Ticket
       }
     ]
   },
@@ -169,22 +194,10 @@ const roadmap: RoadmapPhase[] = [
         icon: Briefcase
       },
       {
-        title: "Predictive Analytics",
-        description: "Forecast OKR completion probability based on historical velocity and time remaining",
-        status: "planned",
-        icon: BarChart3
-      },
-      {
         title: "Premium Feature Gating",
         description: "Feature entitlement system to gate premium features by service plan tier",
         status: "planned",
         icon: Shield
-      },
-      {
-        title: "Support Ticket Finishing Pass",
-        description: "Staff assignment UI, status history, SLA timers, bidirectional reply notifications, bulk actions, resolution templates, and admin search on the existing support ticket system",
-        status: "planned",
-        icon: Ticket
       }
     ]
   }

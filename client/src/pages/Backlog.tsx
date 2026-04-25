@@ -62,6 +62,29 @@ const backlogItems: BacklogItem[] = [
     icon: Bot
   },
   {
+    title: "Support Ticket Staff Enhancements",
+    description: "Staff assignment dropdown with avatar display in ticket list, bidirectional reply email notifications, Pending compound filter, My Assigned stat card, and category-to-priority auto-defaults on new ticket form",
+    status: "completed",
+    category: "platform",
+    icon: MessageSquare
+  },
+  {
+    title: "Support Ticket Week 2",
+    description: "Status history timeline, SLA response-time badges (time since creation / last staff reply / last user reply), bulk status change, resolution templates, and admin full-text search",
+    status: "in_progress",
+    category: "platform",
+    effort: "1 week",
+    priority: "Medium",
+    icon: MessageSquare
+  },
+  {
+    title: "Aurora UX Parity & Visual Polish",
+    description: "Global rounded corners on all UI primitives, deep navy-purple dark mode palette with elevation hierarchy, purple-tinted shadows, and active sidebar gradient fill — aligned with Constellation brand standard",
+    status: "completed",
+    category: "design",
+    icon: Palette
+  },
+  {
     title: "AI Check-in Note Rewriter",
     description: "AI-powered feature to rewrite check-in notes with professional tone, context awareness, and multiple rewrite modes",
     status: "completed",
@@ -141,11 +164,9 @@ const backlogItems: BacklogItem[] = [
   },
   {
     title: "Predictive Analytics (Completion Forecast)",
-    description: "Forecast OKR completion probability based on historical velocity and time remaining, with risk signals, trend indicators, and confidence bands",
-    status: "proposed",
+    description: "Velocity-based OKR completion forecasting with confidence bands (low/mid/high), trend detection (accelerating/steady/decelerating), risk flagging, and probability distribution visualization on the Executive Dashboard",
+    status: "completed",
     category: "analytics",
-    effort: "2 weeks",
-    priority: "High",
     icon: BarChart3
   },
   {
@@ -159,11 +180,9 @@ const backlogItems: BacklogItem[] = [
   },
   {
     title: "Contextual Breadcrumbs with Quick Actions",
-    description: "Dynamic navigation path showing hierarchy: Planning > Q4 2025 > Marketing Team > Objective. With quick action menus, smart truncation, and type indicators",
-    status: "proposed",
+    description: "Route-aware breadcrumb trail below the header with type icons, smart truncation for long paths, and quick-action menus on section-root segments",
+    status: "completed",
     category: "ux",
-    effort: "1 week",
-    priority: "High",
     icon: Layers
   },
   {

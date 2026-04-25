@@ -169,6 +169,9 @@ export function OKRCreationWizard({
   const [keyResults, setKeyResults] = useState<KeyResultData[]>([{ ...DEFAULT_KR }]);
   const [bigRocks, setBigRocks] = useState<BigRockData[]>([]);
 
+  // Scroll-to-bottom sentinel for the KR list
+  const krScrollEndRef = useRef<HTMLDivElement>(null);
+
   // Restore draft on open
   const hasRestoredRef = useRef(false);
   useEffect(() => {
@@ -282,7 +285,20 @@ export function OKRCreationWizard({
   // ─── Key Result helpers ─────────────────────────────────────────────────
 
   const addKeyResult = () => {
-    setKeyResults(prev => [...prev, { ...DEFAULT_KR }]);
+    setKeyResults(prev => {
+      const next = [...prev, { ...DEFAULT_KR }];
+      const newIdx = next.length - 1;
+      // After React re-renders, scroll the sentinel into view and focus the new title
+      setTimeout(() => {
+        krScrollEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+        // Focus the new input so the user can start typing immediately
+        const input = document.querySelector<HTMLInputElement>(
+          `[data-testid="wizard-kr-title-${newIdx}"]`
+        );
+        input?.focus();
+      }, 80);
+      return next;
+    });
   };
 
   const removeKeyResult = (index: number) => {
@@ -583,6 +599,7 @@ export function OKRCreationWizard({
               </div>
             </div>
           ))}
+          <div ref={krScrollEndRef} />
         </div>
       </ScrollArea>
 
