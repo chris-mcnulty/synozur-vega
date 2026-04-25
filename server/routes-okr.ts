@@ -1093,6 +1093,14 @@ okrRouter.post("/check-ins", async (req, res) => {
     if (validatedData.newProgress === undefined || validatedData.newProgress === null) {
       validatedData.newProgress = entityCurrentProgress ?? 0;
     }
+    // Safety net: completing an objective or big rock must push progress to 100
+    if (
+      validatedData.newStatus === 'completed' &&
+      (entityType === 'objective' || entityType === 'big_rock') &&
+      (validatedData.newProgress as number) < 100
+    ) {
+      validatedData.newProgress = 100;
+    }
     
     // Convert asOfDate from ISO string to Date object for Drizzle
     if (validatedData.asOfDate && typeof validatedData.asOfDate === 'string') {

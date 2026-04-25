@@ -935,8 +935,14 @@ export class DatabaseStorage implements IStorage {
     }
     
     const data = await db.select().from(objectives).where(and(...conditions));
-    this.setCache(cacheKey, data);
-    return data;
+    // Normalize: completed objectives always report 100% progress
+    const normalized = data.map(obj =>
+      obj.status === 'completed' && (obj.progress ?? 0) < 100
+        ? { ...obj, progress: 100 }
+        : obj
+    );
+    this.setCache(cacheKey, normalized);
+    return normalized;
   }
 
   async getTeamsByTenantId(tenantId: string): Promise<Team[]> {
@@ -995,11 +1001,21 @@ export class DatabaseStorage implements IStorage {
 
   async getObjectiveById(id: string): Promise<Objective | undefined> {
     const [objective] = await db.select().from(objectives).where(eq(objectives.id, id));
-    return objective || undefined;
+    if (!objective) return undefined;
+    // Normalize: completed objectives always report 100% progress
+    if (objective.status === 'completed' && (objective.progress ?? 0) < 100) {
+      return { ...objective, progress: 100 };
+    }
+    return objective;
   }
 
   async getChildObjectives(parentId: string): Promise<Objective[]> {
-    return await db.select().from(objectives).where(eq(objectives.parentId, parentId));
+    const data = await db.select().from(objectives).where(eq(objectives.parentId, parentId));
+    return data.map(obj =>
+      obj.status === 'completed' && (obj.progress ?? 0) < 100
+        ? { ...obj, progress: 100 }
+        : obj
+    );
   }
 
   async createObjective(insertObjective: InsertObjective): Promise<Objective> {

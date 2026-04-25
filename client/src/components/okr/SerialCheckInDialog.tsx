@@ -546,7 +546,13 @@ export function SerialCheckInDialog({
           {/* Status */}
           <div>
             <Label>Status</Label>
-            <Select value={formStatus} onValueChange={setFormStatus}>
+            <Select value={formStatus} onValueChange={(status) => {
+              setFormStatus(status);
+              // Auto-set progress to 100 when marking as completed
+              if (status === "completed" && item.type !== "key_result") {
+                setFormProgress(100);
+              }
+            }}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
