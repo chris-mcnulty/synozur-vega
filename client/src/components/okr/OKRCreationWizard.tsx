@@ -154,6 +154,7 @@ export function OKRCreationWizard({
   const [step, setStep] = useState<WizardStep>("objective");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
+  const [showValidation, setShowValidation] = useState(false);
 
   // Form state
   const [objective, setObjective] = useState<ObjectiveData>({
@@ -250,12 +251,29 @@ export function OKRCreationWizard({
   }, [step, objective.title, keyResults]);
 
   const goNext = () => {
+    if (!canProceed()) {
+      setShowValidation(true);
+      if (step === "objective") {
+        toast({ title: "Title required", description: "Please enter a title for your objective before continuing.", variant: "destructive" });
+      } else if (step === "key-results") {
+        const hasEmptyTitle = keyResults.some(kr => !kr.title.trim());
+        const hasZeroTarget = keyResults.some(kr => kr.targetValue <= 0);
+        if (hasEmptyTitle) {
+          toast({ title: "Key result title missing", description: "Please add a title to every key result, or delete the empty ones.", variant: "destructive" });
+        } else if (hasZeroTarget) {
+          toast({ title: "Target value required", description: "Every key result needs a target value greater than zero.", variant: "destructive" });
+        }
+      }
+      return;
+    }
+    setShowValidation(false);
     if (currentIdx < STEPS.length - 1) {
       setStep(STEPS[currentIdx + 1].key);
     }
   };
 
   const goBack = () => {
+    setShowValidation(false);
     if (currentIdx > 0) {
       setStep(STEPS[currentIdx - 1].key);
     }
@@ -357,6 +375,7 @@ export function OKRCreationWizard({
 
   const resetWizard = () => {
     setStep("objective");
+    setShowValidation(false);
     setObjective({
       title: "",
       description: "",
@@ -399,7 +418,11 @@ export function OKRCreationWizard({
           value={objective.title}
           onChange={e => setObjective(prev => ({ ...prev, title: e.target.value }))}
           data-testid="wizard-objective-title"
+          className={cn(showValidation && !objective.title.trim() && "border-destructive focus-visible:ring-destructive")}
         />
+        {showValidation && !objective.title.trim() && (
+          <p className="text-xs text-destructive mt-1">Please enter a title for your objective.</p>
+        )}
       </div>
 
       <div>
@@ -517,7 +540,11 @@ export function OKRCreationWizard({
                   value={kr.title}
                   onChange={e => updateKeyResult(idx, "title", e.target.value)}
                   data-testid={`wizard-kr-title-${idx}`}
+                  className={cn(showValidation && !kr.title.trim() && "border-destructive focus-visible:ring-destructive")}
                 />
+                {showValidation && !kr.title.trim() && (
+                  <p className="text-xs text-destructive mt-1">Title is required — fill it in or delete this key result.</p>
+                )}
               </div>
 
               <div className="grid grid-cols-3 gap-2">
@@ -538,7 +565,7 @@ export function OKRCreationWizard({
                   <Label className="text-xs">Target</Label>
                   <Input
                     type="number"
-                    className="h-8 text-xs"
+                    className={cn("h-8 text-xs", showValidation && kr.targetValue <= 0 && "border-destructive focus-visible:ring-destructive")}
                     value={kr.targetValue}
                     onChange={e => updateKeyResult(idx, "targetValue", parseFloat(e.target.value) || 0)}
                   />
@@ -782,7 +809,7 @@ export function OKRCreationWizard({
                 )}
               </Button>
             ) : (
-              <Button onClick={goNext} disabled={!canProceed()}>
+              <Button onClick={goNext}>
                 Next <ChevronRight className="h-4 w-4 ml-1" />
               </Button>
             )}
