@@ -127,19 +127,35 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 // Build system prompt with grounding documents
-async function buildSystemPrompt(tenantId?: string): Promise<string> {
-  // Get active grounding documents - both global and tenant-specific if tenantId provided
-  const groundingDocs = tenantId 
-    ? await storage.getActiveGroundingDocumentsForTenant(tenantId)
-    : await storage.getActiveGroundingDocuments();
-  
-  // Build grounding context by category
-  const groundingContext = groundingDocs
-    .map((doc) => {
-      const categoryLabel = CATEGORY_LABELS[doc.category] || doc.category;
-      return `### ${categoryLabel}: ${doc.title}\n${doc.content}`;
-    })
-    .join("\n\n");
+// Max characters allowed for grounding document content injected into system prompt.
+// ~30k chars ≈ ~7500 tokens, leaving plenty of room for the user message + completion.
+const MAX_GROUNDING_CHARS = 30_000;
+
+async function buildSystemPrompt(tenantId?: string, skipGrounding = false): Promise<string> {
+  // Skip grounding entirely for features that supply their own rich context
+  // (e.g. progress summary already sends full OKR + check-in data in the user message)
+  let groundingContext = "";
+  if (!skipGrounding) {
+    const groundingDocs = tenantId
+      ? await storage.getActiveGroundingDocumentsForTenant(tenantId)
+      : await storage.getActiveGroundingDocuments();
+
+    const rawGrounding = groundingDocs
+      .map((doc) => {
+        const categoryLabel = CATEGORY_LABELS[doc.category] || doc.category;
+        return `### ${categoryLabel}: ${doc.title}\n${doc.content}`;
+      })
+      .join("\n\n");
+
+    if (rawGrounding.length > MAX_GROUNDING_CHARS) {
+      console.warn(
+        `[AI Service] Grounding context too large (${rawGrounding.length} chars), truncating to ${MAX_GROUNDING_CHARS}`
+      );
+      groundingContext = rawGrounding.slice(0, MAX_GROUNDING_CHARS) + "\n\n[...grounding truncated for length...]";
+    } else {
+      groundingContext = rawGrounding;
+    }
+  }
 
   // Get tenant-specific context if available
   let tenantContext = "";
@@ -200,6 +216,7 @@ export interface ChatCompletionOptions {
   tenantId?: string;
   maxTokens?: number;
   temperature?: number;
+  skipGrounding?: boolean;
 }
 
 // Main chat completion function
@@ -208,7 +225,7 @@ export async function getChatCompletion(
   options: ChatCompletionOptions = {},
   feature: AIFeature = AI_FEATURES.CHAT
 ): Promise<string> {
-  const { tenantId, maxTokens = 4096 } = options;
+  const { tenantId, maxTokens = 4096, skipGrounding = false } = options;
   const startTime = Date.now();
   
   // Get active model from config
@@ -216,7 +233,7 @@ export async function getChatCompletion(
   const activeModel = activeConfig.model;
 
   // Build system prompt with grounding documents
-  const systemPrompt = await buildSystemPrompt(tenantId);
+  const systemPrompt = await buildSystemPrompt(tenantId, skipGrounding);
 
   // Prepare messages with system prompt
   const fullMessages: OpenAI.ChatCompletionMessageParam[] = [
@@ -349,7 +366,7 @@ export async function* streamChatCompletion(
   options: ChatCompletionOptions = {},
   feature: AIFeature = AI_FEATURES.CHAT
 ): AsyncGenerator<string, void, unknown> {
-  const { tenantId, maxTokens = 4096 } = options;
+  const { tenantId, maxTokens = 4096, skipGrounding = false } = options;
   const startTime = Date.now();
   console.log("[AI Service] streamChatCompletion called, tenantId:", tenantId);
   
@@ -358,7 +375,7 @@ export async function* streamChatCompletion(
   const activeModel = activeConfig.model;
 
   // Build system prompt with grounding documents
-  const systemPrompt = await buildSystemPrompt(tenantId);
+  const systemPrompt = await buildSystemPrompt(tenantId, skipGrounding);
   console.log("[AI Service] System prompt length:", systemPrompt.length);
 
   // Prepare messages with system prompt
@@ -863,8 +880,10 @@ Format the response so it's ready to copy and paste directly into a communicatio
     },
   ];
 
-  // Use the streaming function with higher token limit for comprehensive summaries
-  const stream = streamChatCompletion(messages, { tenantId: context.tenantId, maxTokens: 4096 });
+  // Skip grounding documents for progress summary — the user message already contains
+  // all the OKR + check-in data needed. Grounding docs (251k+ chars) would exceed
+  // the model's context limit and cause 500 errors.
+  const stream = streamChatCompletion(messages, { tenantId: context.tenantId, maxTokens: 4096, skipGrounding: true });
   for await (const chunk of stream) {
     yield chunk;
   }
