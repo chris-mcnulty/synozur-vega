@@ -504,6 +504,16 @@ aiRouter.post("/progress-summary/stream", requireAIChat, async (req: Request, re
 
     console.log("[Progress Summary] Found check-ins:", allCheckIns.length);
 
+    // Cap check-ins to the 50 most recent to keep the user message payload small.
+    // 187+ check-ins was causing model timeouts even with a lean system prompt.
+    const MAX_CHECK_INS = 50;
+    const cappedCheckIns = allCheckIns
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, MAX_CHECK_INS);
+    if (allCheckIns.length > MAX_CHECK_INS) {
+      console.log(`[Progress Summary] Capped check-ins from ${allCheckIns.length} to ${MAX_CHECK_INS}`);
+    }
+
     // Set up SSE headers
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
@@ -513,7 +523,7 @@ aiRouter.post("/progress-summary/stream", requireAIChat, async (req: Request, re
     // Prepare the summary data
     const summaryData: ProgressSummaryData = {
       objectives: parsed.objectives,
-      checkIns: allCheckIns,
+      checkIns: cappedCheckIns,
       quarter: parsed.quarter,
       year: parsed.year,
       dateRange: dateRange || undefined,

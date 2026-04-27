@@ -901,13 +901,13 @@ Format the response so it's ready to copy and paste directly into a communicatio
     },
   ];
 
-  // For progress summary, include only OKR methodology/best-practice docs so the AI
-  // understands what OKRs are and how to talk about them. Platform user-guide content
-  // (company_os) is excluded — it was causing 251k+ char system prompts and 500 errors.
+  // Only include best-practices grounding — just enough for the AI to know how to
+  // talk about OKR progress. All other categories (methodology, company_os, etc.)
+  // are excluded to keep the total payload small and avoid model timeouts.
   const stream = streamChatCompletion(messages, {
     tenantId: context.tenantId,
-    maxTokens: 4096,
-    groundingCategories: ["methodology", "best_practices", "terminology", "examples"],
+    maxTokens: 2048,
+    groundingCategories: ["best_practices"],
   });
   for await (const chunk of stream) {
     yield chunk;
