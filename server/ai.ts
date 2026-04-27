@@ -131,14 +131,27 @@ const CATEGORY_LABELS: Record<string, string> = {
 // ~30k chars ≈ ~7500 tokens, leaving plenty of room for the user message + completion.
 const MAX_GROUNDING_CHARS = 30_000;
 
-async function buildSystemPrompt(tenantId?: string, skipGrounding = false): Promise<string> {
+async function buildSystemPrompt(
+  tenantId?: string,
+  skipGrounding = false,
+  groundingCategories?: string[]
+): Promise<string> {
   // Skip grounding entirely for features that supply their own rich context
-  // (e.g. progress summary already sends full OKR + check-in data in the user message)
   let groundingContext = "";
   if (!skipGrounding) {
-    const groundingDocs = tenantId
+    let groundingDocs = tenantId
       ? await storage.getActiveGroundingDocumentsForTenant(tenantId)
       : await storage.getActiveGroundingDocuments();
+
+    // Filter to specific categories when requested (e.g. progress summary only
+    // needs OKR methodology docs, not platform user-guide content)
+    if (groundingCategories && groundingCategories.length > 0) {
+      const before = groundingDocs.length;
+      groundingDocs = groundingDocs.filter((doc) => groundingCategories.includes(doc.category));
+      console.log(
+        `[AI Service] Grounding filtered to categories [${groundingCategories.join(", ")}]: ${groundingDocs.length}/${before} docs`
+      );
+    }
 
     const rawGrounding = groundingDocs
       .map((doc) => {
@@ -216,7 +229,15 @@ export interface ChatCompletionOptions {
   tenantId?: string;
   maxTokens?: number;
   temperature?: number;
+  /** Skip all grounding documents entirely */
   skipGrounding?: boolean;
+  /**
+   * When set, only grounding documents whose category is in this list are
+   * included. Useful for features that only need a targeted subset (e.g. OKR
+   * methodology docs) without loading platform user-guide content.
+   * Has no effect when skipGrounding is true.
+   */
+  groundingCategories?: string[];
 }
 
 // Main chat completion function
@@ -225,7 +246,7 @@ export async function getChatCompletion(
   options: ChatCompletionOptions = {},
   feature: AIFeature = AI_FEATURES.CHAT
 ): Promise<string> {
-  const { tenantId, maxTokens = 4096, skipGrounding = false } = options;
+  const { tenantId, maxTokens = 4096, skipGrounding = false, groundingCategories } = options;
   const startTime = Date.now();
   
   // Get active model from config
@@ -233,7 +254,7 @@ export async function getChatCompletion(
   const activeModel = activeConfig.model;
 
   // Build system prompt with grounding documents
-  const systemPrompt = await buildSystemPrompt(tenantId, skipGrounding);
+  const systemPrompt = await buildSystemPrompt(tenantId, skipGrounding, groundingCategories);
 
   // Prepare messages with system prompt
   const fullMessages: OpenAI.ChatCompletionMessageParam[] = [
@@ -366,7 +387,7 @@ export async function* streamChatCompletion(
   options: ChatCompletionOptions = {},
   feature: AIFeature = AI_FEATURES.CHAT
 ): AsyncGenerator<string, void, unknown> {
-  const { tenantId, maxTokens = 4096, skipGrounding = false } = options;
+  const { tenantId, maxTokens = 4096, skipGrounding = false, groundingCategories } = options;
   const startTime = Date.now();
   console.log("[AI Service] streamChatCompletion called, tenantId:", tenantId);
   
@@ -375,7 +396,7 @@ export async function* streamChatCompletion(
   const activeModel = activeConfig.model;
 
   // Build system prompt with grounding documents
-  const systemPrompt = await buildSystemPrompt(tenantId, skipGrounding);
+  const systemPrompt = await buildSystemPrompt(tenantId, skipGrounding, groundingCategories);
   console.log("[AI Service] System prompt length:", systemPrompt.length);
 
   // Prepare messages with system prompt
@@ -880,10 +901,14 @@ Format the response so it's ready to copy and paste directly into a communicatio
     },
   ];
 
-  // Skip grounding documents for progress summary — the user message already contains
-  // all the OKR + check-in data needed. Grounding docs (251k+ chars) would exceed
-  // the model's context limit and cause 500 errors.
-  const stream = streamChatCompletion(messages, { tenantId: context.tenantId, maxTokens: 4096, skipGrounding: true });
+  // For progress summary, include only OKR methodology/best-practice docs so the AI
+  // understands what OKRs are and how to talk about them. Platform user-guide content
+  // (company_os) is excluded — it was causing 251k+ char system prompts and 500 errors.
+  const stream = streamChatCompletion(messages, {
+    tenantId: context.tenantId,
+    maxTokens: 4096,
+    groundingCategories: ["methodology", "best_practices", "terminology", "examples"],
+  });
   for await (const chunk of stream) {
     yield chunk;
   }
