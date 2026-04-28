@@ -414,48 +414,74 @@ export async function* streamChatCompletion(
     fullMessages.reduce((acc, m) => acc + (typeof m.content === 'string' ? m.content.length : 0), 0) / 4
   );
 
-  try {
-    console.log("[AI Service] Calling OpenAI API with model:", activeModel);
-    console.log("[AI Service] Base URL:", process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ? "configured" : "NOT SET");
-    console.log("[AI Service] API Key:", process.env.AI_INTEGRATIONS_OPENAI_API_KEY ? "configured" : "NOT SET");
-    
-    const stream = await openai.chat.completions.create({
-      model: activeModel,
-      messages: fullMessages,
-      max_completion_tokens: maxTokens,
-      stream: true,
-    });
-    console.log("[AI Service] Stream created successfully");
+  // Fallback model used if the active model returns a 500 or empty response
+  const FALLBACK_MODEL = "gpt-4o";
+  const maxAttempts = 2;
+  let modelToUse = activeModel;
+  let totalContent = "";
+  let lastError: any = null;
 
-    let chunkCount = 0;
-    let totalContent = "";
-    for await (const chunk of stream) {
-      const content = chunk.choices[0]?.delta?.content;
-      if (content) {
-        chunkCount++;
-        totalContent += content;
-        yield content;
+  console.log("[AI Service] Base URL:", process.env.AI_INTEGRATIONS_OPENAI_BASE_URL ? "configured" : "NOT SET");
+  console.log("[AI Service] API Key:", process.env.AI_INTEGRATIONS_OPENAI_API_KEY ? "configured" : "NOT SET");
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      console.log(`[AI Service] Calling OpenAI API with model: ${modelToUse} (attempt ${attempt})`);
+
+      const stream = await openai.chat.completions.create({
+        model: modelToUse,
+        messages: fullMessages,
+        max_completion_tokens: maxTokens,
+        stream: true,
+      });
+      console.log("[AI Service] Stream created successfully");
+
+      let chunkCount = 0;
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) {
+          chunkCount++;
+          totalContent += content;
+          yield content;
+        }
+      }
+      console.log("[AI Service] Stream completed, total chunks:", chunkCount);
+
+      if (chunkCount === 0 && attempt < maxAttempts) {
+        // Model responded but returned nothing — retry with fallback
+        console.warn(`[AI Service] ${modelToUse} returned 0 chunks, retrying with ${FALLBACK_MODEL}`);
+        modelToUse = FALLBACK_MODEL;
+        totalContent = "";
+        continue;
+      }
+
+      // Successful — log usage and return
+      await logAiUsage({
+        tenantId,
+        feature,
+        promptTokens: estimatedPromptTokens,
+        completionTokens: Math.ceil(totalContent.length / 4),
+        latencyMs: Date.now() - startTime,
+        wasStreaming: true,
+      });
+      return;
+
+    } catch (error: any) {
+      lastError = error;
+      console.error(`[AI Service] OpenAI Streaming Error (attempt ${attempt}):`, error.message || error);
+      console.error("[AI Service] Full error:", JSON.stringify(error, null, 2));
+
+      if (attempt < maxAttempts) {
+        console.warn(`[AI Service] Retrying with fallback model: ${FALLBACK_MODEL}`);
+        modelToUse = FALLBACK_MODEL;
+        totalContent = "";
+        continue;
       }
     }
-    console.log("[AI Service] Stream completed, total chunks:", chunkCount);
+  }
 
-    // Estimate completion tokens
-    const estimatedCompletionTokens = Math.ceil(totalContent.length / 4);
-    
-    // Log AI usage after streaming completes
-    await logAiUsage({
-      tenantId,
-      feature,
-      promptTokens: estimatedPromptTokens,
-      completionTokens: estimatedCompletionTokens,
-      latencyMs: Date.now() - startTime,
-      wasStreaming: true,
-    });
-  } catch (error: any) {
-    console.error("[AI Service] OpenAI Streaming Error:", error.message || error);
-    console.error("[AI Service] Full error:", JSON.stringify(error, null, 2));
-    
-    // Log error
+  // All attempts failed — log and rethrow
+  try {
     await logAiUsage({
       tenantId,
       feature,
@@ -463,16 +489,12 @@ export async function* streamChatCompletion(
       completionTokens: 0,
       latencyMs: Date.now() - startTime,
       wasStreaming: true,
-      errorCode: error?.code || 'unknown',
-      errorMessage: error?.message,
+      errorCode: lastError?.code || 'unknown',
+      errorMessage: lastError?.message,
     });
-    
-    if (error?.message?.includes("429") || error?.message?.includes("RATELIMIT")) {
-      throw new Error("The AI service is currently busy. Please try again in a moment.");
-    }
-    
-    throw new Error(`Failed to stream AI response: ${error.message || 'Unknown error'}`);
-  }
+  } catch (_) {}
+  throw new Error(`Failed to stream AI response: ${lastError?.message || 'unknown error'}`);
+
 }
 
 // Extended chat completion options with tool support
