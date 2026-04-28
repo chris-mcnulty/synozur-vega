@@ -504,9 +504,9 @@ aiRouter.post("/progress-summary/stream", requireAIChat, async (req: Request, re
 
     console.log("[Progress Summary] Found check-ins:", allCheckIns.length);
 
-    // Cap check-ins to the 20 most recent to keep the user message payload small.
-    // 187+ check-ins with long notes was causing model timeouts.
-    const MAX_CHECK_INS = 20;
+    // Cap check-ins to the 40 most recent — enough for a rich summary while keeping
+    // the payload manageable for gpt-4o.
+    const MAX_CHECK_INS = 40;
     const cappedCheckIns = allCheckIns
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, MAX_CHECK_INS);

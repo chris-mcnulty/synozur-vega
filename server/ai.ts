@@ -896,10 +896,10 @@ export async function* streamProgressSummary(
     ? data.checkIns.map(ci => {
         const progressChange = ci.newProgress - ci.previousProgress;
         const changeText = progressChange >= 0 ? `+${progressChange.toFixed(1)}%` : `${progressChange.toFixed(1)}%`;
-        const note = trunc(ci.note, 150);
-        const achievements = ci.achievements?.slice(0, 2).map(a => trunc(a, 80)).join(', ');
-        const challenges  = ci.challenges?.slice(0, 2).map(c => trunc(c, 80)).join(', ');
-        const nextSteps   = ci.nextSteps?.slice(0, 2).map(n => trunc(n, 80)).join(', ');
+        const note = trunc(ci.note, 300);
+        const achievements = ci.achievements?.slice(0, 3).map(a => trunc(a, 120)).join(', ');
+        const challenges  = ci.challenges?.slice(0, 3).map(c => trunc(c, 120)).join(', ');
+        const nextSteps   = ci.nextSteps?.slice(0, 3).map(n => trunc(n, 120)).join(', ');
         const achievementText = achievements ? `\n      Achievements: ${achievements}` : '';
         const challengeText   = challenges   ? `\n      Challenges: ${challenges}`    : '';
         const nextStepsText   = nextSteps    ? `\n      Next Steps: ${nextSteps}`     : '';
@@ -936,7 +936,7 @@ Format the response so it's ready to copy and paste directly into a communicatio
   // check-in data. Grounding docs add 23k+ chars to the payload and cause timeouts.
   const stream = streamChatCompletion(messages, {
     tenantId: context.tenantId,
-    maxTokens: 1024,
+    maxTokens: 2000,
     skipGrounding: true,
   });
   for await (const chunk of stream) {
