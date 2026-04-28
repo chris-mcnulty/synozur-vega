@@ -415,7 +415,7 @@ export async function* streamChatCompletion(
   );
 
   // Fallback model used if the active model returns a 500 or empty response
-  const FALLBACK_MODEL = "gpt-4o";
+  const FALLBACK_MODEL = "claude-sonnet-4";
   const maxAttempts = 2;
   let modelToUse = activeModel;
   let totalContent = "";
