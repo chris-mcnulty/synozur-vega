@@ -221,7 +221,7 @@ function AIConfigPanel() {
 
   const [formData, setFormData] = useState<AIConfig>({
     activeProvider: 'replit_ai',
-    activeModel: 'gpt-5',
+    activeModel: 'gpt-4o',
     enableStreaming: true,
     enableFunctionCalling: true,
     maxTokensPerRequest: 4000,
@@ -235,7 +235,7 @@ function AIConfigPanel() {
     if (config) {
       setFormData({
         activeProvider: config.activeProvider || 'replit_ai',
-        activeModel: config.activeModel || 'gpt-5',
+        activeModel: config.activeModel || 'gpt-4o',
         enableStreaming: config.enableStreaming ?? true,
         enableFunctionCalling: config.enableFunctionCalling ?? true,
         maxTokensPerRequest: config.maxTokensPerRequest || 4000,
@@ -276,7 +276,7 @@ function AIConfigPanel() {
     if (config) {
       setFormData({
         activeProvider: config.activeProvider || 'replit_ai',
-        activeModel: config.activeModel || 'gpt-5',
+        activeModel: config.activeModel || 'gpt-4o',
         enableStreaming: config.enableStreaming ?? true,
         enableFunctionCalling: config.enableFunctionCalling ?? true,
         maxTokensPerRequest: config.maxTokensPerRequest || 4000,

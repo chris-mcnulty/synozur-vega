@@ -6,7 +6,7 @@ import { AI_PROVIDERS, AI_FEATURES, type AIFeature, type AIProvider } from "@sha
 import { AI_TOOLS, executeTool, formatToolResult } from "./ai-tools";
 
 // Default configuration (used when no config exists in database)
-const DEFAULT_MODEL = "gpt-5";
+const DEFAULT_MODEL = "gpt-4o";
 const DEFAULT_PROVIDER = AI_PROVIDERS.REPLIT;
 
 // Cache for AI configuration to avoid constant DB lookups

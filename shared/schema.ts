@@ -1870,7 +1870,7 @@ export const aiConfiguration = pgTable("ai_configuration", {
   
   // Active provider and model
   activeProvider: text("active_provider").notNull().default('replit_ai'),
-  activeModel: text("active_model").notNull().default('gpt-5'),
+  activeModel: text("active_model").notNull().default('gpt-4o'),
   
   // Provider-specific configuration (non-secret settings)
   providerConfig: jsonb("provider_config").$type<AIProviderConfig>(),
