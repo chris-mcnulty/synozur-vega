@@ -414,8 +414,10 @@ export async function* streamChatCompletion(
     fullMessages.reduce((acc, m) => acc + (typeof m.content === 'string' ? m.content.length : 0), 0) / 4
   );
 
-  // Fallback model used if the active model returns a 500 or empty response
-  const FALLBACK_MODEL = "claude-sonnet-4";
+  // Fallback model used if the active model returns a 500 or empty response.
+  // Must be a model available through the Replit AI OpenAI-compatible endpoint.
+  // claude-sonnet-4 returns 404 DeploymentNotFound via this endpoint.
+  const FALLBACK_MODEL = "gpt-4o";
   const maxAttempts = 2;
   let modelToUse = activeModel;
   let totalContent = "";
