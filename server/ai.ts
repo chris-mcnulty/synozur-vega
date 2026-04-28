@@ -936,7 +936,7 @@ Format the response so it's ready to copy and paste directly into a communicatio
   // check-in data. Grounding docs add 23k+ chars to the payload and cause timeouts.
   const stream = streamChatCompletion(messages, {
     tenantId: context.tenantId,
-    maxTokens: 2000,
+    maxTokens: 4000,
     skipGrounding: true,
   });
   for await (const chunk of stream) {
