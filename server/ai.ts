@@ -885,16 +885,23 @@ export async function* streamProgressSummary(
     return `  * **${obj.title}** - ${Math.round(obj.progress)}% complete (${obj.status})\n${krSummary}`;
   }).join('\n\n');
 
-  // Build check-ins summary
-  const checkInsSummary = data.checkIns.length > 0 
+  // Helper to truncate long text so individual check-in notes don't bloat the payload
+  const trunc = (s: string | undefined, max: number) =>
+    s && s.length > max ? s.slice(0, max) + '…' : s;
+
+  // Build check-ins summary — notes capped at 150 chars, arrays at 2 items × 80 chars
+  const checkInsSummary = data.checkIns.length > 0
     ? data.checkIns.map(ci => {
         const progressChange = ci.newProgress - ci.previousProgress;
         const changeText = progressChange >= 0 ? `+${progressChange.toFixed(1)}%` : `${progressChange.toFixed(1)}%`;
-        const achievementText = ci.achievements?.length ? `\n      Achievements: ${ci.achievements.join(', ')}` : '';
-        const challengeText = ci.challenges?.length ? `\n      Challenges: ${ci.challenges.join(', ')}` : '';
-        const nextStepsText = ci.nextSteps?.length ? `\n      Next Steps: ${ci.nextSteps.join(', ')}` : '';
-        
-        return `  * ${ci.entityTitle || ci.entityType}: ${changeText} progress${ci.note ? ` - "${ci.note}"` : ''}${achievementText}${challengeText}${nextStepsText}`;
+        const note = trunc(ci.note, 150);
+        const achievements = ci.achievements?.slice(0, 2).map(a => trunc(a, 80)).join(', ');
+        const challenges  = ci.challenges?.slice(0, 2).map(c => trunc(c, 80)).join(', ');
+        const nextSteps   = ci.nextSteps?.slice(0, 2).map(n => trunc(n, 80)).join(', ');
+        const achievementText = achievements ? `\n      Achievements: ${achievements}` : '';
+        const challengeText   = challenges   ? `\n      Challenges: ${challenges}`    : '';
+        const nextStepsText   = nextSteps    ? `\n      Next Steps: ${nextSteps}`     : '';
+        return `  * ${ci.entityTitle || ci.entityType}: ${changeText} progress${note ? ` - "${note}"` : ''}${achievementText}${challengeText}${nextStepsText}`;
       }).join('\n')
     : '  No check-ins recorded for the selected period.';
 
@@ -923,13 +930,12 @@ Format the response so it's ready to copy and paste directly into a communicatio
     },
   ];
 
-  // Only include best-practices grounding — just enough for the AI to know how to
-  // talk about OKR progress. All other categories (methodology, company_os, etc.)
-  // are excluded to keep the total payload small and avoid model timeouts.
+  // Skip all grounding docs — the user message already contains the full OKR and
+  // check-in data. Grounding docs add 23k+ chars to the payload and cause timeouts.
   const stream = streamChatCompletion(messages, {
     tenantId: context.tenantId,
-    maxTokens: 2048,
-    groundingCategories: ["best_practices"],
+    maxTokens: 1024,
+    skipGrounding: true,
   });
   for await (const chunk of stream) {
     yield chunk;
