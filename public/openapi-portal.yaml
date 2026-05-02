@@ -1,0 +1,175 @@
+openapi: 3.0.3
+info:
+  title: Vega Galaxy Portal API
+  description: |
+    Read-only API for the Synozur Galaxy customer portal. Every request must
+    present a Galaxy-issued OAuth 2.0 / OIDC bearer token. Vega resolves the
+    token's `client_id` claim to a Vega tenant and returns only that tenant's
+    data, scoped to the resolved Galaxy user.
+  version: 1.0.0
+servers:
+  - url: https://vega.synozur.com
+    description: Production
+  - url: http://localhost:5000
+    description: Local dev
+security:
+  - GalaxyBearer: []
+components:
+  securitySchemes:
+    GalaxyBearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Galaxy-issued JWT. Vega validates `iss`, `aud`, and the RS256
+        signature against the Galaxy JWKS, then resolves the `client_id`
+        claim to a Vega tenant via the tenant's `galaxyClientId` setting.
+  schemas:
+    PortalMe:
+      type: object
+      properties:
+        id: { type: string }
+        email: { type: string }
+        name: { type: string, nullable: true }
+        role: { type: string, example: portal_user }
+        authProvider: { type: string, example: galaxy }
+        galaxyUserId: { type: string, nullable: true }
+        tenant:
+          type: object
+          properties:
+            id: { type: string }
+            name: { type: string }
+            color: { type: string, nullable: true }
+    Dashboard:
+      type: object
+      properties:
+        activeObjectivesCount: { type: integer }
+        activeKeyResultsCount: { type: integer }
+        activeBigRocksCount: { type: integer }
+        onTrackCount: { type: integer }
+        atRiskCount: { type: integer }
+        upcomingCheckInsCount: { type: integer }
+        recentActivity:
+          type: array
+          items: { $ref: '#/components/schemas/ActivityItem' }
+    ActivityItem:
+      type: object
+      properties:
+        id: { type: string }
+        type: { type: string, example: check-in }
+        entityType: { type: string, nullable: true }
+        entityId: { type: string, nullable: true }
+        progress: { type: number, nullable: true }
+        status: { type: string, nullable: true }
+        notes: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time, nullable: true }
+        createdBy: { type: string, nullable: true }
+    Objective:
+      type: object
+      additionalProperties: true
+    KeyResult:
+      type: object
+      additionalProperties: true
+    BigRock:
+      type: object
+      additionalProperties: true
+    Ambition:
+      type: object
+      additionalProperties: true
+    CheckIn:
+      type: object
+      additionalProperties: true
+    Error:
+      type: object
+      properties:
+        error: { type: string }
+        error_description: { type: string }
+paths:
+  /api/portal/me:
+    get:
+      summary: Identity, tenant, and role of the authenticated portal user
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PortalMe' }
+        '401': { description: Invalid or missing Galaxy token, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429': { description: Per-tenant rate limit exceeded }
+  /api/portal/dashboard:
+    get:
+      summary: Personalized dashboard summary
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Dashboard' }
+        '401': { description: Unauthorized }
+  /api/portal/objectives:
+    get:
+      summary: Objectives owned by the authenticated portal user
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Objective' }
+  /api/portal/objectives/{id}:
+    get:
+      summary: Single objective (must be owned by the authenticated user)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/Objective' } } } }
+        '404': { description: Not found or not owned }
+  /api/portal/key-results:
+    get:
+      summary: Key results owned by the authenticated portal user
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/KeyResult' } } } } }
+  /api/portal/key-results/{id}:
+    get:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/KeyResult' } } } }
+        '404': { description: Not found or not owned }
+  /api/portal/big-rocks:
+    get:
+      summary: Big rocks owned by the authenticated portal user
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/BigRock' } } } } }
+  /api/portal/big-rocks/{id}:
+    get:
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/BigRock' } } } }
+        '404': { description: Not found or not owned }
+  /api/portal/ambitions:
+    get:
+      summary: Ambitions defined for the tenant's foundation
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/Ambition' } } } } }
+  /api/portal/check-ins:
+    get:
+      summary: Check-ins authored by or relevant to the authenticated user
+      parameters:
+        - name: since
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/CheckIn' } } } } }

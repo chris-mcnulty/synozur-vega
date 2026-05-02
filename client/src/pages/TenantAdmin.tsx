@@ -32,7 +32,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, AlertCircle, AlertTriangle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, Settings2, HelpCircle, Link, Link2, Loader2, RefreshCw, Bell, ListTodo, KeyRound, Copy } from "lucide-react";
+import { CheckCircle2, AlertCircle, AlertTriangle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, Settings2, HelpCircle, Link, Link2, Loader2, RefreshCw, Bell, ListTodo, KeyRound, Copy, Sparkles } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type TenantBranding, vocabularyAlternatives, type VocabularyTerms } from "@shared/schema";
 import { useAuth } from "@/contexts/AuthContext";
@@ -75,6 +75,7 @@ type User = {
   role: string;
   tenantId: string | null;
   emailVerified: boolean;
+  authProvider?: string | null;
 };
 
 type ConsultantAccessGrant = {
@@ -1891,6 +1892,136 @@ function TeamManagementSection({
   );
 }
 
+type GalaxyPortalUpdate = {
+  galaxyClientId?: string | null;
+  galaxyEnabled?: boolean;
+};
+
+function GalaxyPortalCard({ tenant }: { tenant: Tenant }) {
+  const { toast } = useToast();
+  const [editingClientId, setEditingClientId] = useState(false);
+  const [clientIdDraft, setClientIdDraft] = useState(tenant.galaxyClientId ?? "");
+
+  const { data: stats } = useQuery<{ windowDays: number; distinctUsers: number }>({
+    queryKey: ["/api/tenants", tenant.id, "galaxy-portal/stats"],
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async (updates: GalaxyPortalUpdate) => {
+      return apiRequest("PATCH", `/api/tenants/${tenant.id}`, updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tenants"] });
+      toast({ title: "Galaxy portal settings saved" });
+    },
+    onError: (e: Error) => {
+      toast({ title: "Failed to update", description: e.message, variant: "destructive" });
+    },
+  });
+
+  const galaxyEnabled = !!tenant.galaxyEnabled;
+  const galaxyClientId = tenant.galaxyClientId ?? "";
+
+  const handleRotate = () => {
+    const newId = `gx-${tenant.id.slice(0, 8)}-${Math.random().toString(36).slice(2, 10)}`;
+    setClientIdDraft(newId);
+    updateMutation.mutate({ galaxyClientId: newId });
+  };
+
+  const handleSaveClientId = () => {
+    updateMutation.mutate({ galaxyClientId: clientIdDraft || null });
+    setEditingClientId(false);
+  };
+
+  return (
+    <Card data-testid={`galaxy-portal-card-${tenant.id}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <div
+              className="w-3 h-3 rounded-full"
+              style={{ backgroundColor: tenant.color || '#6366F1' }}
+            />
+            <CardTitle className="text-base" data-testid={`text-tenant-name-${tenant.id}`}>{tenant.name}</CardTitle>
+          </div>
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />
+            <Switch
+              checked={galaxyEnabled}
+              onCheckedChange={(checked) => updateMutation.mutate({ galaxyEnabled: checked })}
+              disabled={updateMutation.isPending || !galaxyClientId}
+              data-testid={`switch-galaxy-enabled-${tenant.id}`}
+            />
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="pt-0 space-y-3">
+        <div>
+          <Label className="text-xs text-muted-foreground">Galaxy Client ID</Label>
+          {editingClientId ? (
+            <div className="flex items-center gap-2 mt-1">
+              <Input
+                value={clientIdDraft}
+                onChange={(e) => setClientIdDraft(e.target.value)}
+                placeholder="e.g. galaxy-cust-acme"
+                className="text-sm"
+                data-testid={`input-galaxy-client-id-${tenant.id}`}
+              />
+              <Button size="sm" onClick={handleSaveClientId} data-testid={`button-save-galaxy-client-id-${tenant.id}`}>
+                Save
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => { setEditingClientId(false); setClientIdDraft(galaxyClientId); }}
+                data-testid={`button-cancel-galaxy-client-id-${tenant.id}`}
+              >
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2 mt-1">
+              <code className="text-xs bg-muted px-2 py-1 rounded truncate" data-testid={`text-galaxy-client-id-${tenant.id}`}>
+                {galaxyClientId || <span className="text-muted-foreground">not configured</span>}
+              </code>
+              <div className="flex gap-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setEditingClientId(true)}
+                  data-testid={`button-edit-galaxy-client-id-${tenant.id}`}
+                >
+                  <Pencil className="h-3 w-3" />
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleRotate}
+                  disabled={updateMutation.isPending}
+                  data-testid={`button-rotate-galaxy-client-id-${tenant.id}`}
+                >
+                  <RefreshCw className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-muted-foreground">Portal logins (30d)</span>
+          <span className="font-medium" data-testid={`text-galaxy-auth-count-${tenant.id}`}>
+            {stats?.distinctUsers ?? "—"}
+          </span>
+        </div>
+        {!galaxyClientId && (
+          <p className="text-xs text-muted-foreground">
+            Set a Galaxy Client ID before enabling the integration.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 function ConsultantAccessCard({ 
   tenant, 
   onOpenGrantDialog, 
@@ -3354,7 +3485,15 @@ export default function TenantAdmin() {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="outline">{user.role}</Badge>
+                          <div className="flex flex-wrap items-center gap-1">
+                            <Badge variant="outline">{user.role}</Badge>
+                            {user.authProvider === 'galaxy' && (
+                              <Badge variant="secondary" data-testid={`badge-galaxy-${user.id}`}>
+                                <Sparkles className="h-3 w-3 mr-1" />
+                                Galaxy Portal
+                              </Badge>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           {/* Admins always have read-write access */}
@@ -3465,6 +3604,21 @@ export default function TenantAdmin() {
                 }
                 readOnly={!(['vega_admin', 'global_admin'].includes(currentUser?.role || ''))}
               />
+            ))}
+          </div>
+        </div>
+
+        {/* Galaxy Portal Integration */}
+        <div>
+          <div className="mb-4">
+            <h2 className="text-lg md:text-xl font-semibold">Galaxy Portal</h2>
+            <p className="text-sm text-muted-foreground">
+              Allow Synozur's Galaxy customer portal to authenticate users into this organization via OAuth/JWT.
+            </p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredTenants.map((tenant) => (
+              <GalaxyPortalCard key={tenant.id} tenant={tenant} />
             ))}
           </div>
         </div>

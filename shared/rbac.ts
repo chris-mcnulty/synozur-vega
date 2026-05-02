@@ -28,6 +28,9 @@ export const ROLES = {
   GLOBAL_ADMIN: 'global_admin',
   VEGA_CONSULTANT: 'vega_consultant',
   VEGA_ADMIN: 'vega_admin',
+  // Galaxy Portal user — JIT-provisioned from Galaxy JWTs.
+  // Read-only access to /api/portal/*; never granted any write permission.
+  PORTAL_USER: 'portal_user',
 } as const;
 
 export type Role = typeof ROLES[keyof typeof ROLES];
@@ -40,6 +43,7 @@ export const ROLE_USER_TYPE_MAP: Record<Role, UserType> = {
   [ROLES.GLOBAL_ADMIN]: USER_TYPES.INTERNAL,
   [ROLES.VEGA_CONSULTANT]: USER_TYPES.CONSULTANT,
   [ROLES.VEGA_ADMIN]: USER_TYPES.INTERNAL,
+  [ROLES.PORTAL_USER]: USER_TYPES.CLIENT,
 };
 
 // Permission types
@@ -249,6 +253,14 @@ export const PERMISSION_MATRIX: Record<Role, Permission[]> = {
     PERMISSIONS.MANAGE_PLATFORM,
     PERMISSIONS.MANAGE_SERVICE_PLANS,
   ],
+
+  // Galaxy Portal user — strictly read-only. Never inherits any write
+  // permission. Sees only its own tenant's data via /api/portal/*.
+  [ROLES.PORTAL_USER]: [
+    PERMISSIONS.READ_TENANT_DATA,
+    PERMISSIONS.VIEW_FOUNDATIONS,
+    PERMISSIONS.EXPORT_DATA,
+  ],
 };
 
 /**
@@ -299,6 +311,7 @@ export const ROLE_DISPLAY_NAMES: Record<Role, string> = {
   [ROLES.GLOBAL_ADMIN]: 'Global Admin',
   [ROLES.VEGA_CONSULTANT]: 'Consultant',
   [ROLES.VEGA_ADMIN]: 'Platform Admin',
+  [ROLES.PORTAL_USER]: 'Galaxy Portal User',
 };
 
 /**
@@ -311,6 +324,7 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   [ROLES.GLOBAL_ADMIN]: 'Super administrator with cross-tenant support access',
   [ROLES.VEGA_CONSULTANT]: 'External consultant with multi-tenant access for advisory work',
   [ROLES.VEGA_ADMIN]: 'Platform administrator with full system access',
+  [ROLES.PORTAL_USER]: 'Galaxy-authenticated portal user with read-only access via /api/portal/*',
 };
 
 /**

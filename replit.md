@@ -50,6 +50,7 @@ Preferred communication style: Simple, everyday language.
 - **HubSpot CRM Integration**: Automated deal creation for new tenant signups.
 - **OpenAPI Specification**: Full OpenAPI 3.0 spec at `/openapi.yaml` and `/openapi.json` for M365 Copilot Agent integration.
 - **M365 Copilot Agent**: Declarative agent manifest, API plugin manifest, and Teams app manifest available in `/public/copilot-agent/`.
+- **Galaxy Portal Integration (Task #50)**: Synozur's Galaxy customer portal can authenticate users into Vega via OAuth/JWT trust. Endpoints live under `/api/portal/*` (read-only) and trust Galaxy-issued bearer tokens validated against the Galaxy JWKS. Tenant scope is derived strictly from the token's `client_id` (or `azp`) claim mapped to `tenants.galaxyClientId`; request body/header/query tenant identifiers are never trusted. New users are JIT-provisioned with the `portal_user` role (read-only permissions: `READ_TENANT_DATA`, `VIEW_FOUNDATIONS`, `EXPORT_DATA`). Per-tenant sliding-window rate limit (default 600 req/min, override via `PORTAL_RATE_LIMIT_PER_MINUTE`). Every request is recorded in `portal_audit_logs`. Env vars: `GALAXY_ISSUER`, `GALAXY_AUDIENCE`, `GALAXY_JWKS_URI` (per-tenant overrides via `tenants.galaxySettings.{issuer,audience,jwksUri}`). OpenAPI spec at `/openapi-portal.yaml`. Tenant Admin > Integrations exposes a Galaxy Portal card per tenant (client_id editor + rotate, enable toggle, 30-day distinct-user count).
 
 ## Planning & Tracking
 

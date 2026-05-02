@@ -213,6 +213,10 @@ export const users = pgTable("users", {
   authProvider: text("auth_provider").default("local"),
   azureObjectId: text("azure_object_id"),
   azureTenantId: text("azure_tenant_id"),
+  // The `sub` claim from a Galaxy-issued JWT — stable per Galaxy user.
+  // Set on JIT-provisioned portal users with role='portal_user' and
+  // authProvider='galaxy'.
+  galaxyUserId: text("galaxy_user_id"),
   // License type for service plan enforcement
   licenseType: text("license_type").default("read_write"), // 'read_write' or 'read_only'
   // User type distinguishes between client org users, consultants, and internal staff
@@ -393,6 +397,19 @@ export const tenants = pgTable("tenants", {
   organizationSize: text("organization_size"), // '1-10', '11-50', '51-200', '201-500', '501-1000', '1000+'
   industry: text("industry"), // e.g., 'Technology', 'Healthcare', 'Finance', etc.
   location: text("location"), // e.g., 'United States', 'United Kingdom', etc.
+  // Galaxy Portal Integration (Task #50)
+  // Galaxy is Synozur's central customer portal that issues OIDC tokens
+  // mapping its end users into Vega tenants. The Galaxy `client_id` claim
+  // identifies the Galaxy customer record and is used as the sole source
+  // of tenant scoping for `/api/portal/*` requests.
+  galaxyClientId: text("galaxy_client_id").unique(),
+  galaxyEnabled: boolean("galaxy_enabled").default(false),
+  // Optional per-tenant overrides of GALAXY_ISSUER/GALAXY_AUDIENCE/GALAXY_JWKS_URI
+  galaxySettings: jsonb("galaxy_settings").$type<{
+    issuer?: string;
+    audience?: string;
+    jwksUri?: string;
+  }>(),
 });
 
 // Base schema for tenant updates - keeps org classification optional for legacy compatibility
@@ -2165,6 +2182,34 @@ export const insertMcpAuditLogSchema = createInsertSchema(mcpAuditLogs).omit({
 
 export type InsertMcpAuditLog = z.infer<typeof insertMcpAuditLogSchema>;
 export type McpAuditLog = typeof mcpAuditLogs.$inferSelect;
+
+// ============================================
+// Galaxy Portal Audit Logs
+// Tracks every /api/portal/* request for security/observability.
+// ============================================
+export const portalAuditLogs = pgTable("portal_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'set null' }),
+  galaxyClientId: text("galaxy_client_id"),
+  galaxyUserId: text("galaxy_user_id"),
+  route: text("route").notNull(),
+  method: text("method").notNull(),
+  statusCode: integer("status_code").notNull(),
+  durationMs: integer("duration_ms"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPortalAuditLogSchema = createInsertSchema(portalAuditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertPortalAuditLog = z.infer<typeof insertPortalAuditLogSchema>;
+export type PortalAuditLog = typeof portalAuditLogs.$inferSelect;
 
 // ============================================
 // SCHEDULED JOBS - Background Job Management

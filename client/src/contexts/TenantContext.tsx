@@ -31,6 +31,9 @@ export type Tenant = {
   branding?: TenantBranding | null;
   allowedDomains?: string[] | null;
   defaultTimePeriod?: DefaultTimePeriod | null;
+  galaxyClientId?: string | null;
+  galaxyEnabled?: boolean | null;
+  galaxySettings?: { issuer?: string; audience?: string; jwksUri?: string } | null;
 };
 
 type TenantContextType = {

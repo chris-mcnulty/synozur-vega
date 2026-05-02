@@ -54,6 +54,7 @@ import {
   notifications, type Notification, type InsertNotification,
   reassignmentAuditLogs, type ReassignmentAuditLog, type InsertReassignmentAuditLog,
   type ReassignmentCounts,
+  portalAuditLogs, type PortalAuditLog, type InsertPortalAuditLog,
   adminAlerts, type AdminAlert, type InsertAdminAlert, ADMIN_ALERT_TYPE, ADMIN_ALERT_SEVERITY,
 } from "@shared/schema";
 import { db } from "./db";
@@ -440,6 +441,12 @@ export interface IStorage {
   // MCP Audit Logs methods
   createMcpAuditLog(log: InsertMcpAuditLog): Promise<McpAuditLog>;
   getMcpAuditLogs(tenantId: string, limit?: number): Promise<McpAuditLog[]>;
+
+  // Galaxy Portal methods
+  getTenantByGalaxyClientId(galaxyClientId: string): Promise<Tenant | undefined>;
+  getUserByGalaxyUserId(galaxyUserId: string, tenantId?: string): Promise<User | undefined>;
+  createPortalAuditLog(log: InsertPortalAuditLog): Promise<PortalAuditLog>;
+  getPortalAuthCount(tenantId: string, sinceDate: Date): Promise<number>;
   
   // Support Tickets methods
   getSupportTicketsByTenantId(tenantId: string, status?: string): Promise<SupportTicket[]>;
@@ -4444,6 +4451,43 @@ export class DatabaseStorage implements IStorage {
       .where(eq(mcpAuditLogs.tenantId, tenantId))
       .orderBy(desc(mcpAuditLogs.createdAt))
       .limit(limit);
+  }
+
+  // ============================================
+  // Galaxy Portal methods
+  // ============================================
+
+  async getTenantByGalaxyClientId(galaxyClientId: string): Promise<Tenant | undefined> {
+    const [tenant] = await db.select().from(tenants).where(eq(tenants.galaxyClientId, galaxyClientId));
+    return tenant || undefined;
+  }
+
+  async getUserByGalaxyUserId(galaxyUserId: string, tenantId?: string): Promise<User | undefined> {
+    if (tenantId) {
+      const [user] = await db.select().from(users).where(
+        and(eq(users.galaxyUserId, galaxyUserId), eq(users.tenantId, tenantId))
+      );
+      return user || undefined;
+    }
+    const [user] = await db.select().from(users).where(eq(users.galaxyUserId, galaxyUserId));
+    return user || undefined;
+  }
+
+  async createPortalAuditLog(log: InsertPortalAuditLog): Promise<PortalAuditLog> {
+    const [created] = await db.insert(portalAuditLogs).values(log).returning();
+    return created;
+  }
+
+  async getPortalAuthCount(tenantId: string, sinceDate: Date): Promise<number> {
+    const rows = await db
+      .selectDistinct({ userId: portalAuditLogs.userId })
+      .from(portalAuditLogs)
+      .where(and(
+        eq(portalAuditLogs.tenantId, tenantId),
+        gte(portalAuditLogs.createdAt, sinceDate),
+        isNotNull(portalAuditLogs.userId),
+      ));
+    return rows.length;
   }
 
   // ============================================

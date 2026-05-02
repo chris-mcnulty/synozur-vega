@@ -25,6 +25,10 @@ async function ensureSchemaColumns() {
       { name: 'azure_tenant_id', type: 'varchar(255)' },
       { name: 'enforce_sso', type: 'boolean DEFAULT false' },
       { name: 'allow_local_auth', type: 'boolean DEFAULT true' },
+      // Galaxy Portal integration — Synozur customer portal trust.
+      { name: 'galaxy_client_id', type: 'text' },
+      { name: 'galaxy_enabled', type: 'boolean DEFAULT false' },
+      { name: 'galaxy_settings', type: 'jsonb' },
     ];
     
     for (const col of tenantColumns) {
@@ -129,6 +133,31 @@ async function ensureSchemaColumns() {
       }
     }
     
+    // Galaxy Portal: ensure user-level column exists and create unique index on tenants.galaxy_client_id
+    await client.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS galaxy_user_id text`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_users_galaxy_user_id ON users(galaxy_user_id) WHERE galaxy_user_id IS NOT NULL`);
+    await client.query(`CREATE UNIQUE INDEX IF NOT EXISTS idx_tenants_galaxy_client_id ON tenants(galaxy_client_id) WHERE galaxy_client_id IS NOT NULL`);
+
+    // Galaxy Portal audit logs table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS portal_audit_logs (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        user_id varchar REFERENCES users(id) ON DELETE SET NULL,
+        galaxy_client_id text,
+        galaxy_user_id text,
+        route text NOT NULL,
+        method text NOT NULL,
+        status_code integer NOT NULL,
+        duration_ms integer,
+        ip_address text,
+        user_agent text,
+        error_message text,
+        created_at timestamp NOT NULL DEFAULT now()
+      );
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_portal_audit_tenant_created ON portal_audit_logs(tenant_id, created_at DESC)`);
+
     // Defensive: ensure soft-delete columns exist for tables whose Drizzle
     // schema references `deletedAt`. Without these, isNull(...deletedAt)
     // queries fail with "column \"deleted_at\" does not exist" on dev DBs

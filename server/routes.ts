@@ -50,6 +50,8 @@ import { isPublicEmailDomain } from "../shared/publicDomains";
 import { registerObjectStorageRoutes } from "./replit_integrations/object_storage";
 import { mcpRouter, createApiKeyForUser } from "./mcp";
 import { oauthRouter, generateOAuthClientCredentials } from "./mcp/oauth";
+import { portalRouter } from "./routes-portal";
+import { assertSafeJwksUri } from "./portal/jwks-url-validator";
 import { MCP_SCOPES } from "@shared/schema";
 
 // Helper function for MCP scope descriptions
@@ -405,6 +407,18 @@ ${changelogContent}`;
     }
   });
 
+  // OpenAPI specification for the Galaxy Portal API
+  app.get("/openapi-portal.yaml", async (req, res) => {
+    try {
+      const specPath = join(process.cwd(), "public/openapi-portal.yaml");
+      const content = await readFile(specPath, "utf-8");
+      res.type("text/yaml").send(content);
+    } catch (error) {
+      console.error("Error reading Portal OpenAPI spec:", error);
+      res.status(500).json({ error: "Failed to load Portal OpenAPI specification" });
+    }
+  });
+
   // OpenAPI specification in JSON format
   app.get("/openapi.json", async (req, res) => {
     try {
@@ -462,6 +476,10 @@ ${changelogContent}`;
   
   // Mount the OAuth 2.0 authorization server
   app.use("/oauth", oauthRouter);
+
+  // Mount the Galaxy Portal API surface. Trusts Galaxy-issued JWTs and
+  // exposes a read-only personalized view of tenant data.
+  app.use("/api/portal", portalRouter);
 
   // MCP API Key Management (admin only - keys provide API access to tenant data)
   app.get("/api/mcp/keys", ...adminOnly, async (req: Request, res: Response) => {
@@ -774,7 +792,16 @@ ${changelogContent}`;
       if (!user) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
-      
+
+      // Galaxy portal users authenticate exclusively via Galaxy-issued JWTs
+      // at /api/portal/*. Reject any attempt to use the local password
+      // pathway, regardless of the stored password hash.
+      if (user.role === ROLES.PORTAL_USER || user.authProvider === 'galaxy') {
+        return res.status(403).json({
+          error: "This account uses Galaxy single sign-on and cannot log in with a password.",
+        });
+      }
+
       // Server-side SSO enforcement: Check if tenant requires SSO
       if (user.tenantId) {
         const tenant = await storage.getTenantById(user.tenantId);
@@ -1182,6 +1209,11 @@ ${changelogContent}`;
         return res.json({ message: "If the email exists, a password reset link has been sent." });
       }
 
+      // Portal users have no local credentials to reset.
+      if (user.role === ROLES.PORTAL_USER || user.authProvider === 'galaxy') {
+        return res.json({ message: "If the email exists, a password reset link has been sent." });
+      }
+
       // Generate reset token (plaintext and hash) and set expiry (1 hour from now)
       const { plaintext: resetTokenPlaintext, hash: resetTokenHash } = generateResetToken();
       const resetTokenExpiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
@@ -1320,7 +1352,28 @@ ${changelogContent}`;
       
       const partialSchema = insertTenantSchema.partial();
       const validatedData = partialSchema.parse(req.body);
-      
+
+      // Restrict who can configure Galaxy portal trust settings to platform
+      // admins, since galaxySettings governs token validation. Tenant admins
+      // may toggle galaxyEnabled/galaxyClientId but not the issuer/audience/
+      // jwksUri overrides.
+      if (validatedData.galaxySettings !== undefined && !canAccessAny) {
+        return res.status(403).json({ error: "Only platform admins may modify galaxySettings" });
+      }
+
+      // SSRF guard for tenant-supplied JWKS URI overrides.
+      const settings = validatedData.galaxySettings as { jwksUri?: string } | null | undefined;
+      if (settings && typeof settings.jwksUri === 'string' && settings.jwksUri.length > 0) {
+        try {
+          await assertSafeJwksUri(settings.jwksUri);
+        } catch (err) {
+          return res.status(400).json({
+            error: "Invalid galaxySettings.jwksUri",
+            details: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+
       const tenant = await storage.updateTenant(id, validatedData);
       res.json(tenant);
     } catch (error) {
@@ -1332,6 +1385,24 @@ ${changelogContent}`;
         });
       }
       res.status(500).json({ error: "Failed to update tenant" });
+    }
+  });
+
+  // Galaxy Portal: 30-day distinct authenticated user count
+  app.get("/api/tenants/:id/galaxy-portal/stats", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      if (!canAccessAny && id !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      const distinctUsers = await storage.getPortalAuthCount(id, since);
+      res.json({ windowDays: 30, distinctUsers });
+    } catch (error) {
+      console.error("Error fetching Galaxy portal stats:", error);
+      res.status(500).json({ error: "Failed to fetch Galaxy portal stats" });
     }
   });
 
