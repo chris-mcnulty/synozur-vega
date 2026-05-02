@@ -8,6 +8,7 @@ interface RegisteredJob {
   job: ScheduledJob;
   fn: JobFunction;
   intervalId?: NodeJS.Timeout;
+  selfScheduled?: boolean;
 }
 
 class JobScheduler {
@@ -24,7 +25,7 @@ class JobScheduler {
       if (this.jobs.has(job.name)) {
         const registeredJob = this.jobs.get(job.name)!;
         registeredJob.job = job;
-        if (job.status === JOB_STATUS.ACTIVE && job.intervalMs) {
+        if (job.status === JOB_STATUS.ACTIVE && job.intervalMs && !registeredJob.selfScheduled) {
           this.startJobInterval(job.name);
         }
       }
@@ -74,10 +75,19 @@ class JobScheduler {
       console.log(`[JobScheduler] Updated existing job: ${name}`);
     }
 
-    this.jobs.set(name, { job, fn });
+    // Jobs may opt out of the default fixed-interval timer by passing
+    // `config.selfScheduled = true`. Such jobs are still registered and run
+    // through the scheduler (so job_runs are tracked and manual triggers work),
+    // but the caller is responsible for arranging the actual schedule (e.g.
+    // anchored to a specific time of day in a particular timezone).
+    const selfScheduled = !!(config && config.selfScheduled);
 
-    if (job.status === JOB_STATUS.ACTIVE) {
+    this.jobs.set(name, { job, fn, selfScheduled });
+
+    if (job.status === JOB_STATUS.ACTIVE && !selfScheduled) {
       this.startJobInterval(name);
+    } else if (selfScheduled) {
+      console.log(`[JobScheduler] ${name} is self-scheduled; default interval timer disabled`);
     }
 
     return job;
@@ -137,7 +147,13 @@ class JobScheduler {
     try {
       const result = await fn();
       
-      const nextRunAt = job.intervalMs ? new Date(Date.now() + job.intervalMs) : undefined;
+      // Self-scheduled jobs manage their own nextRunAt (e.g. anchored to a
+      // specific time of day in a particular timezone). Don't overwrite it
+      // here with the misleading "now + intervalMs" value the dashboard would
+      // otherwise display.
+      const nextRunAt = registeredJob.selfScheduled
+        ? undefined
+        : (job.intervalMs ? new Date(Date.now() + job.intervalMs) : undefined);
       await storage.updateScheduledJobLastRun(job.id, new Date(), nextRunAt);
       
       const completedRun = await storage.completeJobRun(
@@ -184,7 +200,9 @@ class JobScheduler {
 
     await storage.updateScheduledJobStatus(registeredJob.job.id, JOB_STATUS.ACTIVE);
     registeredJob.job.status = JOB_STATUS.ACTIVE;
-    this.startJobInterval(name);
+    if (!registeredJob.selfScheduled) {
+      this.startJobInterval(name);
+    }
     console.log(`[JobScheduler] Resumed job: ${name}`);
   }
 

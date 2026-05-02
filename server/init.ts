@@ -129,6 +129,42 @@ async function ensureSchemaColumns() {
       }
     }
     
+    // Defensive: ensure soft-delete columns exist for tables whose Drizzle
+    // schema references `deletedAt`. Without these, isNull(...deletedAt)
+    // queries fail with "column \"deleted_at\" does not exist" on dev DBs
+    // that predate the soft-delete additions to shared/schema.ts.
+    for (const table of ['objectives', 'key_results', 'big_rocks', 'big_rock_tasks', 'strategies']) {
+      await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`);
+      await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS deleted_by VARCHAR`);
+    }
+
+    // Defensive backstop — schema is owned by migrations/0005_add_progress_snapshots.sql.
+    // Kept here as IF NOT EXISTS so a fresh dev DB still boots if migrations
+    // haven't been applied yet.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS progress_snapshots (
+        id VARCHAR PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id VARCHAR NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        entity_type TEXT NOT NULL,
+        entity_id VARCHAR NOT NULL,
+        snapshot_date TEXT NOT NULL,
+        progress DOUBLE PRECISION DEFAULT 0,
+        status TEXT,
+        pace_status TEXT,
+        source TEXT DEFAULT 'job',
+        created_at TIMESTAMP DEFAULT NOW(),
+        CONSTRAINT progress_snapshots_unique_per_day UNIQUE (tenant_id, entity_type, entity_id, snapshot_date)
+      )
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_progress_snapshots_entity
+        ON progress_snapshots (entity_type, entity_id, snapshot_date)
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_progress_snapshots_tenant
+        ON progress_snapshots (tenant_id, snapshot_date)
+    `);
+
     console.log("✓ Database schema verified");
   } catch (error) {
     console.error("Schema check error:", error);

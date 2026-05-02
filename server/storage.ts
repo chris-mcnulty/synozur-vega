@@ -11,6 +11,7 @@ import {
   bigRocks, type BigRock, type InsertBigRock,
   bigRockTasks, type BigRockTask, type InsertBigRockTask,
   checkIns, type CheckIn, type InsertCheckIn,
+  progressSnapshots, type ProgressSnapshot, type InsertProgressSnapshot,
   teams, type Team, type InsertTeam,
   objectiveValues,
   strategyValues,
@@ -194,6 +195,12 @@ export interface IStorage {
   updateCheckIn(id: string, data: Partial<CheckIn>): Promise<CheckIn>;
   deleteCheckIn(id: string): Promise<void>;
   getLatestCheckIn(entityType: string, entityId: string): Promise<CheckIn | undefined>;
+
+  // Progress snapshot methods (daily history protected from check-in edits/deletions)
+  upsertProgressSnapshot(snapshot: InsertProgressSnapshot): Promise<ProgressSnapshot>;
+  getProgressSnapshotsByEntity(entityType: string, entityId: string, fromDate?: string): Promise<ProgressSnapshot[]>;
+  getProgressSnapshotsByEntityIds(entityType: string, entityIds: string[], fromDate?: string): Promise<Map<string, ProgressSnapshot[]>>;
+  countProgressSnapshotsForTenant(tenantId: string): Promise<number>;
   
   // Value tagging methods
   addValueToObjective(objectiveId: string, valueTitle: string, tenantId: string): Promise<void>;
@@ -2452,8 +2459,101 @@ export class DatabaseStorage implements IStorage {
     return checkIn || undefined;
   }
 
-  // =====================================  }
+  // ============================================
+  // Progress Snapshots — daily, immutable history
+  // ============================================
 
+  async upsertProgressSnapshot(snapshot: InsertProgressSnapshot): Promise<ProgressSnapshot> {
+    const values: InsertProgressSnapshot = {
+      tenantId: snapshot.tenantId,
+      entityType: snapshot.entityType,
+      entityId: snapshot.entityId,
+      snapshotDate: snapshot.snapshotDate,
+      progress: snapshot.progress ?? 0,
+      status: snapshot.status ?? null,
+      paceStatus: snapshot.paceStatus ?? null,
+      source: snapshot.source ?? 'job',
+    };
+
+    const [row] = await db
+      .insert(progressSnapshots)
+      .values(values)
+      .onConflictDoUpdate({
+        target: [
+          progressSnapshots.tenantId,
+          progressSnapshots.entityType,
+          progressSnapshots.entityId,
+          progressSnapshots.snapshotDate,
+        ],
+        set: {
+          progress: values.progress,
+          status: values.status,
+          paceStatus: values.paceStatus,
+          source: values.source,
+        },
+      })
+      .returning();
+    return row;
+  }
+
+  async getProgressSnapshotsByEntity(
+    entityType: string,
+    entityId: string,
+    fromDate?: string
+  ): Promise<ProgressSnapshot[]> {
+    const conditions = [
+      eq(progressSnapshots.entityType, entityType),
+      eq(progressSnapshots.entityId, entityId),
+    ];
+    if (fromDate) {
+      conditions.push(gte(progressSnapshots.snapshotDate, fromDate));
+    }
+    return await db
+      .select()
+      .from(progressSnapshots)
+      .where(and(...conditions))
+      .orderBy(asc(progressSnapshots.snapshotDate));
+  }
+
+  async getProgressSnapshotsByEntityIds(
+    entityType: string,
+    entityIds: string[],
+    fromDate?: string
+  ): Promise<Map<string, ProgressSnapshot[]>> {
+    const result = new Map<string, ProgressSnapshot[]>();
+    if (entityIds.length === 0) return result;
+
+    const conditions = [
+      eq(progressSnapshots.entityType, entityType),
+      inArray(progressSnapshots.entityId, entityIds),
+    ];
+    if (fromDate) {
+      conditions.push(gte(progressSnapshots.snapshotDate, fromDate));
+    }
+
+    const rows = await db
+      .select()
+      .from(progressSnapshots)
+      .where(and(...conditions))
+      .orderBy(asc(progressSnapshots.snapshotDate));
+
+    for (const row of rows) {
+      const list = result.get(row.entityId) || [];
+      list.push(row);
+      result.set(row.entityId, list);
+    }
+    return result;
+  }
+
+  async countProgressSnapshotsForTenant(tenantId: string): Promise<number> {
+    const [row] = await db
+      .select({ c: count() })
+      .from(progressSnapshots)
+      .where(eq(progressSnapshots.tenantId, tenantId));
+    return Number(row?.c ?? 0);
+  }
+
+  // ============================================
   // BATCH QUERY METHODS - Performance optimizations
   // These methods fetch data for multiple entities in a single query
   // to avoid N+1 query problems

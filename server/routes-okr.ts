@@ -1565,7 +1565,172 @@ okrRouter.post("/backfill-progress", async (req, res) => {
 // OKR INTELLIGENCE: Pace & Velocity Metrics
 // ============================================
 
-import { calculatePaceMetrics, formatPaceDescription, calculateCompletionForecast, type PaceMetrics, type CompletionForecast, type TrendDirection } from './okr-intelligence';
+import { calculatePaceMetrics, formatPaceDescription, calculateCompletionForecast, type PaceMetrics, type CompletionForecast, type TrendDirection, type CheckInData } from './okr-intelligence';
+import { getTrendSeriesForEntity, getTrendSeriesForEntities } from './services/progress-snapshots';
+
+// Aggregate weekly key-result progress trend from progress snapshots for the
+// Executive Dashboard. Snapshot-backed so historical trend lines stay stable
+// even when users edit or delete individual check-ins.
+okrRouter.get("/progress-trend", async (req: any, res) => {
+  try {
+    // Always derive tenant from the authenticated session — never trust a
+    // caller-supplied tenantId.
+    const effectiveTenantId = req.effectiveTenantId;
+    if (!effectiveTenantId) {
+      return res.status(403).json({ error: "No tenant context available" });
+    }
+    const { year } = req.query;
+    const trendYear = year ? parseInt(year as string, 10) : new Date().getFullYear();
+
+    // Load all key results for this tenant, then their snapshots for the year.
+    const krs = await storage.getKeyResultsByTenantId(effectiveTenantId);
+    if (krs.length === 0) {
+      return res.json({ tenantId: effectiveTenantId, year: trendYear, weeks: [] });
+    }
+    const fromDate = `${trendYear}-01-01`;
+    const snapshotMap = await storage.getProgressSnapshotsByEntityIds(
+      'key_result',
+      krs.map(kr => kr.id),
+      fromDate,
+    );
+
+    // Bucket snapshots into ISO weeks (Sun-anchored to match prior client behavior).
+    const weekMap = new Map<string, { totalProgress: number; count: number; timestamp: number }>();
+    let snapshotCount = 0;
+    for (const snaps of Array.from(snapshotMap.values())) {
+      for (const s of snaps) {
+        if (!s.snapshotDate.startsWith(`${trendYear}-`)) continue;
+        snapshotCount += 1;
+        // Anchor at noon Pacific to avoid DST/timezone edge cases
+        const d = new Date(`${s.snapshotDate}T12:00:00-08:00`);
+        const weekStart = new Date(d);
+        weekStart.setDate(d.getDate() - d.getDay());
+        weekStart.setHours(0, 0, 0, 0);
+        const weekKey = `${weekStart.getFullYear()}-${weekStart.getMonth() + 1}/${weekStart.getDate()}`;
+        const normalized = Math.min(100, Math.max(0, s.progress ?? 0));
+        const existing = weekMap.get(weekKey) || {
+          totalProgress: 0,
+          count: 0,
+          timestamp: weekStart.getTime(),
+        };
+        existing.totalProgress += normalized;
+        existing.count += 1;
+        weekMap.set(weekKey, existing);
+      }
+    }
+
+    // Fallback: when no snapshots exist yet for this tenant/year (e.g. before
+    // the first daily run, or after a backfill failure), aggregate live
+    // key-result check-ins by week so the dashboard stays populated. Matches
+    // the previous client-side behavior. Snapshot path is preferred whenever
+    // any snapshot exists since it's stable across check-in edits/deletes.
+    let usedFallback = false;
+    if (snapshotCount === 0) {
+      usedFallback = true;
+      const checkInMap = await storage.getCheckInsByEntityIds(
+        'key_result',
+        krs.map(kr => kr.id),
+      );
+      for (const checkIns of Array.from(checkInMap.values())) {
+        for (const ci of checkIns) {
+          const when = ci.asOfDate || ci.createdAt;
+          if (!when) continue;
+          const d = new Date(when);
+          if (d.getFullYear() !== trendYear) continue;
+          const weekStart = new Date(d);
+          weekStart.setDate(d.getDate() - d.getDay());
+          weekStart.setHours(0, 0, 0, 0);
+          const weekKey = `${weekStart.getFullYear()}-${weekStart.getMonth() + 1}/${weekStart.getDate()}`;
+          const normalized = Math.min(100, Math.max(0, ci.newProgress ?? 0));
+          const existing = weekMap.get(weekKey) || {
+            totalProgress: 0,
+            count: 0,
+            timestamp: weekStart.getTime(),
+          };
+          existing.totalProgress += normalized;
+          existing.count += 1;
+          weekMap.set(weekKey, existing);
+        }
+      }
+    }
+
+    const weeks = Array.from(weekMap.entries())
+      .map(([key, data]) => ({
+        week: key.split('-')[1],
+        progress: Math.round(data.totalProgress / Math.max(1, data.count)),
+        snapshots: data.count,
+        timestamp: data.timestamp,
+      }))
+      .sort((a, b) => a.timestamp - b.timestamp)
+      .slice(-8);
+
+    res.json({ tenantId: effectiveTenantId, year: trendYear, weeks, source: usedFallback ? 'check_ins' : 'snapshots' });
+  } catch (error) {
+    console.error('[OKR Trend] Failed to get progress trend:', error);
+    res.status(500).json({ error: "Failed to load progress trend" });
+  }
+});
+
+// Get the daily trend series for an objective (snapshot-backed; falls back to
+// raw check-ins if no snapshots have been captured yet for this entity).
+// Used by the OKR detail chart so the trend line is stable even when users
+// edit or delete individual check-ins.
+okrRouter.get("/objectives/:id/trend", async (req: any, res) => {
+  try {
+    const effectiveTenantId = req.effectiveTenantId;
+    if (!effectiveTenantId) {
+      return res.status(403).json({ error: "No tenant context available" });
+    }
+    const objective = await storage.getObjectiveById(req.params.id);
+    if (!objective) {
+      return res.status(404).json({ error: "Objective not found" });
+    }
+    if (objective.tenantId !== effectiveTenantId) {
+      return res.status(404).json({ error: "Objective not found" });
+    }
+    const series = await getTrendSeriesForEntity('objective', req.params.id);
+    res.json({
+      entityType: 'objective',
+      entityId: req.params.id,
+      series: series.map(p => ({
+        date: p.asOfDate,
+        progress: p.newProgress,
+      })),
+    });
+  } catch (error) {
+    console.error('[OKR Trend] Failed to get objective trend:', error);
+    res.status(500).json({ error: "Failed to load trend series" });
+  }
+});
+
+// Get the daily trend series for a key result (snapshot-backed).
+okrRouter.get("/key-results/:id/trend", async (req: any, res) => {
+  try {
+    const effectiveTenantId = req.effectiveTenantId;
+    if (!effectiveTenantId) {
+      return res.status(403).json({ error: "No tenant context available" });
+    }
+    const keyResult = await storage.getKeyResultById(req.params.id);
+    if (!keyResult) {
+      return res.status(404).json({ error: "Key Result not found" });
+    }
+    if (keyResult.tenantId !== effectiveTenantId) {
+      return res.status(404).json({ error: "Key Result not found" });
+    }
+    const series = await getTrendSeriesForEntity('key_result', req.params.id);
+    res.json({
+      entityType: 'key_result',
+      entityId: req.params.id,
+      series: series.map(p => ({
+        date: p.asOfDate,
+        progress: p.newProgress,
+      })),
+    });
+  } catch (error) {
+    console.error('[OKR Trend] Failed to get key result trend:', error);
+    res.status(500).json({ error: "Failed to load trend series" });
+  }
+});
 
 // Get pace metrics for a specific objective
 okrRouter.get("/objectives/:id/pace", async (req, res) => {
@@ -1575,8 +1740,7 @@ okrRouter.get("/objectives/:id/pace", async (req, res) => {
       return res.status(404).json({ error: "Objective not found" });
     }
     
-    // Get check-ins for this objective
-    const checkIns = await storage.getCheckInsByEntityId('objective', req.params.id);
+    const trendSeries = await getTrendSeriesForEntity('objective', req.params.id);
     
     const metrics = calculatePaceMetrics({
       progress: objective.progress || 0,
@@ -1584,11 +1748,7 @@ okrRouter.get("/objectives/:id/pace", async (req, res) => {
       endDate: objective.endDate,
       quarter: objective.quarter,
       year: objective.year,
-      checkIns: checkIns.map(c => ({
-        asOfDate: c.asOfDate || c.createdAt!,
-        newProgress: c.newProgress || 0,
-        previousProgress: c.previousProgress || 0,
-      })),
+      checkIns: trendSeries,
     });
     
     res.json({
@@ -1616,8 +1776,7 @@ okrRouter.get("/key-results/:id/pace", async (req, res) => {
       ? await storage.getObjectiveById(keyResult.objectiveId)
       : null;
     
-    // Get check-ins for this key result
-    const checkIns = await storage.getCheckInsByEntityId('key_result', req.params.id);
+    const trendSeries = await getTrendSeriesForEntity('key_result', req.params.id);
     
     const metrics = calculatePaceMetrics({
       progress: keyResult.progress || 0,
@@ -1625,11 +1784,7 @@ okrRouter.get("/key-results/:id/pace", async (req, res) => {
       endDate: objective?.endDate,
       quarter: objective?.quarter,
       year: objective?.year,
-      checkIns: checkIns.map(c => ({
-        asOfDate: c.asOfDate || c.createdAt!,
-        newProgress: c.newProgress || 0,
-        previousProgress: c.previousProgress || 0,
-      })),
+      checkIns: trendSeries,
       targetValue: keyResult.targetValue || 100,
     });
     
@@ -1670,20 +1825,16 @@ okrRouter.get("/pace-metrics", async (req, res) => {
       description: string;
     }> = [];
     
+    const trendMap = await getTrendSeriesForEntities('objective', objectives.map(o => o.id));
+    
     for (const objective of objectives) {
-      const checkIns = await storage.getCheckInsByEntityId('objective', objective.id);
-      
       const metrics = calculatePaceMetrics({
         progress: objective.progress || 0,
         startDate: objective.startDate,
         endDate: objective.endDate,
         quarter: objective.quarter,
         year: objective.year,
-        checkIns: checkIns.map(c => ({
-          asOfDate: c.asOfDate || c.createdAt!,
-          newProgress: c.newProgress || 0,
-          previousProgress: c.previousProgress || 0,
-        })),
+        checkIns: trendMap.get(objective.id) || [],
       });
       
       results.push({
@@ -1738,9 +1889,9 @@ okrRouter.get("/forecasts", async (req, res) => {
       forecast: CompletionForecast;
     }> = [];
 
-    for (const objective of objectives) {
-      const checkIns = await storage.getCheckInsByEntityId('objective', objective.id);
+    const forecastTrendMap = await getTrendSeriesForEntities('objective', objectives.map(o => o.id));
 
+    for (const objective of objectives) {
       const forecast = calculateCompletionForecast({
         progress: objective.progress || 0,
         targetValue: 100,
@@ -1748,11 +1899,7 @@ okrRouter.get("/forecasts", async (req, res) => {
         year: objective.year,
         startDate: objective.startDate,
         endDate: objective.endDate,
-        checkIns: checkIns.map(c => ({
-          asOfDate: c.asOfDate || c.createdAt!,
-          newProgress: c.newProgress || 0,
-          previousProgress: c.previousProgress || 0,
-        })),
+        checkIns: forecastTrendMap.get(objective.id) || [],
       });
 
       forecasts.push({

@@ -192,6 +192,22 @@ export function OKRDetailPane({
     enabled: !!entity?.id && open,
   });
 
+  // Snapshot-backed trend series for the chart. Independent from the editable
+  // check-in list above so chart/forecast history stays stable when users
+  // edit or delete individual check-ins.
+  const trendPath = entityType === "key_result" ? "key-results" : "objectives";
+  const { data: trendSeries = [] } = useQuery<Array<{ date: string; progress: number }>>({
+    queryKey: ["/api/okr", trendPath, entity?.id, "trend"],
+    queryFn: async () => {
+      if (!entity?.id) return [];
+      const res = await fetch(`/api/okr/${trendPath}/${entity.id}/trend`);
+      if (!res.ok) throw new Error("Failed to fetch trend series");
+      const data = await res.json();
+      return data.series ?? [];
+    },
+    enabled: !!entity?.id && open,
+  });
+
   // Mutation for updating check-ins
   const updateCheckInMutation = useMutation({
     mutationFn: async (data: { id: string; newValue?: number; newProgress: number; note?: string }) => {
@@ -343,22 +359,20 @@ export function OKRDetailPane({
     return Math.round((daysSinceStart / totalPeriodDays) * 100);
   };
 
-  // Build chart data from check-in history
-  const chartData = checkInHistory
-    .slice()
-    .reverse()
-    .map((checkIn) => {
-      const checkInDate = new Date(checkIn.asOfDate || checkIn.createdAt || new Date());
-      return {
-        date: format(checkInDate, "MMM d"),
-        actual: checkIn.newProgress,
-        expected: getExpectedProgress(checkInDate),
-      };
-    });
+  // Build chart data from the snapshot-backed trend series (one point per day,
+  // immune to check-in edits). The /trend endpoint already returns ascending
+  // by date and falls back to raw check-ins when no snapshots exist yet.
+  const chartData = trendSeries.map((point) => {
+    const pointDate = new Date(point.date);
+    return {
+      date: format(pointDate, "MMM d"),
+      actual: point.progress,
+      expected: getExpectedProgress(pointDate),
+    };
+  });
 
-  // Add period start point if no check-ins or first check-in is not at start
   if (chartData.length === 0) {
-    // No check-ins: show from period start to now
+    // No history yet: show from period start to today using current progress
     chartData.push({
       date: format(periodStart, "MMM d"),
       actual: 0,
@@ -370,13 +384,9 @@ export function OKRDetailPane({
       expected: getExpectedProgress(today),
     });
   } else {
-    // Add a start point at period beginning if first check-in isn't there
-    const firstCheckInDate = checkInHistory.length > 0 
-      ? new Date(checkInHistory[checkInHistory.length - 1].asOfDate || checkInHistory[checkInHistory.length - 1].createdAt || new Date())
-      : periodStart;
-    
-    if (differenceInDays(firstCheckInDate, periodStart) > 7) {
-      // Insert a start point at period beginning
+    // Anchor the line at period start when our first data point is well after it
+    const firstPointDate = new Date(trendSeries[0].date);
+    if (differenceInDays(firstPointDate, periodStart) > 7) {
       chartData.unshift({
         date: format(periodStart, "MMM d"),
         actual: 0,

@@ -1130,6 +1130,41 @@ export const checkIns = pgTable("check_ins", {
   createdAt: timestamp("created_at").defaultNow(), // When the check-in was recorded
 });
 
+// Daily progress snapshots - immutable per-day record of an entity's progress + status.
+// Captured once per day by a scheduled job so forecasts/velocity have stable history
+// that is not affected when users edit or delete check-ins.
+export const progressSnapshots = pgTable("progress_snapshots", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+
+  // Entity reference (no FK — entity may be deleted; we keep history)
+  entityType: text("entity_type").notNull(), // 'objective' | 'key_result'
+  entityId: varchar("entity_id").notNull(),
+
+  // The Pacific-Time calendar date this snapshot represents (YYYY-MM-DD)
+  snapshotDate: text("snapshot_date").notNull(),
+
+  // Captured progress + status values
+  progress: doublePrecision("progress").default(0),
+  status: text("status"),
+  paceStatus: text("pace_status"), // computed pace status at time of capture
+
+  // Optional source metadata (e.g. 'job', 'backfill', 'manual')
+  source: text("source").default('job'),
+
+  createdAt: timestamp("created_at").defaultNow(),
+}, (table) => ({
+  uniqueSnapshotPerDay: unique().on(table.tenantId, table.entityType, table.entityId, table.snapshotDate),
+}));
+
+export const insertProgressSnapshotSchema = createInsertSchema(progressSnapshots).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertProgressSnapshot = z.infer<typeof insertProgressSnapshotSchema>;
+export type ProgressSnapshot = typeof progressSnapshots.$inferSelect;
+
 // Export insert schemas and types for new tables
 export const insertObjectiveSchema = createInsertSchema(objectives).omit({
   id: true,

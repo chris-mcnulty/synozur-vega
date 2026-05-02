@@ -4092,6 +4092,25 @@ ${changelogContent}`;
     }
   );
 
+  // Register daily progress snapshots job - captures one row per active OKR per day.
+  // `selfScheduled: true` opts out of the scheduler's default fixed interval; we
+  // instead anchor execution to Pacific midnight via startPacificMidnightScheduler()
+  // below so the daily run lines up with the Pacific calendar day used as the
+  // snapshot key (snapshot_date).
+  await jobScheduler.registerJob(
+    'daily-progress-snapshots',
+    'Daily Progress Snapshots',
+    'Captures a daily snapshot of progress and status for every active objective and key result. Provides stable history for forecasts and velocity that is not affected by check-in edits or deletions. Runs at 00:05 Pacific Time daily.',
+    'maintenance',
+    'Daily @ 00:05 Pacific',
+    86400000, // 24 hours (informational; actual schedule is Pacific-anchored)
+    async () => {
+      const { runDailySnapshotJob } = await import('./services/progress-snapshots');
+      return await runDailySnapshotJob();
+    },
+    { selfScheduled: true }
+  );
+
   // Register reminder cache reset job - runs once daily at midnight Pacific  
   await jobScheduler.registerJob(
     'reminder-cache-reset',
@@ -4132,6 +4151,42 @@ ${changelogContent}`;
   setTimeout(() => {
     jobScheduler.runJob('expiration-reminders', 'startup');
   }, 10000);
+
+  // Anchor the daily snapshot job to Pacific midnight (instead of the default
+  // 24-hour interval-from-startup). Idempotent — re-arms after each fire and
+  // re-anchors after every server restart.
+  {
+    const { startPacificMidnightScheduler } = await import('./services/progress-snapshots');
+    startPacificMidnightScheduler();
+  }
+
+  // On startup: capture today's snapshot so current-day data is available.
+  // The historical backfill is gated on an empty progress_snapshots table to
+  // avoid doing unbounded work on every boot — it runs once after the
+  // 0005_add_progress_snapshots migration is applied to a previously-empty
+  // schema, then no-ops thereafter. Set RUN_PROGRESS_SNAPSHOT_BACKFILL=force
+  // to force a re-run (e.g. after schema changes).
+  setTimeout(async () => {
+    try {
+      const { backfillSnapshotsFromCheckIns, hasAnyProgressSnapshots } =
+        await import('./services/progress-snapshots');
+      const force = process.env.RUN_PROGRESS_SNAPSHOT_BACKFILL === 'force';
+      const alreadyPopulated = await hasAnyProgressSnapshots();
+      if (force || !alreadyPopulated) {
+        const result = await backfillSnapshotsFromCheckIns({ force });
+        console.log(`[ProgressSnapshots] Backfill: ${result.summary}`);
+      } else {
+        console.log('[ProgressSnapshots] Backfill skipped — snapshots already populated');
+      }
+    } catch (err) {
+      console.error('[ProgressSnapshots] Backfill failed:', err);
+    }
+    try {
+      await jobScheduler.runJob('daily-progress-snapshots', 'startup');
+    } catch (err) {
+      console.error('[ProgressSnapshots] Startup capture failed:', err);
+    }
+  }, 15000);
 
   const httpServer = createServer(app);
 

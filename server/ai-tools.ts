@@ -936,7 +936,7 @@ export async function executeGenerateMeetingPrep(
   
   console.log(`[MeetingPrep] Found ${objectives.length} objectives, ${keyResults.length} key results, ${bigRocks.length} big rocks for tenant ${tenantId}`);
   
-  // Get check-ins for all objectives
+  // Get check-ins for all objectives (used for recent check-in display + KR pace fallback)
   const checkIns: CheckIn[] = [];
   for (const obj of objectives) {
     const objCheckIns = await storage.getCheckInsByEntityId('objective', obj.id);
@@ -946,7 +946,11 @@ export async function executeGenerateMeetingPrep(
     const krCheckIns = await storage.getCheckInsByEntityId('key_result', kr.id);
     checkIns.push(...krCheckIns);
   }
-  
+
+  // Pre-fetch snapshot-backed trend series for objectives + KRs in linked context (used for pace metrics)
+  const { getTrendSeriesForEntities: _getTrendSeriesForEntities } = await import('./services/progress-snapshots');
+  const objectiveTrendMap = await _getTrendSeriesForEntities('objective', linkedObjectiveIds);
+
   const linkedOkrs: MeetingPrepSummary['linkedOkrs'] = [];
   let atRiskCount = 0;
   let behindPaceCount = 0;
@@ -967,7 +971,7 @@ export async function executeGenerateMeetingPrep(
       progress: obj.progress ?? 0,
       quarter: obj.quarter,
       year: obj.year,
-      checkIns: objCheckIns.map(c => ({
+      checkIns: objectiveTrendMap.get(objId) || objCheckIns.map(c => ({
         asOfDate: new Date(c.asOfDate || c.createdAt),
         newProgress: c.newProgress ?? 0,
         previousProgress: c.previousProgress ?? 0,
@@ -1108,13 +1112,17 @@ export async function executeAnalyzeTeamHealth(
     objectives = objectives.filter(o => o.teamId === teamId);
   }
   
-  // Get check-ins for all objectives
+  // Get check-ins for all objectives (used for blocker text extraction)
   const checkIns: CheckIn[] = [];
   for (const obj of objectives) {
     const objCheckIns = await storage.getCheckInsByEntityId('objective', obj.id);
     checkIns.push(...objCheckIns);
   }
-  
+
+  // Pre-fetch snapshot-backed trend series for pace calculation
+  const { getTrendSeriesForEntities: _getTrendForTeamHealth } = await import('./services/progress-snapshots');
+  const teamHealthTrendMap = await _getTrendForTeamHealth('objective', objectives.map(o => o.id));
+
   const totalProgress = objectives.reduce((sum, o) => sum + (o.progress ?? 0), 0);
   const averageProgress = objectives.length > 0 ? Math.round(totalProgress / objectives.length) : 0;
   
@@ -1133,7 +1141,7 @@ export async function executeAnalyzeTeamHealth(
       progress: obj.progress ?? 0,
       quarter: obj.quarter,
       year: obj.year,
-      checkIns: objCheckIns.map(c => ({
+      checkIns: teamHealthTrendMap.get(obj.id) || objCheckIns.map(c => ({
         asOfDate: new Date(c.asOfDate || c.createdAt),
         newProgress: c.newProgress ?? 0,
         previousProgress: c.previousProgress ?? 0,
@@ -1289,20 +1297,18 @@ export async function executePrioritizeActions(
   
   const prioritizedItems: Array<PrioritizedAction & { score: number }> = [];
   
+  // Pre-fetch snapshot-backed trend series for all objectives (used for pace calculation)
+  const { getTrendSeriesForEntities: _getTrendForPriority } = await import('./services/progress-snapshots');
+  const priorityTrendMap = await _getTrendForPriority('objective', objectives.map(o => o.id));
+
   // Score objectives
   for (const obj of objectives) {
-    const objCheckIns = await storage.getCheckInsByEntityId('objective', obj.id);
-    
     const { calculatePaceMetrics } = await import('./okr-intelligence');
     const paceMetrics = calculatePaceMetrics({
       progress: obj.progress ?? 0,
       quarter: obj.quarter,
       year: obj.year,
-      checkIns: objCheckIns.map(c => ({
-        asOfDate: new Date(c.asOfDate || c.createdAt),
-        newProgress: c.newProgress ?? 0,
-        previousProgress: c.previousProgress ?? 0,
-      })),
+      checkIns: priorityTrendMap.get(obj.id) || [],
     });
     
     let score = 0;

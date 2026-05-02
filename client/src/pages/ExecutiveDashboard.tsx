@@ -235,6 +235,27 @@ export default function ExecutiveDashboard() {
     return results;
   }, [dashboardContext?.keyResults]);
 
+  // Snapshot-backed weekly aggregate progress trend. Stable across check-in
+  // edits/deletions — used for the "Progress Trend" chart below.
+  const trendChartYear = currentQuarter?.year ?? new Date().getFullYear();
+  const { data: progressTrendData } = useQuery<{
+    weeks: Array<{ week: string; progress: number; snapshots: number; timestamp: number }>;
+  }>({
+    queryKey: ["/api/okr/progress-trend", currentTenant?.id, trendChartYear],
+    queryFn: async () => {
+      if (!currentTenant) return { weeks: [] };
+      // tenantId is derived server-side from the authenticated session.
+      const params = new URLSearchParams({ year: String(trendChartYear) });
+      const res = await fetch(`/api/okr/progress-trend?${params}`, {
+        credentials: 'include',
+        headers: getHeaders(),
+      });
+      if (!res.ok) return { weeks: [] };
+      return res.json();
+    },
+    enabled: !!currentTenant?.id,
+  });
+
   type ForecastItem = {
     objectiveId: string;
     title: string;
@@ -443,41 +464,14 @@ export default function ExecutiveDashboard() {
       .filter(br => br.status === 'completed')
       .slice(0, 3);
 
-    // Progress trend data from check-ins (aggregate by week)
-    // Only use key result check-ins from the current selected year
-    const trendYear = currentQuarter?.year ?? new Date().getFullYear();
-    const weekMap = new Map<string, { totalProgress: number; count: number; timestamp: number }>();
-    
-    allCheckIns.forEach(ci => {
-      if (ci.createdAt && ci.entityType === 'key_result' &&
-          new Date(ci.createdAt).getFullYear() === trendYear) {
-        const date = new Date(ci.createdAt);
-        const weekStart = new Date(date);
-        weekStart.setDate(date.getDate() - date.getDay());
-        weekStart.setHours(0, 0, 0, 0);
-        // Include year to avoid cross-year collisions
-        const weekKey = `${weekStart.getFullYear()}-${weekStart.getMonth() + 1}/${weekStart.getDate()}`;
-        
-        // Normalize progress to 0-100 range (cap at 100)
-        const normalizedProgress = Math.min(100, Math.max(0, ci.newProgress || 0));
-        
-        const existing = weekMap.get(weekKey) || { totalProgress: 0, count: 0, timestamp: weekStart.getTime() };
-        existing.totalProgress += normalizedProgress;
-        existing.count += 1;
-        weekMap.set(weekKey, existing);
-      }
-    });
-
-    // Convert to array, sort by timestamp (ascending), and take last 8 weeks
-    const sortedWeeks = Array.from(weekMap.entries())
-      .map(([key, data]) => ({
-        week: key.split('-')[1], // Display format without year (e.g., "1/5")
-        progress: Math.round(data.totalProgress / data.count),
-        checkIns: data.count,
-        timestamp: data.timestamp,
-      }))
-      .sort((a, b) => a.timestamp - b.timestamp)
-      .slice(-8); // Most recent 8 weeks
+    // Progress trend data — sourced from snapshot-backed /api/okr/progress-trend
+    // so historical trend lines stay stable across check-in edits/deletions.
+    const sortedWeeks = (progressTrendData?.weeks ?? []).map(w => ({
+      week: w.week,
+      progress: w.progress,
+      checkIns: w.snapshots,
+      timestamp: w.timestamp,
+    }));
 
     // Check-in enrichment data
     const totalCheckIns = allCheckIns.length;
@@ -626,7 +620,7 @@ export default function ExecutiveDashboard() {
       paceDistribution,
       avgProjectedProgress,
     };
-  }, [objectives, keyResultsMap, teams, allCheckIns, bigRocks, currentQuarter]);
+  }, [objectives, keyResultsMap, teams, allCheckIns, bigRocks, currentQuarter, progressTrendData]);
   
   // Extract pace distribution for easier access in JSX
   const paceDistribution = metrics?.paceDistribution || { ahead: 0, onTrack: 0, behind: 0, atRisk: 0, noData: 0, completed: 0 };
