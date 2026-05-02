@@ -907,20 +907,32 @@ export default function PlanningEnhanced() {
     if (!checkInEntity?.id || !user?.id) return;
 
     const handle = window.setTimeout(() => {
-      const savedAt = saveDraft(user.id, checkInEntity.type, checkInEntity.id, {
-        form: {
-          newValue: checkInForm.newValue,
-          newProgress: checkInForm.newProgress,
-          newStatus: checkInForm.newStatus,
-          note: checkInForm.note,
-          achievements: checkInForm.achievements,
-          challenges: checkInForm.challenges,
-          nextSteps: checkInForm.nextSteps,
-          asOfDate: checkInForm.asOfDate,
+      const savedAt = saveDraft(
+        user.id,
+        checkInEntity.type,
+        checkInEntity.id,
+        {
+          form: {
+            newValue: checkInForm.newValue,
+            newProgress: checkInForm.newProgress,
+            newStatus: checkInForm.newStatus,
+            note: checkInForm.note,
+            achievements: checkInForm.achievements,
+            challenges: checkInForm.challenges,
+            nextSteps: checkInForm.nextSteps,
+            asOfDate: checkInForm.asOfDate,
+          },
+          valueInputDraft,
+          pendingTaskUpdates,
         },
-        valueInputDraft,
-        pendingTaskUpdates,
-      });
+        {
+          tenantId: currentTenant?.id,
+          entityTitle:
+            checkInEntity.current?.title ||
+            checkInEntity.current?.name ||
+            undefined,
+        },
+      );
       if (savedAt) setDraftSavedAt(savedAt);
     }, 600);
 

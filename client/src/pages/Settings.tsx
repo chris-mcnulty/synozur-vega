@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { PlannerConnectionCard } from "@/components/planner/PlannerConnectionCard";
 import { OutlookConnectionCard } from "@/components/outlook/OutlookConnectionCard";
 import { useAuth } from "@/contexts/AuthContext";
-import { User, Bell, Plug, Shield, LogOut } from "lucide-react";
+import { User, Bell, Plug, Shield, LogOut, FileText } from "lucide-react";
+import { DraftsManager } from "@/components/DraftsManager";
 import { useLocation } from "wouter";
 
 export default function Settings() {
@@ -35,6 +36,10 @@ export default function Settings() {
           <TabsTrigger value="integrations" className="flex items-center gap-2" data-testid="tab-integrations">
             <Plug className="h-4 w-4" />
             Integrations
+          </TabsTrigger>
+          <TabsTrigger value="drafts" className="flex items-center gap-2" data-testid="tab-drafts">
+            <FileText className="h-4 w-4" />
+            Drafts
           </TabsTrigger>
         </TabsList>
 
@@ -98,6 +103,10 @@ export default function Settings() {
             <PlannerConnectionCard />
             <OutlookConnectionCard />
           </div>
+        </TabsContent>
+
+        <TabsContent value="drafts" className="space-y-4">
+          <DraftsManager />
         </TabsContent>
       </Tabs>
     </div>
