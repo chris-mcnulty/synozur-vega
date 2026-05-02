@@ -61,6 +61,7 @@ const Strategy = lazy(() => import("@/pages/Strategy"));
 const PlanningEnhanced = lazy(() => import("@/pages/PlanningEnhanced"));
 const FocusRhythm = lazy(() => import("@/pages/FocusRhythm"));
 const MeetingDetail = lazy(() => import("@/pages/MeetingDetail"));
+const MeetingLive = lazy(() => import("@/pages/MeetingLive"));
 const TenantAdmin = lazy(() => import("@/pages/TenantAdmin"));
 const SystemAdmin = lazy(() => import("@/pages/SystemAdmin"));
 const AIGroundingAdmin = lazy(() => import("@/pages/AIGroundingAdmin"));
@@ -525,6 +526,16 @@ function Router() {
       <Route path="/focus-rhythm">
         <LazyProtectedRoute>
           <FocusRhythm />
+        </LazyProtectedRoute>
+      </Route>
+      <Route path="/focus-rhythm/:meetingId/live">
+        <LazyProtectedRoute>
+          <MeetingLive />
+        </LazyProtectedRoute>
+      </Route>
+      <Route path="/meetings/:meetingId/live">
+        <LazyProtectedRoute>
+          <MeetingLive />
         </LazyProtectedRoute>
       </Route>
       <Route path="/focus-rhythm/:meetingId">

@@ -16,9 +16,10 @@ import {
   Link2, Clock, Zap, ChevronRight, ChevronDown, ChevronLeft, X, Sparkles, Copy,
   Save, Flag, FileText, PlayCircle, Compass, ArrowUpRight, MessageSquare,
   Maximize2, Minimize2, CalendarCheck, Share2, StopCircle, SkipForward,
-  User, Timer, Trash2, TrendingUp,
+  User, Timer, Trash2, TrendingUp, Presentation, Gavel, ListChecks,
 } from "lucide-react";
 import type { Meeting, Objective, KeyResult, BigRock, Strategy, Foundation } from "@shared/schema";
+import { normalizeActionItems } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
@@ -486,6 +487,22 @@ export default function MeetingDetail() {
               <TooltipContent>{meetingActive ? "Stop the timer and exit active mode" : "Start a timer and step through the agenda"}</TooltipContent>
             </Tooltip>
 
+            {/* Start Live Meeting (presentation mode) */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setLocation(`/focus-rhythm/${meetingId}/live`)}
+                  data-testid="button-start-live-meeting"
+                >
+                  <Presentation className="w-4 h-4 mr-1" />
+                  Live Meeting
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Open full-screen presentation mode with per-topic timer and quick capture</TooltipContent>
+            </Tooltip>
+
             {linkedItemCount > 0 && (
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -772,6 +789,118 @@ export default function MeetingDetail() {
                     data-testid="textarea-notes"
                   />
                 </div>
+
+                {(() => {
+                  const summary = meeting?.liveState?.summary ?? null;
+                  if (!summary) return null;
+                  const mins = Math.floor((summary.totalElapsedSeconds || 0) / 60);
+                  const secs = Math.max(0, Math.round((summary.totalElapsedSeconds || 0) % 60));
+                  return (
+                    <div className="mt-6 pt-4 border-t" data-testid="section-live-summary">
+                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-2">
+                        <Presentation className="w-4 h-4" />
+                        Live Meeting Summary
+                      </h3>
+                      <Card className="p-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                          <div>
+                            <div className="text-xs text-muted-foreground">Elapsed</div>
+                            <div className="font-medium" data-testid="text-summary-elapsed">{mins}m {secs}s</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-muted-foreground">Topics covered</div>
+                            <div className="font-medium" data-testid="text-summary-topics">{summary.topicsCovered}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-muted-foreground">Decisions</div>
+                            <div className="font-medium" data-testid="text-summary-decisions-count">{summary.decisionsCount}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-muted-foreground">Action items</div>
+                            <div className="font-medium" data-testid="text-summary-actions-count">{summary.actionItemsCount}</div>
+                          </div>
+                        </div>
+                        <div className="mt-2 text-xs text-muted-foreground">
+                          Ended {format(new Date(summary.endedAt), "MMM d, yyyy 'at' h:mm a")}
+                        </div>
+                      </Card>
+                    </div>
+                  );
+                })()}
+
+                {Array.isArray(meeting?.decisions) && meeting!.decisions.length > 0 && (
+                  <div className="mt-6 pt-4 border-t" data-testid="section-decisions">
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-2">
+                      <Gavel className="w-4 h-4" />
+                      Decisions ({meeting!.decisions.length})
+                    </h3>
+                    <ul className="space-y-1.5">
+                      {meeting!.decisions.map((d, i) => (
+                        <li
+                          key={`decision-${i}`}
+                          className="text-sm flex items-start gap-2"
+                          data-testid={`text-decision-${i}`}
+                        >
+                          <CheckCircle2 className="w-4 h-4 mt-0.5 text-muted-foreground shrink-0" />
+                          <span className="break-words">{d}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {Array.isArray(meeting?.risks) && meeting!.risks.length > 0 && (
+                  <div className="mt-6 pt-4 border-t" data-testid="section-risks">
+                    <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-2">
+                      <AlertTriangle className="w-4 h-4" />
+                      Risks ({meeting!.risks.length})
+                    </h3>
+                    <ul className="space-y-1.5">
+                      {meeting!.risks.map((r, i) => (
+                        <li
+                          key={`risk-${i}`}
+                          className="text-sm flex items-start gap-2"
+                          data-testid={`text-risk-${i}`}
+                        >
+                          <AlertTriangle className="w-4 h-4 mt-0.5 text-amber-600 shrink-0" />
+                          <span className="break-words">{r}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {(() => {
+                  const items = normalizeActionItems(meeting?.actionItems);
+                  if (items.length === 0) return null;
+                  return (
+                    <div className="mt-6 pt-4 border-t" data-testid="section-action-items">
+                      <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2 mb-2">
+                        <ListChecks className="w-4 h-4" />
+                        Action Items ({items.length})
+                      </h3>
+                      <ul className="space-y-1.5">
+                        {items.map((item, i) => (
+                          <li
+                            key={item.id || `action-${i}`}
+                            className="text-sm flex items-start gap-2"
+                            data-testid={`row-action-${i}`}
+                          >
+                            <CheckCircle2 className={`w-4 h-4 mt-0.5 shrink-0 ${item.completed ? "text-emerald-600" : "text-muted-foreground"}`} />
+                            <div className="flex-1 min-w-0">
+                              <div className="break-words" data-testid={`text-action-description-${i}`}>{item.description}</div>
+                              {item.assignee && (
+                                <div className="text-xs text-muted-foreground" data-testid={`text-action-assignee-${i}`}>
+                                  Assignee: {item.assignee}
+                                </div>
+                              )}
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  );
+                })()}
               </div>
             </ScrollArea>
           </div>

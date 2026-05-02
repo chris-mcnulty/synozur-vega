@@ -710,6 +710,43 @@ export type ActionItem = {
   completed: boolean;
 };
 
+// Action items in older meetings were stored as plain strings; normalize them
+// to the structured ActionItem shape for consistent rendering.
+export function normalizeActionItems(
+  raw: ReadonlyArray<string | ActionItem> | null | undefined,
+): ActionItem[] {
+  if (!raw) return [];
+  return raw.map((item, i) =>
+    typeof item === "string"
+      ? { id: `legacy-${i}`, description: item, completed: false }
+      : item,
+  );
+}
+
+// Live Meeting Mode in-session presentation state, persisted on the meeting
+// record so a refresh resumes the running session and the end snapshot is kept.
+export const liveMeetingSummarySchema = z.object({
+  totalElapsedSeconds: z.number(),
+  topicsCovered: z.number(),
+  decisionsCount: z.number(),
+  risksCount: z.number(),
+  actionItemsCount: z.number(),
+  endedAt: z.string(),
+});
+
+export const liveMeetingStateSchema = z.object({
+  startedAt: z.string(),
+  currentTopicIndex: z.number().int(),
+  topicChangedAt: z.string(),
+  perTopicSeconds: z.record(z.string(), z.number()),
+  paused: z.boolean(),
+  pausedAt: z.string().nullable(),
+  endedAt: z.string().nullable().optional(),
+  summary: liveMeetingSummarySchema.nullable().optional(),
+});
+
+export type LiveMeetingState = z.infer<typeof liveMeetingStateSchema>;
+
 export const meetings = pgTable("meetings", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
@@ -721,7 +758,9 @@ export const meetings = pgTable("meetings", {
   attendees: jsonb("attendees").$type<string[]>(),
   summary: text("summary"),
   decisions: jsonb("decisions").$type<string[]>(),
-  actionItems: jsonb("action_items").$type<string[]>(),
+  // Stored as jsonb. Legacy rows hold string[]; new captures use ActionItem[].
+  // Consumers should normalize via the helper in shared (`normalizeActionItems`).
+  actionItems: jsonb("action_items").$type<Array<string | ActionItem>>(),
   nextMeetingDate: timestamp("next_meeting_date"),
 
   // Focus Rhythm enhancements
@@ -737,6 +776,10 @@ export const meetings = pgTable("meetings", {
   
   // Imported meeting notes from Outlook/Copilot/Teams
   meetingNotes: text("meeting_notes"),
+
+  // Live Meeting Mode state (persisted so refresh resumes a running meeting,
+  // and so the post-meeting summary snapshot is preserved).
+  liveState: jsonb("live_state").$type<LiveMeetingState>(),
   
   // Microsoft 365 Outlook sync fields
   outlookEventId: text("outlook_event_id"), // Outlook calendar event ID
@@ -787,6 +830,7 @@ export const insertMeetingSchema = createInsertSchema(meetings).omit({
   recurrencePattern: z.union([z.enum(['daily', 'weekly', 'biweekly', 'monthly', 'quarterly']), z.literal('')]).transform(val => val === '' ? null : val).nullable().optional(),
   recurrenceEndDate: z.string().datetime().or(z.date()).nullable().optional(),
   recurrenceDay: z.number().nullable().optional(),
+  liveState: liveMeetingStateSchema.nullable().optional(),
 });
 
 export type InsertMeeting = z.infer<typeof insertMeetingSchema>;

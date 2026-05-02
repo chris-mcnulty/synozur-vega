@@ -2543,6 +2543,15 @@ ${changelogContent}`;
       if (!meeting) {
         return res.status(404).json({ error: "Meeting not found" });
       }
+
+      // Tenant isolation: only users from the meeting's tenant may read it,
+      // unless they have a cross-tenant admin/consultant role.
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      if (!canAccessAny && meeting.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
       res.json(meeting);
     } catch (error) {
       console.error("Error fetching meeting:", error);
@@ -2583,6 +2592,15 @@ ${changelogContent}`;
       const existingMeeting = await storage.getMeetingById(id);
       if (!existingMeeting) {
         return res.status(404).json({ error: "Meeting not found" });
+      }
+
+      // Tenant isolation: a user with broad update permission in one tenant must
+      // not be able to modify a meeting in another tenant. Cross-tenant roles bypass.
+      const crossTenantRoles: string[] = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT];
+      const userRoleStr = req.user?.role as string;
+      const isCrossTenant = crossTenantRoles.includes(userRoleStr);
+      if (!isCrossTenant && existingMeeting.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
       }
       
       // RBAC: Check if user can modify this meeting
