@@ -2942,6 +2942,116 @@ ${changelogContent}`;
   app.use("/api/notifications", notificationsRouter);
 
   // ============================================
+  // GLOBAL CROSS-ENTITY SEARCH
+  // ============================================
+
+  // GET /api/search?q=...&types=objective,key_result,...&limit=8
+  // Returns ranked results across all entity types in the user's tenant.
+  app.get("/api/search", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.effectiveTenantId;
+      if (!tenantId) return res.status(400).json({ error: "Tenant context required" });
+
+      const q = typeof req.query.q === "string" ? req.query.q : "";
+      if (!q.trim()) {
+        return res.json({ query: "", total: 0, results: [] });
+      }
+      if (q.length > 200) {
+        return res.status(400).json({ error: "Query too long" });
+      }
+
+      const typesParam = typeof req.query.types === "string" ? req.query.types : "";
+      // Accept short aliases (kr, rock) and singular/plural forms; normalize
+      // to the canonical SEARCH_ENTITY_TYPES values used by storage.
+      const TYPE_ALIASES: Record<string, string> = {
+        kr: "key_result",
+        keyresult: "key_result",
+        keyresults: "key_result",
+        key_results: "key_result",
+        rock: "big_rock",
+        rocks: "big_rock",
+        bigrock: "big_rock",
+        bigrocks: "big_rock",
+        big_rocks: "big_rock",
+        objectives: "objective",
+        strategies: "strategy",
+        ambitions: "ambition",
+        teams: "team",
+        meetings: "meeting",
+        tickets: "ticket",
+        documents: "document",
+      };
+      const ALLOWED_TYPES = new Set([
+        "objective",
+        "key_result",
+        "big_rock",
+        "strategy",
+        "ambition",
+        "team",
+        "meeting",
+        "ticket",
+        "document",
+      ]);
+      const types = typesParam
+        ? typesParam
+            .split(",")
+            .map((t) => t.trim().toLowerCase())
+            .filter(Boolean)
+            .map((t) => TYPE_ALIASES[t] ?? t)
+            .filter((t) => ALLOWED_TYPES.has(t))
+        : undefined;
+      const limit = Math.min(parseInt(String(req.query.limit ?? "8"), 10) || 8, 15);
+
+      const userRole = req.user!.role as Role;
+      // Match existing per-entity read-route authorization exactly so that
+      // global search never reveals entities a user couldn't fetch directly.
+      // Support tickets: only vega_admin / vega_consultant can see all
+      // tickets in a tenant (see server/routes-support.ts isAdminRole).
+      // Tenant admins / regular users only see their own tickets.
+      const isSupportAdmin =
+        userRole === ROLES.VEGA_ADMIN || userRole === ROLES.VEGA_CONSULTANT;
+      // Grounding documents are gated by the MANAGE_AI_GROUNDING permission,
+      // matching the existing AI grounding admin endpoints.
+      const canSeeGroundingDocs = hasPermission(userRole, PERMISSIONS.MANAGE_AI_GROUNDING);
+
+      const results = await storage.searchAcrossEntities(tenantId, q, {
+        types,
+        limit,
+        userId: req.user!.id,
+        isSupportAdmin,
+        canSeeGroundingDocs,
+      });
+
+      res.json({ query: q, total: results.length, results });
+    } catch (error) {
+      console.error("Error performing global search:", error);
+      res.status(500).json({ error: "Search failed" });
+    }
+  });
+
+  // POST /api/search/telemetry - lightweight event tracking for search analytics.
+  // Events: 'query' | 'result_clicked' | 'no_results'
+  app.post("/api/search/telemetry", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const { event, query, resultType, totalResults } = req.body ?? {};
+      const validEvents = ["query", "result_clicked", "no_results"];
+      if (!event || !validEvents.includes(event)) {
+        return res.status(400).json({ error: "Invalid event" });
+      }
+      // Best-effort logging — keep payloads small. Queries are truncated and tenant-scoped.
+      const safeQuery = typeof query === "string" ? query.slice(0, 200) : "";
+      console.log(
+        `[search-telemetry] tenant=${req.effectiveTenantId} user=${req.user?.id} event=${event} ` +
+          `q="${safeQuery}" resultType=${resultType ?? "-"} total=${totalResults ?? "-"}`
+      );
+      res.json({ ok: true });
+    } catch (error) {
+      console.error("Error recording search telemetry:", error);
+      res.status(500).json({ error: "Failed to record telemetry" });
+    }
+  });
+
+  // ============================================
   // PLATFORM ADMIN ROUTES - Service Plans & Blocked Domains
   // ============================================
 

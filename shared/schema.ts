@@ -2335,3 +2335,36 @@ export const oauthRefreshTokens = pgTable("oauth_refresh_tokens", {
 });
 
 export type OauthRefreshToken = typeof oauthRefreshTokens.$inferSelect;
+
+// ============================================
+// Global Search
+// ============================================
+
+export const SEARCH_ENTITY_TYPES = [
+  'objective',
+  'key_result',
+  'big_rock',
+  'strategy',
+  'ambition',
+  'team',
+  'meeting',
+  'ticket',
+  'document',
+] as const;
+export type SearchEntityType = typeof SEARCH_ENTITY_TYPES[number];
+
+export type SearchResult = {
+  type: SearchEntityType;
+  id: string;
+  title: string;
+  snippet?: string;
+  parentContext?: string;
+  url: string;
+  score: number;
+};
+
+export type SearchResponse = {
+  query: string;
+  total: number;
+  results: SearchResult[];
+};

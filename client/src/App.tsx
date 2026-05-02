@@ -388,19 +388,25 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
             <GlobalTimePeriodSelector className="hidden sm:flex" />
           </div>
           <div className="flex items-center gap-1 md:gap-4 flex-shrink-0">
-            <Button
-              variant="outline"
-              size="sm"
-              className="hidden md:flex items-center gap-2 text-muted-foreground"
-              onClick={() => setCommandOpen(true)}
-              data-testid="button-command-palette"
-            >
-              <Search className="h-3.5 w-3.5" />
-              <span className="text-sm">Search...</span>
-              <kbd className="ml-2 pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
+            <div className="hidden md:flex relative items-center">
+              <Search className="h-3.5 w-3.5 absolute left-2.5 text-muted-foreground pointer-events-none" />
+              <input
+                type="text"
+                readOnly
+                placeholder="Search…"
+                onFocus={(e) => {
+                  e.currentTarget.blur();
+                  setCommandOpen(true);
+                }}
+                onClick={() => setCommandOpen(true)}
+                className="h-9 w-56 rounded-md border bg-background pl-8 pr-12 text-sm text-muted-foreground placeholder:text-muted-foreground hover-elevate cursor-pointer focus:outline-none"
+                data-testid="input-header-search"
+                aria-label="Open global search"
+              />
+              <kbd className="absolute right-2 pointer-events-none hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium sm:flex">
                 <span className="text-xs">⌘</span>K
               </kbd>
-            </Button>
+            </div>
             <div className="hidden lg:block">
               <ConsultingModeToggle />
             </div>

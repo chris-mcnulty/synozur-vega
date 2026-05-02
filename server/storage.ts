@@ -51,10 +51,9 @@ import {
   oauthRefreshTokens, type OauthRefreshToken,
   type Ambition,
   notifications, type Notification, type InsertNotification,
-  notificationPreferences, type NotificationPreference, type InsertNotificationPreference
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, count, ilike, asc } from "drizzle-orm";
+import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, count, ilike, asc, type SQL } from "drizzle-orm";
 import { hashPassword } from "./auth";
 
 export interface IStorage {
@@ -489,6 +488,21 @@ export interface IStorage {
   upsertNotificationPreference(pref: InsertNotificationPreference): Promise<NotificationPreference>;
   getNotificationPreference(userId: string, eventType: string): Promise<NotificationPreference | undefined>;
   
+  // Global cross-entity search
+  searchAcrossEntities(
+    tenantId: string,
+    query: string,
+    options?: { types?: string[]; limit?: number; userId?: string; isSupportAdmin?: boolean; canSeeGroundingDocs?: boolean }
+  ): Promise<{
+    type: 'objective' | 'key_result' | 'big_rock' | 'strategy' | 'ambition' | 'team' | 'meeting' | 'ticket' | 'document';
+    id: string;
+    title: string;
+    snippet?: string;
+    parentContext?: string;
+    url: string;
+    score: number;
+  }[]>;
+
   // Job Runs methods
   getJobRuns(jobId?: string, limit?: number): Promise<JobRun[]>;
   getJobRunById(id: string): Promise<JobRun | undefined>;
@@ -2438,7 +2452,8 @@ export class DatabaseStorage implements IStorage {
     return checkIn || undefined;
   }
 
-  // ============================================
+  // =====================================  }
+
   // BATCH QUERY METHODS - Performance optimizations
   // These methods fetch data for multiple entities in a single query
   // to avoid N+1 query problems
@@ -4853,6 +4868,352 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(notificationPreferences).values(pref).returning();
     return created;
+  }
+
+  async searchAcrossEntities(
+    tenantId: string,
+    query: string,
+    options?: { types?: string[]; limit?: number; userId?: string; isSupportAdmin?: boolean; canSeeGroundingDocs?: boolean }
+  ) {
+    const trimmed = query.trim();
+    if (!trimmed) return [];
+
+    const wantedTypes = new Set(
+      options?.types && options.types.length > 0
+        ? options.types
+        : ['objective', 'key_result', 'big_rock', 'strategy', 'ambition', 'team', 'meeting', 'ticket', 'document']
+    );
+    const perTypeLimit = Math.min(options?.limit ?? 8, 15);
+    const totalLimit = Math.min((options?.limit ?? 8) * 4, 80);
+    const pattern = `%${trimmed.replace(/[%_]/g, '\\$&')}%`;
+    const lower = trimmed.toLowerCase();
+
+    type Result = {
+      type: 'objective' | 'key_result' | 'big_rock' | 'strategy' | 'ambition' | 'team' | 'meeting' | 'ticket' | 'document';
+      id: string;
+      title: string;
+      snippet?: string;
+      parentContext?: string;
+      url: string;
+      score: number;
+    };
+
+    const scoreFor = (title: string, body: string | null | undefined): number => {
+      const t = (title || '').toLowerCase();
+      if (t === lower) return 110;
+      if (t.startsWith(lower)) return 100;
+      if (t.includes(lower)) return 60;
+      const b = (body || '').toLowerCase();
+      if (b.includes(lower)) return 25;
+      return 10;
+    };
+
+    const buildSnippet = (text: string | null | undefined): string | undefined => {
+      if (!text) return undefined;
+      const idx = text.toLowerCase().indexOf(lower);
+      if (idx < 0) return text.length > 120 ? `${text.slice(0, 120)}…` : text;
+      const start = Math.max(0, idx - 40);
+      const end = Math.min(text.length, idx + lower.length + 60);
+      const prefix = start > 0 ? '…' : '';
+      const suffix = end < text.length ? '…' : '';
+      return `${prefix}${text.slice(start, end)}${suffix}`;
+    };
+
+    const tasks: Promise<Result[]>[] = [];
+
+    if (wantedTypes.has('objective')) {
+      tasks.push((async () => {
+        const rows = await db
+          .select({
+            id: objectives.id,
+            title: objectives.title,
+            description: objectives.description,
+            quarter: objectives.quarter,
+            year: objectives.year,
+            level: objectives.level,
+            teamId: objectives.teamId,
+          })
+          .from(objectives)
+          .where(and(
+            eq(objectives.tenantId, tenantId),
+            or(ilike(objectives.title, pattern), ilike(objectives.description, pattern))
+          ))
+          .limit(perTypeLimit * 2);
+        return rows.map((r) => {
+          const period = r.quarter ? `Q${r.quarter} ${r.year ?? ''}`.trim() : r.year ? `FY ${r.year}` : '';
+          const ctxParts = [period, r.level ? r.level.charAt(0).toUpperCase() + r.level.slice(1) : ''].filter(Boolean);
+          return {
+            type: 'objective' as const,
+            id: r.id,
+            title: r.title,
+            snippet: buildSnippet(r.description),
+            parentContext: ctxParts.join(' · ') || undefined,
+            url: `/planning?focus=${r.id}`,
+            score: scoreFor(r.title, r.description),
+          };
+        });
+      })().catch((e) => { console.error('[search] objectives failed:', e); return []; }));
+    }
+
+    if (wantedTypes.has('key_result')) {
+      tasks.push((async () => {
+        const rows = await db
+          .select({
+            id: keyResults.id,
+            title: keyResults.title,
+            description: keyResults.description,
+            objectiveId: keyResults.objectiveId,
+            objectiveTitle: objectives.title,
+            quarter: objectives.quarter,
+            year: objectives.year,
+          })
+          .from(keyResults)
+          .leftJoin(objectives, eq(keyResults.objectiveId, objectives.id))
+          .where(and(
+            eq(keyResults.tenantId, tenantId),
+            or(ilike(keyResults.title, pattern), ilike(keyResults.description, pattern))
+          ))
+          .limit(perTypeLimit * 2);
+        return rows.map((r) => {
+          const period = r.quarter ? `Q${r.quarter} ${r.year ?? ''}`.trim() : r.year ? `FY ${r.year}` : '';
+          const ctxParts = [period, r.objectiveTitle ? `Objective: ${r.objectiveTitle}` : ''].filter(Boolean);
+          return {
+            type: 'key_result' as const,
+            id: r.id,
+            title: r.title,
+            snippet: buildSnippet(r.description),
+            parentContext: ctxParts.join(' · ') || undefined,
+            url: `/planning?focus=${r.id}`,
+            score: scoreFor(r.title, r.description),
+          };
+        });
+      })().catch((e) => { console.error('[search] key_results failed:', e); return []; }));
+    }
+
+    if (wantedTypes.has('big_rock')) {
+      tasks.push((async () => {
+        const rows = await db
+          .select({
+            id: bigRocks.id,
+            title: bigRocks.title,
+            description: bigRocks.description,
+            quarter: bigRocks.quarter,
+            year: bigRocks.year,
+            objectiveId: bigRocks.objectiveId,
+          })
+          .from(bigRocks)
+          .where(and(
+            eq(bigRocks.tenantId, tenantId),
+            or(ilike(bigRocks.title, pattern), ilike(bigRocks.description, pattern))
+          ))
+          .limit(perTypeLimit * 2);
+        return rows.map((r) => {
+          const period = r.quarter && r.quarter > 0 ? `Q${r.quarter} ${r.year}` : r.year ? `FY ${r.year}` : '';
+          return {
+            type: 'big_rock' as const,
+            id: r.id,
+            title: r.title,
+            snippet: buildSnippet(r.description),
+            parentContext: period || undefined,
+            url: `/planning?focus=${r.id}`,
+            score: scoreFor(r.title, r.description),
+          };
+        });
+      })().catch((e) => { console.error('[search] big_rocks failed:', e); return []; }));
+    }
+
+    if (wantedTypes.has('strategy')) {
+      tasks.push((async () => {
+        const rows = await db
+          .select({
+            id: strategies.id,
+            title: strategies.title,
+            description: strategies.description,
+            priority: strategies.priority,
+            status: strategies.status,
+          })
+          .from(strategies)
+          .where(and(
+            eq(strategies.tenantId, tenantId),
+            or(ilike(strategies.title, pattern), ilike(strategies.description, pattern))
+          ))
+          .limit(perTypeLimit * 2);
+        return rows.map((r) => ({
+          type: 'strategy' as const,
+          id: r.id,
+          title: r.title,
+          snippet: buildSnippet(r.description),
+          parentContext: [r.priority, r.status].filter(Boolean).join(' · ') || undefined,
+          url: `/strategy?focus=${r.id}`,
+          score: scoreFor(r.title, r.description),
+        }));
+      })().catch((e) => { console.error('[search] strategies failed:', e); return []; }));
+    }
+
+    if (wantedTypes.has('ambition')) {
+      tasks.push((async () => {
+        const [foundation] = await db.select().from(foundations).where(eq(foundations.tenantId, tenantId));
+        if (!foundation || !foundation.ambitions) return [];
+        const ambitionsList: Ambition[] = foundation.ambitions;
+        return ambitionsList
+          .filter((a) => {
+            const t = (a.title || '').toLowerCase();
+            const d = (a.description || '').toLowerCase();
+            return t.includes(lower) || d.includes(lower);
+          })
+          .map((a) => ({
+            type: 'ambition' as const,
+            id: a.id,
+            title: a.title,
+            snippet: buildSnippet(a.description),
+            parentContext: a.targetYear ? `Target ${a.targetYear}` : undefined,
+            url: `/foundations`,
+            score: scoreFor(a.title, a.description),
+          }));
+      })().catch((e) => { console.error('[search] ambitions failed:', e); return []; }));
+    }
+
+    if (wantedTypes.has('team')) {
+      tasks.push((async () => {
+        const rows = await db
+          .select({
+            id: teams.id,
+            name: teams.name,
+            description: teams.description,
+          })
+          .from(teams)
+          .where(and(
+            eq(teams.tenantId, tenantId),
+            or(ilike(teams.name, pattern), ilike(teams.description, pattern))
+          ))
+          .limit(perTypeLimit * 2);
+        return rows.map((r) => ({
+          type: 'team' as const,
+          id: r.id,
+          title: r.name,
+          snippet: buildSnippet(r.description),
+          url: `/team`,
+          score: scoreFor(r.name, r.description),
+        }));
+      })().catch((e) => { console.error('[search] teams failed:', e); return []; }));
+    }
+
+    if (wantedTypes.has('meeting')) {
+      tasks.push((async () => {
+        const rows = await db
+          .select({
+            id: meetings.id,
+            title: meetings.title,
+            summary: meetings.summary,
+            date: meetings.date,
+            meetingType: meetings.meetingType,
+          })
+          .from(meetings)
+          .where(and(
+            eq(meetings.tenantId, tenantId),
+            or(ilike(meetings.title, pattern), ilike(meetings.summary, pattern))
+          ))
+          .orderBy(desc(meetings.date))
+          .limit(perTypeLimit * 2);
+        return rows.map((r) => {
+          const dateStr = r.date ? new Date(r.date).toLocaleDateString() : '';
+          const ctxParts = [r.meetingType, dateStr].filter(Boolean);
+          return {
+            type: 'meeting' as const,
+            id: r.id,
+            title: r.title,
+            snippet: buildSnippet(r.summary),
+            parentContext: ctxParts.join(' · ') || undefined,
+            url: `/focus-rhythm/${r.id}`,
+            score: scoreFor(r.title, r.summary),
+          };
+        });
+      })().catch((e) => { console.error('[search] meetings failed:', e); return []; }));
+    }
+
+    if (wantedTypes.has('ticket')) {
+      tasks.push((async () => {
+        const baseConditions: SQL[] = [
+          eq(supportTickets.tenantId, tenantId),
+          or(ilike(supportTickets.subject, pattern), ilike(supportTickets.description, pattern))!,
+        ];
+        // Regular users can only see their own tickets; admins see all in the tenant.
+        if (!options?.isSupportAdmin && options?.userId) {
+          baseConditions.push(eq(supportTickets.userId, options.userId));
+        }
+        const rows = await db
+          .select({
+            id: supportTickets.id,
+            ticketNumber: supportTickets.ticketNumber,
+            subject: supportTickets.subject,
+            description: supportTickets.description,
+            status: supportTickets.status,
+            category: supportTickets.category,
+          })
+          .from(supportTickets)
+          .where(and(...baseConditions))
+          .orderBy(desc(supportTickets.createdAt))
+          .limit(perTypeLimit * 2);
+        return rows.map((r) => ({
+          type: 'ticket' as const,
+          id: r.id,
+          title: `#${r.ticketNumber} ${r.subject}`,
+          snippet: buildSnippet(r.description),
+          parentContext: [r.category, r.status].filter(Boolean).join(' · ') || undefined,
+          url: `/support?ticketId=${r.id}`,
+          score: scoreFor(r.subject, r.description),
+        }));
+      })().catch((e) => { console.error('[search] tickets failed:', e); return []; }));
+    }
+
+    if (wantedTypes.has('document') && options?.canSeeGroundingDocs) {
+      tasks.push((async () => {
+        const rows = await db
+          .select({
+            id: groundingDocuments.id,
+            title: groundingDocuments.title,
+            description: groundingDocuments.description,
+            category: groundingDocuments.category,
+            content: groundingDocuments.content,
+            tenantId: groundingDocuments.tenantId,
+          })
+          .from(groundingDocuments)
+          .where(and(
+            or(eq(groundingDocuments.tenantId, tenantId), isNull(groundingDocuments.tenantId)),
+            or(
+              ilike(groundingDocuments.title, pattern),
+              ilike(groundingDocuments.description, pattern),
+              ilike(groundingDocuments.content, pattern)
+            )
+          ))
+          .limit(perTypeLimit * 2);
+        return rows.map((r) => ({
+          type: 'document' as const,
+          id: r.id,
+          title: r.title,
+          snippet: buildSnippet(r.description || r.content),
+          parentContext: [r.category, r.tenantId ? 'Tenant' : 'Global'].filter(Boolean).join(' · ') || undefined,
+          url: `/ai-grounding`,
+          score: scoreFor(r.title, r.description || r.content),
+        }));
+      })().catch((e) => { console.error('[search] documents failed:', e); return []; }));
+    }
+
+    const groups = await Promise.all(tasks);
+    const flat = groups.flat();
+    flat.sort((a, b) => b.score - a.score || a.title.localeCompare(b.title));
+
+    // Cap each type at perTypeLimit to keep results balanced
+    const perType = new Map<string, number>();
+    const out: Result[] = [];
+    for (const r of flat) {
+      const c = perType.get(r.type) ?? 0;
+      if (c >= perTypeLimit) continue;
+      perType.set(r.type, c + 1);
+      out.push(r);
+      if (out.length >= totalLimit) break;
+    }
+    return out;
   }
 }
 
