@@ -2200,10 +2200,37 @@ ${changelogContent}`;
     try {
       const { id } = req.params;
       const validatedData = insertOkrSchema.partial().parse(req.body);
+      const previous = await storage.getOkrById(id);
       const okr = await storage.updateOkr(id, validatedData);
       if (!okr) {
         return res.status(404).json({ error: "OKR not found" });
       }
+
+      try {
+        if (
+          validatedData.assignedTo &&
+          previous &&
+          validatedData.assignedTo !== previous.assignedTo
+        ) {
+          const assignee = await storage.getUserByEmail(validatedData.assignedTo);
+          if (assignee) {
+            const { createNotification } = await import('./services/notification-service');
+            await createNotification({
+              tenantId: assignee.tenantId || okr.tenantId,
+              userId: assignee.id,
+              type: 'assigned',
+              title: `Assigned to OKR: ${okr.objective}`,
+              body: `Q${okr.quarter ?? ''} ${okr.year ?? ''}`.trim(),
+              entityType: 'okr',
+              entityId: okr.id,
+              linkUrl: `/strategy`,
+            });
+          }
+        }
+      } catch (notifyErr) {
+        console.error('Failed to create assignment notification:', notifyErr);
+      }
+
       res.json(okr);
     } catch (error) {
       console.error("Error updating OKR:", error);
@@ -2907,6 +2934,9 @@ ${changelogContent}`;
   const { supportRouter } = await import("./routes-support");
   app.use("/api/support", supportRouter);
 
+  const { notificationsRouter } = await import("./routes-notifications");
+  app.use("/api/notifications", notificationsRouter);
+
   // ============================================
   // PLATFORM ADMIN ROUTES - Service Plans & Blocked Domains
   // ============================================
@@ -3585,14 +3615,28 @@ ${changelogContent}`;
             
             for (const admin of admins) {
               try {
-                await sendPlanExpirationReminderEmail(
-                  admin.email,
-                  admin.name || admin.email,
-                  tenant.name,
-                  planName,
-                  days,
-                  expirationDate
-                );
+                const { isEmailEnabled, createNotification } = await import('./services/notification-service');
+                const emailOk = await isEmailEnabled(admin.id, 'plan_expiration');
+                if (emailOk) {
+                  await sendPlanExpirationReminderEmail(
+                    admin.email,
+                    admin.name || admin.email,
+                    tenant.name,
+                    planName,
+                    days,
+                    expirationDate
+                  );
+                }
+                await createNotification({
+                  tenantId: tenant.id,
+                  userId: admin.id,
+                  type: 'plan_expiration',
+                  title: `${planName} plan expires in ${days} day${days === 1 ? '' : 's'}`,
+                  body: `${tenant.name} — expires ${expirationDate.toDateString()}`,
+                  entityType: 'tenant',
+                  entityId: tenant.id,
+                  linkUrl: `/tenant-admin`,
+                });
                 totalSent++;
                 details.push({ tenant: tenant.name, admin: admin.email, days });
               } catch (emailError) {

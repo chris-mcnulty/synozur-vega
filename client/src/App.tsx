@@ -22,6 +22,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { TimePeriodProvider, useTimePeriod } from "@/contexts/TimePeriodContext";
 import { ErrorBoundary, RouteErrorBoundary, PageLoadingFallback, FullPageLoadingFallback } from "@/components/ErrorBoundary";
 import { Sparkles, HelpCircle, CalendarRange, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { NotificationBell } from "@/components/NotificationBell";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -74,6 +75,8 @@ const Roadmap = lazy(() => import("@/pages/Roadmap"));
 const Backlog = lazy(() => import("@/pages/Backlog"));
 const Support = lazy(() => import("@/pages/Support"));
 const Trash = lazy(() => import("@/pages/Trash"));
+const Notifications = lazy(() => import("@/pages/Notifications"));
+const NotificationPreferences = lazy(() => import("@/pages/NotificationPreferences"));
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -402,6 +405,7 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
               <ConsultingModeToggle />
             </div>
             <TenantSwitcher />
+            <NotificationBell />
             <button
               onClick={() => { setHelpOpen(!helpOpen); if (chatOpen) setChatOpen(false); }}
               className="flex items-center gap-2 px-2 md:px-3 py-2 rounded-lg hover-elevate active-elevate-2 border"
@@ -595,6 +599,16 @@ function Router() {
       <Route path="/trash">
         <LazyProtectedRoute>
           <Trash />
+        </LazyProtectedRoute>
+      </Route>
+      <Route path="/notifications">
+        <LazyProtectedRoute>
+          <Notifications />
+        </LazyProtectedRoute>
+      </Route>
+      <Route path="/notifications/preferences">
+        <LazyProtectedRoute>
+          <NotificationPreferences />
         </LazyProtectedRoute>
       </Route>
 

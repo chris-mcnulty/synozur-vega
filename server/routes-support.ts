@@ -5,6 +5,7 @@ import { hasPermission, PERMISSIONS, Role } from "@shared/rbac";
 import { z } from "zod";
 import { sendSupportTicketAcknowledgement, sendSupportTicketInternalNotification, sendSupportTicketReplyNotification } from "./email";
 import { TICKET_CATEGORIES, TICKET_PRIORITIES, TICKET_STATUSES } from "@shared/schema";
+import { createNotification, isEmailEnabled } from "./services/notification-service";
 import fs from "fs";
 import path from "path";
 import OpenAI from "openai";
@@ -104,18 +105,31 @@ supportRouter.post("/tickets", async (req: Request, res: Response) => {
       const tenant = await storage.getTenantById(req.user.tenantId!);
       for (const admin of adminUsers) {
         try {
-          await sendSupportTicketInternalNotification(
-            admin.email,
-            ticket.ticketNumber,
-            `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.email,
-            req.user.email,
-            tenant?.name || 'Unknown',
-            ticket.category,
-            ticket.priority,
-            ticket.subject,
-            ticket.description
-          );
+          const emailOk = await isEmailEnabled(admin.id, 'support_reply');
+          if (emailOk) {
+            await sendSupportTicketInternalNotification(
+              admin.email,
+              ticket.ticketNumber,
+              `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.email,
+              req.user.email,
+              tenant?.name || 'Unknown',
+              ticket.category,
+              ticket.priority,
+              ticket.subject,
+              ticket.description
+            );
+          }
         } catch (e) { /* individual email failure ok */ }
+        await createNotification({
+          tenantId: admin.tenantId || ticket.tenantId,
+          userId: admin.id,
+          type: 'support_reply',
+          title: `New support ticket #${ticket.ticketNumber}`,
+          body: `${tenant?.name || 'Tenant'} — ${ticket.subject}`,
+          entityType: 'support_ticket',
+          entityId: ticket.id,
+          linkUrl: `/support?ticketId=${ticket.id}`,
+        });
       }
     } catch (emailErr) {
       console.error("Failed to send internal ticket notification:", emailErr);
@@ -250,42 +264,68 @@ supportRouter.post("/tickets/:id/replies", async (req: Request, res: Response) =
         if (isAdmin) {
           const ticketAuthor = await storage.getUser(ticket.userId);
           if (ticketAuthor) {
-            await sendSupportTicketReplyNotification(
-              ticketAuthor.email,
-              ticketAuthor.firstName || ticketAuthor.email,
-              ticket.ticketNumber,
-              ticket.subject,
-              replierName,
-              message,
-              'staff_to_user'
-            );
-          }
-        } else {
-          const staffUsers = await storage.getVegaAdminUsers();
-          const recipients: { email: string; name: string }[] = [];
-          if (ticket.assignedTo) {
-            const assignee = staffUsers.find(u => u.id === ticket.assignedTo);
-            if (assignee) {
-              recipients.push({ email: assignee.email, name: assignee.firstName || assignee.email });
-            }
-          }
-          if (recipients.length === 0) {
-            for (const admin of staffUsers) {
-              recipients.push({ email: admin.email, name: admin.firstName || admin.email });
-            }
-          }
-          for (const r of recipients) {
-            try {
+            const emailOk = await isEmailEnabled(ticketAuthor.id, 'support_reply');
+            if (emailOk) {
               await sendSupportTicketReplyNotification(
-                r.email,
-                r.name,
+                ticketAuthor.email,
+                ticketAuthor.firstName || ticketAuthor.email,
                 ticket.ticketNumber,
                 ticket.subject,
                 replierName,
                 message,
-                'user_to_staff'
+                'staff_to_user'
               );
+            }
+            await createNotification({
+              tenantId: ticket.tenantId,
+              userId: ticketAuthor.id,
+              type: 'support_reply',
+              title: `New reply on ticket #${ticket.ticketNumber}`,
+              body: `${replierName}: ${message.slice(0, 160)}${message.length > 160 ? '…' : ''}`,
+              entityType: 'support_ticket',
+              entityId: ticket.id,
+              linkUrl: `/support?ticketId=${ticket.id}`,
+            });
+          }
+        } else {
+          const staffUsers = await storage.getVegaAdminUsers();
+          const recipients: { id: string; tenantId: string; email: string; name: string }[] = [];
+          if (ticket.assignedTo) {
+            const assignee = staffUsers.find(u => u.id === ticket.assignedTo);
+            if (assignee) {
+              recipients.push({ id: assignee.id, tenantId: assignee.tenantId || ticket.tenantId, email: assignee.email, name: assignee.name || assignee.email });
+            }
+          }
+          if (recipients.length === 0) {
+            for (const admin of staffUsers) {
+              recipients.push({ id: admin.id, tenantId: admin.tenantId || ticket.tenantId, email: admin.email, name: admin.name || admin.email });
+            }
+          }
+          for (const r of recipients) {
+            try {
+              const emailOk = await isEmailEnabled(r.id, 'support_reply');
+              if (emailOk) {
+                await sendSupportTicketReplyNotification(
+                  r.email,
+                  r.name,
+                  ticket.ticketNumber,
+                  ticket.subject,
+                  replierName,
+                  message,
+                  'user_to_staff'
+                );
+              }
             } catch (e) { /* individual email failure ok */ }
+            await createNotification({
+              tenantId: r.tenantId,
+              userId: r.id,
+              type: 'support_reply',
+              title: `User replied on ticket #${ticket.ticketNumber}`,
+              body: `${replierName}: ${message.slice(0, 160)}${message.length > 160 ? '…' : ''}`,
+              entityType: 'support_ticket',
+              entityId: ticket.id,
+              linkUrl: `/support?ticketId=${ticket.id}`,
+            });
           }
         }
       } catch (emailErr) {
@@ -332,6 +372,39 @@ supportRouter.patch("/tickets/:id", async (req: Request, res: Response) => {
     }
 
     const updated = await storage.updateSupportTicket(ticket.id, updates);
+
+    try {
+      if (updates.status && updates.status !== ticket.status) {
+        await createNotification({
+          tenantId: ticket.tenantId,
+          userId: ticket.userId,
+          type: 'ticket_status',
+          title: `Ticket #${ticket.ticketNumber} ${updates.status === 'in_progress' ? 'in progress' : updates.status}`,
+          body: ticket.subject,
+          entityType: 'support_ticket',
+          entityId: ticket.id,
+          linkUrl: `/support?ticketId=${ticket.id}`,
+        });
+      }
+      if (updates.assignedTo && updates.assignedTo !== ticket.assignedTo) {
+        const assignee = await storage.getUser(updates.assignedTo);
+        if (assignee) {
+          await createNotification({
+            tenantId: assignee.tenantId || ticket.tenantId,
+            userId: assignee.id,
+            type: 'assigned',
+            title: `Assigned ticket #${ticket.ticketNumber}`,
+            body: ticket.subject,
+            entityType: 'support_ticket',
+            entityId: ticket.id,
+            linkUrl: `/support?ticketId=${ticket.id}`,
+          });
+        }
+      }
+    } catch (notifErr) {
+      console.error('Failed to create ticket update notifications:', notifErr);
+    }
+
     return res.json(updated);
   } catch (error) {
     console.error("Error updating support ticket:", error);

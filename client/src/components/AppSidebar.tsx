@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2, Rocket, Info, FileText, ChevronDown, LifeBuoy, Activity, Trash2, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2, Rocket, Info, FileText, ChevronDown, LifeBuoy, Activity, Trash2, Bell, type LucideIcon } from "lucide-react";
 import { SynozurAppSwitcher } from "./SynozurAppSwitcher";
 import {
   Sidebar,
@@ -430,6 +430,14 @@ export function AppSidebar() {
               {user?.email}
             </p>
           </div>
+          <button
+            onClick={() => setLocation("/notifications/preferences")}
+            className="p-2 rounded-md hover-elevate text-muted-foreground hover:text-foreground"
+            title="Notification preferences"
+            data-testid="button-user-menu-preferences"
+          >
+            <Bell className="h-4 w-4" />
+          </button>
           <button
             onClick={handleLogout}
             className="p-2 rounded-md hover-elevate text-muted-foreground hover:text-foreground"
