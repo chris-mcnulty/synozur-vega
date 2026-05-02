@@ -710,6 +710,129 @@ export async function sendJobFailureNotificationEmail(
   await client.send(msg);
 }
 
+export async function sendReassignmentEmail(
+  to: string,
+  recipientName: string,
+  options: {
+    role: 'recipient' | 'previous-owner';
+    fromUserName: string;
+    fromUserEmail: string;
+    toUserName: string;
+    toUserEmail: string;
+    performedByName: string;
+    counts: {
+      objectivesPrimary: number;
+      objectivesCoOwner: number;
+      objectivesCheckIn: number;
+      keyResults: number;
+      bigRocksOwner: number;
+      bigRocksAccountable: number;
+      ambitions: number;
+      strategies: number;
+      meetingsFacilitator: number;
+      meetingsAttendee: number;
+      supportTickets: number;
+      total: number;
+    };
+  }
+) {
+  const { client, fromEmail } = await getUncachableSendGridClient();
+  const dashboardUrl = `${APP_URL}/dashboard`;
+  const { role, fromUserName, fromUserEmail, toUserName, toUserEmail, performedByName, counts } = options;
+
+  const escapeHtml = (s: string) =>
+    String(s ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+
+  const isRecipient = role === 'recipient';
+  const fromDisplay = fromUserName || fromUserEmail;
+  const toDisplay = toUserName || toUserEmail;
+  const subject = isRecipient
+    ? `You've been assigned items previously owned by ${fromDisplay}`
+    : `Items previously owned by you have been reassigned to ${toDisplay}`;
+  const heading = isRecipient ? 'Items Transferred to You' : 'Your Items Were Reassigned';
+  const introHtml = isRecipient
+    ? `${escapeHtml(performedByName)} reassigned the following items from <strong>${escapeHtml(fromDisplay)}</strong> to you.`
+    : `${escapeHtml(performedByName)} reassigned the following items from you to <strong>${escapeHtml(toDisplay)}</strong>.`;
+
+  const rows: Array<[string, number]> = [
+    ['Objectives (owner)', counts.objectivesPrimary],
+    ['Objectives (co-owner)', counts.objectivesCoOwner],
+    ['Objectives (check-in owner)', counts.objectivesCheckIn],
+    ['Key Results', counts.keyResults],
+    ['Big Rocks (owner)', counts.bigRocksOwner],
+    ['Big Rocks (accountable)', counts.bigRocksAccountable],
+    ['Ambitions', counts.ambitions],
+    ['Strategies', counts.strategies],
+    ['Meetings (facilitator)', counts.meetingsFacilitator],
+    ['Meetings (attendee)', counts.meetingsAttendee],
+    ['Support Tickets', counts.supportTickets],
+  ].filter(([, n]) => (n as number) > 0) as Array<[string, number]>;
+
+  const tableRows = rows
+    .map(
+      ([label, n]) =>
+        `<tr><td style="padding: 8px 12px; font-size: 13px; color: #b0b0b0; border-bottom: 1px solid #2a2a2a;">${escapeHtml(label)}</td><td style="padding: 8px 12px; font-size: 13px; color: #e0e0e0; border-bottom: 1px solid #2a2a2a; text-align: right;">${n}</td></tr>`
+    )
+    .join('');
+
+  const textRows = rows.map(([label, n]) => `  ${label}: ${n}`).join('\n');
+
+  const msg = {
+    to,
+    from: fromEmail,
+    subject,
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a; color: #ffffff;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #0a0a0a;">
+            <tr>
+              <td style="padding: 40px 20px;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 600px; margin: 0 auto; background-color: #1a1a1a; border-radius: 12px; overflow: hidden;">
+                  <tr>
+                    <td style="padding: 30px 40px; background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);">
+                      <h1 style="margin: 0; font-size: 22px; color: #ffffff;">${heading}</h1>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 30px 40px;">
+                      <p style="margin: 0 0 16px; font-size: 15px; color: #e0e0e0;">Hi ${escapeHtml(recipientName || 'there')},</p>
+                      <p style="margin: 0 0 20px; font-size: 14px; color: #b0b0b0;">${introHtml}</p>
+                      <p style="margin: 0 0 8px; font-size: 13px; color: #888;">Items transferred:</p>
+                      <table style="width: 100%; border-collapse: collapse; margin: 0 0 24px;">${tableRows}
+                        <tr><td style="padding: 10px 12px; font-size: 13px; color: #ffffff; font-weight: 600;">Total</td><td style="padding: 10px 12px; font-size: 13px; color: #ffffff; font-weight: 600; text-align: right;">${counts.total}</td></tr>
+                      </table>
+                      <a href="${dashboardUrl}" style="display: inline-block; padding: 12px 24px; background: #2563eb; color: #ffffff; text-decoration: none; border-radius: 8px; font-size: 14px;">Open Vega</a>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 20px 40px; border-top: 1px solid #2a2a2a; text-align: center;">
+                      <p style="margin: 0; font-size: 12px; color: #666666;">&copy; ${new Date().getFullYear()} Synozur Alliance LLC. All rights reserved.</p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `,
+    text: `${heading}\n\nHi ${recipientName || 'there'},\n\n${
+      isRecipient
+        ? `${performedByName} reassigned items from ${fromUserName || fromUserEmail} to you.`
+        : `${performedByName} reassigned your items to ${toUserName || toUserEmail}.`
+    }\n\nItems transferred:\n${textRows}\n  Total: ${counts.total}\n\nOpen Vega: ${dashboardUrl}`,
+  };
+
+  await client.send(msg);
+}
+
 export async function sendSupportTicketAcknowledgement(
   to: string,
   userName: string,

@@ -20,6 +20,8 @@ const TYPE_LABELS: Record<string, string> = {
   mention: "Mentions",
   plan_expiration: "Plan",
   system: "System",
+  reassignment_received: "Reassignments",
+  reassignment_performed: "Reassignments",
 };
 
 function timeAgo(date: string | Date): string {

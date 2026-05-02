@@ -165,6 +165,33 @@ async function ensureSchemaColumns() {
         ON progress_snapshots (tenant_id, snapshot_date)
     `);
 
+    // Ensure reassignment_audit_logs table exists (used by Bulk Reassignment Console).
+    // (notifications table is created by migrations/0005_add_notifications.sql.)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS reassignment_audit_logs (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        from_user_id varchar NOT NULL,
+        from_user_email text NOT NULL,
+        from_user_name text,
+        to_user_id varchar NOT NULL,
+        to_user_email text NOT NULL,
+        to_user_name text,
+        performed_by_id varchar NOT NULL,
+        performed_by_email text NOT NULL,
+        performed_by_name text,
+        counts jsonb NOT NULL,
+        notes text,
+        status text NOT NULL DEFAULT 'completed',
+        error_message text,
+        created_at timestamp NOT NULL DEFAULT now()
+      );
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_reassignment_audit_logs_tenant_created
+        ON reassignment_audit_logs(tenant_id, created_at DESC);
+    `);
+
     console.log("✓ Database schema verified");
   } catch (error) {
     console.error("Schema check error:", error);

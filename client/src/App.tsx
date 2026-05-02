@@ -9,6 +9,7 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ThemeProvider, useTheme } from "@/components/ThemeProvider";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { NotificationBell } from "@/components/NotificationBell";
 import { TenantSwitcher } from "@/components/TenantSwitcher";
 import { AIChatPanel } from "@/components/AIChatPanel";
 import { HelpChatPanel } from "@/components/HelpChatPanel";
@@ -429,6 +430,7 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
               <Sparkles className="h-4 w-4 text-primary" />
               <span className="hidden md:inline">AI Chat</span>
             </button>
+            <NotificationBell />
             <ThemeToggle />
           </div>
         </header>

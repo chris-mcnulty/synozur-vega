@@ -30,6 +30,7 @@ import {
   sendWelcomeEmail,
   sendSelfServiceWelcomeEmail,
   sendPlanExpirationReminderEmail,
+  sendReassignmentEmail,
   generateVerificationToken, 
   generateResetToken,
   hashToken 
@@ -1888,6 +1889,273 @@ ${changelogContent}`;
     } catch (error) {
       console.error("Error manually verifying user:", error);
       res.status(500).json({ error: "Failed to verify user" });
+    }
+  });
+
+  // ============================================
+  // Bulk Reassignment - Get owned items for a user
+  // ============================================
+  app.get("/api/users/:id/owned-items", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const targetUser = await storage.getUser(id);
+      if (!targetUser) {
+        return res.status(404).json({ error: "User not found" });
+      }
+
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      const tenantId = canAccessAny ? targetUser.tenantId : req.effectiveTenantId;
+
+      if (!tenantId) {
+        return res.status(400).json({ error: "Tenant context required" });
+      }
+
+      if (!canAccessAny && targetUser.tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const result = await storage.getOwnedItemsByUser(tenantId, id);
+      res.json(result);
+    } catch (error) {
+      console.error("Error fetching owned items:", error);
+      res.status(500).json({ error: "Failed to fetch owned items" });
+    }
+  });
+
+  // ============================================
+  // Bulk Reassignment - Execute the reassignment
+  // ============================================
+  const reassignBodySchema = z.object({
+    fromUserId: z.string().min(1),
+    toUserId: z.string().min(1),
+    notes: z.string().max(2000).optional(),
+    keepOriginalAsCoOwner: z.boolean().optional(),
+    entityIds: z
+      .object({
+        objectivesPrimary: z.array(z.string()).optional(),
+        objectivesCoOwner: z.array(z.string()).optional(),
+        objectivesCheckIn: z.array(z.string()).optional(),
+        keyResults: z.array(z.string()).optional(),
+        bigRocksOwner: z.array(z.string()).optional(),
+        bigRocksAccountable: z.array(z.string()).optional(),
+        ambitions: z.array(z.string()).optional(),
+        strategies: z.array(z.string()).optional(),
+        meetingsFacilitator: z.array(z.string()).optional(),
+        meetingsAttendee: z.array(z.string()).optional(),
+        supportTickets: z.array(z.string()).optional(),
+      })
+      .optional(),
+  });
+
+  app.post("/api/users/reassign", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const parsed = reassignBodySchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ error: "Validation failed", details: parsed.error.errors });
+      }
+      const { fromUserId, toUserId, notes, keepOriginalAsCoOwner, entityIds } = parsed.data;
+
+      if (fromUserId === toUserId) {
+        return res.status(400).json({ error: "Source and destination users must be different" });
+      }
+
+      const [fromUser, toUser] = await Promise.all([
+        storage.getUser(fromUserId),
+        storage.getUser(toUserId),
+      ]);
+
+      if (!fromUser || !toUser) {
+        return res.status(404).json({ error: "One or both users not found" });
+      }
+
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+
+      // Both users must be in the same tenant
+      if (fromUser.tenantId !== toUser.tenantId || !fromUser.tenantId) {
+        return res.status(400).json({ error: "Both users must belong to the same tenant" });
+      }
+
+      const tenantId = fromUser.tenantId;
+      if (!canAccessAny && tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      const performer = req.user!;
+      let counts;
+      try {
+        const result = await storage.reassignOwnership({
+          tenantId,
+          fromUserId,
+          fromUserEmail: fromUser.email,
+          fromUserName: fromUser.name,
+          toUserId,
+          toUserEmail: toUser.email,
+          toUserName: toUser.name,
+          performedById: performer.id,
+          performedByEmail: performer.email,
+          performedByName: performer.name ?? null,
+          notes: notes ?? null,
+          keepOriginalAsCoOwner: keepOriginalAsCoOwner ?? false,
+          selection: entityIds,
+        });
+        counts = result.counts;
+      } catch (txError: any) {
+        console.error("Reassignment transaction failed:", txError);
+        await storage.createReassignmentAuditLog({
+          tenantId,
+          fromUserId,
+          fromUserEmail: fromUser.email,
+          fromUserName: fromUser.name,
+          toUserId,
+          toUserEmail: toUser.email,
+          toUserName: toUser.name,
+          performedById: performer.id,
+          performedByEmail: performer.email,
+          performedByName: performer.name ?? null,
+          counts: {
+            objectivesPrimary: 0, objectivesCoOwner: 0, objectivesCheckIn: 0,
+            keyResults: 0, bigRocksOwner: 0, bigRocksAccountable: 0,
+            ambitions: 0, strategies: 0, meetingsFacilitator: 0,
+            meetingsAttendee: 0, supportTickets: 0, total: 0,
+          },
+          notes: notes ?? null,
+          status: 'failed',
+          errorMessage: txError?.message ?? String(txError),
+        });
+        return res.status(500).json({ error: "Reassignment failed", message: txError?.message });
+      }
+
+      // Audit log was created INSIDE the transaction by reassignOwnership() so it
+      // shares the same atomic boundary as the data changes. No second insert here.
+
+      // In-app notifications
+      const summaryMessage = counts.total === 0
+        ? `No items needed to be reassigned from ${fromUser.name || fromUser.email}.`
+        : `${counts.total} item${counts.total === 1 ? '' : 's'} ${counts.total === 1 ? 'was' : 'were'} reassigned from ${fromUser.name || fromUser.email}.`;
+
+      try {
+        await storage.createNotification({
+          tenantId,
+          userId: toUserId,
+          type: 'reassignment_received',
+          title: 'Items reassigned to you',
+          body: summaryMessage,
+          linkUrl: '/dashboard',
+        });
+        if (fromUser.id !== performer.id) {
+          await storage.createNotification({
+            tenantId,
+            userId: fromUserId,
+            type: 'reassignment_performed',
+            title: 'Your items were reassigned',
+            body: `${counts.total} of your item${counts.total === 1 ? '' : 's'} ${counts.total === 1 ? 'was' : 'were'} reassigned to ${toUser.name || toUser.email}.`,
+            linkUrl: '/dashboard',
+          });
+        }
+      } catch (notifError) {
+        console.error("Failed to create notifications:", notifError);
+      }
+
+      // Email notifications (best-effort)
+      const emailPromises: Promise<any>[] = [];
+      if (counts.total > 0) {
+        emailPromises.push(
+          sendReassignmentEmail(toUser.email, toUser.name ?? '', {
+            role: 'recipient',
+            fromUserName: fromUser.name ?? '',
+            fromUserEmail: fromUser.email,
+            toUserName: toUser.name ?? '',
+            toUserEmail: toUser.email,
+            performedByName: performer.name ?? performer.email,
+            counts,
+          }).catch(err => console.error("Failed to email recipient:", err))
+        );
+        if (fromUser.id !== performer.id) {
+          emailPromises.push(
+            sendReassignmentEmail(fromUser.email, fromUser.name ?? '', {
+              role: 'previous-owner',
+              fromUserName: fromUser.name ?? '',
+              fromUserEmail: fromUser.email,
+              toUserName: toUser.name ?? '',
+              toUserEmail: toUser.email,
+              performedByName: performer.name ?? performer.email,
+              counts,
+            }).catch(err => console.error("Failed to email previous owner:", err))
+          );
+        }
+      }
+      // Don't block on emails
+      Promise.allSettled(emailPromises);
+
+      res.json({ success: true, counts });
+    } catch (error) {
+      console.error("Error performing reassignment:", error);
+      res.status(500).json({ error: "Failed to reassign ownership" });
+    }
+  });
+
+  // ============================================
+  // Reassignment Audit Logs
+  // ============================================
+  app.get("/api/reassignment-audit-logs", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      const tenantQuery = req.query.tenantId as string | undefined;
+      const tenantId = canAccessAny && tenantQuery ? tenantQuery : req.effectiveTenantId;
+      if (!tenantId) {
+        return res.status(400).json({ error: "Tenant context required" });
+      }
+      const limit = req.query.limit ? Math.min(parseInt(req.query.limit as string, 10) || 50, 200) : 50;
+      const logs = await storage.getReassignmentAuditLogs(tenantId, limit);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching audit logs:", error);
+      res.status(500).json({ error: "Failed to fetch audit logs" });
+    }
+  });
+
+  // ============================================
+  // Notifications
+  // ============================================
+  app.get("/api/notifications", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const unreadOnly = req.query.unreadOnly === 'true';
+      const limit = req.query.limit ? Math.min(parseInt(req.query.limit as string, 10) || 50, 200) : 50;
+      const items = await storage.getNotificationsForUser(userId, { unreadOnly, limit });
+      res.json(items);
+    } catch (error) {
+      console.error("Error fetching notifications:", error);
+      res.status(500).json({ error: "Failed to fetch notifications" });
+    }
+  });
+
+  app.patch("/api/notifications/:id/read", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const notif = await storage.markNotificationRead(req.params.id, userId);
+      if (!notif) return res.status(404).json({ error: "Notification not found" });
+      res.json(notif);
+    } catch (error) {
+      console.error("Error marking notification read:", error);
+      res.status(500).json({ error: "Failed to update notification" });
+    }
+  });
+
+  app.post("/api/notifications/mark-all-read", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const userId = req.user?.id;
+      if (!userId) return res.status(401).json({ error: "Unauthorized" });
+      const count = await storage.markAllNotificationsRead(userId);
+      res.json({ success: true, count });
+    } catch (error) {
+      console.error("Error marking all notifications read:", error);
+      res.status(500).json({ error: "Failed to update notifications" });
     }
   });
 

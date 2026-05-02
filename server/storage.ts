@@ -52,6 +52,8 @@ import {
   oauthRefreshTokens, type OauthRefreshToken,
   type Ambition,
   notifications, type Notification, type InsertNotification,
+  reassignmentAuditLogs, type ReassignmentAuditLog, type InsertReassignmentAuditLog,
+  type ReassignmentCounts,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, count, ilike, asc, type SQL } from "drizzle-orm";
@@ -530,7 +532,56 @@ export interface IStorage {
     strategies: number;
     ambitions: number;
   }>;
+
+  // Reassignment methods
+  getOwnedItemsByUser(tenantId: string, userId: string): Promise<{
+    counts: ReassignmentCounts;
+    items: {
+      objectivesPrimary: Array<{ id: string; title: string }>;
+      objectivesCoOwner: Array<{ id: string; title: string }>;
+      objectivesCheckIn: Array<{ id: string; title: string }>;
+      keyResults: Array<{ id: string; title: string }>;
+      bigRocksOwner: Array<{ id: string; title: string }>;
+      bigRocksAccountable: Array<{ id: string; title: string }>;
+      ambitions: Array<{ id: string; title: string }>;
+      strategies: Array<{ id: string; title: string }>;
+      meetingsFacilitator: Array<{ id: string; title: string }>;
+      meetingsAttendee: Array<{ id: string; title: string }>;
+      supportTickets: Array<{ id: string; subject: string; ticketNumber: number }>;
+    };
+  }>;
+  reassignOwnership(params: {
+    tenantId: string;
+    fromUserId: string;
+    fromUserEmail: string;
+    fromUserName: string | null;
+    toUserId: string;
+    toUserEmail: string;
+    toUserName: string | null;
+    performedById: string;
+    performedByEmail: string;
+    performedByName: string | null;
+    notes?: string | null;
+    keepOriginalAsCoOwner?: boolean;
+    selection?: ReassignmentSelection;
+  }): Promise<{ counts: ReassignmentCounts; auditLog: ReassignmentAuditLog }>;
+  createReassignmentAuditLog(log: InsertReassignmentAuditLog): Promise<ReassignmentAuditLog>;
+  getReassignmentAuditLogs(tenantId: string, limit?: number): Promise<ReassignmentAuditLog[]>;
 }
+
+export type ReassignmentSelection = Partial<{
+  objectivesPrimary: string[];
+  objectivesCoOwner: string[];
+  objectivesCheckIn: string[];
+  keyResults: string[];
+  bigRocksOwner: string[];
+  bigRocksAccountable: string[];
+  ambitions: string[];
+  strategies: string[];
+  meetingsFacilitator: string[];
+  meetingsAttendee: string[];
+  supportTickets: string[];
+}>;
 
 /**
  * Hard cap on objective tree depth used by the recursive CTE in
@@ -4926,6 +4977,14 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
+  // Alias used by reassignment routes (kept for compatibility with multiple callers)
+  async getNotificationsForUser(
+    userId: string,
+    options?: { unreadOnly?: boolean; limit?: number }
+  ): Promise<Notification[]> {
+    return this.getNotificationsByUserId(userId, options);
+  }
+
   async markNotificationRead(id: string, userId: string): Promise<Notification | undefined> {
     const [updated] = await db.update(notifications)
       .set({ isRead: true })
@@ -5314,6 +5373,589 @@ export class DatabaseStorage implements IStorage {
       if (out.length >= totalLimit) break;
     }
     return out;
+  }
+
+  // ============================================
+  // Bulk Reassignment
+  // ============================================
+
+  async getOwnedItemsByUser(tenantId: string, userId: string) {
+    const tenantFilter = eq(objectives.tenantId, tenantId);
+
+    // Objectives owned (primary) or co-owned or check-in owner
+    const objectivesAll = await db
+      .select({
+        id: objectives.id,
+        title: objectives.title,
+        ownerId: objectives.ownerId,
+        ownerEmail: objectives.ownerEmail,
+        coOwnerIds: objectives.coOwnerIds,
+        checkInOwnerId: objectives.checkInOwnerId,
+      })
+      .from(objectives)
+      .where(tenantFilter);
+
+    // Look up the user's email so we can also match the email-based ownerEmail field
+    const [userRowEarly] = await db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, userId));
+    const userEmailEarly = userRowEarly?.email?.toLowerCase() ?? '';
+
+    const isObjectivePrimary = (o: { ownerId: string | null; ownerEmail: string | null }) =>
+      o.ownerId === userId ||
+      (!!userEmailEarly && (o.ownerEmail ?? '').toLowerCase() === userEmailEarly);
+
+    const objectivesPrimary = objectivesAll.filter(isObjectivePrimary);
+    const objectivesCoOwner = objectivesAll.filter(
+      o => Array.isArray(o.coOwnerIds) && o.coOwnerIds.includes(userId) && !isObjectivePrimary(o)
+    );
+    const objectivesCheckIn = objectivesAll.filter(
+      o => o.checkInOwnerId === userId && !isObjectivePrimary(o)
+    );
+
+    // Key results
+    const keyResultsRows = await db
+      .select({ id: keyResults.id, title: keyResults.title })
+      .from(keyResults)
+      .where(and(eq(keyResults.tenantId, tenantId), eq(keyResults.ownerId, userId)));
+
+    // Big rocks (owner + accountable). Match either by id or email since data uses both.
+    const bigRocksAll = await db
+      .select({
+        id: bigRocks.id,
+        title: bigRocks.title,
+        ownerId: bigRocks.ownerId,
+        ownerEmail: bigRocks.ownerEmail,
+        accountableId: bigRocks.accountableId,
+        accountableEmail: bigRocks.accountableEmail,
+      })
+      .from(bigRocks)
+      .where(eq(bigRocks.tenantId, tenantId));
+    const isBrOwner = (b: { ownerId: string | null; ownerEmail: string | null }) =>
+      b.ownerId === userId ||
+      (!!userEmailEarly && (b.ownerEmail ?? '').toLowerCase() === userEmailEarly);
+    const isBrAccountable = (b: { accountableId: string | null; accountableEmail: string | null }) =>
+      b.accountableId === userId ||
+      (!!userEmailEarly && (b.accountableEmail ?? '').toLowerCase() === userEmailEarly);
+    const bigRocksOwner = bigRocksAll.filter(isBrOwner);
+    const bigRocksAccountable = bigRocksAll.filter(b => isBrAccountable(b) && !isBrOwner(b));
+
+    // Foundation ambitions (jsonb array, owner stored by userId)
+    const foundation = await db
+      .select()
+      .from(foundations)
+      .where(eq(foundations.tenantId, tenantId));
+    const foundationRow = foundation[0];
+    const ambitionsOwned = (foundationRow?.ambitions ?? []).filter(
+      (a: Ambition) => a.ownerId === userId
+    );
+
+    // Look up the user's email so we can search text-based owner fields (strategies / meetings)
+    const [userRow] = await db
+      .select({ email: users.email, name: users.name })
+      .from(users)
+      .where(eq(users.id, userId));
+    const userEmail = userRow?.email?.toLowerCase() ?? '';
+    const userName = (userRow?.name ?? '').toLowerCase();
+
+    // Strategies (owner is text - email or name)
+    const strategiesAll = await db
+      .select({ id: strategies.id, title: strategies.title, owner: strategies.owner })
+      .from(strategies)
+      .where(eq(strategies.tenantId, tenantId));
+    const strategiesOwned = strategiesAll.filter(s => {
+      const owner = (s.owner ?? '').toLowerCase();
+      return owner && (owner === userEmail || (userName && owner === userName));
+    });
+
+    // Meetings (facilitator is text email/name; attendees jsonb of strings)
+    const meetingsAll = await db
+      .select({
+        id: meetings.id,
+        title: meetings.title,
+        facilitator: meetings.facilitator,
+        attendees: meetings.attendees,
+      })
+      .from(meetings)
+      .where(eq(meetings.tenantId, tenantId));
+    const meetingsFacilitator = meetingsAll.filter(m => {
+      const f = (m.facilitator ?? '').toLowerCase();
+      return f && (f === userEmail || (userName && f === userName));
+    });
+    const meetingsAttendee = meetingsAll.filter(m => {
+      if (meetingsFacilitator.some(mf => mf.id === m.id)) return false;
+      const list = Array.isArray(m.attendees) ? m.attendees : [];
+      return list.some(a => {
+        const v = (a ?? '').toLowerCase();
+        return v && (v === userEmail || (userName && v === userName));
+      });
+    });
+
+    // Support tickets (assignedTo)
+    const ticketRows = await db
+      .select({
+        id: supportTickets.id,
+        subject: supportTickets.subject,
+        ticketNumber: supportTickets.ticketNumber,
+      })
+      .from(supportTickets)
+      .where(and(eq(supportTickets.tenantId, tenantId), eq(supportTickets.assignedTo, userId)));
+
+    const counts: ReassignmentCounts = {
+      objectivesPrimary: objectivesPrimary.length,
+      objectivesCoOwner: objectivesCoOwner.length,
+      objectivesCheckIn: objectivesCheckIn.length,
+      keyResults: keyResultsRows.length,
+      bigRocksOwner: bigRocksOwner.length,
+      bigRocksAccountable: bigRocksAccountable.length,
+      ambitions: ambitionsOwned.length,
+      strategies: strategiesOwned.length,
+      meetingsFacilitator: meetingsFacilitator.length,
+      meetingsAttendee: meetingsAttendee.length,
+      supportTickets: ticketRows.length,
+      total: 0,
+    };
+    counts.total =
+      counts.objectivesPrimary +
+      counts.objectivesCoOwner +
+      counts.objectivesCheckIn +
+      counts.keyResults +
+      counts.bigRocksOwner +
+      counts.bigRocksAccountable +
+      counts.ambitions +
+      counts.strategies +
+      counts.meetingsFacilitator +
+      counts.meetingsAttendee +
+      counts.supportTickets;
+
+    const items = {
+      objectivesPrimary: objectivesPrimary.map(o => ({ id: o.id, title: o.title })),
+      objectivesCoOwner: objectivesCoOwner.map(o => ({ id: o.id, title: o.title })),
+      objectivesCheckIn: objectivesCheckIn.map(o => ({ id: o.id, title: o.title })),
+      keyResults: keyResultsRows.map(k => ({ id: k.id, title: k.title })),
+      bigRocksOwner: bigRocksOwner.map(b => ({ id: b.id, title: b.title })),
+      bigRocksAccountable: bigRocksAccountable.map(b => ({ id: b.id, title: b.title })),
+      ambitions: ambitionsOwned.map((a: Ambition) => ({ id: a.id, title: a.title })),
+      strategies: strategiesOwned.map(s => ({ id: s.id, title: s.title })),
+      meetingsFacilitator: meetingsFacilitator.map(m => ({ id: m.id, title: m.title })),
+      meetingsAttendee: meetingsAttendee.map(m => ({ id: m.id, title: m.title })),
+      supportTickets: ticketRows.map(t => ({
+        id: t.id,
+        subject: t.subject,
+        ticketNumber: t.ticketNumber,
+      })),
+    };
+
+    return { counts, items };
+  }
+
+  async reassignOwnership(params: {
+    tenantId: string;
+    fromUserId: string;
+    fromUserEmail: string;
+    fromUserName: string | null;
+    toUserId: string;
+    toUserEmail: string;
+    toUserName: string | null;
+    performedById: string;
+    performedByEmail: string;
+    performedByName: string | null;
+    notes?: string | null;
+    keepOriginalAsCoOwner?: boolean;
+    selection?: ReassignmentSelection;
+  }): Promise<{ counts: ReassignmentCounts; auditLog: ReassignmentAuditLog }> {
+    const {
+      tenantId,
+      fromUserId,
+      fromUserEmail,
+      fromUserName,
+      toUserId,
+      toUserEmail,
+      toUserName,
+      performedById,
+      performedByEmail,
+      performedByName,
+      notes,
+      keepOriginalAsCoOwner,
+      selection,
+    } = params;
+
+    // Helper: returns true if the role is being included in the transfer.
+    // - selection undefined          → include everything (back-compat)
+    // - selection[role] undefined    → include all of that role
+    // - selection[role] is array     → include only items whose id is in that array
+    const idAllowed = (role: keyof ReassignmentSelection, id: string): boolean => {
+      if (!selection) return true;
+      const allowed = selection[role];
+      if (allowed === undefined) return true;
+      return allowed.includes(id);
+    };
+    const roleEnabled = (role: keyof ReassignmentSelection): boolean => {
+      if (!selection) return true;
+      const allowed = selection[role];
+      if (allowed === undefined) return true;
+      return allowed.length > 0;
+    };
+
+    return await db.transaction(async (tx) => {
+      const fromEmailLc = fromUserEmail.toLowerCase();
+      const fromNameLc = (fromUserName ?? '').toLowerCase();
+
+      // 1. Objectives - primary owner (match by id OR by email - data uses both)
+      let updatedObjPrimaryCount = 0;
+      if (roleEnabled('objectivesPrimary')) {
+        const candidates = await tx
+          .select({ id: objectives.id, coOwnerIds: objectives.coOwnerIds })
+          .from(objectives)
+          .where(
+            and(
+              eq(objectives.tenantId, tenantId),
+              or(
+                eq(objectives.ownerId, fromUserId),
+                sql`lower(${objectives.ownerEmail}) = ${fromEmailLc}`
+              )
+            )
+          );
+        const targets = candidates.filter(c => idAllowed('objectivesPrimary', c.id));
+        for (const row of targets) {
+          const updates: Record<string, any> = {
+            ownerId: toUserId,
+            ownerEmail: toUserEmail,
+            updatedBy: performedById,
+            updatedAt: new Date(),
+          };
+          if (keepOriginalAsCoOwner) {
+            const current = Array.isArray(row.coOwnerIds) ? row.coOwnerIds : [];
+            const next = Array.from(new Set([...current.filter(id => id !== toUserId), fromUserId]));
+            updates.coOwnerIds = next;
+          }
+          await tx.update(objectives).set(updates).where(eq(objectives.id, row.id));
+          updatedObjPrimaryCount++;
+        }
+      }
+
+      // 2. Objectives - check-in owner
+      let updatedObjCheckInCount = 0;
+      if (roleEnabled('objectivesCheckIn')) {
+        const candidates = await tx
+          .select({ id: objectives.id })
+          .from(objectives)
+          .where(and(eq(objectives.tenantId, tenantId), eq(objectives.checkInOwnerId, fromUserId)));
+        const targets = candidates.filter(c => idAllowed('objectivesCheckIn', c.id));
+        if (targets.length > 0) {
+          const ids = targets.map(t => t.id);
+          await tx
+            .update(objectives)
+            .set({ checkInOwnerId: toUserId, updatedBy: performedById, updatedAt: new Date() })
+            .where(inArray(objectives.id, ids));
+          updatedObjCheckInCount = targets.length;
+        }
+      }
+
+      // 3. Objectives - co-owners (jsonb array)
+      let updatedObjCoOwnerCount = 0;
+      if (roleEnabled('objectivesCoOwner')) {
+        const objectivesWithCoOwner = await tx
+          .select({ id: objectives.id, coOwnerIds: objectives.coOwnerIds })
+          .from(objectives)
+          .where(
+            and(
+              eq(objectives.tenantId, tenantId),
+              sql`${objectives.coOwnerIds}::jsonb @> ${JSON.stringify([fromUserId])}::jsonb`
+            )
+          );
+        const targets = objectivesWithCoOwner.filter(c => idAllowed('objectivesCoOwner', c.id));
+        for (const row of targets) {
+          const current = Array.isArray(row.coOwnerIds) ? row.coOwnerIds : [];
+          const next = Array.from(
+            new Set(current.map(id => (id === fromUserId ? toUserId : id)))
+          );
+          await tx
+            .update(objectives)
+            .set({ coOwnerIds: next, updatedBy: performedById, updatedAt: new Date() })
+            .where(eq(objectives.id, row.id));
+          updatedObjCoOwnerCount++;
+        }
+      }
+
+      // 4. Key results
+      let updatedKrCount = 0;
+      if (roleEnabled('keyResults')) {
+        const candidates = await tx
+          .select({ id: keyResults.id })
+          .from(keyResults)
+          .where(and(eq(keyResults.tenantId, tenantId), eq(keyResults.ownerId, fromUserId)));
+        const targets = candidates.filter(c => idAllowed('keyResults', c.id));
+        if (targets.length > 0) {
+          const ids = targets.map(t => t.id);
+          await tx
+            .update(keyResults)
+            .set({ ownerId: toUserId, updatedBy: performedById, updatedAt: new Date() })
+            .where(inArray(keyResults.id, ids));
+          updatedKrCount = targets.length;
+        }
+      }
+
+      // 5. Big rocks - owner (match by id OR email)
+      let updatedBrOwnerCount = 0;
+      if (roleEnabled('bigRocksOwner')) {
+        const candidates = await tx
+          .select({ id: bigRocks.id })
+          .from(bigRocks)
+          .where(
+            and(
+              eq(bigRocks.tenantId, tenantId),
+              or(
+                eq(bigRocks.ownerId, fromUserId),
+                sql`lower(${bigRocks.ownerEmail}) = ${fromEmailLc}`
+              )
+            )
+          );
+        const targets = candidates.filter(c => idAllowed('bigRocksOwner', c.id));
+        if (targets.length > 0) {
+          const ids = targets.map(t => t.id);
+          await tx
+            .update(bigRocks)
+            .set({
+              ownerId: toUserId,
+              ownerEmail: toUserEmail,
+              updatedBy: performedById,
+              updatedAt: new Date(),
+            })
+            .where(inArray(bigRocks.id, ids));
+          updatedBrOwnerCount = targets.length;
+        }
+      }
+
+      // 6. Big rocks - accountable (match by id OR email)
+      let updatedBrAccountableCount = 0;
+      if (roleEnabled('bigRocksAccountable')) {
+        const candidates = await tx
+          .select({ id: bigRocks.id })
+          .from(bigRocks)
+          .where(
+            and(
+              eq(bigRocks.tenantId, tenantId),
+              or(
+                eq(bigRocks.accountableId, fromUserId),
+                sql`lower(${bigRocks.accountableEmail}) = ${fromEmailLc}`
+              )
+            )
+          );
+        const targets = candidates.filter(c => idAllowed('bigRocksAccountable', c.id));
+        if (targets.length > 0) {
+          const ids = targets.map(t => t.id);
+          await tx
+            .update(bigRocks)
+            .set({
+              accountableId: toUserId,
+              accountableEmail: toUserEmail,
+              updatedBy: performedById,
+              updatedAt: new Date(),
+            })
+            .where(inArray(bigRocks.id, ids));
+          updatedBrAccountableCount = targets.length;
+        }
+      }
+
+      // 7. Foundation ambitions (jsonb)
+      let updatedAmbitionsCount = 0;
+      if (roleEnabled('ambitions')) {
+        const [foundationRow] = await tx
+          .select()
+          .from(foundations)
+          .where(eq(foundations.tenantId, tenantId));
+        if (foundationRow?.ambitions && foundationRow.ambitions.length > 0) {
+          const next = (foundationRow.ambitions as Ambition[]).map((a) => {
+            if (a.ownerId === fromUserId && idAllowed('ambitions', a.id)) {
+              updatedAmbitionsCount++;
+              return { ...a, ownerId: toUserId };
+            }
+            return a;
+          });
+          if (updatedAmbitionsCount > 0) {
+            await tx
+              .update(foundations)
+              .set({ ambitions: next, updatedBy: performedById, updatedAt: new Date() })
+              .where(eq(foundations.tenantId, tenantId));
+          }
+        }
+      }
+
+      // 8. Strategies (text owner field)
+      let updatedStrategiesCount = 0;
+      if (roleEnabled('strategies')) {
+        const strategiesAll = await tx
+          .select({ id: strategies.id, owner: strategies.owner })
+          .from(strategies)
+          .where(eq(strategies.tenantId, tenantId));
+        for (const s of strategiesAll) {
+          const owner = (s.owner ?? '').toLowerCase();
+          const matches =
+            owner && (owner === fromEmailLc || (fromNameLc && owner === fromNameLc));
+          if (matches && idAllowed('strategies', s.id)) {
+            await tx
+              .update(strategies)
+              .set({ owner: toUserEmail, updatedBy: performedById, updatedAt: new Date() })
+              .where(eq(strategies.id, s.id));
+            updatedStrategiesCount++;
+          }
+        }
+      }
+
+      // 9. Meetings - facilitator + attendees
+      let updatedMeetingsFacilitatorCount = 0;
+      let updatedMeetingsAttendeeCount = 0;
+      const facilitatorEnabled = roleEnabled('meetingsFacilitator');
+      const attendeeEnabled = roleEnabled('meetingsAttendee');
+      if (facilitatorEnabled || attendeeEnabled) {
+        const meetingsAll = await tx
+          .select({
+            id: meetings.id,
+            facilitator: meetings.facilitator,
+            attendees: meetings.attendees,
+          })
+          .from(meetings)
+          .where(eq(meetings.tenantId, tenantId));
+        for (const m of meetingsAll) {
+          const facilitator = (m.facilitator ?? '').toLowerCase();
+          const facilitatorMatches =
+            facilitatorEnabled &&
+            facilitator &&
+            (facilitator === fromEmailLc || (fromNameLc && facilitator === fromNameLc)) &&
+            idAllowed('meetingsFacilitator', m.id);
+
+          const list = Array.isArray(m.attendees) ? m.attendees : [];
+          let nextAttendees = list;
+          let attendeeChanged = false;
+          if (attendeeEnabled && idAllowed('meetingsAttendee', m.id) && list.length > 0) {
+            const seen = new Set<string>();
+            const out: string[] = [];
+            let mutated = false;
+            for (const a of list) {
+              const lc = (a ?? '').toLowerCase();
+              if (lc && (lc === fromEmailLc || (fromNameLc && lc === fromNameLc))) {
+                mutated = true;
+                const replacement = toUserEmail;
+                if (!seen.has(replacement.toLowerCase())) {
+                  seen.add(replacement.toLowerCase());
+                  out.push(replacement);
+                }
+              } else {
+                if (!lc || !seen.has(lc)) {
+                  if (lc) seen.add(lc);
+                  out.push(a);
+                }
+              }
+            }
+            if (mutated) {
+              nextAttendees = out;
+              attendeeChanged = true;
+            }
+          }
+
+          if (facilitatorMatches || attendeeChanged) {
+            const updates: Record<string, any> = {
+              updatedBy: performedById,
+              updatedAt: new Date(),
+            };
+            if (facilitatorMatches) {
+              updates.facilitator = toUserEmail;
+              updatedMeetingsFacilitatorCount++;
+            }
+            if (attendeeChanged) {
+              updates.attendees = nextAttendees;
+              if (!facilitatorMatches) updatedMeetingsAttendeeCount++;
+            }
+            await tx.update(meetings).set(updates).where(eq(meetings.id, m.id));
+          }
+        }
+      }
+
+      // 10. Support tickets - assignedTo
+      let updatedTicketsCount = 0;
+      if (roleEnabled('supportTickets')) {
+        const candidates = await tx
+          .select({ id: supportTickets.id })
+          .from(supportTickets)
+          .where(
+            and(eq(supportTickets.tenantId, tenantId), eq(supportTickets.assignedTo, fromUserId))
+          );
+        const targets = candidates.filter(c => idAllowed('supportTickets', c.id));
+        if (targets.length > 0) {
+          const ids = targets.map(t => t.id);
+          await tx
+            .update(supportTickets)
+            .set({ assignedTo: toUserId, updatedAt: new Date() })
+            .where(inArray(supportTickets.id, ids));
+          updatedTicketsCount = targets.length;
+        }
+      }
+
+      const counts: ReassignmentCounts = {
+        objectivesPrimary: updatedObjPrimaryCount,
+        objectivesCoOwner: updatedObjCoOwnerCount,
+        objectivesCheckIn: updatedObjCheckInCount,
+        keyResults: updatedKrCount,
+        bigRocksOwner: updatedBrOwnerCount,
+        bigRocksAccountable: updatedBrAccountableCount,
+        ambitions: updatedAmbitionsCount,
+        strategies: updatedStrategiesCount,
+        meetingsFacilitator: updatedMeetingsFacilitatorCount,
+        meetingsAttendee: updatedMeetingsAttendeeCount,
+        supportTickets: updatedTicketsCount,
+        total: 0,
+      };
+      counts.total =
+        counts.objectivesPrimary +
+        counts.objectivesCoOwner +
+        counts.objectivesCheckIn +
+        counts.keyResults +
+        counts.bigRocksOwner +
+        counts.bigRocksAccountable +
+        counts.ambitions +
+        counts.strategies +
+        counts.meetingsFacilitator +
+        counts.meetingsAttendee +
+        counts.supportTickets;
+
+      // Audit log INSIDE the transaction so it rolls back if any step fails.
+      const [auditLog] = await tx
+        .insert(reassignmentAuditLogs)
+        .values({
+          tenantId,
+          fromUserId,
+          fromUserEmail,
+          fromUserName: fromUserName ?? null,
+          toUserId,
+          toUserEmail,
+          toUserName: toUserName ?? null,
+          performedById,
+          performedByEmail,
+          performedByName: performedByName ?? null,
+          counts,
+          notes: notes ?? null,
+          status: 'completed',
+        })
+        .returning();
+
+      return { counts, auditLog };
+    });
+  }
+
+  async createReassignmentAuditLog(log: InsertReassignmentAuditLog): Promise<ReassignmentAuditLog> {
+    const [created] = await db.insert(reassignmentAuditLogs).values(log).returning();
+    return created;
+  }
+
+  async getReassignmentAuditLogs(tenantId: string, limit: number = 50): Promise<ReassignmentAuditLog[]> {
+    return await db
+      .select()
+      .from(reassignmentAuditLogs)
+      .where(eq(reassignmentAuditLogs.tenantId, tenantId))
+      .orderBy(desc(reassignmentAuditLogs.createdAt))
+      .limit(limit);
   }
 }
 

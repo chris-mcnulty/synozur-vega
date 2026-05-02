@@ -2447,3 +2447,49 @@ export type SearchResponse = {
   total: number;
   results: SearchResult[];
 };
+
+// ============================================
+// REASSIGNMENT AUDIT LOGS - Tracks bulk ownership transfers
+// ============================================
+
+export type ReassignmentCounts = {
+  objectivesPrimary: number;
+  objectivesCoOwner: number;
+  objectivesCheckIn: number;
+  keyResults: number;
+  bigRocksOwner: number;
+  bigRocksAccountable: number;
+  ambitions: number;
+  strategies: number;
+  meetingsFacilitator: number;
+  meetingsAttendee: number;
+  supportTickets: number;
+  total: number;
+};
+
+export const reassignmentAuditLogs = pgTable("reassignment_audit_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  fromUserId: varchar("from_user_id").notNull(),
+  fromUserEmail: text("from_user_email").notNull(),
+  fromUserName: text("from_user_name"),
+  toUserId: varchar("to_user_id").notNull(),
+  toUserEmail: text("to_user_email").notNull(),
+  toUserName: text("to_user_name"),
+  performedById: varchar("performed_by_id").notNull(),
+  performedByEmail: text("performed_by_email").notNull(),
+  performedByName: text("performed_by_name"),
+  counts: jsonb("counts").$type<ReassignmentCounts>().notNull(),
+  notes: text("notes"),
+  status: text("status").notNull().default('completed'),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertReassignmentAuditLogSchema = createInsertSchema(reassignmentAuditLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertReassignmentAuditLog = z.infer<typeof insertReassignmentAuditLogSchema>;
+export type ReassignmentAuditLog = typeof reassignmentAuditLogs.$inferSelect;

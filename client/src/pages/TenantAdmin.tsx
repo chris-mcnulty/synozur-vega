@@ -36,6 +36,7 @@ import { CheckCircle2, AlertCircle, AlertTriangle, Calendar, Plus, Pencil, Trash
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type TenantBranding, vocabularyAlternatives, type VocabularyTerms } from "@shared/schema";
 import { useAuth } from "@/contexts/AuthContext";
+import { ReassignOwnershipSection } from "@/components/ReassignOwnershipSection";
 import excelIcon from "@/assets/brand/Excel_512_1765494903271.png";
 import oneDriveIcon from "@/assets/brand/OneDrive_512_1765494903274.png";
 import outlookIcon from "@/assets/brand/Outlook_512_1765494903276.png";
@@ -3256,6 +3257,13 @@ export default function TenantAdmin() {
 
           {/* Team Management Section */}
           <TeamManagementSection tenants={tenants} users={users} selectedTenantId={userTenantFilter === "ALL" || userTenantFilter === "NONE" ? "" : userTenantFilter} />
+
+          {/* Reassign Ownership Section */}
+          <ReassignOwnershipSection users={users} selectedTenantId={
+            userTenantFilter === "ALL" || userTenantFilter === "NONE"
+              ? (tenants.length === 1 ? tenants[0].id : "")
+              : userTenantFilter
+          } />
         </TabsContent>
 
         {/* Integrations Tab */}
