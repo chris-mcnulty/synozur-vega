@@ -23,7 +23,6 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { TimePeriodProvider, useTimePeriod } from "@/contexts/TimePeriodContext";
 import { ErrorBoundary, RouteErrorBoundary, PageLoadingFallback, FullPageLoadingFallback } from "@/components/ErrorBoundary";
 import { Sparkles, HelpCircle, CalendarRange, ChevronLeft, ChevronRight, Search } from "lucide-react";
-import { NotificationBell } from "@/components/NotificationBell";
 import { Button } from "@/components/ui/button";
 import {
   Popover,
@@ -430,7 +429,6 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
               <Sparkles className="h-4 w-4 text-primary" />
               <span className="hidden md:inline">AI Chat</span>
             </button>
-            <NotificationBell />
             <ThemeToggle />
           </div>
         </header>

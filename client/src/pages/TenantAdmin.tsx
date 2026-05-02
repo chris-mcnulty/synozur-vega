@@ -193,6 +193,178 @@ type OauthClient = {
   clientSecret?: string;
 };
 
+type AdminAlert = {
+  id: string;
+  tenantId: string;
+  alertType: string;
+  fingerprint: string;
+  severity: string;
+  message: string;
+  details: any;
+  occurrenceCount: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  acknowledgedAt: string | null;
+  acknowledgedBy: string | null;
+};
+
+function AdminAlertsSection() {
+  const { toast } = useToast();
+  const [showAcknowledged, setShowAcknowledged] = useState(false);
+
+  const { data: alerts = [], isLoading } = useQuery<AdminAlert[]>({
+    queryKey: ["/api/tenant/admin-alerts", { includeAcknowledged: showAcknowledged }],
+    queryFn: async () => {
+      const url = showAcknowledged
+        ? "/api/tenant/admin-alerts?includeAcknowledged=true"
+        : "/api/tenant/admin-alerts";
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to load alerts");
+      return res.json();
+    },
+  });
+
+  const acknowledgeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return await apiRequest("POST", `/api/tenant/admin-alerts/${id}/acknowledge`, {});
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tenant/admin-alerts"] });
+      toast({ title: "Alert acknowledged" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to acknowledge", description: err?.message ?? "", variant: "destructive" });
+    },
+  });
+
+  const formatAlertType = (t: string) => {
+    if (t === "objective_depth_cap") return "Objective Hierarchy Depth Cap";
+    return t.replace(/_/g, " ");
+  };
+
+  const severityVariant = (s: string): "default" | "secondary" | "destructive" | "outline" => {
+    if (s === "critical") return "destructive";
+    if (s === "warning") return "default";
+    return "secondary";
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-lg md:text-xl font-semibold">Admin Alerts</h2>
+          <p className="text-sm text-muted-foreground">
+            Operational signals raised against this tenant. Repeated firings within a short window are deduplicated.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="show-ack-alerts"
+            checked={showAcknowledged}
+            onCheckedChange={(v) => setShowAcknowledged(v === true)}
+            data-testid="checkbox-show-acknowledged-alerts"
+          />
+          <Label htmlFor="show-ack-alerts" className="text-sm">
+            Include acknowledged
+          </Label>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <Card>
+          <CardContent className="p-6 space-y-3">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-4 w-1/2" />
+          </CardContent>
+        </Card>
+      ) : alerts.length === 0 ? (
+        <Card>
+          <CardContent className="p-6 text-sm text-muted-foreground" data-testid="text-no-alerts">
+            No alerts. Everything looks healthy.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {alerts.map((alert) => {
+            const affected: string[] = Array.isArray(alert.details?.affectedObjectiveIds)
+              ? alert.details.affectedObjectiveIds
+              : [];
+            return (
+              <Card key={alert.id} data-testid={`card-alert-${alert.id}`}>
+                <CardHeader>
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <AlertTriangle className="h-4 w-4 text-muted-foreground" />
+                      <CardTitle className="text-base" data-testid={`text-alert-type-${alert.id}`}>
+                        {formatAlertType(alert.alertType)}
+                      </CardTitle>
+                      <Badge variant={severityVariant(alert.severity)} data-testid={`badge-alert-severity-${alert.id}`}>
+                        {alert.severity}
+                      </Badge>
+                      {alert.acknowledgedAt && (
+                        <Badge variant="outline" data-testid={`badge-alert-acknowledged-${alert.id}`}>
+                          acknowledged
+                        </Badge>
+                      )}
+                    </div>
+                    {!alert.acknowledgedAt && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => acknowledgeMutation.mutate(alert.id)}
+                        disabled={acknowledgeMutation.isPending}
+                        data-testid={`button-acknowledge-alert-${alert.id}`}
+                      >
+                        {acknowledgeMutation.isPending ? (
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="h-4 w-4 mr-2" />
+                        )}
+                        Acknowledge
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <p className="text-sm" data-testid={`text-alert-message-${alert.id}`}>
+                    {alert.message}
+                  </p>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span data-testid={`text-alert-occurrences-${alert.id}`}>
+                      Occurrences: {alert.occurrenceCount}
+                    </span>
+                    <span>First seen: {new Date(alert.firstSeenAt).toLocaleString()}</span>
+                    <span>Last seen: {new Date(alert.lastSeenAt).toLocaleString()}</span>
+                  </div>
+                  {affected.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-xs font-medium text-muted-foreground">
+                        Affected objective IDs ({affected.length})
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {affected.slice(0, 25).map((id) => (
+                          <Badge key={id} variant="secondary" className="font-mono text-xs">
+                            {id}
+                          </Badge>
+                        ))}
+                        {affected.length > 25 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{affected.length - 25} more
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function OAuthClientsSection() {
   const { toast } = useToast();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -2951,6 +3123,10 @@ export default function TenantAdmin() {
               <Cloud className="h-4 w-4 shrink-0" />
               <span className="text-xs sm:text-sm">Integrations</span>
             </TabsTrigger>
+            <TabsTrigger value="alerts" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-alerts">
+              <Bell className="h-4 w-4 shrink-0" />
+              <span className="text-xs sm:text-sm">Alerts</span>
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -3470,6 +3646,11 @@ export default function TenantAdmin() {
           </div>
           <OAuthClientsSection />
         </div>
+      </TabsContent>
+
+      {/* Alerts Tab */}
+      <TabsContent value="alerts" className="space-y-6">
+        <AdminAlertsSection />
       </TabsContent>
     </Tabs>
 

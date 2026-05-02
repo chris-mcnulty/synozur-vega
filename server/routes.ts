@@ -1475,6 +1475,43 @@ ${changelogContent}`;
 
   // Get tenant members for user selection (any authenticated user in the tenant)
   // Returns minimal user info for assignment dropdowns (id, email, displayName)
+  // Tenant admin alerts (e.g., objective hierarchy depth cap fired)
+  app.get("/api/tenant/admin-alerts", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.effectiveTenantId || req.user?.tenantId;
+      if (!tenantId) {
+        return res.status(403).json({ error: "No tenant context available" });
+      }
+      const includeAck = req.query.includeAcknowledged === 'true';
+      const alerts = await storage.getAdminAlertsByTenantId(tenantId, includeAck);
+      res.json(alerts);
+    } catch (error) {
+      console.error("Failed to fetch admin alerts:", error);
+      res.status(500).json({ error: "Failed to fetch admin alerts" });
+    }
+  });
+
+  app.post("/api/tenant/admin-alerts/:id/acknowledge", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.effectiveTenantId || req.user?.tenantId;
+      if (!tenantId) {
+        return res.status(403).json({ error: "No tenant context available" });
+      }
+      const userId = req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ error: "Not authenticated" });
+      }
+      const alert = await storage.acknowledgeAdminAlert(req.params.id, tenantId, userId);
+      if (!alert) {
+        return res.status(404).json({ error: "Alert not found" });
+      }
+      res.json(alert);
+    } catch (error) {
+      console.error("Failed to acknowledge admin alert:", error);
+      res.status(500).json({ error: "Failed to acknowledge admin alert" });
+    }
+  });
+
   app.get("/api/tenant-members", ...authWithTenant, async (req: Request, res: Response) => {
     try {
       const tenantId = req.effectiveTenantId;

@@ -2493,3 +2493,50 @@ export const insertReassignmentAuditLogSchema = createInsertSchema(reassignmentA
 
 export type InsertReassignmentAuditLog = z.infer<typeof insertReassignmentAuditLogSchema>;
 export type ReassignmentAuditLog = typeof reassignmentAuditLogs.$inferSelect;
+
+// ============================================
+// ADMIN ALERTS - Tenant-visible operational alerts (depth-cap, etc.)
+// ============================================
+
+export const ADMIN_ALERT_TYPE = {
+  OBJECTIVE_DEPTH_CAP: 'objective_depth_cap',
+} as const;
+
+export type AdminAlertType = typeof ADMIN_ALERT_TYPE[keyof typeof ADMIN_ALERT_TYPE];
+
+export const ADMIN_ALERT_SEVERITY = {
+  INFO: 'info',
+  WARNING: 'warning',
+  CRITICAL: 'critical',
+} as const;
+
+export type AdminAlertSeverity = typeof ADMIN_ALERT_SEVERITY[keyof typeof ADMIN_ALERT_SEVERITY];
+
+export const adminAlerts = pgTable("admin_alerts", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  alertType: text("alert_type").notNull(),
+  fingerprint: text("fingerprint").notNull(),
+  severity: text("severity").notNull().default("warning"),
+  message: text("message").notNull(),
+  details: jsonb("details"),
+  occurrenceCount: integer("occurrence_count").notNull().default(1),
+  firstSeenAt: timestamp("first_seen_at").defaultNow().notNull(),
+  lastSeenAt: timestamp("last_seen_at").defaultNow().notNull(),
+  acknowledgedAt: timestamp("acknowledged_at"),
+  acknowledgedBy: varchar("acknowledged_by").references(() => users.id, { onDelete: 'set null' }),
+}, (t) => ({
+  uniqTenantTypeFingerprint: unique("admin_alerts_tenant_type_fp_unique").on(t.tenantId, t.alertType, t.fingerprint),
+}));
+
+export const insertAdminAlertSchema = createInsertSchema(adminAlerts).omit({
+  id: true,
+  occurrenceCount: true,
+  firstSeenAt: true,
+  lastSeenAt: true,
+  acknowledgedAt: true,
+  acknowledgedBy: true,
+});
+
+export type InsertAdminAlert = z.infer<typeof insertAdminAlertSchema>;
+export type AdminAlert = typeof adminAlerts.$inferSelect;

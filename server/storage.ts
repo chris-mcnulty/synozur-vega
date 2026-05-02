@@ -54,6 +54,7 @@ import {
   notifications, type Notification, type InsertNotification,
   reassignmentAuditLogs, type ReassignmentAuditLog, type InsertReassignmentAuditLog,
   type ReassignmentCounts,
+  adminAlerts, type AdminAlert, type InsertAdminAlert, ADMIN_ALERT_TYPE, ADMIN_ALERT_SEVERITY,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, count, ilike, asc, type SQL } from "drizzle-orm";
@@ -567,6 +568,18 @@ export interface IStorage {
   }): Promise<{ counts: ReassignmentCounts; auditLog: ReassignmentAuditLog }>;
   createReassignmentAuditLog(log: InsertReassignmentAuditLog): Promise<ReassignmentAuditLog>;
   getReassignmentAuditLogs(tenantId: string, limit?: number): Promise<ReassignmentAuditLog[]>;
+
+  // Admin Alerts methods
+  recordAdminAlert(input: {
+    tenantId: string;
+    alertType: string;
+    fingerprint: string;
+    message: string;
+    details?: any;
+    severity?: string;
+  }): Promise<AdminAlert>;
+  getAdminAlertsByTenantId(tenantId: string, includeAcknowledged?: boolean): Promise<AdminAlert[]>;
+  acknowledgeAdminAlert(id: string, tenantId: string, userId: string): Promise<AdminAlert | undefined>;
 }
 
 export type ReassignmentSelection = Partial<{
@@ -2432,10 +2445,28 @@ export class DatabaseStorage implements IStorage {
         if (pid && !includedIds.has(cid)) omittedParentIds.add(pid);
       }
       if (omittedParentIds.size > 0) {
-        console.warn(
+        const affectedIds = Array.from(omittedParentIds).sort();
+        const message =
           `[getObjectiveHierarchy] Hierarchy depth cap (${OBJECTIVE_HIERARCHY_DEPTH_CAP}) reached for tenant ${tenantId}. ` +
-          `Truncated descendants under objective ids: ${Array.from(omittedParentIds).join(', ')}`
-        );
+          `Truncated descendants under objective ids: ${affectedIds.join(', ')}`;
+        console.warn(message);
+        try {
+          await this.recordAdminAlert({
+            tenantId,
+            alertType: ADMIN_ALERT_TYPE.OBJECTIVE_DEPTH_CAP,
+            fingerprint: ADMIN_ALERT_TYPE.OBJECTIVE_DEPTH_CAP,
+            severity: ADMIN_ALERT_SEVERITY.WARNING,
+            message:
+              `Objective hierarchy depth cap (${OBJECTIVE_HIERARCHY_DEPTH_CAP}) reached. ` +
+              `${affectedIds.length} objective(s) had descendants truncated when loading the alignment tree.`,
+            details: {
+              depthCap: OBJECTIVE_HIERARCHY_DEPTH_CAP,
+              affectedObjectiveIds: affectedIds,
+            },
+          });
+        } catch (err) {
+          console.error('[getObjectiveHierarchy] Failed to record admin alert for depth cap', err);
+        }
       }
     }
 
@@ -5373,6 +5404,63 @@ export class DatabaseStorage implements IStorage {
       if (out.length >= totalLimit) break;
     }
     return out;
+  }
+
+  // ============================================
+  // ADMIN ALERTS
+  // ============================================
+
+  async recordAdminAlert(input: {
+    tenantId: string;
+    alertType: string;
+    fingerprint: string;
+    message: string;
+    details?: any;
+    severity?: string;
+  }): Promise<AdminAlert> {
+    const severity = input.severity ?? ADMIN_ALERT_SEVERITY.WARNING;
+    const [row] = await db.insert(adminAlerts)
+      .values({
+        tenantId: input.tenantId,
+        alertType: input.alertType,
+        fingerprint: input.fingerprint,
+        severity,
+        message: input.message,
+        details: input.details ?? null,
+      })
+      .onConflictDoUpdate({
+        target: [adminAlerts.tenantId, adminAlerts.alertType, adminAlerts.fingerprint],
+        set: {
+          message: input.message,
+          details: input.details ?? null,
+          severity,
+          lastSeenAt: sql`now()`,
+          occurrenceCount: sql`${adminAlerts.occurrenceCount} + 1`,
+          // Re-open if it fires again after being acknowledged.
+          acknowledgedAt: null,
+          acknowledgedBy: null,
+        },
+      })
+      .returning();
+    return row;
+  }
+
+  async getAdminAlertsByTenantId(tenantId: string, includeAcknowledged: boolean = false): Promise<AdminAlert[]> {
+    const where = includeAcknowledged
+      ? eq(adminAlerts.tenantId, tenantId)
+      : and(eq(adminAlerts.tenantId, tenantId), isNull(adminAlerts.acknowledgedAt));
+    return await db.select()
+      .from(adminAlerts)
+      .where(where)
+      .orderBy(desc(adminAlerts.lastSeenAt));
+  }
+
+  async acknowledgeAdminAlert(id: string, tenantId: string, userId: string): Promise<AdminAlert | undefined> {
+    const [row] = await db.update(adminAlerts)
+      .set({ acknowledgedAt: sql`now()`, acknowledgedBy: userId })
+      .where(and(eq(adminAlerts.id, id), eq(adminAlerts.tenantId, tenantId)))
+      .returning();
+    return row;
   }
 
   // ============================================
