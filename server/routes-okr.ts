@@ -1012,6 +1012,29 @@ okrRouter.get("/hierarchy", async (req, res) => {
   }
 });
 
+// Focused sub-tree load for detail pages — only walks the descendants of
+// :id rather than the full tenant hierarchy. Uses the recursive CTE under
+// the hood so we only fetch the rows we need.
+okrRouter.get("/objectives/:id/subtree", async (req, res) => {
+  try {
+    const objective = await storage.getObjectiveById(req.params.id);
+    if (!objective) {
+      return res.status(404).json({ error: "Objective not found" });
+    }
+
+    // Tenant scoping: ensure the requested objective belongs to the caller's tenant.
+    const effectiveTenantId = req.effectiveTenantId || objective.tenantId;
+    if (objective.tenantId !== effectiveTenantId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const subtree = await storage.getObjectiveSubtree(req.params.id, objective.tenantId);
+    res.json(subtree);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // Check-Ins
 okrRouter.get("/check-ins", async (req, res) => {
   try {

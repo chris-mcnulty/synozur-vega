@@ -172,6 +172,13 @@ export interface IStorage {
     linkedBigRocks: BigRock[];
     lastUpdated: Date | null;
   }>>;
+  getObjectiveSubtree(rootId: string, tenantId: string): Promise<Array<Objective & {
+    keyResults: KeyResult[];
+    childObjectives: Objective[];
+    alignedObjectives: Objective[];
+    linkedBigRocks: BigRock[];
+    lastUpdated: Date | null;
+  }>>;
   
   getCheckInsByEntityId(entityType: string, entityId: string): Promise<CheckIn[]>;
   getCheckInsByEntityIds(entityType: string, entityIds: string[]): Promise<Map<string, CheckIn[]>>;
@@ -471,6 +478,13 @@ export interface IStorage {
   updateJobRun(id: string, updates: Partial<JobRun>): Promise<JobRun>;
   completeJobRun(id: string, status: string, summary?: string, details?: any, errorMessage?: string, errorStack?: string): Promise<JobRun>;
 }
+
+/**
+ * Hard cap on objective tree depth used by the recursive CTE in
+ * getObjectiveHierarchy / getObjectiveSubtree. Protects against corrupted
+ * parent_id chains and pathological alignment trees.
+ */
+const OBJECTIVE_HIERARCHY_DEPTH_CAP = 20;
 
 export class DatabaseStorage implements IStorage {
   // In-memory cache with TTL for frequently-accessed queries
@@ -1718,172 +1732,352 @@ export class DatabaseStorage implements IStorage {
     linkedBigRocks: BigRock[];
     lastUpdated: Date | null;
   }>> {
-    // Get all objectives for the tenant and time period
-    const allObjectives = await this.getObjectivesByTenantId(tenantId, quarter, year, level, teamId);
-    
-    // Define deterministic sort order for levels: organization → division → team → individual
+    // Use the recursive CTE to fetch only the matching objectives in dependency order.
+    const tree = await this.loadObjectiveTreeRows({ tenantId, quarter, year, level, teamId });
+    if (tree.rows.length === 0) return [];
+
+    return await this.assembleObjectiveTree(tenantId, tree.rows, null);
+  }
+
+  async getObjectiveSubtree(rootId: string, tenantId: string): Promise<Array<Objective & {
+    keyResults: KeyResult[];
+    childObjectives: Objective[];
+    alignedObjectives: Objective[];
+    linkedBigRocks: BigRock[];
+    lastUpdated: Date | null;
+  }>> {
+    // Sub-tree mode: traverse only descendants of the requested root via recursive CTE.
+    // No quarter/year/level/team filters are applied — callers can post-filter if needed.
+    const tree = await this.loadObjectiveTreeRows({ tenantId, rootId });
+    if (tree.rows.length === 0) return [];
+
+    // Force the requested root to always appear as a root, regardless of any
+    // corruption in its own parent chain (its parent_id might point at a row
+    // that's also in the result set due to cycles upstream).
+    return await this.assembleObjectiveTree(tenantId, tree.rows, rootId);
+  }
+
+  /**
+   * Assemble the enriched tree from the CTE row set.
+   *
+   * Parent/child links are taken from the CTE edges (rows with depth > 0),
+   * never from raw objective.parentId, so cycle/back-edge rows excluded by
+   * the CTE cannot reappear during JS assembly. Build is recursive with a
+   * per-branch processedIds set so any residual cycle in the alignment
+   * graph terminates with empty children rather than circular references.
+   *
+   * forcedRootId pins the requested root for sub-tree loads.
+   */
+  private async assembleObjectiveTree(
+    tenantId: string,
+    treeRows: Array<{ id: string; parentId: string | null; depth: number }>,
+    forcedRootId: string | null,
+  ): Promise<Array<Objective & {
+    keyResults: KeyResult[];
+    childObjectives: any[];
+    alignedObjectives: any[];
+    linkedBigRocks: BigRock[];
+    lastUpdated: Date | null;
+  }>> {
+    const objectiveIds = treeRows.map(r => r.id);
+
+    const rawObjectives = await db
+      .select()
+      .from(objectives)
+      .where(and(eq(objectives.tenantId, tenantId), inArray(objectives.id, objectiveIds)));
+
+    // Completed objectives always report 100% progress (matches getObjectivesByTenantId).
+    const allObjectives: Objective[] = rawObjectives.map(obj =>
+      obj.status === 'completed' && (obj.progress ?? 0) < 100
+        ? { ...obj, progress: 100 }
+        : obj
+    );
+    const objectivesById = new Map<string, Objective>();
+    for (const obj of allObjectives) objectivesById.set(obj.id, obj);
+
     const levelOrder: Record<string, number> = {
       organization: 0,
       division: 1,
       team: 2,
       individual: 3,
     };
-    
-    // Extract leading numeric prefix from title (e.g., "1. Increase..." → 1, "2. Accelerate..." → 2)
+
     const extractNumericPrefix = (title: string): number | null => {
       const match = title.match(/^\s*(\d+)\./);
       return match ? parseInt(match[1], 10) : null;
     };
-    
-    // Sort function for objectives: numeric prefix FIRST (if present), then by level, then by title
-    // This ensures "1. X", "2. Y", "3. Z" sort together regardless of their org level
+
     const sortObjectives = <T extends { level?: string | null; title: string }>(objs: T[]): T[] => {
       return [...objs].sort((a, b) => {
-        // First: sort by numeric prefix if either has one
         const aPrefix = extractNumericPrefix(a.title || '');
         const bPrefix = extractNumericPrefix(b.title || '');
-        
-        if (aPrefix !== null && bPrefix !== null) {
-          // Both have numeric prefixes - sort numerically
-          return aPrefix - bPrefix;
-        } else if (aPrefix !== null) {
-          // Only a has prefix - it comes first
-          return -1;
-        } else if (bPrefix !== null) {
-          // Only b has prefix - it comes first
-          return 1;
-        }
-        
-        // Neither has prefix - sort by level then alphabetically
+        if (aPrefix !== null && bPrefix !== null) return aPrefix - bPrefix;
+        if (aPrefix !== null) return -1;
+        if (bPrefix !== null) return 1;
         const levelDiff = (levelOrder[a.level || 'team'] ?? 4) - (levelOrder[b.level || 'team'] ?? 4);
         if (levelDiff !== 0) return levelDiff;
-        
         return (a.title || '').localeCompare(b.title || '');
       });
     };
-    
-    // Create a set of all objective IDs in the filtered results
-    const filteredObjectiveIds = new Set(allObjectives.map(obj => obj.id));
-    
-    // For each objective, get its key results and linked big rocks
-    // Child objectives will be built from the allObjectives array for proper sorting
-    const objectiveDataMap = new Map<string, { keyResults: KeyResult[]; linkedBigRocks: BigRock[]; latestCheckIn: CheckIn | undefined }>();
-    
-    // PERFORMANCE: Use batch queries to avoid N+1 problem
-    // This fetches all data in 3 queries instead of N*3 queries
-    const objectiveIds = allObjectives.map(obj => obj.id);
+
     const [keyResultsMap, linkedBigRocksMap, latestCheckInMap] = await Promise.all([
       this.getKeyResultsByObjectiveIds(objectiveIds),
       this.getBigRocksLinkedToObjectives(objectiveIds),
       this.getLatestCheckInsForEntities('objective', objectiveIds),
     ]);
-    
-    for (const objective of allObjectives) {
-      objectiveDataMap.set(objective.id, {
-        keyResults: keyResultsMap.get(objective.id) || [],
-        linkedBigRocks: linkedBigRocksMap.get(objective.id) || [],
-        latestCheckIn: latestCheckInMap.get(objective.id),
-      });
-    }
-    
-    // Build a map of parent -> sorted children from allObjectives
+
+    // Build childrenByParentId from CTE edges only — rows with depth > 0 are
+    // accepted descendants; depth-0 rows are CTE roots (real or virtual) and
+    // never re-attach as someone else's child even if their raw parentId
+    // happens to match another included node (e.g. cycle back-edge).
     const childrenByParentId = new Map<string, Objective[]>();
+    for (const row of treeRows) {
+      if (row.depth === 0 || !row.parentId) continue;
+      const childObj = objectivesById.get(row.id);
+      if (!childObj) continue;
+      const arr = childrenByParentId.get(row.parentId);
+      if (arr) arr.push(childObj); else childrenByParentId.set(row.parentId, [childObj]);
+    }
+
+    // Aligned ("ladders up to") children: a many-to-many graph independent of
+    // parent_id. Filtered to targets that are also in the result set.
+    const filteredIds = new Set(objectivesById.keys());
+    const alignedChildrenByTargetId = new Map<string, Objective[]>();
     for (const obj of allObjectives) {
-      if (obj.parentId) {
-        if (!childrenByParentId.has(obj.parentId)) {
-          childrenByParentId.set(obj.parentId, []);
-        }
-        childrenByParentId.get(obj.parentId)!.push(obj);
+      const alignedToIds = obj.alignedToObjectiveIds;
+      if (!Array.isArray(alignedToIds)) continue;
+      for (const targetId of alignedToIds) {
+        if (!filteredIds.has(targetId)) continue;
+        const arr = alignedChildrenByTargetId.get(targetId);
+        if (arr) arr.push(obj); else alignedChildrenByTargetId.set(targetId, [obj]);
       }
     }
-    
-    // Build a map of aligned objectives (objectives that "ladder up" to each objective)
-    // These are objectives that have this objective in their alignedToObjectiveIds array
-    const alignedChildrenByObjectiveId = new Map<string, Objective[]>();
-    for (const obj of allObjectives) {
-      const alignedToIds = (obj as any).alignedToObjectiveIds as string[] | null;
-      if (alignedToIds && Array.isArray(alignedToIds)) {
-        for (const alignedToId of alignedToIds) {
-          if (!alignedChildrenByObjectiveId.has(alignedToId)) {
-            alignedChildrenByObjectiveId.set(alignedToId, []);
-          }
-          alignedChildrenByObjectiveId.get(alignedToId)!.push(obj);
-        }
-      }
+    for (const [k, v] of Array.from(childrenByParentId.entries())) {
+      childrenByParentId.set(k, sortObjectives(v));
     }
-    
-    // Sort children for each parent
-    for (const [parentId, children] of Array.from(childrenByParentId.entries())) {
-      childrenByParentId.set(parentId, sortObjectives(children));
+    for (const [k, v] of Array.from(alignedChildrenByTargetId.entries())) {
+      alignedChildrenByTargetId.set(k, sortObjectives(v));
     }
-    
-    // Sort aligned children for each objective
-    for (const [objectiveId, children] of Array.from(alignedChildrenByObjectiveId.entries())) {
-      alignedChildrenByObjectiveId.set(objectiveId, sortObjectives(children));
-    }
-    
-    // Recursive function to build enriched objective with sorted children
-    const buildEnrichedObjective = (objective: Objective, processedIds: Set<string> = new Set()): Objective & {
+
+    // Recursive enrichment with per-branch processedIds — siblings can share
+    // a descendant, but a cycle terminates with an empty leaf so the result
+    // is always JSON-serializable.
+    const buildEnriched = (
+      objective: Objective,
+      processedIds: Set<string>,
+    ): Objective & {
       keyResults: KeyResult[];
       childObjectives: any[];
-      alignedObjectives: any[]; // Objectives that "ladder up" to this one (virtual children)
+      alignedObjectives: any[];
       linkedBigRocks: BigRock[];
       lastUpdated: Date | null;
     } => {
-      // Prevent infinite recursion by tracking processed objectives
-      if (processedIds.has(objective.id)) {
-        const data = objectiveDataMap.get(objective.id);
-        return {
-          ...objective,
-          keyResults: data?.keyResults || [],
-          childObjectives: [],
-          alignedObjectives: [],
-          linkedBigRocks: data?.linkedBigRocks || [],
-          lastUpdated: data?.latestCheckIn?.createdAt || objective.updatedAt,
-        };
-      }
-      processedIds.add(objective.id);
-      
-      const data = objectiveDataMap.get(objective.id);
-      const children = childrenByParentId.get(objective.id) || [];
-      const alignedChildren = alignedChildrenByObjectiveId.get(objective.id) || [];
-      
-      // Sort key results with numeric prefix awareness
-      const sortedKeyResults = [...(data?.keyResults || [])].sort((a, b) => {
+      const krs = keyResultsMap.get(objective.id) || [];
+      const sortedKeyResults = [...krs].sort((a, b) => {
         const aPrefix = extractNumericPrefix(a.title || '');
         const bPrefix = extractNumericPrefix(b.title || '');
-        
-        if (aPrefix !== null && bPrefix !== null) {
-          return aPrefix - bPrefix;
-        } else if (aPrefix !== null) {
-          return -1;
-        } else if (bPrefix !== null) {
-          return 1;
-        }
+        if (aPrefix !== null && bPrefix !== null) return aPrefix - bPrefix;
+        if (aPrefix !== null) return -1;
+        if (bPrefix !== null) return 1;
         return (a.title || '').localeCompare(b.title || '');
       });
-      
+      const latestCheckIn = latestCheckInMap.get(objective.id);
+      const linkedBigRocks = linkedBigRocksMap.get(objective.id) || [];
+
+      if (processedIds.has(objective.id)) {
+        return {
+          ...objective,
+          keyResults: sortedKeyResults,
+          childObjectives: [],
+          alignedObjectives: [],
+          linkedBigRocks,
+          lastUpdated: latestCheckIn?.createdAt || objective.updatedAt,
+        };
+      }
+      const branchProcessed = new Set(processedIds);
+      branchProcessed.add(objective.id);
+
+      const children = childrenByParentId.get(objective.id) || [];
+      const aligned = alignedChildrenByTargetId.get(objective.id) || [];
       return {
         ...objective,
         keyResults: sortedKeyResults,
-        childObjectives: children.map(child => buildEnrichedObjective(child, new Set(processedIds))),
-        alignedObjectives: alignedChildren.map(aligned => ({
-          ...buildEnrichedObjective(aligned, new Set(processedIds)),
-          isAligned: true, // Mark as aligned (virtual child) for UI differentiation
+        childObjectives: children.map(c => buildEnriched(c, branchProcessed)),
+        alignedObjectives: aligned.map(a => ({
+          ...buildEnriched(a, branchProcessed),
+          isAligned: true,
         })),
-        linkedBigRocks: data?.linkedBigRocks || [],
-        lastUpdated: data?.latestCheckIn?.createdAt || objective.updatedAt,
+        linkedBigRocks,
+        lastUpdated: latestCheckIn?.createdAt || objective.updatedAt,
       };
     };
 
-    // Filter to root-level objectives OR objectives whose parent is not in the filtered results
-    // This ensures filtered objectives appear as "virtual roots" when their parent doesn't match the filter
-    const rootObjectives = allObjectives.filter(obj => 
-      !obj.parentId || !filteredObjectiveIds.has(obj.parentId)
-    );
-    
-    // Sort root objectives and recursively build the tree with sorted children
-    return sortObjectives(rootObjectives).map(obj => buildEnrichedObjective(obj));
+    // Roots: forced root for sub-tree mode, otherwise CTE depth-0 rows
+    // (which are virtual roots whose parent was filtered/missing).
+    let rootObjectives: Objective[];
+    if (forcedRootId) {
+      const forced = objectivesById.get(forcedRootId);
+      rootObjectives = forced ? [forced] : [];
+    } else {
+      const rootIds = treeRows.filter(r => r.depth === 0).map(r => r.id);
+      rootObjectives = rootIds
+        .map(id => objectivesById.get(id))
+        .filter((o): o is Objective => o !== undefined);
+    }
+
+    return sortObjectives(rootObjectives).map(obj => buildEnriched(obj, new Set<string>()));
+  }
+
+  /**
+   * Build a SQL fragment for the standard objective filters (year/quarter/level/team)
+   * that mirrors getObjectivesByTenantId's filter logic. Used inside the recursive CTE.
+   */
+  private buildObjectiveFilterSQL(
+    opts: { quarter?: number; year?: number; level?: string; teamId?: string },
+    alias: string,
+  ) {
+    const a = sql.raw(alias);
+    const parts: any[] = [];
+    if (opts.year !== undefined) {
+      parts.push(sql`${a}.year = ${opts.year}`);
+    }
+    if (opts.quarter === 0 && opts.year !== undefined) {
+      parts.push(sql`(${a}.quarter IS NULL OR ${a}.quarter = 0)`);
+    } else if (opts.quarter !== undefined && opts.quarter > 0 && opts.year !== undefined) {
+      parts.push(sql`(${a}.quarter = ${opts.quarter} OR ${a}.quarter IS NULL)`);
+    }
+    if (opts.level && opts.level !== 'all') {
+      parts.push(sql`${a}.level = ${opts.level}`);
+    }
+    if (opts.teamId && opts.teamId !== 'all') {
+      parts.push(sql`${a}.team_id = ${opts.teamId}`);
+    }
+    if (parts.length === 0) return sql`TRUE`;
+    return sql.join(parts, sql` AND `);
+  }
+
+  /**
+   * Recursive CTE that walks the objective parent_id chain.
+   *
+   * Modes:
+   *   - rootId set     → root + all descendants (sub-tree load).
+   *   - rootId not set → all tenant objectives matching the standard
+   *     filters, with any matching row whose parent is missing/filtered as a
+   *     virtual root.
+   *
+   * The recursive step emits an is_cycle flag for any row whose id is
+   * already on its ancestry path; cycle rows are warned about and excluded
+   * from the result. Depth is capped at OBJECTIVE_HIERARCHY_DEPTH_CAP and
+   * we only warn about truncation when an at-cap row actually has omitted
+   * descendants in the DB.
+   */
+  private async loadObjectiveTreeRows(params: {
+    tenantId: string;
+    rootId?: string;
+    quarter?: number;
+    year?: number;
+    level?: string;
+    teamId?: string;
+  }): Promise<{ rows: Array<{ id: string; parentId: string | null; depth: number }> }> {
+    const { tenantId, rootId } = params;
+    const filterSQL = this.buildObjectiveFilterSQL(params, 'o');
+
+    let baseSelect;
+    if (rootId) {
+      baseSelect = sql`
+        SELECT b.id AS id, b.parent_id AS parent_id, 0 AS depth, ARRAY[b.id] AS path,
+               FALSE AS is_cycle
+        FROM objectives b
+        WHERE b.id = ${rootId} AND b.tenant_id = ${tenantId}
+      `;
+    } else {
+      const baseFilterSQL = this.buildObjectiveFilterSQL(params, 'b');
+      const parentFilterSQL = this.buildObjectiveFilterSQL(params, 'p');
+      baseSelect = sql`
+        SELECT b.id AS id, b.parent_id AS parent_id, 0 AS depth, ARRAY[b.id] AS path,
+               FALSE AS is_cycle
+        FROM objectives b
+        WHERE b.tenant_id = ${tenantId}
+          AND ${baseFilterSQL}
+          AND (
+            b.parent_id IS NULL
+            OR NOT EXISTS (
+              SELECT 1 FROM objectives p
+              WHERE p.id = b.parent_id
+                AND p.tenant_id = ${tenantId}
+                AND ${parentFilterSQL}
+            )
+          )
+      `;
+    }
+
+    // In sub-tree mode no extra filters apply; in full mode they apply at every depth.
+    const recursiveFilterSQL = rootId ? sql`TRUE` : filterSQL;
+
+    const result = await db.execute(sql`
+      WITH RECURSIVE okr_tree AS (
+        ${baseSelect}
+        UNION ALL
+        SELECT
+          o.id AS id,
+          o.parent_id AS parent_id,
+          t.depth + 1 AS depth,
+          t.path || o.id AS path,
+          (o.id = ANY(t.path)) AS is_cycle
+        FROM objectives o
+        INNER JOIN okr_tree t ON o.parent_id = t.id
+        WHERE NOT t.is_cycle
+          AND o.tenant_id = ${tenantId}
+          AND t.depth < ${OBJECTIVE_HIERARCHY_DEPTH_CAP}
+          AND ${recursiveFilterSQL}
+      )
+      SELECT id, parent_id, depth, is_cycle
+      FROM okr_tree
+      ORDER BY depth ASC, id ASC
+    `);
+
+    const allRows = (result.rows || []).map((r: any) => ({
+      id: String(r.id),
+      parentId: r.parent_id == null ? null : String(r.parent_id),
+      depth: Number(r.depth),
+      isCycle: r.is_cycle === true || r.is_cycle === 't' || r.is_cycle === 'true',
+    }));
+
+    const cycleRows = allRows.filter(r => r.isCycle);
+    if (cycleRows.length > 0) {
+      const sample = cycleRows.slice(0, 10).map(r => `${r.id} (parent=${r.parentId})`).join(', ');
+      console.warn(
+        `[getObjectiveHierarchy] Detected ${cycleRows.length} cyclic parent_id link(s) for tenant ${tenantId}. ` +
+        `These rows were skipped during traversal: ${sample}${cycleRows.length > 10 ? ', ...' : ''}`
+      );
+    }
+
+    const rows = allRows.filter(r => !r.isCycle).map(({ id, parentId, depth }) => ({ id, parentId, depth }));
+
+    const cappedIds = rows.filter(r => r.depth >= OBJECTIVE_HIERARCHY_DEPTH_CAP).map(r => r.id);
+    if (cappedIds.length > 0) {
+      const includedIds = new Set(rows.map(r => r.id));
+      const childCheck = await db.execute(sql`
+        SELECT o.id AS id, o.parent_id AS parent_id
+        FROM objectives o
+        WHERE o.tenant_id = ${tenantId}
+          AND o.parent_id IN (${sql.join(cappedIds.map(id => sql`${id}`), sql`, `)})
+      `);
+      const omittedParentIds = new Set<string>();
+      for (const r of (childCheck.rows || []) as Array<{ id: any; parent_id: any }>) {
+        const cid = String(r.id);
+        const pid = r.parent_id == null ? null : String(r.parent_id);
+        if (pid && !includedIds.has(cid)) omittedParentIds.add(pid);
+      }
+      if (omittedParentIds.size > 0) {
+        console.warn(
+          `[getObjectiveHierarchy] Hierarchy depth cap (${OBJECTIVE_HIERARCHY_DEPTH_CAP}) reached for tenant ${tenantId}. ` +
+          `Truncated descendants under objective ids: ${Array.from(omittedParentIds).join(', ')}`
+        );
+      }
+    }
+
+    return { rows };
   }
 
   async getCheckInsByEntityId(entityType: string, entityId: string): Promise<CheckIn[]> {
