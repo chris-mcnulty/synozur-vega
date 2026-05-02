@@ -373,7 +373,7 @@ okrRouter.delete("/objectives/:id", async (req, res) => {
       });
     }
     
-    await storage.deleteObjective(req.params.id);
+    await storage.deleteObjective(req.params.id, (req as any).user?.id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -530,7 +530,7 @@ okrRouter.delete("/key-results/:id", async (req, res) => {
       });
     }
     
-    await storage.deleteKeyResult(req.params.id);
+    await storage.deleteKeyResult(req.params.id, (req as any).user?.id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -668,7 +668,7 @@ okrRouter.delete("/big-rocks/:id", async (req, res) => {
       });
     }
     
-    await storage.deleteBigRock(req.params.id);
+    await storage.deleteBigRock(req.params.id, (req as any).user?.id);
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });

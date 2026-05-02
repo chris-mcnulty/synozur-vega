@@ -17,7 +17,12 @@ import {
   insertUserSchema,
   insertTeamSchema,
   type VocabularyTerms,
-  defaultVocabulary
+  defaultVocabulary,
+  type Objective,
+  type KeyResult,
+  type BigRock,
+  type Strategy,
+  type Ambition
 } from "@shared/schema";
 import { 
   sendVerificationEmail, 
@@ -2137,7 +2142,7 @@ ${changelogContent}`;
   app.delete("/api/strategies/:id", ...adminOnly, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;
-      await storage.deleteStrategy(id);
+      await storage.deleteStrategy(id, req.user?.id);
       res.json({ success: true });
     } catch (error) {
       console.error("Error deleting strategy:", error);
@@ -2758,6 +2763,94 @@ ${changelogContent}`;
     } catch (error) {
       console.error("Error fetching consultants:", error);
       res.status(500).json({ error: "Failed to fetch consultants" });
+    }
+  });
+
+  // ============================================================================
+  // Trash / Soft-delete recovery routes (admin/owner only)
+  // ============================================================================
+
+  // List soft-deleted items for the current tenant
+  app.get("/api/trash", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const userRole = req.user?.role as string;
+      const isPlatformAdmin = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      const tenantId = req.effectiveTenantId
+        || (isPlatformAdmin ? (req.headers['x-tenant-id'] as string | undefined) : undefined);
+
+      if (!tenantId) {
+        return res.status(400).json({ error: "Tenant context required" });
+      }
+
+      const items = await storage.getTrashItemsByTenantId(tenantId);
+      res.json(items);
+    } catch (error: any) {
+      console.error("Error fetching trash:", error);
+      res.status(500).json({ error: "Failed to fetch trash items" });
+    }
+  });
+
+  // Restore a soft-deleted item by type and id
+  app.post("/api/trash/:type/:id/restore", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { type, id } = req.params;
+      const userRole = req.user?.role as string;
+      const isPlatformAdmin = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      const tenantId = req.effectiveTenantId
+        || (isPlatformAdmin ? (req.headers['x-tenant-id'] as string | undefined) : undefined);
+
+      if (!tenantId) {
+        return res.status(400).json({ error: "Tenant context required" });
+      }
+
+      // All restore methods are tenant-scoped: they fetch and authorize the row
+      // BEFORE any mutation. They return undefined if the item doesn't exist or
+      // belongs to a different tenant — preventing cross-tenant data modification.
+      let restored: Objective | KeyResult | BigRock | Strategy | Ambition | undefined;
+
+      if (type === 'objective') {
+        restored = await storage.restoreObjective(id, tenantId);
+      } else if (type === 'keyResult' || type === 'key-result') {
+        restored = await storage.restoreKeyResult(id, tenantId);
+      } else if (type === 'bigRock' || type === 'big-rock') {
+        restored = await storage.restoreBigRock(id, tenantId);
+      } else if (type === 'strategy') {
+        restored = await storage.restoreStrategy(id, tenantId);
+      } else if (type === 'ambition') {
+        restored = await storage.restoreAmbition(tenantId, id);
+      } else {
+        return res.status(400).json({ error: "Unknown trash item type" });
+      }
+
+      if (!restored) {
+        // Could be: not in trash, not found, or belongs to a different tenant.
+        // We don't disclose which to avoid leaking existence of cross-tenant rows.
+        return res.status(404).json({ error: "Item not found in trash" });
+      }
+
+      res.json({ success: true, item: restored });
+    } catch (error: any) {
+      console.error("Error restoring trash item:", error);
+      res.status(500).json({ error: "Failed to restore item" });
+    }
+  });
+
+  // Soft-delete an ambition (stored in foundation JSONB)
+  app.delete("/api/foundations/:tenantId/ambitions/:ambitionId", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { tenantId, ambitionId } = req.params;
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+
+      if (!canAccessAny && tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+
+      await storage.softDeleteAmbition(tenantId, ambitionId, req.user?.id);
+      res.json({ success: true });
+    } catch (error: any) {
+      console.error("Error deleting ambition:", error);
+      res.status(500).json({ error: "Failed to delete ambition" });
     }
   });
 
@@ -3837,7 +3930,27 @@ ${changelogContent}`;
       return { summary: cacheSize > 0 ? `Cleared reminder cache (${cacheSize} entries)` : 'Cache already empty' };
     }
   );
-  
+
+  // Register trash purge job - hard-deletes soft-deleted items older than 30 days
+  await jobScheduler.registerJob(
+    'trash-purge',
+    'Trash Auto-Purge',
+    'Permanently deletes soft-deleted strategic items (objectives, key results, big rocks, strategies, ambitions) older than 30 days',
+    'maintenance',
+    'Daily',
+    86400000, // 24 hours
+    async () => {
+      const result = await storage.purgeOldDeletedItems(30);
+      const total = result.objectives + result.keyResults + result.bigRocks + result.strategies + result.ambitions;
+      return {
+        summary: total > 0
+          ? `Purged ${total} item(s): ${result.objectives} objectives, ${result.keyResults} key results, ${result.bigRocks} big rocks, ${result.strategies} strategies, ${result.ambitions} ambitions`
+          : 'No items to purge',
+        details: result,
+      };
+    }
+  );
+
   // Initialize job scheduler and run startup jobs
   await jobScheduler.initialize();
   setTimeout(() => {

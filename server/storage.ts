@@ -48,7 +48,8 @@ import {
   supportTicketReplies, type SupportTicketReply, type InsertSupportTicketReply,
   oauthClients, type OauthClient, type InsertOauthClient,
   oauthAuthorizationCodes, type OauthAuthorizationCode,
-  oauthRefreshTokens, type OauthRefreshToken
+  oauthRefreshTokens, type OauthRefreshToken,
+  type Ambition
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, count, ilike, asc } from "drizzle-orm";
@@ -82,7 +83,8 @@ export interface IStorage {
   getStrategyById(id: string): Promise<Strategy | undefined>;
   createStrategy(strategy: InsertStrategy): Promise<Strategy>;
   updateStrategy(id: string, strategy: Partial<InsertStrategy>): Promise<Strategy>;
-  deleteStrategy(id: string): Promise<void>;
+  deleteStrategy(id: string, userId?: string): Promise<void>;
+  restoreStrategy(id: string, tenantId: string): Promise<Strategy | undefined>;
   
   getOkrsByTenantId(tenantId: string, quarter?: number, year?: number): Promise<Okr[]>;
   getOkrById(id: string): Promise<Okr | undefined>;
@@ -114,7 +116,8 @@ export interface IStorage {
   getChildObjectives(parentId: string): Promise<Objective[]>;
   createObjective(objective: InsertObjective): Promise<Objective>;
   updateObjective(id: string, objective: Partial<InsertObjective>): Promise<Objective>;
-  deleteObjective(id: string): Promise<void>;
+  deleteObjective(id: string, userId?: string): Promise<void>;
+  restoreObjective(id: string, tenantId: string): Promise<Objective | undefined>;
   cloneObjective(objectiveId: string, options: {
     targetQuarter: number | null;
     targetYear: number;
@@ -129,7 +132,8 @@ export interface IStorage {
   getAllKeyResults(): Promise<KeyResult[]>;
   createKeyResult(keyResult: InsertKeyResult): Promise<KeyResult>;
   updateKeyResult(id: string, keyResult: Partial<InsertKeyResult>): Promise<KeyResult>;
-  deleteKeyResult(id: string): Promise<void>;
+  deleteKeyResult(id: string, userId?: string): Promise<void>;
+  restoreKeyResult(id: string, tenantId: string): Promise<KeyResult | undefined>;
   promoteKeyResultToKpi(keyResultId: string, userId: string): Promise<Kpi>;
   unpromoteKeyResultFromKpi(keyResultId: string): Promise<KeyResult>;
   getAllObjectives(): Promise<Objective[]>;
@@ -142,7 +146,8 @@ export interface IStorage {
   getBigRocksWithPlannerSync(): Promise<BigRock[]>;
   createBigRock(bigRock: InsertBigRock): Promise<BigRock>;
   updateBigRock(id: string, bigRock: Partial<InsertBigRock>): Promise<BigRock>;
-  deleteBigRock(id: string): Promise<void>;
+  deleteBigRock(id: string, userId?: string): Promise<void>;
+  restoreBigRock(id: string, tenantId: string): Promise<BigRock | undefined>;
   
   // Big Rock Task methods
   getBigRockTasksByBigRockId(bigRockId: string): Promise<BigRockTask[]>;
@@ -477,6 +482,19 @@ export interface IStorage {
   createJobRun(run: InsertJobRun): Promise<JobRun>;
   updateJobRun(id: string, updates: Partial<JobRun>): Promise<JobRun>;
   completeJobRun(id: string, status: string, summary?: string, details?: any, errorMessage?: string, errorStack?: string): Promise<JobRun>;
+
+  // Trash / Soft-delete methods
+  getTrashItemsByTenantId(tenantId: string): Promise<TrashListing>;
+  restoreAmbition(tenantId: string, ambitionId: string): Promise<Ambition | undefined>;
+  softDeleteAmbition(tenantId: string, ambitionId: string, userId?: string): Promise<void>;
+  purgeOldDeletedItems(olderThanDays: number): Promise<{
+    objectives: number;
+    keyResults: number;
+    bigRocks: number;
+    bigRockTasks: number;
+    strategies: number;
+    ambitions: number;
+  }>;
 }
 
 /**
@@ -485,6 +503,20 @@ export interface IStorage {
  * parent_id chains and pathological alignment trees.
  */
 const OBJECTIVE_HIERARCHY_DEPTH_CAP = 20;
+
+// Enrichment shape for items shown in /trash UI
+export type TrashEnrichment = {
+  deletedByName: string | null;
+  deletedByEmail: string | null;
+  parentContext: { type: 'objective' | 'keyResult' | 'bigRock'; id: string; title: string } | null;
+};
+export type TrashListing = {
+  objectives: (Objective & TrashEnrichment)[];
+  keyResults: (KeyResult & TrashEnrichment)[];
+  bigRocks: (BigRock & TrashEnrichment)[];
+  strategies: (Strategy & TrashEnrichment)[];
+  ambitions: (Ambition & { tenantId: string } & TrashEnrichment)[];
+};
 
 export class DatabaseStorage implements IStorage {
   // In-memory cache with TTL for frequently-accessed queries
@@ -695,7 +727,14 @@ export class DatabaseStorage implements IStorage {
       .select()
       .from(foundations)
       .where(eq(foundations.tenantId, tenantId));
-    return foundation || undefined;
+    if (!foundation) return undefined;
+
+    // Hide soft-deleted ambitions from default reads
+    if (Array.isArray(foundation.ambitions)) {
+      const visible = (foundation.ambitions as Ambition[]).filter(a => !a.deletedAt);
+      return { ...foundation, ambitions: visible } as Foundation;
+    }
+    return foundation;
   }
 
   async upsertFoundation(insertFoundation: InsertFoundation): Promise<Foundation> {
@@ -736,11 +775,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getStrategiesByTenantId(tenantId: string): Promise<Strategy[]> {
-    return await db.select().from(strategies).where(eq(strategies.tenantId, tenantId));
+    return await db.select().from(strategies).where(
+      and(eq(strategies.tenantId, tenantId), isNull(strategies.deletedAt))
+    );
   }
 
   async getStrategyById(id: string): Promise<Strategy | undefined> {
-    const [strategy] = await db.select().from(strategies).where(eq(strategies.id, id));
+    const [strategy] = await db.select().from(strategies).where(
+      and(eq(strategies.id, id), isNull(strategies.deletedAt))
+    );
     return strategy || undefined;
   }
 
@@ -767,8 +810,21 @@ export class DatabaseStorage implements IStorage {
     return strategy;
   }
 
-  async deleteStrategy(id: string): Promise<void> {
-    await db.delete(strategies).where(eq(strategies.id, id));
+  async deleteStrategy(id: string, userId?: string): Promise<void> {
+    await db.update(strategies)
+      .set({ deletedAt: new Date(), deletedBy: userId ?? null })
+      .where(and(eq(strategies.id, id), isNull(strategies.deletedAt)));
+  }
+
+  async restoreStrategy(id: string, tenantId: string): Promise<Strategy | undefined> {
+    // Tenant-scoped restore: only updates the row if it belongs to the tenant.
+    // The WHERE clause both authorizes and filters atomically — no mutation
+    // happens against rows the caller doesn't own.
+    const [restored] = await db.update(strategies)
+      .set({ deletedAt: null, deletedBy: null })
+      .where(and(eq(strategies.id, id), eq(strategies.tenantId, tenantId)))
+      .returning();
+    return restored || undefined;
   }
 
   async getOkrsByTenantId(tenantId: string, quarter?: number, year?: number): Promise<Okr[]> {
@@ -915,7 +971,7 @@ export class DatabaseStorage implements IStorage {
     }
 
     // Build base conditions
-    const conditions: any[] = [eq(objectives.tenantId, tenantId)];
+    const conditions: any[] = [eq(objectives.tenantId, tenantId), isNull(objectives.deletedAt)];
     
     // Add year filter if provided
     if (year !== undefined) {
@@ -1014,7 +1070,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getObjectiveById(id: string): Promise<Objective | undefined> {
-    const [objective] = await db.select().from(objectives).where(eq(objectives.id, id));
+    const [objective] = await db.select().from(objectives).where(
+      and(eq(objectives.id, id), isNull(objectives.deletedAt))
+    );
     if (!objective) return undefined;
     // Normalize: completed objectives always report 100% progress
     if (objective.status === 'completed' && (objective.progress ?? 0) < 100) {
@@ -1024,7 +1082,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getChildObjectives(parentId: string): Promise<Objective[]> {
-    const data = await db.select().from(objectives).where(eq(objectives.parentId, parentId));
+    const data = await db.select().from(objectives).where(
+      and(eq(objectives.parentId, parentId), isNull(objectives.deletedAt))
+    );
     return data.map(obj =>
       obj.status === 'completed' && (obj.progress ?? 0) < 100
         ? { ...obj, progress: 100 }
@@ -1066,16 +1126,89 @@ export class DatabaseStorage implements IStorage {
     return objective;
   }
 
-  async deleteObjective(id: string): Promise<void> {
-    // Delete child key results and big rocks first
-    await db.delete(keyResults).where(eq(keyResults.objectiveId, id));
-    await db.delete(bigRocks).where(eq(bigRocks.objectiveId, id));
-    // Delete the objective and get tenantId using RETURNING clause
-    const [deletedObjective] = await db.delete(objectives).where(eq(objectives.id, id)).returning({ tenantId: objectives.tenantId });
+  async deleteObjective(id: string, userId?: string): Promise<void> {
+    const now = new Date();
+    const deletedBy = userId ?? null;
+
+    // Find big rocks that will be cascaded so we can also cascade their tasks
+    const cascadedBigRocks = await db
+      .select({ id: bigRocks.id })
+      .from(bigRocks)
+      .where(and(eq(bigRocks.objectiveId, id), isNull(bigRocks.deletedAt)));
+    const cascadedBigRockIds = cascadedBigRocks.map(b => b.id);
+
+    // Cascade soft-delete to children: key results, big rocks, big rock tasks
+    await db.update(keyResults)
+      .set({ deletedAt: now, deletedBy })
+      .where(and(eq(keyResults.objectiveId, id), isNull(keyResults.deletedAt)));
+    await db.update(bigRocks)
+      .set({ deletedAt: now, deletedBy })
+      .where(and(eq(bigRocks.objectiveId, id), isNull(bigRocks.deletedAt)));
+    if (cascadedBigRockIds.length > 0) {
+      await db.update(bigRockTasks)
+        .set({ deletedAt: now, deletedBy })
+        .where(and(
+          inArray(bigRockTasks.bigRockId, cascadedBigRockIds),
+          isNull(bigRockTasks.deletedAt)
+        ));
+    }
+
+    // Soft-delete the objective itself
+    const [deletedObjective] = await db.update(objectives)
+      .set({ deletedAt: now, deletedBy })
+      .where(and(eq(objectives.id, id), isNull(objectives.deletedAt)))
+      .returning({ tenantId: objectives.tenantId });
+
     // Invalidate objectives cache for this tenant
     if (deletedObjective) {
       this.invalidateCache(`objectives:${deletedObjective.tenantId}`);
     }
+  }
+
+  async restoreObjective(id: string, tenantId: string): Promise<Objective | undefined> {
+    // Fetch the row first (regardless of deleted state) and authorize by tenant.
+    // No mutation happens until tenant ownership is confirmed.
+    const [original] = await db.select().from(objectives).where(eq(objectives.id, id));
+    if (!original || original.tenantId !== tenantId) return undefined;
+    if (!original.deletedAt) return original;
+
+    const cascadeTimestamp = original.deletedAt;
+
+    // Restore the objective (tenant-scoped clause as defense in depth)
+    const [restored] = await db.update(objectives)
+      .set({ deletedAt: null, deletedBy: null })
+      .where(and(eq(objectives.id, id), eq(objectives.tenantId, tenantId)))
+      .returning();
+    if (!restored) return undefined;
+
+    // Cascade-restore children that were deleted as part of the same operation
+    // (i.e., share the exact deletedAt timestamp captured during the cascade delete).
+    await db.update(keyResults)
+      .set({ deletedAt: null, deletedBy: null })
+      .where(and(
+        eq(keyResults.objectiveId, id),
+        eq(keyResults.deletedAt, cascadeTimestamp)
+      ));
+
+    const restoredBigRocks = await db.update(bigRocks)
+      .set({ deletedAt: null, deletedBy: null })
+      .where(and(
+        eq(bigRocks.objectiveId, id),
+        eq(bigRocks.deletedAt, cascadeTimestamp)
+      ))
+      .returning({ id: bigRocks.id });
+
+    if (restoredBigRocks.length > 0) {
+      await db.update(bigRockTasks)
+        .set({ deletedAt: null, deletedBy: null })
+        .where(and(
+          inArray(bigRockTasks.bigRockId, restoredBigRocks.map(b => b.id)),
+          eq(bigRockTasks.deletedAt, cascadeTimestamp)
+        ));
+    }
+
+    this.invalidateCache(`objectives:${restored.tenantId}`);
+    return restored;
   }
 
   async cloneObjective(objectiveId: string, options: {
@@ -1241,7 +1374,9 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getKeyResultsByObjectiveId(objectiveId: string): Promise<KeyResult[]> {
-    return await db.select().from(keyResults).where(eq(keyResults.objectiveId, objectiveId));
+    return await db.select().from(keyResults).where(
+      and(eq(keyResults.objectiveId, objectiveId), isNull(keyResults.deletedAt))
+    );
   }
 
   async getKeyResultsByTenantId(tenantId: string, quarter?: number, year?: number, teamId?: string): Promise<KeyResult[]> {
@@ -1254,20 +1389,24 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Fetch all key results for these objectives
-    return await db.select().from(keyResults).where(inArray(keyResults.objectiveId, objectiveIds));
+    return await db.select().from(keyResults).where(
+      and(inArray(keyResults.objectiveId, objectiveIds), isNull(keyResults.deletedAt))
+    );
   }
 
   async getKeyResultById(id: string): Promise<KeyResult | undefined> {
-    const [keyResult] = await db.select().from(keyResults).where(eq(keyResults.id, id));
+    const [keyResult] = await db.select().from(keyResults).where(
+      and(eq(keyResults.id, id), isNull(keyResults.deletedAt))
+    );
     return keyResult || undefined;
   }
 
   async getAllKeyResults(): Promise<KeyResult[]> {
-    return await db.select().from(keyResults);
+    return await db.select().from(keyResults).where(isNull(keyResults.deletedAt));
   }
 
   async getAllObjectives(): Promise<Objective[]> {
-    return await db.select().from(objectives);
+    return await db.select().from(objectives).where(isNull(objectives.deletedAt));
   }
 
   async createKeyResult(insertKeyResult: InsertKeyResult): Promise<KeyResult> {
@@ -1311,19 +1450,42 @@ export class DatabaseStorage implements IStorage {
     return keyResult;
   }
 
-  async deleteKeyResult(id: string): Promise<void> {
-    // Get key result with objective info using join, then delete
+  async deleteKeyResult(id: string, userId?: string): Promise<void> {
+    const now = new Date();
+    const deletedBy = userId ?? null;
+
+    // Get key result with objective info using join, then soft-delete
     const keyResultWithObjective = await db
       .select({ objectiveId: keyResults.objectiveId })
       .from(keyResults)
       .where(eq(keyResults.id, id))
       .limit(1);
-    
-    // Delete associated big rocks first
-    await db.delete(bigRocks).where(eq(bigRocks.keyResultId, id));
-    // Delete the key result
-    await db.delete(keyResults).where(eq(keyResults.id, id));
-    
+
+    // Find big rocks linked to this KR so we can cascade their tasks too
+    const cascadedBigRocks = await db
+      .select({ id: bigRocks.id })
+      .from(bigRocks)
+      .where(and(eq(bigRocks.keyResultId, id), isNull(bigRocks.deletedAt)));
+    const cascadedBigRockIds = cascadedBigRocks.map(b => b.id);
+
+    // Cascade soft-delete to associated big rocks
+    await db.update(bigRocks)
+      .set({ deletedAt: now, deletedBy })
+      .where(and(eq(bigRocks.keyResultId, id), isNull(bigRocks.deletedAt)));
+    if (cascadedBigRockIds.length > 0) {
+      await db.update(bigRockTasks)
+        .set({ deletedAt: now, deletedBy })
+        .where(and(
+          inArray(bigRockTasks.bigRockId, cascadedBigRockIds),
+          isNull(bigRockTasks.deletedAt)
+        ));
+    }
+
+    // Soft-delete the key result
+    await db.update(keyResults)
+      .set({ deletedAt: now, deletedBy })
+      .where(and(eq(keyResults.id, id), isNull(keyResults.deletedAt)));
+
     // Invalidate objectives cache
     if (keyResultWithObjective[0]?.objectiveId) {
       const objective = await db
@@ -1335,6 +1497,57 @@ export class DatabaseStorage implements IStorage {
         this.invalidateCache(`objectives:${objective[0].tenantId}`);
       }
     }
+  }
+
+  async restoreKeyResult(id: string, tenantId: string): Promise<KeyResult | undefined> {
+    // Fetch original (regardless of deleted state) and authorize by tenant via parent objective.
+    const [original] = await db.select().from(keyResults).where(eq(keyResults.id, id));
+    if (!original) return undefined;
+    const [parentObj] = await db
+      .select({ tenantId: objectives.tenantId })
+      .from(objectives)
+      .where(eq(objectives.id, original.objectiveId))
+      .limit(1);
+    if (!parentObj || parentObj.tenantId !== tenantId) return undefined;
+    if (!original.deletedAt) return original;
+
+    const cascadeTimestamp = original.deletedAt;
+
+    const [restored] = await db.update(keyResults)
+      .set({ deletedAt: null, deletedBy: null })
+      .where(eq(keyResults.id, id))
+      .returning();
+    if (!restored) return undefined;
+
+    // Cascade-restore big rocks that were deleted as part of the same operation
+    const restoredBigRocks = await db.update(bigRocks)
+      .set({ deletedAt: null, deletedBy: null })
+      .where(and(
+        eq(bigRocks.keyResultId, id),
+        eq(bigRocks.deletedAt, cascadeTimestamp)
+      ))
+      .returning({ id: bigRocks.id });
+
+    if (restoredBigRocks.length > 0) {
+      await db.update(bigRockTasks)
+        .set({ deletedAt: null, deletedBy: null })
+        .where(and(
+          inArray(bigRockTasks.bigRockId, restoredBigRocks.map(b => b.id)),
+          eq(bigRockTasks.deletedAt, cascadeTimestamp)
+        ));
+    }
+
+    {
+      const objective = await db
+        .select({ tenantId: objectives.tenantId })
+        .from(objectives)
+        .where(eq(objectives.id, restored.objectiveId))
+        .limit(1);
+      if (objective[0]) {
+        this.invalidateCache(`objectives:${objective[0].tenantId}`);
+      }
+    }
+    return restored || undefined;
   }
 
   async promoteKeyResultToKpi(keyResultId: string, userId: string): Promise<Kpi> {
@@ -1407,7 +1620,8 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(bigRocks.tenantId, tenantId),
           eq(bigRocks.year, year),
-          or(eq(bigRocks.quarter, 0), isNull(bigRocks.quarter))
+          or(eq(bigRocks.quarter, 0), isNull(bigRocks.quarter)),
+          isNull(bigRocks.deletedAt)
         )
       );
     }
@@ -1417,7 +1631,8 @@ export class DatabaseStorage implements IStorage {
       return await db.select().from(bigRocks).where(
         and(
           eq(bigRocks.tenantId, tenantId),
-          eq(bigRocks.year, year)
+          eq(bigRocks.year, year),
+          isNull(bigRocks.deletedAt)
         )
       );
     }
@@ -1428,7 +1643,8 @@ export class DatabaseStorage implements IStorage {
         and(
           eq(bigRocks.tenantId, tenantId),
           eq(bigRocks.year, year),
-          eq(bigRocks.quarter, quarter)
+          eq(bigRocks.quarter, quarter),
+          isNull(bigRocks.deletedAt)
         )
       );
     }
@@ -1438,17 +1654,22 @@ export class DatabaseStorage implements IStorage {
       return await db.select().from(bigRocks).where(
         and(
           eq(bigRocks.tenantId, tenantId),
-          eq(bigRocks.year, year)
+          eq(bigRocks.year, year),
+          isNull(bigRocks.deletedAt)
         )
       );
     }
     
     // No filters, return all
-    return await db.select().from(bigRocks).where(eq(bigRocks.tenantId, tenantId));
+    return await db.select().from(bigRocks).where(
+      and(eq(bigRocks.tenantId, tenantId), isNull(bigRocks.deletedAt))
+    );
   }
 
   async getBigRockById(id: string): Promise<BigRock | undefined> {
-    const [bigRock] = await db.select().from(bigRocks).where(eq(bigRocks.id, id));
+    const [bigRock] = await db.select().from(bigRocks).where(
+      and(eq(bigRocks.id, id), isNull(bigRocks.deletedAt))
+    );
     return bigRock || undefined;
   }
 
@@ -1456,25 +1677,31 @@ export class DatabaseStorage implements IStorage {
     const [bigRock] = await db.select().from(bigRocks).where(
       and(
         eq(bigRocks.id, id),
-        eq(bigRocks.tenantId, tenantId)
+        eq(bigRocks.tenantId, tenantId),
+        isNull(bigRocks.deletedAt)
       )
     );
     return bigRock || undefined;
   }
 
   async getBigRocksByObjectiveId(objectiveId: string): Promise<BigRock[]> {
-    return await db.select().from(bigRocks).where(eq(bigRocks.objectiveId, objectiveId));
+    return await db.select().from(bigRocks).where(
+      and(eq(bigRocks.objectiveId, objectiveId), isNull(bigRocks.deletedAt))
+    );
   }
 
   async getBigRocksByKeyResultId(keyResultId: string): Promise<BigRock[]> {
-    return await db.select().from(bigRocks).where(eq(bigRocks.keyResultId, keyResultId));
+    return await db.select().from(bigRocks).where(
+      and(eq(bigRocks.keyResultId, keyResultId), isNull(bigRocks.deletedAt))
+    );
   }
 
   async getBigRocksWithPlannerSync(): Promise<BigRock[]> {
     return await db.select().from(bigRocks).where(
       and(
         isNotNull(bigRocks.plannerPlanId),
-        eq(bigRocks.plannerSyncEnabled, true)
+        eq(bigRocks.plannerSyncEnabled, true),
+        isNull(bigRocks.deletedAt)
       )
     );
   }
@@ -1529,16 +1756,26 @@ export class DatabaseStorage implements IStorage {
     return bigRock;
   }
 
-  async deleteBigRock(id: string): Promise<void> {
-    // Get big rock with objective info, then delete
+  async deleteBigRock(id: string, userId?: string): Promise<void> {
+    const now = new Date();
+    const deletedBy = userId ?? null;
+
+    // Get big rock with objective info, then soft-delete
     const bigRockWithObjective = await db
       .select({ objectiveId: bigRocks.objectiveId })
       .from(bigRocks)
       .where(eq(bigRocks.id, id))
       .limit(1);
-    
-    await db.delete(bigRocks).where(eq(bigRocks.id, id));
-    
+
+    // Cascade soft-delete to big rock tasks
+    await db.update(bigRockTasks)
+      .set({ deletedAt: now, deletedBy })
+      .where(and(eq(bigRockTasks.bigRockId, id), isNull(bigRockTasks.deletedAt)));
+
+    await db.update(bigRocks)
+      .set({ deletedAt: now, deletedBy })
+      .where(and(eq(bigRocks.id, id), isNull(bigRocks.deletedAt)));
+
     // Invalidate objectives cache
     if (bigRockWithObjective[0]?.objectiveId) {
       const objective = await db
@@ -1552,17 +1789,53 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
+  async restoreBigRock(id: string, tenantId: string): Promise<BigRock | undefined> {
+    // Fetch and authorize by tenant before any mutation
+    const [original] = await db.select().from(bigRocks).where(eq(bigRocks.id, id));
+    if (!original || original.tenantId !== tenantId) return undefined;
+    if (!original.deletedAt) return original;
+
+    const cascadeTimestamp = original.deletedAt;
+
+    const [restored] = await db.update(bigRocks)
+      .set({ deletedAt: null, deletedBy: null })
+      .where(and(eq(bigRocks.id, id), eq(bigRocks.tenantId, tenantId)))
+      .returning();
+    if (!restored) return undefined;
+
+    // Cascade-restore tasks deleted as part of the same operation
+    await db.update(bigRockTasks)
+      .set({ deletedAt: null, deletedBy: null })
+      .where(and(
+        eq(bigRockTasks.bigRockId, id),
+        eq(bigRockTasks.deletedAt, cascadeTimestamp)
+      ));
+
+    if (restored.objectiveId) {
+      const objective = await db
+        .select({ tenantId: objectives.tenantId })
+        .from(objectives)
+        .where(eq(objectives.id, restored.objectiveId))
+        .limit(1);
+      if (objective[0]) {
+        this.invalidateCache(`objectives:${objective[0].tenantId}`);
+      }
+    }
+    return restored;
+  }
+
   // Big Rock Task methods
   async getBigRockTasksByBigRockId(bigRockId: string): Promise<BigRockTask[]> {
     return await db
       .select()
       .from(bigRockTasks)
-      .where(eq(bigRockTasks.bigRockId, bigRockId))
+      .where(and(eq(bigRockTasks.bigRockId, bigRockId), isNull(bigRockTasks.deletedAt)))
       .orderBy(bigRockTasks.sortOrder, bigRockTasks.createdAt);
   }
 
   async getBigRockTaskById(id: string): Promise<BigRockTask | undefined> {
-    const [task] = await db.select().from(bigRockTasks).where(eq(bigRockTasks.id, id));
+    const [task] = await db.select().from(bigRockTasks)
+      .where(and(eq(bigRockTasks.id, id), isNull(bigRockTasks.deletedAt)));
     return task;
   }
 
@@ -1631,7 +1904,10 @@ export class DatabaseStorage implements IStorage {
         status: bigRockTasks.status,
       })
       .from(bigRockTasks)
-      .where(inArray(bigRockTasks.bigRockId, bigRockIds));
+      .where(and(
+        inArray(bigRockTasks.bigRockId, bigRockIds),
+        isNull(bigRockTasks.deletedAt)
+      ));
     
     const counts = new Map<string, { total: number; completed: number }>();
     
@@ -2195,7 +2471,7 @@ export class DatabaseStorage implements IStorage {
     const allKeyResults = await db
       .select()
       .from(keyResults)
-      .where(inArray(keyResults.objectiveId, objectiveIds));
+      .where(and(inArray(keyResults.objectiveId, objectiveIds), isNull(keyResults.deletedAt)));
     
     // Group by objectiveId
     const resultMap = new Map<string, KeyResult[]>();
@@ -2411,11 +2687,11 @@ export class DatabaseStorage implements IStorage {
 
     // Fetch full objects using inArray for efficient IN clause
     const objectivesList = objectiveIdList.length > 0 
-      ? await db.select().from(objectives).where(inArray(objectives.id, objectiveIdList))
+      ? await db.select().from(objectives).where(and(inArray(objectives.id, objectiveIdList), isNull(objectives.deletedAt)))
       : [];
 
     const strategiesList = strategyIdList.length > 0
-      ? await db.select().from(strategies).where(inArray(strategies.id, strategyIdList))
+      ? await db.select().from(strategies).where(and(inArray(strategies.id, strategyIdList), isNull(strategies.deletedAt)))
       : [];
 
     return {
@@ -3760,10 +4036,10 @@ export class DatabaseStorage implements IStorage {
     const allFoundations = await db.select().from(foundations);
     const foundationByTenant = new Map(allFoundations.map(f => [f.tenantId, f]));
 
-    // Fetch element counts by tenant
-    const allStrategies = await db.select({ tenantId: strategies.tenantId }).from(strategies);
-    const allObjectives = await db.select({ tenantId: objectives.tenantId }).from(objectives);
-    const allKeyResults = await db.select({ tenantId: keyResults.tenantId }).from(keyResults);
+    // Fetch element counts by tenant (excluding soft-deleted)
+    const allStrategies = await db.select({ tenantId: strategies.tenantId }).from(strategies).where(isNull(strategies.deletedAt));
+    const allObjectives = await db.select({ tenantId: objectives.tenantId }).from(objectives).where(isNull(objectives.deletedAt));
+    const allKeyResults = await db.select({ tenantId: keyResults.tenantId }).from(keyResults).where(isNull(keyResults.deletedAt));
     const allMeetings = await db.select({ tenantId: meetings.tenantId }).from(meetings);
 
     const countByTenant = (items: { tenantId: string }[]) => {
@@ -3784,12 +4060,12 @@ export class DatabaseStorage implements IStorage {
     const recentObjectives = await db.select({
       tenantId: objectives.tenantId,
       updatedAt: objectives.updatedAt,
-    }).from(objectives).where(gte(objectives.updatedAt, cutoffDate));
+    }).from(objectives).where(and(gte(objectives.updatedAt, cutoffDate), isNull(objectives.deletedAt)));
 
     const recentKeyResults = await db.select({
       tenantId: keyResults.tenantId,
       updatedAt: keyResults.updatedAt,
-    }).from(keyResults).where(gte(keyResults.updatedAt, cutoffDate));
+    }).from(keyResults).where(and(gte(keyResults.updatedAt, cutoffDate), isNull(keyResults.deletedAt)));
 
     const recentMeetings = await db.select({
       tenantId: meetings.tenantId,
@@ -4266,6 +4542,237 @@ export class DatabaseStorage implements IStorage {
     await db.update(oauthRefreshTokens)
       .set({ revoked: true })
       .where(and(eq(oauthRefreshTokens.clientId, clientId), eq(oauthRefreshTokens.userId, userId)));
+  }
+
+  // ============================================================================
+  // Trash / Soft-delete methods
+  // ============================================================================
+
+  async getTrashItemsByTenantId(tenantId: string): Promise<TrashListing> {
+    const trashedObjectives = await db.select().from(objectives).where(
+      and(eq(objectives.tenantId, tenantId), isNotNull(objectives.deletedAt))
+    );
+    const trashedStrategies = await db.select().from(strategies).where(
+      and(eq(strategies.tenantId, tenantId), isNotNull(strategies.deletedAt))
+    );
+    const trashedBigRocks = await db.select().from(bigRocks).where(
+      and(eq(bigRocks.tenantId, tenantId), isNotNull(bigRocks.deletedAt))
+    );
+
+    // Key results don't have tenantId directly - join through objectives
+    const tenantObjectiveIds = await db
+      .select({ id: objectives.id })
+      .from(objectives)
+      .where(eq(objectives.tenantId, tenantId));
+    const objectiveIds = tenantObjectiveIds.map(o => o.id);
+    const trashedKeyResults = objectiveIds.length > 0
+      ? await db.select().from(keyResults).where(
+          and(inArray(keyResults.objectiveId, objectiveIds), isNotNull(keyResults.deletedAt))
+        )
+      : [];
+
+    // Ambitions live inside foundation JSONB array
+    const [foundation] = await db.select().from(foundations).where(eq(foundations.tenantId, tenantId));
+    const trashedAmbitions: (Ambition & { tenantId: string })[] = [];
+    if (foundation && Array.isArray(foundation.ambitions)) {
+      for (const a of foundation.ambitions as Ambition[]) {
+        if (a.deletedAt) {
+          trashedAmbitions.push({ ...a, tenantId });
+        }
+      }
+    }
+
+    // ------------- Enrichment: deletedBy user info + parent context -------------
+    const collectIds = (arr: Array<{ deletedBy?: string | null }>) =>
+      arr.map(i => i.deletedBy).filter((v): v is string => !!v);
+    const deletedByIds = Array.from(new Set([
+      ...collectIds(trashedObjectives),
+      ...collectIds(trashedKeyResults),
+      ...collectIds(trashedBigRocks),
+      ...collectIds(trashedStrategies),
+      ...collectIds(trashedAmbitions as Array<{ deletedBy?: string | null }>),
+    ]));
+
+    const userMap = new Map<string, { name: string | null; email: string | null }>();
+    if (deletedByIds.length > 0) {
+      const userRows = await db
+        .select({ id: users.id, name: users.name, email: users.email })
+        .from(users)
+        .where(inArray(users.id, deletedByIds));
+      for (const u of userRows) {
+        userMap.set(u.id, { name: u.name ?? null, email: u.email ?? null });
+      }
+    }
+
+    // Parent objective titles (for objective parent, keyResult parent, bigRock parent)
+    const parentObjectiveIds = Array.from(new Set([
+      ...trashedObjectives.map(o => o.parentId).filter((v): v is string => !!v),
+      ...trashedKeyResults.map(kr => kr.objectiveId).filter((v): v is string => !!v),
+      ...trashedBigRocks.map(br => br.objectiveId).filter((v): v is string => !!v),
+    ]));
+    const parentObjMap = new Map<string, string>();
+    if (parentObjectiveIds.length > 0) {
+      const parentRows = await db
+        .select({ id: objectives.id, title: objectives.title })
+        .from(objectives)
+        .where(inArray(objectives.id, parentObjectiveIds));
+      for (const o of parentRows) parentObjMap.set(o.id, o.title);
+    }
+
+    // For big rocks linked to a key result instead of an objective
+    const parentKrIds = Array.from(new Set(
+      trashedBigRocks.map(br => br.keyResultId).filter((v): v is string => !!v)
+    ));
+    const parentKrMap = new Map<string, string>();
+    if (parentKrIds.length > 0) {
+      const krRows = await db
+        .select({ id: keyResults.id, title: keyResults.title })
+        .from(keyResults)
+        .where(inArray(keyResults.id, parentKrIds));
+      for (const k of krRows) parentKrMap.set(k.id, k.title);
+    }
+
+    const enrichDeletedBy = (deletedBy?: string | null): Pick<TrashEnrichment, 'deletedByName' | 'deletedByEmail'> => {
+      const u = deletedBy ? userMap.get(deletedBy) : undefined;
+      return { deletedByName: u?.name ?? null, deletedByEmail: u?.email ?? null };
+    };
+
+    const objectivesOut: (Objective & TrashEnrichment)[] = trashedObjectives.map(o => ({
+      ...o,
+      ...enrichDeletedBy(o.deletedBy),
+      parentContext: o.parentId
+        ? { type: 'objective' as const, id: o.parentId, title: parentObjMap.get(o.parentId) ?? '' }
+        : null,
+    }));
+    const keyResultsOut: (KeyResult & TrashEnrichment)[] = trashedKeyResults.map(kr => ({
+      ...kr,
+      ...enrichDeletedBy(kr.deletedBy),
+      parentContext: kr.objectiveId
+        ? { type: 'objective' as const, id: kr.objectiveId, title: parentObjMap.get(kr.objectiveId) ?? '' }
+        : null,
+    }));
+    const bigRocksOut: (BigRock & TrashEnrichment)[] = trashedBigRocks.map(br => ({
+      ...br,
+      ...enrichDeletedBy(br.deletedBy),
+      parentContext: br.objectiveId
+        ? { type: 'objective' as const, id: br.objectiveId, title: parentObjMap.get(br.objectiveId) ?? '' }
+        : br.keyResultId
+          ? { type: 'keyResult' as const, id: br.keyResultId, title: parentKrMap.get(br.keyResultId) ?? '' }
+          : null,
+    }));
+    const strategiesOut: (Strategy & TrashEnrichment)[] = trashedStrategies.map(s => ({
+      ...s,
+      ...enrichDeletedBy(s.deletedBy),
+      parentContext: null,
+    }));
+    const ambitionsOut: (Ambition & { tenantId: string } & TrashEnrichment)[] = trashedAmbitions.map(a => ({
+      ...a,
+      ...enrichDeletedBy(a.deletedBy),
+      parentContext: null,
+    }));
+
+    return {
+      objectives: objectivesOut,
+      keyResults: keyResultsOut,
+      bigRocks: bigRocksOut,
+      strategies: strategiesOut,
+      ambitions: ambitionsOut,
+    };
+  }
+
+  async softDeleteAmbition(tenantId: string, ambitionId: string, userId?: string): Promise<void> {
+    const [foundation] = await db.select().from(foundations).where(eq(foundations.tenantId, tenantId));
+    if (!foundation || !Array.isArray(foundation.ambitions)) return;
+
+    const now = new Date().toISOString();
+    const updated = (foundation.ambitions as Ambition[]).map(a => {
+      if (a.id === ambitionId && !a.deletedAt) {
+        return { ...a, deletedAt: now, deletedBy: userId };
+      }
+      return a;
+    });
+
+    await db.update(foundations)
+      .set({ ambitions: updated as any })
+      .where(eq(foundations.tenantId, tenantId));
+  }
+
+  async restoreAmbition(tenantId: string, ambitionId: string): Promise<Ambition | undefined> {
+    const [foundation] = await db.select().from(foundations).where(eq(foundations.tenantId, tenantId));
+    if (!foundation || !Array.isArray(foundation.ambitions)) return undefined;
+
+    let restored: Ambition | undefined;
+    const updated = (foundation.ambitions as Ambition[]).map(a => {
+      if (a.id === ambitionId && a.deletedAt) {
+        const { deletedAt, deletedBy, ...rest } = a;
+        restored = rest as Ambition;
+        return rest as Ambition;
+      }
+      return a;
+    });
+
+    if (!restored) return undefined;
+
+    await db.update(foundations)
+      .set({ ambitions: updated as any })
+      .where(eq(foundations.tenantId, tenantId));
+    return restored;
+  }
+
+  async purgeOldDeletedItems(olderThanDays: number): Promise<{
+    objectives: number;
+    keyResults: number;
+    bigRocks: number;
+    bigRockTasks: number;
+    strategies: number;
+    ambitions: number;
+  }> {
+    const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
+
+    // Hard-delete relational items where deletedAt < cutoff
+    // Order: tasks before big rocks (FK on bigRockId cascades, but explicit is safer).
+    const deletedTasks = await db.delete(bigRockTasks)
+      .where(and(isNotNull(bigRockTasks.deletedAt), lte(bigRockTasks.deletedAt, cutoff)))
+      .returning({ id: bigRockTasks.id });
+    const deletedBigRocks = await db.delete(bigRocks)
+      .where(and(isNotNull(bigRocks.deletedAt), lte(bigRocks.deletedAt, cutoff)))
+      .returning({ id: bigRocks.id });
+    const deletedKeyResults = await db.delete(keyResults)
+      .where(and(isNotNull(keyResults.deletedAt), lte(keyResults.deletedAt, cutoff)))
+      .returning({ id: keyResults.id });
+    const deletedObjectives = await db.delete(objectives)
+      .where(and(isNotNull(objectives.deletedAt), lte(objectives.deletedAt, cutoff)))
+      .returning({ id: objectives.id });
+    const deletedStrategies = await db.delete(strategies)
+      .where(and(isNotNull(strategies.deletedAt), lte(strategies.deletedAt, cutoff)))
+      .returning({ id: strategies.id });
+
+    // Ambitions: walk foundations and remove items where deletedAt < cutoff
+    let purgedAmbitions = 0;
+    const allFoundations = await db.select().from(foundations);
+    for (const f of allFoundations) {
+      if (!Array.isArray(f.ambitions) || f.ambitions.length === 0) continue;
+      const before = f.ambitions.length;
+      const kept = (f.ambitions as Ambition[]).filter(a => {
+        if (!a.deletedAt) return true;
+        return new Date(a.deletedAt).getTime() > cutoff.getTime();
+      });
+      if (kept.length !== before) {
+        purgedAmbitions += before - kept.length;
+        await db.update(foundations)
+          .set({ ambitions: kept as any })
+          .where(eq(foundations.tenantId, f.tenantId));
+      }
+    }
+
+    return {
+      objectives: deletedObjectives.length,
+      keyResults: deletedKeyResults.length,
+      bigRocks: deletedBigRocks.length,
+      bigRockTasks: deletedTasks.length,
+      strategies: deletedStrategies.length,
+      ambitions: purgedAmbitions,
+    };
   }
 }
 

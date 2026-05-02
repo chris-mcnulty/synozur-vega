@@ -458,6 +458,8 @@ export type Ambition = {
   closedAt?: string;
   closedNote?: string;
   createdAt: string;
+  deletedAt?: string;
+  deletedBy?: string;
 };
 
 export type AnnualGoal = {
@@ -510,6 +512,8 @@ export const strategies = pgTable("strategies", {
   timeline: text("timeline"),
   updatedBy: varchar("updated_by"),
   updatedAt: timestamp("updated_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"),
+  deletedBy: varchar("deleted_by"),
 }, (table) => ({
   uniqueTenantStrategy: unique().on(table.tenantId, table.title),
 }));
@@ -850,6 +854,8 @@ export const objectives = pgTable("objectives", {
   updatedAt: timestamp("updated_at").defaultNow(),
   lastCheckInAt: timestamp("last_check_in_at"),
   lastCheckInNote: text("last_check_in_note"),
+  deletedAt: timestamp("deleted_at"),
+  deletedBy: varchar("deleted_by"),
 }, (table) => ({
   uniqueTenantObjective: unique().on(table.tenantId, table.title, table.quarter, table.year),
 }));
@@ -923,6 +929,9 @@ export const keyResults = pgTable("key_results", {
   plannerSyncEnabled: boolean("planner_sync_enabled").default(false),
   plannerLastSyncAt: timestamp("planner_last_sync_at"),
   plannerSyncError: text("planner_sync_error"),
+
+  deletedAt: timestamp("deleted_at"),
+  deletedBy: varchar("deleted_by"),
 });
 
 export const bigRocks = pgTable("big_rocks", {
@@ -982,6 +991,9 @@ export const bigRocks = pgTable("big_rocks", {
   plannerSyncEnabled: boolean("planner_sync_enabled").default(false),
   plannerLastSyncAt: timestamp("planner_last_sync_at"),
   plannerSyncError: text("planner_sync_error"),
+
+  deletedAt: timestamp("deleted_at"),
+  deletedBy: varchar("deleted_by"),
 }, (table) => ({
   uniqueTenantBigRock: unique().on(table.tenantId, table.title, table.quarter, table.year),
 }));
@@ -1019,12 +1031,18 @@ export const bigRockTasks = pgTable("big_rock_tasks", {
   createdById: varchar("created_by_id").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
+
+  // Soft delete
+  deletedAt: timestamp("deleted_at"),
+  deletedBy: varchar("deleted_by"),
 });
 
 export const insertBigRockTaskSchema = createInsertSchema(bigRockTasks).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+  deletedAt: true,
+  deletedBy: true,
 });
 
 export type InsertBigRockTask = z.infer<typeof insertBigRockTaskSchema>;

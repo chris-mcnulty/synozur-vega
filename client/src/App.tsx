@@ -73,6 +73,7 @@ const Changelog = lazy(() => import("@/pages/Changelog"));
 const Roadmap = lazy(() => import("@/pages/Roadmap"));
 const Backlog = lazy(() => import("@/pages/Backlog"));
 const Support = lazy(() => import("@/pages/Support"));
+const Trash = lazy(() => import("@/pages/Trash"));
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -589,6 +590,11 @@ function Router() {
       <Route path="/support/:view">
         <LazyProtectedRoute>
           <Support />
+        </LazyProtectedRoute>
+      </Route>
+      <Route path="/trash">
+        <LazyProtectedRoute>
+          <Trash />
         </LazyProtectedRoute>
       </Route>
 
