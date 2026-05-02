@@ -1123,6 +1123,616 @@ function KeyResultRow({
   );
 }
 
+function MobileObjectiveCard({
+  objective,
+  depth = 0,
+  teams = [],
+  onSelectObjective,
+  onSelectKeyResult,
+  onEditObjective,
+  onEditKeyResult,
+  onAddChildObjective,
+  onAlignObjective,
+  onAddKeyResult,
+  onCheckInObjective,
+  onCheckInKeyResult,
+  onDeleteObjective,
+  onDeleteKeyResult,
+  onCloseObjective,
+  onReopenObjective,
+  onCloseKeyResult,
+  onReopenKeyResult,
+  onCloneObjective,
+  onManageWeights,
+  onEditExcelLink,
+}: {
+  objective: HierarchyObjective;
+  depth?: number;
+  teams?: Team[];
+  onSelectObjective?: (objective: HierarchyObjective) => void;
+  onSelectKeyResult?: (keyResult: KeyResult, parentObjective: HierarchyObjective) => void;
+  onEditObjective?: (objective: HierarchyObjective) => void;
+  onEditKeyResult?: (keyResult: KeyResult) => void;
+  onAddChildObjective?: (parentId: string) => void;
+  onAlignObjective?: (targetObjectiveId: string) => void;
+  onAddKeyResult?: (objectiveId: string) => void;
+  onCheckInObjective?: (objective: HierarchyObjective) => void;
+  onCheckInKeyResult?: (keyResult: KeyResult) => void;
+  onDeleteObjective?: (objectiveId: string) => void;
+  onDeleteKeyResult?: (keyResultId: string) => void;
+  onCloseObjective?: (objectiveId: string) => void;
+  onReopenObjective?: (objectiveId: string) => void;
+  onCloseKeyResult?: (keyResultId: string) => void;
+  onReopenKeyResult?: (keyResultId: string) => void;
+  onCloneObjective?: (objective: HierarchyObjective) => void;
+  onManageWeights?: (objectiveId: string) => void;
+  onEditExcelLink?: (keyResult: KeyResult) => void;
+}) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const permissions = usePermissions();
+  const canModify = permissions.canModifyOKR(objective.ownerId, objective.createdBy) ||
+                    permissions.canModifyByEmail(objective.ownerEmail);
+  const canDelete = permissions.canDeleteOKR;
+
+  const keyResults = objective.keyResults || [];
+  const childObjectives = objective.childObjectives || [];
+  const alignedObjectives = objective.alignedObjectives || [];
+  const hasChildren = childObjectives.length > 0 || keyResults.length > 0 || alignedObjectives.length > 0;
+  const isAligned = objective.isAligned === true;
+
+  const { status: effectiveStatus } = getEffectiveStatus(objective);
+  const calculatedProgress = objective.progressMode === 'rollup' &&
+                             ((objective.keyResults && objective.keyResults.length > 0) ||
+                              (objective.childObjectives && objective.childObjectives.length > 0))
+    ? calculateObjectiveProgress(objective.keyResults || [], objective.childObjectives || [])
+    : objective.progress;
+
+  const isClosed = objective.status === 'closed';
+  const teamLabel = objective.level === "organization"
+    ? "Organization"
+    : objective.level === "team"
+      ? (objective.teamId && teams.find(t => t.id === objective.teamId)?.name) || "Team"
+      : objective.level;
+
+  return (
+    <>
+      <div
+        className={cn(
+          "rounded-md border bg-card p-3",
+          isAligned && "bg-purple-50/50 dark:bg-purple-900/10",
+        )}
+        style={depth > 0 ? { marginLeft: `${Math.min(depth, 2) * 0.75}rem` } : undefined}
+        data-testid={`mobile-card-objective-${objective.id}`}
+      >
+        <div className="flex items-start gap-2">
+          {hasChildren ? (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="!h-11 !w-11 flex-shrink-0"
+              onClick={() => setIsExpanded(!isExpanded)}
+              aria-label={isExpanded ? "Collapse" : "Expand"}
+              data-testid={`mobile-button-expand-${objective.id}`}
+            >
+              {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </Button>
+          ) : (
+            <div className="w-11 h-11 flex-shrink-0" />
+          )}
+
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start gap-1.5 mb-1.5">
+              {isAligned ? (
+                <Link2 className="h-4 w-4 text-purple-500 flex-shrink-0 mt-0.5" />
+              ) : (
+                <Target className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+              )}
+              <span
+                className="font-medium text-sm leading-snug cursor-pointer hover:underline break-words"
+                onClick={() => onSelectObjective?.(objective)}
+                data-testid={`mobile-link-objective-${objective.id}`}
+              >
+                {objective.title}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-wrap mb-2">
+              {objective.ownerEmail ? (
+                <div className="flex items-center gap-1.5">
+                  <Avatar className="h-5 w-5">
+                    <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                      {objective.ownerEmail.charAt(0).toUpperCase()}
+                    </AvatarFallback>
+                  </Avatar>
+                  <span className="text-xs text-muted-foreground truncate max-w-[120px]">
+                    {objective.ownerEmail.split('@')[0]}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-xs text-muted-foreground">No owner</span>
+              )}
+              {teamLabel && (
+                <Badge variant="secondary" className="text-[10px]">
+                  {teamLabel}
+                </Badge>
+              )}
+              <Badge variant="outline" className="text-[10px]">
+                {getQuarterLabel(objective.quarter)} {objective.year}
+              </Badge>
+              {isAligned && (
+                <Badge variant="outline" className="text-[10px] bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-700">
+                  Aligned
+                </Badge>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2 mb-2">
+              <Progress
+                value={Math.min(calculatedProgress, 100)}
+                className="h-2 flex-1"
+              />
+              <span className="text-xs font-medium tabular-nums shrink-0">
+                {calculatedProgress > 100 ? "100%+" : `${Math.round(calculatedProgress)}%`}
+              </span>
+            </div>
+
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Badge
+                variant="outline"
+                className={cn("text-[10px]", getStatusBadgeStyles(effectiveStatus))}
+              >
+                <div className={cn("w-2 h-2 rounded-full mr-1", getStatusColor(effectiveStatus))} />
+                {getStatusLabel(effectiveStatus)}
+              </Badge>
+              {objective.quarter > 0 && (() => {
+                const daysSinceLastCheckIn = objective.lastUpdated
+                  ? differenceInDays(new Date(), new Date(objective.lastUpdated))
+                  : null;
+                const pace = calculateSimplePace(calculatedProgress, objective.quarter, objective.year, daysSinceLastCheckIn);
+                const PaceIcon = pace.icon;
+                return (
+                  <Badge
+                    variant="outline"
+                    className={cn("text-[10px] px-1.5 py-0", getPaceBadgeStyles(pace.status))}
+                    data-testid={`mobile-pace-badge-${objective.id}`}
+                  >
+                    <PaceIcon className="h-3 w-3 mr-0.5" />
+                    {getPaceLabel(pace.status)}
+                  </Badge>
+                );
+              })()}
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-1 flex-shrink-0">
+            {!isClosed && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="!h-11 !w-11"
+                onClick={() => onCheckInObjective?.(objective)}
+                aria-label="Check in"
+                title="Check-in"
+                data-testid={`mobile-button-checkin-objective-${objective.id}`}
+              >
+                <CheckCircle2 className="h-5 w-5 text-green-500" />
+              </Button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="!h-11 !w-11"
+                  aria-label="More actions"
+                  data-testid={`mobile-button-menu-objective-${objective.id}`}
+                >
+                  <MoreHorizontal className="h-5 w-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                {canModify && (
+                  <DropdownMenuItem
+                    onClick={() => onEditObjective?.(objective)}
+                    disabled={isClosed}
+                    data-testid={`mobile-menu-edit-${objective.id}`}
+                  >
+                    <Pencil className="h-4 w-4 mr-2" />
+                    Edit
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem
+                  onClick={() => onAddChildObjective?.(objective.id)}
+                  disabled={isClosed}
+                  data-testid={`mobile-menu-add-child-${objective.id}`}
+                >
+                  <FolderPlus className="h-4 w-4 mr-2" />
+                  Add Child Objective
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onAlignObjective?.(objective.id)}
+                  disabled={isClosed}
+                  data-testid={`mobile-menu-align-${objective.id}`}
+                >
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Link Existing Objective
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onAddKeyResult?.(objective.id)}
+                  disabled={isClosed}
+                  data-testid={`mobile-menu-add-kr-${objective.id}`}
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Key Result
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onCheckInObjective?.(objective)}
+                  disabled={isClosed}
+                  data-testid={`mobile-menu-checkin-${objective.id}`}
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" />
+                  Check-in
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onManageWeights?.(objective.id)}
+                  disabled={isClosed || keyResults.length === 0}
+                  data-testid={`mobile-menu-weights-${objective.id}`}
+                >
+                  <Scale className="h-4 w-4 mr-2" />
+                  Manage Weights
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onCloneObjective?.(objective)}
+                  data-testid={`mobile-menu-clone-${objective.id}`}
+                >
+                  <Copy className="h-4 w-4 mr-2" />
+                  Clone
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {isClosed ? (
+                  <DropdownMenuItem
+                    onClick={() => onReopenObjective?.(objective.id)}
+                    data-testid={`mobile-menu-reopen-${objective.id}`}
+                  >
+                    <Unlock className="h-4 w-4 mr-2" />
+                    Reopen
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    onClick={() => onCloseObjective?.(objective.id)}
+                    data-testid={`mobile-menu-close-${objective.id}`}
+                  >
+                    <Lock className="h-4 w-4 mr-2" />
+                    Close
+                  </DropdownMenuItem>
+                )}
+                {canDelete && (
+                  <DropdownMenuItem
+                    onClick={() => onDeleteObjective?.(objective.id)}
+                    className="text-destructive focus:text-destructive"
+                    data-testid={`mobile-menu-delete-${objective.id}`}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete
+                  </DropdownMenuItem>
+                )}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+      </div>
+
+      {isExpanded && (
+        <>
+          {keyResults.map((kr) => (
+            <MobileKeyResultCard
+              key={kr.id}
+              keyResult={kr}
+              parentObjective={objective}
+              depth={depth + 1}
+              onSelectKeyResult={onSelectKeyResult}
+              onEditKeyResult={onEditKeyResult}
+              onCheckInKeyResult={onCheckInKeyResult}
+              onDeleteKeyResult={onDeleteKeyResult}
+              onCloseKeyResult={onCloseKeyResult}
+              onReopenKeyResult={onReopenKeyResult}
+              onEditExcelLink={onEditExcelLink}
+            />
+          ))}
+          {childObjectives.map((child) => (
+            <MobileObjectiveCard
+              key={child.id}
+              objective={child}
+              depth={depth + 1}
+              teams={teams}
+              onSelectObjective={onSelectObjective}
+              onSelectKeyResult={onSelectKeyResult}
+              onEditObjective={onEditObjective}
+              onEditKeyResult={onEditKeyResult}
+              onAddChildObjective={onAddChildObjective}
+              onAlignObjective={onAlignObjective}
+              onAddKeyResult={onAddKeyResult}
+              onCheckInObjective={onCheckInObjective}
+              onCheckInKeyResult={onCheckInKeyResult}
+              onDeleteObjective={onDeleteObjective}
+              onDeleteKeyResult={onDeleteKeyResult}
+              onCloseObjective={onCloseObjective}
+              onReopenObjective={onReopenObjective}
+              onCloseKeyResult={onCloseKeyResult}
+              onReopenKeyResult={onReopenKeyResult}
+              onCloneObjective={onCloneObjective}
+              onManageWeights={onManageWeights}
+              onEditExcelLink={onEditExcelLink}
+            />
+          ))}
+          {alignedObjectives.map((aligned) => (
+            <MobileObjectiveCard
+              key={`aligned-${aligned.id}`}
+              objective={{ ...aligned, isAligned: true }}
+              depth={depth + 1}
+              teams={teams}
+              onSelectObjective={onSelectObjective}
+              onSelectKeyResult={onSelectKeyResult}
+              onEditObjective={onEditObjective}
+              onEditKeyResult={onEditKeyResult}
+              onAddChildObjective={onAddChildObjective}
+              onAlignObjective={onAlignObjective}
+              onAddKeyResult={onAddKeyResult}
+              onCheckInObjective={onCheckInObjective}
+              onCheckInKeyResult={onCheckInKeyResult}
+              onDeleteObjective={onDeleteObjective}
+              onDeleteKeyResult={onDeleteKeyResult}
+              onCloseObjective={onCloseObjective}
+              onReopenObjective={onReopenObjective}
+              onCloseKeyResult={onCloseKeyResult}
+              onReopenKeyResult={onReopenKeyResult}
+              onCloneObjective={onCloneObjective}
+              onManageWeights={onManageWeights}
+              onEditExcelLink={onEditExcelLink}
+            />
+          ))}
+        </>
+      )}
+    </>
+  );
+}
+
+function MobileKeyResultCard({
+  keyResult,
+  parentObjective,
+  depth,
+  onSelectKeyResult,
+  onEditKeyResult,
+  onCheckInKeyResult,
+  onDeleteKeyResult,
+  onCloseKeyResult,
+  onReopenKeyResult,
+  onEditExcelLink,
+}: {
+  keyResult: KeyResult;
+  parentObjective: HierarchyObjective;
+  depth: number;
+  onSelectKeyResult?: (keyResult: KeyResult, parentObjective: HierarchyObjective) => void;
+  onEditKeyResult?: (keyResult: KeyResult) => void;
+  onCheckInKeyResult?: (keyResult: KeyResult) => void;
+  onDeleteKeyResult?: (keyResultId: string) => void;
+  onCloseKeyResult?: (keyResultId: string) => void;
+  onReopenKeyResult?: (keyResultId: string) => void;
+  onEditExcelLink?: (keyResult: KeyResult) => void;
+}) {
+  const permissions = usePermissions();
+  const canModify = permissions.canModifyOKR(keyResult.ownerId, keyResult.createdBy) ||
+                    permissions.canModifyByEmail(keyResult.ownerEmail);
+  const canDelete = permissions.canDeleteOKR;
+
+  const calculatedProgress = keyResult.targetValue && keyResult.targetValue > 0
+    ? Math.min(((keyResult.currentValue ?? 0) / keyResult.targetValue) * 100, 100)
+    : keyResult.progress;
+
+  const isClosed = keyResult.status === 'closed';
+  const isParentClosed = parentObjective.status === 'closed';
+
+  return (
+    <div
+      className="rounded-md border bg-muted/30 p-3"
+      style={{ marginLeft: `${Math.min(depth, 3) * 0.75}rem` }}
+      data-testid={`mobile-card-keyresult-${keyResult.id}`}
+    >
+      <div className="flex items-start gap-2">
+        <div className="w-11 h-11 flex-shrink-0" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start gap-1.5 mb-1.5">
+            <Gauge className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+            <span
+              className="text-sm leading-snug cursor-pointer hover:underline break-words"
+              onClick={() => onSelectKeyResult?.(keyResult, parentObjective)}
+              data-testid={`mobile-link-keyresult-${keyResult.id}`}
+            >
+              {keyResult.title}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+            {keyResult.ownerEmail ? (
+              <>
+                <Avatar className="h-5 w-5">
+                  <AvatarFallback className="text-[10px] bg-primary/10 text-primary">
+                    {keyResult.ownerEmail.charAt(0).toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="text-xs text-muted-foreground truncate max-w-[140px]">
+                  {keyResult.ownerEmail.split('@')[0]}
+                </span>
+              </>
+            ) : (
+              <span className="text-xs text-muted-foreground">No owner</span>
+            )}
+            {keyResult.weight !== undefined && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[10px] px-1.5 py-0",
+                  keyResult.isWeightLocked ? "border-amber-400 text-amber-600 dark:text-amber-400" : ""
+                )}
+              >
+                {keyResult.isWeightLocked && <Lock className="h-2.5 w-2.5 mr-0.5" />}
+                {keyResult.weight}%
+              </Badge>
+            )}
+            {keyResult.excelFileId && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[10px] px-1.5 py-0 cursor-pointer hover:opacity-80",
+                  keyResult.excelSyncError
+                    ? "border-red-400 text-red-600 dark:text-red-400"
+                    : "border-green-400 text-green-600 dark:text-green-400"
+                )}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEditExcelLink?.(keyResult);
+                }}
+                data-testid={`mobile-badge-excel-${keyResult.id}`}
+              >
+                {keyResult.excelSyncError ? (
+                  <AlertCircle className="h-2.5 w-2.5 mr-0.5" />
+                ) : (
+                  <FileSpreadsheet className="h-2.5 w-2.5 mr-0.5" />
+                )}
+                Excel
+              </Badge>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 mb-2">
+            <Progress
+              value={Math.min(calculatedProgress, 100)}
+              className="h-2 flex-1"
+            />
+            <span className="text-xs font-medium tabular-nums shrink-0">
+              {formatProgressText(keyResult.progress, keyResult.metricType, keyResult.unit, keyResult.currentValue)}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Badge
+              variant="outline"
+              className={cn("text-[10px]", getStatusBadgeStyles(keyResult.status))}
+            >
+              <div className={cn("w-2 h-2 rounded-full mr-1", getStatusColor(keyResult.status))} />
+              {getStatusLabel(keyResult.status)}
+            </Badge>
+            {keyResult.targetValue !== undefined && keyResult.unit && keyResult.unit.toLowerCase() !== 'number' && (
+              <span className="text-[10px] text-muted-foreground">
+                {keyResult.currentValue !== undefined ? `${keyResult.currentValue} / ` : ''}
+                {keyResult.targetValue} {keyResult.unit}
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1 flex-shrink-0">
+          {!isClosed && !isParentClosed && (
+            <Button
+              size="icon"
+              variant="ghost"
+              className="!h-11 !w-11"
+              onClick={() => onCheckInKeyResult?.(keyResult)}
+              aria-label="Check in"
+              title="Check-in"
+              data-testid={`mobile-button-checkin-kr-${keyResult.id}`}
+            >
+              <CheckCircle2 className="h-5 w-5 text-green-500" />
+            </Button>
+          )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon"
+                variant="ghost"
+                className="!h-11 !w-11"
+                aria-label="More actions"
+                data-testid={`mobile-button-menu-kr-${keyResult.id}`}
+              >
+                <MoreHorizontal className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {canModify && (
+                <DropdownMenuItem
+                  onClick={() => onEditKeyResult?.(keyResult)}
+                  disabled={isClosed || isParentClosed}
+                  data-testid={`mobile-menu-edit-kr-${keyResult.id}`}
+                >
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                onClick={() => onCheckInKeyResult?.(keyResult)}
+                disabled={isClosed || isParentClosed}
+                data-testid={`mobile-menu-checkin-kr-${keyResult.id}`}
+              >
+                <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" />
+                Check-in
+              </DropdownMenuItem>
+              {keyResult.excelFileId && (
+                <DropdownMenuItem
+                  onClick={() => onEditExcelLink?.(keyResult)}
+                  disabled={isClosed || isParentClosed}
+                  data-testid={`mobile-menu-excel-kr-${keyResult.id}`}
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Edit Excel link
+                </DropdownMenuItem>
+              )}
+              {canModify && !keyResult.excelFileId && (
+                <DropdownMenuItem
+                  onClick={() => onEditExcelLink?.(keyResult)}
+                  disabled={isClosed || isParentClosed}
+                  data-testid={`mobile-menu-excel-kr-${keyResult.id}`}
+                >
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Link Excel cell
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuSeparator />
+              {isClosed ? (
+                <DropdownMenuItem
+                  onClick={() => onReopenKeyResult?.(keyResult.id)}
+                  disabled={isParentClosed}
+                  data-testid={`mobile-menu-reopen-kr-${keyResult.id}`}
+                >
+                  <Unlock className="h-4 w-4 mr-2" />
+                  Reopen
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  onClick={() => onCloseKeyResult?.(keyResult.id)}
+                  data-testid={`mobile-menu-close-kr-${keyResult.id}`}
+                >
+                  <Lock className="h-4 w-4 mr-2" />
+                  Close
+                </DropdownMenuItem>
+              )}
+              {canDelete && (
+                <DropdownMenuItem
+                  onClick={() => onDeleteKeyResult?.(keyResult.id)}
+                  className="text-destructive focus:text-destructive"
+                  data-testid={`mobile-menu-delete-kr-${keyResult.id}`}
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function HierarchicalOKRTable({ 
   objectives,
   teams = [],
@@ -1158,46 +1768,76 @@ export function HierarchicalOKRTable({
   }
 
   return (
-    <div className="border rounded-md">
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead className="w-[42%]">Title</TableHead>
-            <TableHead className="w-[10%]">Owner</TableHead>
-            <TableHead className="w-[16%]">Status & Progress</TableHead>
-            <TableHead className="w-[8%]">Updated</TableHead>
-            <TableHead className="w-[9%]">Period</TableHead>
-            <TableHead className="w-[15%] text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {objectives.map((objective) => (
-            <ObjectiveRow
-              key={objective.id}
-              objective={objective}
-              teams={teams}
-              onSelectObjective={onSelectObjective}
-              onSelectKeyResult={onSelectKeyResult}
-              onEditObjective={onEditObjective}
-              onEditKeyResult={onEditKeyResult}
-              onAddChildObjective={onAddChildObjective}
-              onAlignObjective={onAlignObjective}
-              onAddKeyResult={onAddKeyResult}
-              onCheckInObjective={onCheckInObjective}
-              onCheckInKeyResult={onCheckInKeyResult}
-              onDeleteObjective={onDeleteObjective}
-              onDeleteKeyResult={onDeleteKeyResult}
-              onCloseObjective={onCloseObjective}
-              onReopenObjective={onReopenObjective}
-              onCloneObjective={onCloneObjective}
-              onCloseKeyResult={onCloseKeyResult}
-              onReopenKeyResult={onReopenKeyResult}
-              onManageWeights={onManageWeights}
-              onEditExcelLink={onEditExcelLink}
-            />
-          ))}
-        </TableBody>
-      </Table>
-    </div>
+    <>
+      <div className="hidden md:block border rounded-md">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[42%]">Title</TableHead>
+              <TableHead className="w-[10%]">Owner</TableHead>
+              <TableHead className="w-[16%]">Status & Progress</TableHead>
+              <TableHead className="w-[8%]">Updated</TableHead>
+              <TableHead className="w-[9%]">Period</TableHead>
+              <TableHead className="w-[15%] text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {objectives.map((objective) => (
+              <ObjectiveRow
+                key={objective.id}
+                objective={objective}
+                teams={teams}
+                onSelectObjective={onSelectObjective}
+                onSelectKeyResult={onSelectKeyResult}
+                onEditObjective={onEditObjective}
+                onEditKeyResult={onEditKeyResult}
+                onAddChildObjective={onAddChildObjective}
+                onAlignObjective={onAlignObjective}
+                onAddKeyResult={onAddKeyResult}
+                onCheckInObjective={onCheckInObjective}
+                onCheckInKeyResult={onCheckInKeyResult}
+                onDeleteObjective={onDeleteObjective}
+                onDeleteKeyResult={onDeleteKeyResult}
+                onCloseObjective={onCloseObjective}
+                onReopenObjective={onReopenObjective}
+                onCloneObjective={onCloneObjective}
+                onCloseKeyResult={onCloseKeyResult}
+                onReopenKeyResult={onReopenKeyResult}
+                onManageWeights={onManageWeights}
+                onEditExcelLink={onEditExcelLink}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      <div className="md:hidden space-y-2" data-testid="okr-mobile-list">
+        {objectives.map((objective) => (
+          <MobileObjectiveCard
+            key={objective.id}
+            objective={objective}
+            teams={teams}
+            onSelectObjective={onSelectObjective}
+            onSelectKeyResult={onSelectKeyResult}
+            onEditObjective={onEditObjective}
+            onEditKeyResult={onEditKeyResult}
+            onAddChildObjective={onAddChildObjective}
+            onAlignObjective={onAlignObjective}
+            onAddKeyResult={onAddKeyResult}
+            onCheckInObjective={onCheckInObjective}
+            onCheckInKeyResult={onCheckInKeyResult}
+            onDeleteObjective={onDeleteObjective}
+            onDeleteKeyResult={onDeleteKeyResult}
+            onCloseObjective={onCloseObjective}
+            onReopenObjective={onReopenObjective}
+            onCloneObjective={onCloneObjective}
+            onCloseKeyResult={onCloseKeyResult}
+            onReopenKeyResult={onReopenKeyResult}
+            onManageWeights={onManageWeights}
+            onEditExcelLink={onEditExcelLink}
+          />
+        ))}
+      </div>
+    </>
   );
 }
