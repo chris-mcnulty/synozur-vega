@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearch, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -653,6 +653,9 @@ export default function PlanningEnhanced() {
 
   // Check-in draft auto-save state
   const [draftRestorePrompt, setDraftRestorePrompt] = useState<CheckInDraft | null>(null);
+  const [confirmCloseCheckInOpen, setConfirmCloseCheckInOpen] = useState(false);
+  const skipCheckInUnsavedPromptRef = useRef(false);
+  const initialCheckInBaselineRef = useRef<string | null>(null);
   const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
   const [draftNow, setDraftNow] = useState<number>(Date.now());
 
@@ -779,6 +782,7 @@ export default function PlanningEnhanced() {
             ...prev,
             newProgress: Math.round(data.progress || 0),
           }));
+          refreshCheckInBaseline();
           
           // Invalidate big rocks query to refresh the UI
           queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`] });
@@ -824,6 +828,7 @@ export default function PlanningEnhanced() {
               ...prev,
               newProgress: taskProgress,
             }));
+            refreshCheckInBaseline();
           }
         } catch (error) {
           console.error('[Task Progress] Error fetching task counts for check-in:', error);
@@ -874,10 +879,16 @@ export default function PlanningEnhanced() {
   }, [checkInDialogOpen]);
 
   // Check for an existing draft when the check-in dialog opens (skip when editing).
+  // Also handles cleanup on close, since programmatic close (setCheckInDialogOpen(false))
+  // does not trigger Radix's onOpenChange callback.
   useEffect(() => {
     if (!checkInDialogOpen) {
       setDraftRestorePrompt(null);
       setDraftSavedAt(null);
+      if (checkInEntity?.id && user?.id && !editingCheckIn) {
+        clearDraft(user.id, checkInEntity.type, checkInEntity.id);
+      }
+      setEditingCheckIn(null);
       return;
     }
     if (editingCheckIn) return;
@@ -936,6 +947,65 @@ export default function PlanningEnhanced() {
     const interval = window.setInterval(() => setDraftNow(Date.now()), 1000);
     return () => window.clearInterval(interval);
   }, [checkInDialogOpen, draftSavedAt]);
+
+  // Refs mirroring current state so the baseline serializer can read fresh
+  // values from async callbacks (deferred timers) without dependency churn.
+  const checkInFormRef = useRef(checkInForm);
+  const valueInputDraftRef = useRef(valueInputDraft);
+  const pendingTaskUpdatesRef = useRef(pendingTaskUpdates);
+  useEffect(() => {
+    checkInFormRef.current = checkInForm;
+  }, [checkInForm]);
+  useEffect(() => {
+    valueInputDraftRef.current = valueInputDraft;
+  }, [valueInputDraft]);
+  useEffect(() => {
+    pendingTaskUpdatesRef.current = pendingTaskUpdates;
+  }, [pendingTaskUpdates]);
+
+  const serializeCheckInState = () =>
+    JSON.stringify({
+      newValue: checkInFormRef.current.newValue,
+      newProgress: checkInFormRef.current.newProgress,
+      newStatus: checkInFormRef.current.newStatus,
+      note: checkInFormRef.current.note,
+      achievements: checkInFormRef.current.achievements,
+      challenges: checkInFormRef.current.challenges,
+      nextSteps: checkInFormRef.current.nextSteps,
+      asOfDate: checkInFormRef.current.asOfDate,
+      valueInputDraft: valueInputDraftRef.current,
+      pendingTaskUpdates: pendingTaskUpdatesRef.current,
+    });
+
+  // Re-capture the baseline after programmatic auto-populate state changes
+  // (Planner sync, Big Rock task progress) settle in the next tick, so those
+  // non-user updates don't trigger a false-positive unsaved-changes prompt.
+  const refreshCheckInBaseline = () => {
+    window.setTimeout(() => {
+      if (initialCheckInBaselineRef.current !== null) {
+        initialCheckInBaselineRef.current = serializeCheckInState();
+      }
+    }, 0);
+  };
+
+  const checkInHasUnsavedInput = () => {
+    if (editingCheckIn) return false;
+    if (initialCheckInBaselineRef.current === null) return false;
+    return serializeCheckInState() !== initialCheckInBaselineRef.current;
+  };
+
+  // Capture initial baseline when the check-in dialog opens; reset on close.
+  useEffect(() => {
+    if (checkInDialogOpen) {
+      const handle = window.setTimeout(() => {
+        initialCheckInBaselineRef.current = serializeCheckInState();
+      }, 0);
+      return () => window.clearTimeout(handle);
+    } else {
+      initialCheckInBaselineRef.current = null;
+      skipCheckInUnsavedPromptRef.current = false;
+    }
+  }, [checkInDialogOpen]);
 
   const handleRestoreDraft = () => {
     if (!draftRestorePrompt) return;
@@ -1591,6 +1661,7 @@ export default function PlanningEnhanced() {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
       // Also invalidate hierarchy to sync progress between views
       queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
+      skipCheckInUnsavedPromptRef.current = true;
       setCheckInDialogOpen(false);
       toast({ title: "Success", description: "Check-in recorded successfully" });
     },
@@ -1624,6 +1695,7 @@ export default function PlanningEnhanced() {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
       // Also invalidate hierarchy to sync progress between views
       queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
+      skipCheckInUnsavedPromptRef.current = true;
       setCheckInDialogOpen(false);
       setEditingCheckIn(null);
       toast({ title: "Success", description: "Check-in updated successfully" });
@@ -4244,14 +4316,16 @@ export default function PlanningEnhanced() {
         {/* Check-In Dialog */}
         <Dialog open={checkInDialogOpen} onOpenChange={(open) => {
           if (!open) {
-            // Explicit dialog close (X / Esc / outside click / programmatic close after submit)
-            // clears the saved draft per spec.
-            if (checkInEntity?.id && user?.id && !editingCheckIn) {
-              clearDraft(user.id, checkInEntity.type, checkInEntity.id);
+            // If the user is dismissing the dialog (X / Esc / outside click) with
+            // unsaved input that differs from the initial baseline, prompt them
+            // to confirm. Submitting or clicking Cancel sets the skip ref and
+            // bypasses the prompt. State cleanup (clearDraft, reset editing,
+            // baseline ref, skip ref) is handled by the close-side useEffects so
+            // it runs for both user-driven and programmatic close paths.
+            if (!skipCheckInUnsavedPromptRef.current && checkInHasUnsavedInput()) {
+              setConfirmCloseCheckInOpen(true);
+              return;
             }
-            setEditingCheckIn(null);
-            setDraftRestorePrompt(null);
-            setDraftSavedAt(null);
           }
           setCheckInDialogOpen(open);
         }}>
@@ -4775,7 +4849,7 @@ export default function PlanningEnhanced() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-              <Button variant="outline" onClick={() => setCheckInDialogOpen(false)} data-testid="button-cancel-checkin">
+              <Button variant="outline" onClick={() => { skipCheckInUnsavedPromptRef.current = true; setCheckInDialogOpen(false); }} data-testid="button-cancel-checkin">
                 Cancel
               </Button>
               <Button
@@ -4889,6 +4963,31 @@ export default function PlanningEnhanced() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Confirm discard unsaved check-in changes */}
+        <AlertDialog open={confirmCloseCheckInOpen} onOpenChange={setConfirmCloseCheckInOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Discard unsaved changes?</AlertDialogTitle>
+              <AlertDialogDescription>
+                You have unsaved changes in this check-in. If you leave now, your draft will be discarded.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="button-keep-editing-checkin">Keep editing</AlertDialogCancel>
+              <AlertDialogAction
+                data-testid="button-discard-checkin"
+                onClick={() => {
+                  skipCheckInUnsavedPromptRef.current = true;
+                  setConfirmCloseCheckInOpen(false);
+                  setCheckInDialogOpen(false);
+                }}
+              >
+                Discard
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         {/* Check-In History Dialog */}
         <Dialog open={checkInHistoryDialogOpen} onOpenChange={setCheckInHistoryDialogOpen}>
