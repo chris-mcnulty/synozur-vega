@@ -32,11 +32,19 @@ import {
   Sparkles,
   Loader2,
   History,
+  Save,
 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import type { BigRockTask } from "@shared/schema";
+import {
+  saveDraft,
+  loadDraft,
+  clearDraft,
+  type CheckInDraft,
+} from "@/lib/checkin-draft";
 
 type PaceStatus = "ahead" | "on_track" | "behind" | "at_risk" | "no_data" | "completed";
 
@@ -175,6 +183,11 @@ export function SerialCheckInDialog({
   const [aiRewriteSuggestion, setAiRewriteSuggestion] = useState<string | null>(null);
   const [isRewriting, setIsRewriting] = useState(false);
 
+  // Draft auto-save state
+  const [draftRestorePrompt, setDraftRestorePrompt] = useState<CheckInDraft | null>(null);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  const [draftNow, setDraftNow] = useState<number>(Date.now());
+
   // Reset form whenever the current item changes
   useEffect(() => {
     if (!item) return;
@@ -186,6 +199,8 @@ export function SerialCheckInDialog({
     setPendingTaskUpdates({});
     setAiRewriteSuggestion(null);
     setIsRewriting(false);
+    setDraftRestorePrompt(null);
+    setDraftSavedAt(null);
 
     if (item.type === "key_result" && entity) {
       const currentVal = entity.currentValue ?? 0;
@@ -195,6 +210,101 @@ export function SerialCheckInDialog({
       setValueInputDraft("");
     }
   }, [currentIndex, item?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // When the current item changes (or dialog opens), check for an existing draft.
+  useEffect(() => {
+    if (!open) {
+      setDraftRestorePrompt(null);
+      setDraftSavedAt(null);
+      return;
+    }
+    if (!item?.id || !userId) return;
+    const existing = loadDraft(userId, item.type, item.id);
+    if (existing) {
+      setDraftRestorePrompt(existing);
+    } else {
+      setDraftRestorePrompt(null);
+    }
+  }, [open, item?.id, item?.type, userId]);
+
+  // Debounced auto-save of the in-progress check-in to local storage.
+  useEffect(() => {
+    if (!open) return;
+    if (draftRestorePrompt) return;
+    if (!item?.id || !userId) return;
+
+    const handle = window.setTimeout(() => {
+      const payload: Omit<CheckInDraft, "savedAt"> = {
+        form: {
+          newProgress: formProgress,
+          newStatus: formStatus,
+          note: formNote,
+          asOfDate: formAsOfDate,
+        },
+        valueInputDraft,
+        pendingTaskUpdates,
+      };
+      if (item.type === "key_result") {
+        const v = parseFloat(valueInputDraft);
+        if (!isNaN(v)) payload.form.newValue = v;
+      }
+      const savedAt = saveDraft(userId, item.type, item.id, payload);
+      if (savedAt) setDraftSavedAt(savedAt);
+    }, 600);
+
+    return () => window.clearTimeout(handle);
+  }, [
+    open,
+    draftRestorePrompt,
+    item?.id,
+    item?.type,
+    userId,
+    formProgress,
+    formStatus,
+    formNote,
+    formAsOfDate,
+    valueInputDraft,
+    pendingTaskUpdates,
+  ]);
+
+  // Tick the clock so the "Draft saved · Xs ago" indicator updates.
+  useEffect(() => {
+    if (!open || draftSavedAt === null) return;
+    const interval = window.setInterval(() => setDraftNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, [open, draftSavedAt]);
+
+  const handleRestoreDraft = () => {
+    if (!draftRestorePrompt) return;
+    const draftForm = draftRestorePrompt.form;
+    setFormProgress(draftForm.newProgress);
+    setFormStatus(draftForm.newStatus);
+    setFormNote(draftForm.note);
+    if (draftForm.asOfDate) setFormAsOfDate(draftForm.asOfDate);
+    if (typeof draftRestorePrompt.valueInputDraft === "string") {
+      setValueInputDraft(draftRestorePrompt.valueInputDraft);
+    }
+    if (draftRestorePrompt.pendingTaskUpdates) {
+      setPendingTaskUpdates(draftRestorePrompt.pendingTaskUpdates);
+    }
+    setDraftSavedAt(draftRestorePrompt.savedAt);
+    setDraftRestorePrompt(null);
+  };
+
+  const handleDiscardDraft = () => {
+    if (item?.id && userId) {
+      clearDraft(userId, item.type, item.id);
+    }
+    setDraftRestorePrompt(null);
+    setDraftSavedAt(null);
+  };
+
+  const clearCurrentDraft = () => {
+    if (item?.id && userId) {
+      clearDraft(userId, item.type, item.id);
+    }
+    setDraftSavedAt(null);
+  };
 
   // Recent check-in history for the current item
   const { data: recentCheckIns = [] } = useQuery<any[]>({
@@ -285,6 +395,7 @@ export function SerialCheckInDialog({
       });
     },
     onSuccess: () => {
+      clearCurrentDraft();
       if (item) {
         if (item.type === "objective") {
           queryClient.invalidateQueries({
@@ -439,6 +550,47 @@ export function SerialCheckInDialog({
             </div>
           </DialogDescription>
         </DialogHeader>
+
+        {draftRestorePrompt && (
+          <Alert
+            data-testid="alert-serial-restore-draft"
+            className="border-primary/30 bg-primary/5"
+          >
+            <Save className="h-4 w-4" />
+            <AlertDescription>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-sm">
+                  <span className="font-medium">Unsaved draft found</span>
+                  <span className="text-muted-foreground">
+                    {" · saved "}
+                    {formatDistanceToNow(new Date(draftRestorePrompt.savedAt), {
+                      addSuffix: true,
+                    })}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleDiscardDraft}
+                    data-testid="button-serial-discard-draft"
+                  >
+                    Discard
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleRestoreDraft}
+                    data-testid="button-serial-restore-draft"
+                  >
+                    Restore draft
+                  </Button>
+                </div>
+              </div>
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* Recent check-in history */}
         {lastThreeCheckIns.length > 0 && (
@@ -775,6 +927,21 @@ export function SerialCheckInDialog({
         </div>
 
         <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div
+            className="text-xs text-muted-foreground"
+            data-testid="text-serial-draft-saved-indicator"
+          >
+            {draftSavedAt !== null && (
+              <span>
+                Draft saved ·{" "}
+                {draftNow - draftSavedAt < 5000
+                  ? "just now"
+                  : formatDistanceToNow(new Date(draftSavedAt), {
+                      addSuffix: true,
+                    })}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             {queue.length > 1 && (
               <>
@@ -795,7 +962,7 @@ export function SerialCheckInDialog({
             )}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" onClick={onClose}>
+            <Button variant="outline" onClick={onClose} data-testid="button-serial-cancel-checkin">
               Cancel
             </Button>
             <Button
