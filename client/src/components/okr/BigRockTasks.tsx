@@ -272,6 +272,7 @@ export function BigRockTasks({ bigRockId, canModify, plannerMapped, plannerPlanI
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks/${bigRockId}/tasks`] });
       queryClient.invalidateQueries({ queryKey: ['/api/okr/big-rocks/task-counts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/context'] });
       setQuickAddTitle('');
     },
     onError: (error: any) => {
@@ -287,6 +288,7 @@ export function BigRockTasks({ bigRockId, canModify, plannerMapped, plannerPlanI
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks/${bigRockId}/tasks`] });
       queryClient.invalidateQueries({ queryKey: ['/api/okr/big-rocks/task-counts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/context'] });
     },
     onError: (error: any) => {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
@@ -300,6 +302,7 @@ export function BigRockTasks({ bigRockId, canModify, plannerMapped, plannerPlanI
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks/${bigRockId}/tasks`] });
       queryClient.invalidateQueries({ queryKey: ['/api/okr/big-rocks/task-counts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/context'] });
       setDeleteDialogOpen(false);
       setSelectedTask(null);
       toast({ title: 'Task deleted' });
@@ -317,6 +320,7 @@ export function BigRockTasks({ bigRockId, canModify, plannerMapped, plannerPlanI
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks/${bigRockId}/tasks`] });
       queryClient.invalidateQueries({ queryKey: ['/api/okr/big-rocks/task-counts'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/context'] });
       const msgs: string[] = [];
       if (data.push) msgs.push(`Pushed: ${data.push.created} created, ${data.push.updated} updated`);
       if (data.pull) msgs.push(`Pulled: ${data.pull.created} created, ${data.pull.updated} updated`);

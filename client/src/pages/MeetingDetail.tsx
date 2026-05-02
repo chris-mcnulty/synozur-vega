@@ -1167,6 +1167,7 @@ export default function MeetingDetail() {
                 queryClient.invalidateQueries({ queryKey: ['/api/okr/objectives'] });
                 queryClient.invalidateQueries({ queryKey: ['/api/okr/key-results'] });
                 queryClient.invalidateQueries({ queryKey: ['/api/okr/big-rocks'] });
+                queryClient.invalidateQueries({ queryKey: ['/api/dashboard/context'] });
                 toast({ title: "Check-ins complete", description: `Updated ${checkInQueue.length} items.` });
               } else {
                 setCheckInIndex(next);
@@ -1178,6 +1179,7 @@ export default function MeetingDetail() {
               queryClient.invalidateQueries({ queryKey: ['/api/okr/objectives'] });
               queryClient.invalidateQueries({ queryKey: ['/api/okr/key-results'] });
               queryClient.invalidateQueries({ queryKey: ['/api/okr/big-rocks'] });
+              queryClient.invalidateQueries({ queryKey: ['/api/dashboard/context'] });
             }}
             tenantId={currentTenant!.id}
             userId={user?.id}

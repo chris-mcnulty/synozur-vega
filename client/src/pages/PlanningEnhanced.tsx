@@ -1195,6 +1195,7 @@ export default function PlanningEnhanced() {
         console.error('Failed to sync value tags or Big Rock links:', error);
       }
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`] });
       setObjectiveDialogOpen(false);
       setObjectiveValueTags([]);
@@ -1218,6 +1219,7 @@ export default function PlanningEnhanced() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
       setKeyResultDialogOpen(false);
@@ -1234,6 +1236,7 @@ export default function PlanningEnhanced() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
       setKeyResultDialogOpen(false);
@@ -1251,6 +1254,7 @@ export default function PlanningEnhanced() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
       toast({ title: "Success", description: "Key Result deleted successfully" });
@@ -1312,6 +1316,7 @@ export default function PlanningEnhanced() {
     },
     onSuccess: async (response: any) => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       setBigRockDialogOpen(false);
       setSelectedBigRock(null);
       setSelectedBigRockForLink(null);
@@ -1330,6 +1335,7 @@ export default function PlanningEnhanced() {
     },
     onSuccess: async (response: any, variables: { id: string }) => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       setBigRockDialogOpen(false);
       setSelectedBigRock(null);
       setSelectedBigRockForLink(null);
@@ -1347,6 +1353,7 @@ export default function PlanningEnhanced() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       toast({ title: "Success", description: "Big Rock deleted successfully" });
     },
     onError: () => {
@@ -1362,6 +1369,7 @@ export default function PlanningEnhanced() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       queryClient.invalidateQueries({ queryKey: [`/api/kpis`] });
       toast({ title: "Success", description: "Key Result promoted to KPI dashboard" });
     },
@@ -1376,6 +1384,7 @@ export default function PlanningEnhanced() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       queryClient.invalidateQueries({ queryKey: [`/api/kpis`] });
       toast({ title: "Success", description: "Key Result removed from KPI dashboard" });
     },
@@ -1401,6 +1410,7 @@ export default function PlanningEnhanced() {
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       if (data.syncError) {
         toast({ title: "Sync completed with warning", description: data.syncError, variant: "destructive" });
       } else {
@@ -1427,6 +1437,7 @@ export default function PlanningEnhanced() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       toast({ title: "Excel unlinked", description: "Key Result is no longer connected to Excel" });
     },
     onError: (error: any) => {
@@ -1456,6 +1467,7 @@ export default function PlanningEnhanced() {
         console.error('Failed to sync value tags or Big Rock links:', error);
       }
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`] });
       setObjectiveDialogOpen(false);
       setSelectedObjective(null);
@@ -1475,6 +1487,7 @@ export default function PlanningEnhanced() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/key-results`] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`] });
@@ -1492,6 +1505,7 @@ export default function PlanningEnhanced() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
       toast({ title: "Success", description: "Objective closed successfully" });
     },
@@ -1506,6 +1520,7 @@ export default function PlanningEnhanced() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
       toast({ title: "Success", description: "Objective reopened successfully" });
     },
@@ -1520,6 +1535,7 @@ export default function PlanningEnhanced() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
       toast({ title: "Success", description: "Key Result closed successfully" });
     },
@@ -1534,6 +1550,7 @@ export default function PlanningEnhanced() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
       toast({ title: "Success", description: "Key Result reopened successfully" });
     },
@@ -1568,6 +1585,7 @@ export default function PlanningEnhanced() {
     onSuccess: () => {
       // Invalidate all related query keys that need to refresh
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/check-ins`] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
@@ -1600,6 +1618,7 @@ export default function PlanningEnhanced() {
     onSuccess: () => {
       // Invalidate all related query keys that need to refresh
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/check-ins`] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
@@ -1628,6 +1647,7 @@ export default function PlanningEnhanced() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant?.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
       setClosePromptDialogOpen(false);

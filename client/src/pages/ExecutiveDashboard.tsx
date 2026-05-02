@@ -169,128 +169,71 @@ export default function ExecutiveDashboard() {
     ...(currentTenant?.id && { 'x-tenant-id': currentTenant.id }),
   });
 
-  const { data: objectives = [], isLoading: loadingObjectives } = useQuery<Objective[]>({
-    queryKey: ["/api/okr/objectives", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year],
+  // Combined dashboard context (single round trip - replaces 7 separate queries)
+  type ExecutiveDashboardContext = {
+    foundation: {
+      id: string;
+      ambitions?: Array<{ id: string; title: string; description?: string; targetYear: number; status: string; linkedValueTitles?: string[] }>;
+    } | null;
+    teams: Team[];
+    objectives: Objective[];
+    keyResults: KeyResult[];
+    bigRocks: BigRock[];
+    bigRockTaskCounts: Record<string, { total: number; completed: number }>;
+    checkIns: CheckIn[];
+  };
+
+  const { data: dashboardContext, isLoading: loadingContext } = useQuery<ExecutiveDashboardContext>({
+    queryKey: [
+      "/api/dashboard/context",
+      currentTenant?.id,
+      "executive",
+      currentQuarter?.quarter,
+      currentQuarter?.year,
+    ],
     queryFn: async () => {
-      if (!currentTenant) return [];
-      const params = new URLSearchParams({
-        tenantId: currentTenant.id,
-        ...(currentQuarter?.quarter != null && { quarter: String(currentQuarter.quarter) }),
-        ...(currentQuarter?.year != null && { year: String(currentQuarter.year) }),
-      });
-      const res = await fetch(`/api/okr/objectives?${params}`, {
-        credentials: 'include',
+      if (!currentTenant) {
+        return {
+          foundation: null,
+          teams: [],
+          objectives: [],
+          keyResults: [],
+          bigRocks: [],
+          bigRockTaskCounts: {},
+          checkIns: [],
+        };
+      }
+      const params = new URLSearchParams({ scope: "executive" });
+      if (currentQuarter?.quarter != null) params.set("quarter", String(currentQuarter.quarter));
+      if (currentQuarter?.year != null) params.set("year", String(currentQuarter.year));
+      const res = await fetch(`/api/dashboard/context?${params}`, {
+        credentials: "include",
         headers: getHeaders(),
       });
-      if (!res.ok) throw new Error('Failed to fetch objectives');
+      if (!res.ok) throw new Error("Failed to fetch dashboard context");
       return res.json();
     },
     enabled: !!currentTenant?.id && !!currentQuarter,
   });
 
-  const { data: keyResultsMap = {}, isLoading: loadingKRs } = useQuery<Record<string, KeyResult[]>>({
-    queryKey: ["/api/okr/all-key-results", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year],
-    queryFn: async () => {
-      if (!currentTenant || !currentQuarter) return {};
-      // Fetch all key results for the tenant/quarter in a single request
-      const params = new URLSearchParams({
-        tenantId: currentTenant.id,
-        ...(currentQuarter.quarter != null && { quarter: String(currentQuarter.quarter) }),
-        ...(currentQuarter.year != null && { year: String(currentQuarter.year) }),
-      });
-      const res = await fetch(`/api/okr/key-results?${params}`, {
-        credentials: 'include',
-        headers: getHeaders(),
-      });
-      if (!res.ok) return {};
-      const allKeyResults: KeyResult[] = await res.json();
-      
-      // Group key results by objectiveId
-      const results: Record<string, KeyResult[]> = {};
-      allKeyResults.forEach(kr => {
-        if (!results[kr.objectiveId]) {
-          results[kr.objectiveId] = [];
-        }
-        results[kr.objectiveId].push(kr);
-      });
-      return results;
-    },
-    enabled: !!currentTenant?.id && !!currentQuarter?.year,
-  });
+  const objectives = dashboardContext?.objectives ?? [];
+  const teams = dashboardContext?.teams ?? [];
+  const bigRocks = dashboardContext?.bigRocks ?? [];
+  const bigRockTaskCounts = dashboardContext?.bigRockTaskCounts ?? {};
+  const allCheckIns = dashboardContext?.checkIns ?? [];
+  const foundations = dashboardContext?.foundation ?? undefined;
+  const loadingObjectives = loadingContext;
+  const loadingKRs = loadingContext;
 
-  const { data: teams = [] } = useQuery<Team[]>({
-    queryKey: [`/api/okr/teams`, currentTenant?.id],
-    queryFn: async () => {
-      if (!currentTenant) return [];
-      const res = await fetch(`/api/okr/teams?tenantId=${currentTenant.id}`, {
-        credentials: 'include',
-        headers: getHeaders(),
-      });
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: !!currentTenant?.id,
-  });
-
-  const { data: bigRocks = [] } = useQuery<BigRock[]>({
-    queryKey: ["/api/okr/big-rocks", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year],
-    queryFn: async () => {
-      if (!currentTenant) return [];
-      const params = new URLSearchParams({
-        tenantId: currentTenant.id,
-        ...(currentQuarter?.quarter != null && { quarter: String(currentQuarter.quarter) }),
-        ...(currentQuarter?.year != null && { year: String(currentQuarter.year) }),
-      });
-      const res = await fetch(`/api/okr/big-rocks?${params}`, {
-        credentials: 'include',
-        headers: getHeaders(),
-      });
-      if (!res.ok) throw new Error('Failed to fetch big rocks');
-      return res.json();
-    },
-    enabled: !!currentTenant?.id && !!currentQuarter,
-  });
-
-  const bigRockIds = bigRocks.map(br => br.id);
-  const { data: bigRockTaskCounts = {} } = useQuery<Record<string, { total: number; completed: number }>>({
-    queryKey: ["/api/okr/big-rocks/task-counts", bigRockIds],
-    queryFn: async () => {
-      if (bigRockIds.length === 0) return {};
-      const res = await fetch(`/api/okr/big-rocks/task-counts`, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { ...getHeaders(), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bigRockIds }),
-      });
-      if (!res.ok) return {};
-      return res.json();
-    },
-    enabled: bigRockIds.length > 0,
-  });
-
-  const { data: allCheckIns = [] } = useQuery<CheckIn[]>({
-    queryKey: ["/api/okr/check-ins/all", currentTenant?.id],
-    queryFn: async () => {
-      if (!currentTenant) return [];
-      const params = new URLSearchParams({ entityType: 'all', entityId: 'all', tenantId: currentTenant.id });
-      const res = await fetch(`/api/okr/check-ins?${params}`, {
-        credentials: 'include',
-        headers: getHeaders(),
-      });
-      if (!res.ok) return [];
-      return res.json();
-    },
-    enabled: !!currentTenant?.id,
-  });
-
-  // Fetch foundations to display Ambitions
-  const { data: foundations } = useQuery<{
-    id: string;
-    ambitions?: Array<{ id: string; title: string; description?: string; targetYear: number; status: string; linkedValueTitles?: string[] }>;
-  }>({
-    queryKey: [`/api/foundations/${currentTenant?.id}`],
-    enabled: !!currentTenant?.id,
-  });
+  // Group key results by objectiveId for legacy consumers
+  const keyResultsMap = useMemo<Record<string, KeyResult[]>>(() => {
+    const results: Record<string, KeyResult[]> = {};
+    (dashboardContext?.keyResults ?? []).forEach((kr) => {
+      if (!results[kr.objectiveId]) results[kr.objectiveId] = [];
+      results[kr.objectiveId].push(kr);
+    });
+    return results;
+  }, [dashboardContext?.keyResults]);
 
   type ForecastItem = {
     objectiveId: string;

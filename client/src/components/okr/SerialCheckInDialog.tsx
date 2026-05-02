@@ -311,6 +311,7 @@ export function SerialCheckInDialog({
           queryKey: ["/api/okr/hierarchy"],
           exact: false,
         });
+        queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       }
       toast({ title: "Check-in recorded" });
       onAdvance();
@@ -349,6 +350,7 @@ export function SerialCheckInDialog({
         queryKey: [`/api/okr/big-rocks/${item.id}/tasks`],
       });
       queryClient.invalidateQueries({ queryKey: ["/api/okr/big-rocks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
     }
 
     let finalProgress = formProgress;

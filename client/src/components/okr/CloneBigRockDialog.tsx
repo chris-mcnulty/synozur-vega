@@ -70,6 +70,7 @@ export function CloneBigRockDialog({
       });
       queryClient.invalidateQueries({ queryKey: ["/api/okr/big-rocks", tenantId] });
       queryClient.invalidateQueries({ queryKey: ["/api/okr/hierarchy", tenantId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       onOpenChange(false);
     },
     onError: (error: Error) => {

@@ -63,61 +63,63 @@ export default function Dashboard() {
     localStorage.setItem(STORAGE_KEYS.TEAM_FILTER, selectedTeam);
   }, [selectedTeam]);
 
-  // Fetch real data from APIs - use optional chaining for tenant id
-  const { data: foundations, isLoading: loadingFoundations } = useQuery<Foundation>({
-    queryKey: [`/api/foundations/${currentTenant?.id}`],
-    enabled: !!currentTenant?.id,
+  // Combined dashboard context (single round trip - replaces 6 separate queries)
+  type DashboardContext = {
+    foundation: Foundation | null;
+    strategies: Strategy[];
+    teams: Team[];
+    objectives: Objective[];
+    bigRocks: BigRock[];
+    meetings: Meeting[];
+  };
+
+  const {
+    data: dashboardContext,
+    isLoading: loadingContext,
+    error: contextError,
+  } = useQuery<DashboardContext>({
+    queryKey: [
+      "/api/dashboard/context",
+      currentTenant?.id,
+      "company",
+      currentQuarter?.quarter,
+      currentQuarter?.year,
+    ],
+    queryFn: async () => {
+      if (!currentTenant) {
+        return {
+          foundation: null,
+          strategies: [],
+          teams: [],
+          objectives: [],
+          bigRocks: [],
+          meetings: [],
+        };
+      }
+      const params = new URLSearchParams({ scope: "company" });
+      if (currentQuarter?.quarter != null) params.set("quarter", String(currentQuarter.quarter));
+      if (currentQuarter?.year != null) params.set("year", String(currentQuarter.year));
+      const res = await fetch(`/api/dashboard/context?${params}`, {
+        credentials: "include",
+        headers: { "x-tenant-id": currentTenant.id },
+      });
+      if (!res.ok) throw new Error("Failed to fetch dashboard context");
+      return res.json();
+    },
+    enabled: !!currentTenant?.id && !!currentQuarter,
     retry: false,
   });
 
-  const { data: strategies = [], isLoading: loadingStrategies } = useQuery<Strategy[]>({
-    queryKey: [`/api/strategies/${currentTenant?.id}`],
-    enabled: !!currentTenant?.id,
-  });
-
-  const { data: objectives, isLoading: loadingObjectives, error: objectivesError } = useQuery<Objective[]>({
-    queryKey: ["/api/okr/objectives", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year],
-    queryFn: async () => {
-      if (!currentTenant) return [];
-      const params = new URLSearchParams({
-        tenantId: currentTenant.id,
-        ...(currentQuarter?.quarter && { quarter: String(currentQuarter.quarter) }),
-        ...(currentQuarter?.year && { year: String(currentQuarter.year) }),
-      });
-      const res = await fetch(`/api/okr/objectives?${params}`);
-      if (!res.ok) throw new Error('Failed to fetch objectives');
-      return res.json();
-    },
-    enabled: !!currentTenant?.id && !!currentQuarter,
-  });
-
-  const { data: bigRocks, isLoading: loadingBigRocks, error: bigRocksError } = useQuery<BigRock[]>({
-    queryKey: ["/api/okr/big-rocks", currentTenant?.id, currentQuarter?.quarter, currentQuarter?.year],
-    queryFn: async () => {
-      if (!currentTenant) return [];
-      const params = new URLSearchParams({
-        tenantId: currentTenant.id,
-        ...(currentQuarter?.quarter && { quarter: String(currentQuarter.quarter) }),
-        ...(currentQuarter?.year && { year: String(currentQuarter.year) }),
-      });
-      const res = await fetch(`/api/okr/big-rocks?${params}`);
-      if (!res.ok) throw new Error('Failed to fetch big rocks');
-      return res.json();
-    },
-    enabled: !!currentTenant?.id && !!currentQuarter,
-  });
-
-  const { data: meetings = [], isLoading: loadingMeetings } = useQuery<Meeting[]>({
-    queryKey: [`/api/meetings/${currentTenant?.id}`],
-    enabled: !!currentTenant?.id,
-  });
-
-  const { data: teams = [], isLoading: loadingTeams } = useQuery<Team[]>({
-    queryKey: [`/api/teams/${currentTenant?.id}`],
-    enabled: !!currentTenant?.id,
-  });
-
-  const isLoading = loadingFoundations || loadingStrategies || loadingObjectives || loadingBigRocks || loadingMeetings || loadingTeams;
+  const foundations = dashboardContext?.foundation ?? undefined;
+  const strategies = dashboardContext?.strategies ?? [];
+  const objectives = dashboardContext?.objectives;
+  const bigRocks = dashboardContext?.bigRocks;
+  const meetings = dashboardContext?.meetings ?? [];
+  const teams = dashboardContext?.teams ?? [];
+  const objectivesError = contextError;
+  const bigRocksError = contextError;
+  const loadingFoundations = loadingContext;
+  const isLoading = loadingContext;
 
   // Wait for tenant to load before rendering
   if (tenantLoading) {

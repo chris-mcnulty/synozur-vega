@@ -356,6 +356,7 @@ export function ExcelFilePicker({
       queryClient.invalidateQueries({ queryKey: ['/api/key-results'] });
       queryClient.invalidateQueries({ queryKey: ['/api/okr/objectives'] });
       queryClient.invalidateQueries({ queryKey: ['/api/okr/key-results'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/context'] });
       onSuccess?.();
       onOpenChange(false);
     },

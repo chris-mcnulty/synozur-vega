@@ -73,6 +73,7 @@ export function CloneObjectiveDialog({
       });
       queryClient.invalidateQueries({ queryKey: ["/api/okr/hierarchy"] });
       queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       onOpenChange(false);
     },
     onError: (error: Error) => {

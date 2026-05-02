@@ -169,6 +169,7 @@ export function PlannerCreatePlanDialog({
       queryClient.invalidateQueries({ queryKey: [`/api/planner/mapping/bigrock/${bigRockId}/progress`] });
       queryClient.invalidateQueries({ queryKey: ["/api/planner/plans"] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       toast({ title: "Connected to Planner", description: "This Big Rock is now linked to a Planner plan for task sync." });
       onOpenChange(false);
       resetState();

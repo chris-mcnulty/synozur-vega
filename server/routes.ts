@@ -2885,6 +2885,10 @@ ${changelogContent}`;
   const { okrRouter } = await import("./routes-okr");
   app.use("/api/okr", ...authWithTenant, okrRouter);
 
+  // Combined dashboard context endpoint (single round trip for dashboards)
+  const { dashboardRouter } = await import("./routes-dashboard");
+  app.use("/api/dashboard", ...authWithTenant, dashboardRouter);
+
   // Import and use value tagging routes
   const { registerValueRoutes } = await import("./routes-values");
   registerValueRoutes(app);

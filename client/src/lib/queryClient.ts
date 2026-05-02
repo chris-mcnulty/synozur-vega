@@ -233,7 +233,17 @@ export async function invalidateOKRQueries(): Promise<void> {
     invalidateQueriesStartingWith('/api/okr/big-rocks'),
     invalidateQueriesStartingWith('/api/okr/check-ins'),
     invalidateQueriesStartingWith('/api/okr/hierarchy'),
+    invalidateQueriesStartingWith('/api/dashboard/context'),
   ]);
+}
+
+/**
+ * Invalidate the combined dashboard context endpoint.
+ * Call alongside per-entity invalidations whenever foundation, strategies,
+ * objectives, key results, big rocks, meetings, teams, or check-ins change.
+ */
+export async function invalidateDashboardContext(): Promise<void> {
+  await invalidateQueriesStartingWith('/api/dashboard/context');
 }
 
 /**

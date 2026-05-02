@@ -171,6 +171,7 @@ export default function Launchpad() {
       queryClient.invalidateQueries({ queryKey: ['/api/foundations'] });
       queryClient.invalidateQueries({ queryKey: ['/api/strategies'] });
       queryClient.invalidateQueries({ queryKey: ['/api/okr/objectives'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/context'] });
       
       const skippedCount = result.created?.skipped?.length || 0;
       const skippedText = skippedCount > 0 ? ` (${skippedCount} sections skipped)` : '';

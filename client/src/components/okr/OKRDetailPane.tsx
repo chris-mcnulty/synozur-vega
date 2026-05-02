@@ -207,6 +207,7 @@ export function OKRDetailPane({
       queryClient.invalidateQueries({ queryKey: ["/api/okr/check-ins", entity?.id, entityType] });
       queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives"] });
       queryClient.invalidateQueries({ queryKey: ["/api/okr/key-results"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       setEditingCheckIn(null);
     },
     onError: (error: any) => {
@@ -225,6 +226,7 @@ export function OKRDetailPane({
       queryClient.invalidateQueries({ queryKey: ["/api/okr/check-ins", entity?.id, entityType] });
       queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives"] });
       queryClient.invalidateQueries({ queryKey: ["/api/okr/key-results"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to delete check-in", variant: "destructive" });

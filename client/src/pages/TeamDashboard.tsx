@@ -266,16 +266,65 @@ function TeamDashboardContent() {
     }
   }, [selectedTeamId, storageKeys]);
 
-  const { data: teams, isLoading: loadingTeams } = useQuery<Team[]>({
-    queryKey: ["/api/okr/teams", currentTenant?.id],
+  const isMultiPeriod = selectedQuartersList.length > 1;
+  const selectedQuarterNums = useMemo(() => selectedQuartersList.map(q => q.quarter), [selectedQuartersList]);
+  const hasAnnualSelected = selectedQuarterNums.includes(0);
+  const shouldFetchAllQuarters = hasAnnualSelected || isMultiPeriod;
+
+  type TeamDashboardContext = {
+    foundation: Foundation | null;
+    strategies: Strategy[];
+    teams: Team[];
+    objectives: Objective[];
+    keyResults: KeyResult[];
+    bigRocks: BigRock[];
+    bigRockTaskCounts: Record<string, { total: number; completed: number }>;
+  };
+
+  // Single tenant-wide context request. selectedTeamId is intentionally
+  // excluded from the queryKey and URL so changing teams does not trigger
+  // a refetch — all team-specific filtering is performed client-side
+  // below.
+  const { data: dashboardContext, isLoading: loadingContext } = useQuery<TeamDashboardContext>({
+    queryKey: [
+      "/api/dashboard/context",
+      currentTenant?.id,
+      "team",
+      shouldFetchAllQuarters ? "all" : currentQuarter?.quarter,
+      globalYear,
+      selectedQuarterNums.join(","),
+    ],
     queryFn: async () => {
-      if (!currentTenant?.id) return [];
-      const res = await fetch(`/api/okr/teams?tenantId=${currentTenant.id}`);
-      if (!res.ok) throw new Error('Failed to fetch teams');
+      if (!currentTenant?.id) {
+        return {
+          foundation: null,
+          strategies: [],
+          teams: [],
+          objectives: [],
+          keyResults: [],
+          bigRocks: [],
+          bigRockTaskCounts: {},
+        };
+      }
+      const params = new URLSearchParams({ scope: "team", year: String(globalYear) });
+      if (!shouldFetchAllQuarters && currentQuarter?.quarter != null && currentQuarter.quarter !== 0) {
+        params.set("quarter", String(currentQuarter.quarter));
+      }
+      const res = await fetch(`/api/dashboard/context?${params}`, {
+        credentials: "include",
+        headers: { "x-tenant-id": currentTenant.id },
+      });
+      if (!res.ok) throw new Error("Failed to fetch dashboard context");
       return res.json();
     },
-    enabled: !!currentTenant?.id,
+    enabled: !!currentTenant?.id && !!currentQuarter,
   });
+
+  // Teams come from the combined dashboard context. We retain the
+  // `loadingTeams` name for backwards compatibility with existing
+  // isLoading aggregation below.
+  const teams = dashboardContext?.teams;
+  const loadingTeams = loadingContext;
 
   const userTeams = useMemo(() => {
     if (!teams || !user) return [];
@@ -309,117 +358,50 @@ function TeamDashboardContent() {
     return teams?.find((t) => t.id === selectedTeamId);
   }, [teams, selectedTeamId]);
 
-  const isMultiPeriod = selectedQuartersList.length > 1;
-  const selectedQuarterNums = useMemo(() => selectedQuartersList.map(q => q.quarter), [selectedQuartersList]);
-  const hasAnnualSelected = selectedQuarterNums.includes(0);
-  const shouldFetchAllQuarters = hasAnnualSelected || isMultiPeriod;
-
-  const { data: rawObjectives, isLoading: loadingObjectives } = useQuery<Objective[]>({
-    queryKey: ["/api/okr/objectives", currentTenant?.id, shouldFetchAllQuarters ? 'all' : currentQuarter?.quarter, globalYear, selectedTeamId, selectedQuarterNums.join(',')],
-    queryFn: async () => {
-      if (!currentTenant?.id) return [];
-      const params = new URLSearchParams({
-        tenantId: currentTenant.id,
-        year: String(globalYear),
-        ...(selectedTeamId && { teamId: selectedTeamId }),
-      });
-      if (!shouldFetchAllQuarters && currentQuarter?.quarter != null && currentQuarter.quarter !== 0) {
-        params.set('quarter', String(currentQuarter.quarter));
-      }
-      const res = await fetch(`/api/okr/objectives?${params}`);
-      if (!res.ok) throw new Error('Failed to fetch objectives');
-      return res.json();
-    },
-    enabled: !!currentTenant?.id && !!currentQuarter && !!selectedTeamId,
-  });
+  const rawObjectives = dashboardContext?.objectives;
+  const loadingObjectives = loadingContext;
 
   const objectives = useMemo(() => {
-    if (!rawObjectives) return [];
-    if (hasAnnualSelected) return rawObjectives;
-    if (!isMultiPeriod) return rawObjectives;
-    return rawObjectives.filter((obj: any) => selectedQuarterNums.includes(obj.quarter));
-  }, [rawObjectives, isMultiPeriod, selectedQuarterNums, hasAnnualSelected]);
+    if (!rawObjectives || !selectedTeamId) return [];
+    let filtered = rawObjectives.filter((obj) => obj.teamId === selectedTeamId);
+    if (!hasAnnualSelected && isMultiPeriod) {
+      filtered = filtered.filter((obj) => obj.quarter != null && selectedQuarterNums.includes(obj.quarter));
+    }
+    return filtered;
+  }, [rawObjectives, selectedTeamId, isMultiPeriod, selectedQuarterNums, hasAnnualSelected]);
 
-  const { data: rawKeyResults = [], isLoading: loadingKeyResults } = useQuery<KeyResult[]>({
-    queryKey: ["/api/okr/key-results", currentTenant?.id, shouldFetchAllQuarters ? 'all' : currentQuarter?.quarter, globalYear, selectedTeamId, selectedQuarterNums.join(',')],
-    queryFn: async () => {
-      if (!currentTenant?.id) return [];
-      const params = new URLSearchParams({
-        tenantId: currentTenant.id,
-        year: String(globalYear),
-        ...(selectedTeamId && { teamId: selectedTeamId }),
-      });
-      if (!shouldFetchAllQuarters && currentQuarter?.quarter != null && currentQuarter.quarter !== 0) {
-        params.set('quarter', String(currentQuarter.quarter));
-      }
-      const res = await fetch(`/api/okr/key-results?${params}`);
-      if (!res.ok) throw new Error('Failed to fetch key results');
-      return res.json();
-    },
-    enabled: !!currentTenant?.id && !!currentQuarter && !!selectedTeamId,
-  });
+  const rawKeyResults = dashboardContext?.keyResults ?? [];
+  const loadingKeyResults = loadingContext;
 
+  // Key results don't carry teamId/quarter directly; derive from the
+  // parent objective. Build a lookup over the team-filtered objectives
+  // and keep only KRs whose objective survives that filter.
   const keyResults = useMemo(() => {
-    if (hasAnnualSelected) return rawKeyResults;
-    if (!isMultiPeriod) return rawKeyResults;
-    return rawKeyResults.filter((kr: any) => selectedQuarterNums.includes(kr.quarter));
-  }, [rawKeyResults, isMultiPeriod, selectedQuarterNums, hasAnnualSelected]);
+    if (!selectedTeamId) return [];
+    const objectiveIds = new Set(objectives.map((o) => o.id));
+    return rawKeyResults.filter((kr) => objectiveIds.has(kr.objectiveId));
+  }, [rawKeyResults, objectives, selectedTeamId]);
 
-  const { data: allBigRocks, isLoading: loadingBigRocks } = useQuery<BigRock[]>({
-    queryKey: ["/api/okr/big-rocks", currentTenant?.id, shouldFetchAllQuarters ? 'all' : currentQuarter?.quarter, globalYear, selectedQuarterNums.join(',')],
-    queryFn: async () => {
-      if (!currentTenant?.id) return [];
-      const params = new URLSearchParams({
-        tenantId: currentTenant.id,
-        year: String(globalYear),
-      });
-      if (!shouldFetchAllQuarters && currentQuarter?.quarter != null && currentQuarter.quarter !== 0) {
-        params.set('quarter', String(currentQuarter.quarter));
-      }
-      const res = await fetch(`/api/okr/big-rocks?${params}`);
-      if (!res.ok) throw new Error('Failed to fetch big rocks');
-      return res.json();
-    },
-    enabled: !!currentTenant?.id && !!currentQuarter,
-  });
+  const allBigRocks = dashboardContext?.bigRocks;
+  const loadingBigRocks = loadingContext;
 
   const bigRocks = useMemo(() => {
     if (!allBigRocks || !selectedTeamId) return [];
     let filtered = allBigRocks.filter((br) => br.teamId === selectedTeamId);
     if (!hasAnnualSelected && isMultiPeriod) {
-      filtered = filtered.filter((br: any) => selectedQuarterNums.includes(br.quarter));
+      filtered = filtered.filter((br) => br.quarter != null && selectedQuarterNums.includes(br.quarter));
     }
     return filtered;
   }, [allBigRocks, selectedTeamId, isMultiPeriod, selectedQuarterNums, hasAnnualSelected]);
 
-  const { data: strategies, isLoading: loadingStrategies } = useQuery<Strategy[]>({
-    queryKey: [`/api/strategies/${currentTenant?.id}`],
-    enabled: !!currentTenant?.id,
-  });
+  const strategies = dashboardContext?.strategies;
+  const loadingStrategies = loadingContext;
 
-  // Fetch foundation for annual goals
-  const { data: foundation } = useQuery<Foundation>({
-    queryKey: [`/api/foundations/${currentTenant?.id}`],
-    enabled: !!currentTenant?.id,
-  });
+  const foundation = dashboardContext?.foundation ?? undefined;
 
-  // Fetch task counts for big rocks
+  // Big rock task counts (server returns counts already filtered by teamId)
   const bigRockIds = useMemo(() => bigRocks.map((br) => br.id), [bigRocks]);
-  const { data: taskCounts } = useQuery<Record<string, { total: number; completed: number }>>({
-    queryKey: ["/api/okr/big-rocks/task-counts", bigRockIds.join(',')],
-    queryFn: async () => {
-      if (bigRockIds.length === 0) return {};
-      const res = await fetch('/api/okr/big-rocks/task-counts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ bigRockIds }),
-        credentials: 'include',
-      });
-      if (!res.ok) return {};
-      return res.json();
-    },
-    enabled: bigRockIds.length > 0,
-  });
+  const taskCounts = dashboardContext?.bigRockTaskCounts;
 
   // Fetch check-in history for selected KR
   const { data: checkInHistory = [] } = useQuery<CheckIn[]>({
@@ -449,6 +431,7 @@ function TeamDashboardContent() {
       queryClient.invalidateQueries({ queryKey: ["/api/okr/key-results"] });
       queryClient.invalidateQueries({ queryKey: ["/api/okr/objectives"] });
       queryClient.invalidateQueries({ queryKey: ["/api/okr/check-ins"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       setCheckInDialogOpen(false);
       setSelectedKR(null);
       toast({ title: "Check-in recorded", description: "Your progress has been saved" });
@@ -473,6 +456,7 @@ function TeamDashboardContent() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/okr/big-rocks"] });
       queryClient.invalidateQueries({ queryKey: ["/api/okr/check-ins"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       setBigRockCheckInOpen(false);
       setSelectedBigRock(null);
       toast({ title: "Check-in recorded", description: "Big Rock progress has been saved" });
@@ -488,6 +472,7 @@ function TeamDashboardContent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/okr/big-rocks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       setBigRockEditOpen(false);
       setSelectedBigRock(null);
       toast({ title: "Updated", description: "Big Rock has been updated" });
@@ -503,6 +488,7 @@ function TeamDashboardContent() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/okr/big-rocks"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       setBigRockDeleteOpen(false);
       setSelectedBigRock(null);
       toast({ title: "Deleted", description: "Big Rock has been deleted" });
@@ -741,6 +727,7 @@ Status: ${checkInForm.newStatus}`;
             newProgress: Math.round(data.progress || 0),
           }));
           queryClient.invalidateQueries({ queryKey: ["/api/okr/big-rocks"] });
+          queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
         } catch (error: any) {
           console.error('[Planner Sync] Error during check-in sync:', error);
           setPlannerSyncState(prev => ({

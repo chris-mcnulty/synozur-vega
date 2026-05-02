@@ -97,6 +97,7 @@ export default function Import() {
       // Refresh OKR data
       queryClient.invalidateQueries({ queryKey: ['/api/okr/objectives'] });
       queryClient.invalidateQueries({ queryKey: ['/api/okr/big-rocks'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/context'] });
 
       if (result.success) {
         toast({
@@ -229,6 +230,7 @@ export default function Import() {
       queryClient.invalidateQueries({ queryKey: ['/api/okr/big-rocks'] });
       queryClient.invalidateQueries({ queryKey: ['/api/foundations'] });
       queryClient.invalidateQueries({ queryKey: ['/api/strategies'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/dashboard/context'] });
 
       if (result.success) {
         toast({

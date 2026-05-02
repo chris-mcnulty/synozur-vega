@@ -167,6 +167,7 @@ export function NarrativeUpdatePanel({ open, onClose, quarter, year, tenantId }:
       queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, tenantId, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/check-ins`] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
+      queryClient.invalidateQueries({ queryKey: [`/api/dashboard/context`] });
 
       const msg = failed > 0
         ? `${succeeded} check-in(s) recorded; ${failed} failed.`
