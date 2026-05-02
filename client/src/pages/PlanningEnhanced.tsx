@@ -4,7 +4,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
+import { saveDraft, loadDraft, clearDraft, type CheckInDraft } from "@/lib/checkin-draft";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -650,6 +651,11 @@ export default function PlanningEnhanced() {
   const [checkInEntity, setCheckInEntity] = useState<{ type: string; id: string; current?: any } | null>(null);
   const [pendingTaskUpdates, setPendingTaskUpdates] = useState<Record<string, string>>({});
 
+  // Check-in draft auto-save state
+  const [draftRestorePrompt, setDraftRestorePrompt] = useState<CheckInDraft | null>(null);
+  const [draftSavedAt, setDraftSavedAt] = useState<number | null>(null);
+  const [draftNow, setDraftNow] = useState<number>(Date.now());
+
   // Value tag states
   const [objectiveValueTags, setObjectiveValueTags] = useState<string[]>([]);
   const [previousObjectiveValueTags, setPreviousObjectiveValueTags] = useState<string[]>([]);
@@ -866,6 +872,102 @@ export default function PlanningEnhanced() {
       });
     }
   }, [checkInDialogOpen]);
+
+  // Check for an existing draft when the check-in dialog opens (skip when editing).
+  useEffect(() => {
+    if (!checkInDialogOpen) {
+      setDraftRestorePrompt(null);
+      setDraftSavedAt(null);
+      return;
+    }
+    if (editingCheckIn) return;
+    if (!checkInEntity?.id || !user?.id) return;
+    const existing = loadDraft(user.id, checkInEntity.type, checkInEntity.id);
+    if (existing) {
+      setDraftRestorePrompt(existing);
+    }
+  }, [checkInDialogOpen, checkInEntity?.id, checkInEntity?.type, editingCheckIn, user?.id]);
+
+  // Debounced auto-save of the in-progress check-in to local storage.
+  useEffect(() => {
+    if (!checkInDialogOpen) return;
+    if (editingCheckIn) return;
+    if (draftRestorePrompt) return;
+    if (!checkInEntity?.id || !user?.id) return;
+
+    const handle = window.setTimeout(() => {
+      const savedAt = saveDraft(user.id, checkInEntity.type, checkInEntity.id, {
+        form: {
+          newValue: checkInForm.newValue,
+          newProgress: checkInForm.newProgress,
+          newStatus: checkInForm.newStatus,
+          note: checkInForm.note,
+          achievements: checkInForm.achievements,
+          challenges: checkInForm.challenges,
+          nextSteps: checkInForm.nextSteps,
+          asOfDate: checkInForm.asOfDate,
+        },
+        valueInputDraft,
+        pendingTaskUpdates,
+      });
+      if (savedAt) setDraftSavedAt(savedAt);
+    }, 600);
+
+    return () => window.clearTimeout(handle);
+  }, [
+    checkInDialogOpen,
+    editingCheckIn,
+    draftRestorePrompt,
+    checkInEntity?.id,
+    checkInEntity?.type,
+    user?.id,
+    checkInForm.newValue,
+    checkInForm.newProgress,
+    checkInForm.newStatus,
+    checkInForm.note,
+    checkInForm.asOfDate,
+    valueInputDraft,
+    pendingTaskUpdates,
+  ]);
+
+  // Tick clock so the "Draft saved · Xs ago" indicator updates.
+  useEffect(() => {
+    if (!checkInDialogOpen || draftSavedAt === null) return;
+    const interval = window.setInterval(() => setDraftNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, [checkInDialogOpen, draftSavedAt]);
+
+  const handleRestoreDraft = () => {
+    if (!draftRestorePrompt) return;
+    const draftForm = draftRestorePrompt.form;
+    setCheckInForm((prev) => ({
+      ...prev,
+      newValue: draftForm.newValue ?? prev.newValue,
+      newProgress: draftForm.newProgress,
+      newStatus: draftForm.newStatus,
+      note: draftForm.note,
+      achievements: draftForm.achievements ?? prev.achievements,
+      challenges: draftForm.challenges ?? prev.challenges,
+      nextSteps: draftForm.nextSteps ?? prev.nextSteps,
+      asOfDate: draftForm.asOfDate || prev.asOfDate,
+    }));
+    if (typeof draftRestorePrompt.valueInputDraft === "string") {
+      setValueInputDraft(draftRestorePrompt.valueInputDraft);
+    }
+    if (draftRestorePrompt.pendingTaskUpdates) {
+      setPendingTaskUpdates(draftRestorePrompt.pendingTaskUpdates);
+    }
+    setDraftSavedAt(draftRestorePrompt.savedAt);
+    setDraftRestorePrompt(null);
+  };
+
+  const handleDiscardDraft = () => {
+    if (checkInEntity?.id && user?.id) {
+      clearDraft(user.id, checkInEntity.type, checkInEntity.id);
+    }
+    setDraftRestorePrompt(null);
+    setDraftSavedAt(null);
+  };
 
   // AI Rewrite check-in note mutation
   const rewriteCheckInMutation = useMutation({
@@ -4121,10 +4223,17 @@ export default function PlanningEnhanced() {
 
         {/* Check-In Dialog */}
         <Dialog open={checkInDialogOpen} onOpenChange={(open) => {
-          setCheckInDialogOpen(open);
           if (!open) {
+            // Explicit dialog close (X / Esc / outside click / programmatic close after submit)
+            // clears the saved draft per spec.
+            if (checkInEntity?.id && user?.id && !editingCheckIn) {
+              clearDraft(user.id, checkInEntity.type, checkInEntity.id);
+            }
             setEditingCheckIn(null);
+            setDraftRestorePrompt(null);
+            setDraftSavedAt(null);
           }
+          setCheckInDialogOpen(open);
         }}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
@@ -4133,6 +4242,43 @@ export default function PlanningEnhanced() {
                 {checkInEntity && `${checkInEntity.type.replace("_", " ")} - ${checkInEntity.current?.title || checkInEntity.id}`}
               </DialogDescription>
             </DialogHeader>
+
+            {draftRestorePrompt && !editingCheckIn && (
+              <Alert data-testid="alert-restore-draft" className="border-primary/30 bg-primary/5">
+                <Save className="h-4 w-4" />
+                <AlertDescription>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="text-sm">
+                      <span className="font-medium">Unsaved draft found</span>
+                      <span className="text-muted-foreground">
+                        {" · saved "}
+                        {formatDistanceToNow(new Date(draftRestorePrompt.savedAt), { addSuffix: true })}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDiscardDraft}
+                        data-testid="button-discard-draft"
+                      >
+                        Discard
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleRestoreDraft}
+                        data-testid="button-restore-draft"
+                      >
+                        Restore draft
+                      </Button>
+                    </div>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+
             <div className="space-y-4">
               <div>
                 <Label htmlFor="ci-asofdate">As Of Date</Label>
@@ -4597,8 +4743,19 @@ export default function PlanningEnhanced() {
                 )}
               </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setCheckInDialogOpen(false)}>
+            <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-xs text-muted-foreground" data-testid="text-draft-saved-indicator">
+                {!editingCheckIn && draftSavedAt !== null && (
+                  <span>
+                    Draft saved ·{" "}
+                    {draftNow - draftSavedAt < 5000
+                      ? "just now"
+                      : formatDistanceToNow(new Date(draftSavedAt), { addSuffix: true })}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={() => setCheckInDialogOpen(false)} data-testid="button-cancel-checkin">
                 Cancel
               </Button>
               <Button
@@ -4708,6 +4865,7 @@ export default function PlanningEnhanced() {
                   : (createCheckInMutation.isPending ? "Recording..." : "Record Check-In")
                 }
               </Button>
+              </div>
             </DialogFooter>
           </DialogContent>
         </Dialog>
