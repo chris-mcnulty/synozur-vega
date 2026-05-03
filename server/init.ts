@@ -367,6 +367,24 @@ async function ensureSchemaColumns() {
       );
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_webhook_ingest_logs_tenant_time ON webhook_ingest_logs(tenant_id, requested_at DESC)`);
+
+    // Search analytics events (Task #43) — defensive backstop matching shared/schema.ts.
+    // Telemetry persistence + tenant-admin analytics endpoint depend on this table.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS search_events (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id varchar NOT NULL,
+        user_id varchar,
+        event text NOT NULL,
+        query text NOT NULL DEFAULT '',
+        result_type text,
+        total_results integer,
+        created_at timestamp NOT NULL DEFAULT now()
+      );
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_search_events_tenant_created ON search_events(tenant_id, created_at DESC)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_search_events_tenant_event ON search_events(tenant_id, event)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_search_events_tenant_query ON search_events(tenant_id, query)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_webhook_ingest_logs_token_time ON webhook_ingest_logs(token_id, requested_at DESC)`);
 
     // ============================================

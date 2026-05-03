@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2, Rocket, Info, FileText, ChevronDown, LifeBuoy, Activity, Trash2, Bell, ClipboardCheck, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2, Rocket, Info, FileText, ChevronDown, LifeBuoy, Activity, Trash2, Bell, ClipboardCheck, Search, type LucideIcon } from "lucide-react";
 import { SynozurAppSwitcher } from "./SynozurAppSwitcher";
 import {
   Sidebar,
@@ -238,7 +238,7 @@ export function AppSidebar() {
         {(canManageTenant || canImportData || canManageAI) && (
           <Collapsible
             open={expandedSections.includes('manage') || 
-                  ['/launchpad', '/import', '/reporting', '/ai-grounding', '/tenant-admin'].includes(location)}
+                  ['/launchpad', '/import', '/reporting', '/ai-grounding', '/tenant-admin', '/search-analytics'].includes(location)}
             onOpenChange={() => toggleSection('manage')}
           >
             <SidebarGroup>
@@ -251,7 +251,7 @@ export function AppSidebar() {
                   <ChevronDown className={cn(
                     "h-4 w-4 transition-transform duration-200",
                     (expandedSections.includes('manage') || 
-                     ['/launchpad', '/import', '/reporting', '/ai-grounding', '/tenant-admin'].includes(location)) && "rotate-180"
+                     ['/launchpad', '/import', '/reporting', '/ai-grounding', '/tenant-admin', '/search-analytics'].includes(location)) && "rotate-180"
                   )} />
                 </SidebarGroupLabel>
               </CollapsibleTrigger>
@@ -324,6 +324,20 @@ export function AppSidebar() {
                           <a href="/tenant-admin" className="pl-6">
                             <Settings className="h-4 w-4" />
                             <span>Tenant Admin</span>
+                          </a>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    )}
+                    {canManageTenant && (
+                      <SidebarMenuItem>
+                        <SidebarMenuButton
+                          asChild
+                          isActive={location === "/search-analytics"}
+                          data-testid="sidebar-search-analytics"
+                        >
+                          <a href="/search-analytics" className="pl-6">
+                            <Search className="h-4 w-4" />
+                            <span>Search Analytics</span>
                           </a>
                         </SidebarMenuButton>
                       </SidebarMenuItem>

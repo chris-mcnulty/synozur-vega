@@ -80,6 +80,7 @@ const Trash = lazy(() => import("@/pages/Trash"));
 const Notifications = lazy(() => import("@/pages/Notifications"));
 const NotificationPreferences = lazy(() => import("@/pages/NotificationPreferences"));
 const ReviewQueue = lazy(() => import("@/pages/ReviewQueue"));
+const SearchAnalytics = lazy(() => import("@/pages/SearchAnalytics"));
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -558,6 +559,11 @@ function Router() {
       <Route path="/tenant-admin">
         <LazyProtectedRoute>
           <TenantAdmin />
+        </LazyProtectedRoute>
+      </Route>
+      <Route path="/search-analytics">
+        <LazyProtectedRoute>
+          <SearchAnalytics />
         </LazyProtectedRoute>
       </Route>
       <Route path="/system-admin">

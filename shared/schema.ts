@@ -65,6 +65,36 @@ export const insertPageVisitSchema = createInsertSchema(pageVisits).omit({
 export type InsertPageVisit = z.infer<typeof insertPageVisitSchema>;
 export type PageVisit = typeof pageVisits.$inferSelect;
 
+// Search events - records of user search activity for tenant analytics.
+// Captures queries, no-result queries, and click-through events to help admins
+// see what their team searches for and where there are content gaps.
+export const SEARCH_EVENT = {
+  QUERY: 'query',
+  RESULT_CLICKED: 'result_clicked',
+  NO_RESULTS: 'no_results',
+} as const;
+
+export type SearchEventType = typeof SEARCH_EVENT[keyof typeof SEARCH_EVENT];
+
+export const searchEvents = pgTable("search_events", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull(),
+  userId: varchar("user_id"),
+  event: text("event").notNull(), // 'query' | 'result_clicked' | 'no_results'
+  query: text("query").notNull().default(""),
+  resultType: text("result_type"), // entity type for click-through events
+  totalResults: integer("total_results"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertSearchEventSchema = createInsertSchema(searchEvents).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertSearchEvent = z.infer<typeof insertSearchEventSchema>;
+export type SearchEvent = typeof searchEvents.$inferSelect;
+
 // System banners - global announcements managed by Vega Admins
 export const BANNER_STATUS = {
   OFF: 'off',

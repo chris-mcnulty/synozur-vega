@@ -3579,14 +3579,44 @@ ${changelogContent}`;
       }
       // Best-effort logging — keep payloads small. Queries are truncated and tenant-scoped.
       const safeQuery = typeof query === "string" ? query.slice(0, 200) : "";
-      console.log(
-        `[search-telemetry] tenant=${req.effectiveTenantId} user=${req.user?.id} event=${event} ` +
-          `q="${safeQuery}" resultType=${resultType ?? "-"} total=${totalResults ?? "-"}`
-      );
+      const safeResultType = typeof resultType === "string" ? resultType.slice(0, 60) : null;
+      const safeTotal = typeof totalResults === "number" && Number.isFinite(totalResults)
+        ? Math.max(0, Math.min(100000, Math.trunc(totalResults)))
+        : null;
+
+      // Persist for tenant admin analytics. Best-effort: failure should not break the client.
+      try {
+        await storage.recordSearchEvent({
+          tenantId: req.effectiveTenantId!,
+          userId: req.user?.id ?? null,
+          event,
+          query: safeQuery,
+          resultType: safeResultType,
+          totalResults: safeTotal,
+        });
+      } catch (persistError) {
+        console.error("Failed to persist search telemetry:", persistError);
+      }
       res.json({ ok: true });
     } catch (error) {
       console.error("Error recording search telemetry:", error);
       res.status(500).json({ error: "Failed to record telemetry" });
+    }
+  });
+
+  // GET /api/admin/search-analytics - tenant-admin view of search activity.
+  // Optional ?days=30 (default 30, max 365) restricts the window.
+  app.get("/api/admin/search-analytics", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.effectiveTenantId!;
+      const daysRaw = parseInt(String(req.query.days ?? "30"), 10);
+      const days = Number.isFinite(daysRaw) ? Math.max(1, Math.min(365, daysRaw)) : 30;
+      const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+      const analytics = await storage.getSearchAnalytics(tenantId, startDate);
+      res.json({ days, ...analytics });
+    } catch (error) {
+      console.error("Error fetching search analytics:", error);
+      res.status(500).json({ error: "Failed to fetch search analytics" });
     }
   });
 

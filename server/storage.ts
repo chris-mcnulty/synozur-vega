@@ -36,6 +36,7 @@ import {
   servicePlans, type ServicePlan, type InsertServicePlan,
   blockedDomains, type BlockedDomain, type InsertBlockedDomain,
   pageVisits, type PageVisit, type InsertPageVisit,
+  searchEvents, type SearchEvent, type InsertSearchEvent,
   systemBanners, type SystemBanner, type InsertSystemBanner, BANNER_STATUS,
   seoConfig, type SeoConfig, type InsertSeoConfig,
   landingPageSettings, type LandingPageSettings, type InsertLandingPageSettings,
@@ -409,6 +410,19 @@ export interface IStorage {
   updateCapabilityTab(id: string, tab: Partial<InsertCapabilityTab>): Promise<CapabilityTab>;
   deleteCapabilityTab(id: string): Promise<void>;
   reorderCapabilityTabs(tabOrders: { id: string; sortOrder: number }[]): Promise<void>;
+  
+  // Search Analytics
+  recordSearchEvent(event: InsertSearchEvent): Promise<SearchEvent>;
+  getSearchAnalytics(tenantId: string, startDate?: Date, endDate?: Date): Promise<{
+    totalQueries: number;
+    totalNoResults: number;
+    totalClicks: number;
+    uniqueQueries: number;
+    topQueries: { query: string; count: number; avgResults: number }[];
+    noResultQueries: { query: string; count: number }[];
+    clicksByEntityType: { resultType: string; count: number }[];
+    queriesByDay: { date: string; count: number }[];
+  }>;
   
   // Page Visit Analytics
   recordPageVisit(visit: InsertPageVisit): Promise<PageVisit>;
@@ -4404,6 +4418,108 @@ export class DatabaseStorage implements IStorage {
         .set({ sortOrder, updatedAt: new Date() })
         .where(eq(capabilityTabs.id, id));
     }
+  }
+
+  async recordSearchEvent(event: InsertSearchEvent): Promise<SearchEvent> {
+    const [recorded] = await db.insert(searchEvents).values(event).returning();
+    return recorded;
+  }
+
+  async getSearchAnalytics(tenantId: string, startDate?: Date, endDate?: Date): Promise<{
+    totalQueries: number;
+    totalNoResults: number;
+    totalClicks: number;
+    uniqueQueries: number;
+    topQueries: { query: string; count: number; avgResults: number }[];
+    noResultQueries: { query: string; count: number }[];
+    clicksByEntityType: { resultType: string; count: number }[];
+    queriesByDay: { date: string; count: number }[];
+  }> {
+    const conditions: SQL[] = [eq(searchEvents.tenantId, tenantId)];
+    if (startDate) conditions.push(gte(searchEvents.createdAt, startDate));
+    if (endDate) conditions.push(lte(searchEvents.createdAt, endDate));
+    const whereClause = and(...conditions);
+
+    const rows = await db.select().from(searchEvents).where(whereClause);
+
+    let totalQueries = 0;
+    let totalNoResults = 0;
+    let totalClicks = 0;
+    const queryCounts = new Map<string, { count: number; totalResults: number; resultsObservations: number }>();
+    const noResultsCounts = new Map<string, number>();
+    const clicksByType = new Map<string, number>();
+    const dayCounts = new Map<string, number>();
+
+    for (const row of rows) {
+      // Count both 'query' and 'no_results' as search attempts so totals,
+      // unique queries, top queries, and per-day stats include dead-end
+      // searches alongside successful ones.
+      if (row.event === 'query' || row.event === 'no_results') {
+        totalQueries++;
+        if (row.event === 'no_results') totalNoResults++;
+
+        const q = (row.query || '').trim().toLowerCase();
+        if (q) {
+          const existing = queryCounts.get(q) ?? { count: 0, totalResults: 0, resultsObservations: 0 };
+          existing.count += 1;
+          // For 'no_results' totalResults is implicitly 0; record an observation
+          // so avgResults reflects dead-end searches too.
+          if (row.event === 'no_results') {
+            existing.resultsObservations += 1;
+          } else if (typeof row.totalResults === 'number') {
+            existing.totalResults += row.totalResults;
+            existing.resultsObservations += 1;
+          }
+          queryCounts.set(q, existing);
+
+          if (row.event === 'no_results') {
+            noResultsCounts.set(q, (noResultsCounts.get(q) || 0) + 1);
+          }
+        }
+
+        if (row.createdAt) {
+          const day = row.createdAt.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' });
+          dayCounts.set(day, (dayCounts.get(day) || 0) + 1);
+        }
+      } else if (row.event === 'result_clicked') {
+        totalClicks++;
+        const t = row.resultType || 'unknown';
+        clicksByType.set(t, (clicksByType.get(t) || 0) + 1);
+      }
+    }
+
+    const topQueries = Array.from(queryCounts.entries())
+      .map(([query, v]) => ({
+        query,
+        count: v.count,
+        avgResults: v.resultsObservations > 0 ? Math.round((v.totalResults / v.resultsObservations) * 10) / 10 : 0,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 25);
+
+    const noResultQueries = Array.from(noResultsCounts.entries())
+      .map(([query, count]) => ({ query, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 25);
+
+    const clicksByEntityType = Array.from(clicksByType.entries())
+      .map(([resultType, count]) => ({ resultType, count }))
+      .sort((a, b) => b.count - a.count);
+
+    const queriesByDay = Array.from(dayCounts.entries())
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    return {
+      totalQueries,
+      totalNoResults,
+      totalClicks,
+      uniqueQueries: queryCounts.size,
+      topQueries,
+      noResultQueries,
+      clicksByEntityType,
+      queriesByDay,
+    };
   }
 
   async recordPageVisit(visit: InsertPageVisit): Promise<PageVisit> {
