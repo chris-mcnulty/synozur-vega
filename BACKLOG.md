@@ -1753,7 +1753,8 @@ Week 2 (structural): ✅ MOSTLY COMPLETE
 ### Aurora Visual System — Implemented
 
 **Status:** ✅ Complete  
-**Added:** April 8, 2026
+**Added:** April 8, 2026  
+**Last updated:** May 2026 (theme readability pass)
 
 **Summary:** Full Aurora Visual System ported from Constellation (the current
 Oconee brand standard). Constellation replaces Orion as the authoritative
@@ -1782,6 +1783,29 @@ brand reference.
 3. **Purple-tinted shadows**: Light mode uses `hsl(277 50% 30%)` at subtle
    opacity; dark mode uses `hsl(277 30% 2%)` at higher opacity. Replaces
    the previous zero-opacity (invisible) shadow tokens.
+
+4. **Theme Readability Pass (May 2026)**: Follow-on fix addressing a contrast
+   collapse where card surfaces were barely distinguishable from the page
+   background in both modes (cards at 99% vs 100% white in light; 17% vs
+   11% navy in dark — a 6% gap invisible to the eye).
+
+   *Light mode adjustments:*
+   - `--card`: 99% → 97% (cards now clearly visible as elevated panels)
+   - `--card-border`: 92% → 86%
+   - `--border`: 89% → 82%
+   - `--input`: 75% → 72%
+   - `--popover`: 94% → 97% (synced with card)
+
+   *Dark mode adjustments — establishes a 5-stop elevation ladder:*
+   | Token | Before | After | Role |
+   |---|---|---|---|
+   | `--sidebar` | 7% | 6% | Deepest surface |
+   | `--background` | 11% | 10% | Page background |
+   | `--muted` | 17% | 13% | Sunken / inset areas |
+   | `--card` | 17% | 22% | Raised panels |
+   | `--secondary` | 22% | 28% | Elevated elements |
+   | `--border` | 22% | 28% | Visible dividers |
+   | `--muted-foreground` | 62% | 70% | Secondary text |
 
 **Integration points:**
 - Login page: Aurora background with `intensity="high"` and particles

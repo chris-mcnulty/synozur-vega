@@ -106,6 +106,18 @@ const roadmap: RoadmapPhase[] = [
         description: "Automated tests covering hierarchy depth enforcement, cycle detection on malformed parent links, and warning emission",
         status: "completed",
         icon: Sparkles
+      },
+      {
+        title: "GIN Trigram Index Deploy Fix",
+        description: "Migrated pg_trgm GIN index creation into a DO $$ migration block so Replit's deployment analyzer cannot strip gin_trgm_ops, unblocking publish for all tenants using full-text search",
+        status: "completed",
+        icon: Database
+      },
+      {
+        title: "Theme Readability (Light + Dark Mode)",
+        description: "Fixed contrast collapse in both modes — light mode cards now visible at 97% vs 100% background, dark mode hierarchy spread from a 6% band to sidebar 6% → bg 10% → muted 13% → card 22% → secondary 28%",
+        status: "completed",
+        icon: Sparkles
       }
     ]
   },
@@ -252,13 +264,6 @@ const roadmap: RoadmapPhase[] = [
         progress: 40,
         icon: Puzzle
       },
-      {
-        title: "GIN Trigram Index Deploy Fix",
-        description: "Migrated pg_trgm GIN index creation from runtime client.query() calls into a DO $$ migration block, preventing Replit's deployment analyzer from stripping gin_trgm_ops and breaking publish",
-        status: "in_progress",
-        progress: 100,
-        icon: Database
-      }
     ]
   },
   {
