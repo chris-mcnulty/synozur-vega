@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Bell, Check, CheckCheck, Settings as SettingsIcon } from "lucide-react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
@@ -43,9 +43,50 @@ export function NotificationBell() {
 
   const unreadCountQuery = useQuery<{ count: number }>({
     queryKey: ["/api/notifications/unread-count"],
-    refetchInterval: 30000,
+    refetchInterval: 60000,
     staleTime: STALE_TIME_FREQUENT,
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof EventSource === "undefined") return;
+    let es: EventSource | null = null;
+    let closed = false;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryDelay = 2000;
+
+    const connect = () => {
+      if (closed) return;
+      try {
+        es = new EventSource("/api/notifications/stream", { withCredentials: true });
+      } catch {
+        return;
+      }
+      es.addEventListener("ready", () => {
+        retryDelay = 2000;
+      });
+      es.addEventListener("notification", () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+      });
+      es.onerror = () => {
+        if (es) {
+          es.close();
+          es = null;
+        }
+        if (closed) return;
+        retryTimer = setTimeout(connect, retryDelay);
+        retryDelay = Math.min(retryDelay * 2, 30000);
+      };
+    };
+
+    connect();
+
+    return () => {
+      closed = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      if (es) es.close();
+    };
+  }, []);
 
   const listQuery = useQuery<Notification[]>({
     queryKey: ["/api/notifications", { limit: 20 }],

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { storage } from "./storage";
 import { loadCurrentUser } from "./middleware/rbac";
 import { NOTIFICATION_TYPES } from "@shared/schema";
+import { addClient } from "./services/notification-events";
 
 export const notificationsRouter = Router();
 
@@ -14,6 +15,38 @@ notificationsRouter.use((req: Request, res: Response, next: NextFunction) => {
 });
 
 notificationsRouter.use(loadCurrentUser);
+
+notificationsRouter.get("/stream", async (req: Request, res: Response) => {
+  if (!req.user) return res.status(401).json({ error: "Authentication required" });
+
+  res.set({
+    "Content-Type": "text/event-stream",
+    "Cache-Control": "no-cache, no-transform",
+    Connection: "keep-alive",
+    "X-Accel-Buffering": "no",
+  });
+  res.flushHeaders?.();
+  res.write(`event: ready\ndata: {"ok":true}\n\n`);
+
+  const remove = addClient(req.user.id, res);
+
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(`: ping\n\n`);
+    } catch {
+      // ignore
+    }
+  }, 25000);
+
+  const cleanup = () => {
+    clearInterval(heartbeat);
+    remove();
+    try { res.end(); } catch { /* noop */ }
+  };
+
+  req.on("close", cleanup);
+  req.on("aborted", cleanup);
+});
 
 const listQuerySchema = z.object({
   unread: z.union([z.literal("true"), z.literal("false")]).optional(),

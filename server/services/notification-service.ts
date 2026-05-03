@@ -1,5 +1,6 @@
 import { storage } from "../storage";
 import type { NotificationType, Notification } from "@shared/schema";
+import { emitNotificationCreated } from "./notification-events";
 
 export interface CreateNotificationInput {
   tenantId: string;
@@ -32,6 +33,13 @@ export async function createNotification(input: CreateNotificationInput): Promis
       entityId: input.entityId ?? null,
       linkUrl: input.linkUrl ?? null,
     });
+    if (created) {
+      try {
+        emitNotificationCreated(input.userId, created);
+      } catch (e) {
+        console.error('[notification-service] Failed to emit SSE event:', e);
+      }
+    }
     return created;
   } catch (err) {
     console.error('[notification-service] Failed to create notification:', err);
