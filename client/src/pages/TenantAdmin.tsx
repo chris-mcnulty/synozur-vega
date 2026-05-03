@@ -77,6 +77,7 @@ type User = {
   tenantId: string | null;
   emailVerified: boolean;
   authProvider?: string | null;
+  licenseType?: string | null;
 };
 
 type ConsultantAccessGrant = {
@@ -484,7 +485,8 @@ function OAuthClientsSection() {
           </CardContent>
         </Card>
       ) : (
-        <div className="rounded-md border">
+        <>
+        <div className="hidden md:block rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -539,6 +541,47 @@ function OAuthClientsSection() {
             </TableBody>
           </Table>
         </div>
+        <div className="md:hidden space-y-2">
+          {clients.map((client) => (
+            <div key={client.id} className="rounded-md border p-3 space-y-2" data-testid={`oauth-client-card-${client.id}`}>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium truncate">{client.name}</div>
+                  <code className="text-xs bg-muted px-1 py-0.5 rounded inline-block mt-1 break-all">{client.clientId}</code>
+                </div>
+                <Badge variant={client.status === "active" ? "default" : "secondary"} className="shrink-0">
+                  {client.status}
+                </Badge>
+              </div>
+              {client.scopes.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {client.scopes.map(s => (
+                    <Badge key={s} variant="secondary" className="text-xs">{s}</Badge>
+                  ))}
+                </div>
+              )}
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => toggleStatusMutation.mutate({ id: client.id, status: client.status === "active" ? "inactive" : "active" })}
+                  data-testid={`button-toggle-oauth-client-mobile-${client.id}`}
+                >
+                  {client.status === "active" ? "Disable" : "Enable"}
+                </Button>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  onClick={() => setDeletingClientId(client.id)}
+                  data-testid={`button-delete-oauth-client-mobile-${client.id}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+        </>
       )}
 
       {/* Create Dialog */}
@@ -1038,6 +1081,8 @@ function McpApiKeysSection() {
               <p className="text-sm mt-1">Create an API key to enable AI assistant access to your Vega data</p>
             </div>
           ) : (
+            <>
+            <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -1150,6 +1195,90 @@ function McpApiKeysSection() {
                 ))}
               </TableBody>
             </Table>
+            </div>
+            <div className="md:hidden space-y-2">
+              {activeKeys.map((key) => (
+                <div key={key.id} className="rounded-md border p-3 space-y-2" data-testid={`mcp-key-card-${key.id}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="font-medium truncate">{key.name}</span>
+                        {key.directAuth && (
+                          <Badge variant="outline" className="text-xs">Direct</Badge>
+                        )}
+                      </div>
+                      <code className="text-xs font-mono text-muted-foreground mt-0.5 block">{key.keyPrefix}</code>
+                    </div>
+                    <div className="shrink-0">
+                      {key.rotationGracePeriodEnds ? (
+                        <Badge variant="secondary" className="text-xs">Rotating</Badge>
+                      ) : key.expiresAt && new Date(key.expiresAt) < new Date() ? (
+                        <Badge variant="destructive" className="text-xs">Expired</Badge>
+                      ) : (
+                        <Badge variant="default" className="text-xs">Active</Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {key.scopes.map((scope) => (
+                      <Badge key={scope} variant="secondary" className="text-xs">
+                        {scope.replace('read:', 'R:').replace('write:', 'W:')}
+                      </Badge>
+                    ))}
+                  </div>
+                  <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span>
+                      {key.allowedIps && key.allowedIps.length > 0
+                        ? `${key.allowedIps.length} IP${key.allowedIps.length > 1 ? 's' : ''}`
+                        : 'Any IP'}
+                    </span>
+                    <span>{new Date(key.createdAt).toLocaleDateString()}</span>
+                  </div>
+                  <div className="flex items-center justify-end gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setEditingKey(key);
+                        setEditAllowedIps(key.allowedIps?.join('\n') || '');
+                        setIsEditDialogOpen(true);
+                      }}
+                      title="Edit IP restrictions"
+                      data-testid={`button-edit-key-mobile-${key.id}`}
+                    >
+                      <Settings className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setRotatingKey(key);
+                        setRotatedNewKey(null);
+                        setIsRotateDialogOpen(true);
+                      }}
+                      title="Rotate key"
+                      data-testid={`button-rotate-key-mobile-${key.id}`}
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        if (confirm('Revoke this API key? This cannot be undone.')) {
+                          revokeKeyMutation.mutate(key.id);
+                        }
+                      }}
+                      title="Revoke key"
+                      data-testid={`button-revoke-key-mobile-${key.id}`}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -1658,6 +1787,8 @@ function TeamManagementSection({
               <p className="text-sm text-muted-foreground">Create teams to organize your objectives by department or division</p>
             </div>
           ) : (
+            <>
+            <div className="hidden md:block">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -1716,6 +1847,53 @@ function TeamManagementSection({
                 ))}
               </TableBody>
             </Table>
+            </div>
+            <div className="md:hidden space-y-2">
+              {teams.map((team) => (
+                <div key={team.id} className="rounded-md border p-3 space-y-2" data-testid={`team-card-${team.id}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium truncate">{team.name}</div>
+                      {team.description && (
+                        <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5">{team.description}</div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleOpenEditDialog(team)}
+                        data-testid={`button-edit-team-mobile-${team.id}`}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => {
+                          setTeamToDelete(team);
+                          setIsDeleteDialogOpen(true);
+                        }}
+                        data-testid={`button-delete-team-mobile-${team.id}`}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1">
+                    {team.leaderId ? (
+                      <Badge variant="secondary" className="text-xs">{getLeaderName(team.leaderId)}</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs text-muted-foreground">No leader</Badge>
+                    )}
+                    <Badge variant="outline" className="text-xs">
+                      {team.memberIds?.length || 0} members
+                    </Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -2292,7 +2470,8 @@ function WebhookIngestAuditCard() {
               No webhook activity yet. Tokens are created from a key result's "Auto-update" tab.
             </p>
           ) : (
-            <div className="overflow-x-auto">
+            <>
+            <div className="hidden md:block overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -2339,6 +2518,43 @@ function WebhookIngestAuditCard() {
                 </TableBody>
               </Table>
             </div>
+            <div className="md:hidden space-y-2 p-3">
+              {logs.slice(0, 100).map((row) => (
+                <div key={row.id} className="rounded-md border p-3 space-y-1" data-testid={`card-webhook-log-${row.id}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <span className="text-xs text-muted-foreground">
+                      {new Date(row.requestedAt).toLocaleString()}
+                    </span>
+                    <Badge variant={statusVariant(row.statusCode)} className="text-xs shrink-0">
+                      {row.statusCode}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div>
+                      <div className="text-muted-foreground">Token</div>
+                      <div className="truncate">{row.tokenLabel ?? "—"}</div>
+                    </div>
+                    <div>
+                      <div className="text-muted-foreground">Source IP</div>
+                      <div className="font-mono truncate">{row.sourceIp ?? "—"}</div>
+                    </div>
+                  </div>
+                  {row.keyResultTitle && (
+                    <div className="text-xs">
+                      <div className="text-muted-foreground">Key Result</div>
+                      <div className="truncate">{row.keyResultTitle}</div>
+                    </div>
+                  )}
+                  {row.errorCode && (
+                    <div className="text-xs text-muted-foreground">
+                      <span className="font-medium">{row.errorCode}</span>
+                      {row.errorMessage ? `: ${row.errorMessage}` : ""}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+            </>
           )}
         </CardContent>
       </Card>
@@ -2498,7 +2714,7 @@ function PortalAuditLogViewer({ tenants }: { tenants: Tenant[] }) {
           </span>
         </div>
 
-        <div className="rounded-md border overflow-x-auto">
+        <div className="hidden md:block rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
@@ -2565,6 +2781,55 @@ function PortalAuditLogViewer({ tenants }: { tenants: Tenant[] }) {
               )}
             </TableBody>
           </Table>
+        </div>
+        <div className="md:hidden space-y-2">
+          {isLoading ? (
+            <p className="text-center text-sm text-muted-foreground py-6">Loading audit logs...</p>
+          ) : isError ? (
+            <p className="text-center text-sm text-destructive py-6" data-testid="text-portal-audit-error-mobile">
+              Failed to load audit logs{error instanceof Error && error.message ? `: ${error.message}` : ""}
+            </p>
+          ) : logs.length === 0 ? (
+            <p className="text-center text-sm text-muted-foreground py-6" data-testid="text-portal-audit-empty-mobile">
+              No audit log entries match the current filters.
+            </p>
+          ) : (
+            logs.map((log) => (
+              <div key={log.id} className="rounded-md border p-3 space-y-1" data-testid={`card-portal-audit-${log.id}`}>
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(log.createdAt).toLocaleString()}
+                  </span>
+                  <Badge variant={statusVariant(log.statusCode)} className="shrink-0" data-testid={`badge-portal-audit-status-mobile-${log.id}`}>
+                    {log.statusCode}
+                  </Badge>
+                </div>
+                <div className="text-xs font-mono break-all">
+                  <span className="text-muted-foreground">{log.method}</span>{" "}
+                  <span>{log.route}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div>
+                    <div className="text-muted-foreground">User</div>
+                    <div className="truncate">{log.userEmail || log.userName || "—"}</div>
+                  </div>
+                  <div>
+                    <div className="text-muted-foreground">Duration</div>
+                    <div>{log.durationMs !== null ? `${log.durationMs} ms` : "—"}</div>
+                  </div>
+                </div>
+                {log.galaxyUserId && (
+                  <div className="text-xs">
+                    <span className="text-muted-foreground">Galaxy: </span>
+                    <span className="font-mono break-all">{log.galaxyUserId}</span>
+                  </div>
+                )}
+                {log.errorMessage && (
+                  <div className="text-xs text-destructive break-words">{log.errorMessage}</div>
+                )}
+              </div>
+            ))
+          )}
         </div>
       </CardContent>
     </Card>
@@ -3406,7 +3671,7 @@ export default function TenantAdmin() {
       sendWelcomeEmail: false,
       userType: ((user as any).userType || "client") as "client" | "consultant" | "internal",
       azureObjectId: "", // Reset for edit mode
-      licenseType: ((user as any).licenseType || "read_write") as "read_write" | "read_only",
+      licenseType: (user.licenseType || "read_write") as "read_write" | "read_only",
     });
     setUserDialogOpen(true);
   };
@@ -3996,6 +4261,8 @@ export default function TenantAdmin() {
               {usersLoading ? (
                 <p className="text-muted-foreground">Loading users...</p>
               ) : (
+                <>
+                <div className="hidden md:block">
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -4052,7 +4319,7 @@ export default function TenantAdmin() {
                           {/* Admins always have read-write access */}
                           {['tenant_admin', 'admin', 'global_admin', 'vega_admin', 'vega_consultant'].includes(user.role) ? (
                             <Badge variant="default" className="bg-primary">Read-Write</Badge>
-                          ) : (user as any).licenseType === 'read_only' ? (
+                          ) : user.licenseType === 'read_only' ? (
                             <Badge variant="secondary">Read-Only</Badge>
                           ) : (
                             <Badge variant="default" className="bg-primary">Read-Write</Badge>
@@ -4119,6 +4386,110 @@ export default function TenantAdmin() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
+                <div className="md:hidden space-y-2">
+                  {users
+                    .filter((user) => {
+                      if (userTenantFilter === "ALL") return true;
+                      if (userTenantFilter === "NONE") return !user.tenantId;
+                      return user.tenantId === userTenantFilter;
+                    })
+                    .sort((a, b) => {
+                      const nameA = (a.name || a.email || "").toLowerCase();
+                      const nameB = (b.name || b.email || "").toLowerCase();
+                      return nameA.localeCompare(nameB);
+                    })
+                    .map((user) => {
+                      const isAdminRole = ['tenant_admin', 'admin', 'global_admin', 'vega_admin', 'vega_consultant'].includes(user.role);
+                      return (
+                        <div key={user.id} className="rounded-md border p-3 space-y-2" data-testid={`user-card-${user.id}`}>
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0 flex-1">
+                              <div className="font-medium truncate">{user.name || "-"}</div>
+                              <div className="text-xs font-mono text-muted-foreground truncate">{user.email}</div>
+                              <div className="text-xs text-muted-foreground mt-0.5 truncate">{getTenantName(user.tenantId)}</div>
+                            </div>
+                            <div className="flex items-center gap-1 shrink-0">
+                              {!user.emailVerified && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => {
+                                    if (confirm(`Manually verify ${user.email}?`)) {
+                                      manualVerifyMutation.mutate(user.id);
+                                    }
+                                  }}
+                                  disabled={manualVerifyMutation.isPending}
+                                  data-testid={`button-verify-mobile-${user.id}`}
+                                >
+                                  <CheckCircle2 className="h-3 w-3" />
+                                </Button>
+                              )}
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  if (confirm(`Send welcome email to ${user.email}?`)) {
+                                    resendWelcomeEmailMutation.mutate(user.id);
+                                  }
+                                }}
+                                disabled={resendWelcomeEmailMutation.isPending}
+                                data-testid={`button-resend-welcome-mobile-${user.id}`}
+                              >
+                                <Mail className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleOpenEditUserDialog(user)}
+                                data-testid={`button-edit-user-mobile-${user.id}`}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  if (confirm(`Are you sure you want to delete user "${user.email}"?`)) {
+                                    deleteUserMutation.mutate(user.id);
+                                  }
+                                }}
+                                data-testid={`button-delete-user-mobile-${user.id}`}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-1">
+                            {user.emailVerified ? (
+                              <Badge variant="default" className="bg-green-600 text-xs">
+                                <CheckCircle2 className="h-3 w-3 mr-1" />
+                                Verified
+                              </Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-amber-600 text-xs">
+                                <AlertCircle className="h-3 w-3 mr-1" />
+                                Unverified
+                              </Badge>
+                            )}
+                            <Badge variant="outline" className="text-xs">{user.role}</Badge>
+                            {user.authProvider === 'galaxy' && (
+                              <Badge variant="secondary" className="text-xs" data-testid={`badge-galaxy-mobile-${user.id}`}>
+                                <Sparkles className="h-3 w-3 mr-1" />
+                                Galaxy
+                              </Badge>
+                            )}
+                            {isAdminRole || user.licenseType !== 'read_only' ? (
+                              <Badge variant="default" className="bg-primary text-xs">Read-Write</Badge>
+                            ) : (
+                              <Badge variant="secondary" className="text-xs">Read-Only</Badge>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+                </>
               )}
             </CardContent>
           </Card>

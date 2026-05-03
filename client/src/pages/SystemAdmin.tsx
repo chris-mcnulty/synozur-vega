@@ -1131,7 +1131,8 @@ export default function SystemAdmin() {
               {servicePlans.length === 0 ? (
                 <p className="text-muted-foreground text-sm">No service plans defined yet. Create your first plan to enable tenant licensing.</p>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                <div className="hidden md:block overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1181,6 +1182,55 @@ export default function SystemAdmin() {
                     </TableBody>
                   </Table>
                 </div>
+                <div className="md:hidden space-y-2">
+                  {servicePlans.map((plan) => (
+                    <div key={plan.id} className="rounded-md border p-3 space-y-2" data-testid={`card-plan-${plan.id}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-medium truncate">{plan.name}</div>
+                          <div className="text-xs text-muted-foreground truncate">{plan.displayName}</div>
+                        </div>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {plan.isDefault && <Badge variant="default" className="text-xs">Default</Badge>}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setEditingServicePlan(plan);
+                              setServicePlanFormData({
+                                name: plan.name,
+                                displayName: plan.displayName,
+                                durationDays: plan.durationDays?.toString() || "",
+                                maxReadWriteUsers: plan.maxReadWriteUsers?.toString() || "",
+                                maxReadOnlyUsers: plan.maxReadOnlyUsers?.toString() || "",
+                                isDefault: plan.isDefault || false,
+                              });
+                              setServicePlanDialogOpen(true);
+                            }}
+                            data-testid={`button-edit-plan-mobile-${plan.id}`}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-2 text-xs">
+                        <div>
+                          <div className="text-muted-foreground">Duration</div>
+                          <div>{plan.durationDays ? `${plan.durationDays}d` : "∞"}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">R/W Users</div>
+                          <div>{plan.maxReadWriteUsers ?? "∞"}</div>
+                        </div>
+                        <div>
+                          <div className="text-muted-foreground">Read-Only</div>
+                          <div>{plan.maxReadOnlyUsers ?? "∞"}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -1214,7 +1264,8 @@ export default function SystemAdmin() {
               {blockedDomains.length === 0 ? (
                 <p className="text-muted-foreground text-sm">No blocked domains. All email domains can create self-service accounts.</p>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                <div className="hidden md:block overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1251,6 +1302,38 @@ export default function SystemAdmin() {
                     </TableBody>
                   </Table>
                 </div>
+                <div className="md:hidden space-y-2">
+                  {blockedDomains.map((domain) => (
+                    <div key={domain.domain} className="rounded-md border p-3 space-y-2" data-testid={`card-blocked-${domain.domain}`}>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="font-mono text-sm truncate">{domain.domain}</div>
+                          {domain.reason && (
+                            <div className="text-xs text-muted-foreground truncate mt-0.5">{domain.reason}</div>
+                          )}
+                          {domain.blockedAt && (
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              Blocked {new Date(domain.blockedAt).toLocaleDateString()}
+                            </div>
+                          )}
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => {
+                            if (confirm(`Unblock domain "${domain.domain}"?`)) {
+                              unblockDomainMutation.mutate(domain.domain);
+                            }
+                          }}
+                          data-testid={`button-unblock-mobile-${domain.domain}`}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -1271,7 +1354,8 @@ export default function SystemAdmin() {
               {adminTenants.length === 0 ? (
                 <p className="text-muted-foreground text-sm">No tenants found.</p>
               ) : (
-                <div className="overflow-x-auto">
+                <>
+                <div className="hidden md:block overflow-x-auto">
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -1345,6 +1429,67 @@ export default function SystemAdmin() {
                     </TableBody>
                   </Table>
                 </div>
+                <div className="md:hidden space-y-2">
+                  {adminTenants.map((tenant) => {
+                    const isExpired = tenant.planExpiresAt && new Date(tenant.planExpiresAt) < new Date();
+                    const daysLeft = tenant.planExpiresAt
+                      ? Math.ceil((new Date(tenant.planExpiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                      : null;
+                    return (
+                      <div key={tenant.id} className="rounded-md border p-3 space-y-2" data-testid={`card-tenant-plan-${tenant.id}`}>
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                            <div
+                              className="w-3 h-3 rounded-full shrink-0"
+                              style={{ backgroundColor: tenant.color || '#6366F1' }}
+                            />
+                            <span className="font-medium truncate">{tenant.name}</span>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setSelectedTenantForPlan(tenant);
+                              setTenantPlanFormData({
+                                servicePlanId: tenant.servicePlanId || "none",
+                                planExpiresAt: tenant.planExpiresAt ? new Date(tenant.planExpiresAt).toISOString().split('T')[0] : "",
+                              });
+                              setTenantPlanDialogOpen(true);
+                            }}
+                            data-testid={`button-edit-tenant-plan-mobile-${tenant.id}`}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant={tenant.servicePlan ? "default" : "secondary"} className="text-xs">
+                            {tenant.servicePlan?.displayName || "No Plan"}
+                          </Badge>
+                          {isExpired ? (
+                            <Badge variant="destructive" className="text-xs">Expired</Badge>
+                          ) : daysLeft !== null && daysLeft <= 30 ? (
+                            <Badge variant="outline" className="text-xs text-amber-600 border-amber-600">
+                              {daysLeft}d left
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-xs text-green-600 border-green-600">Active</Badge>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                          <div>
+                            <div>Started</div>
+                            <div className="text-foreground">{tenant.planStartedAt ? new Date(tenant.planStartedAt).toLocaleDateString() : "-"}</div>
+                          </div>
+                          <div>
+                            <div>Expires</div>
+                            <div className="text-foreground">{tenant.planExpiresAt ? new Date(tenant.planExpiresAt).toLocaleDateString() : "Never"}</div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                </>
               )}
             </CardContent>
           </Card>
@@ -1426,7 +1571,62 @@ export default function SystemAdmin() {
                     </Card>
                   </div>
 
-                  <div className="overflow-x-auto">
+                  <div className="md:hidden space-y-2">
+                    {tenantActivity.tenants.map((tenant) => (
+                      <div
+                        key={tenant.id}
+                        className="rounded-md border p-3 space-y-2"
+                        data-testid={`card-tenant-activity-${tenant.id}`}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0 flex-1">
+                            <div className="font-medium truncate">{tenant.name}</div>
+                            <div className="text-xs text-muted-foreground truncate">
+                              {tenant.planName || 'No Plan'}
+                              {tenant.selfServiceSignup ? ' · Self-service' : ''}
+                            </div>
+                          </div>
+                          <Badge
+                            variant={tenant.planStatus === 'active' ? 'default' : 'secondary'}
+                            className="shrink-0 text-xs"
+                          >
+                            {tenant.planStatus || 'N/A'}
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div>
+                            <div className="text-muted-foreground">Users</div>
+                            <div className="font-medium">{tenant.totalUsers}</div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">Active 30d</div>
+                            <div className={tenant.activeUsersLast30Days > 0 ? 'text-green-600 font-medium' : ''}>
+                              {tenant.activeUsersLast30Days}
+                            </div>
+                          </div>
+                          <div>
+                            <div className="text-muted-foreground">OKRs</div>
+                            <div className="font-medium">{tenant.elements.objectivesCount}</div>
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1 text-xs">
+                          <Badge variant="outline" className="text-xs">
+                            {tenant.elements.hasMission ? 'M' : '–M'}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">
+                            {tenant.elements.hasVision ? 'V' : '–V'}
+                          </Badge>
+                          <Badge variant="outline" className="text-xs">Val {tenant.elements.valuesCount}</Badge>
+                          <Badge variant="outline" className="text-xs">G {tenant.elements.goalsCount}</Badge>
+                          <Badge variant="outline" className="text-xs">S {tenant.elements.strategiesCount}</Badge>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Last active: {tenant.lastActivityDate || 'Never'}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  <div className="hidden md:block overflow-x-auto">
                     <table className="w-full text-sm" data-testid="table-tenant-activity">
                       <thead>
                         <tr className="border-b">
