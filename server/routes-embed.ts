@@ -568,9 +568,11 @@ body {
 <script>
   (function() {
     var refreshSec = ${REFRESH_SECONDS};
-    setTimeout(function() {
+    function doRefresh() {
       try {
-        fetch(window.location.href.replace(/([?&])json=1(&|$)/, '$2') + (window.location.href.indexOf('?') === -1 ? '?' : '&') + 'json=1')
+        var jsonUrl = window.location.href.replace(/([?&])json=1(&|$)/, '$2');
+        jsonUrl += (jsonUrl.indexOf('?') === -1 ? '?' : '&') + 'json=1';
+        fetch(jsonUrl)
           .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
           .then(function(data) {
             var t = document.querySelector('[data-testid="embed-title"]');
@@ -596,7 +598,9 @@ body {
           })
           .catch(function() { window.location.reload(); });
       } catch(e) { window.location.reload(); }
-    }, refreshSec * 1000);
+    }
+    // Repeat every refreshSec seconds for the lifetime of the iframe.
+    setInterval(doRefresh, refreshSec * 1000);
   })();
 </script>
 </body>

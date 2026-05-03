@@ -141,11 +141,18 @@ export function EmbedDialog({ open, onClose, entityType, entityId, entityTitle }
   const activeTokens = (tokensQuery.data ?? []).filter((t) => !t.revokedAt);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
-  // Expiry options: 24h, 30d, and no-expiry (admin only)
+  // Roles that match the server-side EMBED_ADMIN_ROLES set and may issue
+  // permanent (no-expiry) tokens.
+  const EMBED_ADMIN_ROLES = new Set([
+    "tenant_admin", "admin", "vega_admin", "global_admin", "vega_consultant",
+  ]);
+  const canIssueNoExpiry = !!permissions.role && EMBED_ADMIN_ROLES.has(permissions.role);
+
+  // Expiry options: 24h, 30d, and no-expiry (elevated roles only)
   const expiryOptions = [
     { value: "24", label: "24 hours" },
     { value: "720", label: "30 days" },
-    ...(permissions.isAdmin ? [{ value: "none", label: "No expiry (admin)" }] : []),
+    ...(canIssueNoExpiry ? [{ value: "none", label: "No expiry (admin)" }] : []),
   ];
 
   const previewHeights: Record<string, number> = { sm: 160, md: 240, lg: 360 };
@@ -280,7 +287,7 @@ export function EmbedDialog({ open, onClose, entityType, entityId, entityTitle }
                   ))}
                 </SelectContent>
               </Select>
-              {!permissions.isAdmin && (
+              {!canIssueNoExpiry && (
                 <p className="text-xs text-muted-foreground">Maximum 30 days for your role. Admins may issue permanent tokens.</p>
               )}
             </div>
