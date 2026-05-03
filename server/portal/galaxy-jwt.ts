@@ -80,11 +80,33 @@ function extractClientId(claims: GalaxyJwtClaims): string | null {
 }
 
 /**
+ * Pluggable dependencies for the JWT validator. Production code never
+ * supplies these — the defaults call the real JWKS client and SSRF guard.
+ * Integration tests pass overrides in-process so they can verify against
+ * an injected RSA key + skip the network/SSRF guard for non-routable URIs.
+ *
+ * There is no env var, config flag, or mutable module state that turns the
+ * overrides on; they only take effect when explicitly passed to the function
+ * as an argument. Production callers (`requirePortalAuth`) never construct
+ * a deps object, so the trust boundary is never weakened at runtime.
+ */
+export interface GalaxyJwtDeps {
+  resolveSigningKey?: (jwksUri: string, header: jwt.JwtHeader) => Promise<string>;
+  validateJwksUri?: (jwksUri: string) => Promise<void>;
+}
+
+/**
  * Validate a Galaxy-issued bearer token. Returns auth context on success
  * or null on any validation failure. Tenant resolution is by
  * tenants.galaxyClientId — never by ambient request context.
  */
-export async function validateGalaxyJwt(token: string): Promise<GalaxyAuthContext | null> {
+export async function validateGalaxyJwt(
+  token: string,
+  deps: GalaxyJwtDeps = {},
+): Promise<GalaxyAuthContext | null> {
+  const resolveSigningKey = deps.resolveSigningKey ?? getSigningKey;
+  const validateJwksUri = deps.validateJwksUri ?? assertSafeJwksUri;
+
   try {
     const decoded = jwt.decode(token, { complete: true });
     if (!decoded || typeof decoded === 'string') {
@@ -119,7 +141,7 @@ export async function validateGalaxyJwt(token: string): Promise<GalaxyAuthContex
     // Defense-in-depth SSRF guard: even if a malicious jwksUri slipped past
     // the tenant PATCH validator, refuse to fetch from non-public targets.
     try {
-      await assertSafeJwksUri(jwksUri);
+      await validateJwksUri(jwksUri);
     } catch (err) {
       console.error('[Galaxy JWT] Refusing JWKS URI:', err instanceof Error ? err.message : err);
       return null;
@@ -135,7 +157,7 @@ export async function validateGalaxyJwt(token: string): Promise<GalaxyAuthContex
 
     let signingKey: string;
     try {
-      signingKey = await getSigningKey(jwksUri, decoded.header);
+      signingKey = await resolveSigningKey(jwksUri, decoded.header);
     } catch (err) {
       console.error('[Galaxy JWT] Failed to get signing key:', err instanceof Error ? err.message : err);
       return null;

@@ -7,6 +7,14 @@ import { validateGalaxyJwt, type GalaxyAuthContext } from './galaxy-jwt';
 import { ROLES, USER_TYPES } from '../../shared/rbac';
 import type { User, InsertUser, InsertPortalAuditLog } from '@shared/schema';
 
+/**
+ * Signature for any function that takes a bearer token and returns a Galaxy
+ * auth context (or null on failure). Production wires this to the real
+ * `validateGalaxyJwt`; integration tests pass a wrapper that injects an
+ * in-process signing key + skips the SSRF guard.
+ */
+export type GalaxyTokenValidator = (token: string) => Promise<GalaxyAuthContext | null>;
+
 declare global {
   namespace Express {
     interface Request {
@@ -122,74 +130,89 @@ function recordAudit(
 
 // ----- Middleware -----------------------------------------------------------
 
-export async function requirePortalAuth(req: Request, res: Response, next: NextFunction) {
-  const startedAt = Date.now();
+/**
+ * Build the portal auth middleware. Production calls this with no arguments
+ * and gets a middleware wired to the real `validateGalaxyJwt`. Tests inject
+ * a wrapper validator that supplies an in-process signing key + skips the
+ * SSRF guard, so the test never has to mutate module-level state.
+ */
+export function createRequirePortalAuth(
+  validateToken: GalaxyTokenValidator = validateGalaxyJwt,
+) {
+  return async function requirePortalAuth(req: Request, res: Response, next: NextFunction) {
+    const startedAt = Date.now();
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'invalid_token', error_description: 'Bearer token required' });
-    recordAudit(req, res, null, startedAt, 'missing_bearer');
-    return;
-  }
-  const token = authHeader.substring(7).trim();
-  if (!token) {
-    res.status(401).json({ error: 'invalid_token', error_description: 'Empty bearer token' });
-    recordAudit(req, res, null, startedAt, 'empty_token');
-    return;
-  }
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(401).json({ error: 'invalid_token', error_description: 'Bearer token required' });
+      recordAudit(req, res, null, startedAt, 'missing_bearer');
+      return;
+    }
+    const token = authHeader.substring(7).trim();
+    if (!token) {
+      res.status(401).json({ error: 'invalid_token', error_description: 'Empty bearer token' });
+      recordAudit(req, res, null, startedAt, 'empty_token');
+      return;
+    }
 
-  const ctx = await validateGalaxyJwt(token);
-  if (!ctx) {
-    res.status(401).json({ error: 'invalid_token', error_description: 'Galaxy token validation failed' });
-    recordAudit(req, res, null, startedAt, 'jwt_validation_failed');
-    return;
-  }
+    const ctx = await validateToken(token);
+    if (!ctx) {
+      res.status(401).json({ error: 'invalid_token', error_description: 'Galaxy token validation failed' });
+      recordAudit(req, res, null, startedAt, 'jwt_validation_failed');
+      return;
+    }
 
-  const rl = checkRateLimit(ctx.tenant.id);
-  res.setHeader('X-RateLimit-Limit', String(RATE_LIMIT_PER_WINDOW));
-  res.setHeader('X-RateLimit-Remaining', String(rl.remaining));
-  if (!rl.allowed) {
-    res.setHeader('Retry-After', String(Math.ceil(rl.resetMs / 1000)));
-    res.status(429).json({ error: 'rate_limit_exceeded' });
-    recordAudit(req, res, ctx, startedAt, 'rate_limited');
-    return;
-  }
+    const rl = checkRateLimit(ctx.tenant.id);
+    res.setHeader('X-RateLimit-Limit', String(RATE_LIMIT_PER_WINDOW));
+    res.setHeader('X-RateLimit-Remaining', String(rl.remaining));
+    if (!rl.allowed) {
+      res.setHeader('Retry-After', String(Math.ceil(rl.resetMs / 1000)));
+      res.status(429).json({ error: 'rate_limit_exceeded' });
+      recordAudit(req, res, ctx, startedAt, 'rate_limited');
+      return;
+    }
 
-  let user: User;
-  let linkedUser: User | undefined;
-  try {
-    const result = await findOrProvisionPortalUser(ctx);
-    user = result.user;
-    linkedUser = result.linkedUser;
-  } catch (err) {
-    console.error('[Portal] JIT provisioning failed:', err);
-    res.status(500).json({ error: 'server_error' });
-    recordAudit(req, res, ctx, startedAt, 'jit_failed');
-    return;
-  }
-  if (linkedUser) {
-    ctx.linkedVegaUser = { id: linkedUser.id, email: linkedUser.email };
-  }
+    let user: User;
+    let linkedUser: User | undefined;
+    try {
+      const result = await findOrProvisionPortalUser(ctx);
+      user = result.user;
+      linkedUser = result.linkedUser;
+    } catch (err) {
+      console.error('[Portal] JIT provisioning failed:', err);
+      res.status(500).json({ error: 'server_error' });
+      recordAudit(req, res, ctx, startedAt, 'jit_failed');
+      return;
+    }
+    if (linkedUser) {
+      ctx.linkedVegaUser = { id: linkedUser.id, email: linkedUser.email };
+    }
 
-  // Defense-in-depth invariants: a portal_user row must always be scoped to
-  // the resolved tenant and must never carry a non-portal role.
-  if (user.tenantId !== ctx.tenant.id) {
-    console.error(`[Portal] User ${user.id} tenant mismatch (${user.tenantId} vs ${ctx.tenant.id})`);
-    res.status(403).json({ error: 'tenant_mismatch' });
-    recordAudit(req, res, ctx, startedAt, 'tenant_mismatch');
-    return;
-  }
-  if (user.role !== ROLES.PORTAL_USER) {
-    console.error(`[Portal] User ${user.id} has unexpected role '${user.role}' for portal access`);
-    res.status(403).json({ error: 'invalid_role' });
-    recordAudit(req, res, ctx, startedAt, 'invalid_role');
-    return;
-  }
+    // Defense-in-depth invariants: a portal_user row must always be scoped to
+    // the resolved tenant and must never carry a non-portal role.
+    if (user.tenantId !== ctx.tenant.id) {
+      console.error(`[Portal] User ${user.id} tenant mismatch (${user.tenantId} vs ${ctx.tenant.id})`);
+      res.status(403).json({ error: 'tenant_mismatch' });
+      recordAudit(req, res, ctx, startedAt, 'tenant_mismatch');
+      return;
+    }
+    if (user.role !== ROLES.PORTAL_USER) {
+      console.error(`[Portal] User ${user.id} has unexpected role '${user.role}' for portal access`);
+      res.status(403).json({ error: 'invalid_role' });
+      recordAudit(req, res, ctx, startedAt, 'invalid_role');
+      return;
+    }
 
-  req.user = user;
-  req.effectiveTenantId = ctx.tenant.id;
-  req.portalAuth = ctx;
+    req.user = user;
+    req.effectiveTenantId = ctx.tenant.id;
+    req.portalAuth = ctx;
 
-  res.on('finish', () => recordAudit(req, res, ctx, startedAt));
-  next();
+    res.on('finish', () => recordAudit(req, res, ctx, startedAt));
+    next();
+  };
 }
+
+/**
+ * Default production middleware bound to the real Galaxy JWT validator.
+ */
+export const requirePortalAuth = createRequirePortalAuth();

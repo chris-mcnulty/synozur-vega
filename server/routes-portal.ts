@@ -2,7 +2,7 @@
 // scoped to req.effectiveTenantId (resolved from the JWT client_id) and
 // filtered to entities owned by the portal user or their linked Vega user.
 
-import { Router, type Request, type Response } from 'express';
+import { Router, type Request, type RequestHandler, type Response } from 'express';
 import { storage } from './storage';
 import { requirePortalAuth } from './portal/middleware';
 import type {
@@ -14,9 +14,21 @@ import type {
 } from '@shared/schema';
 import type { GalaxyAuthContext } from './portal/galaxy-jwt';
 
-export const portalRouter = Router();
+/**
+ * Build the portal router. Production calls this with no arguments and the
+ * default `requirePortalAuth` (real Galaxy JWT validator) is mounted. Tests
+ * pass an in-process middleware that injects an RSA key + skips the SSRF
+ * guard, so the test exercises the full handler chain without ever mutating
+ * module-level state in the production validator.
+ */
+export function createPortalRouter(authMiddleware: RequestHandler = requirePortalAuth): Router {
+  const portalRouter = Router();
+  portalRouter.use(authMiddleware);
+  registerPortalRoutes(portalRouter);
+  return portalRouter;
+}
 
-portalRouter.use(requirePortalAuth);
+function registerPortalRoutes(portalRouter: Router): void {
 
 // ----- Identity set used for ownership matching ----------------------------
 
@@ -261,3 +273,10 @@ portalRouter.get('/check-ins', async (req: Request, res: Response) => {
   );
   res.json(filtered);
 });
+
+} // end registerPortalRoutes
+
+/**
+ * Default production portal router, bound to the real Galaxy JWT validator.
+ */
+export const portalRouter = createPortalRouter();
