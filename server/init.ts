@@ -247,6 +247,32 @@ async function ensureSchemaColumns() {
         ON entity_comments (parent_comment_id);
     `);
 
+    // Ensure saved_views table exists (used by Saved Views & Filters on
+    // Outcomes / My Focus / Big Rocks).
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS saved_views (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        owner_user_id varchar NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        page text NOT NULL,
+        name text NOT NULL,
+        filter_json jsonb NOT NULL DEFAULT '{}'::jsonb,
+        visibility text NOT NULL DEFAULT 'private',
+        is_default boolean NOT NULL DEFAULT false,
+        created_at timestamp NOT NULL DEFAULT now(),
+        updated_at timestamp NOT NULL DEFAULT now(),
+        deleted_at timestamp
+      );
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_saved_views_tenant_page
+        ON saved_views(tenant_id, page) WHERE deleted_at IS NULL;
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_saved_views_owner
+        ON saved_views(owner_user_id) WHERE deleted_at IS NULL;
+    `);
+
     console.log("✓ Database schema verified");
   } catch (error) {
     console.error("Schema check error:", error);

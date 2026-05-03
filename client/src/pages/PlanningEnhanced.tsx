@@ -32,6 +32,8 @@ import { getCurrentQuarter } from "@/lib/quarters";
 import { WeightManager } from "@/components/WeightManager";
 import { ValueTagSelector } from "@/components/ValueTagSelector";
 import { HierarchicalOKRTable } from "@/components/okr/HierarchicalOKRTable";
+import { SavedViewBar } from "@/components/SavedViewBar";
+import { useSavedViews } from "@/hooks/useSavedViews";
 import { OKRFilters } from "@/components/okr/OKRFilters";
 import { OKRDetailPane } from "@/components/okr/OKRDetailPane";
 import { ProgressSummaryBar } from "@/components/okr/ProgressSummaryBar";
@@ -44,7 +46,7 @@ import { PlannerCreatePlanDialog } from "@/components/planner/PlannerCreatePlanD
 import { PlannerTaskLinkPanel } from "@/components/planner/PlannerTaskLinkPanel";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { Foundation, CompanyValue, AnnualGoal, Ambition, BigRockTask } from "@shared/schema";
+import type { Foundation, CompanyValue, AnnualGoal, Ambition, BigRockTask, PageFilterState } from "@shared/schema";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Save } from "lucide-react";
 import { AIGoalsSuggestionDialog } from "@/components/AIGoalsSuggestionDialog";
@@ -176,6 +178,8 @@ export default function PlanningEnhanced() {
   const permissions = usePermissions();
   const search = useSearch();
   const [, navigate] = useLocation();
+  const userRole = user?.role;
+  const isAdmin = !!userRole && ["tenant_admin", "admin", "vega_admin", "global_admin"].includes(userRole);
   
   // Parse URL focus parameter for deep linking from Sankey recommendations
   const urlFocus = useMemo(() => {
@@ -213,6 +217,42 @@ export default function PlanningEnhanced() {
   const [teamId, setTeamId] = useState<string>(savedFilters?.teamId || "all");
   const [statusFilter, setStatusFilter] = useState<string>(savedFilters?.statusFilter || "all");
   const [filtersInitialized, setFiltersInitialized] = useState(!!savedFilters);
+  const [bigRocksStatusFilter, setBigRocksStatusFilter] = useState<string>("all");
+  const [bigRocksSearch, setBigRocksSearch] = useState<string>("");
+
+  // Saved Views: outcomes (hierarchy tab) wires statusFilter/level/teamId
+  const outcomesCurrentState = useMemo<PageFilterState>(
+    () => ({ filters: { statusFilter, level, teamId } }),
+    [statusFilter, level, teamId]
+  );
+  const outcomesOnApply = (state: PageFilterState) => {
+    const f = (state.filters ?? {}) as Record<string, unknown>;
+    setStatusFilter(typeof f.statusFilter === "string" ? f.statusFilter : "all");
+    setLevel(typeof f.level === "string" ? f.level : "all");
+    setTeamId(typeof f.teamId === "string" ? f.teamId : "all");
+    setFiltersInitialized(true);
+  };
+  const outcomesViews = useSavedViews("outcomes", {
+    currentState: outcomesCurrentState,
+    currentUserId: user?.id,
+    onApply: outcomesOnApply,
+  });
+
+  // Saved Views: big rocks tab wires bigRocksStatusFilter and search
+  const bigRocksCurrentState = useMemo<PageFilterState>(
+    () => ({ filters: { statusFilter: bigRocksStatusFilter }, search: bigRocksSearch }),
+    [bigRocksStatusFilter, bigRocksSearch]
+  );
+  const bigRocksOnApply = (state: PageFilterState) => {
+    const f = (state.filters ?? {}) as Record<string, unknown>;
+    setBigRocksStatusFilter(typeof f.statusFilter === "string" ? f.statusFilter : "all");
+    setBigRocksSearch(typeof state.search === "string" ? state.search : "");
+  };
+  const bigRocksViews = useSavedViews("big_rocks", {
+    currentState: bigRocksCurrentState,
+    currentUserId: user?.id,
+    onApply: bigRocksOnApply,
+  });
   
   // Save filters to localStorage whenever they change (period is managed by global context)
   useEffect(() => {
@@ -2591,6 +2631,7 @@ export default function PlanningEnhanced() {
 
           <TabsContent value="hierarchy">
             <div className="space-y-4">
+              <SavedViewBar page="outcomes" controller={outcomesViews} currentUserId={user?.id} isAdmin={isAdmin} />
               {/* Focus filter banner - shown when navigated from Sankey recommendations */}
               {activeFocusFilter && (
                 <Alert className="border-primary/50 bg-primary/10">
@@ -2943,8 +2984,52 @@ export default function PlanningEnhanced() {
           </TabsContent>
 
           <TabsContent value="big-rocks">
+            <div className="space-y-4">
+              <SavedViewBar page="big_rocks" controller={bigRocksViews} currentUserId={user?.id} isAdmin={isAdmin} />
+              <div className="flex flex-wrap items-center gap-2">
+                <Input
+                  placeholder="Search big rocks..."
+                  value={bigRocksSearch}
+                  onChange={(e) => setBigRocksSearch(e.target.value)}
+                  className="max-w-xs"
+                  data-testid="input-big-rocks-search"
+                />
+                <Select value={bigRocksStatusFilter} onValueChange={setBigRocksStatusFilter}>
+                  <SelectTrigger className="w-[180px]" data-testid="select-big-rocks-status">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Statuses</SelectItem>
+                    <SelectItem value="not_started">Not Started</SelectItem>
+                    <SelectItem value="on_track">On Track</SelectItem>
+                    <SelectItem value="behind">Behind</SelectItem>
+                    <SelectItem value="at_risk">At Risk</SelectItem>
+                    <SelectItem value="completed">Completed</SelectItem>
+                    <SelectItem value="postponed">Postponed</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
             <BigRocksSection 
-              bigRocks={bigRocks} 
+              bigRocks={bigRocks.filter((r: BigRock) => {
+                if (bigRocksStatusFilter !== "all") {
+                  const eff = r.status && r.status !== "not_started"
+                    ? r.status
+                    : (r.completionPercentage ?? 0) >= 100
+                      ? "completed"
+                      : (r.completionPercentage ?? 0) > 0
+                        ? "on_track"
+                        : "not_started";
+                  if (eff !== bigRocksStatusFilter) return false;
+                }
+                if (bigRocksSearch.trim()) {
+                  const q = bigRocksSearch.trim().toLowerCase();
+                  if (!r.title.toLowerCase().includes(q) && !(r.description ?? "").toLowerCase().includes(q)) {
+                    return false;
+                  }
+                }
+                return true;
+              })} 
               objectives={objectives}
               strategies={strategies}
               teams={teamsData}

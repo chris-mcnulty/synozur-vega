@@ -62,6 +62,7 @@ import {
   customFieldValues, type CustomFieldValue,
   type CustomFieldEntityType, MAX_ACTIVE_CUSTOM_FIELDS_PER_ENTITY,
   entityComments, type EntityComment, type InsertEntityComment,
+  savedViews, type SavedView, type InsertSavedView, type SavedViewPage,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, count, ilike, asc, type SQL } from "drizzle-orm";
@@ -595,6 +596,13 @@ export interface IStorage {
   }): Promise<{ counts: ReassignmentCounts; auditLog: ReassignmentAuditLog }>;
   createReassignmentAuditLog(log: InsertReassignmentAuditLog): Promise<ReassignmentAuditLog>;
   getReassignmentAuditLogs(tenantId: string, limit?: number): Promise<ReassignmentAuditLog[]>;
+
+  // Saved Views
+  getSavedViews(tenantId: string, userId: string, page: SavedViewPage): Promise<SavedView[]>;
+  getSavedViewById(id: string): Promise<SavedView | undefined>;
+  createSavedView(view: InsertSavedView): Promise<SavedView>;
+  updateSavedView(id: string, updates: Partial<InsertSavedView>): Promise<SavedView>;
+  softDeleteSavedView(id: string): Promise<void>;
 
   // Admin Alerts methods
   recordAdminAlert(input: {
@@ -6415,6 +6423,86 @@ export class DatabaseStorage implements IStorage {
           });
       }
     }
+  }
+
+  // ============================================
+  // Saved Views
+  // ============================================
+
+  async getSavedViews(tenantId: string, userId: string, page: SavedViewPage): Promise<SavedView[]> {
+    return await db
+      .select()
+      .from(savedViews)
+      .where(
+        and(
+          eq(savedViews.tenantId, tenantId),
+          eq(savedViews.page, page),
+          isNull(savedViews.deletedAt),
+          or(
+            eq(savedViews.visibility, 'shared'),
+            eq(savedViews.ownerUserId, userId),
+          ),
+        ),
+      )
+      .orderBy(asc(savedViews.name));
+  }
+
+  async getSavedViewById(id: string): Promise<SavedView | undefined> {
+    const [view] = await db.select().from(savedViews).where(eq(savedViews.id, id));
+    return view;
+  }
+
+  async createSavedView(view: InsertSavedView): Promise<SavedView> {
+    return await db.transaction(async (tx) => {
+      if (view.isDefault) {
+        await tx
+          .update(savedViews)
+          .set({ isDefault: false, updatedAt: new Date() })
+          .where(
+            and(
+              eq(savedViews.tenantId, view.tenantId),
+              eq(savedViews.ownerUserId, view.ownerUserId),
+              eq(savedViews.page, view.page),
+              eq(savedViews.isDefault, true),
+            ),
+          );
+      }
+      const [created] = await tx.insert(savedViews).values(view).returning();
+      return created;
+    });
+  }
+
+  async updateSavedView(id: string, updates: Partial<InsertSavedView>): Promise<SavedView> {
+    return await db.transaction(async (tx) => {
+      const [existing] = await tx.select().from(savedViews).where(eq(savedViews.id, id));
+      if (!existing) throw new Error("Saved view not found");
+      if (updates.isDefault) {
+        await tx
+          .update(savedViews)
+          .set({ isDefault: false, updatedAt: new Date() })
+          .where(
+            and(
+              eq(savedViews.tenantId, existing.tenantId),
+              eq(savedViews.ownerUserId, existing.ownerUserId),
+              eq(savedViews.page, existing.page),
+              eq(savedViews.isDefault, true),
+            ),
+          );
+      }
+      const [updated] = await tx
+        .update(savedViews)
+        .set({ ...updates, updatedAt: new Date() })
+        .where(eq(savedViews.id, id))
+        .returning();
+      return updated;
+    });
+  }
+
+  async softDeleteSavedView(id: string): Promise<void> {
+    await db
+      .update(savedViews)
+      .set({ deletedAt: new Date(), isDefault: false, updatedAt: new Date() })
+      .where(eq(savedViews.id, id));
   }
 }
 

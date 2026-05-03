@@ -481,6 +481,106 @@ ${changelogContent}`;
   // exposes a read-only personalized view of tenant data.
   app.use("/api/portal", portalRouter);
 
+  // ============================================
+  // Saved Views (Outcomes / My Focus / Big Rocks)
+  // ============================================
+  app.get("/api/saved-views", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const { SAVED_VIEW_PAGES } = await import("@shared/schema");
+      type SavedViewPage = typeof SAVED_VIEW_PAGES[number];
+      const pageParam = String(req.query.page ?? "");
+      if (!(SAVED_VIEW_PAGES as readonly string[]).includes(pageParam)) {
+        return res.status(400).json({ error: "Invalid or missing page parameter" });
+      }
+      const tenantId = req.effectiveTenantId!;
+      const userId = req.user!.id;
+      const views = await storage.getSavedViews(tenantId, userId, pageParam as SavedViewPage);
+      res.json(views);
+    } catch (e: any) {
+      console.error("[saved-views] list error:", e);
+      res.status(500).json({ error: "Failed to list saved views" });
+    }
+  });
+
+  app.post("/api/saved-views", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const { insertSavedViewSchema } = await import("@shared/schema");
+      const tenantId = req.effectiveTenantId!;
+      const userId = req.user!.id;
+      const parsed = insertSavedViewSchema.parse({
+        ...req.body,
+        tenantId,
+        ownerUserId: userId,
+      });
+      const created = await storage.createSavedView(parsed);
+      res.status(201).json(created);
+    } catch (e: any) {
+      if (e?.issues) return res.status(400).json({ error: "Validation failed", issues: e.issues });
+      console.error("[saved-views] create error:", e);
+      res.status(500).json({ error: "Failed to create saved view" });
+    }
+  });
+
+  app.patch("/api/saved-views/:id", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const { insertSavedViewSchema } = await import("@shared/schema");
+      const existing = await storage.getSavedViewById(req.params.id);
+      if (!existing || existing.deletedAt) {
+        return res.status(404).json({ error: "Saved view not found" });
+      }
+      if (existing.tenantId !== req.effectiveTenantId) {
+        return res.status(404).json({ error: "Saved view not found" });
+      }
+      const userRole = req.user!.role as string;
+      const isAdmin = ["tenant_admin", "admin", "vega_admin", "global_admin"].includes(userRole);
+      const isOwner = existing.ownerUserId === req.user!.id;
+      // Private views: owner only. Shared views: owner OR tenant admin.
+      if (existing.visibility === "private" && !isOwner) {
+        return res.status(404).json({ error: "Saved view not found" });
+      }
+      if (existing.visibility === "shared" && !isOwner && !isAdmin) {
+        return res.status(403).json({ error: "Only the creator or an admin can edit a shared view" });
+      }
+      const updateSchema = insertSavedViewSchema
+        .partial()
+        .omit({ tenantId: true, ownerUserId: true, page: true });
+      const partial = updateSchema.parse(req.body);
+      const updated = await storage.updateSavedView(req.params.id, partial);
+      res.json(updated);
+    } catch (e: any) {
+      if (e?.issues) return res.status(400).json({ error: "Validation failed", issues: e.issues });
+      console.error("[saved-views] update error:", e);
+      res.status(500).json({ error: "Failed to update saved view" });
+    }
+  });
+
+  app.delete("/api/saved-views/:id", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const existing = await storage.getSavedViewById(req.params.id);
+      if (!existing || existing.deletedAt) {
+        return res.status(404).json({ error: "Saved view not found" });
+      }
+      if (existing.tenantId !== req.effectiveTenantId) {
+        return res.status(404).json({ error: "Saved view not found" });
+      }
+      const userRole = req.user!.role as string;
+      const isAdmin = ["tenant_admin", "admin", "vega_admin", "global_admin"].includes(userRole);
+      const isOwner = existing.ownerUserId === req.user!.id;
+      // Private views: owner only. Shared views: owner OR tenant admin.
+      if (existing.visibility === "private" && !isOwner) {
+        return res.status(404).json({ error: "Saved view not found" });
+      }
+      if (existing.visibility === "shared" && !isOwner && !isAdmin) {
+        return res.status(403).json({ error: "Only the creator or an admin can delete a shared view" });
+      }
+      await storage.softDeleteSavedView(req.params.id);
+      res.status(204).send();
+    } catch (e: any) {
+      console.error("[saved-views] delete error:", e);
+      res.status(500).json({ error: "Failed to delete saved view" });
+    }
+  });
+
   // MCP API Key Management (admin only - keys provide API access to tenant data)
   app.get("/api/mcp/keys", ...adminOnly, async (req: Request, res: Response) => {
     try {

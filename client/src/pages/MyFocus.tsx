@@ -22,12 +22,14 @@ import {
   PlayCircle,
 } from "lucide-react";
 import { SerialCheckInDialog, type CheckInQueueItem } from "@/components/okr/SerialCheckInDialog";
+import { SavedViewBar } from "@/components/SavedViewBar";
+import { useSavedViews } from "@/hooks/useSavedViews";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTimePeriod } from "@/contexts/TimePeriodContext";
 import { differenceInDays, format, isAfter, isBefore, addDays, startOfWeek, endOfWeek } from "date-fns";
 import { cn } from "@/lib/utils";
-import type { Objective, KeyResult, BigRock, BigRockTask } from "@shared/schema";
+import type { Objective, KeyResult, BigRock, BigRockTask, PageFilterState } from "@shared/schema";
 
 interface Meeting {
   id: string;
@@ -100,6 +102,18 @@ export default function MyFocus() {
   const { currentTenant } = useTenant();
   const { quarter, year } = useTimePeriod();
   const tenantId = currentTenant?.id;
+  const userRole = user?.role;
+  const isAdmin = !!userRole && ["tenant_admin", "admin", "vega_admin", "global_admin"].includes(userRole);
+  const [focusFilter, setFocusFilter] = useState<string>("all");
+  const focusCurrentState = useMemo<PageFilterState>(() => ({ filters: { focusFilter } }), [focusFilter]);
+  const savedViewsController = useSavedViews("my_focus", {
+    currentState: focusCurrentState,
+    currentUserId: user?.id,
+    onApply: (state) => {
+      const f = (state.filters ?? {}) as Record<string, unknown>;
+      setFocusFilter(typeof f.focusFilter === "string" ? f.focusFilter : "all");
+    },
+  });
   const today = new Date();
   const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
 
@@ -445,6 +459,32 @@ export default function MyFocus() {
         </p>
       </div>
 
+      <SavedViewBar
+        page="my_focus"
+        controller={savedViewsController}
+        currentUserId={user?.id}
+        isAdmin={isAdmin}
+      />
+
+      <div className="flex flex-wrap items-center gap-2">
+        {[
+          { v: "all", label: "Show all" },
+          { v: "overdue", label: "Overdue only" },
+          { v: "at_risk", label: "At risk only" },
+          { v: "this_week", label: "This week" },
+        ].map((opt) => (
+          <Badge
+            key={opt.v}
+            variant={focusFilter === opt.v ? "default" : "outline"}
+            className={cn("cursor-pointer toggle-elevate", focusFilter === opt.v && "toggle-elevated")}
+            onClick={() => setFocusFilter(opt.v)}
+            data-testid={`filter-focus-${opt.v}`}
+          >
+            {opt.label}
+          </Badge>
+        ))}
+      </div>
+
       {!hasAnything && (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
@@ -456,7 +496,7 @@ export default function MyFocus() {
       )}
 
       {/* Overdue Check-Ins */}
-      {overdueCheckIns.length > 0 && (
+      {(focusFilter === "all" || focusFilter === "overdue") && overdueCheckIns.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between gap-2">
@@ -517,7 +557,7 @@ export default function MyFocus() {
       )}
 
       {/* At Risk Items */}
-      {atRiskItems.length > 0 && (
+      {(focusFilter === "all" || focusFilter === "at_risk") && atRiskItems.length > 0 && (
         <Card className="border-red-200 dark:border-red-900">
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -550,7 +590,7 @@ export default function MyFocus() {
       )}
 
       {/* Tasks Due This Week */}
-      {tasksDueThisWeek.length > 0 && (
+      {(focusFilter === "all" || focusFilter === "this_week") && tasksDueThisWeek.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">
@@ -584,7 +624,7 @@ export default function MyFocus() {
       )}
 
       {/* Upcoming Meetings */}
-      {upcomingMeetings.length > 0 && (
+      {(focusFilter === "all" || focusFilter === "this_week") && upcomingMeetings.length > 0 && (
         <Card>
           <CardHeader className="pb-3">
             <CardTitle className="text-base flex items-center gap-2">

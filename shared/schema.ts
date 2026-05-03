@@ -2833,3 +2833,53 @@ export const insertEntityCommentSchema = createInsertSchema(entityComments).omit
 
 export type InsertEntityComment = z.infer<typeof insertEntityCommentSchema>;
 export type EntityComment = typeof entityComments.$inferSelect;
+
+// ============================================
+// SAVED VIEWS - Per-page saved filter/sort/group snapshots
+// ============================================
+
+export const SAVED_VIEW_PAGES = ['outcomes', 'my_focus', 'big_rocks'] as const;
+export type SavedViewPage = typeof SAVED_VIEW_PAGES[number];
+
+export const SAVED_VIEW_VISIBILITY = ['private', 'shared'] as const;
+export type SavedViewVisibility = typeof SAVED_VIEW_VISIBILITY[number];
+
+// Generic page filter shape; each page picks the keys it cares about. New
+// filters can be added without breaking older saved views.
+export type PageFilterState = {
+  filters?: Record<string, unknown>;
+  sort?: { field: string; direction: 'asc' | 'desc' };
+  groupBy?: string;
+  search?: string;
+  [key: string]: unknown;
+};
+
+export const savedViews = pgTable("saved_views", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  ownerUserId: varchar("owner_user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  page: text("page").notNull(),
+  name: text("name").notNull(),
+  filterJson: jsonb("filter_json").$type<PageFilterState>().notNull().default(sql`'{}'::jsonb`),
+  visibility: text("visibility").notNull().default('private'),
+  isDefault: boolean("is_default").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const insertSavedViewSchema = createInsertSchema(savedViews).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  deletedAt: true,
+}).extend({
+  page: z.enum(SAVED_VIEW_PAGES),
+  visibility: z.enum(SAVED_VIEW_VISIBILITY).default('private'),
+  name: z.string().trim().min(1, "Name is required").max(80),
+  filterJson: z.record(z.string(), z.unknown()).default({}),
+  isDefault: z.boolean().default(false),
+});
+
+export type InsertSavedView = z.infer<typeof insertSavedViewSchema>;
+export type SavedView = typeof savedViews.$inferSelect;
