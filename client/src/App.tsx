@@ -59,6 +59,7 @@ const TeamDashboard = lazy(() => import("@/pages/TeamDashboard"));
 const Foundations = lazy(() => import("@/pages/Foundations"));
 const Strategy = lazy(() => import("@/pages/Strategy"));
 const PlanningEnhanced = lazy(() => import("@/pages/PlanningEnhanced"));
+const PlanningWorkshop = lazy(() => import("@/pages/PlanningWorkshop"));
 const FocusRhythm = lazy(() => import("@/pages/FocusRhythm"));
 const MeetingDetail = lazy(() => import("@/pages/MeetingDetail"));
 const MeetingLive = lazy(() => import("@/pages/MeetingLive"));
@@ -522,6 +523,16 @@ function Router() {
       <Route path="/planning">
         <LazyProtectedRoute>
           <PlanningEnhanced />
+        </LazyProtectedRoute>
+      </Route>
+      <Route path="/planning-workshop/:id">
+        <LazyProtectedRoute>
+          <PlanningWorkshop />
+        </LazyProtectedRoute>
+      </Route>
+      <Route path="/planning-workshop">
+        <LazyProtectedRoute>
+          <PlanningWorkshop />
         </LazyProtectedRoute>
       </Route>
       <Route path="/focus-rhythm">

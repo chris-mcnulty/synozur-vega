@@ -64,6 +64,11 @@ import {
   type CustomFieldEntityType, MAX_ACTIVE_CUSTOM_FIELDS_PER_ENTITY,
   entityComments, type EntityComment, type InsertEntityComment,
   savedViews, type SavedView, type InsertSavedView, type SavedViewPage,
+  planningWorkshops, type PlanningWorkshop, type InsertPlanningWorkshop,
+  workshopParticipants, type WorkshopParticipant, type InsertWorkshopParticipant,
+  workshopCandidates, type WorkshopCandidate, type InsertWorkshopCandidate,
+  workshopVotes, type WorkshopVote, type InsertWorkshopVote,
+  WORKSHOP_STATUS, type WorkshopSettings, type WorkshopDraftEntry,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, count, ilike, asc, type SQL } from "drizzle-orm";
@@ -640,6 +645,21 @@ export interface IStorage {
     entityId: string,
     values: { fieldDefId: string; valueJson: any }[],
   ): Promise<void>;
+
+  // Planning Workshops (Task #63)
+  createPlanningWorkshop(input: InsertPlanningWorkshop & { participantUserIds?: string[] }): Promise<PlanningWorkshop>;
+  getPlanningWorkshop(id: string, tenantId: string): Promise<{
+    workshop: PlanningWorkshop;
+    participants: Array<WorkshopParticipant & { name?: string; email?: string }>;
+    candidates: WorkshopCandidate[];
+    votes: WorkshopVote[];
+  } | undefined>;
+  listPlanningWorkshops(tenantId: string): Promise<PlanningWorkshop[]>;
+  updatePlanningWorkshop(id: string, tenantId: string, patch: Partial<Pick<PlanningWorkshop, 'status' | 'settings' | 'title'>>): Promise<PlanningWorkshop | undefined>;
+  addWorkshopParticipant(workshopId: string, tenantId: string, userId: string, role?: string): Promise<WorkshopParticipant>;
+  addWorkshopCandidate(input: InsertWorkshopCandidate & { tenantId: string }): Promise<WorkshopCandidate>;
+  toggleWorkshopVote(workshopId: string, tenantId: string, candidateId: string, userId: string): Promise<{ voted: boolean; voteCount: number }>;
+  submitWorkshop(workshopId: string, tenantId: string, userId: string, options?: { requireApproval?: boolean }): Promise<{ workshop: PlanningWorkshop; createdObjectiveIds: string[] }>;
 }
 
 export type ReassignmentSelection = Partial<{
@@ -6682,6 +6702,325 @@ export class DatabaseStorage implements IStorage {
       .update(savedViews)
       .set({ deletedAt: new Date(), isDefault: false, updatedAt: new Date() })
       .where(eq(savedViews.id, id));
+  }
+
+  // ============================================
+  // Planning Workshops (Task #63)
+  // ============================================
+
+  async createPlanningWorkshop(
+    input: InsertPlanningWorkshop & { participantUserIds?: string[] }
+  ): Promise<PlanningWorkshop> {
+    return await db.transaction(async (tx) => {
+      const { participantUserIds = [], ...workshopData } = input;
+      const [workshop] = await tx
+        .insert(planningWorkshops)
+        .values({
+          ...workshopData,
+          settings: workshopData.settings as WorkshopSettings,
+        })
+        .returning();
+
+      // Always make the creator a facilitator
+      const seen = new Set<string>();
+      const rows: InsertWorkshopParticipant[] = [];
+      rows.push({ workshopId: workshop.id, userId: workshop.createdByUserId, role: 'facilitator' });
+      seen.add(workshop.createdByUserId);
+      for (const uid of participantUserIds) {
+        if (!seen.has(uid)) {
+          rows.push({ workshopId: workshop.id, userId: uid, role: 'participant' });
+          seen.add(uid);
+        }
+      }
+      if (rows.length) {
+        await tx.insert(workshopParticipants).values(rows).onConflictDoNothing();
+      }
+      return workshop;
+    });
+  }
+
+  async getPlanningWorkshop(id: string, tenantId: string) {
+    const [workshop] = await db
+      .select()
+      .from(planningWorkshops)
+      .where(and(eq(planningWorkshops.id, id), eq(planningWorkshops.tenantId, tenantId)))
+      .limit(1);
+    if (!workshop) return undefined;
+
+    const participantsRaw = await db
+      .select({
+        id: workshopParticipants.id,
+        workshopId: workshopParticipants.workshopId,
+        userId: workshopParticipants.userId,
+        role: workshopParticipants.role,
+        joinedAt: workshopParticipants.joinedAt,
+        name: users.name,
+        email: users.email,
+      })
+      .from(workshopParticipants)
+      .leftJoin(users, eq(users.id, workshopParticipants.userId))
+      .where(eq(workshopParticipants.workshopId, id));
+
+    const candidates = await db
+      .select()
+      .from(workshopCandidates)
+      .where(eq(workshopCandidates.workshopId, id))
+      .orderBy(desc(workshopCandidates.voteCount), asc(workshopCandidates.createdAt));
+
+    const votes = await db
+      .select()
+      .from(workshopVotes)
+      .where(eq(workshopVotes.workshopId, id));
+
+    return {
+      workshop,
+      participants: participantsRaw.map((p) => ({
+        ...p,
+        name: p.name ?? undefined,
+        email: p.email ?? undefined,
+      })),
+      candidates,
+      votes,
+    };
+  }
+
+  async listPlanningWorkshops(tenantId: string): Promise<PlanningWorkshop[]> {
+    return await db
+      .select()
+      .from(planningWorkshops)
+      .where(eq(planningWorkshops.tenantId, tenantId))
+      .orderBy(desc(planningWorkshops.createdAt));
+  }
+
+  async updatePlanningWorkshop(
+    id: string,
+    tenantId: string,
+    patch: Partial<Pick<PlanningWorkshop, 'status' | 'settings' | 'title'>>,
+  ): Promise<PlanningWorkshop | undefined> {
+    const [updated] = await db
+      .update(planningWorkshops)
+      .set({
+        ...patch,
+        updatedAt: new Date(),
+        rev: sql`${planningWorkshops.rev} + 1`,
+      } as any)
+      .where(and(eq(planningWorkshops.id, id), eq(planningWorkshops.tenantId, tenantId)))
+      .returning();
+    return updated;
+  }
+
+  async addWorkshopParticipant(
+    workshopId: string,
+    tenantId: string,
+    userId: string,
+    role: string = 'participant',
+  ): Promise<WorkshopParticipant> {
+    // Verify the workshop belongs to tenant
+    const [w] = await db
+      .select({ id: planningWorkshops.id })
+      .from(planningWorkshops)
+      .where(and(eq(planningWorkshops.id, workshopId), eq(planningWorkshops.tenantId, tenantId)))
+      .limit(1);
+    if (!w) throw new Error('Workshop not found');
+
+    const [row] = await db
+      .insert(workshopParticipants)
+      .values({ workshopId, userId, role })
+      .onConflictDoUpdate({
+        target: [workshopParticipants.workshopId, workshopParticipants.userId],
+        set: { role },
+      })
+      .returning();
+    await db
+      .update(planningWorkshops)
+      .set({ rev: sql`${planningWorkshops.rev} + 1`, updatedAt: new Date() })
+      .where(eq(planningWorkshops.id, workshopId));
+    return row;
+  }
+
+  async addWorkshopCandidate(
+    input: InsertWorkshopCandidate & { tenantId: string },
+  ): Promise<WorkshopCandidate> {
+    const { tenantId, ...rest } = input;
+    return await db.transaction(async (tx) => {
+      const [w] = await tx
+        .select({ id: planningWorkshops.id })
+        .from(planningWorkshops)
+        .where(and(eq(planningWorkshops.id, rest.workshopId), eq(planningWorkshops.tenantId, tenantId)))
+        .limit(1);
+      if (!w) throw new Error('Workshop not found');
+      const [row] = await tx.insert(workshopCandidates).values(rest).returning();
+      await tx
+        .update(planningWorkshops)
+        .set({ rev: sql`${planningWorkshops.rev} + 1`, updatedAt: new Date() })
+        .where(eq(planningWorkshops.id, rest.workshopId));
+      return row;
+    });
+  }
+
+  async toggleWorkshopVote(
+    workshopId: string,
+    tenantId: string,
+    candidateId: string,
+    userId: string,
+  ): Promise<{ voted: boolean; voteCount: number }> {
+    return await db.transaction(async (tx) => {
+      const [w] = await tx
+        .select({ id: planningWorkshops.id, settings: planningWorkshops.settings })
+        .from(planningWorkshops)
+        .where(and(eq(planningWorkshops.id, workshopId), eq(planningWorkshops.tenantId, tenantId)))
+        .limit(1);
+      if (!w) throw new Error('Workshop not found');
+
+      // Verify candidate belongs to this workshop (prevents cross-workshop /
+      // cross-tenant vote tampering).
+      const [cand] = await tx
+        .select({ id: workshopCandidates.id })
+        .from(workshopCandidates)
+        .where(and(eq(workshopCandidates.id, candidateId), eq(workshopCandidates.workshopId, workshopId)))
+        .limit(1);
+      if (!cand) throw new Error('Candidate not found in this workshop');
+
+      const existing = await tx
+        .select({ id: workshopVotes.id })
+        .from(workshopVotes)
+        .where(
+          and(
+            eq(workshopVotes.workshopId, workshopId),
+            eq(workshopVotes.candidateId, candidateId),
+            eq(workshopVotes.userId, userId),
+          ),
+        )
+        .limit(1);
+
+      let voted: boolean;
+      if (existing.length) {
+        await tx.delete(workshopVotes).where(eq(workshopVotes.id, existing[0].id));
+        voted = false;
+      } else {
+        // Server-side enforcement of votesPerParticipant.
+        const settings = (w.settings as WorkshopSettings | null) ?? null;
+        const budget = settings?.votesPerParticipant ?? 5;
+        const [{ used }] = await tx
+          .select({ used: count() })
+          .from(workshopVotes)
+          .where(and(eq(workshopVotes.workshopId, workshopId), eq(workshopVotes.userId, userId)));
+        if (Number(used) >= budget) {
+          throw new Error('Vote budget exhausted');
+        }
+        await tx.insert(workshopVotes).values({ workshopId, candidateId, userId });
+        voted = true;
+      }
+
+      const [{ c }] = await tx
+        .select({ c: count() })
+        .from(workshopVotes)
+        .where(eq(workshopVotes.candidateId, candidateId));
+      const voteCount = Number(c);
+
+      await tx
+        .update(workshopCandidates)
+        .set({ voteCount })
+        .where(eq(workshopCandidates.id, candidateId));
+
+      await tx
+        .update(planningWorkshops)
+        .set({ rev: sql`${planningWorkshops.rev} + 1`, updatedAt: new Date() })
+        .where(eq(planningWorkshops.id, workshopId));
+
+      return { voted, voteCount };
+    });
+  }
+
+  async submitWorkshop(
+    workshopId: string,
+    tenantId: string,
+    userId: string,
+    options: { requireApproval?: boolean } = {},
+  ): Promise<{ workshop: PlanningWorkshop; createdObjectiveIds: string[] }> {
+    return await db.transaction(async (tx) => {
+      const [workshop] = await tx
+        .select()
+        .from(planningWorkshops)
+        .where(and(eq(planningWorkshops.id, workshopId), eq(planningWorkshops.tenantId, tenantId)))
+        .limit(1);
+      if (!workshop) throw new Error('Workshop not found');
+      if (workshop.status === WORKSHOP_STATUS.SUBMITTED) {
+        throw new Error('Workshop already submitted');
+      }
+
+      const settings = workshop.settings as WorkshopSettings;
+      const drafts = settings.drafts || {};
+      const candidateIds = Object.keys(drafts);
+      if (!candidateIds.length) {
+        throw new Error('No drafts to submit');
+      }
+      const candidates = await tx
+        .select()
+        .from(workshopCandidates)
+        .where(
+          and(
+            eq(workshopCandidates.workshopId, workshopId),
+            inArray(workshopCandidates.id, candidateIds),
+          ),
+        );
+
+      const status = options.requireApproval ? 'pending_approval' : 'active';
+      const createdObjectiveIds: string[] = [];
+
+      for (const cand of candidates) {
+        const draft = drafts[cand.id];
+        if (!draft) continue;
+        const [obj] = await tx
+          .insert(objectives)
+          .values({
+            tenantId,
+            title: cand.title,
+            description: cand.description ?? null,
+            level: (draft.level ?? 'organization') as any,
+            teamId: draft.teamId ?? null,
+            ownerId: draft.ownerId ?? userId,
+            quarter: settings.quarter,
+            year: settings.year,
+            status,
+            originWorkshopId: workshop.id,
+            createdBy: userId,
+            updatedBy: userId,
+          } as any)
+          .returning();
+        createdObjectiveIds.push(obj.id);
+
+        for (const kr of draft.keyResults ?? []) {
+          await tx.insert(keyResults).values({
+            objectiveId: obj.id,
+            tenantId,
+            title: kr.title,
+            metricType: (kr.metricType ?? 'increase') as any,
+            initialValue: (kr.initialValue ?? 0) as any,
+            targetValue: (kr.targetValue ?? 100) as any,
+            currentValue: (kr.initialValue ?? 0) as any,
+            unit: kr.unit ?? null,
+            ownerId: draft.ownerId ?? userId,
+            createdBy: userId,
+            updatedBy: userId,
+          } as any);
+        }
+      }
+
+      const [updated] = await tx
+        .update(planningWorkshops)
+        .set({
+          status: WORKSHOP_STATUS.SUBMITTED,
+          completedAt: new Date(),
+          updatedAt: new Date(),
+          rev: sql`${planningWorkshops.rev} + 1`,
+        })
+        .where(eq(planningWorkshops.id, workshopId))
+        .returning();
+
+      this.invalidateCache(`objectives:${tenantId}`);
+      return { workshop: updated, createdObjectiveIds };
+    });
   }
 }
 

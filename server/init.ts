@@ -273,6 +273,58 @@ async function ensureSchemaColumns() {
         ON saved_views(owner_user_id) WHERE deleted_at IS NULL;
     `);
 
+    // Planning Workshops (Task #63) — schema backstop for fresh / out-of-sync DBs.
+    await client.query(`ALTER TABLE objectives ADD COLUMN IF NOT EXISTS origin_workshop_id varchar`);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS planning_workshops (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        title text NOT NULL,
+        status text NOT NULL DEFAULT 'draft',
+        settings jsonb NOT NULL,
+        created_by_user_id varchar NOT NULL REFERENCES users(id),
+        rev integer NOT NULL DEFAULT 0,
+        created_at timestamp DEFAULT now(),
+        updated_at timestamp DEFAULT now(),
+        completed_at timestamp
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS workshop_participants (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        workshop_id varchar NOT NULL REFERENCES planning_workshops(id) ON DELETE CASCADE,
+        user_id varchar NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role text NOT NULL DEFAULT 'participant',
+        joined_at timestamp DEFAULT now(),
+        CONSTRAINT workshop_participants_workshop_id_user_id_unique UNIQUE(workshop_id, user_id)
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS workshop_candidates (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        workshop_id varchar NOT NULL REFERENCES planning_workshops(id) ON DELETE CASCADE,
+        theme text,
+        title text NOT NULL,
+        description text,
+        proposed_by_user_id varchar NOT NULL REFERENCES users(id),
+        vote_count integer NOT NULL DEFAULT 0,
+        created_at timestamp DEFAULT now()
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS workshop_votes (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        workshop_id varchar NOT NULL REFERENCES planning_workshops(id) ON DELETE CASCADE,
+        candidate_id varchar NOT NULL REFERENCES workshop_candidates(id) ON DELETE CASCADE,
+        user_id varchar NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        created_at timestamp DEFAULT now(),
+        CONSTRAINT workshop_votes_workshop_id_candidate_id_user_id_unique UNIQUE(workshop_id, candidate_id, user_id)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_planning_workshops_tenant_created ON planning_workshops(tenant_id, created_at DESC)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_workshop_candidates_workshop ON workshop_candidates(workshop_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_workshop_votes_workshop ON workshop_votes(workshop_id)`);
+
     console.log("✓ Database schema verified");
   } catch (error) {
     console.error("Schema check error:", error);

@@ -916,7 +916,10 @@ export const objectives = pgTable("objectives", {
   // Email reminder tracking
   lastReminderSent: timestamp("last_reminder_sent"),
   reminderFrequency: text("reminder_frequency").default('weekly'), // 'daily', 'weekly', 'biweekly', 'monthly'
-  
+
+  // Origin tracking - set when objective was created from a Quarterly Planning Workshop (#63)
+  originWorkshopId: varchar("origin_workshop_id"),
+
   // Metadata
   createdBy: varchar("created_by").references(() => users.id),
   createdAt: timestamp("created_at").defaultNow(),
@@ -2921,3 +2924,130 @@ export const insertSavedViewSchema = createInsertSchema(savedViews).omit({
 
 export type InsertSavedView = z.infer<typeof insertSavedViewSchema>;
 export type SavedView = typeof savedViews.$inferSelect;
+
+// ============================================
+// PLANNING WORKSHOPS (Task #63 - Quarterly Planning Workshop Mode)
+// ============================================
+
+export const WORKSHOP_STATUS = {
+  DRAFT: 'draft',
+  ACTIVE: 'active',
+  SUBMITTED: 'submitted',
+  CANCELLED: 'cancelled',
+} as const;
+
+export type WorkshopStatus = typeof WORKSHOP_STATUS[keyof typeof WORKSHOP_STATUS];
+
+export const WORKSHOP_PHASE = {
+  BRAINSTORM: 'brainstorm',
+  VOTE: 'vote',
+  DRAFT: 'draft',
+} as const;
+
+export type WorkshopPhase = typeof WORKSHOP_PHASE[keyof typeof WORKSHOP_PHASE];
+
+export type WorkshopSettings = {
+  quarter: number; // 0 = annual, 1-4 = Q1..Q4
+  year: number;
+  durationMinutes?: number;
+  votesPerParticipant?: number;
+  topNForDraft?: number;
+  startedAt?: string;
+  endsAt?: string;
+  phase?: WorkshopPhase;
+  drafts?: Record<string, WorkshopDraftEntry>; // candidateId -> draft
+};
+
+export type WorkshopDraftEntry = {
+  ownerId?: string;
+  ownerEmail?: string;
+  level?: 'organization' | 'team' | 'individual';
+  teamId?: string;
+  keyResults?: Array<{
+    title: string;
+    metricType?: 'increase' | 'decrease' | 'maintain' | 'complete';
+    targetValue?: number;
+    initialValue?: number;
+    unit?: string;
+  }>;
+};
+
+export const planningWorkshops = pgTable("planning_workshops", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  title: text("title").notNull(),
+  status: text("status").notNull().default('draft'),
+  settings: jsonb("settings").$type<WorkshopSettings>().notNull(),
+  createdByUserId: varchar("created_by_user_id").notNull().references(() => users.id),
+  rev: integer("rev").notNull().default(0), // revision counter for long-poll
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  completedAt: timestamp("completed_at"),
+});
+
+export const insertPlanningWorkshopSchema = createInsertSchema(planningWorkshops).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  completedAt: true,
+  rev: true,
+});
+
+export type InsertPlanningWorkshop = z.infer<typeof insertPlanningWorkshopSchema>;
+export type PlanningWorkshop = typeof planningWorkshops.$inferSelect;
+
+export const workshopParticipants = pgTable("workshop_participants", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workshopId: varchar("workshop_id").notNull().references(() => planningWorkshops.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  role: text("role").notNull().default('participant'), // 'facilitator' | 'participant'
+  joinedAt: timestamp("joined_at").defaultNow(),
+}, (t) => ({
+  uniqueWorkshopUser: unique().on(t.workshopId, t.userId),
+}));
+
+export const insertWorkshopParticipantSchema = createInsertSchema(workshopParticipants).omit({
+  id: true,
+  joinedAt: true,
+});
+
+export type InsertWorkshopParticipant = z.infer<typeof insertWorkshopParticipantSchema>;
+export type WorkshopParticipant = typeof workshopParticipants.$inferSelect;
+
+export const workshopCandidates = pgTable("workshop_candidates", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workshopId: varchar("workshop_id").notNull().references(() => planningWorkshops.id, { onDelete: 'cascade' }),
+  theme: text("theme"),
+  title: text("title").notNull(),
+  description: text("description"),
+  proposedByUserId: varchar("proposed_by_user_id").notNull().references(() => users.id),
+  voteCount: integer("vote_count").notNull().default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertWorkshopCandidateSchema = createInsertSchema(workshopCandidates).omit({
+  id: true,
+  createdAt: true,
+  voteCount: true,
+});
+
+export type InsertWorkshopCandidate = z.infer<typeof insertWorkshopCandidateSchema>;
+export type WorkshopCandidate = typeof workshopCandidates.$inferSelect;
+
+export const workshopVotes = pgTable("workshop_votes", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  workshopId: varchar("workshop_id").notNull().references(() => planningWorkshops.id, { onDelete: 'cascade' }),
+  candidateId: varchar("candidate_id").notNull().references(() => workshopCandidates.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  createdAt: timestamp("created_at").defaultNow(),
+}, (t) => ({
+  uniqueVote: unique().on(t.workshopId, t.candidateId, t.userId),
+}));
+
+export const insertWorkshopVoteSchema = createInsertSchema(workshopVotes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertWorkshopVote = z.infer<typeof insertWorkshopVoteSchema>;
+export type WorkshopVote = typeof workshopVotes.$inferSelect;

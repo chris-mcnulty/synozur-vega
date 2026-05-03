@@ -40,7 +40,8 @@ import { OKRDetailPane } from "@/components/okr/OKRDetailPane";
 import { ProgressSummaryBar } from "@/components/okr/ProgressSummaryBar";
 import { MilestoneEditor, type PhasedTargets } from "@/components/okr/MilestoneEditor";
 import { MilestoneTimeline } from "@/components/okr/MilestoneTimeline";
-import { TrendingUp, Target, Activity, AlertCircle, AlertTriangle, CheckCircle, CheckSquare, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink, Calendar, X, Filter, Users, Circle, Clock } from "lucide-react";
+import { TrendingUp, Target, Activity, AlertCircle, AlertTriangle, CheckCircle, CheckSquare, Loader2, Pencil, Trash2, History, Edit, Sparkles, CalendarCheck, Plus, FileSpreadsheet, RefreshCw, Link2, Unlink, Calendar, X, Filter, Users, Circle, Clock, Vote } from "lucide-react";
+import { CreateWorkshopDialog } from "@/pages/PlanningWorkshop";
 import { ExcelFilePicker } from "@/components/ExcelFilePicker";
 import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
 import { PlannerCreatePlanDialog } from "@/components/planner/PlannerCreatePlanDialog";
@@ -721,6 +722,7 @@ export default function PlanningEnhanced() {
 
   // Dialog states
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [workshopDialogOpen, setWorkshopDialogOpen] = useState(false);
   const [objectiveDialogOpen, setObjectiveDialogOpen] = useState(false);
   const [keyResultDialogOpen, setKeyResultDialogOpen] = useState(false);
   const [bigRockDialogOpen, setBigRockDialogOpen] = useState(false);
@@ -2610,6 +2612,17 @@ export default function PlanningEnhanced() {
               <Sparkles className="h-4 w-4 mr-2" />
               OKR Wizard
             </Button>
+            <CreateWorkshopDialog
+              open={workshopDialogOpen}
+              onOpenChange={setWorkshopDialogOpen}
+              onCreated={(id) => navigate(`/planning-workshop/${id}`)}
+              trigger={
+                <Button variant="outline" data-testid="button-plan-period">
+                  <Vote className="h-4 w-4 mr-2" />
+                  Plan a period
+                </Button>
+              }
+            />
           </div>
         </div>
 

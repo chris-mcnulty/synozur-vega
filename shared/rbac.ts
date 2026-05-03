@@ -28,6 +28,8 @@ export const ROLES = {
   GLOBAL_ADMIN: 'global_admin',
   VEGA_CONSULTANT: 'vega_consultant',
   VEGA_ADMIN: 'vega_admin',
+  // OKR Planner — can create planning workshops; otherwise behaves like tenant_user
+  OKR_PLANNER: 'okr_planner',
   // Galaxy Portal user — JIT-provisioned from Galaxy JWTs.
   // Read-only access to /api/portal/*; never granted any write permission.
   PORTAL_USER: 'portal_user',
@@ -47,6 +49,7 @@ export const ROLE_USER_TYPE_MAP: Record<Role, UserType> = {
   [ROLES.GLOBAL_ADMIN]: USER_TYPES.INTERNAL,
   [ROLES.VEGA_CONSULTANT]: USER_TYPES.CONSULTANT,
   [ROLES.VEGA_ADMIN]: USER_TYPES.INTERNAL,
+  [ROLES.OKR_PLANNER]: USER_TYPES.CLIENT,
   [ROLES.PORTAL_USER]: USER_TYPES.CLIENT,
   [ROLES.OKR_APPROVER]: USER_TYPES.CLIENT,
 };
@@ -264,6 +267,20 @@ export const PERMISSION_MATRIX: Record<Role, Permission[]> = {
     PERMISSIONS.MANAGE_SERVICE_PLANS,
   ],
 
+  // OKR Planner — same baseline as tenant_user, plus ability to run workshops
+  [ROLES.OKR_PLANNER]: [
+    PERMISSIONS.READ_TENANT_DATA,
+    PERMISSIONS.VIEW_FOUNDATIONS,
+    PERMISSIONS.CREATE_OKR,
+    PERMISSIONS.UPDATE_OWN_OKR,
+    PERMISSIONS.CREATE_MEETING,
+    PERMISSIONS.UPDATE_MEETING,
+    PERMISSIONS.RUN_CLIENT_WORKSHOPS,
+    PERMISSIONS.USE_M365_FEATURES,
+    PERMISSIONS.USE_AI_CHAT,
+    PERMISSIONS.EXPORT_DATA,
+  ],
+
   // Galaxy Portal user — strictly read-only. Never inherits any write
   // permission. Sees only its own tenant's data via /api/portal/*.
   [ROLES.PORTAL_USER]: [
@@ -336,6 +353,7 @@ export const ROLE_DISPLAY_NAMES: Record<Role, string> = {
   [ROLES.GLOBAL_ADMIN]: 'Global Admin',
   [ROLES.VEGA_CONSULTANT]: 'Consultant',
   [ROLES.VEGA_ADMIN]: 'Platform Admin',
+  [ROLES.OKR_PLANNER]: 'OKR Planner',
   [ROLES.PORTAL_USER]: 'Galaxy Portal User',
   [ROLES.OKR_APPROVER]: 'OKR Approver',
 };
@@ -350,6 +368,7 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   [ROLES.GLOBAL_ADMIN]: 'Super administrator with cross-tenant support access',
   [ROLES.VEGA_CONSULTANT]: 'External consultant with multi-tenant access for advisory work',
   [ROLES.VEGA_ADMIN]: 'Platform administrator with full system access',
+  [ROLES.OKR_PLANNER]: 'Tenant user who can also create planning workshops',
   [ROLES.PORTAL_USER]: 'Galaxy-authenticated portal user with read-only access via /api/portal/*',
   [ROLES.OKR_APPROVER]: 'Reviews and approves pending OKRs in addition to standard user capabilities',
 };

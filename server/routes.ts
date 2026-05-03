@@ -4803,6 +4803,272 @@ ${changelogContent}`;
     }
   }, 15000);
 
+  // ============================================
+  // Planning Workshops (Task #63)
+  // ============================================
+  const createWorkshopBodySchema = z.object({
+    title: z.string().min(1).max(200),
+    quarter: z.number().int().min(0).max(4),
+    year: z.number().int().min(2000).max(3000),
+    durationMinutes: z.number().int().min(5).max(480).optional(),
+    votesPerParticipant: z.number().int().min(1).max(20).optional(),
+    topNForDraft: z.number().int().min(1).max(20).optional(),
+    participantUserIds: z.array(z.string()).optional(),
+  });
+
+  function canCreateWorkshop(role: string): boolean {
+    return [
+      ROLES.OKR_PLANNER,
+      ROLES.TENANT_ADMIN,
+      ROLES.ADMIN,
+      ROLES.VEGA_CONSULTANT,
+      ROLES.VEGA_ADMIN,
+      ROLES.GLOBAL_ADMIN,
+    ].includes(role as any);
+  }
+
+  app.get("/api/planning-workshops", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.effectiveTenantId!;
+      const list = await storage.listPlanningWorkshops(tenantId);
+      res.json(list);
+    } catch (err: any) {
+      console.error('[planning-workshops] list error:', err);
+      res.status(500).json({ error: err?.message || 'Failed to list workshops' });
+    }
+  });
+
+  app.post("/api/planning-workshops", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.effectiveTenantId!;
+      const role = (req.user!.role as string);
+      if (!canCreateWorkshop(role)) {
+        return res.status(403).json({ error: 'Insufficient permissions to create workshop' });
+      }
+      const body = createWorkshopBodySchema.parse(req.body);
+      const ws = await storage.createPlanningWorkshop({
+        tenantId,
+        title: body.title,
+        status: 'draft',
+        createdByUserId: req.user!.id,
+        settings: {
+          quarter: body.quarter,
+          year: body.year,
+          durationMinutes: body.durationMinutes ?? 45,
+          votesPerParticipant: body.votesPerParticipant ?? 5,
+          topNForDraft: body.topNForDraft ?? 5,
+          phase: 'brainstorm',
+        },
+        participantUserIds: body.participantUserIds ?? [],
+      });
+      res.status(201).json(ws);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Invalid input', issues: err.issues });
+      }
+      console.error('[planning-workshops] create error:', err);
+      res.status(500).json({ error: err?.message || 'Failed to create workshop' });
+    }
+  });
+
+  app.get("/api/planning-workshops/:id", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.effectiveTenantId!;
+      const result = await storage.getPlanningWorkshop(req.params.id, tenantId);
+      if (!result) return res.status(404).json({ error: 'Workshop not found' });
+      res.json(result);
+    } catch (err: any) {
+      console.error('[planning-workshops] get error:', err);
+      res.status(500).json({ error: err?.message || 'Failed to load workshop' });
+    }
+  });
+
+  // Long-poll fallback: returns immediately when rev > since, otherwise waits up to 25s
+  app.get("/api/planning-workshops/:id/state", ...authWithTenant, async (req: Request, res: Response) => {
+    const tenantId = req.effectiveTenantId!;
+    const since = parseInt((req.query.since as string) || '-1', 10);
+    const deadline = Date.now() + 25_000;
+    try {
+      while (true) {
+        const result = await storage.getPlanningWorkshop(req.params.id, tenantId);
+        if (!result) return res.status(404).json({ error: 'Workshop not found' });
+        if (result.workshop.rev > since || Date.now() >= deadline) {
+          return res.json(result);
+        }
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    } catch (err: any) {
+      console.error('[planning-workshops] state error:', err);
+      res.status(500).json({ error: err?.message || 'Failed to load state' });
+    }
+  });
+
+  app.patch("/api/planning-workshops/:id", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.effectiveTenantId!;
+      const existing = await storage.getPlanningWorkshop(req.params.id, tenantId);
+      if (!existing) return res.status(404).json({ error: 'Workshop not found' });
+      const role = req.user!.role as string;
+      const isFacilitator = existing.participants.some(
+        (p) => p.userId === req.user!.id && p.role === 'facilitator',
+      );
+      if (!canCreateWorkshop(role) && !isFacilitator) {
+        return res.status(403).json({ error: 'Only facilitators can update the workshop' });
+      }
+      const patchSchema = z.object({
+        title: z.string().min(1).max(200).optional(),
+        status: z.enum(['draft', 'active', 'submitted', 'cancelled']).optional(),
+        settings: z.record(z.any()).optional(),
+      });
+      const patch = patchSchema.parse(req.body);
+      const merged: any = { ...patch };
+      if (patch.settings) {
+        merged.settings = {
+          ...(existing.workshop.settings as Record<string, unknown>),
+          ...patch.settings,
+        };
+      }
+      const updated = await storage.updatePlanningWorkshop(req.params.id, tenantId, merged);
+      res.json(updated);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Invalid input', issues: err.issues });
+      }
+      console.error('[planning-workshops] patch error:', err);
+      res.status(500).json({ error: err?.message || 'Failed to update workshop' });
+    }
+  });
+
+  // Helper: load workshop + verify the current user can act on it.
+  // `requireFacilitator` enforces facilitator/admin-level authz for write
+  // operations like inviting participants, mutating settings, or submitting.
+  async function authorizeWorkshopAction(
+    workshopId: string,
+    tenantId: string,
+    userId: string,
+    role: string,
+    requireFacilitator: boolean,
+  ): Promise<{ ok: true } | { ok: false; status: number; error: string }> {
+    const ws = await storage.getPlanningWorkshop(workshopId, tenantId);
+    if (!ws) return { ok: false, status: 404, error: 'Workshop not found' };
+    const me = ws.participants.find((p) => p.userId === userId);
+    if (requireFacilitator) {
+      const isFacilitator = me?.role === 'facilitator';
+      if (!isFacilitator && !canCreateWorkshop(role)) {
+        return { ok: false, status: 403, error: 'Facilitator privileges required' };
+      }
+    } else {
+      // For participant-level actions (add candidate, vote), the user must
+      // either be a participant of the workshop or have workshop-create
+      // privileges.
+      if (!me && !canCreateWorkshop(role)) {
+        return { ok: false, status: 403, error: 'Not a participant of this workshop' };
+      }
+    }
+    return { ok: true };
+  }
+
+  app.post("/api/planning-workshops/:id/participants", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.effectiveTenantId!;
+      const userRole = req.user!.role as string;
+      const authz = await authorizeWorkshopAction(req.params.id, tenantId, req.user!.id, userRole, true);
+      if (!authz.ok) return res.status(authz.status).json({ error: authz.error });
+      const schema = z.object({ userId: z.string(), role: z.enum(['facilitator', 'participant']).optional() });
+      const body = schema.parse(req.body);
+
+      // Verify the invitee belongs to the same tenant — prevents cross-tenant
+      // user injection via /api/users lookups.
+      const invitee = await storage.getUser(body.userId);
+      if (!invitee || invitee.tenantId !== tenantId) {
+        return res.status(400).json({ error: 'User is not a member of this tenant' });
+      }
+      const row = await storage.addWorkshopParticipant(req.params.id, tenantId, body.userId, body.role);
+      res.status(201).json(row);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Invalid input', issues: err.issues });
+      }
+      console.error('[planning-workshops] add participant error:', err);
+      res.status(err?.message === 'Workshop not found' ? 404 : 500).json({ error: err?.message || 'Failed' });
+    }
+  });
+
+  app.post("/api/planning-workshops/:id/candidates", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.effectiveTenantId!;
+      const userRole = req.user!.role as string;
+      const authz = await authorizeWorkshopAction(req.params.id, tenantId, req.user!.id, userRole, false);
+      if (!authz.ok) return res.status(authz.status).json({ error: authz.error });
+      const schema = z.object({
+        title: z.string().min(1).max(200),
+        description: z.string().max(2000).optional(),
+        theme: z.string().max(100).optional(),
+      });
+      const body = schema.parse(req.body);
+      const row = await storage.addWorkshopCandidate({
+        tenantId,
+        workshopId: req.params.id,
+        title: body.title,
+        description: body.description ?? null,
+        theme: body.theme ?? null,
+        proposedByUserId: req.user!.id,
+      });
+      res.status(201).json(row);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ error: 'Invalid input', issues: err.issues });
+      }
+      console.error('[planning-workshops] add candidate error:', err);
+      res.status(err?.message === 'Workshop not found' ? 404 : 500).json({ error: err?.message || 'Failed' });
+    }
+  });
+
+  app.post("/api/planning-workshops/:id/candidates/:cid/vote", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.effectiveTenantId!;
+      const userRole = req.user!.role as string;
+      const authz = await authorizeWorkshopAction(req.params.id, tenantId, req.user!.id, userRole, false);
+      if (!authz.ok) return res.status(authz.status).json({ error: authz.error });
+      const result = await storage.toggleWorkshopVote(
+        req.params.id,
+        tenantId,
+        req.params.cid,
+        req.user!.id,
+      );
+      res.json(result);
+    } catch (err: any) {
+      console.error('[planning-workshops] vote error:', err);
+      const msg = err?.message || 'Failed';
+      const status = msg === 'Workshop not found' ? 404
+        : msg === 'Candidate not found in this workshop' ? 404
+        : msg === 'Vote budget exhausted' ? 409
+        : 500;
+      res.status(status).json({ error: msg });
+    }
+  });
+
+  app.post("/api/planning-workshops/:id/submit", ...authWithTenant, async (req: Request, res: Response) => {
+    try {
+      const tenantId = req.effectiveTenantId!;
+      const role = req.user!.role as string;
+      const existing = await storage.getPlanningWorkshop(req.params.id, tenantId);
+      if (!existing) return res.status(404).json({ error: 'Workshop not found' });
+      const isFacilitator = existing.participants.some(
+        (p) => p.userId === req.user!.id && p.role === 'facilitator',
+      );
+      if (!canCreateWorkshop(role) && !isFacilitator) {
+        return res.status(403).json({ error: 'Only facilitators can submit the workshop' });
+      }
+      const requireApproval = req.body?.requireApproval === true;
+      const result = await storage.submitWorkshop(req.params.id, tenantId, req.user!.id, { requireApproval });
+      res.json(result);
+    } catch (err: any) {
+      console.error('[planning-workshops] submit error:', err);
+      res.status(err?.message === 'Workshop not found' ? 404 : 500).json({ error: err?.message || 'Failed' });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
