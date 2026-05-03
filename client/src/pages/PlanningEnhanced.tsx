@@ -12,7 +12,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { DiscussionPanel } from "@/components/DiscussionPanel";
-import { CommentCountBadge } from "@/components/CommentCountBadge";
+import { CommentCountInlineBadge } from "@/components/CommentCountInlineBadge";
+import { CommentCountsProvider } from "@/hooks/use-comment-counts";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { CustomFieldsSection, extractCustomFieldsFromEntity } from "@/components/CustomFieldsSection";
 import { DeletedItemDialog } from "@/components/DeletedItemDialog";
@@ -6295,7 +6296,7 @@ function BigRocksSection({ bigRocks, objectives, strategies, teams, activeQuarte
                 <Badge variant="secondary" className="text-xs">
                   {rock.quarter === 0 ? 'Annual' : `Q${rock.quarter}`} {rock.year}
                 </Badge>
-                <CommentCountBadge entityType="big_rock" entityId={rock.id} />
+                <CommentCountInlineBadge entityType="big_rock" entityId={rock.id} />
                 {rock.plannerPlanId && (
                   <Badge variant="outline" className="text-xs" data-testid={`badge-planner-linked-${rock.id}`}>
                     <Link2 className="h-3 w-3 mr-1" />
@@ -6434,6 +6435,7 @@ function BigRocksSection({ bigRocks, objectives, strategies, teams, activeQuarte
   };
 
   return (
+    <CommentCountsProvider bigRockIds={bigRockIds}>
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold">Big Rocks</h2>
@@ -6471,6 +6473,7 @@ function BigRocksSection({ bigRocks, objectives, strategies, teams, activeQuarte
         </div>
       )}
     </div>
+    </CommentCountsProvider>
   );
 }
 

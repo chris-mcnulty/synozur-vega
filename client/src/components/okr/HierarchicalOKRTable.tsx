@@ -41,6 +41,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { cn } from "@/lib/utils";
 import { format, differenceInDays, endOfQuarter } from "date-fns";
 import { CircularProgress } from "./CircularProgress";
+import { CommentCountsProvider } from "@/hooks/use-comment-counts";
+import { CommentCountInlineBadge } from "@/components/CommentCountInlineBadge";
 
 interface KeyResult {
   id: string;
@@ -479,6 +481,7 @@ function ObjectiveRow({
             >
               {objective.title}
             </span>
+            <CommentCountInlineBadge entityType="objective" entityId={objective.id} size="xs" />
             {objective.level && (
               <Badge 
                 variant="secondary" 
@@ -916,6 +919,7 @@ function KeyResultRow({
           >
             {keyResult.title}
           </span>
+          <CommentCountInlineBadge entityType="key_result" entityId={keyResult.id} size="xs" />
           {keyResult.weight !== undefined && (
             <TooltipProvider>
               <Tooltip>
@@ -1246,6 +1250,7 @@ function MobileObjectiveCard({
               >
                 {objective.title}
               </span>
+              <CommentCountInlineBadge entityType="objective" entityId={objective.id} size="xs" />
             </div>
 
             <div className="flex items-center gap-1.5 flex-wrap mb-2">
@@ -1566,6 +1571,7 @@ function MobileKeyResultCard({
             >
               {keyResult.title}
             </span>
+            <CommentCountInlineBadge entityType="key_result" entityId={keyResult.id} size="xs" />
           </div>
 
           <div className="flex items-center gap-1.5 mb-2 flex-wrap">
@@ -1772,6 +1778,20 @@ export function HierarchicalOKRTable({
   onEditExcelLink,
 }: HierarchicalOKRTableProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+
+  const { objectiveIds, keyResultIds } = useMemo(() => {
+    const objIds: string[] = [];
+    const krIds: string[] = [];
+    const visit = (obj: HierarchyObjective) => {
+      objIds.push(obj.id);
+      (obj.keyResults || []).forEach((kr) => krIds.push(kr.id));
+      (obj.childObjectives || []).forEach(visit);
+      (obj.alignedObjectives || []).forEach(visit);
+    };
+    objectives.forEach(visit);
+    return { objectiveIds: objIds, keyResultIds: krIds };
+  }, [objectives]);
+
   const handleToggleExpand = useCallback((objectiveId: string) => {
     setExpandedIds((prev) => {
       const next = new Set(prev);
@@ -1797,7 +1817,7 @@ export function HierarchicalOKRTable({
   }
 
   return (
-    <>
+    <CommentCountsProvider objectiveIds={objectiveIds} keyResultIds={keyResultIds}>
       <div className="hidden md:block border rounded-md">
         <Table>
           <TableHeader>
@@ -1871,6 +1891,6 @@ export function HierarchicalOKRTable({
           />
         ))}
       </div>
-    </>
+    </CommentCountsProvider>
   );
 }
