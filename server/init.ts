@@ -448,8 +448,12 @@ async function ensureSchemaColumns() {
     // Accelerates ILIKE '%query%' searches in storage.searchAcrossEntities
     // across the 8 entity tables (objectives, key_results, big_rocks,
     // strategies, teams, meetings, support_tickets, grounding_documents).
-    // Mirrors migrations/0008_search_trgm_indexes.sql so fresh/dev databases
-    // pick up these indexes at startup without running drizzle-kit push.
+    // Owns these indexes for both fresh and existing databases. The original
+    // 0008_search_trgm_indexes.sql migration was removed because Replit's
+    // deploy migration analyzer stripped the `gin_trgm_ops` operator class
+    // from the rendered DDL, breaking deploys with "data type text has no
+    // default operator class for access method gin". Running it from app
+    // startup uses raw client.query() and preserves the opclass exactly.
     try {
       await client.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm`);
       const trgmIndexes: Array<[string, string, string]> = [
