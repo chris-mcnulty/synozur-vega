@@ -14,6 +14,11 @@ interface RegisteredJob {
 class JobScheduler {
   private jobs: Map<string, RegisteredJob> = new Map();
   private initialized = false;
+  // Track last failure-notification timestamp per job to rate-limit emails.
+  // In development we skip emails entirely; in production we suppress duplicates
+  // within a 4-hour window so a recurring job failure doesn't flood inboxes.
+  private lastFailureNotifiedAt: Map<string, number> = new Map();
+  private static FAILURE_NOTIFY_COOLDOWN_MS = 4 * 60 * 60 * 1000; // 4 hours
 
   async initialize() {
     if (this.initialized) return;
@@ -284,6 +289,24 @@ class JobScheduler {
   }
 
   private async sendFailureNotifications(job: ScheduledJob, errorMessage: string, errorStack: string | null): Promise<void> {
+    // Never send failure emails in development — dev environments run all the
+    // same scheduled jobs but usually lack real data, causing spurious alerts.
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(`[JobScheduler] Skipping failure email in non-production env for job: ${job.name}`);
+      return;
+    }
+
+    // Rate-limit: don't re-send the same job's failure notification within the
+    // cooldown window. This prevents inbox floods when a recurring job keeps
+    // failing on each scheduled tick.
+    const lastNotified = this.lastFailureNotifiedAt.get(job.name) ?? 0;
+    const cooldown = JobScheduler.FAILURE_NOTIFY_COOLDOWN_MS;
+    if (Date.now() - lastNotified < cooldown) {
+      const nextAllowedAt = new Date(lastNotified + cooldown).toISOString();
+      console.warn(`[JobScheduler] Suppressing duplicate failure email for ${job.name} (next allowed: ${nextAllowedAt})`);
+      return;
+    }
+
     try {
       const adminUsers = await storage.getVegaAdminUsers();
       
@@ -308,6 +331,9 @@ class JobScheduler {
           console.error(`[JobScheduler] Failed to send notification to ${admin.email}:`, emailError);
         }
       }
+
+      // Record the time we successfully dispatched this notification batch
+      this.lastFailureNotifiedAt.set(job.name, Date.now());
     } catch (error) {
       console.error('[JobScheduler] Failed to send failure notifications:', error);
     }

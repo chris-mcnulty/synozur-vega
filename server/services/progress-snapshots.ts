@@ -229,16 +229,25 @@ export async function runDailySnapshotJob(opts?: { tenantId?: string }): Promise
   }
 
   const total = objectiveCount + keyResultCount;
+  const tenantLevelFailures = failures.filter(f => f.entity.startsWith('tenant:')).length;
+  const attempted = total + failures.length;
+
+  // Build an accurate summary that distinguishes three distinct outcomes:
+  //  A) Genuine empty: all tenants were visited but had no active OKRs → no-op success
+  //  B) Systemic error: every tenant-level query failed (e.g. missing DB column) → failures.length > 0, total = 0
+  //  C) Partial success: some snapshots captured, some failed
   const summary = total > 0
     ? `Captured ${total} snapshots (${objectiveCount} objectives, ${keyResultCount} key results) across ${tenantCount} tenants for ${today}${failures.length > 0 ? ` — ${failures.length} failures` : ''}`
-    : 'No active OKRs to snapshot';
+    : failures.length > 0
+      ? `Snapshot job failed for all ${tenantLevelFailures} tenant(s) — no snapshots captured (${failures[0]?.error ?? 'unknown error'})`
+      : 'No active OKRs to snapshot';
+
   const details = { snapshotDate: today, tenantCount, objectiveCount, keyResultCount, failures: failures.slice(0, 25) };
 
   // Surface material failures to the job scheduler so the dashboard alerts
   // accurately. Threshold: any tenant-level failure, or >5% entity failures,
   // or zero successes when entities were attempted.
-  const tenantLevelFailures = failures.filter(f => f.entity.startsWith('tenant:')).length;
-  const attempted = total + failures.length;
+  // NOTE: total=0 with failures=0 (case A above) is a valid no-op — don't throw.
   const failureRatio = attempted > 0 ? failures.length / attempted : 0;
   const allFailed = attempted > 0 && total === 0;
   if (tenantLevelFailures > 0 || failureRatio > 0.05 || allFailed) {
