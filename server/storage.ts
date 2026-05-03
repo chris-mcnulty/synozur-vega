@@ -583,6 +583,11 @@ export interface IStorage {
   getTrashItemsByTenantId(tenantId: string): Promise<TrashListing>;
   restoreAmbition(tenantId: string, ambitionId: string): Promise<Ambition | undefined>;
   softDeleteAmbition(tenantId: string, ambitionId: string, userId?: string): Promise<void>;
+  hardDeleteTrashedObjective(id: string, tenantId: string): Promise<boolean>;
+  hardDeleteTrashedKeyResult(id: string, tenantId: string): Promise<boolean>;
+  hardDeleteTrashedBigRock(id: string, tenantId: string): Promise<boolean>;
+  hardDeleteTrashedStrategy(id: string, tenantId: string): Promise<boolean>;
+  hardDeleteTrashedAmbition(tenantId: string, ambitionId: string): Promise<boolean>;
   purgeOldDeletedItems(olderThanDays: number): Promise<{
     objectives: number;
     keyResults: number;
@@ -5293,6 +5298,105 @@ export class DatabaseStorage implements IStorage {
       .set({ ambitions: updated as any })
       .where(eq(foundations.tenantId, tenantId));
     return restored;
+  }
+
+  async hardDeleteTrashedObjective(id: string, tenantId: string): Promise<boolean> {
+    return await db.transaction(async (tx) => {
+      const [original] = await tx.select().from(objectives).where(eq(objectives.id, id));
+      if (!original || original.tenantId !== tenantId || !original.deletedAt) return false;
+
+      // Collect all descendant big rocks: those directly on the objective AND those
+      // attached via the objective's key results. Delete their tasks first, then the
+      // big rocks, then the key results (which no longer have child big rocks
+      // referencing them), then the objective itself.
+      const childKeyResults = await tx.select({ id: keyResults.id }).from(keyResults)
+        .where(eq(keyResults.objectiveId, id));
+      const krIds = childKeyResults.map(kr => kr.id);
+
+      const directBigRocks = await tx.select({ id: bigRocks.id }).from(bigRocks)
+        .where(eq(bigRocks.objectiveId, id));
+      const krBigRocks = krIds.length > 0
+        ? await tx.select({ id: bigRocks.id }).from(bigRocks)
+            .where(inArray(bigRocks.keyResultId, krIds))
+        : [];
+      const allBigRockIds = Array.from(new Set([
+        ...directBigRocks.map(b => b.id),
+        ...krBigRocks.map(b => b.id),
+      ]));
+
+      if (allBigRockIds.length > 0) {
+        await tx.delete(bigRockTasks).where(inArray(bigRockTasks.bigRockId, allBigRockIds));
+        await tx.delete(bigRocks).where(inArray(bigRocks.id, allBigRockIds));
+      }
+      if (krIds.length > 0) {
+        await tx.delete(keyResults).where(inArray(keyResults.id, krIds));
+      }
+      const deleted = await tx.delete(objectives)
+        .where(and(eq(objectives.id, id), eq(objectives.tenantId, tenantId)))
+        .returning({ id: objectives.id });
+      return deleted.length > 0;
+    });
+  }
+
+  async hardDeleteTrashedKeyResult(id: string, tenantId: string): Promise<boolean> {
+    return await db.transaction(async (tx) => {
+      const [original] = await tx.select().from(keyResults).where(eq(keyResults.id, id));
+      if (!original || original.tenantId !== tenantId || !original.deletedAt) return false;
+
+      // Cascade big rocks linked via keyResultId (and their tasks) before deleting
+      // the key result, since big_rocks.key_result_id is a non-cascading FK.
+      const childBigRocks = await tx.select({ id: bigRocks.id }).from(bigRocks)
+        .where(eq(bigRocks.keyResultId, id));
+      if (childBigRocks.length > 0) {
+        const ids = childBigRocks.map(b => b.id);
+        await tx.delete(bigRockTasks).where(inArray(bigRockTasks.bigRockId, ids));
+        await tx.delete(bigRocks).where(inArray(bigRocks.id, ids));
+      }
+      const deleted = await tx.delete(keyResults)
+        .where(and(eq(keyResults.id, id), eq(keyResults.tenantId, tenantId)))
+        .returning({ id: keyResults.id });
+      return deleted.length > 0;
+    });
+  }
+
+  async hardDeleteTrashedBigRock(id: string, tenantId: string): Promise<boolean> {
+    return await db.transaction(async (tx) => {
+      const [original] = await tx.select().from(bigRocks).where(eq(bigRocks.id, id));
+      if (!original || original.tenantId !== tenantId || !original.deletedAt) return false;
+
+      await tx.delete(bigRockTasks).where(eq(bigRockTasks.bigRockId, id));
+      const deleted = await tx.delete(bigRocks)
+        .where(and(eq(bigRocks.id, id), eq(bigRocks.tenantId, tenantId)))
+        .returning({ id: bigRocks.id });
+      return deleted.length > 0;
+    });
+  }
+
+  async hardDeleteTrashedStrategy(id: string, tenantId: string): Promise<boolean> {
+    const [original] = await db.select().from(strategies).where(eq(strategies.id, id));
+    if (!original || original.tenantId !== tenantId || !original.deletedAt) return false;
+
+    const deleted = await db.delete(strategies)
+      .where(and(eq(strategies.id, id), eq(strategies.tenantId, tenantId)))
+      .returning({ id: strategies.id });
+    return deleted.length > 0;
+  }
+
+  async hardDeleteTrashedAmbition(tenantId: string, ambitionId: string): Promise<boolean> {
+    return await db.transaction(async (tx) => {
+      const [foundation] = await tx.select().from(foundations).where(eq(foundations.tenantId, tenantId));
+      if (!foundation || !Array.isArray(foundation.ambitions)) return false;
+
+      const list = foundation.ambitions as Ambition[];
+      const target = list.find(a => a.id === ambitionId);
+      if (!target || !target.deletedAt) return false;
+
+      const updated = list.filter(a => a.id !== ambitionId);
+      await tx.update(foundations)
+        .set({ ambitions: updated as any })
+        .where(eq(foundations.tenantId, tenantId));
+      return true;
+    });
   }
 
   async purgeOldDeletedItems(olderThanDays: number): Promise<{

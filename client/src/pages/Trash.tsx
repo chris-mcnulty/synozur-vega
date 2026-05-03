@@ -5,6 +5,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
@@ -54,12 +65,16 @@ function TrashItemRow({
   typeLabel,
   onRestore,
   isRestoring,
+  onDeleteForever,
+  isDeleting,
 }: {
   item: TrashItem;
   type: string;
   typeLabel: string;
   onRestore: (type: string, id: string) => void;
   isRestoring: boolean;
+  onDeleteForever: (type: string, id: string) => void;
+  isDeleting: boolean;
 }) {
   const remaining = daysUntilPurge(item.deletedAt);
   return (
@@ -109,16 +124,52 @@ function TrashItemRow({
           )}
         </div>
       </div>
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => onRestore(type, item.id)}
-        disabled={isRestoring}
-        data-testid={`button-restore-${type}-${item.id}`}
-      >
-        <RotateCcw className="h-4 w-4 mr-2" />
-        Restore
-      </Button>
+      <div className="flex items-center gap-2 flex-wrap">
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => onRestore(type, item.id)}
+          disabled={isRestoring || isDeleting}
+          data-testid={`button-restore-${type}-${item.id}`}
+        >
+          <RotateCcw className="h-4 w-4 mr-2" />
+          Restore
+        </Button>
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              size="sm"
+              variant="destructive"
+              disabled={isRestoring || isDeleting}
+              data-testid={`button-delete-forever-${type}-${item.id}`}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete Forever
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent data-testid={`dialog-delete-forever-${type}-${item.id}`}>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Delete this {typeLabel.toLowerCase()} forever?</AlertDialogTitle>
+              <AlertDialogDescription>
+                This will permanently delete <span className="font-medium">{item.title || "(untitled)"}</span>
+                {" "}and any related child items. This action is irreversible and cannot be undone.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid={`button-cancel-delete-forever-${type}-${item.id}`}>
+                Cancel
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => onDeleteForever(type, item.id)}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                data-testid={`button-confirm-delete-forever-${type}-${item.id}`}
+              >
+                Delete Forever
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      </div>
     </div>
   );
 }
@@ -179,6 +230,31 @@ export default function Trash() {
 
   const handleRestore = (type: string, id: string) => {
     restoreMutation.mutate({ type, id });
+  };
+
+  const deleteForeverMutation = useMutation({
+    mutationFn: async ({ type, id }: { type: string; id: string }) => {
+      const res = await apiRequest("DELETE", `/api/trash/${type}/${id}`);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/trash"] });
+      toast({
+        title: "Item permanently deleted",
+        description: "The item and any related child items have been permanently deleted.",
+      });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Delete failed",
+        description: err?.message || "Failed to permanently delete item",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDeleteForever = (type: string, id: string) => {
+    deleteForeverMutation.mutate({ type, id });
   };
 
   if (!canAccess) {
@@ -279,6 +355,8 @@ export default function Trash() {
                 typeLabel="Objective"
                 onRestore={handleRestore}
                 isRestoring={restoreMutation.isPending}
+          onDeleteForever={handleDeleteForever}
+          isDeleting={deleteForeverMutation.isPending}
               />
             ))}
             {data.keyResults.map((item) => (
@@ -289,6 +367,8 @@ export default function Trash() {
                 typeLabel="Key Result"
                 onRestore={handleRestore}
                 isRestoring={restoreMutation.isPending}
+          onDeleteForever={handleDeleteForever}
+          isDeleting={deleteForeverMutation.isPending}
               />
             ))}
             {data.bigRocks.map((item) => (
@@ -299,6 +379,8 @@ export default function Trash() {
                 typeLabel="Big Rock"
                 onRestore={handleRestore}
                 isRestoring={restoreMutation.isPending}
+          onDeleteForever={handleDeleteForever}
+          isDeleting={deleteForeverMutation.isPending}
               />
             ))}
             {data.strategies.map((item) => (
@@ -309,6 +391,8 @@ export default function Trash() {
                 typeLabel="Strategy"
                 onRestore={handleRestore}
                 isRestoring={restoreMutation.isPending}
+          onDeleteForever={handleDeleteForever}
+          isDeleting={deleteForeverMutation.isPending}
               />
             ))}
             {data.ambitions.map((item) => (
@@ -319,6 +403,8 @@ export default function Trash() {
                 typeLabel="Ambition"
                 onRestore={handleRestore}
                 isRestoring={restoreMutation.isPending}
+          onDeleteForever={handleDeleteForever}
+          isDeleting={deleteForeverMutation.isPending}
               />
             ))}
           </TabsContent>
@@ -335,6 +421,8 @@ export default function Trash() {
                   typeLabel="Objective"
                   onRestore={handleRestore}
                   isRestoring={restoreMutation.isPending}
+          onDeleteForever={handleDeleteForever}
+          isDeleting={deleteForeverMutation.isPending}
                 />
               ))
             )}
@@ -352,6 +440,8 @@ export default function Trash() {
                   typeLabel="Key Result"
                   onRestore={handleRestore}
                   isRestoring={restoreMutation.isPending}
+          onDeleteForever={handleDeleteForever}
+          isDeleting={deleteForeverMutation.isPending}
                 />
               ))
             )}
@@ -369,6 +459,8 @@ export default function Trash() {
                   typeLabel="Big Rock"
                   onRestore={handleRestore}
                   isRestoring={restoreMutation.isPending}
+          onDeleteForever={handleDeleteForever}
+          isDeleting={deleteForeverMutation.isPending}
                 />
               ))
             )}
@@ -386,6 +478,8 @@ export default function Trash() {
                   typeLabel="Strategy"
                   onRestore={handleRestore}
                   isRestoring={restoreMutation.isPending}
+          onDeleteForever={handleDeleteForever}
+          isDeleting={deleteForeverMutation.isPending}
                 />
               ))
             )}
@@ -403,6 +497,8 @@ export default function Trash() {
                   typeLabel="Ambition"
                   onRestore={handleRestore}
                   isRestoring={restoreMutation.isPending}
+          onDeleteForever={handleDeleteForever}
+          isDeleting={deleteForeverMutation.isPending}
                 />
               ))
             )}
