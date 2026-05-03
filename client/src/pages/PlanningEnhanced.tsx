@@ -15,6 +15,7 @@ import { DiscussionPanel } from "@/components/DiscussionPanel";
 import { CommentCountBadge } from "@/components/CommentCountBadge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { CustomFieldsSection, extractCustomFieldsFromEntity } from "@/components/CustomFieldsSection";
+import { DeletedItemDialog } from "@/components/DeletedItemDialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -595,6 +596,8 @@ export default function PlanningEnhanced() {
   // Deep link from mention notifications: ?entityType=&entityId=&focusComment=
   // Opens the relevant detail surface so DiscussionPanel can scroll/highlight.
   const [commentDeepLinkApplied, setCommentDeepLinkApplied] = useState(false);
+  const [deletedItemDialogOpen, setDeletedItemDialogOpen] = useState(false);
+  const [deletedItemTypeLabel, setDeletedItemTypeLabel] = useState<string>("item");
   useEffect(() => {
     if (commentDeepLinkApplied) return;
     const params = new URLSearchParams(search);
@@ -602,9 +605,19 @@ export default function PlanningEnhanced() {
     const entityId = params.get("entityId");
     const focusComment = params.get("focusComment");
     if (!entityType || !entityId || !focusComment) return;
+    // Wait for tenant readiness AND list queries to settle. Tenant-scoped
+    // queries are disabled while currentTenant is null, so their isLoading
+    // would be false against empty data and produce false-positive deletes.
+    if (!currentTenant?.id) return;
+    if (loadingObjectives || loadingBigRocks) return;
+    const showDeleted = (label: string) => {
+      setDeletedItemTypeLabel(label);
+      setDeletedItemDialogOpen(true);
+      setCommentDeepLinkApplied(true);
+    };
     if (entityType === "objective") {
       const obj = objectives.find((o: any) => o.id === entityId);
-      if (!obj) return;
+      if (!obj) { showDeleted("objective"); return; }
       setDetailPaneEntityType("objective");
       setDetailPaneEntity(obj);
       setDetailPaneParentObjective(null);
@@ -612,7 +625,7 @@ export default function PlanningEnhanced() {
       setCommentDeepLinkApplied(true);
     } else if (entityType === "key_result") {
       const kr = (rawObjectives as any[]).flatMap((o: any) => o.keyResults || []).find((k: any) => k.id === entityId);
-      if (!kr) return;
+      if (!kr) { showDeleted("key result"); return; }
       const parent = objectives.find((o: any) => o.id === kr.objectiveId);
       setDetailPaneEntityType("key_result");
       setDetailPaneEntity(kr);
@@ -621,10 +634,16 @@ export default function PlanningEnhanced() {
       setCommentDeepLinkApplied(true);
     } else if (entityType === "big_rock") {
       const rock = bigRocks.find((b: any) => b.id === entityId);
-      if (!rock) return;
+      if (!rock) { showDeleted("big rock"); return; }
       setSelectedBigRock(rock);
       setBigRockForm((prev: any) => ({ ...prev, ...rock }));
       setBigRockDialogOpen(true);
+      setCommentDeepLinkApplied(true);
+    } else if (entityType === "strategy") {
+      // Strategies live on /strategy. Forward the deep link there so the
+      // Strategy page itself can decide whether the item exists or has been
+      // deleted (it has the strategy list to verify against).
+      navigate(`/strategy?strategyId=${entityId}&focusComment=${focusComment}`);
       setCommentDeepLinkApplied(true);
     } else if (entityType === "check_in") {
       // For check-in comments, open the owning entity's detail pane on the activity tab.
@@ -660,7 +679,7 @@ export default function PlanningEnhanced() {
         })
         .catch(() => setCommentDeepLinkApplied(true));
     }
-  }, [search, objectives, bigRocks, rawObjectives, commentDeepLinkApplied]);
+  }, [search, objectives, bigRocks, rawObjectives, commentDeepLinkApplied, loadingObjectives, loadingBigRocks, currentTenant?.id, navigate]);
   
   // Find strategies without objectives for the focus filter
   // Uses objectives data (always fetched) rather than hierarchyData (only fetched on hierarchy tab)
@@ -5967,6 +5986,13 @@ export default function PlanningEnhanced() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        <DeletedItemDialog
+          open={deletedItemDialogOpen}
+          onOpenChange={setDeletedItemDialogOpen}
+          itemTypeLabel={deletedItemTypeLabel}
+          onDismiss={() => navigate("/planning", { replace: true })}
+        />
 
         {/* OKR Detail Pane */}
         <OKRDetailPane

@@ -31,6 +31,7 @@ import { queryClient, apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
 import { useVocabulary } from "@/contexts/VocabularyContext";
 import { ValueTagSelector } from "@/components/ValueTagSelector";
+import { DeletedItemDialog } from "@/components/DeletedItemDialog";
 import type { Strategy, Foundation, CompanyValue } from "@shared/schema";
 
 const priorityLevels = [
@@ -131,6 +132,28 @@ export default function Strategy() {
       navigate("/strategy", { replace: true });
     }
   }, [urlFocus, navigate]);
+
+  // Deep link to a specific strategy via ?strategyId=<id>. If the strategy
+  // can't be found after the list has loaded, show a friendly "deleted" dialog.
+  const [deletedItemDialogOpen, setDeletedItemDialogOpen] = useState(false);
+  const [strategyDeepLinkApplied, setStrategyDeepLinkApplied] = useState(false);
+  useEffect(() => {
+    if (strategyDeepLinkApplied) return;
+    // Wait for tenant to resolve before checking — otherwise tenant-scoped
+    // queries are disabled and `strategies` is an empty array.
+    if (tenantLoading || !currentTenant?.id) return;
+    if (isLoading) return;
+    const params = new URLSearchParams(search);
+    const strategyId = params.get("strategyId") || params.get("id");
+    if (!strategyId) return;
+    const found = strategies.find((s) => s.id === strategyId);
+    if (found) {
+      setSelectedStrategy(found);
+    } else {
+      setDeletedItemDialogOpen(true);
+    }
+    setStrategyDeepLinkApplied(true);
+  }, [search, strategies, isLoading, strategyDeepLinkApplied, tenantLoading, currentTenant?.id]);
   
   // Get annual goals from foundation
   const annualGoals = foundation?.annualGoals || [];
@@ -1284,6 +1307,13 @@ export default function Strategy() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <DeletedItemDialog
+          open={deletedItemDialogOpen}
+          onOpenChange={setDeletedItemDialogOpen}
+          itemTypeLabel="strategy"
+          onDismiss={() => navigate("/strategy", { replace: true })}
+        />
       </div>
     </div>
   );

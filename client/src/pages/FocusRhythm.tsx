@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import { useSearch, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ import { hasPermission, PERMISSIONS, ROLES, type Role } from "@shared/rbac";
 import { useTimePeriod } from "@/contexts/TimePeriodContext";
 import { SerialCheckInDialog, type CheckInQueueItem } from "@/components/okr/SerialCheckInDialog";
 import { ScheduleToOutlookDialog } from "@/components/meetings/ScheduleToOutlookDialog";
+import { DeletedItemDialog } from "@/components/DeletedItemDialog";
 
 interface MeetingFormData {
   title: string;
@@ -1079,7 +1081,7 @@ export default function FocusRhythm() {
     enabled: !!currentTenant?.id,
   });
   
-  const { data: objectives = [] } = useQuery<Objective[]>({
+  const { data: objectives = [], isLoading: loadingObjectives } = useQuery<Objective[]>({
     queryKey: ['/api/okr/objectives', currentTenant?.id],
     queryFn: async () => {
       if (!currentTenant?.id) return [];
@@ -1090,7 +1092,7 @@ export default function FocusRhythm() {
     enabled: !!currentTenant?.id,
   });
   
-  const { data: bigRocks = [] } = useQuery<BigRock[]>({
+  const { data: bigRocks = [], isLoading: loadingBigRocks } = useQuery<BigRock[]>({
     queryKey: ['/api/okr/big-rocks', currentTenant?.id],
     queryFn: async () => {
       if (!currentTenant?.id) return [];
@@ -1101,7 +1103,13 @@ export default function FocusRhythm() {
     enabled: !!currentTenant?.id,
   });
 
-  const { data: allHierarchyData } = useQuery<any[]>({
+  const search = useSearch();
+  const [, navigate] = useLocation();
+  const [deletedItemDialogOpen, setDeletedItemDialogOpen] = useState(false);
+  const [deletedItemTypeLabel, setDeletedItemTypeLabel] = useState<string>("item");
+  const [focusDeepLinkApplied, setFocusDeepLinkApplied] = useState(false);
+
+  const { data: allHierarchyData, isLoading: loadingHierarchy } = useQuery<any[]>({
     queryKey: ['/api/okr/hierarchy', currentTenant?.id, 'all'],
     queryFn: async () => {
       if (!currentTenant?.id) return [];
@@ -1112,6 +1120,41 @@ export default function FocusRhythm() {
     enabled: !!currentTenant?.id,
   });
   const keyResults: KeyResult[] = allHierarchyData?.flatMap((obj: any) => obj.keyResults || []) || [];
+
+  // Deep link to a specific item via ?bigRockId= / ?objectiveId= / ?keyResultId=.
+  // If the item can't be found after the lists have loaded, show a friendly
+  // "deleted" dialog instead of a blank page.
+  useEffect(() => {
+    if (focusDeepLinkApplied) return;
+    // Wait for tenant readiness — tenant-scoped queries are disabled while
+    // currentTenant is null, so their isLoading flag is false against empty
+    // data and would produce false-positive "deleted" dialogs.
+    if (!currentTenant?.id) return;
+    if (loadingObjectives || loadingBigRocks || loadingHierarchy) return;
+    const params = new URLSearchParams(search);
+    const bigRockId = params.get("bigRockId");
+    const objectiveId = params.get("objectiveId");
+    const keyResultId = params.get("keyResultId");
+    if (bigRockId) {
+      if (!bigRocks.find((b) => b.id === bigRockId)) {
+        setDeletedItemTypeLabel("big rock");
+        setDeletedItemDialogOpen(true);
+      }
+      setFocusDeepLinkApplied(true);
+    } else if (objectiveId) {
+      if (!objectives.find((o) => o.id === objectiveId)) {
+        setDeletedItemTypeLabel("objective");
+        setDeletedItemDialogOpen(true);
+      }
+      setFocusDeepLinkApplied(true);
+    } else if (keyResultId) {
+      if (!keyResults.find((kr) => kr.id === keyResultId)) {
+        setDeletedItemTypeLabel("key result");
+        setDeletedItemDialogOpen(true);
+      }
+      setFocusDeepLinkApplied(true);
+    }
+  }, [search, bigRocks, objectives, keyResults, loadingBigRocks, loadingObjectives, loadingHierarchy, focusDeepLinkApplied, currentTenant?.id]);
   
   const { data: outlookStatus } = useQuery<{ connected: boolean; user: { displayName: string; email: string } | null }>({
     queryKey: ['/api/m365/status'],
@@ -2951,6 +2994,13 @@ export default function FocusRhythm() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        <DeletedItemDialog
+          open={deletedItemDialogOpen}
+          onOpenChange={setDeletedItemDialogOpen}
+          itemTypeLabel={deletedItemTypeLabel}
+          onDismiss={() => navigate("/focus-rhythm", { replace: true })}
+        />
       </div>
     </div>
   );
