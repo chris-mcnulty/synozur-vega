@@ -58,6 +58,9 @@ import {
   adminAlerts, type AdminAlert, type InsertAdminAlert, ADMIN_ALERT_TYPE, ADMIN_ALERT_SEVERITY,
   weeklyDigestSends, type WeeklyDigestSend, type InsertWeeklyDigestSend,
   notificationPreferences, type NotificationPreference, type InsertNotificationPreference,
+  customFieldDefs, type CustomFieldDef, type InsertCustomFieldDef,
+  customFieldValues, type CustomFieldValue,
+  type CustomFieldEntityType, MAX_ACTIVE_CUSTOM_FIELDS_PER_ENTITY,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, count, ilike, asc, type SQL } from "drizzle-orm";
@@ -595,6 +598,23 @@ export interface IStorage {
   }): Promise<AdminAlert>;
   getAdminAlertsByTenantId(tenantId: string, includeAcknowledged?: boolean): Promise<AdminAlert[]>;
   acknowledgeAdminAlert(id: string, tenantId: string, userId: string): Promise<AdminAlert | undefined>;
+
+  // Custom Fields
+  getCustomFieldDefs(tenantId: string, entityType?: CustomFieldEntityType, includeArchived?: boolean): Promise<CustomFieldDef[]>;
+  getCustomFieldDefById(id: string): Promise<CustomFieldDef | undefined>;
+  createCustomFieldDef(def: InsertCustomFieldDef): Promise<CustomFieldDef>;
+  updateCustomFieldDef(id: string, updates: Partial<InsertCustomFieldDef>): Promise<CustomFieldDef>;
+  archiveCustomFieldDef(id: string): Promise<CustomFieldDef>;
+  restoreCustomFieldDef(id: string): Promise<CustomFieldDef>;
+  reorderCustomFieldDefs(tenantId: string, entityType: CustomFieldEntityType, orderedIds: string[]): Promise<void>;
+  getCustomFieldValuesByEntity(entityType: CustomFieldEntityType, entityId: string): Promise<CustomFieldValue[]>;
+  getCustomFieldValuesByEntityIds(tenantId: string, entityType: CustomFieldEntityType, entityIds: string[]): Promise<Record<string, CustomFieldValue[]>>;
+  setCustomFieldValues(
+    tenantId: string,
+    entityType: CustomFieldEntityType,
+    entityId: string,
+    values: { fieldDefId: string; valueJson: any }[],
+  ): Promise<void>;
 }
 
 export type ReassignmentSelection = Partial<{
@@ -6164,6 +6184,168 @@ export class DatabaseStorage implements IStorage {
   async getWeeklyDigestSendsForPeriod(tenantId: string, periodStart: string): Promise<WeeklyDigestSend[]> {
     return await db.select().from(weeklyDigestSends)
       .where(and(eq(weeklyDigestSends.tenantId, tenantId), eq(weeklyDigestSends.periodStart, periodStart)));
+  }
+
+  // ============================================
+  // CUSTOM FIELDS
+  // ============================================
+
+  async getCustomFieldDefs(
+    tenantId: string,
+    entityType?: CustomFieldEntityType,
+    includeArchived = false,
+  ): Promise<CustomFieldDef[]> {
+    const conds: SQL[] = [eq(customFieldDefs.tenantId, tenantId)];
+    if (entityType) conds.push(eq(customFieldDefs.entityType, entityType));
+    if (!includeArchived) conds.push(isNull(customFieldDefs.archivedAt));
+    return await db
+      .select()
+      .from(customFieldDefs)
+      .where(and(...conds))
+      .orderBy(asc(customFieldDefs.sortOrder), asc(customFieldDefs.createdAt));
+  }
+
+  async getCustomFieldDefById(id: string): Promise<CustomFieldDef | undefined> {
+    const [row] = await db.select().from(customFieldDefs).where(eq(customFieldDefs.id, id));
+    return row;
+  }
+
+  async createCustomFieldDef(def: InsertCustomFieldDef): Promise<CustomFieldDef> {
+    // Enforce active limit
+    const active = await this.getCustomFieldDefs(def.tenantId, def.entityType as CustomFieldEntityType, false);
+    if (active.length >= MAX_ACTIVE_CUSTOM_FIELDS_PER_ENTITY) {
+      throw new Error(`Maximum of ${MAX_ACTIVE_CUSTOM_FIELDS_PER_ENTITY} active custom fields per entity reached. Archive a field first.`);
+    }
+    const sortOrder = def.sortOrder ?? (active.length > 0 ? Math.max(...active.map(d => d.sortOrder ?? 0)) + 1 : 0);
+    const [row] = await db
+      .insert(customFieldDefs)
+      .values({ ...def, sortOrder } as any)
+      .returning();
+    return row;
+  }
+
+  async updateCustomFieldDef(id: string, updates: Partial<InsertCustomFieldDef>): Promise<CustomFieldDef> {
+    const existing = await this.getCustomFieldDefById(id);
+    if (!existing) throw new Error("Custom field not found");
+    // Disallow changing entityType, fieldType, or key after creation
+    const safe: any = { ...updates, updatedAt: new Date() };
+    delete safe.entityType;
+    delete safe.fieldType;
+    delete safe.key;
+    delete safe.tenantId;
+    const [row] = await db
+      .update(customFieldDefs)
+      .set(safe)
+      .where(eq(customFieldDefs.id, id))
+      .returning();
+    return row;
+  }
+
+  async archiveCustomFieldDef(id: string): Promise<CustomFieldDef> {
+    const [row] = await db
+      .update(customFieldDefs)
+      .set({ archivedAt: new Date(), updatedAt: new Date() })
+      .where(eq(customFieldDefs.id, id))
+      .returning();
+    return row;
+  }
+
+  async restoreCustomFieldDef(id: string): Promise<CustomFieldDef> {
+    const def = await this.getCustomFieldDefById(id);
+    if (!def) throw new Error("Custom field not found");
+    const active = await this.getCustomFieldDefs(def.tenantId, def.entityType as CustomFieldEntityType, false);
+    if (active.length >= MAX_ACTIVE_CUSTOM_FIELDS_PER_ENTITY) {
+      throw new Error(`Cannot restore: ${MAX_ACTIVE_CUSTOM_FIELDS_PER_ENTITY} active custom fields already exist for this entity.`);
+    }
+    const [row] = await db
+      .update(customFieldDefs)
+      .set({ archivedAt: null, updatedAt: new Date() })
+      .where(eq(customFieldDefs.id, id))
+      .returning();
+    return row;
+  }
+
+  async reorderCustomFieldDefs(
+    tenantId: string,
+    entityType: CustomFieldEntityType,
+    orderedIds: string[],
+  ): Promise<void> {
+    for (let i = 0; i < orderedIds.length; i++) {
+      await db
+        .update(customFieldDefs)
+        .set({ sortOrder: i, updatedAt: new Date() })
+        .where(and(
+          eq(customFieldDefs.id, orderedIds[i]),
+          eq(customFieldDefs.tenantId, tenantId),
+          eq(customFieldDefs.entityType, entityType),
+        ));
+    }
+  }
+
+  async getCustomFieldValuesByEntity(
+    entityType: CustomFieldEntityType,
+    entityId: string,
+  ): Promise<CustomFieldValue[]> {
+    return await db
+      .select()
+      .from(customFieldValues)
+      .where(and(
+        eq(customFieldValues.entityType, entityType),
+        eq(customFieldValues.entityId, entityId),
+      ));
+  }
+
+  async getCustomFieldValuesByEntityIds(
+    tenantId: string,
+    entityType: CustomFieldEntityType,
+    entityIds: string[],
+  ): Promise<Record<string, CustomFieldValue[]>> {
+    if (entityIds.length === 0) return {};
+    const rows = await db
+      .select()
+      .from(customFieldValues)
+      .where(and(
+        eq(customFieldValues.tenantId, tenantId),
+        eq(customFieldValues.entityType, entityType),
+        inArray(customFieldValues.entityId, entityIds),
+      ));
+    const out: Record<string, CustomFieldValue[]> = {};
+    for (const r of rows) {
+      (out[r.entityId] ||= []).push(r);
+    }
+    return out;
+  }
+
+  async setCustomFieldValues(
+    tenantId: string,
+    entityType: CustomFieldEntityType,
+    entityId: string,
+    values: { fieldDefId: string; valueJson: any }[],
+  ): Promise<void> {
+    for (const v of values) {
+      if (v.valueJson === null) {
+        await db
+          .delete(customFieldValues)
+          .where(and(
+            eq(customFieldValues.entityId, entityId),
+            eq(customFieldValues.fieldDefId, v.fieldDefId),
+          ));
+      } else {
+        await db
+          .insert(customFieldValues)
+          .values({
+            tenantId,
+            entityType,
+            entityId,
+            fieldDefId: v.fieldDefId,
+            valueJson: v.valueJson,
+          })
+          .onConflictDoUpdate({
+            target: [customFieldValues.entityId, customFieldValues.fieldDefId],
+            set: { valueJson: v.valueJson, updatedAt: new Date() },
+          });
+      }
+    }
   }
 }
 

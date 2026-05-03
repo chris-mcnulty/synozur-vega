@@ -12,6 +12,7 @@ import { z } from "zod";
 import { hasPermission, PERMISSIONS, Role } from "@shared/rbac";
 import { requireValidatedTenant } from "./middleware/validateTenant";
 import { requireReadWriteLicense } from "./middleware/rbac";
+import { applyCustomFields, hydrateEntitiesWithCustomFields } from "./routes-custom-fields";
 
 /**
  * Check if the current user can modify a specific OKR
@@ -205,7 +206,8 @@ okrRouter.get("/objectives", async (req, res) => {
       teamId as string | undefined
     );
     
-    res.json(objectives);
+    const hydrated = await hydrateEntitiesWithCustomFields(tenantId as string, 'objective', objectives);
+    res.json(hydrated);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -217,7 +219,8 @@ okrRouter.get("/objectives/:id", async (req, res) => {
     if (!objective) {
       return res.status(404).json({ error: "Objective not found" });
     }
-    res.json(objective);
+    const [hydrated] = await hydrateEntitiesWithCustomFields(objective.tenantId, 'objective', [objective]);
+    res.json(hydrated);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -234,7 +237,8 @@ okrRouter.get("/objectives/:id/children", async (req, res) => {
 
 okrRouter.post("/objectives", async (req, res) => {
   try {
-    const validatedData = insertObjectiveSchema.parse(req.body);
+    const { customFields, ...rest } = req.body || {};
+    const validatedData = insertObjectiveSchema.parse(rest);
     
     // Always use the server-resolved tenant context – ignore any client-supplied tenantId
     const effectiveTenantId = req.effectiveTenantId;
@@ -266,6 +270,11 @@ okrRouter.post("/objectives", async (req, res) => {
     };
     
     const objective = await storage.createObjective(objectiveData);
+    try {
+      await applyCustomFields(effectiveTenantId, 'objective', objective.id, customFields);
+    } catch (cfError: any) {
+      return res.status(400).json({ error: `Custom field error: ${cfError.message}` });
+    }
     res.json(objective);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -278,7 +287,8 @@ okrRouter.post("/objectives", async (req, res) => {
 okrRouter.patch("/objectives/:id", async (req, res) => {
   try {
     // Convert empty strings to null for foreign key fields
-    const updateData = { ...req.body };
+    const { customFields, ...body } = req.body || {};
+    const updateData = { ...body };
     if (updateData.parentId === "") updateData.parentId = null;
     if (updateData.ownerId === "") updateData.ownerId = null;
     
@@ -345,6 +355,13 @@ okrRouter.patch("/objectives/:id", async (req, res) => {
     }
     
     const objective = await storage.updateObjective(req.params.id, updateData);
+    if (customFields !== undefined) {
+      try {
+        await applyCustomFields(objective.tenantId, 'objective', objective.id, customFields);
+      } catch (cfError: any) {
+        return res.status(400).json({ error: `Custom field error: ${cfError.message}` });
+      }
+    }
     
     // If this objective has a parent and progress changed, propagate to parent
     if (objective.parentId && (updateData.progress !== undefined || updateData.weight !== undefined)) {
@@ -435,7 +452,8 @@ okrRouter.get("/key-results", async (req, res) => {
       teamId as string | undefined
     );
     
-    res.json(keyResults);
+    const hydrated = await hydrateEntitiesWithCustomFields(tenantId as string, 'key_result', keyResults);
+    res.json(hydrated);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -447,7 +465,8 @@ okrRouter.get("/key-results/:id", async (req, res) => {
     if (!keyResult) {
       return res.status(404).json({ error: "Key Result not found" });
     }
-    res.json(keyResult);
+    const [hydrated] = await hydrateEntitiesWithCustomFields(keyResult.tenantId, 'key_result', [keyResult]);
+    res.json(hydrated);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -455,13 +474,19 @@ okrRouter.get("/key-results/:id", async (req, res) => {
 
 okrRouter.post("/key-results", async (req, res) => {
   try {
-    const validatedData = insertKeyResultSchema.parse(req.body);
+    const { customFields, ...rest } = req.body || {};
+    const validatedData = insertKeyResultSchema.parse(rest);
     // Always use the server-resolved tenant context – ignore any client-supplied tenantId
     const effectiveTenantId = req.effectiveTenantId;
     if (!effectiveTenantId) {
       return res.status(403).json({ error: "No tenant context available" });
     }
     const keyResult = await storage.createKeyResult({ ...validatedData, tenantId: effectiveTenantId });
+    try {
+      await applyCustomFields(effectiveTenantId, 'key_result', keyResult.id, customFields);
+    } catch (cfError: any) {
+      return res.status(400).json({ error: `Custom field error: ${cfError.message}` });
+    }
     res.json(keyResult);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -473,7 +498,8 @@ okrRouter.post("/key-results", async (req, res) => {
 
 okrRouter.patch("/key-results/:id", async (req, res) => {
   try {
-    const updateData = { ...req.body };
+    const { customFields, ...body } = req.body || {};
+    const updateData = { ...body };
     
     // Check if key result is closed - only allow status changes (reopen)
     const existingKeyResult = await storage.getKeyResultById(req.params.id);
@@ -514,6 +540,13 @@ okrRouter.patch("/key-results/:id", async (req, res) => {
     }
     
     const keyResult = await storage.updateKeyResult(req.params.id, updateData);
+    if (customFields !== undefined) {
+      try {
+        await applyCustomFields(keyResult.tenantId, 'key_result', keyResult.id, customFields);
+      } catch (cfError: any) {
+        return res.status(400).json({ error: `Custom field error: ${cfError.message}` });
+      }
+    }
     res.json(keyResult);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -575,7 +608,8 @@ okrRouter.get("/big-rocks", async (req, res) => {
       year ? Number(year) : undefined
     );
     
-    res.json(bigRocks);
+    const hydrated = await hydrateEntitiesWithCustomFields(tenantId as string, 'big_rock', bigRocks);
+    res.json(hydrated);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -587,7 +621,8 @@ okrRouter.get("/big-rocks/:id", async (req, res) => {
     if (!bigRock) {
       return res.status(404).json({ error: "Big Rock not found" });
     }
-    res.json(bigRock);
+    const [hydrated] = await hydrateEntitiesWithCustomFields(bigRock.tenantId, 'big_rock', [bigRock]);
+    res.json(hydrated);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -613,13 +648,19 @@ okrRouter.get("/key-results/:keyResultId/big-rocks", async (req, res) => {
 
 okrRouter.post("/big-rocks", async (req, res) => {
   try {
-    const validatedData = insertBigRockSchema.parse(req.body);
+    const { customFields, ...rest } = req.body || {};
+    const validatedData = insertBigRockSchema.parse(rest);
     // Always use the server-resolved tenant context – ignore any client-supplied tenantId
     const effectiveTenantId = req.effectiveTenantId;
     if (!effectiveTenantId) {
       return res.status(403).json({ error: "No tenant context available" });
     }
     const bigRock = await storage.createBigRock({ ...validatedData, tenantId: effectiveTenantId });
+    try {
+      await applyCustomFields(effectiveTenantId, 'big_rock', bigRock.id, customFields);
+    } catch (cfError: any) {
+      return res.status(400).json({ error: `Custom field error: ${cfError.message}` });
+    }
     res.json(bigRock);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -632,7 +673,8 @@ okrRouter.post("/big-rocks", async (req, res) => {
 okrRouter.patch("/big-rocks/:id", async (req, res) => {
   try {
     // Convert empty strings to null for foreign key fields
-    const updateData = { ...req.body };
+    const { customFields, ...body } = req.body || {};
+    const updateData = { ...body };
     if (updateData.objectiveId === "") updateData.objectiveId = null;
     if (updateData.keyResultId === "") updateData.keyResultId = null;
     
@@ -651,6 +693,13 @@ okrRouter.patch("/big-rocks/:id", async (req, res) => {
     }
     
     const bigRock = await storage.updateBigRock(req.params.id, updateData);
+    if (customFields !== undefined) {
+      try {
+        await applyCustomFields(bigRock.tenantId, 'big_rock', bigRock.id, customFields);
+      } catch (cfError: any) {
+        return res.status(400).json({ error: `Custom field error: ${cfError.message}` });
+      }
+    }
     res.json(bigRock);
   } catch (error) {
     console.error('[Big Rock Update] Error:', error);

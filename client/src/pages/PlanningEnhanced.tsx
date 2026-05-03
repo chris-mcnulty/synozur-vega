@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { CustomFieldsSection, extractCustomFieldsFromEntity } from "@/components/CustomFieldsSection";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -663,6 +664,11 @@ export default function PlanningEnhanced() {
   const [objectiveValueTags, setObjectiveValueTags] = useState<string[]>([]);
   const [previousObjectiveValueTags, setPreviousObjectiveValueTags] = useState<string[]>([]);
   const [previousLinkedBigRocks, setPreviousLinkedBigRocks] = useState<string[]>([]);
+
+  // Custom field values per dialog
+  const [objectiveCustomFields, setObjectiveCustomFields] = useState<Record<string, any>>({});
+  const [keyResultCustomFields, setKeyResultCustomFields] = useState<Record<string, any>>({});
+  const [bigRockCustomFields, setBigRockCustomFields] = useState<Record<string, any>>({});
 
   // Fetch meetings for Save to Meeting functionality
   const { data: meetings = [] } = useQuery<any[]>({
@@ -1840,6 +1846,7 @@ export default function PlanningEnhanced() {
     setSelectedObjective(null);
     setObjectiveValueTags([]);
     setPreviousObjectiveValueTags([]);
+    setObjectiveCustomFields({});
     setObjectiveDialogOpen(true);
   };
 
@@ -1865,6 +1872,7 @@ export default function PlanningEnhanced() {
     
     setObjectiveForm(initialForm);
     setSelectedObjective(objective);
+    setObjectiveCustomFields(extractCustomFieldsFromEntity(objective, "objective"));
     
     // Fetch existing value tags
     try {
@@ -1927,12 +1935,14 @@ export default function PlanningEnhanced() {
         phasedTargets: null,
       });
       setSelectedKeyResult(null);
+      setKeyResultCustomFields({});
       setKeyResultDialogOpen(true);
     }
   };
 
   const handleEditKeyResult = (keyResult: KeyResult & { phasedTargets?: PhasedTargets | null }, objectiveId: string) => {
     setSelectedKeyResult(keyResult);
+    setKeyResultCustomFields(extractCustomFieldsFromEntity(keyResult, "key_result"));
     const objective = objectives.find(o => o.id === objectiveId);
     if (objective) {
       setSelectedObjective(objective);
@@ -1984,11 +1994,13 @@ export default function PlanningEnhanced() {
       quarter: quarter, // Use current page quarter (0=Annual, 1-4=Quarterly)
       year: year,
     });
+    setBigRockCustomFields({});
     setBigRockDialogOpen(true);
   };
 
   const handleEditBigRock = async (bigRock: BigRock) => {
     setSelectedBigRock(bigRock);
+    setBigRockCustomFields(extractCustomFieldsFromEntity(bigRock, "big_rock"));
     setBigRockForm({
       title: bigRock.title,
       description: bigRock.description || "",
@@ -3470,6 +3482,11 @@ export default function PlanningEnhanced() {
                 </div>
               </TabsContent>
             </Tabs>
+            <CustomFieldsSection
+              entityType="objective"
+              values={objectiveCustomFields}
+              onChange={setObjectiveCustomFields}
+            />
             <DialogFooter className="flex-shrink-0 border-t pt-4 mt-4">
               <Button variant="outline" onClick={() => setObjectiveDialogOpen(false)}>
                 Cancel
@@ -3477,9 +3494,9 @@ export default function PlanningEnhanced() {
               <Button
                 onClick={() => {
                   if (selectedObjective) {
-                    updateObjectiveMutation.mutate({ id: selectedObjective.id, data: objectiveForm });
+                    updateObjectiveMutation.mutate({ id: selectedObjective.id, data: { ...objectiveForm, customFields: objectiveCustomFields } });
                   } else {
-                    createObjectiveMutation.mutate(objectiveForm);
+                    createObjectiveMutation.mutate({ ...objectiveForm, customFields: objectiveCustomFields });
                   }
                 }}
                 disabled={createObjectiveMutation.isPending || updateObjectiveMutation.isPending}
@@ -3702,6 +3719,11 @@ export default function PlanningEnhanced() {
                 </div>
               )}
             </div>
+            <CustomFieldsSection
+              entityType="key_result"
+              values={keyResultCustomFields}
+              onChange={setKeyResultCustomFields}
+            />
             <DialogFooter>
               <Button variant="outline" onClick={() => setKeyResultDialogOpen(false)}>
                 Cancel
@@ -3709,9 +3731,9 @@ export default function PlanningEnhanced() {
               <Button
                 onClick={() => {
                   if (selectedKeyResult) {
-                    updateKeyResultMutation.mutate({ id: selectedKeyResult.id, data: keyResultForm });
+                    updateKeyResultMutation.mutate({ id: selectedKeyResult.id, data: { ...keyResultForm, customFields: keyResultCustomFields } });
                   } else {
-                    createKeyResultMutation.mutate(keyResultForm);
+                    createKeyResultMutation.mutate({ ...keyResultForm, customFields: keyResultCustomFields });
                   }
                 }}
                 disabled={createKeyResultMutation.isPending || updateKeyResultMutation.isPending}
@@ -4010,6 +4032,13 @@ export default function PlanningEnhanced() {
 
             
 
+            {bigRockDialogMode !== "link" && (
+              <CustomFieldsSection
+                entityType="big_rock"
+                values={bigRockCustomFields}
+                onChange={setBigRockCustomFields}
+              />
+            )}
             <DialogFooter>
               <Button variant="outline" onClick={() => { 
                 setBigRockDialogOpen(false); 
@@ -4034,10 +4063,10 @@ export default function PlanningEnhanced() {
                     if (selectedBigRock) {
                       updateBigRockMutation.mutate({
                         id: selectedBigRock.id,
-                        data: bigRockForm
+                        data: { ...bigRockForm, customFields: bigRockCustomFields }
                       });
                     } else {
-                      createBigRockMutation.mutate(bigRockForm);
+                      createBigRockMutation.mutate({ ...bigRockForm, customFields: bigRockCustomFields });
                     }
                   }
                 }}

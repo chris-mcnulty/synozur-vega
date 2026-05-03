@@ -32,11 +32,12 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, AlertCircle, AlertTriangle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, Settings2, HelpCircle, Link, Link2, Loader2, RefreshCw, Bell, ListTodo, KeyRound, Copy, Sparkles } from "lucide-react";
+import { CheckCircle2, AlertCircle, AlertTriangle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, Settings2, HelpCircle, Link, Link2, Loader2, RefreshCw, Bell, ListTodo, KeyRound, Copy, Sparkles, Tag } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type TenantBranding, vocabularyAlternatives, type VocabularyTerms } from "@shared/schema";
 import { useAuth } from "@/contexts/AuthContext";
 import { ReassignOwnershipSection } from "@/components/ReassignOwnershipSection";
+import { CustomFieldsManager } from "@/components/admin/CustomFieldsManager";
 import excelIcon from "@/assets/brand/Excel_512_1765494903271.png";
 import oneDriveIcon from "@/assets/brand/OneDrive_512_1765494903274.png";
 import outlookIcon from "@/assets/brand/Outlook_512_1765494903276.png";
@@ -3628,6 +3629,10 @@ export default function TenantAdmin() {
               <Bell className="h-4 w-4 shrink-0" />
               <span className="text-xs sm:text-sm">Alerts</span>
             </TabsTrigger>
+            <TabsTrigger value="custom-fields" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-custom-fields">
+              <Tag className="h-4 w-4 shrink-0" />
+              <span className="text-xs sm:text-sm">Custom Fields</span>
+            </TabsTrigger>
           </TabsList>
         </div>
 
@@ -4180,6 +4185,11 @@ export default function TenantAdmin() {
       {/* Alerts Tab */}
       <TabsContent value="alerts" className="space-y-6">
         <AdminAlertsSection />
+      </TabsContent>
+
+      {/* Custom Fields Tab */}
+      <TabsContent value="custom-fields" className="space-y-6">
+        <CustomFieldsManager />
       </TabsContent>
     </Tabs>
 

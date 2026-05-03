@@ -3388,6 +3388,10 @@ ${changelogContent}`;
   const { okrRouter } = await import("./routes-okr");
   app.use("/api/okr", ...authWithTenant, okrRouter);
 
+  // Custom Fields (tenant-defined fields on OKR entities)
+  const { customFieldsRouter } = await import("./routes-custom-fields");
+  app.use("/api/custom-fields", ...authWithTenant, customFieldsRouter);
+
   // Combined dashboard context endpoint (single round trip for dashboards)
   const { dashboardRouter } = await import("./routes-dashboard");
   app.use("/api/dashboard", ...authWithTenant, dashboardRouter);

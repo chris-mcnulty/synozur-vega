@@ -2628,3 +2628,171 @@ export const insertWeeklyDigestSendSchema = createInsertSchema(weeklyDigestSends
 
 export type InsertWeeklyDigestSend = z.infer<typeof insertWeeklyDigestSendSchema>;
 export type WeeklyDigestSend = typeof weeklyDigestSends.$inferSelect;
+
+// ============================================
+// CUSTOM FIELDS - Tenant-defined fields on OKR entities
+// ============================================
+
+export const CUSTOM_FIELD_ENTITY_TYPES = ['objective', 'key_result', 'big_rock'] as const;
+export type CustomFieldEntityType = typeof CUSTOM_FIELD_ENTITY_TYPES[number];
+
+export const CUSTOM_FIELD_TYPES = ['short_text', 'number', 'date', 'single_select', 'multi_select'] as const;
+export type CustomFieldType = typeof CUSTOM_FIELD_TYPES[number];
+
+export const MAX_ACTIVE_CUSTOM_FIELDS_PER_ENTITY = 10;
+
+export const customFieldDefs = pgTable("custom_field_defs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  entityType: text("entity_type").notNull(), // CustomFieldEntityType
+  key: text("key").notNull(), // stable identifier within (tenantId, entityType)
+  label: text("label").notNull(),
+  fieldType: text("field_type").notNull(), // CustomFieldType
+  description: text("description"),
+  // For single_select / multi_select: { options: [{ value: string, label: string }] }
+  optionsJson: jsonb("options_json").$type<{ options: Array<{ value: string; label: string }> }>(),
+  required: boolean("required").default(false),
+  sortOrder: integer("sort_order").default(0),
+  archivedAt: timestamp("archived_at"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueTenantEntityKey: unique("custom_field_defs_tenant_entity_key_unique").on(
+    table.tenantId, table.entityType, table.key
+  ),
+}));
+
+export const insertCustomFieldDefSchema = createInsertSchema(customFieldDefs).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  archivedAt: true,
+}).extend({
+  entityType: z.enum(CUSTOM_FIELD_ENTITY_TYPES),
+  fieldType: z.enum(CUSTOM_FIELD_TYPES),
+  key: z.string().min(1).max(64).regex(/^[a-z][a-z0-9_]*$/, "Key must be lowercase letters, digits, and underscores, starting with a letter"),
+  label: z.string().min(1).max(120),
+  optionsJson: z.object({
+    options: z.array(z.object({
+      value: z.string().min(1).max(64),
+      label: z.string().min(1).max(120),
+    })).min(1).max(50),
+  }).nullable().optional(),
+});
+
+export type InsertCustomFieldDef = z.infer<typeof insertCustomFieldDefSchema>;
+export type CustomFieldDef = typeof customFieldDefs.$inferSelect;
+
+export const customFieldValues = pgTable("custom_field_values", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  fieldDefId: varchar("field_def_id").notNull().references(() => customFieldDefs.id, { onDelete: 'cascade' }),
+  entityType: text("entity_type").notNull(),
+  entityId: varchar("entity_id").notNull(),
+  // valueJson is one of: { text: string } | { number: number } | { date: string ISO } | { value: string } | { values: string[] }
+  valueJson: jsonb("value_json").notNull().$type<any>(),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => ({
+  uniqueEntityField: unique("custom_field_values_entity_field_unique").on(table.entityId, table.fieldDefId),
+}));
+
+export type CustomFieldValue = typeof customFieldValues.$inferSelect;
+
+/**
+ * Validate a custom-field value map against active definitions.
+ * Returns the normalized {fieldDefId -> valueJson} payload, or throws ZodError-like error.
+ */
+export function validateCustomFieldValues(
+  defs: CustomFieldDef[],
+  rawValues: Record<string, any> | undefined | null,
+): { fieldDefId: string; valueJson: any }[] {
+  if (!rawValues) return [];
+  const activeDefs = defs.filter(d => !d.archivedAt);
+  const byKey = new Map(activeDefs.map(d => [d.key, d]));
+  const out: { fieldDefId: string; valueJson: any }[] = [];
+
+  for (const [key, value] of Object.entries(rawValues)) {
+    const def = byKey.get(key);
+    if (!def) continue; // ignore unknown keys (could be archived or stale clients)
+    if (value === null || value === undefined || value === "") {
+      // Allow clearing
+      out.push({ fieldDefId: def.id, valueJson: null });
+      continue;
+    }
+    let payload: any;
+    switch (def.fieldType as CustomFieldType) {
+      case 'short_text': {
+        if (typeof value !== 'string') throw new Error(`Field ${def.label} expects text`);
+        if (value.length > 500) throw new Error(`Field ${def.label} exceeds 500 chars`);
+        payload = { text: value };
+        break;
+      }
+      case 'number': {
+        const n = typeof value === 'number' ? value : Number(value);
+        if (!Number.isFinite(n)) throw new Error(`Field ${def.label} expects a number`);
+        payload = { number: n };
+        break;
+      }
+      case 'date': {
+        const d = typeof value === 'string' ? value : (value instanceof Date ? value.toISOString() : null);
+        if (!d || Number.isNaN(new Date(d).getTime())) throw new Error(`Field ${def.label} expects a date`);
+        payload = { date: new Date(d).toISOString() };
+        break;
+      }
+      case 'single_select': {
+        if (typeof value !== 'string') throw new Error(`Field ${def.label} expects a single value`);
+        const allowed = (def.optionsJson?.options || []).map(o => o.value);
+        if (!allowed.includes(value)) throw new Error(`Field ${def.label}: "${value}" is not an allowed option`);
+        payload = { value };
+        break;
+      }
+      case 'multi_select': {
+        if (!Array.isArray(value)) throw new Error(`Field ${def.label} expects an array`);
+        const allowed = new Set((def.optionsJson?.options || []).map(o => o.value));
+        for (const v of value) {
+          if (typeof v !== 'string' || !allowed.has(v)) {
+            throw new Error(`Field ${def.label}: "${v}" is not an allowed option`);
+          }
+        }
+        payload = { values: value };
+        break;
+      }
+      default:
+        throw new Error(`Unknown field type for ${def.label}`);
+    }
+    out.push({ fieldDefId: def.id, valueJson: payload });
+  }
+
+  // Required check
+  const providedDefIds = new Set(out.filter(o => o.valueJson !== null).map(o => o.fieldDefId));
+  for (const def of activeDefs) {
+    if (def.required && !providedDefIds.has(def.id)) {
+      throw new Error(`Field "${def.label}" is required`);
+    }
+  }
+  return out;
+}
+
+/**
+ * Convert stored {fieldDefId, valueJson} rows into a {key -> primitive} map for client consumption.
+ */
+export function hydrateCustomFieldValues(
+  defs: CustomFieldDef[],
+  values: Pick<CustomFieldValue, 'fieldDefId' | 'valueJson'>[],
+): Record<string, any> {
+  const byId = new Map(defs.map(d => [d.id, d]));
+  const out: Record<string, any> = {};
+  for (const v of values) {
+    const def = byId.get(v.fieldDefId);
+    if (!def) continue;
+    const j = v.valueJson;
+    if (j == null) continue;
+    if ('text' in j) out[def.key] = j.text;
+    else if ('number' in j) out[def.key] = j.number;
+    else if ('date' in j) out[def.key] = j.date;
+    else if ('value' in j) out[def.key] = j.value;
+    else if ('values' in j) out[def.key] = j.values;
+  }
+  return out;
+}
