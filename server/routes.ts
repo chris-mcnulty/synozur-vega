@@ -1410,7 +1410,9 @@ ${changelogContent}`;
       const [py, pm, pd] = periodStart.split('-').map((x) => parseInt(x, 10));
       const weekStartDate = new Date(Date.UTC(py, pm - 1, pd, 0, 0, 0));
       const payload = await buildDigestForUser({ user, tenant, periodStart, weekStartDate });
-      return res.json(payload);
+      const { renderWeeklyDigestHtml } = await import('./email');
+      const html = renderWeeklyDigestHtml(payload);
+      return res.json({ ...payload, html });
     } catch (err) {
       console.error('Error building weekly digest preview:', err);
       return res.status(500).json({ error: 'Failed to build preview' });

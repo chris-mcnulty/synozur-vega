@@ -3059,6 +3059,12 @@ export default function TenantAdmin() {
   const [selectedTenantForSettings, setSelectedTenantForSettings] = useState<Tenant | null>(null);
   const [settingsActiveTab, setSettingsActiveTab] = useState<string>("general");
 
+  // Weekly digest preview state
+  const [digestPreviewOpen, setDigestPreviewOpen] = useState(false);
+  const [digestPreviewLoading, setDigestPreviewLoading] = useState(false);
+  const [digestPreviewHtml, setDigestPreviewHtml] = useState<string>("");
+  const [digestPreviewMeta, setDigestPreviewMeta] = useState<{ aiUsed: boolean; needsAttention: number; wins: number } | null>(null);
+
   // Branding dialog state
   const [brandingDialogOpen, setBrandingDialogOpen] = useState(false);
   const [selectedTenantForBranding, setSelectedTenantForBranding] = useState<Tenant | null>(null);
@@ -6861,15 +6867,24 @@ export default function TenantAdmin() {
                       variant="outline"
                       size="sm"
                       onClick={async () => {
+                        setDigestPreviewOpen(true);
+                        setDigestPreviewLoading(true);
+                        setDigestPreviewHtml("");
+                        setDigestPreviewMeta(null);
                         try {
                           const res = await apiRequest("POST", `/api/tenants/${selectedTenantForSettings.id}/weekly-digest/preview`, {});
                           const payload = await res.json();
-                          toast({
-                            title: "Preview generated",
-                            description: `${payload.needsAttention?.length || 0} needs-attention · ${payload.wins?.length || 0} wins · AI ${payload.aiUsed ? "used" : "fallback"}`,
+                          setDigestPreviewHtml(payload.html || "");
+                          setDigestPreviewMeta({
+                            aiUsed: !!payload.aiUsed,
+                            needsAttention: payload.needsAttention?.length || 0,
+                            wins: payload.wins?.length || 0,
                           });
                         } catch (e: any) {
                           toast({ title: "Failed to build preview", variant: "destructive" });
+                          setDigestPreviewOpen(false);
+                        } finally {
+                          setDigestPreviewLoading(false);
                         }
                       }}
                       data-testid="button-weekly-digest-preview"
@@ -6913,6 +6928,65 @@ export default function TenantAdmin() {
               variant="outline"
               onClick={() => setSettingsDialogOpen(false)}
               data-testid="button-close-settings"
+            >
+              Close
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Weekly Digest Preview Dialog */}
+      <Dialog open={digestPreviewOpen} onOpenChange={setDigestPreviewOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col" data-testid="dialog-weekly-digest-preview">
+          <DialogHeader>
+            <DialogTitle>Weekly Digest Preview</DialogTitle>
+            <DialogDescription>
+              This is what your weekly digest email will look like. Nothing is sent.
+            </DialogDescription>
+          </DialogHeader>
+
+          {digestPreviewMeta && (
+            <div className="flex flex-wrap items-center gap-2" data-testid="digest-preview-meta">
+              <Badge
+                variant={digestPreviewMeta.aiUsed ? "default" : "secondary"}
+                data-testid="badge-digest-ai-status"
+              >
+                {digestPreviewMeta.aiUsed ? "AI narrative" : "Deterministic fallback"}
+              </Badge>
+              <Badge variant="outline" data-testid="badge-digest-needs-attention">
+                {digestPreviewMeta.needsAttention} needs-attention
+              </Badge>
+              <Badge variant="outline" data-testid="badge-digest-wins">
+                {digestPreviewMeta.wins} wins
+              </Badge>
+            </div>
+          )}
+
+          <div className="flex-1 min-h-[400px] border rounded-md overflow-hidden bg-background">
+            {digestPreviewLoading ? (
+              <div className="flex items-center justify-center h-full p-8 text-sm text-muted-foreground" data-testid="digest-preview-loading">
+                Building preview…
+              </div>
+            ) : digestPreviewHtml ? (
+              <iframe
+                title="Weekly digest preview"
+                srcDoc={digestPreviewHtml}
+                className="w-full h-[60vh] border-0"
+                sandbox=""
+                data-testid="iframe-digest-preview"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full p-8 text-sm text-muted-foreground">
+                No preview available.
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDigestPreviewOpen(false)}
+              data-testid="button-close-digest-preview"
             >
               Close
             </Button>
