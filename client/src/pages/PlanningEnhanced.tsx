@@ -38,7 +38,6 @@ import { ValueTagSelector } from "@/components/ValueTagSelector";
 import { HierarchicalOKRTable } from "@/components/okr/HierarchicalOKRTable";
 import { SavedViewBar } from "@/components/SavedViewBar";
 import { useSavedViews } from "@/hooks/useSavedViews";
-import { OKRFilters } from "@/components/okr/OKRFilters";
 import { OKRDetailPane } from "@/components/okr/OKRDetailPane";
 import { ProgressSummaryBar } from "@/components/okr/ProgressSummaryBar";
 import { MilestoneEditor, type PhasedTargets } from "@/components/okr/MilestoneEditor";
