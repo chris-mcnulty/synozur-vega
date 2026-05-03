@@ -54,6 +54,8 @@ import { DiscussionPanel } from "@/components/DiscussionPanel";
 import { CommentCountBadge } from "@/components/CommentCountBadge";
 import { WebhookTokensPanel } from "./WebhookTokensPanel";
 import { usePermissions } from "@/hooks/use-permissions";
+import { EmbedDialog } from "@/components/EmbedDialog";
+import { Code } from "lucide-react";
 
 // Renders the owner-reported confidence as a small standalone sparkline plus
 // a "latest" colored chip. Kept separate from the progress chart so the two
@@ -257,6 +259,7 @@ export function OKRDetailPane({
 }: OKRDetailPaneProps) {
   const [activeTab, setActiveTab] = useState("overview");
   const [expandedCheckInComments, setExpandedCheckInComments] = useState<Set<string>>(new Set());
+  const [embedOpen, setEmbedOpen] = useState(false);
 
   // When a deep link points at a comment on this entity, switch to the
   // Discussion tab (or expand the relevant check-in's comments) so
@@ -517,6 +520,15 @@ export function OKRDetailPane({
                   Edit
                 </Button>
               )}
+              <Button
+                size="icon"
+                variant="outline"
+                onClick={() => setEmbedOpen(true)}
+                title="Embed this item"
+                data-testid="button-detail-embed"
+              >
+                <Code className="h-4 w-4" />
+              </Button>
               <Button 
                 size="sm" 
                 onClick={onCheckIn}
@@ -1015,6 +1027,16 @@ export function OKRDetailPane({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {entity && (
+        <EmbedDialog
+          open={embedOpen}
+          onClose={() => setEmbedOpen(false)}
+          entityType={entityType as "objective" | "key_result"}
+          entityId={entity.id}
+          entityTitle={entity.title}
+        />
+      )}
     </Sheet>
   );
 }

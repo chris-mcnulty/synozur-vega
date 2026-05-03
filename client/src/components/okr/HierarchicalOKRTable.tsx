@@ -43,6 +43,8 @@ import { format, differenceInDays, endOfQuarter } from "date-fns";
 import { CircularProgress } from "./CircularProgress";
 import { CommentCountsProvider } from "@/hooks/use-comment-counts";
 import { CommentCountInlineBadge } from "@/components/CommentCountInlineBadge";
+import { EmbedDialog } from "@/components/EmbedDialog";
+import { Code } from "lucide-react";
 
 interface KeyResult {
   id: string;
@@ -429,6 +431,7 @@ function ObjectiveRow({
 }) {
   const isExpanded = expandedIds.has(objective.id);
   const [isHovered, setIsHovered] = useState(false);
+  const [embedObjectiveId, setEmbedObjectiveId] = useState<string | null>(null);
   const permissions = usePermissions();
   
   // Check if user can modify this specific objective
@@ -753,6 +756,13 @@ function ObjectiveRow({
                   <Copy className="h-4 w-4 mr-2" />
                   Clone
                 </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => setEmbedObjectiveId(objective.id)}
+                  data-testid={`menu-embed-${objective.id}`}
+                >
+                  <Code className="h-4 w-4 mr-2" />
+                  Embed
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {objective.status === 'closed' ? (
                   <DropdownMenuItem 
@@ -865,6 +875,15 @@ function ObjectiveRow({
           ))}
         </>
       )}
+      {embedObjectiveId && (
+        <EmbedDialog
+          open={!!embedObjectiveId}
+          onClose={() => setEmbedObjectiveId(null)}
+          entityType="objective"
+          entityId={embedObjectiveId}
+          entityTitle={objective.title}
+        />
+      )}
     </>
   );
 }
@@ -893,6 +912,7 @@ function KeyResultRow({
   onEditExcelLink?: (keyResult: KeyResult) => void;
 }) {
   const [isHovered, setIsHovered] = useState(false);
+  const [embedKrId, setEmbedKrId] = useState<string | null>(null);
   const permissions = usePermissions();
   
   // Check if user can modify this specific key result
@@ -902,6 +922,7 @@ function KeyResultRow({
   const canDelete = permissions.canDeleteOKR;
 
   return (
+    <>
     <TableRow 
       className="hover-elevate bg-muted/30 group"
       data-testid={`row-keyresult-${keyResult.id}`}
@@ -1098,6 +1119,13 @@ function KeyResultRow({
                 <CheckCircle2 className="h-4 w-4 mr-2 text-green-500" />
                 Check-in
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => setEmbedKrId(keyResult.id)}
+                data-testid={`menu-embed-kr-${keyResult.id}`}
+              >
+                <Code className="h-4 w-4 mr-2" />
+                Embed
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               {keyResult.status === 'closed' ? (
                 <DropdownMenuItem 
@@ -1132,6 +1160,16 @@ function KeyResultRow({
         </div>
       </TableCell>
     </TableRow>
+    {embedKrId && (
+      <EmbedDialog
+        open={!!embedKrId}
+        onClose={() => setEmbedKrId(null)}
+        entityType="key_result"
+        entityId={embedKrId}
+        entityTitle={keyResult.title}
+      />
+    )}
+    </>
   );
 }
 

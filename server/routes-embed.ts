@@ -20,6 +20,10 @@ import {
   type BigRock,
 } from '@shared/schema';
 
+// Roles that may create tokens with no expiry (or any expiry duration).
+const EMBED_ADMIN_ROLES = new Set(['tenant_admin', 'admin', 'vega_admin', 'global_admin', 'vega_consultant']);
+const MAX_NON_ADMIN_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
 // ----- Token helpers --------------------------------------------------------
 
 const TOKEN_PREFIX = 'vega_emb_';
@@ -90,7 +94,15 @@ const createTokenSchema = z.object({
 embedAdminRouter.get('/', async (req: Request, res: Response) => {
   const tenantId = req.effectiveTenantId;
   if (!tenantId) return res.status(400).json({ error: 'tenant_required' });
-  const tokens = await storage.getEmbedTokensByTenantId(tenantId);
+  const allTokens = await storage.getEmbedTokensByTenantId(tenantId);
+  // Optional per-entity filter so EmbedDialog can list only tokens for a specific item.
+  const filterType = typeof req.query.entityType === 'string' ? req.query.entityType : undefined;
+  const filterId = typeof req.query.entityId === 'string' ? req.query.entityId : undefined;
+  const tokens = allTokens.filter(t => {
+    if (filterType && t.entityType !== filterType) return false;
+    if (filterId && t.entityId !== filterId) return false;
+    return true;
+  });
   // Never leak the hash — only the prefix.
   res.json(
     tokens.map(t => ({
@@ -134,6 +146,17 @@ embedAdminRouter.post('/', async (req: Request, res: Response) => {
   }
   // executive_dashboard: tenant-wide, no entity required.
 
+  // Non-admins must have a time-bounded token (capped at 30 days).
+  const userRole = req.user?.role as string | undefined;
+  const isEmbedAdmin = userRole ? EMBED_ADMIN_ROLES.has(userRole) : false;
+  let resolvedExpiresAt: Date | null = body.expiresAt ? new Date(body.expiresAt) : null;
+  if (!isEmbedAdmin) {
+    const maxExpiry = new Date(Date.now() + MAX_NON_ADMIN_EXPIRY_MS);
+    if (!resolvedExpiresAt || resolvedExpiresAt > maxExpiry) {
+      resolvedExpiresAt = maxExpiry;
+    }
+  }
+
   const { raw, hash, prefix } = generateEmbedToken();
   const created = await storage.createEmbedToken({
     tenantId,
@@ -142,7 +165,7 @@ embedAdminRouter.post('/', async (req: Request, res: Response) => {
     label: body.label,
     tokenHash: hash,
     tokenPrefix: prefix,
-    expiresAt: body.expiresAt ? new Date(body.expiresAt) : null,
+    expiresAt: resolvedExpiresAt,
     createdByUserId: req.user?.id ?? null,
   });
 
@@ -190,9 +213,12 @@ embedAdminRouter.get('/access-logs', async (req: Request, res: Response) => {
 export const embedPublicRouter = Router();
 
 // Per-route CSP that allows any parent frame to embed these URLs.
+// X-Frame-Options is intentionally NOT set here — CSP frame-ancestors * is
+// the modern standard and takes precedence. Setting X-Frame-Options alongside
+// it causes inconsistent behaviour across browsers.
 embedPublicRouter.use((_req, res, next) => {
   res.setHeader('Content-Security-Policy', "frame-ancestors *");
-  res.setHeader('X-Frame-Options', 'ALLOWALL');
+  res.removeHeader('X-Frame-Options');
   // Embed cards are server-rendered with current state — never cache for
   // longer than the auto-refresh interval.
   res.setHeader('Cache-Control', 'private, max-age=60');
@@ -516,7 +542,23 @@ body {
 <script>
   (function() {
     var refreshSec = ${REFRESH_SECONDS};
-    setTimeout(function() { try { window.location.reload(); } catch (e) {} }, refreshSec * 1000);
+    setTimeout(function() {
+      try {
+        fetch(window.location.href.replace(/([?&])json=1(&|$)/, '$2') + (window.location.href.indexOf('?') === -1 ? '?' : '&') + 'json=1')
+          .then(function(r) { return r.ok ? r.json() : Promise.reject(r.status); })
+          .then(function(data) {
+            var t = document.querySelector('[data-testid="embed-title"]');
+            if (t && data.title) t.textContent = data.title;
+            var p = document.querySelector('[data-testid="embed-progress"]');
+            if (p && data.progress != null) p.textContent = data.progress + '%';
+            var f = document.querySelector('.progress-fill');
+            if (f && data.progress != null) f.style.width = Math.max(0, Math.min(100, data.progress)) + '%';
+            var s = document.querySelector('[data-testid="embed-status"]');
+            if (s && data.status) s.textContent = data.status.replace(/_/g,' ').replace(/\\b\\w/g,function(c){return c.toUpperCase();});
+          })
+          .catch(function() { window.location.reload(); });
+      } catch(e) { window.location.reload(); }
+    }, refreshSec * 1000);
   })();
 </script>
 </body>

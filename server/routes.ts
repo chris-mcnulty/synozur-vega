@@ -490,7 +490,9 @@ ${changelogContent}`;
   // frame, so it must be mounted BEFORE any global frame-protection middleware.
   app.use("/embed/v1", embedPublicRouter);
   // Admin CRUD for issuing and revoking embed tokens.
-  app.use("/api/embed-tokens", ...adminOnly, embedAdminRouter);
+  // All authenticated tenant members may create embed tokens (time-bounded);
+  // no-expiry tokens require tenant-admin role, enforced in the router itself.
+  app.use("/api/embed-tokens", ...authWithTenant, embedAdminRouter);
 
   // ============================================
   // Saved Views (Outcomes / My Focus / Big Rocks)

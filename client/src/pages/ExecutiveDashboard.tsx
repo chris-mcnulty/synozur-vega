@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,6 +35,8 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
+import { EmbedDialog } from "@/components/EmbedDialog";
+import { Code } from "lucide-react";
 import { useTenant } from "@/contexts/TenantContext";
 import { useVocabulary } from "@/contexts/VocabularyContext";
 import { useTimePeriod } from "@/contexts/TimePeriodContext";
@@ -198,6 +200,7 @@ function calculatePaceStatus(progress: number, quarter: number, year: number): P
 export default function ExecutiveDashboard() {
   const { currentTenant, isLoading: tenantLoading } = useTenant();
   const { t } = useVocabulary();
+  const [embedOpen, setEmbedOpen] = useState(false);
   
   const { selectedQuarter: currentQuarter } = useTimePeriod();
 
@@ -722,7 +725,24 @@ export default function ExecutiveDashboard() {
             Strategic overview and organizational health for {currentQuarter?.label}
           </p>
         </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => setEmbedOpen(true)}
+          data-testid="button-embed-executive-dashboard"
+        >
+          <Code className="h-4 w-4 mr-2" />
+          Embed
+        </Button>
       </div>
+
+      <EmbedDialog
+        open={embedOpen}
+        onClose={() => setEmbedOpen(false)}
+        entityType="executive_dashboard"
+        entityId={null}
+        entityTitle="Executive Dashboard"
+      />
 
       {/* Ambitions Section - Long-term strategic targets */}
       {(() => {
