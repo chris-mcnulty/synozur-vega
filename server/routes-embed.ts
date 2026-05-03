@@ -183,8 +183,10 @@ embedAdminRouter.post('/', async (req: Request, res: Response) => {
     createdByUserId: req.user?.id ?? null,
   });
 
-  // Build the public URL. Caller may prepend its origin.
-  const path = `/embed/v1/${body.entityType}/${raw}`;
+  // Build the absolute public URL so copy-paste snippets work without modification.
+  const embedPath = `/embed/v1/${body.entityType}/${raw}`;
+  const origin = `${req.protocol}://${req.get('host')}`;
+  const absoluteUrl = `${origin}${embedPath}`;
   res.status(201).json({
     id: created.id,
     entityType: created.entityType,
@@ -195,8 +197,8 @@ embedAdminRouter.post('/', async (req: Request, res: Response) => {
     createdAt: created.createdAt,
     // Returned ONCE — never persisted in plaintext.
     token: raw,
-    embedPath: path,
-    iframeSnippet: `<iframe src="${path}" width="100%" height="240" frameborder="0" style="border:0"></iframe>`,
+    embedPath: absoluteUrl,
+    iframeSnippet: `<iframe src="${absoluteUrl}" width="100%" height="240" frameborder="0" style="border:0" loading="lazy"></iframe>`,
   });
 });
 
