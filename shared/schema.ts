@@ -1,12 +1,7 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, jsonb, unique, boolean, doublePrecision, primaryKey, index } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, jsonb, unique, boolean, doublePrecision, primaryKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-
-// Operator class for pg_trgm GIN search indexes. Assembled at module load
-// time from parts so Replit's deployment analyzer never sees the complete
-// literal and cannot strip it from generated DDL during drizzle-kit push.
-const _trgmOps = ['gin', '_trgm', '_ops'].join('');
 
 // ============================================
 // SERVICE PLANS - Licensing/Subscription Management
@@ -577,8 +572,6 @@ export const strategies = pgTable("strategies", {
   deletedBy: varchar("deleted_by"),
 }, (table) => ({
   uniqueTenantStrategy: unique().on(table.tenantId, table.title),
-  titleTrgm: index('idx_strategies_title_trgm').using('gin', table.title.op(_trgmOps)),
-  descTrgm: index('idx_strategies_description_trgm').using('gin', table.description.op(_trgmOps)),
 }));
 
 export const insertStrategySchema = createInsertSchema(strategies).omit({
@@ -867,8 +860,6 @@ export const meetings = pgTable("meetings", {
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
   uniqueTenantMeeting: unique().on(table.tenantId, table.title, table.date, table.meetingTime),
-  titleTrgm: index('idx_meetings_title_trgm').using('gin', table.title.op(_trgmOps)),
-  summaryTrgm: index('idx_meetings_summary_trgm').using('gin', table.summary.op(_trgmOps)),
 }));
 
 const actionItemSchema = z.object({
@@ -986,8 +977,6 @@ export const objectives = pgTable("objectives", {
   lastRejectionNote: text("last_rejection_note"),
 }, (table) => ({
   uniqueTenantObjective: unique().on(table.tenantId, table.title, table.quarter, table.year),
-  titleTrgm: index('idx_objectives_title_trgm').using('gin', table.title.op(_trgmOps)),
-  descTrgm: index('idx_objectives_description_trgm').using('gin', table.description.op(_trgmOps)),
 }));
 
 // Audit trail for OKR approval state transitions (Task #59).
@@ -1082,10 +1071,7 @@ export const keyResults = pgTable("key_results", {
 
   deletedAt: timestamp("deleted_at"),
   deletedBy: varchar("deleted_by"),
-}, (table) => ({
-  titleTrgm: index('idx_key_results_title_trgm').using('gin', table.title.op(_trgmOps)),
-  descTrgm: index('idx_key_results_description_trgm').using('gin', table.description.op(_trgmOps)),
-}));
+});
 
 export const bigRocks = pgTable("big_rocks", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -1149,8 +1135,6 @@ export const bigRocks = pgTable("big_rocks", {
   deletedBy: varchar("deleted_by"),
 }, (table) => ({
   uniqueTenantBigRock: unique().on(table.tenantId, table.title, table.quarter, table.year),
-  titleTrgm: index('idx_big_rocks_title_trgm').using('gin', table.title.op(_trgmOps)),
-  descTrgm: index('idx_big_rocks_description_trgm').using('gin', table.description.op(_trgmOps)),
 }));
 
 // Big Rock Tasks - individual tasks within a Big Rock
@@ -1434,8 +1418,6 @@ export const teams = pgTable("teams", {
   updatedAt: timestamp("updated_at").defaultNow(),
 }, (table) => ({
   uniqueTenantTeam: unique().on(table.tenantId, table.name),
-  nameTrgm: index('idx_teams_name_trgm').using('gin', table.name.op(_trgmOps)),
-  descTrgm: index('idx_teams_description_trgm').using('gin', table.description.op(_trgmOps)),
 }));
 
 export const insertTeamSchema = createInsertSchema(teams).omit({
@@ -1714,11 +1696,7 @@ export const groundingDocuments = pgTable("grounding_documents", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedBy: varchar("updated_by").references(() => users.id),
   updatedAt: timestamp("updated_at").defaultNow(),
-}, (table) => ({
-  titleTrgm: index('idx_grounding_documents_title_trgm').using('gin', table.title.op(_trgmOps)),
-  descTrgm: index('idx_grounding_documents_description_trgm').using('gin', table.description.op(_trgmOps)),
-  contentTrgm: index('idx_grounding_documents_content_trgm').using('gin', table.content.op(_trgmOps)),
-}));
+});
 
 export const insertGroundingDocumentSchema = createInsertSchema(groundingDocuments).omit({
   id: true,
@@ -2441,10 +2419,7 @@ export const supportTickets = pgTable("support_tickets", {
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
   resolvedAt: timestamp("resolved_at"),
   resolvedBy: varchar("resolved_by").references(() => users.id, { onDelete: 'set null' }),
-}, (table) => ({
-  subjectTrgm: index('idx_support_tickets_subject_trgm').using('gin', table.subject.op(_trgmOps)),
-  descTrgm: index('idx_support_tickets_description_trgm').using('gin', table.description.op(_trgmOps)),
-}));
+});
 
 export const insertSupportTicketSchema = createInsertSchema(supportTickets).omit({
   id: true,
