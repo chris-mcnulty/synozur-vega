@@ -5955,6 +5955,26 @@ export default function TenantAdmin() {
                       />
                     </div>
                   </div>
+                  <div className="p-3 border rounded-md">
+                    <div className="flex items-center justify-between gap-4">
+                      <div>
+                        <p className="font-medium text-sm">OKR Approvals</p>
+                        <p className="text-sm text-muted-foreground">
+                          When enabled, new and substantively edited OKRs go to a Review Queue and require approval before becoming active.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={!!(selectedTenantForSettings as any).okrApprovalsEnabled}
+                        onCheckedChange={(checked) => {
+                          updateTenantMutation.mutate({
+                            id: selectedTenantForSettings.id,
+                            data: { okrApprovalsEnabled: checked } as any
+                          });
+                        }}
+                        data-testid="settings-toggle-okr-approvals"
+                      />
+                    </div>
+                  </div>
                 </div>
               </TabsContent>
 

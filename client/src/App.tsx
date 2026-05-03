@@ -78,6 +78,7 @@ const Support = lazy(() => import("@/pages/Support"));
 const Trash = lazy(() => import("@/pages/Trash"));
 const Notifications = lazy(() => import("@/pages/Notifications"));
 const NotificationPreferences = lazy(() => import("@/pages/NotificationPreferences"));
+const ReviewQueue = lazy(() => import("@/pages/ReviewQueue"));
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -626,6 +627,11 @@ function Router() {
       <Route path="/notifications/preferences">
         <LazyProtectedRoute>
           <NotificationPreferences />
+        </LazyProtectedRoute>
+      </Route>
+      <Route path="/review-queue">
+        <LazyProtectedRoute>
+          <ReviewQueue />
         </LazyProtectedRoute>
       </Route>
 

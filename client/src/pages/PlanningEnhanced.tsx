@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { format, formatDistanceToNow } from "date-fns";
 import { saveDraft, loadDraft, clearDraft, type CheckInDraft } from "@/lib/checkin-draft";
+import { ObjectiveStateBadge } from "@/components/ObjectiveStateBadge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -6365,6 +6366,12 @@ function ProgressDashboard({ objectives, bigRocks }: any) {
                       <Badge variant={obj.level === "organization" ? "default" : "secondary"}>
                         {obj.level}
                       </Badge>
+                      <ObjectiveStateBadge
+                        objectiveId={obj.id}
+                        state={(obj as any).state}
+                        lastRejectionNote={(obj as any).lastRejectionNote}
+                        showSubmitButton={true}
+                      />
                       {exceedsTarget && (
                         <Badge variant="outline" className="text-green-600 border-green-600">
                           Exceeds Target

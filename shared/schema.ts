@@ -416,6 +416,9 @@ export const tenants = pgTable("tenants", {
   weeklyDigestEnabled: boolean("weekly_digest_enabled").notNull().default(false),
   // IANA timezone used to anchor the Monday 6/7am send window. Defaults to Pacific.
   weeklyDigestTimezone: text("weekly_digest_timezone").notNull().default('America/Los_Angeles'),
+  // OKR approval workflow (Task #59) – when true, new/edited objectives must be
+  // approved before becoming active. Default false preserves existing behavior.
+  okrApprovalsEnabled: boolean("okr_approvals_enabled").default(false),
 });
 
 // Base schema for tenant updates - keeps org classification optional for legacy compatibility
@@ -923,9 +926,41 @@ export const objectives = pgTable("objectives", {
   lastCheckInNote: text("last_check_in_note"),
   deletedAt: timestamp("deleted_at"),
   deletedBy: varchar("deleted_by"),
+  // OKR approval workflow (Task #59). state is independent of `status` (which
+  // tracks progress health). Allowed values: draft, pending_approval, active,
+  // closed, archived. Default 'active' so existing rows are unaffected when
+  // approvals are disabled (the default tenant setting).
+  state: text("state").default('active'),
+  submittedForApprovalAt: timestamp("submitted_for_approval_at"),
+  submittedForApprovalBy: varchar("submitted_for_approval_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  approvedBy: varchar("approved_by").references(() => users.id),
+  rejectedAt: timestamp("rejected_at"),
+  rejectedBy: varchar("rejected_by").references(() => users.id),
+  lastRejectionNote: text("last_rejection_note"),
 }, (table) => ({
   uniqueTenantObjective: unique().on(table.tenantId, table.title, table.quarter, table.year),
 }));
+
+// Audit trail for OKR approval state transitions (Task #59).
+export const okrApprovalHistory = pgTable("okr_approval_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  objectiveId: varchar("objective_id").notNull().references(() => objectives.id, { onDelete: 'cascade' }),
+  fromState: text("from_state"),
+  toState: text("to_state").notNull(),
+  actorUserId: varchar("actor_user_id").references(() => users.id),
+  note: text("note"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertOkrApprovalHistorySchema = createInsertSchema(okrApprovalHistory).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertOkrApprovalHistory = z.infer<typeof insertOkrApprovalHistorySchema>;
+export type OkrApprovalHistory = typeof okrApprovalHistory.$inferSelect;
 
 export const keyResults = pgTable("key_results", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
@@ -2368,6 +2403,9 @@ export const NOTIFICATION_TYPES = [
   'mention',
   'plan_expiration',
   'system',
+  'okr_approval_requested',
+  'okr_approved',
+  'okr_rejected',
 ] as const;
 
 export type NotificationType = typeof NOTIFICATION_TYPES[number];

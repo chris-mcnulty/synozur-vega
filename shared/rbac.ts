@@ -31,6 +31,10 @@ export const ROLES = {
   // Galaxy Portal user — JIT-provisioned from Galaxy JWTs.
   // Read-only access to /api/portal/*; never granted any write permission.
   PORTAL_USER: 'portal_user',
+  // OKR Approver (Task #59) — grantable per-user role that can review and
+  // approve/reject pending OKRs. Inherits a tenant_user-equivalent baseline
+  // plus APPROVE_OKR.
+  OKR_APPROVER: 'okr_approver',
 } as const;
 
 export type Role = typeof ROLES[keyof typeof ROLES];
@@ -44,6 +48,7 @@ export const ROLE_USER_TYPE_MAP: Record<Role, UserType> = {
   [ROLES.VEGA_CONSULTANT]: USER_TYPES.CONSULTANT,
   [ROLES.VEGA_ADMIN]: USER_TYPES.INTERNAL,
   [ROLES.PORTAL_USER]: USER_TYPES.CLIENT,
+  [ROLES.OKR_APPROVER]: USER_TYPES.CLIENT,
 };
 
 // Permission types
@@ -100,6 +105,9 @@ export const PERMISSIONS = {
   MANAGE_ALL_TENANTS: 'manage_all_tenants',
   MANAGE_PLATFORM: 'manage_platform',
   MANAGE_SERVICE_PLANS: 'manage_service_plans',
+
+  // OKR approval workflow (Task #59)
+  APPROVE_OKR: 'approve_okr',
 } as const;
 
 export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
@@ -132,6 +140,7 @@ export const PERMISSION_MATRIX: Record<Role, Permission[]> = {
     PERMISSIONS.UPDATE_OWN_OKR,
     PERMISSIONS.UPDATE_ANY_OKR,
     PERMISSIONS.DELETE_OKR,
+    PERMISSIONS.APPROVE_OKR,
     PERMISSIONS.CREATE_MEETING,
     PERMISSIONS.UPDATE_MEETING,
     PERMISSIONS.DELETE_MEETING,
@@ -156,6 +165,7 @@ export const PERMISSION_MATRIX: Record<Role, Permission[]> = {
     PERMISSIONS.UPDATE_OWN_OKR,
     PERMISSIONS.UPDATE_ANY_OKR,
     PERMISSIONS.DELETE_OKR,
+    PERMISSIONS.APPROVE_OKR,
     PERMISSIONS.CREATE_MEETING,
     PERMISSIONS.UPDATE_MEETING,
     PERMISSIONS.DELETE_MEETING,
@@ -261,6 +271,21 @@ export const PERMISSION_MATRIX: Record<Role, Permission[]> = {
     PERMISSIONS.VIEW_FOUNDATIONS,
     PERMISSIONS.EXPORT_DATA,
   ],
+
+  // OKR approver — same baseline as tenant user, plus permission to approve
+  // or reject pending OKRs for their tenant.
+  [ROLES.OKR_APPROVER]: [
+    PERMISSIONS.READ_TENANT_DATA,
+    PERMISSIONS.VIEW_FOUNDATIONS,
+    PERMISSIONS.CREATE_OKR,
+    PERMISSIONS.UPDATE_OWN_OKR,
+    PERMISSIONS.APPROVE_OKR,
+    PERMISSIONS.CREATE_MEETING,
+    PERMISSIONS.UPDATE_MEETING,
+    PERMISSIONS.USE_M365_FEATURES,
+    PERMISSIONS.USE_AI_CHAT,
+    PERMISSIONS.EXPORT_DATA,
+  ],
 };
 
 /**
@@ -312,6 +337,7 @@ export const ROLE_DISPLAY_NAMES: Record<Role, string> = {
   [ROLES.VEGA_CONSULTANT]: 'Consultant',
   [ROLES.VEGA_ADMIN]: 'Platform Admin',
   [ROLES.PORTAL_USER]: 'Galaxy Portal User',
+  [ROLES.OKR_APPROVER]: 'OKR Approver',
 };
 
 /**
@@ -325,6 +351,7 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   [ROLES.VEGA_CONSULTANT]: 'External consultant with multi-tenant access for advisory work',
   [ROLES.VEGA_ADMIN]: 'Platform administrator with full system access',
   [ROLES.PORTAL_USER]: 'Galaxy-authenticated portal user with read-only access via /api/portal/*',
+  [ROLES.OKR_APPROVER]: 'Reviews and approves pending OKRs in addition to standard user capabilities',
 };
 
 /**

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2, Rocket, Info, FileText, ChevronDown, LifeBuoy, Activity, Trash2, Bell, type LucideIcon } from "lucide-react";
+import { LayoutDashboard, Building2, Target, TrendingUp, Calendar, Settings, Upload, Brain, UserCog, LogOut, HelpCircle, Shield, Users, BarChart2, Rocket, Info, FileText, ChevronDown, LifeBuoy, Activity, Trash2, Bell, ClipboardCheck, type LucideIcon } from "lucide-react";
 import { SynozurAppSwitcher } from "./SynozurAppSwitcher";
 import {
   Sidebar,
@@ -48,6 +48,10 @@ interface NavigationSection {
   requiredPermission?: string;
 }
 
+interface NavigationItemWithPermission extends NavigationItem {
+  requiredPermission?: string;
+}
+
 const navigationSections: NavigationSection[] = [
   {
     id: 'execute',
@@ -84,6 +88,11 @@ const navigationSections: NavigationSection[] = [
       { title: 'Focus Rhythm', url: '/focus-rhythm', icon: Calendar, testId: 'sidebar-focus-rhythm' }
     ]
   }
+];
+
+// Items that only render when the user has a specific permission.
+const conditionalReviewLearnItems: Array<NavigationItem & { requiredPermission: string }> = [
+  { title: 'Review Queue', url: '/review-queue', icon: ClipboardCheck, testId: 'sidebar-review-queue', requiredPermission: PERMISSIONS.APPROVE_OKR },
 ];
 
 export function AppSidebar() {
@@ -164,7 +173,12 @@ export function AppSidebar() {
         {/* Main Navigation Sections */}
         {navigationSections.map(section => {
           const isExpanded = expandedSections.includes(section.id);
-          const hasActivePage = section.items.some(item => location === item.url);
+          // Inject permission-gated conditional items into the matching section
+          const extraItems = section.id === 'review-learn'
+            ? conditionalReviewLearnItems.filter(i => hasPermission(userRole, i.requiredPermission as any))
+            : [];
+          const itemsForSection = [...section.items, ...extraItems];
+          const hasActivePage = itemsForSection.some(item => location === item.url);
 
           return (
             <Collapsible key={section.id} open={isExpanded || hasActivePage} onOpenChange={() => toggleSection(section.id)}>
@@ -184,7 +198,7 @@ export function AppSidebar() {
                 <CollapsibleContent>
                   <SidebarGroupContent>
                     <SidebarMenu>
-                      {section.items.map((item) => {
+                      {itemsForSection.map((item) => {
                         const active = location === item.url;
                         return (
                         <SidebarMenuItem key={item.title}>

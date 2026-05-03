@@ -52,6 +52,7 @@ import {
   oauthRefreshTokens, type OauthRefreshToken,
   type Ambition,
   notifications, type Notification, type InsertNotification,
+  okrApprovalHistory, type OkrApprovalHistory, type InsertOkrApprovalHistory,
   reassignmentAuditLogs, type ReassignmentAuditLog, type InsertReassignmentAuditLog,
   type ReassignmentCounts,
   portalAuditLogs, type PortalAuditLog, type InsertPortalAuditLog,
@@ -118,7 +119,7 @@ export interface IStorage {
   deleteMeeting(id: string): Promise<void>;
   
   // Enhanced OKR Methods
-  getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number, level?: string, teamId?: string): Promise<Objective[]>;
+  getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number, level?: string, teamId?: string, options?: { viewerUserId?: string | null; viewerEmail?: string | null; includeAllStates?: boolean }): Promise<Objective[]>;
   getTeamsByTenantId(tenantId: string): Promise<Team[]>;
   getTeamById(id: string): Promise<Team | undefined>;
   getTeamByName(tenantId: string, name: string): Promise<Team | undefined>;
@@ -130,6 +131,13 @@ export interface IStorage {
   createObjective(objective: InsertObjective): Promise<Objective>;
   updateObjective(id: string, objective: Partial<InsertObjective>): Promise<Objective>;
   deleteObjective(id: string, userId?: string): Promise<void>;
+  // OKR approval workflow (Task #59)
+  submitObjectiveForApproval(id: string, actorUserId: string | null): Promise<Objective>;
+  approveObjective(id: string, actorUserId: string | null, note?: string | null): Promise<Objective>;
+  rejectObjective(id: string, actorUserId: string | null, note: string): Promise<Objective>;
+  getObjectiveApprovalHistory(objectiveId: string): Promise<OkrApprovalHistory[]>;
+  getApprovalQueueByTenantId(tenantId: string): Promise<Objective[]>;
+  getApproverUserIds(tenantId: string): Promise<string[]>;
   restoreObjective(id: string, tenantId: string): Promise<Objective | undefined>;
   cloneObjective(objectiveId: string, options: {
     targetQuarter: number | null;
@@ -1113,9 +1121,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Enhanced OKR Method Implementations
-  async getObjectivesByTenantId(tenantId: string, quarter?: number, year?: number, level?: string, teamId?: string): Promise<Objective[]> {
-    // Check cache first
-    const cacheKey = `objectives:${tenantId}:${quarter}:${year}:${level}:${teamId}`;
+  async getObjectivesByTenantId(
+    tenantId: string,
+    quarter?: number,
+    year?: number,
+    level?: string,
+    teamId?: string,
+    options?: { viewerUserId?: string | null; viewerEmail?: string | null; includeAllStates?: boolean },
+  ): Promise<Objective[]> {
+    // Check cache first — viewer-scoped variants get their own cache key.
+    const viewerKey = options?.includeAllStates
+      ? 'all'
+      : `${options?.viewerUserId || ''}:${options?.viewerEmail || ''}`;
+    const cacheKey = `objectives:${tenantId}:${quarter}:${year}:${level}:${teamId}:${viewerKey}`;
     const cached = this.getCached<Objective[]>(cacheKey);
     if (cached) {
       return cached;
@@ -1156,8 +1174,25 @@ export class DatabaseStorage implements IStorage {
     }
     
     const data = await db.select().from(objectives).where(and(...conditions));
+
+    // Task #59: Hide draft / pending_approval objectives from broad views.
+    // Approvers (includeAllStates) see everything. Authors / owners can still
+    // see their own drafts and pending submissions.
+    const viewerEmail = options?.viewerEmail?.toLowerCase() || null;
+    const viewerUserId = options?.viewerUserId || null;
+    const includeAll = !!options?.includeAllStates;
+    const filtered = data.filter((obj: any) => {
+      const state = obj.state || 'active';
+      if (state === 'active' || state === 'closed' || state === 'archived') return true;
+      if (includeAll) return true;
+      // draft / pending_approval — only owner / submitter / creator can see.
+      if (viewerUserId && (obj.ownerId === viewerUserId || obj.createdBy === viewerUserId || obj.submittedForApprovalBy === viewerUserId)) return true;
+      if (viewerEmail && obj.ownerEmail && String(obj.ownerEmail).toLowerCase() === viewerEmail) return true;
+      return false;
+    });
+
     // Normalize: completed objectives always report 100% progress
-    const normalized = data.map(obj =>
+    const normalized = filtered.map(obj =>
       obj.status === 'completed' && (obj.progress ?? 0) < 100
         ? { ...obj, progress: 100 }
         : obj
@@ -1314,6 +1349,150 @@ export class DatabaseStorage implements IStorage {
     if (deletedObjective) {
       this.invalidateCache(`objectives:${deletedObjective.tenantId}`);
     }
+  }
+
+  // ============================================
+  // OKR Approval Workflow (Task #59)
+  // ============================================
+  private async _recordApprovalHistory(
+    tx: any,
+    entry: { tenantId: string; objectiveId: string; fromState: string | null; toState: string; actorUserId: string | null; note: string | null }
+  ): Promise<void> {
+    await tx.insert(okrApprovalHistory).values({
+      tenantId: entry.tenantId,
+      objectiveId: entry.objectiveId,
+      fromState: entry.fromState,
+      toState: entry.toState,
+      actorUserId: entry.actorUserId,
+      note: entry.note,
+    });
+  }
+
+  async submitObjectiveForApproval(id: string, actorUserId: string | null): Promise<Objective> {
+    const result = await db.transaction(async (tx) => {
+      const [existing] = await tx.select().from(objectives).where(eq(objectives.id, id));
+      if (!existing) throw new Error("Objective not found");
+      const fromState = (existing as any).state || 'active';
+      const [updated] = fromState === 'pending_approval'
+        ? [existing]
+        : await tx
+            .update(objectives)
+            .set({
+              state: 'pending_approval',
+              submittedForApprovalAt: new Date(),
+              submittedForApprovalBy: actorUserId,
+            } as any)
+            .where(eq(objectives.id, id))
+            .returning();
+      // Always record an audit row for the submission (initial create or
+      // post-edit requeue), even if the row was already in pending_approval.
+      await this._recordApprovalHistory(tx, {
+        tenantId: existing.tenantId,
+        objectiveId: id,
+        fromState,
+        toState: 'pending_approval',
+        actorUserId,
+        note: null,
+      });
+      return updated;
+    });
+    this.invalidateCache(`objectives:${result.tenantId}`);
+    return result;
+  }
+
+  async approveObjective(id: string, actorUserId: string | null, note?: string | null): Promise<Objective> {
+    const result = await db.transaction(async (tx) => {
+      const [existing] = await tx.select().from(objectives).where(eq(objectives.id, id));
+      if (!existing) throw new Error("Objective not found");
+      const fromState = (existing as any).state || 'active';
+      const [updated] = await tx
+        .update(objectives)
+        .set({
+          state: 'active',
+          approvedAt: new Date(),
+          approvedBy: actorUserId,
+        } as any)
+        .where(eq(objectives.id, id))
+        .returning();
+      await this._recordApprovalHistory(tx, {
+        tenantId: existing.tenantId,
+        objectiveId: id,
+        fromState,
+        toState: 'active',
+        actorUserId,
+        note: note ?? null,
+      });
+      return updated;
+    });
+    this.invalidateCache(`objectives:${result.tenantId}`);
+    return result;
+  }
+
+  async rejectObjective(id: string, actorUserId: string | null, note: string): Promise<Objective> {
+    if (!note || !note.trim()) {
+      throw new Error("Rejection note is required");
+    }
+    const result = await db.transaction(async (tx) => {
+      const [existing] = await tx.select().from(objectives).where(eq(objectives.id, id));
+      if (!existing) throw new Error("Objective not found");
+      const fromState = (existing as any).state || 'active';
+      const [updated] = await tx
+        .update(objectives)
+        .set({
+          state: 'draft',
+          rejectedAt: new Date(),
+          rejectedBy: actorUserId,
+          lastRejectionNote: note,
+        } as any)
+        .where(eq(objectives.id, id))
+        .returning();
+      await this._recordApprovalHistory(tx, {
+        tenantId: existing.tenantId,
+        objectiveId: id,
+        fromState,
+        toState: 'draft',
+        actorUserId,
+        note,
+      });
+      return updated;
+    });
+    this.invalidateCache(`objectives:${result.tenantId}`);
+    return result;
+  }
+
+  async getObjectiveApprovalHistory(objectiveId: string): Promise<OkrApprovalHistory[]> {
+    return await db
+      .select()
+      .from(okrApprovalHistory)
+      .where(eq(okrApprovalHistory.objectiveId, objectiveId))
+      .orderBy(desc(okrApprovalHistory.createdAt));
+  }
+
+  async getApprovalQueueByTenantId(tenantId: string): Promise<Objective[]> {
+    return await db
+      .select()
+      .from(objectives)
+      .where(and(
+        eq(objectives.tenantId, tenantId),
+        eq(objectives.state, 'pending_approval'),
+        isNull(objectives.deletedAt)
+      ))
+      .orderBy(desc(objectives.submittedForApprovalAt));
+  }
+
+  async getApproverUserIds(tenantId: string): Promise<string[]> {
+    const rows = await db
+      .select({ id: users.id })
+      .from(users)
+      .where(and(
+        eq(users.tenantId, tenantId),
+        or(
+          eq(users.role, 'tenant_admin'),
+          eq(users.role, 'admin'),
+          eq(users.role, 'okr_approver'),
+        )
+      ));
+    return rows.map(r => r.id);
   }
 
   async restoreObjective(id: string, tenantId: string): Promise<Objective | undefined> {

@@ -13,6 +13,65 @@ import { hasPermission, PERMISSIONS, Role } from "@shared/rbac";
 import { requireValidatedTenant } from "./middleware/validateTenant";
 import { requireReadWriteLicense } from "./middleware/rbac";
 import { applyCustomFields, hydrateEntitiesWithCustomFields } from "./routes-custom-fields";
+import { createNotification, notifyMany } from "./services/notification-service";
+
+// Fields whose mutation on an `active` objective requires re-approval when
+// approvals are enabled (Task #59).
+const SUBSTANTIVE_FIELDS = new Set([
+  'title', 'description', 'ownerId', 'ownerEmail', 'teamId',
+  'quarter', 'year', 'startDate', 'endDate', 'level', 'parentId',
+  'alignedToObjectiveIds', 'goalType', 'phasedTargets',
+]);
+
+function isSubstantiveChange(updateData: Record<string, any>, existing: any): boolean {
+  for (const key of Object.keys(updateData)) {
+    if (!SUBSTANTIVE_FIELDS.has(key)) continue;
+    const a = updateData[key];
+    const b = existing?.[key];
+    if (JSON.stringify(a ?? null) !== JSON.stringify(b ?? null)) return true;
+  }
+  return false;
+}
+
+// Requeue a parent objective for approval after a substantive change to one
+// of its key results (add/delete/target change). Idempotent if already pending.
+async function maybeRequeueParentForKrChange(
+  objectiveId: string | null | undefined,
+  actorUserId: string | null,
+  actorEmail: string | null,
+): Promise<void> {
+  if (!objectiveId) return;
+  try {
+    const parent = await storage.getObjectiveById(objectiveId);
+    if (!parent) return;
+    const tenant = await storage.getTenantById(parent.tenantId);
+    if (!(tenant as any)?.okrApprovalsEnabled) return;
+    if (((parent as any).state || 'active') !== 'active') return;
+    const updated = await storage.submitObjectiveForApproval(parent.id, actorUserId);
+    await notifyApproversOfSubmission(parent.tenantId, updated, actorEmail);
+  } catch (err) {
+    console.error('[okr-approval] Failed to requeue parent for KR change:', err);
+  }
+}
+
+async function notifyApproversOfSubmission(tenantId: string, objective: Objective, submitterEmail?: string | null) {
+  try {
+    const approverIds = await storage.getApproverUserIds(tenantId);
+    if (approverIds.length === 0) return;
+    await notifyMany(approverIds.map((userId) => ({
+      tenantId,
+      userId,
+      type: 'okr_approval_requested' as const,
+      title: 'OKR awaiting your approval',
+      body: `"${objective.title}"${submitterEmail ? ` was submitted by ${submitterEmail}` : ''}`,
+      entityType: 'objective',
+      entityId: objective.id,
+      linkUrl: `/review-queue`,
+    })));
+  } catch (err) {
+    console.error('[okr-approval] Failed to notify approvers:', err);
+  }
+}
 
 /**
  * Check if the current user can modify a specific OKR
@@ -198,14 +257,23 @@ okrRouter.get("/objectives", async (req, res) => {
       return res.status(400).json({ error: "tenantId is required" });
     }
     
+    // Task #59: scope draft / pending_approval visibility. Approvers see all;
+    // others see active + their own drafts/pending submissions.
+    const sess = req.session as any;
+    const viewerUserId = sess?.passport?.user?.id || sess?.userId || (req as any).user?.id || null;
+    const viewerEmail = sess?.passport?.user?.email || sess?.userEmail || (req as any).user?.email || null;
+    const role = ((req as any).user?.role || '') as Role;
+    const isApprover = hasPermission(role, PERMISSIONS.APPROVE_OKR);
+
     const objectives = await storage.getObjectivesByTenantId(
       tenantId as string,
       quarter ? Number(quarter) : undefined,
       year ? Number(year) : undefined,
       level as string | undefined,
-      teamId as string | undefined
+      teamId as string | undefined,
+      { viewerUserId, viewerEmail, includeAllStates: isApprover }
     );
-    
+
     const hydrated = await hydrateEntitiesWithCustomFields(tenantId as string, 'objective', objectives);
     res.json(hydrated);
   } catch (error) {
@@ -262,19 +330,34 @@ okrRouter.post("/objectives", async (req, res) => {
     const userId = session?.passport?.user?.id || session?.userId;
     const userEmail = session?.passport?.user?.email || session?.userEmail;
     
+    // Task #59: When the tenant has OKR approvals enabled, all newly-created
+    // objectives go to `pending_approval` regardless of any client-supplied
+    // state. Otherwise default to `active` to preserve existing behavior.
+    const tenant = await storage.getTenantById(effectiveTenantId);
+    const approvalsEnabled = !!(tenant as any)?.okrApprovalsEnabled;
+
+    // Insert as 'draft' first when approvals are enabled so submitObjectiveForApproval
+    // can record a proper draft → pending_approval audit row in a single transaction.
     const objectiveData = {
       ...validatedData,
       tenantId: effectiveTenantId,
       createdBy: validatedData.createdBy || userId || null,
       ownerEmail: validatedData.ownerEmail || userEmail || null,
+      state: approvalsEnabled ? 'draft' : 'active',
     };
-    
-    const objective = await storage.createObjective(objectiveData);
+
+    let objective = await storage.createObjective(objectiveData as any);
     try {
       await applyCustomFields(effectiveTenantId, 'objective', objective.id, customFields);
     } catch (cfError: any) {
       return res.status(400).json({ error: `Custom field error: ${cfError.message}` });
     }
+
+    if (approvalsEnabled) {
+      objective = await storage.submitObjectiveForApproval(objective.id, userId || null);
+      await notifyApproversOfSubmission(effectiveTenantId, objective, userEmail);
+    }
+
     res.json(objective);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -354,6 +437,17 @@ okrRouter.patch("/objectives/:id", async (req, res) => {
       }
     }
     
+    // Task #59: If approvals are enabled and a substantive field changed on
+    // an active objective, transition it back to pending_approval and notify
+    // approvers. Non-substantive edits (progress, status, check-ins) bypass.
+    const tenantForApproval = await storage.getTenantById(existingObjective.tenantId);
+    const approvalsEnabled = !!(tenantForApproval as any)?.okrApprovalsEnabled;
+    const sessionForApproval = req.session as any;
+    const approvalUserId = sessionForApproval?.passport?.user?.id || sessionForApproval?.userId || null;
+    const approvalUserEmail = sessionForApproval?.passport?.user?.email || sessionForApproval?.userEmail || null;
+    const wasActive = ((existingObjective as any).state || 'active') === 'active';
+    const shouldRequeueForApproval = approvalsEnabled && wasActive && isSubstantiveChange(updateData, existingObjective);
+
     const objective = await storage.updateObjective(req.params.id, updateData);
     if (customFields !== undefined) {
       try {
@@ -361,6 +455,12 @@ okrRouter.patch("/objectives/:id", async (req, res) => {
       } catch (cfError: any) {
         return res.status(400).json({ error: `Custom field error: ${cfError.message}` });
       }
+    }
+
+    if (shouldRequeueForApproval) {
+      const requeued = await storage.submitObjectiveForApproval(objective.id, approvalUserId);
+      await notifyApproversOfSubmission(existingObjective.tenantId, requeued, approvalUserEmail);
+      Object.assign(objective, requeued);
     }
     
     // If this objective has a parent and progress changed, propagate to parent
@@ -393,6 +493,148 @@ okrRouter.delete("/objectives/:id", async (req, res) => {
     await storage.deleteObjective(req.params.id, (req as any).user?.id);
     res.json({ success: true });
   } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ============================================
+// OKR Approval Workflow (Task #59)
+// ============================================
+
+okrRouter.get("/review-queue", async (req, res) => {
+  try {
+    const tenantId = req.effectiveTenantId;
+    if (!tenantId) return res.status(403).json({ error: "No tenant context" });
+    const role = ((req as any).user?.role || '') as Role;
+    if (!hasPermission(role, PERMISSIONS.APPROVE_OKR)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    const items = await storage.getApprovalQueueByTenantId(tenantId);
+    res.json(items);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+okrRouter.get("/objectives/:id/approval-history", async (req, res) => {
+  try {
+    const objective = await storage.getObjectiveById(req.params.id);
+    if (!objective) return res.status(404).json({ error: "Objective not found" });
+    if (objective.tenantId !== req.effectiveTenantId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    const history = await storage.getObjectiveApprovalHistory(req.params.id);
+    res.json(history);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+okrRouter.post("/objectives/:id/submit", async (req, res) => {
+  try {
+    const objective = await storage.getObjectiveById(req.params.id);
+    if (!objective) return res.status(404).json({ error: "Objective not found" });
+    if (objective.tenantId !== req.effectiveTenantId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    if (!canUserModifyOKR(req, objective.ownerId, objective.createdBy, objective.ownerEmail)) {
+      return res.status(403).json({ error: "You can only submit objectives you own or created." });
+    }
+    const session = req.session as any;
+    const userId = session?.passport?.user?.id || session?.userId || null;
+    const userEmail = session?.passport?.user?.email || session?.userEmail || null;
+    const updated = await storage.submitObjectiveForApproval(req.params.id, userId);
+    await notifyApproversOfSubmission(objective.tenantId, updated, userEmail);
+    res.json(updated);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+okrRouter.post("/objectives/:id/approve", async (req, res) => {
+  try {
+    const role = ((req as any).user?.role || '') as Role;
+    if (!hasPermission(role, PERMISSIONS.APPROVE_OKR)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    const objective = await storage.getObjectiveById(req.params.id);
+    if (!objective) return res.status(404).json({ error: "Objective not found" });
+    if (objective.tenantId !== req.effectiveTenantId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    if (((objective as any).state || 'active') !== 'pending_approval') {
+      return res.status(400).json({ error: "Objective is not pending approval" });
+    }
+    const session = req.session as any;
+    const actorUserId = session?.passport?.user?.id || session?.userId || null;
+    const note = typeof req.body?.note === 'string' ? req.body.note : null;
+    const updated = await storage.approveObjective(req.params.id, actorUserId, note);
+    // Notify the owner first (with submitter/creator fallbacks). If the owner
+    // is identified only by email, look the user up so we can deliver the
+    // in-app notification.
+    let recipient: string | null = objective.ownerId || (objective as any).submittedForApprovalBy || objective.createdBy || null;
+    if (!recipient && (objective as any).ownerEmail) {
+      const ownerUser = await storage.getUserByEmail((objective as any).ownerEmail);
+      recipient = ownerUser?.id || null;
+    }
+    if (recipient) {
+      await createNotification({
+        tenantId: objective.tenantId,
+        userId: recipient,
+        type: 'okr_approved',
+        title: 'Your OKR was approved',
+        body: `"${objective.title}" has been approved.`,
+        entityType: 'objective',
+        entityId: objective.id,
+        linkUrl: '/planning',
+      });
+    }
+    res.json(updated);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+okrRouter.post("/objectives/:id/reject", async (req, res) => {
+  try {
+    const role = ((req as any).user?.role || '') as Role;
+    if (!hasPermission(role, PERMISSIONS.APPROVE_OKR)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    const note = typeof req.body?.note === 'string' ? req.body.note.trim() : '';
+    if (!note) {
+      return res.status(400).json({ error: "Rejection note is required" });
+    }
+    const objective = await storage.getObjectiveById(req.params.id);
+    if (!objective) return res.status(404).json({ error: "Objective not found" });
+    if (objective.tenantId !== req.effectiveTenantId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    if (((objective as any).state || 'active') !== 'pending_approval') {
+      return res.status(400).json({ error: "Objective is not pending approval" });
+    }
+    const session = req.session as any;
+    const actorUserId = session?.passport?.user?.id || session?.userId || null;
+    const updated = await storage.rejectObjective(req.params.id, actorUserId, note);
+    let recipient: string | null = objective.ownerId || (objective as any).submittedForApprovalBy || objective.createdBy || null;
+    if (!recipient && (objective as any).ownerEmail) {
+      const ownerUser = await storage.getUserByEmail((objective as any).ownerEmail);
+      recipient = ownerUser?.id || null;
+    }
+    if (recipient) {
+      await createNotification({
+        tenantId: objective.tenantId,
+        userId: recipient,
+        type: 'okr_rejected',
+        title: 'Your OKR needs changes',
+        body: `"${objective.title}" was sent back: ${note}`,
+        entityType: 'objective',
+        entityId: objective.id,
+        linkUrl: '/planning',
+      });
+    }
+    res.json(updated);
+  } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
 });
@@ -487,6 +729,14 @@ okrRouter.post("/key-results", async (req, res) => {
     } catch (cfError: any) {
       return res.status(400).json({ error: `Custom field error: ${cfError.message}` });
     }
+    // Task #59: Adding a KR is a substantive change — requeue the parent OKR
+    // for approval if approvals are on and it was active.
+    const krSession = req.session as any;
+    await maybeRequeueParentForKrChange(
+      (keyResult as any).objectiveId,
+      krSession?.passport?.user?.id || krSession?.userId || null,
+      krSession?.passport?.user?.email || krSession?.userEmail || null,
+    );
     res.json(keyResult);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -495,6 +745,12 @@ okrRouter.post("/key-results", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// Fields on a key result whose mutation requires re-approval of the parent OKR.
+const KR_SUBSTANTIVE_FIELDS = new Set([
+  'title', 'targetValue', 'initialValue', 'unit', 'direction',
+  'measurementType', 'ownerId', 'ownerEmail',
+]);
 
 okrRouter.patch("/key-results/:id", async (req, res) => {
   try {
@@ -547,6 +803,21 @@ okrRouter.patch("/key-results/:id", async (req, res) => {
         return res.status(400).json({ error: `Custom field error: ${cfError.message}` });
       }
     }
+
+    // Task #59: requeue parent OKR if a substantive KR field changed.
+    const isSubstantive = Object.keys(updateData).some((k) => {
+      if (!KR_SUBSTANTIVE_FIELDS.has(k)) return false;
+      return JSON.stringify(updateData[k] ?? null) !== JSON.stringify((existingKeyResult as any)[k] ?? null);
+    });
+    if (isSubstantive) {
+      const krSession = req.session as any;
+      await maybeRequeueParentForKrChange(
+        (existingKeyResult as any).objectiveId,
+        krSession?.passport?.user?.id || krSession?.userId || null,
+        krSession?.passport?.user?.email || krSession?.userEmail || null,
+      );
+    }
+
     res.json(keyResult);
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -562,8 +833,20 @@ okrRouter.delete("/key-results/:id", async (req, res) => {
         message: "You do not have permission to delete key results."
       });
     }
-    
+
+    // Capture parent objective before delete so we can requeue afterward
+    const existing = await storage.getKeyResultById(req.params.id);
     await storage.deleteKeyResult(req.params.id, (req as any).user?.id);
+
+    if (existing) {
+      const krSession = req.session as any;
+      await maybeRequeueParentForKrChange(
+        (existing as any).objectiveId,
+        krSession?.passport?.user?.id || krSession?.userId || null,
+        krSession?.passport?.user?.email || krSession?.userEmail || null,
+      );
+    }
+
     res.json({ success: true });
   } catch (error) {
     res.status(500).json({ error: error.message });
