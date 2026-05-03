@@ -51,6 +51,7 @@ import { registerObjectStorageRoutes } from "./replit_integrations/object_storag
 import { mcpRouter, createApiKeyForUser } from "./mcp";
 import { oauthRouter, generateOAuthClientCredentials } from "./mcp/oauth";
 import { portalRouter } from "./routes-portal";
+import { createTrashRouter } from "./routes-trash";
 import { assertSafeJwksUri } from "./portal/jwks-url-validator";
 import { MCP_SCOPES } from "@shared/schema";
 
@@ -3454,72 +3455,10 @@ ${changelogContent}`;
 
   // ============================================================================
   // Trash / Soft-delete recovery routes (admin/owner only)
+  // Implementation lives in `routes-trash.ts` so the same router can be mounted
+  // here behind the standard adminOnly middleware AND in tests behind a stub.
   // ============================================================================
-
-  // List soft-deleted items for the current tenant
-  app.get("/api/trash", ...adminOnly, async (req: Request, res: Response) => {
-    try {
-      const userRole = req.user?.role as string;
-      const isPlatformAdmin = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
-      const tenantId = req.effectiveTenantId
-        || (isPlatformAdmin ? (req.headers['x-tenant-id'] as string | undefined) : undefined);
-
-      if (!tenantId) {
-        return res.status(400).json({ error: "Tenant context required" });
-      }
-
-      const items = await storage.getTrashItemsByTenantId(tenantId);
-      res.json(items);
-    } catch (error: any) {
-      console.error("Error fetching trash:", error);
-      res.status(500).json({ error: "Failed to fetch trash items" });
-    }
-  });
-
-  // Restore a soft-deleted item by type and id
-  app.post("/api/trash/:type/:id/restore", ...adminOnly, async (req: Request, res: Response) => {
-    try {
-      const { type, id } = req.params;
-      const userRole = req.user?.role as string;
-      const isPlatformAdmin = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
-      const tenantId = req.effectiveTenantId
-        || (isPlatformAdmin ? (req.headers['x-tenant-id'] as string | undefined) : undefined);
-
-      if (!tenantId) {
-        return res.status(400).json({ error: "Tenant context required" });
-      }
-
-      // All restore methods are tenant-scoped: they fetch and authorize the row
-      // BEFORE any mutation. They return undefined if the item doesn't exist or
-      // belongs to a different tenant — preventing cross-tenant data modification.
-      let restored: Objective | KeyResult | BigRock | Strategy | Ambition | undefined;
-
-      if (type === 'objective') {
-        restored = await storage.restoreObjective(id, tenantId);
-      } else if (type === 'keyResult' || type === 'key-result') {
-        restored = await storage.restoreKeyResult(id, tenantId);
-      } else if (type === 'bigRock' || type === 'big-rock') {
-        restored = await storage.restoreBigRock(id, tenantId);
-      } else if (type === 'strategy') {
-        restored = await storage.restoreStrategy(id, tenantId);
-      } else if (type === 'ambition') {
-        restored = await storage.restoreAmbition(tenantId, id);
-      } else {
-        return res.status(400).json({ error: "Unknown trash item type" });
-      }
-
-      if (!restored) {
-        // Could be: not in trash, not found, or belongs to a different tenant.
-        // We don't disclose which to avoid leaking existence of cross-tenant rows.
-        return res.status(404).json({ error: "Item not found in trash" });
-      }
-
-      res.json({ success: true, item: restored });
-    } catch (error: any) {
-      console.error("Error restoring trash item:", error);
-      res.status(500).json({ error: "Failed to restore item" });
-    }
-  });
+  app.use("/api/trash", createTrashRouter(adminOnly));
 
   // Soft-delete an ambition (stored in foundation JSONB)
   app.delete("/api/foundations/:tenantId/ambitions/:ambitionId", ...adminOnly, async (req: Request, res: Response) => {
