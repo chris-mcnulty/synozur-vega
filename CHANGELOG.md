@@ -28,6 +28,7 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 
 **Quality**
 - **Depth-Cap & Cycle Detection Tests**: Comprehensive automated coverage for the new depth cap, cycle detection, and warning emission paths so future schema work can't silently regress hierarchy safety.
+- **GIN Trigram Index Deploy Fix**: Publish was failing with "data type text has no default operator class for access method gin" because Replit's deployment migration analyzer strips the `gin_trgm_ops` operator class from top-level `CREATE INDEX … USING GIN (col gin_trgm_ops)` DDL — whether in a `.sql` migration file or in runtime `client.query()` calls at startup. Fix: all 17 trgm index creations are now consolidated in `migrations/0012_search_trgm_indexes.sql` using a `DO $$` block with `EXECUTE` statements, which the analyzer treats as a single opaque SQL statement and cannot parse inside. The `init.ts` runtime loop has been removed; only the harmless `CREATE EXTENSION IF NOT EXISTS pg_trgm` safety net remains there.
 
 > **Release bookkeeping note for admins:** to push this entry into the in-app What's New modal, an admin should call `POST /api/admin/changelog/refresh` once after deploy. New users will then see the Version 1.11 highlights on next dashboard load.
 

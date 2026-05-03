@@ -445,44 +445,20 @@ async function ensureSchemaColumns() {
     // ============================================
     // Search performance: pg_trgm GIN indexes
     // ============================================
-    // Accelerates ILIKE '%query%' searches in storage.searchAcrossEntities
-    // across the 8 entity tables (objectives, key_results, big_rocks,
-    // strategies, teams, meetings, support_tickets, grounding_documents).
-    // Owns these indexes for both fresh and existing databases. The original
-    // 0008_search_trgm_indexes.sql migration was removed because Replit's
-    // deploy migration analyzer stripped the `gin_trgm_ops` operator class
-    // from the rendered DDL, breaking deploys with "data type text has no
-    // default operator class for access method gin". Running it from app
-    // startup uses raw client.query() and preserves the opclass exactly.
+    // GIN trigram indexes that accelerate ILIKE '%query%' in searchAcrossEntities
+    // are now created by migrations/0012_search_trgm_indexes.sql via a DO $$
+    // block, which is opaque to Replit's deployment migration analyzer.
+    // Previous approaches (top-level CREATE INDEX in a .sql file, or raw
+    // client.query() calls here at startup) both caused the analyzer to strip
+    // the gin_trgm_ops operator class and re-run the mangled DDL, producing
+    // "data type text has no default operator class for access method gin".
+    // The DO $$ / EXECUTE pattern in 0012 keeps the operator class inside a
+    // dollar-quoted string that static analysis cannot reach.
+    // The pg_trgm extension itself is harmless to ensure here as a safety net.
     try {
       await client.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm`);
-      const trgmIndexes: Array<[string, string, string]> = [
-        ["idx_objectives_title_trgm", "objectives", "title"],
-        ["idx_objectives_description_trgm", "objectives", "description"],
-        ["idx_key_results_title_trgm", "key_results", "title"],
-        ["idx_key_results_description_trgm", "key_results", "description"],
-        ["idx_big_rocks_title_trgm", "big_rocks", "title"],
-        ["idx_big_rocks_description_trgm", "big_rocks", "description"],
-        ["idx_strategies_title_trgm", "strategies", "title"],
-        ["idx_strategies_description_trgm", "strategies", "description"],
-        ["idx_teams_name_trgm", "teams", "name"],
-        ["idx_teams_description_trgm", "teams", "description"],
-        ["idx_meetings_title_trgm", "meetings", "title"],
-        ["idx_meetings_summary_trgm", "meetings", "summary"],
-        ["idx_support_tickets_subject_trgm", "support_tickets", "subject"],
-        ["idx_support_tickets_description_trgm", "support_tickets", "description"],
-        ["idx_grounding_documents_title_trgm", "grounding_documents", "title"],
-        ["idx_grounding_documents_description_trgm", "grounding_documents", "description"],
-        ["idx_grounding_documents_content_trgm", "grounding_documents", "content"],
-      ];
-      for (const [idx, table, column] of trgmIndexes) {
-        await client.query(
-          `CREATE INDEX IF NOT EXISTS "${idx}" ON "${table}" USING GIN ("${column}" gin_trgm_ops)`
-        );
-      }
     } catch (err) {
-      // Non-fatal: app still works without the indexes, just slower on large tenants.
-      console.error("pg_trgm search index creation (non-fatal):", err);
+      console.error("pg_trgm extension creation (non-fatal):", err);
     }
 
     console.log("✓ Database schema verified");

@@ -232,6 +232,12 @@ const roadmap: RoadmapPhase[] = [
         description: "Staff assignment dropdown with avatar display, bidirectional reply email notifications, Pending compound filter (open + in_progress), My Assigned stat card and filter, and category-to-priority auto-defaults on new tickets",
         status: "completed",
         icon: Ticket
+      },
+      {
+        title: "Support Ticket Week 2",
+        description: "Status history audit timeline, bulk status change and bulk reassign, five built-in quick-reply templates, and admin full-text search across subject, description, and reply bodies",
+        status: "completed",
+        icon: ClipboardList
       }
     ]
   },
@@ -247,11 +253,11 @@ const roadmap: RoadmapPhase[] = [
         icon: Puzzle
       },
       {
-        title: "Support Ticket Week 2",
-        description: "Status history timeline, SLA response-time badges, bulk status change, resolution templates, and admin full-text search — building on the completed Week 1 staff enhancements",
+        title: "GIN Trigram Index Deploy Fix",
+        description: "Migrated pg_trgm GIN index creation from runtime client.query() calls into a DO $$ migration block, preventing Replit's deployment analyzer from stripping gin_trgm_ops and breaking publish",
         status: "in_progress",
-        progress: 0,
-        icon: Ticket
+        progress: 100,
+        icon: Database
       }
     ]
   },
