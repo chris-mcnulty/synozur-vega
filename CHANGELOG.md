@@ -6,6 +6,33 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 
 ---
 
+## May 2026
+
+### May 2026 — Version 1.11
+
+**New Features**
+- **Galaxy Portal Integration**: Synozur's Galaxy customer portal can now sign users into Vega via an OAuth/JWT trust relationship. New users are JIT-provisioned with the new `portal_user` role and granted read-only access to a dedicated `/api/portal/*` surface covering OKRs, check-ins, and meetings — without ever leaving the Galaxy experience.
+- **Live Meeting Mode**: Focus Rhythm meetings now have a facilitator-driven Live Mode with an agenda timer, quick-capture for decisions and risks, attendee tracking, and full state persistence. Reload the page or rejoin from another device — your live meeting is exactly where you left it.
+- **Soft Delete & Trash Recovery**: Deleting an objective, key result, big rock, meeting, ambition, or annual goal now sends it to a tenant-scoped Trash instead of erasing it. Admins can preview the item, restore it, or let the 30-day retention window run out. A new admin-only Trash page makes recovery one click.
+- **Global Search**: A new header search bar searches across objectives, key results, big rocks, meetings, and people in real time. Results are tenant-scoped, permission-aware, grouped by entity type, and link straight into the matching detail page.
+- **In-App Notification Center**: A bell icon in the header now surfaces unread counts, a notifications dropdown, and per-event read/unread tracking. Assignments, mentions, check-in reminders, and admin alerts now appear in-app instead of relying solely on email.
+- **Bulk Reassignment**: Admins can reassign every objective, key result, and big rock owned by one user to another in a single action — built for offboarding, team restructures, and consultant handoffs.
+- **Mobile-Responsive OKR Tables**: Hierarchical OKR tables now collapse into a card-stack layout on phones and tablets, with progressive disclosure of key results, owners, and progress. Stand-ups from a phone are now actually pleasant.
+- **Daily Progress Snapshots**: A new background job captures a daily snapshot of every objective and key result. These snapshots power historical trend lines, period-over-period comparisons, and the Executive Dashboard's completion-forecast charts.
+- **Check-in Draft Auto-Save**: Check-in dialogs now auto-save drafts as you type. A new Drafts list lets you restore or discard a saved draft, drafts are tenant-scoped so they never leak across organizations, and submitting a check-in clears its draft automatically. Three follow-up polish items shipped alongside: clear-on-submit, conflict handling, and Drafts management UI.
+
+**Improvements**
+- **Combined-Context Dashboard API**: The Company OS, Executive, and Team dashboards now load through a single combined-context endpoint instead of fanning out 6+ requests per render. Dashboards feel instant, even on large tenants.
+- **Recursive CTE Hierarchy Loader**: The OKR hierarchy is now loaded with a single recursive CTE that pulls the full objective tree (and its key results and big rocks) in one query. Large-tenant page loads that previously took multiple seconds now resolve in milliseconds.
+- **Objective Tree Depth-Cap Admin Alerts**: The backend now caps objective hierarchy depth at an admin-tunable threshold and surfaces alerts when a tenant's tree approaches or exceeds the cap. Helps prevent runaway alignment chains and keeps the hierarchy navigable.
+
+**Quality**
+- **Depth-Cap & Cycle Detection Tests**: Comprehensive automated coverage for the new depth cap, cycle detection, and warning emission paths so future schema work can't silently regress hierarchy safety.
+
+> **Release bookkeeping note for admins:** to push this entry into the in-app What's New modal, an admin should call `POST /api/admin/changelog/refresh` once after deploy. New users will then see the Version 1.11 highlights on next dashboard load.
+
+---
+
 ## April 2026
 
 ### April 8, 2026 - Version 1.10

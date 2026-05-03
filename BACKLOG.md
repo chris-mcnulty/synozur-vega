@@ -1,6 +1,6 @@
 # Vega Platform Master Backlog
 
-**Last Updated:** April 8, 2026 (OKR Creation Wizard finalized with draft auto-save; Contextual Breadcrumbs shipped; monthly What's New refresh workflow added)
+**Last Updated:** May 2026 (Version 1.11 shipped — Galaxy Portal trust + portal_user role, live meeting mode, soft delete & trash, global search, in-app notification center, bulk reassignment, mobile-responsive OKR tables, daily progress snapshots, check-in draft auto-save, recursive CTE hierarchy loader, combined-context dashboard API, objective tree depth-cap alerts with tests)
 
 > **Note:** This is the single source of truth for all Vega feature proposals, implementation plans, UX enhancements, known issues, and technical decisions. All coding agents should reference this document for backlog-related questions.
 
@@ -2009,15 +2009,15 @@ Formal system for declaring and tracking cross-team dependencies:
 
 ---
 
-### Global Command Palette & Keyboard Shortcuts
+### Global Command Palette & Keyboard Shortcuts ✅ PARTIALLY COMPLETE (May 2026)
 
 **Effort:** 1 week  
 **Priority:** Medium
 
 Power-user feature (⌘K / Ctrl+K) for fuzzy searching and quick actions:
-- Search across all entities
-- Navigate shortcuts (G then D for Dashboard, etc.)
-- Action commands (New Objective, Quick Check-in)
+- ✅ Search across all entities (objectives, key results, big rocks, meetings, people) — shipped as the new Global Search header bar in May 2026 — Version 1.11. Tenant-scoped, permission-aware, grouped by entity type.
+- Navigate shortcuts (G then D for Dashboard, etc.) — still pending.
+- Action commands (New Objective, Quick Check-in) — still pending.
 
 Uses `cmdk` package (already installed).
 
@@ -2035,15 +2035,16 @@ Customizable dashboard with drag-and-drop widgets:
 
 ---
 
-### Progress Timeline & Activity Feed
+### Progress Timeline & Activity Feed ✅ PARTIALLY COMPLETE (May 2026)
 
 **Effort:** 1-2 weeks  
 **Priority:** Medium
 
 Visual progress trends and real-time activity feed:
-- Interactive line charts showing KR progress over time
-- Global activity feed with filters
-- Sparkline mini-charts on objective cards
+- ✅ Daily progress snapshots now persist a full history per objective and key result (May 2026 — Version 1.11), unblocking interactive line charts and sparklines.
+- Interactive line charts showing KR progress over time (data now available; UI surfaces still pending).
+- Global activity feed with filters (still pending).
+- Sparkline mini-charts on objective cards (still pending).
 
 ---
 
@@ -3002,6 +3003,35 @@ All date/time operations use America/Los_Angeles timezone.
 ---
 
 ## COMPLETED FEATURES
+
+### May 2026 — Version 1.11 ✅
+
+A milestone release focused on platform-scale performance, mobile reach, and the first external trust integration (Galaxy Portal).
+
+**Performance**
+- ✅ **Combined-Context Dashboard API** — single endpoint replaces 6+ per-render fan-out requests across Company OS, Executive, and Team dashboards
+- ✅ **Recursive CTE Hierarchy Loader** — full objective tree + key results + big rocks load in a single query; multi-second large-tenant loads now resolve in milliseconds
+- ✅ **Daily Progress Snapshots** — background job captures snapshots for every objective/key result, powering trend lines and forecast charts
+
+**UX**
+- ✅ **Mobile-Responsive OKR Tables** — hierarchical tables collapse into a card-stack layout with progressive disclosure on phones/tablets
+- ✅ **Global Search** — header-level entity search across objectives, key results, big rocks, meetings, and people; tenant-scoped and permission-aware
+- ✅ **In-App Notification Center** — header bell + dropdown + read/unread tracking for assignments, mentions, reminders, admin alerts
+- ✅ **Check-in Draft Auto-Save & Drafts Management** — auto-saved tenant-scoped drafts with restore/discard, clear-on-submit, and conflict handling (rolled up from #33/#34/#35 follow-ups)
+
+**Capabilities**
+- ✅ **Live Meeting Mode** — facilitator agenda timer, quick-capture decisions/risks, attendee tracking, full state persistence across reload
+- ✅ **Soft Delete & Trash Recovery** — soft-delete with 30-day automatic purge and admin-only Trash page for restore
+- ✅ **Bulk Reassignment** — single-action transfer of all objectives/key results/big rocks from one owner to another
+- ✅ **Objective Tree Depth-Cap Admin Alerts** (#29) — admin-tunable depth cap with warnings as the tree approaches or exceeds the threshold
+
+**Integrations**
+- ✅ **Galaxy Portal API & OAuth Trust** (#50/#51/#52/#53) — OAuth/JWT trust with Synozur's Galaxy customer portal, JIT-provisioned `portal_user` role, and a read-only `/api/portal/*` surface for OKRs, check-ins, and meetings
+
+**Quality**
+- ✅ **Depth-Cap & Cycle Detection Tests** (#30) — automated coverage for hierarchy depth enforcement, cycle detection, and warning emission
+
+---
 
 ### Help Chatbot & Support Ticket System ✅ (February 8, 2026)
 

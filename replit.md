@@ -13,13 +13,17 @@ Preferred communication style: Simple, everyday language.
 -   **State Management**: React hooks and TanStack Query.
 -   **Styling**: TailwindCSS, Avenir Next LT Pro font, CSS variables for design tokens, and responsive design following the Constellation (Oconee) brand standard, specifically the Aurora Visual System for animated backgrounds, gradient texts, glow effects, and specialized card/sidebar designs.
 -   **Key Features**:
-    -   **Dashboards**: Company OS, Executive (analytics, projections), and Team Dashboards (weekly focus), all loading via a single, optimized API endpoint.
-    -   **Core Modules**: Foundations (mission, vision, values, ambitions), Strategy (AI drafting, goal alignment), Outcomes (hierarchical OKRs, "big rocks", annual goals with AI suggestions), Focus Rhythm (meeting management with Live Meeting Mode, timers, quick-capture, and persistence), Reporting (PDF/PPTX export).
+    -   **Dashboards**: Company OS, Executive (analytics, projections), and Team Dashboards (weekly focus), all loading via a single combined-context API endpoint.
+    -   **Core Modules**: Foundations (mission, vision, values, ambitions), Strategy (AI drafting, goal alignment), Outcomes (hierarchical OKRs with mobile-responsive card-stack layout, "big rocks", annual goals with AI suggestions), Focus Rhythm (meeting management with Live Meeting Mode, agenda timers, quick-capture decisions/risks, attendee tracking, and full state persistence), Reporting (PDF/PPTX export).
     -   **Ambitions Module**: Manages 3-5 year strategic targets, linking vision to annual goals with AI suggestions and status tracking.
-    -   **AI & Intelligence**: OKR Intelligence for pace/velocity tracking, predictive analytics with completion forecasting, confidence bands, trend detection, risk flagging, and probability distribution visualization. AI-powered document analysis and "What's New" modal.
+    -   **AI & Intelligence**: OKR Intelligence for pace/velocity tracking, predictive analytics with completion forecasting, confidence bands, trend detection, risk flagging, and probability distribution visualization. Daily progress snapshots power historical trend charts and period-over-period comparisons. AI-powered document analysis and "What's New" modal.
+    -   **Global Search**: Header-level tenant-scoped search across objectives, key results, big rocks, meetings, and people, grouped by entity type and permission-aware.
+    -   **In-App Notification Center**: Header bell with unread count, dropdown, and per-event read/unread tracking for assignments, mentions, reminders, and admin alerts.
+    -   **Check-in Draft Auto-Save**: Tenant-scoped check-in drafts with auto-save, restore/discard, and clear-on-submit so progress is never lost.
+    -   **Bulk Reassignment**: Admin-driven single-action transfer of every objective, key result, and big rock from one owner to another.
     -   **Administration**: Tenant Admin (org, M365 integration, user management) and System Admin (platform-wide AI config, service plans).
-    -   **OKR Workflow**: Cloning, Period Close-Out, Mixed Child Rollup Progress Calculation.
-    -   **Soft Delete & Trash/Recovery**: Strategic items are soft-deleted with a 30-day purge cycle, accessible via an admin-only trash page.
+    -   **OKR Workflow**: Cloning, Period Close-Out, Mixed Child Rollup Progress Calculation, and an admin-tunable objective hierarchy depth cap with warning alerts.
+    -   **Soft Delete & Trash/Recovery**: Strategic items are soft-deleted with a 30-day purge cycle, accessible via an admin-only trash page with restore.
     -   **Vocabulary Module**: Customizable terminology.
     -   **Public Domain Handling**: Enforces invite-only tenants for public email domains.
     -   **Help Chatbot**: AI-powered assistant for support, grounded on documentation, with ticket escalation.
@@ -33,11 +37,18 @@ Preferred communication style: Simple, everyday language.
     -   Session-based authentication with Express sessions, `connect-pg-simple`, bcryptjs, and SendGrid for email verification.
     -   **Microsoft Entra ID SSO**: Multi-tenant MSAL-based Azure AD authentication with PKCE, JIT user provisioning, and tenant mapping.
     -   Multi-tenancy with data isolation using `TenantContext` and `TenantSwitcher`, enforcing tenant data boundary protection via `req.effectiveTenantId` and database-level filtering.
-    -   Full RBAC enforcement with 6 defined roles and fine-grained OKR permissions.
+    -   Full RBAC enforcement with 7 defined roles (including the new read-only `portal_user` role used by the Galaxy Portal trust) and fine-grained OKR permissions.
     -   All date/time operations use America/Los_Angeles timezone.
-    -   **Job Scheduler Service**: Manages background jobs, including registration, logging, pause/resume, and failure notifications.
+    -   **Job Scheduler Service**: Manages background jobs, including registration, logging, pause/resume, and failure notifications. New scheduled jobs include the daily progress snapshot capture (per-objective and per-key-result history) and the soft-delete trash purge (30-day retention).
     -   **Big Rock Tasks**: Manages tasks for "Big Rocks" with status flow, assignee management, and bidirectional sync with Microsoft Planner.
     -   **MCP (Model Context Protocol) Server**: Standardized AI assistant integration with JWT auth, API key management, OAuth 2.0 authorization server (supporting Entra JWT validation and Vega OAuth), scope-based permissions, read/write tools for platform data, IP allowlisting, and rate limiting.
+    -   **Galaxy Portal Trust & Read-Only API**: Galaxy customer portal can authenticate users into Vega via OAuth/JWT trust. New users are JIT-provisioned with the `portal_user` role, which is permission-restricted to a dedicated read-only `/api/portal/*` API surface (OKRs, check-ins, meetings) and excluded from authoring and admin paths. Trust validation, role provisioning, and tenant resolution are covered by the `galaxyPortal` test suite.
+    -   **Combined-Context Dashboard Endpoint**: A single backend endpoint assembles dashboard payloads (objectives, key results, big rocks, pace/forecast, recent check-ins) for the Company OS, Executive, and Team dashboards, replacing the previous fan-out of 6+ requests per render.
+    -   **Recursive CTE Hierarchy Loader**: Objective tree, key results, and big rocks are loaded via a single recursive CTE for millisecond-scale large-tenant queries; depth is capped with admin-tunable limits and warning emission for cycle/over-depth conditions.
+    -   **Notifications, Search & Trash Backends**: Tenant-scoped in-app notification center (assignments, mentions, reminders, admin alerts with read/unread tracking), permission-aware global search across objectives/KRs/big rocks/meetings/people, and soft-delete + Trash storage with restore and 30-day automatic purge for all strategic items.
+    -   **Live Meeting Mode Persistence**: Server-side persistence of live meeting state (agenda timer, decisions, risks, attendees) so reload or rejoin from another device resumes the meeting in place.
+    -   **Bulk Reassignment**: Single-action backend transfer of every objective, key result, and big rock from one owner to another, with audit logging.
+    -   **Check-in Draft Auto-Save**: Tenant-scoped server-side draft storage for in-flight check-ins, with auto-save, restore, conflict handling, and clear-on-submit.
 
 ## External Dependencies
 

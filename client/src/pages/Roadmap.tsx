@@ -26,6 +26,90 @@ interface RoadmapPhase {
 
 const roadmap: RoadmapPhase[] = [
   {
+    name: "Recently Shipped — May 2026",
+    timeframe: "Version 1.11",
+    items: [
+      {
+        title: "Galaxy Portal API & OAuth Trust",
+        description: "Synozur's Galaxy customer portal can sign users into Vega via OAuth/JWT trust, with the new portal_user role and a read-only /api/portal/* API surface",
+        status: "completed",
+        icon: Puzzle
+      },
+      {
+        title: "Live Meeting Mode",
+        description: "Facilitator-driven live mode with agenda timer, quick-capture decisions/risks, attendee tracking, and full state persistence",
+        status: "completed",
+        icon: Calendar
+      },
+      {
+        title: "Soft Delete & Trash Recovery",
+        description: "Strategic items soft-delete to a tenant-scoped Trash with restore and 30-day automatic purge, plus an admin-only Trash page",
+        status: "completed",
+        icon: Shield
+      },
+      {
+        title: "Global Search",
+        description: "Header search across objectives, key results, big rocks, meetings, and people — tenant-scoped, permission-aware, and grouped by entity type",
+        status: "completed",
+        icon: UserSearch
+      },
+      {
+        title: "In-App Notification Center",
+        description: "Header bell with unread badge, dedicated dropdown, and read/unread tracking for assignments, mentions, and reminders",
+        status: "completed",
+        icon: ClipboardList
+      },
+      {
+        title: "Bulk Reassignment",
+        description: "Reassign every objective, key result, and big rock from one owner to another in a single admin action",
+        status: "completed",
+        icon: Briefcase
+      },
+      {
+        title: "Mobile-Responsive OKR Tables",
+        description: "Hierarchical OKR tables collapse into a card-stack layout on small screens with progressive disclosure",
+        status: "completed",
+        icon: LayoutDashboard
+      },
+      {
+        title: "Daily Progress Snapshots",
+        description: "Background job captures daily snapshots for every objective and key result, powering historical trend lines and forecast charts",
+        status: "completed",
+        icon: BarChart3
+      },
+      {
+        title: "Check-in Draft Auto-Save",
+        description: "Check-in dialogs auto-save drafts and surface a Drafts list with restore/discard so progress is never lost",
+        status: "completed",
+        icon: FileText
+      },
+      {
+        title: "Recursive CTE Hierarchy Loader",
+        description: "Single-query recursive CTE loads the full objective tree, key results, and big rocks — milliseconds even on large tenants",
+        status: "completed",
+        icon: Database
+      },
+      {
+        title: "Combined-Context Dashboard API",
+        description: "Company OS, Executive, and Team dashboards now share a single combined-context endpoint, eliminating dashboard fan-out",
+        status: "completed",
+        icon: Target
+      },
+      {
+        title: "Objective Tree Depth-Cap Alerts",
+        description: "Configurable depth cap with admin alerts when tenants approach or exceed the limit, preventing runaway nesting",
+        status: "completed",
+        icon: Sparkles
+      },
+      {
+        title: "Depth-Cap & Cycle Detection Tests",
+        description: "Automated tests covering hierarchy depth enforcement, cycle detection on malformed parent links, and warning emission",
+        status: "completed",
+        icon: Sparkles
+      }
+    ]
+  },
+  {
     name: "Recently Completed",
     timeframe: "Q4 2025 - Q1 2026",
     items: [

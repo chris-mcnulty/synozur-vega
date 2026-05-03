@@ -7,7 +7,7 @@ import {
   Bot, Puzzle, Layers, Palette, Briefcase, Lightbulb, Clock,
   BookOpen, Wrench, Map, Eye, Bug, Keyboard, LayoutDashboard, FileText,
   Workflow, CheckCircle2, AlertTriangle, GitBranch, GraduationCap,
-  Network, Brain, Gauge, Search, ListChecks, MessageSquare, Zap
+  Network, Brain, Gauge, Search, ListChecks, MessageSquare, Zap, Calendar
 } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
@@ -26,6 +26,97 @@ interface BacklogItem {
 }
 
 const backlogItems: BacklogItem[] = [
+  {
+    title: "Galaxy Portal API & OAuth Trust",
+    description: "Synozur's Galaxy customer portal can sign users into Vega via OAuth/JWT trust. JIT-provisions users with the new portal_user role and serves a read-only /api/portal/* surface for OKRs, check-ins, and meetings",
+    status: "completed",
+    category: "integration",
+    icon: Puzzle
+  },
+  {
+    title: "Live Meeting Mode",
+    description: "Facilitator-driven live mode for Focus Rhythm meetings: agenda timer, quick-capture for decisions and risks, attendee tracking, and full state persistence so reloads or rejoining never lose progress",
+    status: "completed",
+    category: "platform",
+    icon: Calendar
+  },
+  {
+    title: "Soft Delete & Trash Recovery",
+    description: "All strategic items now soft-delete to a tenant-scoped Trash with restore + 30-day automatic purge. Admin-only Trash page lets you preview, restore, or wait out the retention window",
+    status: "completed",
+    category: "platform",
+    icon: Shield
+  },
+  {
+    title: "Global Search",
+    description: "Header-level search across objectives, key results, big rocks, meetings, and people. Tenant-scoped, permission-aware, with result grouping and quick-jump to any entity detail page",
+    status: "completed",
+    category: "ux",
+    icon: Search
+  },
+  {
+    title: "In-App Notification Center",
+    description: "Bell icon in the header with unread badge, a dedicated notifications dropdown, and per-event read/unread tracking. Routes assignments, mentions, check-in reminders, and admin alerts in-app instead of relying on email alone",
+    status: "completed",
+    category: "platform",
+    icon: MessageSquare
+  },
+  {
+    title: "Bulk Reassignment",
+    description: "Admins can reassign every objective, key result, and big rock owned by one user to another in a single action. Useful for offboarding, team restructures, and consultant handoffs",
+    status: "completed",
+    category: "platform",
+    icon: Users
+  },
+  {
+    title: "Mobile-Responsive OKR Tables",
+    description: "Hierarchical OKR tables collapse into a card-stack layout on small screens with progressive disclosure of key results, owners, and progress — usable from phones during stand-ups and travel",
+    status: "completed",
+    category: "ux",
+    icon: LayoutDashboard
+  },
+  {
+    title: "Daily Progress Snapshots",
+    description: "Background job captures a daily progress snapshot for every objective and key result. Powers historical trend lines, period-over-period comparisons, and the new Executive Dashboard forecast charts",
+    status: "completed",
+    category: "analytics",
+    icon: BarChart3
+  },
+  {
+    title: "Check-in Draft Auto-Save & Drafts Management",
+    description: "Check-in dialogs auto-save drafts as you type so navigating away or losing connectivity never loses progress. Includes a Drafts list with restore/discard, tenant-scoped storage, and follow-on polish for clear-on-submit and conflict handling",
+    status: "completed",
+    category: "ux",
+    icon: FileText
+  },
+  {
+    title: "Recursive CTE Hierarchy Loader",
+    description: "Replaced the per-level objective fetch with a single recursive CTE that loads the full objective tree (and its key results / big rocks) in one query — large tenants now load the OKR hierarchy in milliseconds",
+    status: "completed",
+    category: "platform",
+    icon: Database
+  },
+  {
+    title: "Combined-Context Dashboard API",
+    description: "Company OS, Executive, and Team dashboards now load through a single combined-context endpoint. Eliminates the previous fan-out of 6+ requests on each dashboard render and powers consistent loading states across modules",
+    status: "completed",
+    category: "platform",
+    icon: Gauge
+  },
+  {
+    title: "Objective Tree Depth-Cap Admin Alerts",
+    description: "Backend caps objective hierarchy depth (with admin-tunable threshold) and surfaces alerts when tenants approach or exceed the cap, preventing runaway nesting from breaking dashboards or load times",
+    status: "completed",
+    category: "platform",
+    icon: AlertTriangle
+  },
+  {
+    title: "Depth-Cap & Cycle Detection Tests",
+    description: "Automated test coverage for the new objective tree loader: depth enforcement at the admin-configured cap, cycle detection on malformed parent links, and warning emission when limits are approached",
+    status: "completed",
+    category: "technical",
+    icon: CheckCircle2
+  },
   {
     title: "RBAC Enforcement",
     description: "6-role permission system with fine-grained OKR permissions, ownership checks, and frontend permission-aware UI",
