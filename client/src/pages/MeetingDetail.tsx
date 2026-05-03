@@ -108,44 +108,56 @@ export default function MeetingDetail() {
 
   const { quarter: meetingQuarter, year: meetingYear } = getMeetingQuarterYear(meeting?.date || null);
 
-  const { data: objectives = [] } = useQuery<Objective[]>({
+  const { data: objectivesRaw } = useQuery<Objective[]>({
     queryKey: ['/api/okr/objectives', currentTenant?.id, meetingYear],
     queryFn: async () => {
       const p = new URLSearchParams({ tenantId: currentTenant!.id, year: String(meetingYear) });
       const res = await fetch(`/api/okr/objectives?${p}`);
-      return res.json();
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!currentTenant?.id,
   });
+  const objectives = Array.isArray(objectivesRaw) ? objectivesRaw : [];
 
-  const { data: keyResults = [] } = useQuery<KeyResult[]>({
+  const { data: keyResultsRaw } = useQuery<KeyResult[]>({
     queryKey: ['/api/okr/key-results', currentTenant?.id, meetingYear],
     queryFn: async () => {
       const p = new URLSearchParams({ tenantId: currentTenant!.id, year: String(meetingYear) });
       const res = await fetch(`/api/okr/key-results?${p}`);
-      return res.json();
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!currentTenant?.id,
   });
+  const keyResults = Array.isArray(keyResultsRaw) ? keyResultsRaw : [];
 
-  const { data: bigRocks = [] } = useQuery<BigRock[]>({
+  const { data: bigRocksRaw } = useQuery<BigRock[]>({
     queryKey: ['/api/okr/big-rocks', currentTenant?.id, meetingYear],
     queryFn: async () => {
       const p = new URLSearchParams({ tenantId: currentTenant!.id, year: String(meetingYear) });
       const res = await fetch(`/api/okr/big-rocks?${p}`);
-      return res.json();
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!currentTenant?.id,
   });
+  const bigRocks = Array.isArray(bigRocksRaw) ? bigRocksRaw : [];
 
-  const { data: strategies = [] } = useQuery<Strategy[]>({
+  const { data: strategiesRaw } = useQuery<Strategy[]>({
     queryKey: ['/api/strategies', currentTenant?.id],
     queryFn: async () => {
       const res = await fetch(`/api/strategies/${currentTenant!.id}`);
-      return res.json();
+      if (!res.ok) return [];
+      const data = await res.json();
+      return Array.isArray(data) ? data : [];
     },
     enabled: !!currentTenant?.id,
   });
+  const strategies = Array.isArray(strategiesRaw) ? strategiesRaw : [];
 
   const { data: foundation } = useQuery<Foundation>({
     queryKey: [`/api/foundations/${currentTenant?.id}`],
