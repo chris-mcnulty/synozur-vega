@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useAuth } from "@/contexts/AuthContext";
-import { Play, Pause, RefreshCw, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronUp, Loader2, Settings2, Skull } from "lucide-react";
+import { Play, Pause, RefreshCw, Clock, CheckCircle, XCircle, AlertCircle, ChevronDown, ChevronUp, Loader2, Settings2, Skull, History } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 import {
   Dialog,
@@ -140,7 +140,7 @@ const SCHEDULE_PRESETS = [
   { label: 'Daily', value: 'daily', schedule: 'Daily', intervalMs: 86400000 },
 ];
 
-function JobRow({ job, onRun, onPause, onResume, onEdit, isRunning, canControlJobs }: { 
+function JobRow({ job, onRun, onPause, onResume, onEdit, isRunning, canControlJobs, canRunJob }: { 
   job: ScheduledJob; 
   onRun: () => void;
   onPause: () => void;
@@ -148,6 +148,7 @@ function JobRow({ job, onRun, onPause, onResume, onEdit, isRunning, canControlJo
   onEdit: () => void;
   isRunning: boolean;
   canControlJobs: boolean;
+  canRunJob: boolean;
 }) {
   const [isOpen, setIsOpen] = useState(false);
   
@@ -182,28 +183,32 @@ function JobRow({ job, onRun, onPause, onResume, onEdit, isRunning, canControlJo
           {job.nextRunAt ? formatDistanceToNow(new Date(job.nextRunAt), { addSuffix: true }) : '-'}
         </TableCell>
         <TableCell>
-          {canControlJobs ? (
+          {canControlJobs || canRunJob ? (
             <div className="flex items-center gap-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onEdit}
-                title="Edit schedule"
-                data-testid={`edit-job-${job.name}`}
-              >
-                <Settings2 className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onRun}
-                disabled={isRunning}
-                title="Run now"
-                data-testid={`run-job-${job.name}`}
-              >
-                {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
-              </Button>
-              {job.status === 'active' ? (
+              {canControlJobs && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onEdit}
+                  title="Edit schedule"
+                  data-testid={`edit-job-${job.name}`}
+                >
+                  <Settings2 className="h-4 w-4" />
+                </Button>
+              )}
+              {canRunJob && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={onRun}
+                  disabled={isRunning}
+                  title="Run now"
+                  data-testid={`run-job-${job.name}`}
+                >
+                  {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
+                </Button>
+              )}
+              {canControlJobs && (job.status === 'active' ? (
                 <Button
                   variant="ghost"
                   size="icon"
@@ -223,7 +228,7 @@ function JobRow({ job, onRun, onPause, onResume, onEdit, isRunning, canControlJo
                 >
                   <RefreshCw className="h-4 w-4" />
                 </Button>
-              )}
+              ))}
             </div>
           ) : (
             <span className="text-xs text-muted-foreground">View only</span>
@@ -285,8 +290,13 @@ export function ScheduledJobsManager() {
   const [killingRunId, setKillingRunId] = useState<string | null>(null);
   const [confirmKillRun, setConfirmKillRun] = useState<JobRun | null>(null);
 
-  // Only vega_admin can control jobs (run/pause/resume)
-  const canControlJobs = user?.role === 'vega_admin';
+  // Only vega_admin can pause/resume/edit-schedule and trigger global jobs.
+  // Tenant admins can trigger tenant-scoped snapshot capture/backfill for
+  // their own tenant via the dedicated endpoints.
+  const role = user?.role || '';
+  const canControlJobs = role === 'vega_admin' || role === 'global_admin';
+  const canRunTenantSnapshotActions = ['vega_admin', 'global_admin', 'tenant_admin', 'admin'].includes(role);
+  const canRunJob = (_job: ScheduledJob) => role === 'vega_admin' || role === 'global_admin';
 
   const { data: jobs = [], isLoading } = useQuery<ScheduledJob[]>({
     queryKey: ['/api/jobs'],
@@ -352,6 +362,42 @@ export function ScheduledJobsManager() {
     },
     onError: (error: any) => {
       toast({ title: "Failed to update schedule", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const captureSnapshotMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/jobs/capture-snapshot', {});
+      return await res.json();
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Snapshot captured",
+        description: data?.summary || "Snapshot captured for your tenant.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs/runs/recent'] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Snapshot capture failed", description: error.message, variant: "destructive" });
+    },
+  });
+
+  const backfillMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest('POST', '/api/jobs/backfill-snapshots', { force: true });
+      return await res.json();
+    },
+    onSuccess: (data: any) => {
+      toast({
+        title: "Backfill complete",
+        description: data?.summary || "Snapshots backfilled from check-ins.",
+      });
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs'] });
+      queryClient.invalidateQueries({ queryKey: ['/api/jobs/runs/recent'] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Backfill failed", description: error.message, variant: "destructive" });
     },
   });
 
@@ -451,13 +497,47 @@ export function ScheduledJobsManager() {
         <TabsContent value="jobs" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
-                Scheduled Jobs
-              </CardTitle>
-              <CardDescription>
-                View and manage all background scheduled jobs. Click on a job to see its run history.
-              </CardDescription>
+              <div className="flex flex-row items-start justify-between gap-2">
+                <div className="space-y-1.5">
+                  <CardTitle className="flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    Scheduled Jobs
+                  </CardTitle>
+                  <CardDescription>
+                    View and manage all background scheduled jobs. Click on a job to see its run history.
+                  </CardDescription>
+                </div>
+                {canRunTenantSnapshotActions && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => captureSnapshotMutation.mutate()}
+                      disabled={captureSnapshotMutation.isPending}
+                      title="Capture today's progress snapshot for your tenant now"
+                      data-testid="button-capture-snapshot"
+                    >
+                      {captureSnapshotMutation.isPending ? (
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Capturing...</>
+                      ) : (
+                        <><Play className="h-4 w-4 mr-2" /> Capture snapshot now</>
+                      )}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => backfillMutation.mutate()}
+                      disabled={backfillMutation.isPending}
+                      title="Re-run snapshot backfill from existing check-ins for your tenant"
+                      data-testid="button-backfill-snapshots"
+                    >
+                      {backfillMutation.isPending ? (
+                        <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Backfilling...</>
+                      ) : (
+                        <><History className="h-4 w-4 mr-2" /> Backfill from check-ins</>
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent>
               <Table>
@@ -484,6 +564,7 @@ export function ScheduledJobsManager() {
                       onEdit={() => handleEditSchedule(job)}
                       isRunning={runningJobId === job.id}
                       canControlJobs={canControlJobs}
+                      canRunJob={canRunJob(job)}
                     />
                   ))}
                   {jobs.length === 0 && (

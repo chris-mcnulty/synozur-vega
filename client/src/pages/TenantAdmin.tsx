@@ -32,7 +32,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, AlertCircle, AlertTriangle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, Settings2, HelpCircle, Link, Link2, Loader2, RefreshCw, Bell, ListTodo, KeyRound, Copy, Sparkles, Tag } from "lucide-react";
+import { CheckCircle2, AlertCircle, AlertTriangle, Calendar, Plus, Pencil, Trash2, Building2, Globe, X, Clock, Shield, Cloud, ShieldCheck, ExternalLink, UserPlus, Users, Search, Upload, Mail, Download, BookOpen, Palette, Settings, Settings2, HelpCircle, Link, Link2, Loader2, RefreshCw, Bell, ListTodo, KeyRound, Copy, Sparkles, Tag, Activity } from "lucide-react";
+import { ScheduledJobsManager } from "@/components/ScheduledJobsManager";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { type TenantBranding, vocabularyAlternatives, type VocabularyTerms } from "@shared/schema";
 import { useAuth } from "@/contexts/AuthContext";
@@ -4076,6 +4077,12 @@ export default function TenantAdmin() {
               <Tag className="h-4 w-4 shrink-0" />
               <span className="text-xs sm:text-sm">Custom Fields</span>
             </TabsTrigger>
+            {['tenant_admin', 'admin', 'global_admin', 'vega_admin'].includes(currentUser?.role || '') && (
+              <TabsTrigger value="jobs" className="flex items-center gap-1 px-2 sm:px-3 sm:gap-2" data-testid="tab-jobs">
+                <Activity className="h-4 w-4 shrink-0" />
+                <span className="text-xs sm:text-sm">Jobs</span>
+              </TabsTrigger>
+            )}
           </TabsList>
         </div>
 
@@ -4743,6 +4750,13 @@ export default function TenantAdmin() {
       <TabsContent value="custom-fields" className="space-y-6">
         <CustomFieldsManager />
       </TabsContent>
+
+      {/* Jobs Tab */}
+      {['tenant_admin', 'admin', 'global_admin', 'vega_admin'].includes(currentUser?.role || '') && (
+        <TabsContent value="jobs" className="space-y-6">
+          <ScheduledJobsManager />
+        </TabsContent>
+      )}
     </Tabs>
 
     <Dialog open={tenantDialogOpen} onOpenChange={setTenantDialogOpen}>

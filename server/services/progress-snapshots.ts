@@ -134,9 +134,11 @@ export async function captureEntitySnapshot(params: {
  * Daily snapshot job — captures one row per active objective and key result per tenant.
  * Skips entities with status='closed'.
  */
-export async function runDailySnapshotJob(): Promise<{ summary: string; details: any }> {
+export async function runDailySnapshotJob(opts?: { tenantId?: string }): Promise<{ summary: string; details: any }> {
   const today = getPacificDateString();
-  const tenants = await storage.getAllTenants();
+  const tenants = opts?.tenantId
+    ? [await storage.getTenantById(opts.tenantId)].filter((t): t is NonNullable<typeof t> => !!t)
+    : await storage.getAllTenants();
 
   let objectiveCount = 0;
   let keyResultCount = 0;
