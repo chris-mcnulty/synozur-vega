@@ -225,6 +225,8 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
   // What's New changelog tracking
   lastDismissedChangelogVersion: text("last_dismissed_changelog_version"),
+  // Weekly AI digest opt-in (per-user)
+  notifPrefWeeklyDigest: boolean("notif_pref_weekly_digest").notNull().default(true),
 });
 
 export const insertUserSchema = createInsertSchema(users).omit({
@@ -410,6 +412,10 @@ export const tenants = pgTable("tenants", {
     audience?: string;
     jwksUri?: string;
   }>(),
+  // Weekly AI digest (Task #62) — opt-in per tenant; default off until enabled.
+  weeklyDigestEnabled: boolean("weekly_digest_enabled").notNull().default(false),
+  // IANA timezone used to anchor the Monday 6/7am send window. Defaults to Pacific.
+  weeklyDigestTimezone: text("weekly_digest_timezone").notNull().default('America/Los_Angeles'),
 });
 
 // Base schema for tenant updates - keeps org classification optional for legacy compatibility
@@ -2585,3 +2591,40 @@ export const insertAdminAlertSchema = createInsertSchema(adminAlerts).omit({
 
 export type InsertAdminAlert = z.infer<typeof insertAdminAlertSchema>;
 export type AdminAlert = typeof adminAlerts.$inferSelect;
+
+// ============================================
+// WEEKLY AI DIGEST (Task #62)
+// ============================================
+// Idempotency log for the weekly digest job. Unique on (userId, periodStart) so
+// the job can re-run safely without re-emailing the same person twice for the
+// same Monday.
+export const WEEKLY_DIGEST_STATUS = {
+  SENT: 'sent',
+  SKIPPED: 'skipped',
+  FAILED: 'failed',
+} as const;
+
+export type WeeklyDigestStatus = typeof WEEKLY_DIGEST_STATUS[keyof typeof WEEKLY_DIGEST_STATUS];
+
+export const weeklyDigestSends = pgTable("weekly_digest_sends", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  // The Monday (YYYY-MM-DD, in tenant local time) the digest covers — week start.
+  periodStart: text("period_start").notNull(),
+  status: text("status").notNull().default('sent'),
+  sendAt: timestamp("send_at").defaultNow().notNull(),
+  // Whether AI narrative was used (vs deterministic fallback)
+  aiUsed: boolean("ai_used").notNull().default(false),
+  errorMessage: text("error_message"),
+}, (table) => ({
+  uniqueUserPeriod: unique().on(table.userId, table.periodStart),
+}));
+
+export const insertWeeklyDigestSendSchema = createInsertSchema(weeklyDigestSends).omit({
+  id: true,
+  sendAt: true,
+});
+
+export type InsertWeeklyDigestSend = z.infer<typeof insertWeeklyDigestSendSchema>;
+export type WeeklyDigestSend = typeof weeklyDigestSends.$inferSelect;

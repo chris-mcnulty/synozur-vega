@@ -1380,6 +1380,74 @@ ${changelogContent}`;
     }
   });
 
+  // Weekly digest (Task #62) — admin preview / test-send / run-now
+  // Tenant admins can preview their own tenant; vega/global admins can target any tenant.
+  app.post("/api/tenants/:id/weekly-digest/preview", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { id: tenantId } = req.params;
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      if (!canAccessAny && tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const tenant = await storage.getTenantById(tenantId);
+      if (!tenant) return res.status(404).json({ error: "Tenant not found" });
+      const userId = (req.body?.userId as string | undefined) ?? req.user!.id;
+      const user = await storage.getUser(userId);
+      if (!user || user.tenantId !== tenantId) {
+        return res.status(404).json({ error: "Target user not found in tenant" });
+      }
+      const { tenantLocalWeekStart, buildDigestForUser } = await import('./services/weekly-digest');
+      const tz = tenant.weeklyDigestTimezone || 'America/Los_Angeles';
+      const periodStart = tenantLocalWeekStart(tz);
+      const [py, pm, pd] = periodStart.split('-').map((x) => parseInt(x, 10));
+      const weekStartDate = new Date(Date.UTC(py, pm - 1, pd, 0, 0, 0));
+      const payload = await buildDigestForUser({ user, tenant, periodStart, weekStartDate });
+      return res.json(payload);
+    } catch (err) {
+      console.error('Error building weekly digest preview:', err);
+      return res.status(500).json({ error: 'Failed to build preview' });
+    }
+  });
+
+  app.post("/api/tenants/:id/weekly-digest/test-send", ...adminOnly, async (req: Request, res: Response) => {
+    try {
+      const { id: tenantId } = req.params;
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      if (!canAccessAny && tenantId !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const tenant = await storage.getTenantById(tenantId);
+      if (!tenant) return res.status(404).json({ error: "Tenant not found" });
+      const user = await storage.getUser(req.user!.id);
+      if (!user) return res.status(404).json({ error: "User not found" });
+      const { tenantLocalWeekStart, sendDigestForUser } = await import('./services/weekly-digest');
+      const tz = tenant.weeklyDigestTimezone || 'America/Los_Angeles';
+      const periodStart = tenantLocalWeekStart(tz);
+      const [py, pm, pd] = periodStart.split('-').map((x) => parseInt(x, 10));
+      const weekStartDate = new Date(Date.UTC(py, pm - 1, pd, 0, 0, 0));
+      const result = await sendDigestForUser({ user, tenant, periodStart, weekStartDate, force: true });
+      return res.json(result);
+    } catch (err) {
+      console.error('Error sending weekly digest test email:', err);
+      return res.status(500).json({ error: 'Failed to send test digest' });
+    }
+  });
+
+  // Per-user weekly digest opt-in toggle
+  app.patch("/api/me/notif-pref/weekly-digest", requireAuth, loadCurrentUser, async (req: Request, res: Response) => {
+    try {
+      if (!req.user) return res.status(401).json({ error: 'Authentication required' });
+      const enabled = !!req.body?.enabled;
+      const updated = await storage.updateUser(req.user.id, { notifPrefWeeklyDigest: enabled } as any);
+      return res.json({ enabled: updated.notifPrefWeeklyDigest });
+    } catch (err) {
+      console.error('Error updating weekly digest pref:', err);
+      return res.status(500).json({ error: 'Failed to update preference' });
+    }
+  });
+
   // Galaxy Portal: 30-day distinct authenticated user count
   app.get("/api/tenants/:id/galaxy-portal/stats", ...adminOnly, async (req: Request, res: Response) => {
     try {
@@ -4543,6 +4611,23 @@ ${changelogContent}`;
     }
   );
 
+  // Register weekly AI digest job (Task #62) — hourly tick that fires Monday 6am
+  // in each enabled tenant's local timezone. selfScheduled: true so we anchor
+  // execution to top-of-hour via startWeeklyDigestScheduler() below.
+  await jobScheduler.registerJob(
+    'weekly-digest',
+    'Weekly AI Digest',
+    'Sends each opted-in user an AI-summarized email of their weekly OKR progress every Monday morning (tenant-local). Per-tenant kill switch in Tenant Admin.',
+    'notification',
+    'Hourly (sends Mon 06:00 tenant-local)',
+    3600000, // 1 hour (informational; actual tick is hour-aligned)
+    async () => {
+      const { runWeeklyDigestJob } = await import('./services/weekly-digest');
+      return await runWeeklyDigestJob();
+    },
+    { selfScheduled: true }
+  );
+
   // Register trash purge job - hard-deletes soft-deleted items older than 30 days
   await jobScheduler.registerJob(
     'trash-purge',
@@ -4575,6 +4660,12 @@ ${changelogContent}`;
   {
     const { startPacificMidnightScheduler } = await import('./services/progress-snapshots');
     startPacificMidnightScheduler();
+  }
+
+  // Anchor the weekly digest job to top-of-hour ticks so we hit local 06:00 Mon.
+  {
+    const { startWeeklyDigestScheduler } = await import('./services/weekly-digest');
+    startWeeklyDigestScheduler();
   }
 
   // On startup: capture today's snapshot so current-day data is available.

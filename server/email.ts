@@ -1054,3 +1054,212 @@ export function generateResetToken(): { plaintext: string; hash: string } {
   const hash = hashToken(plaintext);
   return { plaintext, hash };
 }
+
+// ============================================================================
+// Weekly AI Digest (Task #62)
+// ============================================================================
+
+interface WeeklyDigestKrLine {
+  id: string;
+  title: string;
+  progress: number;
+  status: string | null;
+  paceStatus: string | null;
+  reason: string;
+  url: string;
+}
+
+interface WeeklyDigestObjectiveLine {
+  id: string;
+  title: string;
+  progress: number;
+  status: string | null;
+  url: string;
+}
+
+export interface WeeklyDigestEmailPayload {
+  user: { id: string; name: string | null; email: string };
+  tenant: { id: string; name: string };
+  periodStart: string;
+  periodLabel: string;
+  narrative: string;
+  needsAttention: WeeklyDigestKrLine[];
+  wins: WeeklyDigestKrLine[];
+  ownedCount: number;
+  ownedObjectives: WeeklyDigestObjectiveLine[];
+  totalCheckInsThisWeek: number;
+  aiUsed: boolean;
+}
+
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function renderKrRow(line: WeeklyDigestKrLine, accentColor: string): string {
+  const safeTitle = escapeHtml(line.title);
+  const safeReason = escapeHtml(line.reason);
+  const progress = Math.max(0, Math.min(100, Math.round(line.progress)));
+  return `
+    <tr>
+      <td style="padding: 12px 16px; border-bottom: 1px solid #2a2a2a;">
+        <a href="${line.url}" style="color: #ffffff; text-decoration: none; font-weight: 500; font-size: 14px;">${safeTitle}</a>
+        <div style="font-size: 12px; color: ${accentColor}; margin-top: 4px;">${safeReason}</div>
+        <div style="margin-top: 8px; height: 4px; background: #2a2a2a; border-radius: 2px; overflow: hidden;">
+          <div style="height: 4px; width: ${progress}%; background: ${accentColor};"></div>
+        </div>
+      </td>
+    </tr>
+  `;
+}
+
+export function renderWeeklyDigestHtml(payload: WeeklyDigestEmailPayload): string {
+  const greetingName = payload.user.name?.split(' ')[0] ?? payload.user.email.split('@')[0];
+  const safeNarrative = escapeHtml(payload.narrative).replace(/\n/g, '<br>');
+  const safeTenant = escapeHtml(payload.tenant.name);
+  const safePeriod = escapeHtml(payload.periodLabel);
+  const safeGreeting = escapeHtml(greetingName);
+
+  const needsAttentionRows = payload.needsAttention
+    .map((l) => renderKrRow(l, '#f59e0b'))
+    .join('');
+  const winsRows = payload.wins.map((l) => renderKrRow(l, '#10b981')).join('');
+
+  const dashUrl = `${APP_URL}/dashboard`;
+  const okrsUrl = `${APP_URL}/okrs`;
+  const prefsUrl = `${APP_URL}/notifications/preferences`;
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>Your weekly Vega digest</title>
+      </head>
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #0a0a0a; color: #ffffff;">
+        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #0a0a0a;">
+          <tr>
+            <td style="padding: 40px 20px;">
+              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width: 640px; margin: 0 auto; background: linear-gradient(135deg, #1a1a1a 0%, #0a0a0a 100%); border-radius: 12px; border: 1px solid #2a2a2a;">
+                <tr>
+                  <td style="padding: 32px 32px 16px; text-align: center;">
+                    <h1 style="margin: 0; font-size: 28px; font-weight: 700; background: linear-gradient(135deg, #810FFB 0%, #E60CB3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Vega</h1>
+                    <p style="margin: 6px 0 0; font-size: 13px; color: #999999;">${safePeriod} · ${safeTenant}</p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 32px 24px;">
+                    <h2 style="margin: 0 0 12px; font-size: 20px; font-weight: 600; color: #ffffff;">Hi ${safeGreeting},</h2>
+                    <p style="margin: 0; font-size: 15px; line-height: 1.6; color: #d4d4d4;">${safeNarrative}</p>
+                  </td>
+                </tr>
+
+                ${
+                  payload.needsAttention.length > 0
+                    ? `
+                <tr>
+                  <td style="padding: 0 32px 16px;">
+                    <h3 style="margin: 16px 0 8px; font-size: 14px; font-weight: 600; color: #f59e0b; text-transform: uppercase; letter-spacing: 0.06em;">Needs Attention</h3>
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background: #141414; border: 1px solid #2a2a2a; border-radius: 8px;">
+                      ${needsAttentionRows}
+                    </table>
+                  </td>
+                </tr>
+                `
+                    : ''
+                }
+
+                ${
+                  payload.wins.length > 0
+                    ? `
+                <tr>
+                  <td style="padding: 0 32px 16px;">
+                    <h3 style="margin: 16px 0 8px; font-size: 14px; font-weight: 600; color: #10b981; text-transform: uppercase; letter-spacing: 0.06em;">Wins</h3>
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background: #141414; border: 1px solid #2a2a2a; border-radius: 8px;">
+                      ${winsRows}
+                    </table>
+                  </td>
+                </tr>
+                `
+                    : ''
+                }
+
+                <tr>
+                  <td style="padding: 16px 32px 8px;">
+                    <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin: 0;">
+                      <tr>
+                        <td style="border-radius: 8px; background: linear-gradient(135deg, #810FFB 0%, #E60CB3 100%);">
+                          <a href="${dashUrl}" target="_blank" style="display: inline-block; padding: 14px 28px; font-size: 15px; font-weight: 600; color: #ffffff; text-decoration: none; border-radius: 8px;">
+                            Open your dashboard
+                          </a>
+                        </td>
+                        <td style="padding-left: 12px;">
+                          <a href="${okrsUrl}" target="_blank" style="display: inline-block; padding: 14px 22px; font-size: 14px; font-weight: 500; color: #d4d4d4; text-decoration: none; border: 1px solid #2a2a2a; border-radius: 8px;">
+                            View OKRs
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+
+                <tr>
+                  <td style="padding: 24px 32px 28px; border-top: 1px solid #2a2a2a;">
+                    <p style="margin: 0 0 6px; font-size: 12px; color: #666666;">
+                      ${payload.totalCheckInsThisWeek} check-in${payload.totalCheckInsThisWeek === 1 ? '' : 's'} logged this week · ${payload.ownedCount} item${payload.ownedCount === 1 ? '' : 's'} you own
+                    </p>
+                    <p style="margin: 0; font-size: 12px; color: #666666;">
+                      <a href="${prefsUrl}" style="color: #999999;">Manage email preferences</a> · ${payload.aiUsed ? 'Summarized by Vega AI' : 'Summary'}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `;
+}
+
+export function renderWeeklyDigestText(payload: WeeklyDigestEmailPayload): string {
+  const lines: string[] = [];
+  lines.push(`Your weekly Vega digest — ${payload.periodLabel}`);
+  lines.push('');
+  lines.push(payload.narrative);
+  if (payload.needsAttention.length > 0) {
+    lines.push('');
+    lines.push('NEEDS ATTENTION');
+    for (const x of payload.needsAttention) {
+      lines.push(`- ${x.title} (${x.reason}) — ${x.url}`);
+    }
+  }
+  if (payload.wins.length > 0) {
+    lines.push('');
+    lines.push('WINS');
+    for (const x of payload.wins) {
+      lines.push(`- ${x.title} (${x.reason}) — ${x.url}`);
+    }
+  }
+  lines.push('');
+  lines.push(`Open your dashboard: ${APP_URL}/dashboard`);
+  lines.push(`Manage email preferences: ${APP_URL}/notifications/preferences`);
+  return lines.join('\n');
+}
+
+export async function sendWeeklyDigestEmail(to: string, payload: WeeklyDigestEmailPayload) {
+  const { client, fromEmail } = await getUncachableSendGridClient();
+  const subject = `Your weekly Vega digest — ${payload.periodLabel}`;
+  await client.send({
+    to,
+    from: fromEmail,
+    subject,
+    html: renderWeeklyDigestHtml(payload),
+    text: renderWeeklyDigestText(payload),
+  });
+}

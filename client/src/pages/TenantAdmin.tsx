@@ -2669,7 +2669,7 @@ export default function TenantAdmin() {
   });
 
   const updateTenantMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: string; data: { name?: string; color?: string; logoUrl?: string; allowedDomains?: string[]; inviteOnly?: boolean } }) => {
+    mutationFn: async ({ id, data }: { id: string; data: { name?: string; color?: string; logoUrl?: string; allowedDomains?: string[]; inviteOnly?: boolean; weeklyDigestEnabled?: boolean; weeklyDigestTimezone?: string } }) => {
       const response = await apiRequest("PATCH", `/api/tenants/${id}`, data);
       return response.json();
     },
@@ -6145,6 +6145,99 @@ export default function TenantAdmin() {
                       data-testid="settings-configure-connectors"
                     >
                       Configure
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-4 pt-4 border-t">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    <Bell className="h-4 w-4" />
+                    Weekly AI Digest
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Send each opted-in user an AI-summarized email of their OKR progress every Monday morning. Each user can opt out individually in their notification preferences.
+                  </p>
+                  <div className="flex items-center justify-between p-3 border rounded-md">
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm">Enable for this organization</p>
+                      <p className="text-sm text-muted-foreground">
+                        {(selectedTenantForSettings as any).weeklyDigestEnabled ? "Active — runs Mondays at 6:00 AM local time." : "Disabled — no digests will be sent."}
+                      </p>
+                    </div>
+                    <Switch
+                      checked={!!(selectedTenantForSettings as any).weeklyDigestEnabled}
+                      disabled={updateTenantMutation.isPending}
+                      onCheckedChange={(v) => updateTenantMutation.mutate({ id: selectedTenantForSettings.id, data: { weeklyDigestEnabled: v } })}
+                      data-testid="switch-tenant-weekly-digest"
+                    />
+                  </div>
+                  <div className="flex items-center justify-between p-3 border rounded-md gap-3">
+                    <div className="min-w-0">
+                      <p className="font-medium text-sm">Local timezone</p>
+                      <p className="text-sm text-muted-foreground">Used to anchor Monday 6:00 AM send time.</p>
+                    </div>
+                    <Select
+                      value={(selectedTenantForSettings as any).weeklyDigestTimezone || "America/Los_Angeles"}
+                      onValueChange={(v) => updateTenantMutation.mutate({ id: selectedTenantForSettings.id, data: { weeklyDigestTimezone: v } })}
+                    >
+                      <SelectTrigger className="w-[220px]" data-testid="select-tenant-weekly-digest-tz">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="America/Los_Angeles">America/Los_Angeles (PT)</SelectItem>
+                        <SelectItem value="America/Denver">America/Denver (MT)</SelectItem>
+                        <SelectItem value="America/Chicago">America/Chicago (CT)</SelectItem>
+                        <SelectItem value="America/New_York">America/New_York (ET)</SelectItem>
+                        <SelectItem value="Europe/London">Europe/London (GMT)</SelectItem>
+                        <SelectItem value="Europe/Berlin">Europe/Berlin (CET)</SelectItem>
+                        <SelectItem value="Asia/Tokyo">Asia/Tokyo (JST)</SelectItem>
+                        <SelectItem value="Asia/Singapore">Asia/Singapore (SGT)</SelectItem>
+                        <SelectItem value="Australia/Sydney">Australia/Sydney (AET)</SelectItem>
+                        <SelectItem value="UTC">UTC</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          const res = await apiRequest("POST", `/api/tenants/${selectedTenantForSettings.id}/weekly-digest/test-send`, {});
+                          const data = await res.json();
+                          if (data?.status === "sent") {
+                            toast({ title: "Test digest sent", description: "Check your inbox in a moment." });
+                          } else if (data?.status === "skipped") {
+                            toast({ title: "Skipped", description: data.reason || "Nothing to send." });
+                          } else {
+                            toast({ title: "Send queued", description: JSON.stringify(data) });
+                          }
+                        } catch (e: any) {
+                          toast({ title: "Failed to send test digest", variant: "destructive" });
+                        }
+                      }}
+                      data-testid="button-weekly-digest-test-send"
+                    >
+                      Send test to me
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={async () => {
+                        try {
+                          const res = await apiRequest("POST", `/api/tenants/${selectedTenantForSettings.id}/weekly-digest/preview`, {});
+                          const payload = await res.json();
+                          toast({
+                            title: "Preview generated",
+                            description: `${payload.needsAttention?.length || 0} needs-attention · ${payload.wins?.length || 0} wins · AI ${payload.aiUsed ? "used" : "fallback"}`,
+                          });
+                        } catch (e: any) {
+                          toast({ title: "Failed to build preview", variant: "destructive" });
+                        }
+                      }}
+                      data-testid="button-weekly-digest-preview"
+                    >
+                      Preview my digest
                     </Button>
                   </div>
                 </div>

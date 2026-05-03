@@ -56,6 +56,8 @@ import {
   type ReassignmentCounts,
   portalAuditLogs, type PortalAuditLog, type InsertPortalAuditLog,
   adminAlerts, type AdminAlert, type InsertAdminAlert, ADMIN_ALERT_TYPE, ADMIN_ALERT_SEVERITY,
+  weeklyDigestSends, type WeeklyDigestSend, type InsertWeeklyDigestSend,
+  notificationPreferences, type NotificationPreference, type InsertNotificationPreference,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, count, ilike, asc, type SQL } from "drizzle-orm";
@@ -505,6 +507,11 @@ export interface IStorage {
   getNotificationPreferences(userId: string): Promise<NotificationPreference[]>;
   upsertNotificationPreference(pref: InsertNotificationPreference): Promise<NotificationPreference>;
   getNotificationPreference(userId: string, eventType: string): Promise<NotificationPreference | undefined>;
+
+  // Weekly digest send log (idempotency)
+  getWeeklyDigestSend(userId: string, periodStart: string): Promise<WeeklyDigestSend | undefined>;
+  recordWeeklyDigestSend(send: InsertWeeklyDigestSend): Promise<WeeklyDigestSend>;
+  getWeeklyDigestSendsForPeriod(tenantId: string, periodStart: string): Promise<WeeklyDigestSend[]>;
   
   // Global cross-entity search
   searchAcrossEntities(
@@ -6126,6 +6133,37 @@ export class DatabaseStorage implements IStorage {
       .where(eq(reassignmentAuditLogs.tenantId, tenantId))
       .orderBy(desc(reassignmentAuditLogs.createdAt))
       .limit(limit);
+  }
+
+  // ============================================
+  // Weekly digest send log (Task #62)
+  // ============================================
+  async getWeeklyDigestSend(userId: string, periodStart: string): Promise<WeeklyDigestSend | undefined> {
+    const [row] = await db.select().from(weeklyDigestSends)
+      .where(and(eq(weeklyDigestSends.userId, userId), eq(weeklyDigestSends.periodStart, periodStart)))
+      .limit(1);
+    return row;
+  }
+
+  async recordWeeklyDigestSend(send: InsertWeeklyDigestSend): Promise<WeeklyDigestSend> {
+    const [row] = await db.insert(weeklyDigestSends)
+      .values(send)
+      .onConflictDoUpdate({
+        target: [weeklyDigestSends.userId, weeklyDigestSends.periodStart],
+        set: {
+          status: send.status,
+          aiUsed: send.aiUsed ?? false,
+          errorMessage: send.errorMessage ?? null,
+          sendAt: new Date(),
+        },
+      })
+      .returning();
+    return row;
+  }
+
+  async getWeeklyDigestSendsForPeriod(tenantId: string, periodStart: string): Promise<WeeklyDigestSend[]> {
+    return await db.select().from(weeklyDigestSends)
+      .where(and(eq(weeklyDigestSends.tenantId, tenantId), eq(weeklyDigestSends.periodStart, periodStart)));
   }
 }
 
