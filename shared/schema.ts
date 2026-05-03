@@ -3217,6 +3217,72 @@ export const insertWebhookIngestLogSchema = createInsertSchema(webhookIngestLogs
 export type InsertWebhookIngestLog = z.infer<typeof insertWebhookIngestLogSchema>;
 export type WebhookIngestLog = typeof webhookIngestLogs.$inferSelect;
 
+// ============================================
+// Embeddable Cards (Task #64)
+// Public, signed URLs that render a tenant-scoped card (objective, key
+// result, big rock, executive dashboard) for embedding in SharePoint,
+// the Galaxy portal, intranets, etc. The raw token is shown once at
+// creation; only its SHA-256 hash is stored.
+// ============================================
+export const EMBED_ENTITY_TYPES = ['objective', 'key_result', 'big_rock', 'executive_dashboard'] as const;
+export type EmbedEntityType = typeof EMBED_ENTITY_TYPES[number];
+
+export const embedTokens = pgTable("embed_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  entityType: text("entity_type").notNull(), // EmbedEntityType
+  // Nullable for tenant-wide cards like 'executive_dashboard'.
+  entityId: varchar("entity_id"),
+  label: text("label").notNull(),
+  // SHA-256 hash of the public token (URL slug). Raw token returned once at creation.
+  tokenHash: text("token_hash").notNull().unique(),
+  // First few chars of raw token, kept for UI display ("vega_emb_abc1…").
+  tokenPrefix: text("token_prefix").notNull(),
+  expiresAt: timestamp("expires_at"),
+  lastUsedAt: timestamp("last_used_at"),
+  accessCount: integer("access_count").notNull().default(0),
+  createdByUserId: varchar("created_by_user_id").references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  revokedAt: timestamp("revoked_at"),
+  revokedByUserId: varchar("revoked_by_user_id").references(() => users.id, { onDelete: 'set null' }),
+});
+
+export const insertEmbedTokenSchema = createInsertSchema(embedTokens).omit({
+  id: true,
+  createdAt: true,
+  lastUsedAt: true,
+  accessCount: true,
+  revokedAt: true,
+  revokedByUserId: true,
+});
+
+export type InsertEmbedToken = z.infer<typeof insertEmbedTokenSchema>;
+export type EmbedToken = typeof embedTokens.$inferSelect;
+
+export const embedAccessLogs = pgTable("embed_access_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }),
+  tokenId: varchar("token_id").references(() => embedTokens.id, { onDelete: 'set null' }),
+  entityType: text("entity_type"),
+  entityId: varchar("entity_id"),
+  statusCode: integer("status_code").notNull(),
+  durationMs: integer("duration_ms"),
+  ipAddress: text("ip_address"),
+  userAgent: text("user_agent"),
+  referer: text("referer"),
+  format: text("format"), // 'html' | 'json'
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertEmbedAccessLogSchema = createInsertSchema(embedAccessLogs).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type InsertEmbedAccessLog = z.infer<typeof insertEmbedAccessLogSchema>;
+export type EmbedAccessLog = typeof embedAccessLogs.$inferSelect;
+
 // Shared, multi-instance rate limit state for the webhook ingest endpoint.
 // Implements a token bucket per (kind, key) — e.g. ('token', <tokenId>) or
 // ('tenant', <tenantId>). Bucket capacity equals the configured per-window

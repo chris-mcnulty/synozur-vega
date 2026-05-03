@@ -51,6 +51,7 @@ Preferred communication style: Simple, everyday language.
     -   **Live Meeting Mode Persistence**: Server-side persistence of live meeting state (agenda timer, decisions, risks, attendees) so reload or rejoin from another device resumes the meeting in place.
     -   **Bulk Reassignment**: Single-action backend transfer of every objective, key result, and big rock from one owner to another, with audit logging.
     -   **Check-in Draft Auto-Save**: Tenant-scoped server-side draft storage for in-flight check-ins, with auto-save, restore, conflict handling, and clear-on-submit.
+    -   **Embeddable Cards**: Tenant admins issue per-entity (objective / key result / big rock / executive dashboard) tokens that drive a public, server-rendered card at `GET /embed/v1/:entityType/:token`. The route sets `Content-Security-Policy: frame-ancestors *` so URLs can be embedded in SharePoint, Galaxy portals, intranets, etc. Tokens are hashed at rest (SHA-256) with only a prefix shown in admin UI; supports `?theme=dark` and `?json=1`, auto-refreshes every 5 minutes, and writes per-hit access logs (status, IP, referer, duration). Admin CRUD lives at `/api/embed-tokens` and is gated by `adminOnly`. UI lives in TenantAdmin → Integrations.
 
 ## External Dependencies
 

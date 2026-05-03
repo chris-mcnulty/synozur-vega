@@ -74,6 +74,8 @@ import {
   krWebhookTokens, type KrWebhookToken, type InsertKrWebhookToken,
   webhookIngestLogs, type WebhookIngestLog, type InsertWebhookIngestLog,
   webhookRateLimits,
+  embedTokens, type EmbedToken, type InsertEmbedToken,
+  embedAccessLogs, type EmbedAccessLog, type InsertEmbedAccessLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, count, ilike, asc, type SQL } from "drizzle-orm";
@@ -498,6 +500,16 @@ export interface IStorage {
   getWebhookIngestLogsByTenantId(tenantId: string, limit?: number): Promise<WebhookIngestLog[]>;
   getWebhookIngestLogsByTokenId(tokenId: string, limit?: number): Promise<WebhookIngestLog[]>;
   checkWebhookRateLimit(kind: string, key: string, limit: number, windowMs: number): Promise<boolean>;
+
+  // Embeddable cards (Task #64)
+  getEmbedTokensByTenantId(tenantId: string): Promise<EmbedToken[]>;
+  getEmbedTokenById(id: string): Promise<EmbedToken | undefined>;
+  getEmbedTokenByHash(tokenHash: string): Promise<EmbedToken | undefined>;
+  createEmbedToken(insert: InsertEmbedToken): Promise<EmbedToken>;
+  revokeEmbedToken(id: string, userId?: string): Promise<void>;
+  recordEmbedTokenHit(id: string): Promise<void>;
+  createEmbedAccessLog(log: InsertEmbedAccessLog): Promise<EmbedAccessLog>;
+  getEmbedAccessLogs(tenantId: string, filters?: { tokenId?: string; limit?: number }): Promise<EmbedAccessLog[]>;
 
   // Galaxy Portal methods
   getTenantByGalaxyClientId(galaxyClientId: string): Promise<Tenant | undefined>;
@@ -7508,6 +7520,69 @@ export class DatabaseStorage implements IStorage {
       .where(eq(webhookIngestLogs.tokenId, tokenId))
       .orderBy(desc(webhookIngestLogs.requestedAt))
       .limit(limit);
+  }
+
+  // ============================================
+  // Embeddable cards (Task #64)
+  // ============================================
+
+  async getEmbedTokensByTenantId(tenantId: string): Promise<EmbedToken[]> {
+    return await db
+      .select()
+      .from(embedTokens)
+      .where(eq(embedTokens.tenantId, tenantId))
+      .orderBy(desc(embedTokens.createdAt));
+  }
+
+  async getEmbedTokenById(id: string): Promise<EmbedToken | undefined> {
+    const [row] = await db.select().from(embedTokens).where(eq(embedTokens.id, id));
+    return row || undefined;
+  }
+
+  async getEmbedTokenByHash(tokenHash: string): Promise<EmbedToken | undefined> {
+    const [row] = await db.select().from(embedTokens).where(eq(embedTokens.tokenHash, tokenHash));
+    return row || undefined;
+  }
+
+  async createEmbedToken(insert: InsertEmbedToken): Promise<EmbedToken> {
+    const [row] = await db.insert(embedTokens).values(insert).returning();
+    return row;
+  }
+
+  async revokeEmbedToken(id: string, userId?: string): Promise<void> {
+    await db
+      .update(embedTokens)
+      .set({ revokedAt: new Date(), revokedByUserId: userId ?? null })
+      .where(eq(embedTokens.id, id));
+  }
+
+  async recordEmbedTokenHit(id: string): Promise<void> {
+    await db
+      .update(embedTokens)
+      .set({
+        accessCount: sql`${embedTokens.accessCount} + 1`,
+        lastUsedAt: new Date(),
+      })
+      .where(eq(embedTokens.id, id));
+  }
+
+  async createEmbedAccessLog(log: InsertEmbedAccessLog): Promise<EmbedAccessLog> {
+    const [row] = await db.insert(embedAccessLogs).values(log).returning();
+    return row;
+  }
+
+  async getEmbedAccessLogs(
+    tenantId: string,
+    filters?: { tokenId?: string; limit?: number },
+  ): Promise<EmbedAccessLog[]> {
+    const conditions: SQL[] = [eq(embedAccessLogs.tenantId, tenantId)];
+    if (filters?.tokenId) conditions.push(eq(embedAccessLogs.tokenId, filters.tokenId));
+    return await db
+      .select()
+      .from(embedAccessLogs)
+      .where(and(...conditions))
+      .orderBy(desc(embedAccessLogs.createdAt))
+      .limit(filters?.limit ?? 100);
   }
 }
 

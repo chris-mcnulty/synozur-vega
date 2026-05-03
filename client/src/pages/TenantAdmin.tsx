@@ -2878,6 +2878,396 @@ function PortalAuditLogViewer({ tenants }: { tenants: Tenant[] }) {
   );
 }
 
+// ============================================================================
+// Embeddable Cards (Task #64)
+// Tenant admins issue per-entity tokens that render server-side cards consumable
+// by SharePoint, Galaxy, intranets, etc., via iframe.
+// ============================================================================
+
+const EMBED_ENTITY_LABELS: Record<string, string> = {
+  objective: "Objective",
+  key_result: "Key Result",
+  big_rock: "Big Rock",
+  executive_dashboard: "Executive Dashboard",
+};
+
+type EmbedTokenRow = {
+  id: string;
+  entityType: string;
+  entityId: string | null;
+  label: string;
+  tokenPrefix: string;
+  expiresAt: string | null;
+  lastUsedAt: string | null;
+  accessCount: number;
+  createdAt: string;
+  revokedAt: string | null;
+};
+
+type EmbedAccessLogRow = {
+  id: string;
+  tokenId: string | null;
+  entityType: string | null;
+  entityId: string | null;
+  statusCode: number;
+  durationMs: number | null;
+  ipAddress: string | null;
+  referer: string | null;
+  format: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+};
+
+function EmbedTokensCard() {
+  const { toast } = useToast();
+  const [showCreate, setShowCreate] = useState(false);
+  const [entityType, setEntityType] = useState<string>("objective");
+  const [entityId, setEntityId] = useState<string>("");
+  const [label, setLabel] = useState<string>("");
+  const [expiresInDays, setExpiresInDays] = useState<string>("");
+  const [issued, setIssued] = useState<{ token: string; embedPath: string; iframeSnippet: string } | null>(null);
+  const [showLogs, setShowLogs] = useState(false);
+
+  const tokensQuery = useQuery<EmbedTokenRow[]>({
+    queryKey: ["/api/embed-tokens"],
+  });
+  const logsQuery = useQuery<EmbedAccessLogRow[]>({
+    queryKey: ["/api/embed-tokens/access-logs"],
+    enabled: showLogs,
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async () => {
+      const expiresAt = expiresInDays
+        ? new Date(Date.now() + parseInt(expiresInDays, 10) * 86400000).toISOString()
+        : null;
+      const body: Record<string, unknown> = {
+        entityType,
+        label,
+        expiresAt,
+      };
+      if (entityType !== "executive_dashboard") body.entityId = entityId.trim();
+      const res = await apiRequest("POST", "/api/embed-tokens", body);
+      return await res.json();
+    },
+    onSuccess: (data) => {
+      setIssued({ token: data.token, embedPath: data.embedPath, iframeSnippet: data.iframeSnippet });
+      setLabel("");
+      setEntityId("");
+      setExpiresInDays("");
+      queryClient.invalidateQueries({ queryKey: ["/api/embed-tokens"] });
+      toast({ title: "Embed token created", description: "Copy the token now — it will not be shown again." });
+    },
+    onError: (err: any) => {
+      toast({
+        title: "Failed to create embed token",
+        description: err?.message || "Unknown error",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const revokeMutation = useMutation({
+    mutationFn: async (id: string) => {
+      await apiRequest("DELETE", `/api/embed-tokens/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/embed-tokens"] });
+      toast({ title: "Embed token revoked" });
+    },
+    onError: (err: any) => {
+      toast({ title: "Revoke failed", description: err?.message || "Unknown error", variant: "destructive" });
+    },
+  });
+
+  const copy = async (text: string, what: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: `${what} copied to clipboard` });
+    } catch {
+      toast({ title: "Copy failed", variant: "destructive" });
+    }
+  };
+
+  const tokens = tokensQuery.data ?? [];
+  const requiresEntityId = entityType !== "executive_dashboard";
+
+  return (
+    <Card data-testid="card-embed-tokens">
+      <CardHeader>
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div>
+            <CardTitle className="text-lg">Embeddable Cards</CardTitle>
+            <p className="text-sm text-muted-foreground mt-1">
+              Generate iframe-friendly URLs to embed live OKR, key result, big rock, or executive dashboard
+              cards into SharePoint, Galaxy, or any intranet.
+            </p>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowLogs((s) => !s)}
+              data-testid="button-toggle-embed-logs"
+            >
+              <Activity className="h-4 w-4 mr-1" />
+              {showLogs ? "Hide access logs" : "View access logs"}
+            </Button>
+            <Button size="sm" onClick={() => setShowCreate(true)} data-testid="button-new-embed-token">
+              <Plus className="h-4 w-4 mr-1" />
+              New embed
+            </Button>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {tokensQuery.isLoading ? (
+          <Skeleton className="h-24 w-full" />
+        ) : tokens.length === 0 ? (
+          <div className="text-sm text-muted-foreground">
+            No embed tokens yet. Create one to embed a live card in another site.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Label</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Token</TableHead>
+                  <TableHead>Hits</TableHead>
+                  <TableHead>Last used</TableHead>
+                  <TableHead>Expires</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {tokens.map((t) => {
+                  const expired = t.expiresAt ? new Date(t.expiresAt).valueOf() < Date.now() : false;
+                  const revoked = !!t.revokedAt;
+                  return (
+                    <TableRow key={t.id} data-testid={`row-embed-token-${t.id}`}>
+                      <TableCell className="font-medium">{t.label}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">
+                          {EMBED_ENTITY_LABELS[t.entityType] ?? t.entityType}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{t.tokenPrefix}</TableCell>
+                      <TableCell>{t.accessCount}</TableCell>
+                      <TableCell className="text-muted-foreground text-xs">
+                        {t.lastUsedAt ? new Date(t.lastUsedAt).toLocaleString() : "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground text-xs">
+                        {t.expiresAt ? new Date(t.expiresAt).toLocaleDateString() : "Never"}
+                      </TableCell>
+                      <TableCell>
+                        {revoked ? (
+                          <Badge variant="destructive">Revoked</Badge>
+                        ) : expired ? (
+                          <Badge variant="outline">Expired</Badge>
+                        ) : (
+                          <Badge>Active</Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {!revoked && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => revokeMutation.mutate(t.id)}
+                            disabled={revokeMutation.isPending}
+                            data-testid={`button-revoke-embed-${t.id}`}
+                          >
+                            Revoke
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+
+        {showLogs && (
+          <div className="border rounded-md p-3 bg-muted/30">
+            <div className="text-sm font-medium mb-2">Recent access logs</div>
+            {logsQuery.isLoading ? (
+              <Skeleton className="h-16 w-full" />
+            ) : !logsQuery.data?.length ? (
+              <div className="text-xs text-muted-foreground">No accesses recorded yet.</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>When</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Type</TableHead>
+                      <TableHead>Format</TableHead>
+                      <TableHead>Referer</TableHead>
+                      <TableHead>IP</TableHead>
+                      <TableHead>Duration</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {logsQuery.data.map((l) => (
+                      <TableRow key={l.id}>
+                        <TableCell className="text-xs">{new Date(l.createdAt).toLocaleString()}</TableCell>
+                        <TableCell>
+                          <Badge variant={l.statusCode >= 400 ? "destructive" : "secondary"}>
+                            {l.statusCode}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-xs">
+                          {l.entityType ? EMBED_ENTITY_LABELS[l.entityType] ?? l.entityType : "—"}
+                        </TableCell>
+                        <TableCell className="text-xs">{l.format ?? "—"}</TableCell>
+                        <TableCell className="text-xs truncate max-w-[16rem]">{l.referer ?? "—"}</TableCell>
+                        <TableCell className="text-xs">{l.ipAddress ?? "—"}</TableCell>
+                        <TableCell className="text-xs">{l.durationMs != null ? `${l.durationMs} ms` : "—"}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+
+      <Dialog
+        open={showCreate}
+        onOpenChange={(o) => {
+          setShowCreate(o);
+          if (!o) setIssued(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{issued ? "Embed token created" : "New embed token"}</DialogTitle>
+            <DialogDescription>
+              {issued
+                ? "Copy the token or iframe snippet now — the full token will not be shown again."
+                : "Each token grants read-only public access to one card. Anyone with the link can view it."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {!issued ? (
+            <div className="space-y-3">
+              <div>
+                <Label>Card type</Label>
+                <Select value={entityType} onValueChange={setEntityType}>
+                  <SelectTrigger data-testid="select-embed-type"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="objective">Objective</SelectItem>
+                    <SelectItem value="key_result">Key Result</SelectItem>
+                    <SelectItem value="big_rock">Big Rock</SelectItem>
+                    <SelectItem value="executive_dashboard">Executive Dashboard (tenant-wide)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              {requiresEntityId && (
+                <div>
+                  <Label>Entity ID</Label>
+                  <Input
+                    value={entityId}
+                    onChange={(e) => setEntityId(e.target.value)}
+                    placeholder="UUID of the objective / key result / big rock"
+                    data-testid="input-embed-entity-id"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Open the item in Vega and copy its ID from the URL.
+                  </p>
+                </div>
+              )}
+              <div>
+                <Label>Label</Label>
+                <Input
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder='e.g. "Q2 Revenue OKR — SharePoint home"'
+                  data-testid="input-embed-label"
+                />
+              </div>
+              <div>
+                <Label>Expires in (days, optional)</Label>
+                <Input
+                  type="number"
+                  value={expiresInDays}
+                  onChange={(e) => setExpiresInDays(e.target.value)}
+                  placeholder="Leave blank for no expiration"
+                  data-testid="input-embed-expires"
+                />
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <div>
+                <Label>Token</Label>
+                <div className="flex gap-2">
+                  <Input value={issued.token} readOnly className="font-mono text-xs" data-testid="text-embed-token" />
+                  <Button size="icon" variant="outline" onClick={() => copy(issued.token, "Token")}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <Label>Embed URL (path)</Label>
+                <div className="flex gap-2">
+                  <Input value={issued.embedPath} readOnly className="font-mono text-xs" />
+                  <Button size="icon" variant="outline" onClick={() => copy(issued.embedPath, "Embed URL")}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Prepend this with your Vega origin (e.g. https://your-vega.example.com).
+                </p>
+              </div>
+              <div>
+                <Label>Iframe snippet</Label>
+                <div className="flex gap-2">
+                  <Textarea value={issued.iframeSnippet} readOnly className="font-mono text-xs" rows={3} />
+                  <Button size="icon" variant="outline" onClick={() => copy(issued.iframeSnippet, "Iframe snippet")}>
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                Append <code>?theme=dark</code> for dark mode or <code>?json=1</code> for raw JSON.
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            {!issued ? (
+              <>
+                <Button variant="outline" onClick={() => setShowCreate(false)}>Cancel</Button>
+                <Button
+                  onClick={() => createMutation.mutate()}
+                  disabled={
+                    createMutation.isPending ||
+                    !label.trim() ||
+                    (requiresEntityId && !entityId.trim())
+                  }
+                  data-testid="button-create-embed-confirm"
+                >
+                  {createMutation.isPending ? "Creating…" : "Create"}
+                </Button>
+              </>
+            ) : (
+              <Button onClick={() => setShowCreate(false)}>Done</Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </Card>
+  );
+}
+
 function ConsultantAccessCard({ 
   tenant, 
   onOpenGrantDialog, 
@@ -4607,6 +4997,18 @@ export default function TenantAdmin() {
               <PortalAuditLogViewer tenants={filteredTenants} />
             </div>
           )}
+        </div>
+
+        {/* Embeddable Cards (Task #64) */}
+        <div>
+          <div className="mb-4">
+            <h2 className="text-lg md:text-xl font-semibold">Embeddable Cards</h2>
+            <p className="text-sm text-muted-foreground">
+              Issue per-entity embed URLs to display live OKR / KR / big rock / executive cards inside SharePoint,
+              Galaxy, or any intranet via iframe.
+            </p>
+          </div>
+          <EmbedTokensCard />
         </div>
 
         {/* Microsoft 365 Integration */}

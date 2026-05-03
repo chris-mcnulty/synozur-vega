@@ -51,6 +51,7 @@ import { registerObjectStorageRoutes } from "./replit_integrations/object_storag
 import { mcpRouter, createApiKeyForUser } from "./mcp";
 import { oauthRouter, generateOAuthClientCredentials } from "./mcp/oauth";
 import { portalRouter } from "./routes-portal";
+import { embedAdminRouter, embedPublicRouter } from "./routes-embed";
 import { createTrashRouter } from "./routes-trash";
 import { createSavedViewsRouter } from "./routes-saved-views";
 import { assertSafeJwksUri } from "./portal/jwks-url-validator";
@@ -482,6 +483,14 @@ ${changelogContent}`;
   // Mount the Galaxy Portal API surface. Trusts Galaxy-issued JWTs and
   // exposes a read-only personalized view of tenant data.
   app.use("/api/portal", portalRouter);
+
+  // Embeddable Cards (Task #64).
+  // Public render route: server-rendered HTML cards designed for SharePoint /
+  // Galaxy / intranet iframes. The route sets its own CSP allowing any parent
+  // frame, so it must be mounted BEFORE any global frame-protection middleware.
+  app.use("/embed/v1", embedPublicRouter);
+  // Admin CRUD for issuing and revoking embed tokens.
+  app.use("/api/embed-tokens", ...adminOnly, embedAdminRouter);
 
   // ============================================
   // Saved Views (Outcomes / My Focus / Big Rocks)
