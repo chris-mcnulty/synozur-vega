@@ -1385,11 +1385,20 @@ Navigate to **System Admin** → **Support** tab.
 - **My Assigned** — tickets assigned to you that are still open or in-progress (click to apply)
 - **Open** — unassigned open count
 
+**Search:**
+A search bar at the top of the filter panel lets you find tickets by keyword. Searches across ticket subject, description, and all reply message bodies. Results update as you type; click the × button to clear.
+
 **Filters:**
 - **Status**: All, Pending (Open + In Progress), Open, In Progress, Resolved, Closed
 - **Priority**: All, High, Medium, Low
 - **Category**: All, Bug, Feature Request, Question, Feedback
 - **Assigned To**: All, My Assigned, or pick a specific staff member
+
+**Bulk Actions:**
+Select multiple tickets using the per-row checkboxes (or "Select all on page" at the top of the list). A floating action bar appears when tickets are selected:
+- **Change Status** — apply a new status to all selected tickets
+- **Reassign To** — assign all selected tickets to a staff member (or mark Unassigned)
+- **Close selected** — close all selected tickets in one click
 
 **Ticket List:**
 - Each row shows ticket number, status badge, priority badge, category badge, subject, assignee avatar + name (if assigned), and submission date
@@ -1399,8 +1408,10 @@ Navigate to **System Admin** → **Support** tab.
 - **Priority Updates**: Change ticket priority as needed
 - **Staff Assignment**: Assign tickets to any Vega Admin or Consultant from the "Assign To" dropdown; the current assignee appears as an avatar with name in both the list and detail views
 - **Reply Threads**: Respond directly to users — replies trigger an email notification to the ticket author
+- **Quick Reply Templates**: Use the "Quick reply templates" dropdown above the reply box to insert a pre-written response (Acknowledged, Investigating, Fix Deployed, Need More Info, Closing). The template body is inserted into the reply text area and can be edited before sending.
 - **Internal Notes**: Check "Internal note" before submitting a reply to add a note visible only to other staff members (never emailed to the user)
 - **Email Notifications**: When staff posts a non-internal reply, the ticket author is notified by email. When a user replies, the assigned staff member receives the notification (or all admins if unassigned).
+- **Status History**: A "Status History" timeline at the bottom of the ticket detail shows every change to status, priority, assignee, or category — including who made the change and when.
 
 **New Ticket Defaults:**
 When users submit a new ticket, the priority field auto-defaults based on category:

@@ -50,6 +50,10 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 - **Support Admin "My Assigned" Filter**: New stat card and filter preset showing only tickets assigned to the current admin. Dedicated "Assigned To" dropdown filter lets admins filter by any staff member.
 - **Category-to-Priority Defaults**: New ticket form now auto-sets priority based on category selection (bug → high, question/feature request → medium, feedback → low). Users can still manually override. Changing category resets the auto-default.
 - **`getVegaAdminUsers()` scope expanded**: Now returns both `vega_admin` and `vega_consultant` role users for consistent staff roster across the platform.
+- **Support Ticket Status History**: Every change to a ticket's status, priority, assignee, or category is now recorded in a `support_ticket_history` audit table. The admin ticket detail view renders a "Status History" timeline showing what changed, who changed it, and when — including human-readable assignee names.
+- **Bulk Ticket Actions**: Admins can now select multiple tickets via per-row checkboxes (with "select all on page") and apply bulk operations from a floating action bar: change status, reassign to any staff member, or close all selected tickets in one click. Backed by the new `POST /api/support/tickets/bulk` endpoint; writes history rows and fires notifications per ticket.
+- **Quick Reply Templates**: Five built-in canned response templates (Acknowledged, Investigating, Fix Deployed, Need More Info, Closing) are available in the admin reply composer via a "Quick reply templates" dropdown. Selecting a template inserts its body into the reply textarea, appending to any existing text.
+- **Admin Full-Text Search**: A search input with a clear button appears at the top of the admin ticket filter bar. Results filter in real-time across ticket subject, description, and reply message bodies, composing with all existing status / priority / category / assignee filters.
 
 **Bug Fixes**
 - **Executive Dashboard — Empty Objectives (Production)**: Fixed a production bug where the Executive Dashboard showed "No objectives found" for all quarterly views. Root cause: objectives created without a quarter assignment (`quarter=NULL`) represent annual/unquartered OKRs, but the backend storage query only matched objectives with the exact quarter number requested — silently excluding all null-quarter records. Fix: quarterly view queries now use `quarter = N OR quarter IS NULL`, so annual OKRs are always visible regardless of the time period filter. The same fix applies to the Company OS Dashboard, hierarchy view, and key results roll-ups. Multi-period client-side filter in the Outcomes page updated to also always include null-quarter objectives.
@@ -69,7 +73,7 @@ This changelog documents new features, improvements, and fixes in Vega. Updates 
 - BACKLOG.md Executive Summary refreshed — stale 2025-dated phase references replaced with current Q2 2026 priorities
 - OKR Creation Wizard and Contextual Breadcrumbs marked as shipped
 - New "Support Ticket Finishing Pass" plan added to BACKLOG.md with a 10-item gap list based on the current Vega codebase (staff assignment UI, status history, SLA timers, bidirectional reply notifications, bulk actions, resolution templates, admin search, and more)
-- Support Ticket Finishing Pass Week 1 items (1, 4, 5, 9) marked complete in BACKLOG.md
+- Support Ticket Finishing Pass Week 1 items (1, 4, 5, 9) and Week 2 items (2, 6, 7, 8) marked complete in BACKLOG.md; only SLA timer badges (item 3) and chatbot deflection metric (item 10) remain open
 - **Aurora Visual System implemented** — full port from Constellation brand standard, including animated blob background component, cosmic-text gradient headings, synozur-gradient/glow/shimmer utilities, nebula-card animated border, sidebar active-gradient indicator, page header gradient bar, and purple-tinted shadows
 
 ---

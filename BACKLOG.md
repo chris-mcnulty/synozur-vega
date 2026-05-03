@@ -1671,12 +1671,13 @@ section below.
    `GET /api/support/staff`). Current assignee shown as avatar + name in the
    ticket list and detail sidebar.
 
-2. **Per-ticket status history.**
-   Today `status` is a mutable column with no audit trail. Add a
-   `supportTicketStatusHistory` table (ticketId, fromStatus, toStatus,
-   changedByUserId, note, changedAt) and write an entry on every PATCH that
-   mutates `status` or `assignedTo`. Render as a small timeline in the detail
-   view — consistent with the existing OKR check-in history pattern.
+2. **Per-ticket status history. ✅ COMPLETE.**
+   `support_ticket_history` table (ticketId, userId, field, fromValue, toValue,
+   createdAt) records every change to `status`, `priority`, `assignedTo`, and
+   `category`. Single-ticket PATCH and bulk-update endpoint both write history
+   rows. Admin detail view renders a "Status History" timeline card with actor
+   name, timestamp, and human-readable change description (e.g.
+   "Assigned: Unassigned → Chris McNulty").
 
 3. **SLA / response-time timers.**
    Add three derived fields to the ticket list: time since creation, time
@@ -1697,21 +1698,26 @@ section below.
    to select any staff member. "Pending" compound status filter (open +
    in_progress) added as status option and stat card.
 
-6. **Bulk close / bulk status change.**
-   Select multiple tickets from the admin list and apply a status transition
-   in one action. Uses the existing PATCH endpoint per ticket; no new API
-   surface required.
+6. **Bulk close / bulk status change. ✅ COMPLETE.**
+   Per-row checkboxes + "Select all on page" in the admin list. When any
+   tickets are selected a bulk-actions bar appears with: Change Status select,
+   Reassign To select (all staff + "Unassigned"), and a "Close selected"
+   button. Backed by `POST /api/support/tickets/bulk`; writes history rows and
+   fires notifications for each updated ticket.
 
-7. **Resolution templates.**
-   A dropdown of pre-canned resolution messages (e.g. "Fixed in v1.10",
-   "Duplicate of #42", "Cannot reproduce") that pre-fills the reply textarea.
-   Store templates in a new `support_reply_templates` table, platform-admin
-   managed.
+7. **Resolution templates. ✅ COMPLETE.**
+   `CANNED_RESPONSES` constant in `shared/schema.ts` defines five built-in
+   quick-reply templates (Acknowledged, Investigating, Fix Deployed, Need More
+   Info, Closing). "Quick reply templates" select in the admin reply composer
+   inserts the chosen body into the textarea (appends if text is already
+   present).
 
-8. **Search across tickets.**
-   Add free-text search over subject + description + reply messages on the
-   admin list. Backend adds a `q` query param; frontend adds a search input
-   next to the existing filter dropdowns.
+8. **Search across tickets. ✅ COMPLETE.**
+   Search input with clear button at the top of the admin filters card. Wired
+   into the query key so results refresh on type. Backend `searchAdminSupportTickets()`
+   accepts a `q` param and runs ILIKE `%term%` across `subject`, `description`,
+   and reply `message` bodies, combined with any active status / priority /
+   category / assignedTo filters.
 
 9. **Category-to-priority defaults ✅ COMPLETE.**
    When a user selects category "bug", priority defaults to "high"; question
@@ -1734,12 +1740,12 @@ Week 1 (high-value, low-risk): ✅ ALL COMPLETE
 ├── (5) "My assigned tickets" preset filter ✅
 └── (9) Category-to-priority defaults ✅
 
-Week 2 (structural):
-├── (2) supportTicketStatusHistory table + detail-view timeline
-├── (3) SLA timer badges in admin list
-├── (6) Bulk status change
-├── (7) Resolution templates
-└── (8) Admin search
+Week 2 (structural): ✅ MOSTLY COMPLETE
+├── (2) supportTicketHistory table + detail-view timeline ✅
+├── (3) SLA timer badges in admin list — still open
+├── (6) Bulk status change + bulk reassign ✅
+├── (7) Canned reply templates (CANNED_RESPONSES constant) ✅
+└── (8) Admin full-text search (q= across subject + description + replies) ✅
 ```
 
 ---
