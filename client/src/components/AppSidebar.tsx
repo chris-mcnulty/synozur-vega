@@ -24,6 +24,9 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useTenant } from "@/contexts/TenantContext";
 import { useTheme } from "@/components/ThemeProvider";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { useQuery } from "@tanstack/react-query";
+import { STALE_TIME_FREQUENT } from "@/lib/queryClient";
 import { ROLES, hasPermission, PERMISSIONS, type Role } from "@shared/rbac";
 import { cn } from "@/lib/utils";
 
@@ -101,6 +104,13 @@ export function AppSidebar() {
   const { currentTenant } = useTenant();
   const { theme } = useTheme();
   const [logoError, setLogoError] = useState(false);
+
+  const unreadNotificationsQuery = useQuery<{ count: number }>({
+    queryKey: ["/api/notifications/unread-count"],
+    refetchInterval: 30000,
+    staleTime: STALE_TIME_FREQUENT,
+  });
+  const unreadNotificationCount = unreadNotificationsQuery.data?.count ?? 0;
   
   // Load expanded sections from localStorage or use defaults
   const [expandedSections, setExpandedSections] = useState<string[]>(() => {
@@ -386,6 +396,27 @@ export function AppSidebar() {
                   <a href="/settings" className="pl-6">
                     <UserCog className="h-4 w-4" />
                     <span>My Settings</span>
+                  </a>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  asChild
+                  isActive={location === "/notifications" || location.startsWith("/notifications/")}
+                  data-testid="sidebar-notifications"
+                >
+                  <a href="/notifications" className="pl-6">
+                    <Bell className="h-4 w-4" />
+                    <span className="flex-1">Notifications</span>
+                    {unreadNotificationCount > 0 && (
+                      <Badge
+                        variant="destructive"
+                        className="ml-auto h-5 min-w-5 px-1.5 text-[10px] tabular-nums"
+                        data-testid="badge-sidebar-notifications-unread"
+                      >
+                        {unreadNotificationCount > 99 ? "99+" : unreadNotificationCount}
+                      </Badge>
+                    )}
                   </a>
                 </SidebarMenuButton>
               </SidebarMenuItem>
