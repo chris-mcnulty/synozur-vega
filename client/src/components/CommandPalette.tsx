@@ -10,6 +10,10 @@ import {
   CommandSeparator,
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Target,
   TrendingUp,
@@ -30,6 +34,8 @@ import {
   BookOpen,
   Clock,
   Loader2,
+  CalendarDays,
+  X,
 } from "lucide-react";
 import type { SearchResult, SearchEntityType, SearchResponse } from "@shared/schema";
 import { useAuth } from "@/contexts/AuthContext";
@@ -95,6 +101,46 @@ function recentSearchesKey(userId: string, tenantId: string) {
 }
 function recentViewedKey(userId: string, tenantId: string) {
   return `vega_recent_viewed::${userId}::${tenantId}`;
+}
+
+// Filters persist for the current browser session only, scoped per (user, tenant).
+function filtersKey(userId: string, tenantId: string) {
+  return `vega_search_filters::${userId}::${tenantId}`;
+}
+
+type SearchFilters = {
+  types: SearchEntityType[];
+  dateFrom: string; // YYYY-MM-DD
+  dateTo: string;   // YYYY-MM-DD
+};
+
+const EMPTY_FILTERS: SearchFilters = { types: [], dateFrom: "", dateTo: "" };
+
+// Entities that have a meaningful date column on the server. Date filter is a
+// no-op for other types and so should be marked as such in the UI.
+const DATE_FILTERABLE_TYPES: SearchEntityType[] = ["meeting", "ticket"];
+
+function loadFilters(userId: string, tenantId: string): SearchFilters {
+  try {
+    const raw = sessionStorage.getItem(filtersKey(userId, tenantId));
+    if (!raw) return EMPTY_FILTERS;
+    const parsed = JSON.parse(raw) as Partial<SearchFilters>;
+    return {
+      types: Array.isArray(parsed.types) ? (parsed.types as SearchEntityType[]) : [],
+      dateFrom: typeof parsed.dateFrom === "string" ? parsed.dateFrom : "",
+      dateTo: typeof parsed.dateTo === "string" ? parsed.dateTo : "",
+    };
+  } catch {
+    return EMPTY_FILTERS;
+  }
+}
+
+function saveFilters(userId: string, tenantId: string, filters: SearchFilters) {
+  try {
+    sessionStorage.setItem(filtersKey(userId, tenantId), JSON.stringify(filters));
+  } catch {
+    /* ignore */
+  }
 }
 
 type RecentViewed = {
@@ -196,7 +242,38 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [recentSearches, setRecentSearches] = useState<string[]>([]);
   const [recentViewed, setRecentViewed] = useState<RecentViewed[]>([]);
+  const [filters, setFilters] = useState<SearchFilters>(EMPTY_FILTERS);
   const lastTelemetryQuery = useRef<string>("");
+
+  const filtersScoped = recentsScoped;
+  const updateFilters = useCallback(
+    (next: SearchFilters) => {
+      setFilters(next);
+      if (filtersScoped && userId && tenantId) {
+        saveFilters(userId, tenantId, next);
+      }
+    },
+    [filtersScoped, userId, tenantId],
+  );
+
+  const toggleType = useCallback(
+    (t: SearchEntityType) => {
+      const has = filters.types.includes(t);
+      updateFilters({
+        ...filters,
+        types: has ? filters.types.filter((x) => x !== t) : [...filters.types, t],
+      });
+    },
+    [filters, updateFilters],
+  );
+
+  const clearAllFilters = useCallback(() => {
+    updateFilters(EMPTY_FILTERS);
+  }, [updateFilters]);
+
+  const hasDateFilter = !!(filters.dateFrom || filters.dateTo);
+  const activeFilterCount =
+    filters.types.length + (filters.dateFrom ? 1 : 0) + (filters.dateTo ? 1 : 0);
 
   // Debounce input -> debouncedQuery (200ms)
   useEffect(() => {
@@ -217,9 +294,11 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     if (recentsScoped && userId && tenantId) {
       setRecentSearches(loadRecentSearches(userId, tenantId));
       setRecentViewed(loadRecentViewed(userId, tenantId));
+      setFilters(loadFilters(userId, tenantId));
     } else {
       setRecentSearches([]);
       setRecentViewed([]);
+      setFilters(EMPTY_FILTERS);
     }
   }, [open, userId, tenantId, recentsScoped]);
 
@@ -236,7 +315,14 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
     setIsSearching(true);
 
     const ctrl = new AbortController();
-    fetch(`/api/search?q=${encodeURIComponent(debouncedQuery)}&limit=8`, {
+    const params = new URLSearchParams({
+      q: debouncedQuery,
+      limit: "8",
+    });
+    if (filters.types.length > 0) params.set("types", filters.types.join(","));
+    if (filters.dateFrom) params.set("dateFrom", filters.dateFrom);
+    if (filters.dateTo) params.set("dateTo", filters.dateTo);
+    fetch(`/api/search?${params.toString()}`, {
       credentials: "include",
       signal: ctrl.signal,
       headers: getTenantHeader(tenantId),
@@ -278,7 +364,7 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
       cancelled = true;
       ctrl.abort();
     };
-  }, [debouncedQuery, open]);
+  }, [debouncedQuery, open, filters.types, filters.dateFrom, filters.dateTo]);
 
   const navigate = useCallback(
     (url: string) => {
@@ -353,6 +439,116 @@ export function CommandPalette({ open, onOpenChange }: CommandPaletteProps) {
                 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground"
                 data-testid="status-searching"
               />
+            )}
+          </div>
+          <div
+            className="flex flex-wrap items-center gap-1.5 border-b px-3 py-2"
+            data-testid="search-filters-bar"
+          >
+            {GROUP_ORDER.map((t) => {
+              const meta = TYPE_META[t];
+              const Icon = meta.icon;
+              const active = filters.types.includes(t);
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  role="switch"
+                  aria-checked={active}
+                  aria-label={`Filter by ${meta.label}`}
+                  onClick={() => toggleType(t)}
+                  data-testid={`chip-filter-type-${t}`}
+                  data-active={active}
+                  className="rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                >
+                  <Badge
+                    variant={active ? "default" : "outline"}
+                    className="gap-1 pointer-events-none"
+                  >
+                    <Icon className="h-3 w-3" />
+                    {meta.label}
+                  </Badge>
+                </button>
+              );
+            })}
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  size="sm"
+                  variant={hasDateFilter ? "default" : "outline"}
+                  className="gap-1"
+                  data-testid="button-filter-date"
+                >
+                  <CalendarDays className="h-3.5 w-3.5" />
+                  {hasDateFilter
+                    ? `${filters.dateFrom || "…"} → ${filters.dateTo || "…"}`
+                    : "Date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-72 space-y-3" align="start">
+                <div className="text-xs text-muted-foreground">
+                  Filters meetings and tickets by date.
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium" htmlFor="search-date-from">
+                    From
+                  </label>
+                  <Input
+                    id="search-date-from"
+                    type="date"
+                    value={filters.dateFrom}
+                    onChange={(e) =>
+                      updateFilters({ ...filters, dateFrom: e.target.value })
+                    }
+                    data-testid="input-filter-date-from"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium" htmlFor="search-date-to">
+                    To
+                  </label>
+                  <Input
+                    id="search-date-to"
+                    type="date"
+                    value={filters.dateTo}
+                    onChange={(e) =>
+                      updateFilters({ ...filters, dateTo: e.target.value })
+                    }
+                    data-testid="input-filter-date-to"
+                  />
+                </div>
+                {hasDateFilter && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="w-full"
+                    onClick={() =>
+                      updateFilters({ ...filters, dateFrom: "", dateTo: "" })
+                    }
+                    data-testid="button-clear-date-filter"
+                  >
+                    Clear date range
+                  </Button>
+                )}
+                {filters.types.length > 0 &&
+                  !filters.types.some((t) => DATE_FILTERABLE_TYPES.includes(t)) && (
+                    <div className="text-xs text-muted-foreground">
+                      Note: selected types don&apos;t support date filtering.
+                    </div>
+                  )}
+              </PopoverContent>
+            </Popover>
+            {activeFilterCount > 0 && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="ml-auto gap-1 text-muted-foreground"
+                onClick={clearAllFilters}
+                data-testid="button-clear-all-filters"
+              >
+                <X className="h-3.5 w-3.5" />
+                Clear ({activeFilterCount})
+              </Button>
             )}
           </div>
       <CommandList className="max-h-[480px]">

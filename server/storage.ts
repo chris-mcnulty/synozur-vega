@@ -560,7 +560,7 @@ export interface IStorage {
   searchAcrossEntities(
     tenantId: string,
     query: string,
-    options?: { types?: string[]; limit?: number; userId?: string; isSupportAdmin?: boolean; canSeeGroundingDocs?: boolean }
+    options?: { types?: string[]; limit?: number; userId?: string; isSupportAdmin?: boolean; canSeeGroundingDocs?: boolean; dateFrom?: Date; dateTo?: Date }
   ): Promise<{
     type: 'objective' | 'key_result' | 'big_rock' | 'strategy' | 'ambition' | 'team' | 'meeting' | 'ticket' | 'document';
     id: string;
@@ -5486,7 +5486,7 @@ export class DatabaseStorage implements IStorage {
   async searchAcrossEntities(
     tenantId: string,
     query: string,
-    options?: { types?: string[]; limit?: number; userId?: string; isSupportAdmin?: boolean; canSeeGroundingDocs?: boolean }
+    options?: { types?: string[]; limit?: number; userId?: string; isSupportAdmin?: boolean; canSeeGroundingDocs?: boolean; dateFrom?: Date; dateTo?: Date }
   ) {
     const trimmed = query.trim();
     if (!trimmed) return [];
@@ -5713,6 +5713,12 @@ export class DatabaseStorage implements IStorage {
 
     if (wantedTypes.has('meeting')) {
       tasks.push((async () => {
+        const meetingConds: SQL[] = [
+          eq(meetings.tenantId, tenantId),
+          or(ilike(meetings.title, pattern), ilike(meetings.summary, pattern))!,
+        ];
+        if (options?.dateFrom) meetingConds.push(gte(meetings.date, options.dateFrom));
+        if (options?.dateTo) meetingConds.push(lte(meetings.date, options.dateTo));
         const rows = await db
           .select({
             id: meetings.id,
@@ -5722,10 +5728,7 @@ export class DatabaseStorage implements IStorage {
             meetingType: meetings.meetingType,
           })
           .from(meetings)
-          .where(and(
-            eq(meetings.tenantId, tenantId),
-            or(ilike(meetings.title, pattern), ilike(meetings.summary, pattern))
-          ))
+          .where(and(...meetingConds))
           .orderBy(desc(meetings.date))
           .limit(perTypeLimit * 2);
         return rows.map((r) => {
@@ -5754,6 +5757,8 @@ export class DatabaseStorage implements IStorage {
         if (!options?.isSupportAdmin && options?.userId) {
           baseConditions.push(eq(supportTickets.userId, options.userId));
         }
+        if (options?.dateFrom) baseConditions.push(gte(supportTickets.createdAt, options.dateFrom));
+        if (options?.dateTo) baseConditions.push(lte(supportTickets.createdAt, options.dateTo));
         const rows = await db
           .select({
             id: supportTickets.id,

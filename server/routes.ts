@@ -3675,6 +3675,18 @@ ${changelogContent}`;
         : undefined;
       const limit = Math.min(parseInt(String(req.query.limit ?? "8"), 10) || 8, 15);
 
+      const parseDateParam = (raw: unknown, endOfDay: boolean): Date | undefined => {
+        if (typeof raw !== "string" || !raw.trim()) return undefined;
+        // Accept YYYY-MM-DD as a calendar day in UTC; also accept full ISO strings.
+        const ymd = /^\d{4}-\d{2}-\d{2}$/.test(raw)
+          ? `${raw}T${endOfDay ? "23:59:59.999" : "00:00:00.000"}Z`
+          : raw;
+        const d = new Date(ymd);
+        return isNaN(d.getTime()) ? undefined : d;
+      };
+      const dateFrom = parseDateParam(req.query.dateFrom, false);
+      const dateTo = parseDateParam(req.query.dateTo, true);
+
       const userRole = req.user!.role as Role;
       // Match existing per-entity read-route authorization exactly so that
       // global search never reveals entities a user couldn't fetch directly.
@@ -3693,6 +3705,8 @@ ${changelogContent}`;
         userId: req.user!.id,
         isSupportAdmin,
         canSeeGroundingDocs,
+        dateFrom,
+        dateTo,
       });
 
       res.json({ query: q, total: results.length, results });
