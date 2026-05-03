@@ -2796,3 +2796,40 @@ export function hydrateCustomFieldValues(
   }
   return out;
 }
+
+// ============================================
+// ENTITY COMMENTS (Discussion threads on OKRs, Big Rocks, Check-ins)
+// ============================================
+
+export const COMMENT_ENTITY_TYPES = [
+  'objective',
+  'key_result',
+  'big_rock',
+  'check_in',
+] as const;
+
+export type CommentEntityType = typeof COMMENT_ENTITY_TYPES[number];
+
+export const entityComments = pgTable("entity_comments", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  entityType: text("entity_type").notNull(),
+  entityId: varchar("entity_id").notNull(),
+  parentCommentId: varchar("parent_comment_id"),
+  authorUserId: varchar("author_user_id").notNull().references(() => users.id, { onDelete: 'cascade' }),
+  body: text("body").notNull(),
+  mentionedUserIds: text("mentioned_user_ids").array(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  editedAt: timestamp("edited_at"),
+  deletedAt: timestamp("deleted_at"),
+});
+
+export const insertEntityCommentSchema = createInsertSchema(entityComments).omit({
+  id: true,
+  createdAt: true,
+  editedAt: true,
+  deletedAt: true,
+});
+
+export type InsertEntityComment = z.infer<typeof insertEntityCommentSchema>;
+export type EntityComment = typeof entityComments.$inferSelect;

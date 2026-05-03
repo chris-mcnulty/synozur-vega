@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
@@ -39,7 +39,8 @@ import {
   Scale,
   Lock,
   Edit2,
-  Trash2
+  Trash2,
+  MessageSquare
 } from "lucide-react";
 import { format, startOfYear, endOfYear, startOfQuarter, endOfQuarter, differenceInDays, addMonths } from "date-fns";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
@@ -48,6 +49,8 @@ import { MilestoneTimeline, type PhasedTargets } from "./MilestoneTimeline";
 import { ForecastingPanel } from "./ForecastingPanel";
 import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
 import { PlannerTaskLinkPanel } from "@/components/planner/PlannerTaskLinkPanel";
+import { DiscussionPanel } from "@/components/DiscussionPanel";
+import { CommentCountBadge } from "@/components/CommentCountBadge";
 import { usePermissions } from "@/hooks/use-permissions";
 
 interface OKRDetailPaneProps {
@@ -168,6 +171,31 @@ export function OKRDetailPane({
   onEdit,
 }: OKRDetailPaneProps) {
   const [activeTab, setActiveTab] = useState("overview");
+  const [expandedCheckInComments, setExpandedCheckInComments] = useState<Set<string>>(new Set());
+
+  // When a deep link points at a comment on this entity, switch to the
+  // Discussion tab (or expand the relevant check-in's comments) so
+  // DiscussionPanel can scroll/highlight the focused comment.
+  useEffect(() => {
+    if (typeof window === "undefined" || !open) return;
+    const params = new URLSearchParams(window.location.search);
+    const focus = params.get("focusComment");
+    const fEntityType = params.get("entityType");
+    const fEntityId = params.get("entityId");
+    if (!focus) return;
+    if (fEntityId === entity?.id && (fEntityType === "objective" || fEntityType === "key_result")) {
+      setActiveTab("discussion");
+    } else if (fEntityType === "check_in") {
+      setActiveTab("activity");
+      if (fEntityId) {
+        setExpandedCheckInComments((prev) => {
+          const next = new Set(prev);
+          next.add(fEntityId);
+          return next;
+        });
+      }
+    }
+  }, [open, entity?.id]);
   const [editingCheckIn, setEditingCheckIn] = useState<CheckIn | null>(null);
   const [editFormData, setEditFormData] = useState({
     newValue: 0,
@@ -413,6 +441,7 @@ export function OKRDetailPane({
               <SheetTitle className="text-left truncate" data-testid="text-detail-title">
                 {entity.title}
               </SheetTitle>
+              <CommentCountBadge entityType={entityType} entityId={entity.id} />
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               {onEdit && canModify && (
@@ -526,6 +555,7 @@ export function OKRDetailPane({
                 <TabsTrigger value="overview" data-testid="tab-detail-overview">Overview</TabsTrigger>
                 <TabsTrigger value="forecast" data-testid="tab-detail-forecast">Forecast</TabsTrigger>
                 <TabsTrigger value="activity" data-testid="tab-detail-activity">Activity</TabsTrigger>
+                <TabsTrigger value="discussion" data-testid="tab-detail-discussion">Discussion</TabsTrigger>
                 {entityType === "objective" && (
                   <TabsTrigger value="bigrocks" data-testid="tab-detail-bigrocks">Big Rocks</TabsTrigger>
                 )}
@@ -800,10 +830,44 @@ export function OKRDetailPane({
                             {checkIn.note && (
                               <p className="text-sm text-muted-foreground mt-2">{checkIn.note}</p>
                             )}
+                            <div className="mt-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => {
+                                  setExpandedCheckInComments(prev => {
+                                    const next = new Set(prev);
+                                    if (next.has(checkIn.id)) next.delete(checkIn.id);
+                                    else next.add(checkIn.id);
+                                    return next;
+                                  });
+                                }}
+                                data-testid={`button-toggle-comments-${checkIn.id}`}
+                              >
+                                <MessageSquare className="h-3 w-3 mr-1" />
+                                {expandedCheckInComments.has(checkIn.id) ? "Hide comments" : "Comments"}
+                              </Button>
+                              {expandedCheckInComments.has(checkIn.id) && (
+                                <div className="mt-2 pl-2 border-l-2 border-muted">
+                                  <DiscussionPanel entityType="check_in" entityId={checkIn.id} />
+                                </div>
+                              )}
+                            </div>
                           </div>
                         ))}
                       </div>
                     )}
+                  </CardContent>
+                </Card>
+              </TabsContent>
+
+              <TabsContent value="discussion" className="mt-4">
+                <Card>
+                  <CardContent className="pt-4">
+                    <DiscussionPanel
+                      entityType={entityType}
+                      entityId={entity.id}
+                    />
                   </CardContent>
                 </Card>
               </TabsContent>

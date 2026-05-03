@@ -3448,6 +3448,9 @@ ${changelogContent}`;
   const { notificationsRouter } = await import("./routes-notifications");
   app.use("/api/notifications", notificationsRouter);
 
+  const { commentsRouter } = await import("./routes-comments");
+  app.use("/api/comments", commentsRouter);
+
   // ============================================
   // GLOBAL CROSS-ENTITY SEARCH
   // ============================================

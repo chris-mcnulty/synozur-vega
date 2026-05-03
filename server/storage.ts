@@ -61,6 +61,7 @@ import {
   customFieldDefs, type CustomFieldDef, type InsertCustomFieldDef,
   customFieldValues, type CustomFieldValue,
   type CustomFieldEntityType, MAX_ACTIVE_CUSTOM_FIELDS_PER_ENTITY,
+  entityComments, type EntityComment, type InsertEntityComment,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, count, ilike, asc, type SQL } from "drizzle-orm";
@@ -515,6 +516,14 @@ export interface IStorage {
   getWeeklyDigestSend(userId: string, periodStart: string): Promise<WeeklyDigestSend | undefined>;
   recordWeeklyDigestSend(send: InsertWeeklyDigestSend): Promise<WeeklyDigestSend>;
   getWeeklyDigestSendsForPeriod(tenantId: string, periodStart: string): Promise<WeeklyDigestSend[]>;
+
+  // Entity Comments
+  getCommentsByEntity(tenantId: string, entityType: string, entityId: string): Promise<EntityComment[]>;
+  getCommentById(id: string): Promise<EntityComment | undefined>;
+  getCommentCountsByEntities(tenantId: string, entityType: string, entityIds: string[]): Promise<Map<string, number>>;
+  createComment(comment: InsertEntityComment): Promise<EntityComment>;
+  updateComment(id: string, body: string, mentionedUserIds: string[]): Promise<EntityComment | undefined>;
+  softDeleteComment(id: string): Promise<EntityComment | undefined>;
   
   // Global cross-entity search
   searchAcrossEntities(
@@ -5167,6 +5176,66 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(notificationPreferences).values(pref).returning();
     return created;
+  }
+
+  // ============================================
+  // ENTITY COMMENTS
+  // ============================================
+
+  async getCommentsByEntity(tenantId: string, entityType: string, entityId: string): Promise<EntityComment[]> {
+    return await db.select().from(entityComments)
+      .where(and(
+        eq(entityComments.tenantId, tenantId),
+        eq(entityComments.entityType, entityType),
+        eq(entityComments.entityId, entityId),
+      ))
+      .orderBy(asc(entityComments.createdAt));
+  }
+
+  async getCommentById(id: string): Promise<EntityComment | undefined> {
+    const [c] = await db.select().from(entityComments).where(eq(entityComments.id, id));
+    return c;
+  }
+
+  async getCommentCountsByEntities(tenantId: string, entityType: string, entityIds: string[]): Promise<Map<string, number>> {
+    const result = new Map<string, number>();
+    if (entityIds.length === 0) return result;
+    const rows = await db.select({
+      entityId: entityComments.entityId,
+      c: count(),
+    }).from(entityComments)
+      .where(and(
+        eq(entityComments.tenantId, tenantId),
+        eq(entityComments.entityType, entityType),
+        inArray(entityComments.entityId, entityIds),
+        isNull(entityComments.deletedAt),
+      ))
+      .groupBy(entityComments.entityId);
+    for (const r of rows) {
+      result.set(r.entityId, Number(r.c));
+    }
+    return result;
+  }
+
+  async createComment(comment: InsertEntityComment): Promise<EntityComment> {
+    const [created] = await db.insert(entityComments).values(comment).returning();
+    return created;
+  }
+
+  async updateComment(id: string, body: string, mentionedUserIds: string[]): Promise<EntityComment | undefined> {
+    const [updated] = await db.update(entityComments)
+      .set({ body, mentionedUserIds, editedAt: new Date() })
+      .where(eq(entityComments.id, id))
+      .returning();
+    return updated;
+  }
+
+  async softDeleteComment(id: string): Promise<EntityComment | undefined> {
+    const [updated] = await db.update(entityComments)
+      .set({ deletedAt: new Date() })
+      .where(eq(entityComments.id, id))
+      .returning();
+    return updated;
   }
 
   async searchAcrossEntities(

@@ -9,6 +9,8 @@ import { saveDraft, loadDraft, clearDraft, type CheckInDraft } from "@/lib/check
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { DiscussionPanel } from "@/components/DiscussionPanel";
+import { CommentCountBadge } from "@/components/CommentCountBadge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { CustomFieldsSection, extractCustomFieldsFromEntity } from "@/components/CustomFieldsSection";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -542,6 +544,76 @@ export default function PlanningEnhanced() {
       navigate("/planning", { replace: true });
     }
   }, [urlFocus, navigate]);
+
+  // Deep link from mention notifications: ?entityType=&entityId=&focusComment=
+  // Opens the relevant detail surface so DiscussionPanel can scroll/highlight.
+  const [commentDeepLinkApplied, setCommentDeepLinkApplied] = useState(false);
+  useEffect(() => {
+    if (commentDeepLinkApplied) return;
+    const params = new URLSearchParams(search);
+    const entityType = params.get("entityType");
+    const entityId = params.get("entityId");
+    const focusComment = params.get("focusComment");
+    if (!entityType || !entityId || !focusComment) return;
+    if (entityType === "objective") {
+      const obj = objectives.find((o: any) => o.id === entityId);
+      if (!obj) return;
+      setDetailPaneEntityType("objective");
+      setDetailPaneEntity(obj);
+      setDetailPaneParentObjective(null);
+      setDetailPaneOpen(true);
+      setCommentDeepLinkApplied(true);
+    } else if (entityType === "key_result") {
+      const kr = (rawObjectives as any[]).flatMap((o: any) => o.keyResults || []).find((k: any) => k.id === entityId);
+      if (!kr) return;
+      const parent = objectives.find((o: any) => o.id === kr.objectiveId);
+      setDetailPaneEntityType("key_result");
+      setDetailPaneEntity(kr);
+      setDetailPaneParentObjective(parent || null);
+      setDetailPaneOpen(true);
+      setCommentDeepLinkApplied(true);
+    } else if (entityType === "big_rock") {
+      const rock = bigRocks.find((b: any) => b.id === entityId);
+      if (!rock) return;
+      setSelectedBigRock(rock);
+      setBigRockForm((prev: any) => ({ ...prev, ...rock }));
+      setBigRockDialogOpen(true);
+      setCommentDeepLinkApplied(true);
+    } else if (entityType === "check_in") {
+      // For check-in comments, open the owning entity's detail pane on the activity tab.
+      // We pull the check-in via an ad-hoc fetch to find its target entity.
+      fetch(`/api/okr/check-ins/${entityId}`, { credentials: "include" })
+        .then(r => r.ok ? r.json() : null)
+        .then((ci: any) => {
+          if (!ci) return;
+          if (ci.entityType === "objective") {
+            const obj = objectives.find((o: any) => o.id === ci.entityId);
+            if (obj) {
+              setDetailPaneEntityType("objective");
+              setDetailPaneEntity(obj);
+              setDetailPaneOpen(true);
+            }
+          } else if (ci.entityType === "key_result") {
+            const kr = (rawObjectives as any[]).flatMap((o: any) => o.keyResults || []).find((k: any) => k.id === ci.entityId);
+            if (kr) {
+              const parent = objectives.find((o: any) => o.id === kr.objectiveId);
+              setDetailPaneEntityType("key_result");
+              setDetailPaneEntity(kr);
+              setDetailPaneParentObjective(parent || null);
+              setDetailPaneOpen(true);
+            }
+          } else if (ci.entityType === "big_rock") {
+            const rock = bigRocks.find((b: any) => b.id === ci.entityId);
+            if (rock) {
+              setSelectedBigRock(rock);
+              setBigRockDialogOpen(true);
+            }
+          }
+          setCommentDeepLinkApplied(true);
+        })
+        .catch(() => setCommentDeepLinkApplied(true));
+    }
+  }, [search, objectives, bigRocks, rawObjectives, commentDeepLinkApplied]);
   
   // Find strategies without objectives for the focus filter
   // Uses objectives data (always fetched) rather than hierarchyData (only fetched on hierarchy tab)
@@ -4030,6 +4102,16 @@ export default function PlanningEnhanced() {
               </div>
             )}
 
+            {selectedBigRock && (
+              <div className="pt-4 border-t">
+                <h3 className="text-sm font-semibold mb-2">Discussion</h3>
+                <DiscussionPanel
+                  entityType="big_rock"
+                  entityId={selectedBigRock.id}
+                />
+              </div>
+            )}
+
             
 
             {bigRockDialogMode !== "link" && (
@@ -5911,6 +5993,7 @@ function BigRocksSection({ bigRocks, objectives, strategies, teams, activeQuarte
                 <Badge variant="secondary" className="text-xs">
                   {rock.quarter === 0 ? 'Annual' : `Q${rock.quarter}`} {rock.year}
                 </Badge>
+                <CommentCountBadge entityType="big_rock" entityId={rock.id} />
                 {rock.plannerPlanId && (
                   <Badge variant="outline" className="text-xs" data-testid={`badge-planner-linked-${rock.id}`}>
                     <Link2 className="h-3 w-3 mr-1" />

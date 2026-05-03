@@ -221,6 +221,32 @@ async function ensureSchemaColumns() {
         ON reassignment_audit_logs(tenant_id, created_at DESC);
     `);
 
+    // Entity comments (Discussion / @mentions). Backstop until a migration ships.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS entity_comments (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        entity_type text NOT NULL,
+        entity_id varchar NOT NULL,
+        parent_comment_id varchar,
+        author_user_id varchar NOT NULL,
+        body text NOT NULL,
+        mentioned_user_ids text[] NOT NULL DEFAULT '{}',
+        created_at timestamp NOT NULL DEFAULT now(),
+        edited_at timestamp,
+        deleted_at timestamp,
+        deleted_by varchar
+      );
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_entity_comments_lookup
+        ON entity_comments (tenant_id, entity_type, entity_id, created_at);
+    `);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_entity_comments_parent
+        ON entity_comments (parent_comment_id);
+    `);
+
     console.log("✓ Database schema verified");
   } catch (error) {
     console.error("Schema check error:", error);
