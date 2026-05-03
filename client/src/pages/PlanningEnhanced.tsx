@@ -51,6 +51,7 @@ import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Foundation, CompanyValue, AnnualGoal, Ambition, BigRockTask, PageFilterState } from "@shared/schema";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
 import { Save } from "lucide-react";
 import { AIGoalsSuggestionDialog } from "@/components/AIGoalsSuggestionDialog";
 import { ProgressSummaryDialog } from "@/components/ProgressSummaryDialog";
@@ -2563,53 +2564,159 @@ export default function PlanningEnhanced() {
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-32" data-testid="select-status">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="on_track">
-                  <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-green-500" />
-                    On Track
-                  </span>
-                </SelectItem>
-                <SelectItem value="at_risk">
-                  <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-red-500" />
-                    At Risk
-                  </span>
-                </SelectItem>
-                <SelectItem value="behind">
-                  <span className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-yellow-500" />
-                    Behind
-                  </span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={level} onValueChange={setLevel}>
-              <SelectTrigger className="w-36" data-testid="select-level">
-                <SelectValue placeholder="Level" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Levels</SelectItem>
-                <SelectItem value="organization">Organization</SelectItem>
-                <SelectItem value="team">Team</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={teamId} onValueChange={setTeamId}>
-              <SelectTrigger className="w-40" data-testid="select-team">
-                <SelectValue placeholder="Team" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Teams</SelectItem>
-                {teamsData.map((team) => (
-                  <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="hidden md:flex flex-wrap gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-32" data-testid="select-status">
+                  <SelectValue placeholder="Status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="on_track">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-green-500" />
+                      On Track
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="at_risk">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-red-500" />
+                      At Risk
+                    </span>
+                  </SelectItem>
+                  <SelectItem value="behind">
+                    <span className="flex items-center gap-2">
+                      <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                      Behind
+                    </span>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={level} onValueChange={setLevel}>
+                <SelectTrigger className="w-36" data-testid="select-level">
+                  <SelectValue placeholder="Level" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Levels</SelectItem>
+                  <SelectItem value="organization">Organization</SelectItem>
+                  <SelectItem value="team">Team</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={teamId} onValueChange={setTeamId}>
+                <SelectTrigger className="w-40" data-testid="select-team">
+                  <SelectValue placeholder="Team" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Teams</SelectItem>
+                  {teamsData.map((team) => (
+                    <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Sheet>
+              <SheetTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="md:hidden relative"
+                  data-testid="button-mobile-filters"
+                >
+                  <Filter className="h-4 w-4 mr-2" />
+                  Filters
+                  {(() => {
+                    const activeCount =
+                      (statusFilter !== "all" ? 1 : 0) +
+                      (level !== "all" ? 1 : 0) +
+                      (teamId !== "all" ? 1 : 0);
+                    return activeCount > 0 ? (
+                      <Badge
+                        variant="default"
+                        className="ml-2 h-5 min-w-5 px-1.5"
+                        data-testid="badge-active-filter-count"
+                      >
+                        {activeCount}
+                      </Badge>
+                    ) : null;
+                  })()}
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="bottom" className="h-auto max-h-[85vh] overflow-y-auto">
+                <SheetHeader>
+                  <SheetTitle>Filters</SheetTitle>
+                  <SheetDescription>
+                    Refine the OKR list by status, level, and team.
+                  </SheetDescription>
+                </SheetHeader>
+                <div className="flex flex-col gap-4 py-4">
+                  <div className="flex flex-col gap-2">
+                    <Label>Status</Label>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                      <SelectTrigger data-testid="select-status-mobile">
+                        <SelectValue placeholder="Status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Statuses</SelectItem>
+                        <SelectItem value="on_track">
+                          <span className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-green-500" />
+                            On Track
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="at_risk">
+                          <span className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-red-500" />
+                            At Risk
+                          </span>
+                        </SelectItem>
+                        <SelectItem value="behind">
+                          <span className="flex items-center gap-2">
+                            <span className="w-2 h-2 rounded-full bg-yellow-500" />
+                            Behind
+                          </span>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Level</Label>
+                    <Select value={level} onValueChange={setLevel}>
+                      <SelectTrigger data-testid="select-level-mobile">
+                        <SelectValue placeholder="Level" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Levels</SelectItem>
+                        <SelectItem value="organization">Organization</SelectItem>
+                        <SelectItem value="team">Team</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <Label>Team</Label>
+                    <Select value={teamId} onValueChange={setTeamId}>
+                      <SelectTrigger data-testid="select-team-mobile">
+                        <SelectValue placeholder="Team" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Teams</SelectItem>
+                        {teamsData.map((team) => (
+                          <SelectItem key={team.id} value={team.id}>{team.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setStatusFilter("all");
+                      setLevel("all");
+                      setTeamId("all");
+                    }}
+                    data-testid="button-clear-mobile-filters"
+                  >
+                    Clear all filters
+                  </Button>
+                </div>
+              </SheetContent>
+            </Sheet>
             <Button
               variant="outline"
               onClick={() => setProgressSummaryDialogOpen(true)}
