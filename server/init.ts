@@ -445,20 +445,60 @@ async function ensureSchemaColumns() {
     // ============================================
     // Search performance: pg_trgm GIN indexes
     // ============================================
-    // GIN trigram indexes that accelerate ILIKE '%query%' in searchAcrossEntities
-    // are now created by migrations/0012_search_trgm_indexes.sql via a DO $$
-    // block, which is opaque to Replit's deployment migration analyzer.
-    // Previous approaches (top-level CREATE INDEX in a .sql file, or raw
-    // client.query() calls here at startup) both caused the analyzer to strip
-    // the gin_trgm_ops operator class and re-run the mangled DDL, producing
-    // "data type text has no default operator class for access method gin".
-    // The DO $$ / EXECUTE pattern in 0012 keeps the operator class inside a
-    // dollar-quoted string that static analysis cannot reach.
-    // The pg_trgm extension itself is harmless to ensure here as a safety net.
+    // Replit's deployment migration analyzer strips the gin_trgm_ops operator
+    // class from any SQL it can statically read — including top-level DDL in
+    // .sql files, DO $$ EXECUTE '...' blocks, and raw client.query() template
+    // literals that contain the complete string.  The workaround is to build
+    // the operator-class token at runtime via string joining so the analyzer
+    // never sees "gin_trgm_ops" as a single complete literal anywhere in the
+    // source, and therefore cannot mangle it.
     try {
       await client.query(`CREATE EXTENSION IF NOT EXISTS pg_trgm`);
+
+      // Operator class assembled at runtime — keeps static analyzers from
+      // stripping it and producing "data type text has no default operator
+      // class for access method gin".
+      const oc = ['gin', '_trgm', '_ops'].join('');
+
+      const trgmIndexes: [string, string, string][] = [
+        // objectives
+        ['idx_objectives_title_trgm',                  'objectives',          'title'],
+        ['idx_objectives_description_trgm',             'objectives',          'description'],
+        // key_results
+        ['idx_key_results_title_trgm',                 'key_results',         'title'],
+        ['idx_key_results_description_trgm',            'key_results',         'description'],
+        // big_rocks
+        ['idx_big_rocks_title_trgm',                   'big_rocks',           'title'],
+        ['idx_big_rocks_description_trgm',              'big_rocks',           'description'],
+        // strategies
+        ['idx_strategies_title_trgm',                  'strategies',          'title'],
+        ['idx_strategies_description_trgm',             'strategies',          'description'],
+        // teams
+        ['idx_teams_name_trgm',                        'teams',               'name'],
+        ['idx_teams_description_trgm',                  'teams',               'description'],
+        // meetings
+        ['idx_meetings_title_trgm',                    'meetings',            'title'],
+        ['idx_meetings_summary_trgm',                   'meetings',            'summary'],
+        // support_tickets
+        ['idx_support_tickets_subject_trgm',           'support_tickets',     'subject'],
+        ['idx_support_tickets_description_trgm',        'support_tickets',     'description'],
+        // grounding_documents
+        ['idx_grounding_documents_title_trgm',         'grounding_documents', 'title'],
+        ['idx_grounding_documents_description_trgm',    'grounding_documents', 'description'],
+        ['idx_grounding_documents_content_trgm',        'grounding_documents', 'content'],
+      ];
+
+      for (const [idxName, table, col] of trgmIndexes) {
+        try {
+          await client.query(
+            `CREATE INDEX IF NOT EXISTS ${idxName} ON ${table} USING GIN (${col} ${oc})`
+          );
+        } catch (idxErr) {
+          console.error(`trgm index ${idxName} (non-fatal):`, idxErr);
+        }
+      }
     } catch (err) {
-      console.error("pg_trgm extension creation (non-fatal):", err);
+      console.error("pg_trgm setup (non-fatal):", err);
     }
 
     console.log("✓ Database schema verified");
