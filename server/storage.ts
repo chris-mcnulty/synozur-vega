@@ -618,6 +618,7 @@ export interface IStorage {
     bigRockTasks: number;
     strategies: number;
     ambitions: number;
+    savedViews: number;
   }>;
 
   // Reassignment methods
@@ -5611,6 +5612,7 @@ export class DatabaseStorage implements IStorage {
     bigRockTasks: number;
     strategies: number;
     ambitions: number;
+    savedViews: number;
   }> {
     const cutoff = new Date(Date.now() - olderThanDays * 24 * 60 * 60 * 1000);
 
@@ -5650,6 +5652,11 @@ export class DatabaseStorage implements IStorage {
       }
     }
 
+    // Saved views: hard-delete soft-deleted rows older than cutoff
+    const deletedSavedViews = await db.delete(savedViews)
+      .where(and(isNotNull(savedViews.deletedAt), lte(savedViews.deletedAt, cutoff)))
+      .returning({ id: savedViews.id });
+
     return {
       objectives: deletedObjectives.length,
       keyResults: deletedKeyResults.length,
@@ -5657,6 +5664,7 @@ export class DatabaseStorage implements IStorage {
       bigRockTasks: deletedTasks.length,
       strategies: deletedStrategies.length,
       ambitions: purgedAmbitions,
+      savedViews: deletedSavedViews.length,
     };
   }
 

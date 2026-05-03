@@ -31,7 +31,10 @@ const {
   tenants,
   objectives,
   keyResults,
+  users,
+  savedViews,
 } = await import('../../shared/schema');
+type PageFilterState = import('../../shared/schema').PageFilterState;
 const { storage } = await import('../storage');
 const { ROLES } = await import('../../shared/rbac');
 const { createTrashRouter } = await import('../routes-trash');
@@ -427,6 +430,66 @@ async function casePurgeOnlyRemovesItemsOlderThanCutoff(): Promise<void> {
 
   // Cleanup.
   await db.delete(objectives).where(eq(objectives.id, recent.id));
+
+  // ---- Saved views purge sub-case ----
+  console.log('\n[case e2] purgeOldDeletedItems(30) purges saved_views older than cutoff');
+
+  const [owner] = await db.insert(users).values({
+    email: `purge_owner_${RUN_ID}@example.test`,
+    password: 'x',
+    name: 'Purge Owner',
+    role: 'tenant_admin',
+    tenantId: seeded.tenantAId,
+  }).returning();
+
+  const emptyFilter: PageFilterState = {};
+  const [recentView] = await db.insert(savedViews).values({
+    tenantId: seeded.tenantAId,
+    ownerUserId: owner.id,
+    page: 'outcomes',
+    name: `recent view ${RUN_ID}`,
+    filterJson: emptyFilter,
+    visibility: 'private',
+  }).returning();
+  const [oldView] = await db.insert(savedViews).values({
+    tenantId: seeded.tenantAId,
+    ownerUserId: owner.id,
+    page: 'outcomes',
+    name: `old view ${RUN_ID}`,
+    filterJson: emptyFilter,
+    visibility: 'private',
+  }).returning();
+  const [liveView] = await db.insert(savedViews).values({
+    tenantId: seeded.tenantAId,
+    ownerUserId: owner.id,
+    page: 'outcomes',
+    name: `live view ${RUN_ID}`,
+    filterJson: emptyFilter,
+    visibility: 'private',
+  }).returning();
+
+  const nowSv = new Date();
+  const longAgoSv = new Date(nowSv.getTime() - 31 * 24 * 60 * 60 * 1000);
+  await db.update(savedViews).set({ deletedAt: nowSv }).where(eq(savedViews.id, recentView.id));
+  await db.update(savedViews).set({ deletedAt: longAgoSv }).where(eq(savedViews.id, oldView.id));
+
+  const svResult = await storage.purgeOldDeletedItems(30);
+  assert(typeof svResult.savedViews === 'number', 'purge result reports a savedViews count');
+  assert(svResult.savedViews >= 1, 'at least the back-dated saved view was purged');
+
+  const remainingViews = await db.select().from(savedViews).where(
+    inArray(savedViews.id, [recentView.id, oldView.id, liveView.id])
+  );
+  assert(remainingViews.some(v => v.id === recentView.id),
+    'recently-deleted saved view is preserved (within retention window)');
+  assert(!remainingViews.some(v => v.id === oldView.id),
+    'saved view deleted >30 days ago is hard-deleted from the table');
+  assert(remainingViews.some(v => v.id === liveView.id),
+    'non-deleted saved view is untouched by purge');
+
+  // Cleanup.
+  await db.delete(savedViews).where(inArray(savedViews.id, [recentView.id, liveView.id]));
+  await db.delete(users).where(eq(users.id, owner.id));
 }
 
 // ---------------------------------------------------------------------------

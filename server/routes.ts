@@ -4698,16 +4698,16 @@ ${changelogContent}`;
   await jobScheduler.registerJob(
     'trash-purge',
     'Trash Auto-Purge',
-    'Permanently deletes soft-deleted strategic items (objectives, key results, big rocks, strategies, ambitions) older than 30 days',
+    'Permanently deletes soft-deleted strategic items (objectives, key results, big rocks, strategies, ambitions, saved views) older than 30 days',
     'maintenance',
     'Daily',
     86400000, // 24 hours
     async () => {
       const result = await storage.purgeOldDeletedItems(30);
-      const total = result.objectives + result.keyResults + result.bigRocks + result.strategies + result.ambitions;
+      const total = result.objectives + result.keyResults + result.bigRocks + result.strategies + result.ambitions + result.savedViews;
       return {
         summary: total > 0
-          ? `Purged ${total} item(s): ${result.objectives} objectives, ${result.keyResults} key results, ${result.bigRocks} big rocks, ${result.strategies} strategies, ${result.ambitions} ambitions`
+          ? `Purged ${total} item(s): ${result.objectives} objectives, ${result.keyResults} key results, ${result.bigRocks} big rocks, ${result.strategies} strategies, ${result.ambitions} ambitions, ${result.savedViews} saved views`
           : 'No items to purge',
         details: result,
       };
