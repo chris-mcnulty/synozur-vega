@@ -1899,6 +1899,16 @@ type GalaxyPortalUpdate = {
   galaxySettings?: { issuer?: string; audience?: string; jwksUri?: string } | null;
 };
 
+type PortalUserRow = {
+  id: string;
+  email: string | null;
+  name: string | null;
+  role: string;
+  authProvider: string | null;
+  galaxyUserId: string | null;
+  createdAt: string | null;
+};
+
 function GalaxyPortalCard({ tenant }: { tenant: Tenant }) {
   const { toast } = useToast();
   const [editingClientId, setEditingClientId] = useState(false);
@@ -1910,6 +1920,23 @@ function GalaxyPortalCard({ tenant }: { tenant: Tenant }) {
 
   const { data: stats } = useQuery<{ windowDays: number; distinctUsers: number }>({
     queryKey: ["/api/tenants", tenant.id, "galaxy-portal/stats"],
+  });
+
+  const { data: portalUsers = [] } = useQuery<PortalUserRow[]>({
+    queryKey: ["/api/tenants", tenant.id, "portal-users"],
+  });
+
+  const roleMutation = useMutation({
+    mutationFn: async ({ userId, role }: { userId: string; role: string }) => {
+      return apiRequest("PATCH", `/api/tenants/${tenant.id}/portal-users/${userId}/role`, { role });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/tenants", tenant.id, "portal-users"] });
+      toast({ title: "Portal user role updated" });
+    },
+    onError: (e: Error) => {
+      toast({ title: "Failed to update role", description: e.message, variant: "destructive" });
+    },
   });
 
   const updateMutation = useMutation({
@@ -2045,6 +2072,51 @@ function GalaxyPortalCard({ tenant }: { tenant: Tenant }) {
             Set a Galaxy Client ID before enabling the integration.
           </p>
         )}
+
+        <div className="pt-2 border-t">
+          <Label className="text-xs text-muted-foreground">Portal users ({portalUsers.length})</Label>
+          {portalUsers.length === 0 ? (
+            <p className="text-xs text-muted-foreground mt-1">
+              No portal users yet. Users are provisioned on first Galaxy login.
+            </p>
+          ) : (
+            <div className="mt-2 space-y-1.5 max-h-48 overflow-y-auto" data-testid={`portal-users-list-${tenant.id}`}>
+              {portalUsers.map((u) => {
+                const isWriter = u.role === 'portal_user_writer';
+                return (
+                  <div
+                    key={u.id}
+                    className="flex items-center justify-between gap-2 text-xs"
+                    data-testid={`portal-user-row-${u.id}`}
+                  >
+                    <div className="flex flex-col min-w-0">
+                      <span className="truncate" data-testid={`text-portal-user-email-${u.id}`}>
+                        {u.email || u.name || u.id}
+                      </span>
+                      <span className="text-muted-foreground text-[10px]">
+                        {isWriter ? 'Writer' : 'Read-only'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <Label className="text-[10px] text-muted-foreground">Writer</Label>
+                      <Switch
+                        checked={isWriter}
+                        onCheckedChange={(checked) =>
+                          roleMutation.mutate({
+                            userId: u.id,
+                            role: checked ? 'portal_user_writer' : 'portal_user',
+                          })
+                        }
+                        disabled={roleMutation.isPending}
+                        data-testid={`switch-portal-writer-${u.id}`}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         <div className="pt-2 border-t">
           <div className="flex items-center justify-between gap-2 mb-2">

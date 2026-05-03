@@ -3,16 +3,27 @@
 // filtered to entities owned by the portal user or their linked Vega user.
 
 import { Router, type Request, type RequestHandler, type Response } from 'express';
+import { z } from 'zod';
 import { storage } from './storage';
-import { requirePortalAuth } from './portal/middleware';
+import { requirePortalAuth, requirePortalWriter } from './portal/middleware';
 import type {
   Objective,
   KeyResult,
   BigRock,
   CheckIn,
   Ambition,
+  InsertObjective,
+  InsertKeyResult,
+  InsertBigRock,
+  InsertCheckIn,
 } from '@shared/schema';
 import type { GalaxyAuthContext } from './portal/galaxy-jwt';
+import {
+  calculateKeyResultProgress,
+  calculateObjectiveRollupProgress,
+} from './routes-okr';
+import { captureEntitySnapshot, getPacificDateString } from './services/progress-snapshots';
+import { createNotification } from './services/notification-service';
 
 /**
  * Build the portal router. Production calls this with no arguments and the
@@ -272,6 +283,348 @@ portalRouter.get('/check-ins', async (req: Request, res: Response) => {
     authoredCheckIn(c, identity) || (c.entityId && ownedIds.has(c.entityId))
   );
   res.json(filtered);
+});
+
+// ----- Write actions (portal_user_writer only) -----------------------------
+
+const EDIT_WINDOW_MS = 30 * 60 * 1000; // 30 minutes
+const VALID_ENTITY_TYPES = new Set(['objective', 'key_result', 'big_rock']);
+
+// Portal write contract — keeps the public surface small and stable so Galaxy
+// can codegen against it. We map these fields to the internal check_ins
+// columns server-side.
+// Allowed status values are kept in sync with the OpenAPI enum.
+const PORTAL_CHECK_IN_STATUS = ['on_track', 'at_risk', 'behind', 'completed', 'blocked'] as const;
+const portalStatusSchema = z.enum(PORTAL_CHECK_IN_STATUS);
+
+const portalCheckInCreateSchema = z.object({
+  entityType: z.enum(['objective', 'key_result', 'big_rock']),
+  entityId: z.string().min(1),
+  progress: z.number().min(0).max(100).optional(),
+  status: portalStatusSchema.optional(),
+  note: z.string().optional(),
+  confidence: z.number().int().min(0).max(100).optional(),
+  asOfDate: z.union([z.string().datetime(), z.date()]).optional(),
+});
+
+const portalCheckInPatchSchema = z.object({
+  progress: z.number().min(0).max(100).optional(),
+  status: portalStatusSchema.optional(),
+  note: z.string().optional(),
+  confidence: z.number().int().min(0).max(100).optional(),
+  asOfDate: z.union([z.string().datetime(), z.date()]).optional(),
+});
+
+type PortalCheckInCreate = z.infer<typeof portalCheckInCreateSchema>;
+type PortalCheckInPatch = z.infer<typeof portalCheckInPatchSchema>;
+
+async function loadOwnedEntityForWrite(
+  tenantId: string,
+  entityType: string,
+  entityId: string,
+  identity: PortalIdentity,
+): Promise<{ ok: true; entity: Objective | KeyResult | BigRock; closed: boolean; closedReason?: string; currentProgress: number | null } | { ok: false; status: number; error: string }> {
+  if (entityType === 'objective') {
+    const obj = await storage.getObjectiveById(entityId);
+    if (!obj || obj.tenantId !== tenantId) return { ok: false, status: 403, error: 'forbidden' };
+    if (!ownsObjective(obj, identity)) return { ok: false, status: 403, error: 'forbidden' };
+    return {
+      ok: true,
+      entity: obj,
+      closed: obj.status === 'closed',
+      closedReason: 'Cannot check in on a closed objective.',
+      currentProgress: obj.progress ?? null,
+    };
+  }
+  if (entityType === 'key_result') {
+    const kr = await storage.getKeyResultById(entityId);
+    if (!kr || kr.tenantId !== tenantId) return { ok: false, status: 403, error: 'forbidden' };
+    if (!ownsKeyResult(kr, identity)) return { ok: false, status: 403, error: 'forbidden' };
+    if (kr.status === 'closed') {
+      return { ok: true, entity: kr, closed: true, closedReason: 'Cannot check in on a closed key result.', currentProgress: kr.progress ?? null };
+    }
+    if (kr.objectiveId) {
+      const parent = await storage.getObjectiveById(kr.objectiveId);
+      if (parent?.status === 'closed') {
+        return { ok: true, entity: kr, closed: true, closedReason: 'Cannot check in - the parent objective is closed.', currentProgress: kr.progress ?? null };
+      }
+    }
+    return { ok: true, entity: kr, closed: false, currentProgress: kr.progress ?? null };
+  }
+  if (entityType === 'big_rock') {
+    const br = await storage.getBigRockById(entityId);
+    if (!br || br.tenantId !== tenantId) return { ok: false, status: 403, error: 'forbidden' };
+    if (!ownsBigRock(br, identity)) return { ok: false, status: 403, error: 'forbidden' };
+    return {
+      ok: true,
+      entity: br,
+      closed: br.status === 'closed',
+      closedReason: 'Cannot check in on a closed Big Rock.',
+      currentProgress: br.completionPercentage ?? null,
+    };
+  }
+  return { ok: false, status: 400, error: 'invalid_entity_type' };
+}
+
+async function applyCheckInToEntity(checkIn: CheckIn): Promise<void> {
+  const { entityType, entityId } = checkIn;
+  const hasProgress = checkIn.newProgress !== undefined && checkIn.newProgress !== null;
+
+  if (entityType === 'objective') {
+    const updateData: Partial<InsertObjective> = {
+      lastCheckInAt: checkIn.createdAt ?? undefined,
+    };
+    if (checkIn.note) updateData.lastCheckInNote = checkIn.note;
+    if (hasProgress) updateData.progress = checkIn.newProgress as number;
+    if (checkIn.newStatus) {
+      updateData.status = checkIn.newStatus;
+      updateData.statusOverride = 'true';
+    }
+    await storage.updateObjective(entityId, updateData);
+    return;
+  }
+
+  if (entityType === 'key_result') {
+    const keyResult = await storage.getKeyResultById(entityId);
+    const hasNewValue = checkIn.newValue !== undefined && checkIn.newValue !== null;
+
+    let calculatedProgress: number | undefined;
+    if (keyResult && hasNewValue) {
+      calculatedProgress = calculateKeyResultProgress(
+        checkIn.newValue as number,
+        keyResult.targetValue ?? 0,
+        keyResult.initialValue ?? 0,
+        keyResult.metricType || 'increase',
+      );
+    } else if (hasProgress) {
+      calculatedProgress = checkIn.newProgress as number;
+    }
+
+    const krUpdate: Partial<InsertKeyResult> = {
+      lastCheckInAt: checkIn.createdAt ?? undefined,
+    };
+    if (checkIn.newStatus) krUpdate.status = checkIn.newStatus;
+    if (checkIn.note) krUpdate.lastCheckInNote = checkIn.note;
+    if (hasNewValue) krUpdate.currentValue = checkIn.newValue as number;
+    if (calculatedProgress !== undefined) krUpdate.progress = calculatedProgress;
+    await storage.updateKeyResult(entityId, krUpdate);
+
+    if (keyResult && keyResult.objectiveId && (hasNewValue || hasProgress)) {
+      const objective = await storage.getObjectiveById(keyResult.objectiveId);
+      if (objective && objective.progressMode === 'rollup') {
+        const newProgress = await calculateObjectiveRollupProgress(keyResult.objectiveId);
+        await storage.updateObjective(keyResult.objectiveId, { progress: newProgress });
+      }
+    }
+    return;
+  }
+
+  if (entityType === 'big_rock') {
+    const brUpdate: Partial<InsertBigRock> = {
+      lastCheckInAt: checkIn.createdAt ?? undefined,
+    };
+    if (checkIn.newStatus) brUpdate.status = checkIn.newStatus;
+    if (checkIn.note) brUpdate.lastCheckInNote = checkIn.note;
+    if (hasProgress) brUpdate.completionPercentage = checkIn.newProgress as number;
+    await storage.updateBigRock(entityId, brUpdate);
+  }
+}
+
+// Map the portal's public contract onto the internal check_ins columns.
+function mapPortalCreateToInsert(
+  portal: PortalCheckInCreate,
+  ctx: { tenantId: string; userId: string; userEmail: string | null; currentProgress: number | null },
+): InsertCheckIn {
+  const previousProgress = ctx.currentProgress ?? 0;
+  let newProgress = portal.progress ?? previousProgress;
+  // Safety net: marking objective/big-rock 'completed' implies 100%.
+  if (
+    portal.status === 'completed' &&
+    (portal.entityType === 'objective' || portal.entityType === 'big_rock') &&
+    newProgress < 100
+  ) {
+    newProgress = 100;
+  }
+  const asOfDate =
+    portal.asOfDate instanceof Date
+      ? portal.asOfDate
+      : portal.asOfDate
+      ? new Date(portal.asOfDate)
+      : undefined;
+
+  // confidence is part of the public contract for forward-compat but not yet
+  // persisted on check_ins (no column today). We accept-and-ignore so Galaxy
+  // can adopt it before the column is added.
+  void portal.confidence;
+
+  return {
+    tenantId: ctx.tenantId,
+    userId: ctx.userId,
+    userEmail: ctx.userEmail ?? undefined,
+    entityType: portal.entityType,
+    entityId: portal.entityId,
+    previousProgress,
+    newProgress,
+    newStatus: portal.status,
+    note: portal.note,
+    asOfDate,
+    source: 'galaxy_portal',
+  };
+}
+
+function mapPortalPatchToUpdate(
+  patch: PortalCheckInPatch,
+  existing: CheckIn,
+): Partial<InsertCheckIn> {
+  const update: Partial<InsertCheckIn> = {};
+  if (patch.progress !== undefined) update.newProgress = patch.progress;
+  if (patch.status !== undefined) update.newStatus = patch.status;
+  if (patch.note !== undefined) update.note = patch.note;
+  if (patch.asOfDate !== undefined) {
+    update.asOfDate =
+      patch.asOfDate instanceof Date ? patch.asOfDate : new Date(patch.asOfDate);
+  }
+  // Status=completed safety net mirrors POST behavior.
+  const effectiveStatus = patch.status ?? existing.newStatus;
+  const effectiveProgress = update.newProgress ?? existing.newProgress ?? 0;
+  if (
+    effectiveStatus === 'completed' &&
+    (existing.entityType === 'objective' || existing.entityType === 'big_rock') &&
+    Number(effectiveProgress) < 100
+  ) {
+    update.newProgress = 100;
+  }
+  void patch.confidence;
+  return update;
+}
+
+async function captureSnapshotForCheckIn(checkIn: CheckIn): Promise<void> {
+  if (checkIn.entityType !== 'objective' && checkIn.entityType !== 'key_result') return;
+  try {
+    await captureEntitySnapshot({
+      tenantId: checkIn.tenantId,
+      entityType: checkIn.entityType,
+      entityId: checkIn.entityId,
+      progress: checkIn.newProgress ?? 0,
+      status: checkIn.newStatus,
+      source: 'galaxy_portal',
+      snapshotDate: getPacificDateString(),
+    });
+  } catch (err) {
+    console.error('[Portal] Failed to capture progress snapshot:', err);
+  }
+}
+
+async function notifyOwnersOfCheckIn(checkIn: CheckIn, actorUserId: string): Promise<void> {
+  try {
+    let ownerIds: (string | null | undefined)[] = [];
+    if (checkIn.entityType === 'objective') {
+      const o = await storage.getObjectiveById(checkIn.entityId);
+      if (o) ownerIds = [o.ownerId, o.checkInOwnerId, ...(o.coOwnerIds || [])];
+    } else if (checkIn.entityType === 'key_result') {
+      const k = await storage.getKeyResultById(checkIn.entityId);
+      if (k) ownerIds = [k.ownerId];
+    } else if (checkIn.entityType === 'big_rock') {
+      const b = await storage.getBigRockById(checkIn.entityId);
+      if (b) ownerIds = [b.ownerId, b.accountableId];
+    }
+    const recipients = Array.from(new Set(ownerIds.filter((id): id is string => !!id && id !== actorUserId)));
+    await Promise.all(recipients.map(userId =>
+      createNotification({
+        tenantId: checkIn.tenantId,
+        userId,
+        type: 'assigned',
+        title: 'New check-in from Galaxy Portal',
+        body: checkIn.note || `A ${checkIn.entityType.replace('_', ' ')} was updated via Galaxy Portal.`,
+        entityType: checkIn.entityType,
+        entityId: checkIn.entityId,
+      }),
+    ));
+  } catch (err) {
+    console.error('[Portal] Failed to send check-in notifications:', err);
+  }
+}
+
+portalRouter.post('/check-ins', requirePortalWriter, async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.effectiveTenantId!;
+    const user = req.user!;
+    const ctx = req.portalAuth!;
+    const identity = buildIdentity(req);
+
+    const parsed = portalCheckInCreateSchema.parse(req.body);
+    if (!VALID_ENTITY_TYPES.has(parsed.entityType)) {
+      return res.status(400).json({ error: 'invalid_entity_type' });
+    }
+
+    const owned = await loadOwnedEntityForWrite(tenantId, parsed.entityType, parsed.entityId, identity);
+    if (!owned.ok) return res.status(owned.status).json({ error: owned.error });
+    if (owned.closed) {
+      return res.status(403).json({ error: 'entity_closed', error_description: owned.closedReason });
+    }
+
+    const insertValues = mapPortalCreateToInsert(parsed, {
+      tenantId,
+      userId: user.id,
+      userEmail: ctx.email || (user.email && !user.email.endsWith('@portal.invalid') ? user.email : null),
+      currentProgress: owned.currentProgress,
+    });
+
+    const checkIn = await storage.createCheckIn(insertValues);
+    await applyCheckInToEntity(checkIn);
+    await captureSnapshotForCheckIn(checkIn);
+    notifyOwnersOfCheckIn(checkIn, user.id).catch(() => {});
+
+    res.status(201).json(checkIn);
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: 'validation_error', details: err.errors });
+    }
+    console.error('[Portal] POST /check-ins failed:', err);
+    res.status(500).json({ error: 'server_error' });
+  }
+});
+
+portalRouter.patch('/check-ins/:id', requirePortalWriter, async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.effectiveTenantId!;
+    const user = req.user!;
+    const identity = buildIdentity(req);
+
+    const existing = await storage.getCheckInById(req.params.id);
+    if (!existing || existing.tenantId !== tenantId) {
+      return res.status(404).json({ error: 'not_found' });
+    }
+    // Author-only edits.
+    if (!authoredCheckIn(existing, identity)) {
+      return res.status(403).json({ error: 'forbidden', error_description: 'Only the author may edit this check-in' });
+    }
+    // 30-minute edit window from creation.
+    const createdAtMs = (existing.createdAt ?? new Date(0)).valueOf();
+    if (Date.now() - createdAtMs > EDIT_WINDOW_MS) {
+      return res.status(403).json({ error: 'edit_window_expired', error_description: 'Check-ins can only be edited within 30 minutes of creation' });
+    }
+    // Re-verify entity ownership in case ownership changed since creation.
+    const owned = await loadOwnedEntityForWrite(tenantId, existing.entityType, existing.entityId, identity);
+    if (!owned.ok) return res.status(owned.status).json({ error: owned.error });
+    if (owned.closed) {
+      return res.status(403).json({ error: 'entity_closed', error_description: owned.closedReason });
+    }
+
+    const parsed = portalCheckInPatchSchema.parse(req.body);
+    const updateData = mapPortalPatchToUpdate(parsed, existing);
+    const checkIn = await storage.updateCheckIn(req.params.id, updateData);
+    await applyCheckInToEntity(checkIn);
+    await captureSnapshotForCheckIn(checkIn);
+
+    res.json(checkIn);
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: 'validation_error', details: err.errors });
+    }
+    console.error('[Portal] PATCH /check-ins/:id failed:', err);
+    res.status(500).json({ error: 'server_error' });
+  }
 });
 
 } // end registerPortalRoutes

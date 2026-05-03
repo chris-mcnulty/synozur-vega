@@ -31,7 +31,12 @@ components:
         id: { type: string }
         email: { type: string }
         name: { type: string, nullable: true }
-        role: { type: string, example: portal_user }
+        role:
+          type: string
+          enum: [portal_user, portal_user_writer]
+          description: |
+            `portal_user` is read-only. `portal_user_writer` may also create
+            and edit (within 30 minutes) check-ins on owned entities.
         authProvider: { type: string, example: galaxy }
         galaxyUserId: { type: string, nullable: true }
         tenant:
@@ -173,3 +178,76 @@ paths:
           schema: { type: string, format: date-time }
       responses:
         '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '#/components/schemas/CheckIn' } } } } }
+    post:
+      summary: Create a check-in (requires `portal_user_writer` role)
+      description: |
+        Creates a check-in on an objective, key result, or big rock that the
+        authenticated portal user owns. Closed entities (or entities with a
+        closed parent objective) are rejected with `403 entity_closed`.
+        Cross-tenant or non-owned `entityId` values return `403 forbidden`.
+        Successful check-ins are recorded with `source = "galaxy_portal"` and
+        also update the parent entity's progress and progress snapshot.
+        Subject to a separate write rate limit (default 60/min, configurable
+        via `PORTAL_WRITE_RATE_LIMIT_PER_MINUTE`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [entityType, entityId]
+              properties:
+                entityType: { type: string, enum: [objective, key_result, big_rock] }
+                entityId: { type: string }
+                progress:
+                  type: number
+                  minimum: 0
+                  maximum: 100
+                  description: New progress value 0-100. Defaults to the entity's current progress if omitted.
+                status:
+                  type: string
+                  enum: [on_track, at_risk, behind, completed, blocked]
+                  description: New status. `completed` on objective/big_rock auto-bumps progress to 100.
+                note: { type: string }
+                confidence:
+                  type: integer
+                  minimum: 0
+                  maximum: 100
+                  description: Optional 0-100 confidence signal. Accepted for forward-compat; not yet persisted.
+                asOfDate: { type: string, format: date-time }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '#/components/schemas/CheckIn' } } } }
+        '400': { description: Validation error }
+        '403': { description: Forbidden / writer role required / entity closed / cross-tenant }
+        '429': { description: Per-tenant write rate limit exceeded }
+  /api/portal/check-ins/{id}:
+    patch:
+      summary: Edit a check-in within 30 minutes of creation (writer role, author only)
+      description: |
+        Edits the author's own check-in. Only allowed within 30 minutes of the
+        original `createdAt` and only on the original author's records.
+        Re-validates entity ownership and closed status; mirrors the side
+        effects of POST (entity progress + snapshot recapture). All fields
+        are optional — note-only or status-only edits are supported.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                progress: { type: number, minimum: 0, maximum: 100 }
+                status: { type: string, enum: [on_track, at_risk, behind, completed, blocked] }
+                note: { type: string }
+                confidence: { type: integer, minimum: 0, maximum: 100 }
+                asOfDate: { type: string, format: date-time }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '#/components/schemas/CheckIn' } } } }
+        '403': { description: Not author / edit window expired / entity closed }
+        '404': { description: Check-in not found in this tenant }
+        '429': { description: Per-tenant write rate limit exceeded }

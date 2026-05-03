@@ -1566,6 +1566,62 @@ ${changelogContent}`;
     }
   });
 
+  // Galaxy Portal: list portal users for a tenant (with current role)
+  app.get("/api/tenants/:id/portal-users", ...adminWithOptionalTenant, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      if (!canAccessAny && id !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      const all = await storage.getAllUsers(id);
+      const portalUsers = all
+        .filter(u => u.role === ROLES.PORTAL_USER || u.role === ROLES.PORTAL_USER_WRITER)
+        .map(u => ({
+          id: u.id,
+          email: u.email,
+          name: u.name,
+          role: u.role,
+          authProvider: u.authProvider,
+          galaxyUserId: u.galaxyUserId,
+          createdAt: u.createdAt,
+        }));
+      res.json(portalUsers);
+    } catch (error) {
+      console.error("Error listing portal users:", error);
+      res.status(500).json({ error: "Failed to list portal users" });
+    }
+  });
+
+  // Galaxy Portal: toggle a portal user's role between portal_user and portal_user_writer
+  app.patch("/api/tenants/:id/portal-users/:userId/role", ...adminWithOptionalTenant, async (req: Request, res: Response) => {
+    try {
+      const { id, userId } = req.params;
+      const { role } = req.body as { role?: string };
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      if (!canAccessAny && id !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      if (role !== ROLES.PORTAL_USER && role !== ROLES.PORTAL_USER_WRITER) {
+        return res.status(400).json({ error: "invalid_role", error_description: "Role must be portal_user or portal_user_writer" });
+      }
+      const target = await storage.getUser(userId);
+      if (!target || target.tenantId !== id) {
+        return res.status(404).json({ error: "Portal user not found in tenant" });
+      }
+      if (target.role !== ROLES.PORTAL_USER && target.role !== ROLES.PORTAL_USER_WRITER) {
+        return res.status(400).json({ error: "not_a_portal_user" });
+      }
+      const updated = await storage.updateUser(userId, { role });
+      res.json({ id: updated.id, role: updated.role });
+    } catch (error) {
+      console.error("Error updating portal user role:", error);
+      res.status(500).json({ error: "Failed to update portal user role" });
+    }
+  });
+
   // Galaxy Portal: audit log viewer
   app.get("/api/tenants/:id/portal-audit", ...adminWithOptionalTenant, async (req: Request, res: Response) => {
     try {

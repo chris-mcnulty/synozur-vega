@@ -37,6 +37,10 @@ export const ROLES = {
   // approve/reject pending OKRs. Inherits a tenant_user-equivalent baseline
   // plus APPROVE_OKR.
   OKR_APPROVER: 'okr_approver',
+  // Galaxy Portal writer — same surface as portal_user, plus permission to
+  // POST/PATCH check-ins for entities the user owns. Granted manually by a
+  // tenant admin via the TenantAdmin Galaxy Portal card.
+  PORTAL_USER_WRITER: 'portal_user_writer',
 } as const;
 
 export type Role = typeof ROLES[keyof typeof ROLES];
@@ -52,6 +56,7 @@ export const ROLE_USER_TYPE_MAP: Record<Role, UserType> = {
   [ROLES.OKR_PLANNER]: USER_TYPES.CLIENT,
   [ROLES.PORTAL_USER]: USER_TYPES.CLIENT,
   [ROLES.OKR_APPROVER]: USER_TYPES.CLIENT,
+  [ROLES.PORTAL_USER_WRITER]: USER_TYPES.CLIENT,
 };
 
 // Permission types
@@ -303,6 +308,15 @@ export const PERMISSION_MATRIX: Record<Role, Permission[]> = {
     PERMISSIONS.USE_AI_CHAT,
     PERMISSIONS.EXPORT_DATA,
   ],
+
+  // Galaxy Portal writer — same read surface as portal_user, plus the ability
+  // to author check-ins on owned entities. Still confined to /api/portal/*.
+  [ROLES.PORTAL_USER_WRITER]: [
+    PERMISSIONS.READ_TENANT_DATA,
+    PERMISSIONS.VIEW_FOUNDATIONS,
+    PERMISSIONS.EXPORT_DATA,
+    PERMISSIONS.UPDATE_OWN_OKR,
+  ],
 };
 
 /**
@@ -356,6 +370,7 @@ export const ROLE_DISPLAY_NAMES: Record<Role, string> = {
   [ROLES.OKR_PLANNER]: 'OKR Planner',
   [ROLES.PORTAL_USER]: 'Galaxy Portal User',
   [ROLES.OKR_APPROVER]: 'OKR Approver',
+  [ROLES.PORTAL_USER_WRITER]: 'Galaxy Portal Writer',
 };
 
 /**
@@ -371,6 +386,7 @@ export const ROLE_DESCRIPTIONS: Record<Role, string> = {
   [ROLES.OKR_PLANNER]: 'Tenant user who can also create planning workshops',
   [ROLES.PORTAL_USER]: 'Galaxy-authenticated portal user with read-only access via /api/portal/*',
   [ROLES.OKR_APPROVER]: 'Reviews and approves pending OKRs in addition to standard user capabilities',
+  [ROLES.PORTAL_USER_WRITER]: 'Galaxy-authenticated portal user with read access plus the ability to author check-ins on owned entities via /api/portal/*',
 };
 
 /**

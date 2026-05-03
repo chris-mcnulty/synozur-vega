@@ -36,6 +36,8 @@ process.env.GALAXY_AUDIENCE = 'vega-portal-test';
 process.env.GALAXY_JWKS_URI = 'https://galaxy-test.synozur.invalid/.well-known/jwks.json';
 const RATE_LIMIT_PER_MINUTE = 20;
 process.env.PORTAL_RATE_LIMIT_PER_MINUTE = String(RATE_LIMIT_PER_MINUTE);
+const WRITE_RATE_LIMIT_PER_MINUTE = 20;
+process.env.PORTAL_WRITE_RATE_LIMIT_PER_MINUTE = String(WRITE_RATE_LIMIT_PER_MINUTE);
 
 // IMPORTANT: every server module is loaded via dynamic import below so the
 // env vars set above are observed at module-load time (DEFAULT_ISSUER /
@@ -279,6 +281,7 @@ async function startServer(): Promise<void> {
     validateJwksUri: async () => { /* skip SSRF guard for non-routable test URI */ },
   });
   const app = express();
+  app.use(express.json());
   app.use('/api/portal', createPortalRouter(createRequirePortalAuth(testValidator)));
   await new Promise<void>(resolve => {
     server = app.listen(0, '127.0.0.1', () => resolve());
@@ -308,6 +311,25 @@ async function call<T = unknown>(path: string, token?: string): Promise<CallResu
     body = null;
   }
   return { status: res.status, headers: res.headers, body };
+}
+
+async function callJson<T = unknown>(
+  method: 'POST' | 'PATCH',
+  path: string,
+  token: string,
+  body: unknown,
+): Promise<CallResult<T>> {
+  const res = await fetch(`${baseUrl}${path}`, {
+    method,
+    headers: {
+      authorization: `Bearer ${token}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  let parsed: T | null = null;
+  try { parsed = (await res.json()) as T; } catch { parsed = null; }
+  return { status: res.status, headers: res.headers, body: parsed };
 }
 
 // ---------------------------------------------------------------------------
@@ -507,6 +529,140 @@ async function caseJitProvisioning(): Promise<void> {
   assert(stillRows[0].id === created.id, 'second request reuses the same row');
 }
 
+interface CheckInRow {
+  id: string;
+  source: string;
+  newProgress: number | null;
+  entityId: string;
+  userId: string;
+}
+
+async function caseWriterReadOnlyBlocked(): Promise<void> {
+  console.log('\n[case 8] portal_user (no writer role) cannot POST /check-ins → 403');
+  const token = signToken({ clientId: CLIENT_A, sub: SUB_A, email: PORTAL_EMAIL_A });
+  const res = await callJson<ErrorBody>('POST', '/api/portal/check-ins', token, {
+    entityType: 'objective',
+    entityId: seeded.objectiveAId,
+    note: 'should be blocked',
+    newProgress: 25,
+  });
+  assert(res.status === 403, `read-only portal_user blocked (got ${res.status})`);
+  assert(res.body?.error === 'forbidden', '403 error code is forbidden');
+}
+
+let writerCheckInId = '';
+let writerUserId = '';
+
+async function caseWriterCanCreateCheckIn(): Promise<void> {
+  console.log('\n[case 9] portal_user_writer can POST /check-ins (source=galaxy_portal)');
+  // Promote Alice's JIT user to writer.
+  const aliceRows = await db.select().from(users).where(eq(users.galaxyUserId, SUB_A));
+  assert(aliceRows.length === 1, 'Alice JIT user exists from earlier cases');
+  writerUserId = aliceRows[0].id;
+  await db.update(users).set({ role: ROLES.PORTAL_USER_WRITER }).where(eq(users.id, writerUserId));
+
+  const token = signToken({ clientId: CLIENT_A, sub: SUB_A, email: PORTAL_EMAIL_A });
+  const res = await callJson<CheckInRow>('POST', '/api/portal/check-ins', token, {
+    entityType: 'objective',
+    entityId: seeded.objectiveAId,
+    note: 'portal write',
+    progress: 42,
+    status: 'on_track',
+    confidence: 80,
+  });
+  assert(res.status === 201, `writer POST returns 201 (got ${res.status})`);
+  assert(res.body?.source === 'galaxy_portal', "check-in source is 'galaxy_portal'");
+  assert(res.body?.newProgress === 42, 'progress persisted as newProgress=42');
+  assert(res.body?.userId === writerUserId, 'check-in linked to portal user id');
+  // Write rate-limit headers must accompany every successful write.
+  assert(
+    res.headers.get('x-ratelimit-write-limit') === String(WRITE_RATE_LIMIT_PER_MINUTE),
+    'X-RateLimit-Write-Limit reflects configured cap',
+  );
+  assert(
+    res.headers.get('x-ratelimit-write-remaining') !== null,
+    'X-RateLimit-Write-Remaining is set',
+  );
+  writerCheckInId = res.body!.id;
+
+  // Confirm objective progress was applied.
+  const objs = await call<Array<{ id: string; progress: number | null }>>('/api/portal/objectives', token);
+  const owned = (objs.body ?? []).find(o => o.id === seeded.objectiveAId);
+  assert(owned?.progress === 42, 'objective progress updated to 42');
+}
+
+async function caseWriterCrossTenantBlocked(): Promise<void> {
+  console.log('\n[case 10] writer cannot check in on cross-tenant entityId → 403');
+  const token = signToken({ clientId: CLIENT_A, sub: SUB_A, email: PORTAL_EMAIL_A });
+  const res = await callJson<ErrorBody>('POST', '/api/portal/check-ins', token, {
+    entityType: 'objective',
+    entityId: seeded.objectiveBId, // tenant B objective
+    note: 'cross-tenant attack',
+    progress: 99,
+  });
+  assert(res.status === 403, `cross-tenant POST blocked (got ${res.status})`);
+  assert(res.body?.error === 'forbidden', '403 error is forbidden');
+}
+
+async function caseWriterEditWindow(): Promise<void> {
+  console.log('\n[case 11] author can PATCH within 30-min window; expired returns 403');
+  const token = signToken({ clientId: CLIENT_A, sub: SUB_A, email: PORTAL_EMAIL_A });
+
+  const ok = await callJson<CheckInRow>('PATCH', `/api/portal/check-ins/${writerCheckInId}`, token, {
+    note: 'edited within window',
+    progress: 55,
+  });
+  assert(ok.status === 200, `PATCH within window returns 200 (got ${ok.status})`);
+  assert(ok.body?.newProgress === 55, 'PATCH applied progress=55');
+
+  // Note-only PATCH must succeed (all fields are optional in the patch contract).
+  const noteOnly = await callJson<CheckInRow>(
+    'PATCH',
+    `/api/portal/check-ins/${writerCheckInId}`,
+    token,
+    { note: 'note-only edit' },
+  );
+  assert(noteOnly.status === 200, `note-only PATCH returns 200 (got ${noteOnly.status})`);
+  assert(noteOnly.body?.note === 'note-only edit', 'note-only PATCH applied');
+  assert(noteOnly.body?.newProgress === 55, 'note-only PATCH preserves prior progress');
+
+  // Backdate the row past the 30-min edit window.
+  const past = new Date(Date.now() - 31 * 60 * 1000);
+  await db.update(checkIns).set({ createdAt: past }).where(eq(checkIns.id, writerCheckInId));
+
+  const expired = await callJson<ErrorBody>('PATCH', `/api/portal/check-ins/${writerCheckInId}`, token, {
+    note: 'too late',
+  });
+  assert(expired.status === 403, `PATCH after 30 min returns 403 (got ${expired.status})`);
+  assert(expired.body?.error === 'edit_window_expired', '403 error is edit_window_expired');
+}
+
+async function caseWriteRateLimit(): Promise<void> {
+  console.log(`\n[case 12] write rate limit returns 429 after ${WRITE_RATE_LIMIT_PER_MINUTE}/min`);
+  const token = signToken({ clientId: CLIENT_A, sub: SUB_A, email: PORTAL_EMAIL_A });
+  let saw429 = false;
+  let lastStatus = 0;
+  for (let i = 0; i < WRITE_RATE_LIMIT_PER_MINUTE + 5; i += 1) {
+    const r = await callJson<ErrorBody>('POST', '/api/portal/check-ins', token, {
+      entityType: 'objective',
+      entityId: seeded.objectiveAId,
+      progress: 50 + i,
+    });
+    lastStatus = r.status;
+    if (r.status === 429) {
+      saw429 = true;
+      assert(r.body?.error === 'rate_limit_exceeded', '429 body has rate_limit_exceeded');
+      assert(r.headers.get('retry-after') !== null, '429 sets Retry-After header');
+      assert(
+        r.headers.get('x-ratelimit-write-limit') === String(WRITE_RATE_LIMIT_PER_MINUTE),
+        'X-RateLimit-Write-Limit set on 429',
+      );
+      break;
+    }
+  }
+  assert(saw429, `expected 429 within burst (last status ${lastStatus})`);
+}
+
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
@@ -524,7 +680,12 @@ async function run(): Promise<void> {
     // JIT before rate-limit so case-6 exhausting tenant-A's bucket doesn't
     // also exhaust tenant-B's.
     await caseJitProvisioning();
+    await caseWriterReadOnlyBlocked();
+    await caseWriterCanCreateCheckIn();
+    await caseWriterCrossTenantBlocked();
+    await caseWriterEditWindow();
     await caseRateLimit();
+    await caseWriteRateLimit();
   } finally {
     await stopServer();
     await tearDown();

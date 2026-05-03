@@ -27,21 +27,42 @@ declare global {
 
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const RATE_LIMIT_PER_WINDOW = Number(process.env.PORTAL_RATE_LIMIT_PER_MINUTE || 600);
+const WRITE_RATE_LIMIT_PER_WINDOW = Number(process.env.PORTAL_WRITE_RATE_LIMIT_PER_MINUTE || 60);
 const tenantBuckets = new Map<string, number[]>();
+const tenantWriteBuckets = new Map<string, number[]>();
 
-function checkRateLimit(tenantId: string): { allowed: boolean; remaining: number; resetMs: number } {
+interface RateLimitResult {
+  allowed: boolean;
+  remaining: number;
+  resetMs: number;
+  limit: number;
+}
+
+function checkBucket(
+  buckets: Map<string, number[]>,
+  key: string,
+  limit: number,
+): RateLimitResult {
   const now = Date.now();
   const cutoff = now - RATE_LIMIT_WINDOW_MS;
-  let bucket = tenantBuckets.get(tenantId) || [];
+  let bucket = buckets.get(key) || [];
   bucket = bucket.filter(ts => ts > cutoff);
-  if (bucket.length >= RATE_LIMIT_PER_WINDOW) {
-    tenantBuckets.set(tenantId, bucket);
+  if (bucket.length >= limit) {
+    buckets.set(key, bucket);
     const oldest = bucket[0] ?? now;
-    return { allowed: false, remaining: 0, resetMs: Math.max(0, oldest + RATE_LIMIT_WINDOW_MS - now) };
+    return { allowed: false, remaining: 0, resetMs: Math.max(0, oldest + RATE_LIMIT_WINDOW_MS - now), limit };
   }
   bucket.push(now);
-  tenantBuckets.set(tenantId, bucket);
-  return { allowed: true, remaining: RATE_LIMIT_PER_WINDOW - bucket.length, resetMs: RATE_LIMIT_WINDOW_MS };
+  buckets.set(key, bucket);
+  return { allowed: true, remaining: limit - bucket.length, resetMs: RATE_LIMIT_WINDOW_MS, limit };
+}
+
+function checkRateLimit(tenantId: string): RateLimitResult {
+  return checkBucket(tenantBuckets, tenantId, RATE_LIMIT_PER_WINDOW);
+}
+
+function checkWriteRateLimit(tenantId: string): RateLimitResult {
+  return checkBucket(tenantWriteBuckets, tenantId, WRITE_RATE_LIMIT_PER_WINDOW);
 }
 
 // ----- JIT provisioning -----------------------------------------------------
@@ -162,6 +183,19 @@ export function createRequirePortalAuth(
       return;
     }
 
+    const isWrite = req.method !== 'GET' && req.method !== 'HEAD' && req.method !== 'OPTIONS';
+    if (isWrite) {
+      const wrl = checkWriteRateLimit(ctx.tenant.id);
+      res.setHeader('X-RateLimit-Write-Limit', String(WRITE_RATE_LIMIT_PER_WINDOW));
+      res.setHeader('X-RateLimit-Write-Remaining', String(wrl.remaining));
+      if (!wrl.allowed) {
+        res.setHeader('Retry-After', String(Math.ceil(wrl.resetMs / 1000)));
+        res.status(429).json({ error: 'rate_limit_exceeded', scope: 'write' });
+        recordAudit(req, res, ctx, startedAt, 'write_rate_limited');
+        return;
+      }
+    }
+
     const rl = checkRateLimit(ctx.tenant.id);
     res.setHeader('X-RateLimit-Limit', String(RATE_LIMIT_PER_WINDOW));
     res.setHeader('X-RateLimit-Remaining', String(rl.remaining));
@@ -196,7 +230,7 @@ export function createRequirePortalAuth(
       recordAudit(req, res, ctx, startedAt, 'tenant_mismatch');
       return;
     }
-    if (user.role !== ROLES.PORTAL_USER) {
+    if (user.role !== ROLES.PORTAL_USER && user.role !== ROLES.PORTAL_USER_WRITER) {
       console.error(`[Portal] User ${user.id} has unexpected role '${user.role}' for portal access`);
       res.status(403).json({ error: 'invalid_role' });
       recordAudit(req, res, ctx, startedAt, 'invalid_role');
@@ -216,3 +250,15 @@ export function createRequirePortalAuth(
  * Default production middleware bound to the real Galaxy JWT validator.
  */
 export const requirePortalAuth = createRequirePortalAuth();
+
+/**
+ * Guard that allows the request only if the authenticated portal user holds
+ * the writer role. Must run after `requirePortalAuth` populated `req.user`.
+ */
+export function requirePortalWriter(req: Request, res: Response, next: NextFunction): void {
+  if (req.user?.role !== ROLES.PORTAL_USER_WRITER) {
+    res.status(403).json({ error: 'forbidden', error_description: 'Portal writer role required' });
+    return;
+  }
+  next();
+}

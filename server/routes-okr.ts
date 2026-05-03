@@ -193,7 +193,7 @@ function normalizeProgress(progress: number): number {
  * Returns the new progress value (0-100)
  * Note: Individual progress values are capped at 100% before weighting to avoid inflated averages
  */
-async function calculateObjectiveRollupProgress(objectiveId: string): Promise<number> {
+export async function calculateObjectiveRollupProgress(objectiveId: string): Promise<number> {
   // Get all Key Results for this objective
   const keyResults = await storage.getKeyResultsByObjectiveId(objectiveId);
   
@@ -1771,7 +1771,7 @@ okrRouter.get("/objectives/:id/calculate-progress", async (req, res) => {
 });
 
 // Helper function to calculate progress from values based on metricType
-function calculateKeyResultProgress(
+export function calculateKeyResultProgress(
   currentValue: number,
   targetValue: number,
   initialValue: number,
