@@ -43,10 +43,11 @@ import {
   MessageSquare
 } from "lucide-react";
 import { format, startOfYear, endOfYear, startOfQuarter, endOfQuarter, differenceInDays, addMonths } from "date-fns";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import type { CheckIn, Objective, KeyResult, Strategy, BigRock } from "@shared/schema";
 import { MilestoneTimeline, type PhasedTargets } from "./MilestoneTimeline";
 import { ForecastingPanel } from "./ForecastingPanel";
+import { TrendChart, parseTrendDate, type TrendPoint } from "./TrendChart";
 import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
 import { PlannerTaskLinkPanel } from "@/components/planner/PlannerTaskLinkPanel";
 import { DiscussionPanel } from "@/components/DiscussionPanel";
@@ -69,7 +70,7 @@ function ConfidenceTrendCard({
   const points = series
     .filter((p) => typeof p.confidence === "number")
     .map((p) => ({
-      date: format(new Date(p.date), "MMM d"),
+      date: format(parseTrendDate(p.date), "MMM d"),
       confidence: Math.round((p.confidence as number) * 100) / 100,
     }));
 
@@ -308,7 +309,7 @@ export function OKRDetailPane({
   // check-in list above so chart/forecast history stays stable when users
   // edit or delete individual check-ins.
   const trendPath = entityType === "key_result" ? "key-results" : "objectives";
-  const { data: trendSeries = [] } = useQuery<Array<{ date: string; progress: number; confidence?: number | null }>>({
+  const { data: trendSeries = [] } = useQuery<TrendPoint[]>({
     queryKey: ["/api/okr", trendPath, entity?.id, "trend"],
     queryFn: async () => {
       if (!entity?.id) return [];
@@ -471,52 +472,11 @@ export function OKRDetailPane({
     return Math.round((daysSinceStart / totalPeriodDays) * 100);
   };
 
-  // Build chart data from the snapshot-backed trend series (one point per day,
-  // immune to check-in edits). The /trend endpoint already returns ascending
-  // by date and falls back to raw check-ins when no snapshots exist yet.
-  const chartData = trendSeries.map((point) => {
-    const pointDate = new Date(point.date);
-    return {
-      date: format(pointDate, "MMM d"),
-      actual: point.progress,
-      expected: getExpectedProgress(pointDate),
-      // Render confidence on a 0-100 scale alongside actual/expected so it
-      // shares the same y-axis.
-      confidence:
-        typeof point.confidence === "number"
-          ? Math.round(point.confidence * 100)
-          : null,
-    };
-  });
-
-  const hasConfidenceSeries = chartData.some((d) => d.confidence != null);
-
-  if (chartData.length === 0) {
-    // No history yet: show from period start to today using current progress
-    chartData.push({
-      date: format(periodStart, "MMM d"),
-      actual: 0,
-      expected: 0,
-      confidence: null,
-    });
-    chartData.push({
-      date: format(today, "MMM d"),
-      actual: entity.progress,
-      expected: getExpectedProgress(today),
-      confidence: null,
-    });
-  } else {
-    // Anchor the line at period start when our first data point is well after it
-    const firstPointDate = new Date(trendSeries[0].date);
-    if (differenceInDays(firstPointDate, periodStart) > 7) {
-      chartData.unshift({
-        date: format(periodStart, "MMM d"),
-        actual: 0,
-        expected: 0,
-        confidence: null,
-      });
-    }
-  }
+  // Whether the trend has any owner-reported confidence values (used to gate
+  // the separate ConfidenceTrendCard sparkline below the main chart).
+  const hasConfidenceSeries = trendSeries.some(
+    (p) => typeof p.confidence === "number",
+  );
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -600,48 +560,14 @@ export function OKRDetailPane({
                   </div>
                 )}
 
-                {chartData.length > 1 && (
-                  <div className="h-40 mt-4">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={chartData}>
-                        <XAxis 
-                          dataKey="date" 
-                          tick={{ fontSize: 11 }} 
-                          tickLine={false}
-                          axisLine={false}
-                        />
-                        <YAxis 
-                          domain={[0, 100]} 
-                          tick={{ fontSize: 11 }} 
-                          tickLine={false}
-                          axisLine={false}
-                          width={30}
-                        />
-                        <Tooltip 
-                          formatter={(value: number) => [`${Math.round(value)}%`]}
-                          labelStyle={{ fontSize: 12 }}
-                        />
-                        <ReferenceLine y={100} stroke="#e5e7eb" strokeDasharray="3 3" />
-                        <Line 
-                          type="monotone" 
-                          dataKey="expected" 
-                          stroke="#d1d5db" 
-                          strokeDasharray="5 5"
-                          dot={false}
-                          name="Expected"
-                        />
-                        <Line 
-                          type="monotone" 
-                          dataKey="actual" 
-                          stroke="hsl(var(--primary))" 
-                          strokeWidth={2}
-                          dot={{ fill: "hsl(var(--primary))", r: 3 }}
-                          name="Actual"
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                )}
+                <div className="mt-4">
+                  <TrendChart
+                    series={trendSeries}
+                    periodStart={periodStart}
+                    periodEnd={periodEnd}
+                    fallbackProgress={entity.progress}
+                  />
+                </div>
               </CardContent>
             </Card>
 

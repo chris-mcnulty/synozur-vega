@@ -1902,6 +1902,32 @@ okrRouter.post("/backfill-progress", async (req, res) => {
 import { calculatePaceMetrics, formatPaceDescription, calculateCompletionForecast, type PaceMetrics, type CompletionForecast, type TrendDirection, type CheckInData } from './okr-intelligence';
 import { getTrendSeriesForEntity, getTrendSeriesForEntities } from './services/progress-snapshots';
 
+// Build a trend series for the OKR detail chart that includes paceStatus per
+// point. Pulls from progress_snapshots (which carry paceStatus captured at
+// the time the snapshot was taken) and falls back to raw check-ins (without
+// paceStatus) when no snapshots exist for the entity yet.
+async function getTrendSeriesWithPace(
+  entityType: 'objective' | 'key_result',
+  entityId: string,
+): Promise<Array<{ date: string; progress: number; confidence: number | null; paceStatus: string | null }>> {
+  const snapshots = await storage.getProgressSnapshotsByEntity(entityType, entityId);
+  if (snapshots.length > 0) {
+    return snapshots.map(s => ({
+      date: s.snapshotDate,
+      progress: s.progress ?? 0,
+      confidence: s.confidence ?? null,
+      paceStatus: s.paceStatus ?? null,
+    }));
+  }
+  const series = await getTrendSeriesForEntity(entityType, entityId);
+  return series.map(p => ({
+    date: typeof p.asOfDate === 'string' ? p.asOfDate : new Date(p.asOfDate).toISOString(),
+    progress: p.newProgress,
+    confidence: p.confidence ?? null,
+    paceStatus: null,
+  }));
+}
+
 // Aggregate weekly key-result progress trend from progress snapshots for the
 // Executive Dashboard. Snapshot-backed so historical trend lines stay stable
 // even when users edit or delete individual check-ins.
@@ -2022,15 +2048,11 @@ okrRouter.get("/objectives/:id/trend", async (req: any, res) => {
     if (objective.tenantId !== effectiveTenantId) {
       return res.status(404).json({ error: "Objective not found" });
     }
-    const series = await getTrendSeriesForEntity('objective', req.params.id);
+    const series = await getTrendSeriesWithPace('objective', req.params.id);
     res.json({
       entityType: 'objective',
       entityId: req.params.id,
-      series: series.map(p => ({
-        date: p.asOfDate,
-        progress: p.newProgress,
-        confidence: p.confidence ?? null,
-      })),
+      series,
     });
   } catch (error) {
     console.error('[OKR Trend] Failed to get objective trend:', error);
@@ -2052,15 +2074,11 @@ okrRouter.get("/key-results/:id/trend", async (req: any, res) => {
     if (keyResult.tenantId !== effectiveTenantId) {
       return res.status(404).json({ error: "Key Result not found" });
     }
-    const series = await getTrendSeriesForEntity('key_result', req.params.id);
+    const series = await getTrendSeriesWithPace('key_result', req.params.id);
     res.json({
       entityType: 'key_result',
       entityId: req.params.id,
-      series: series.map(p => ({
-        date: p.asOfDate,
-        progress: p.newProgress,
-        confidence: p.confidence ?? null,
-      })),
+      series,
     });
   } catch (error) {
     console.error('[OKR Trend] Failed to get key result trend:', error);
