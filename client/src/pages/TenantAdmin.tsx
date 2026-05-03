@@ -1895,12 +1895,17 @@ function TeamManagementSection({
 type GalaxyPortalUpdate = {
   galaxyClientId?: string | null;
   galaxyEnabled?: boolean;
+  galaxySettings?: { issuer?: string; audience?: string; jwksUri?: string } | null;
 };
 
 function GalaxyPortalCard({ tenant }: { tenant: Tenant }) {
   const { toast } = useToast();
   const [editingClientId, setEditingClientId] = useState(false);
   const [clientIdDraft, setClientIdDraft] = useState(tenant.galaxyClientId ?? "");
+  const [editingTrust, setEditingTrust] = useState(false);
+  const [issuerDraft, setIssuerDraft] = useState(tenant.galaxySettings?.issuer ?? "");
+  const [audienceDraft, setAudienceDraft] = useState(tenant.galaxySettings?.audience ?? "");
+  const [jwksUriDraft, setJwksUriDraft] = useState(tenant.galaxySettings?.jwksUri ?? "");
 
   const { data: stats } = useQuery<{ windowDays: number; distinctUsers: number }>({
     queryKey: ["/api/tenants", tenant.id, "galaxy-portal/stats"],
@@ -1931,6 +1936,28 @@ function GalaxyPortalCard({ tenant }: { tenant: Tenant }) {
   const handleSaveClientId = () => {
     updateMutation.mutate({ galaxyClientId: clientIdDraft || null });
     setEditingClientId(false);
+  };
+
+  const handleSaveTrust = () => {
+    const issuer = issuerDraft.trim();
+    const audience = audienceDraft.trim();
+    const jwksUri = jwksUriDraft.trim();
+    const next: { issuer?: string; audience?: string; jwksUri?: string } = {};
+    if (issuer) next.issuer = issuer;
+    if (audience) next.audience = audience;
+    if (jwksUri) next.jwksUri = jwksUri;
+    const settings = Object.keys(next).length === 0 ? null : next;
+    updateMutation.mutate(
+      { galaxySettings: settings },
+      { onSuccess: () => setEditingTrust(false) },
+    );
+  };
+
+  const handleCancelTrust = () => {
+    setIssuerDraft(tenant.galaxySettings?.issuer ?? "");
+    setAudienceDraft(tenant.galaxySettings?.audience ?? "");
+    setJwksUriDraft(tenant.galaxySettings?.jwksUri ?? "");
+    setEditingTrust(false);
   };
 
   return (
@@ -2017,6 +2044,98 @@ function GalaxyPortalCard({ tenant }: { tenant: Tenant }) {
             Set a Galaxy Client ID before enabling the integration.
           </p>
         )}
+
+        <div className="pt-2 border-t">
+          <div className="flex items-center justify-between gap-2 mb-2">
+            <Label className="text-xs text-muted-foreground">Galaxy trust overrides</Label>
+            {!editingTrust && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setEditingTrust(true)}
+                data-testid={`button-edit-galaxy-trust-${tenant.id}`}
+              >
+                <Pencil className="h-3 w-3" />
+              </Button>
+            )}
+          </div>
+          {editingTrust ? (
+            <div className="space-y-2">
+              <div>
+                <Label className="text-xs">Issuer</Label>
+                <Input
+                  value={issuerDraft}
+                  onChange={(e) => setIssuerDraft(e.target.value)}
+                  placeholder="Defaults to GALAXY_ISSUER"
+                  className="text-sm"
+                  data-testid={`input-galaxy-issuer-${tenant.id}`}
+                />
+              </div>
+              <div>
+                <Label className="text-xs">Audience</Label>
+                <Input
+                  value={audienceDraft}
+                  onChange={(e) => setAudienceDraft(e.target.value)}
+                  placeholder="Defaults to GALAXY_AUDIENCE"
+                  className="text-sm"
+                  data-testid={`input-galaxy-audience-${tenant.id}`}
+                />
+              </div>
+              <div>
+                <Label className="text-xs">JWKS URI</Label>
+                <Input
+                  value={jwksUriDraft}
+                  onChange={(e) => setJwksUriDraft(e.target.value)}
+                  placeholder="Defaults to GALAXY_JWKS_URI"
+                  className="text-sm"
+                  data-testid={`input-galaxy-jwks-uri-${tenant.id}`}
+                />
+              </div>
+              <div className="flex gap-2 justify-end">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={handleCancelTrust}
+                  data-testid={`button-cancel-galaxy-trust-${tenant.id}`}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={handleSaveTrust}
+                  disabled={updateMutation.isPending}
+                  data-testid={`button-save-galaxy-trust-${tenant.id}`}
+                >
+                  Save
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-1 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Issuer</span>
+                <code className="bg-muted px-2 py-0.5 rounded truncate max-w-[60%]" data-testid={`text-galaxy-issuer-${tenant.id}`}>
+                  {tenant.galaxySettings?.issuer || <span className="text-muted-foreground">default</span>}
+                </code>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">Audience</span>
+                <code className="bg-muted px-2 py-0.5 rounded truncate max-w-[60%]" data-testid={`text-galaxy-audience-${tenant.id}`}>
+                  {tenant.galaxySettings?.audience || <span className="text-muted-foreground">default</span>}
+                </code>
+              </div>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-muted-foreground">JWKS URI</span>
+                <code className="bg-muted px-2 py-0.5 rounded truncate max-w-[60%]" data-testid={`text-galaxy-jwks-uri-${tenant.id}`}>
+                  {tenant.galaxySettings?.jwksUri || <span className="text-muted-foreground">default</span>}
+                </code>
+              </div>
+              <p className="text-muted-foreground pt-1">
+                Leave a field blank to fall back to the platform default.
+              </p>
+            </div>
+          )}
+        </div>
       </CardContent>
     </Card>
   );

@@ -1353,14 +1353,6 @@ ${changelogContent}`;
       const partialSchema = insertTenantSchema.partial();
       const validatedData = partialSchema.parse(req.body);
 
-      // Restrict who can configure Galaxy portal trust settings to platform
-      // admins, since galaxySettings governs token validation. Tenant admins
-      // may toggle galaxyEnabled/galaxyClientId but not the issuer/audience/
-      // jwksUri overrides.
-      if (validatedData.galaxySettings !== undefined && !canAccessAny) {
-        return res.status(403).json({ error: "Only platform admins may modify galaxySettings" });
-      }
-
       // SSRF guard for tenant-supplied JWKS URI overrides.
       const settings = validatedData.galaxySettings as { jwksUri?: string } | null | undefined;
       if (settings && typeof settings.jwksUri === 'string' && settings.jwksUri.length > 0) {
