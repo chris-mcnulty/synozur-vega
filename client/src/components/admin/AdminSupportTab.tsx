@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Loader2, ArrowLeft, Send, LifeBuoy, Clock, AlertCircle, CheckCircle2, MessageSquare, Eye, UserCheck, Filter } from "lucide-react";
+import { Loader2, ArrowLeft, Send, LifeBuoy, Clock, AlertCircle, CheckCircle2, MessageSquare, Eye, UserCheck, Filter, Search, History, FileText, X } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { CANNED_RESPONSES } from "@shared/schema";
 
 interface StaffUser {
   id: string;
@@ -45,6 +47,17 @@ interface TicketReply {
   user?: { id: string; firstName: string; lastName: string; email: string };
 }
 
+interface TicketHistoryEntry {
+  id: string;
+  ticketId: string;
+  userId: string | null;
+  field: string;
+  fromValue: string | null;
+  toValue: string | null;
+  createdAt: string;
+  user?: { id: string; firstName: string; lastName: string; email: string } | null;
+}
+
 interface TicketDetail {
   id: string;
   ticketNumber: number;
@@ -62,6 +75,7 @@ interface TicketDetail {
   resolvedAt: string | null;
   resolvedBy: string | null;
   replies: TicketReply[];
+  history?: TicketHistoryEntry[];
   author: { id: string; email: string; firstName: string; lastName: string } | null;
   tenant: { id: string; name: string } | null;
 }
@@ -71,6 +85,16 @@ function formatDate(dateStr: string) {
     month: "short",
     day: "numeric",
     year: "numeric",
+  });
+}
+
+function formatDateTime(dateStr: string) {
+  return new Date(dateStr).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
 }
 
@@ -130,12 +154,29 @@ function getStaffDisplayName(staff: StaffUser) {
   return name || staff.email;
 }
 
+function describeHistoryEntry(entry: TicketHistoryEntry, staffUsers: StaffUser[]): string {
+  const fromLabel = entry.fromValue ? formatLabel(entry.fromValue) : "—";
+  const toLabel = entry.toValue ? formatLabel(entry.toValue) : "—";
+  if (entry.field === "assignedTo") {
+    const fromUser = staffUsers.find((s) => s.id === entry.fromValue);
+    const toUser = staffUsers.find((s) => s.id === entry.toValue);
+    const fromName = fromUser ? getStaffDisplayName(fromUser) : entry.fromValue ? "Unknown" : "Unassigned";
+    const toName = toUser ? getStaffDisplayName(toUser) : entry.toValue ? "Unknown" : "Unassigned";
+    return `Assigned: ${fromName} → ${toName}`;
+  }
+  return `${formatLabel(entry.field)}: ${fromLabel} → ${toLabel}`;
+}
+
 export function AdminSupportTab() {
+  const { toast } = useToast();
   const [selectedTicketId, setSelectedTicketId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [priorityFilter, setPriorityFilter] = useState<string>("all");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [assignedFilter, setAssignedFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkAssignee, setBulkAssignee] = useState<string>("");
 
   const { data: staffUsers } = useQuery<StaffUser[]>({
     queryKey: ["/api/support/staff"],
@@ -150,6 +191,8 @@ export function AdminSupportTab() {
   if (priorityFilter !== "all") filters.priority = priorityFilter;
   if (categoryFilter !== "all") filters.category = categoryFilter;
   if (assignedFilter !== "all" && assignedFilter !== "my_assigned") filters.assignedTo = assignedFilter;
+  const trimmedQuery = searchQuery.trim();
+  if (trimmedQuery) filters.q = trimmedQuery;
 
   const { data: tickets, isLoading } = useQuery<TicketListItem[]>({
     queryKey: ["/api/support/tickets", filters],
@@ -165,7 +208,52 @@ export function AdminSupportTab() {
   const myAssignedCount = currentUser
     ? tickets?.filter((t) => t.assignedTo === currentUser.id && (t.status === "open" || t.status === "in_progress")).length ?? 0
     : 0;
-  const totalCount = displayedTickets?.length ?? 0;
+
+  const visibleIds = useMemo(() => (displayedTickets || []).map((t) => t.id), [displayedTickets]);
+  const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.has(id));
+  const someSelected = !allSelected && visibleIds.some((id) => selectedIds.has(id));
+
+  const bulkUpdate = useMutation({
+    mutationFn: async (payload: { status?: string; priority?: string; assignedTo?: string | null }) => {
+      const res = await apiRequest("POST", "/api/support/tickets/bulk", {
+        ticketIds: Array.from(selectedIds),
+        ...payload,
+      });
+      return res.json();
+    },
+    onSuccess: (data: { updated: number; failed: number }) => {
+      toast({
+        title: "Bulk update complete",
+        description: `${data.updated} ticket(s) updated${data.failed ? `, ${data.failed} failed` : ""}.`,
+      });
+      setSelectedIds(new Set());
+      setBulkAssignee("");
+      queryClient.invalidateQueries({ queryKey: ["/api/support/tickets"] });
+    },
+    onError: (err: Error) => {
+      toast({ title: "Bulk update failed", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const toggleSelection = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) next.add(id); else next.delete(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = (checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        visibleIds.forEach((id) => next.add(id));
+      } else {
+        visibleIds.forEach((id) => next.delete(id));
+      }
+      return next;
+    });
+  };
 
   if (selectedTicketId) {
     return (
@@ -255,7 +343,29 @@ export function AdminSupportTab() {
         <CardHeader className="pb-4">
           <CardTitle className="text-lg">Filters</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          <div className="relative">
+            <Search className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
+            <Input
+              type="search"
+              placeholder="Search tickets by title, description, or replies..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 pr-9"
+              data-testid="input-ticket-search"
+            />
+            {searchQuery && (
+              <Button
+                size="icon"
+                variant="ghost"
+                onClick={() => setSearchQuery("")}
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                data-testid="button-clear-search"
+              >
+                <X className="h-3.5 w-3.5" />
+              </Button>
+            )}
+          </div>
           <div className="flex flex-wrap gap-4">
             <div className="min-w-[160px]">
               <Label className="text-xs text-muted-foreground mb-1 block">Status</Label>
@@ -323,6 +433,73 @@ export function AdminSupportTab() {
         </CardContent>
       </Card>
 
+      {selectedIds.size > 0 && (
+        <Card className="border-primary/50 bg-primary/5" data-testid="bulk-actions-bar">
+          <CardContent className="p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Badge data-testid="badge-bulk-count">{selectedIds.size} selected</Badge>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedIds(new Set())}
+                  data-testid="button-clear-selection"
+                >
+                  Clear
+                </Button>
+              </div>
+              <div className="h-6 w-px bg-border" />
+              <Select
+                onValueChange={(value) => {
+                  if (value) bulkUpdate.mutate({ status: value });
+                }}
+                disabled={bulkUpdate.isPending}
+              >
+                <SelectTrigger className="w-[170px]" data-testid="select-bulk-status">
+                  <SelectValue placeholder="Change status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="open">Open</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
+                  <SelectItem value="resolved">Resolved</SelectItem>
+                  <SelectItem value="closed">Closed</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select
+                value={bulkAssignee}
+                onValueChange={(value) => {
+                  setBulkAssignee(value);
+                  bulkUpdate.mutate({ assignedTo: value === "unassigned" ? null : value });
+                }}
+                disabled={bulkUpdate.isPending}
+              >
+                <SelectTrigger className="w-[200px]" data-testid="select-bulk-assignee">
+                  <SelectValue placeholder="Reassign to..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
+                  {staffUsers?.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {getStaffDisplayName(s)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={() => bulkUpdate.mutate({ status: "closed" })}
+                disabled={bulkUpdate.isPending}
+                data-testid="button-bulk-close"
+              >
+                {bulkUpdate.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <CheckCircle2 className="h-4 w-4 mr-2" />}
+                Close selected
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -332,55 +509,81 @@ export function AdminSupportTab() {
           <LifeBuoy className="h-12 w-12 text-muted-foreground mb-4" />
           <p className="text-muted-foreground" data-testid="text-empty-admin-tickets">No tickets found</p>
           <p className="text-sm text-muted-foreground mt-1">
-            Adjust filters or wait for new tickets to arrive.
+            {trimmedQuery ? "Try a different search or clear filters." : "Adjust filters or wait for new tickets to arrive."}
           </p>
         </div>
       ) : (
         <div className="space-y-3">
+          <div className="flex items-center gap-2 px-1">
+            <Checkbox
+              checked={allSelected ? true : someSelected ? "indeterminate" : false}
+              onCheckedChange={(checked) => toggleSelectAll(checked === true)}
+              data-testid="checkbox-select-all"
+              id="select-all-tickets"
+            />
+            <Label htmlFor="select-all-tickets" className="text-xs text-muted-foreground cursor-pointer">
+              Select all on this page
+            </Label>
+          </div>
           {displayedTickets.map((ticket) => {
             const assignee = staffUsers?.find(s => s.id === ticket.assignedTo);
+            const isChecked = selectedIds.has(ticket.id);
             return (
               <Card
                 key={ticket.id}
-                className="hover-elevate cursor-pointer"
-                onClick={() => setSelectedTicketId(ticket.id)}
+                className="hover-elevate"
                 data-testid={`card-admin-ticket-${ticket.id}`}
               >
                 <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-4 flex-wrap">
-                    <div className="space-y-1.5 min-w-0 flex-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-xs text-muted-foreground font-mono" data-testid={`text-ticket-number-${ticket.id}`}>
-                          #{ticket.ticketNumber}
-                        </span>
-                        <Badge className={getStatusBadgeClass(ticket.status)} data-testid={`badge-status-${ticket.id}`}>
-                          {formatLabel(ticket.status)}
-                        </Badge>
-                        <Badge className={`text-xs ${getPriorityBadgeClass(ticket.priority)}`} data-testid={`badge-priority-${ticket.id}`}>
-                          {formatLabel(ticket.priority)}
-                        </Badge>
-                        <Badge variant="outline" className={`text-xs ${getCategoryBadgeClass()}`} data-testid={`badge-category-${ticket.id}`}>
-                          {formatLabel(ticket.category)}
-                        </Badge>
-                      </div>
-                      <p className="font-medium truncate" data-testid={`text-ticket-subject-${ticket.id}`}>
-                        {ticket.subject}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3 shrink-0">
-                      {assignee && (
-                        <div className="flex items-center gap-1.5" data-testid={`assignee-badge-${ticket.id}`}>
-                          <Avatar className="h-5 w-5">
-                            <AvatarFallback className="text-[10px]">
-                              {(assignee.firstName?.[0] ?? '').toUpperCase()}{(assignee.lastName?.[0] ?? '').toUpperCase()}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span className="text-xs text-muted-foreground">{getStaffDisplayName(assignee)}</span>
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      checked={isChecked}
+                      onCheckedChange={(checked) => toggleSelection(ticket.id, checked === true)}
+                      onClick={(e) => e.stopPropagation()}
+                      className="mt-1"
+                      data-testid={`checkbox-ticket-${ticket.id}`}
+                    />
+                    <div
+                      className="flex-1 cursor-pointer"
+                      onClick={() => setSelectedTicketId(ticket.id)}
+                      data-testid={`ticket-row-${ticket.id}`}
+                    >
+                      <div className="flex items-start justify-between gap-4 flex-wrap">
+                        <div className="space-y-1.5 min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs text-muted-foreground font-mono" data-testid={`text-ticket-number-${ticket.id}`}>
+                              #{ticket.ticketNumber}
+                            </span>
+                            <Badge className={getStatusBadgeClass(ticket.status)} data-testid={`badge-status-${ticket.id}`}>
+                              {formatLabel(ticket.status)}
+                            </Badge>
+                            <Badge className={`text-xs ${getPriorityBadgeClass(ticket.priority)}`} data-testid={`badge-priority-${ticket.id}`}>
+                              {formatLabel(ticket.priority)}
+                            </Badge>
+                            <Badge variant="outline" className={`text-xs ${getCategoryBadgeClass()}`} data-testid={`badge-category-${ticket.id}`}>
+                              {formatLabel(ticket.category)}
+                            </Badge>
+                          </div>
+                          <p className="font-medium truncate" data-testid={`text-ticket-subject-${ticket.id}`}>
+                            {ticket.subject}
+                          </p>
                         </div>
-                      )}
-                      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                        <Clock className="h-3 w-3" />
-                        <span data-testid={`text-ticket-date-${ticket.id}`}>{formatDate(ticket.createdAt)}</span>
+                        <div className="flex items-center gap-3 shrink-0">
+                          {assignee && (
+                            <div className="flex items-center gap-1.5" data-testid={`assignee-badge-${ticket.id}`}>
+                              <Avatar className="h-5 w-5">
+                                <AvatarFallback className="text-[10px]">
+                                  {(assignee.firstName?.[0] ?? '').toUpperCase()}{(assignee.lastName?.[0] ?? '').toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
+                              <span className="text-xs text-muted-foreground">{getStaffDisplayName(assignee)}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                            <Clock className="h-3 w-3" />
+                            <span data-testid={`text-ticket-date-${ticket.id}`}>{formatDate(ticket.createdAt)}</span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -458,6 +661,13 @@ function TicketDetailView({ ticketId, onBack, staffUsers }: { ticketId: string; 
   const authorEmail = ticket.author?.email ?? "N/A";
   const tenantName = ticket.tenant?.name ?? "Unknown Tenant";
   const currentAssignee = staffUsers.find(s => s.id === ticket.assignedTo);
+  const history = ticket.history || [];
+
+  const insertCannedResponse = (id: string) => {
+    const tpl = CANNED_RESPONSES.find((t) => t.id === id);
+    if (!tpl) return;
+    setReplyMessage((prev) => (prev.trim() ? `${prev.trim()}\n\n${tpl.body}` : tpl.body));
+  };
 
   return (
     <div className="space-y-6">
@@ -554,6 +764,24 @@ function TicketDetailView({ ticketId, onBack, staffUsers }: { ticketId: string; 
               )}
 
               <div className="border-t pt-4 space-y-3">
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                    <FileText className="h-3 w-3" />
+                    Quick reply templates
+                  </Label>
+                  <Select onValueChange={insertCannedResponse}>
+                    <SelectTrigger className="w-[260px]" data-testid="select-canned-response">
+                      <SelectValue placeholder="Insert template..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {CANNED_RESPONSES.map((tpl) => (
+                        <SelectItem key={tpl.id} value={tpl.id} data-testid={`canned-${tpl.id}`}>
+                          {tpl.title}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
                 <Textarea
                   placeholder="Write a reply..."
                   value={replyMessage}
@@ -587,6 +815,43 @@ function TicketDetailView({ ticketId, onBack, staffUsers }: { ticketId: string; 
                   </Button>
                 </div>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-history">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <History className="h-4 w-4" />
+                Status History ({history.length})
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {history.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-2" data-testid="text-no-history">
+                  No status changes recorded yet.
+                </p>
+              ) : (
+                <ol className="relative border-l border-border ml-2 space-y-4" data-testid="list-history">
+                  {history.map((entry) => {
+                    const actorName = entry.user
+                      ? `${entry.user.firstName || ''} ${entry.user.lastName || ''}`.trim() || entry.user.email
+                      : "System";
+                    return (
+                      <li key={entry.id} className="ml-4" data-testid={`history-${entry.id}`}>
+                        <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full bg-primary" />
+                        <p className="text-sm font-medium" data-testid={`history-change-${entry.id}`}>
+                          {describeHistoryEntry(entry, staffUsers)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          <span data-testid={`history-actor-${entry.id}`}>{actorName}</span>
+                          <span className="mx-1">·</span>
+                          <span data-testid={`history-time-${entry.id}`}>{formatDateTime(entry.createdAt)}</span>
+                        </p>
+                      </li>
+                    );
+                  })}
+                </ol>
+              )}
             </CardContent>
           </Card>
         </div>

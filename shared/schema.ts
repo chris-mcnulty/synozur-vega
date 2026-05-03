@@ -2420,6 +2420,53 @@ export const insertSupportTicketReplySchema = createInsertSchema(supportTicketRe
 export type InsertSupportTicketReply = z.infer<typeof insertSupportTicketReplySchema>;
 export type SupportTicketReply = typeof supportTicketReplies.$inferSelect;
 
+// Audit trail for ticket changes (status, assignment, priority)
+export const supportTicketHistory = pgTable("support_ticket_history", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  ticketId: varchar("ticket_id").notNull().references(() => supportTickets.id, { onDelete: 'cascade' }),
+  userId: varchar("user_id").references(() => users.id, { onDelete: 'set null' }),
+  field: text("field").notNull(), // 'status' | 'priority' | 'assignedTo' | 'category'
+  fromValue: text("from_value"),
+  toValue: text("to_value"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertSupportTicketHistorySchema = createInsertSchema(supportTicketHistory).omit({
+  id: true,
+  createdAt: true,
+});
+export type InsertSupportTicketHistory = z.infer<typeof insertSupportTicketHistorySchema>;
+export type SupportTicketHistory = typeof supportTicketHistory.$inferSelect;
+
+// Predefined canned response templates available when admins reply to tickets
+export const CANNED_RESPONSES: { id: string; title: string; body: string }[] = [
+  {
+    id: "acknowledge",
+    title: "Acknowledge receipt",
+    body: "Thanks for reaching out — we've received your ticket and a member of our team is looking into it now. We'll follow up here as soon as we have an update.",
+  },
+  {
+    id: "need_more_info",
+    title: "Request more information",
+    body: "Thanks for the report. To help us reproduce this, could you share the steps you took, the page you were on, and (if possible) a screenshot of what you saw? Any browser/console errors would also help speed up the investigation.",
+  },
+  {
+    id: "in_progress",
+    title: "Work in progress",
+    body: "Quick update — this is in progress on our side. We're testing a fix and will reply here once it has shipped to your environment.",
+  },
+  {
+    id: "resolved_fixed",
+    title: "Resolved (fix shipped)",
+    body: "Good news — the fix for this has been deployed. Please refresh the page and let us know if you continue to see the issue. We're closing this ticket out, but feel free to reopen if anything changes.",
+  },
+  {
+    id: "feature_logged",
+    title: "Feature request logged",
+    body: "Thanks for the suggestion! We've logged this in our product backlog for review. We can't promise a delivery date, but appreciate you taking the time to share the idea.",
+  },
+];
+
 // ============================================
 // IN-APP NOTIFICATIONS
 // ============================================

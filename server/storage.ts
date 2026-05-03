@@ -47,6 +47,7 @@ import {
   jobRuns, type JobRun, type InsertJobRun, JOB_STATUS, JOB_RUN_STATUS,
   supportTickets, type SupportTicket, type InsertSupportTicket,
   supportTicketReplies, type SupportTicketReply, type InsertSupportTicketReply,
+  supportTicketHistory, type SupportTicketHistory, type InsertSupportTicketHistory,
   oauthClients, type OauthClient, type InsertOauthClient,
   oauthAuthorizationCodes, type OauthAuthorizationCode,
   oauthRefreshTokens, type OauthRefreshToken,
@@ -498,6 +499,11 @@ export interface IStorage {
   // Support Ticket Replies methods
   getSupportTicketReplies(ticketId: string, includeInternal?: boolean): Promise<SupportTicketReply[]>;
   createSupportTicketReply(reply: InsertSupportTicketReply): Promise<SupportTicketReply>;
+
+  // Support Ticket History (audit trail) methods
+  getSupportTicketHistory(ticketId: string): Promise<SupportTicketHistory[]>;
+  createSupportTicketHistory(entry: InsertSupportTicketHistory): Promise<SupportTicketHistory>;
+  searchAdminSupportTickets(filters: { q?: string; status?: string; priority?: string; category?: string; tenantId?: string; assignedTo?: string }): Promise<SupportTicket[]>;
   
   // OAuth Client methods
   getOauthClientsByTenantId(tenantId: string): Promise<OauthClient[]>;
@@ -5059,6 +5065,56 @@ export class DatabaseStorage implements IStorage {
       .set({ updatedAt: new Date() })
       .where(eq(supportTickets.id, reply.ticketId));
     return created;
+  }
+
+  async getSupportTicketHistory(ticketId: string): Promise<SupportTicketHistory[]> {
+    return await db.select().from(supportTicketHistory)
+      .where(eq(supportTicketHistory.ticketId, ticketId))
+      .orderBy(supportTicketHistory.createdAt);
+  }
+
+  async createSupportTicketHistory(entry: InsertSupportTicketHistory): Promise<SupportTicketHistory> {
+    const [created] = await db.insert(supportTicketHistory).values(entry).returning();
+    return created;
+  }
+
+  async searchAdminSupportTickets(filters: { q?: string; status?: string; priority?: string; category?: string; tenantId?: string; assignedTo?: string }): Promise<SupportTicket[]> {
+    const conditions: SQL<unknown>[] = [];
+    if (filters.status) conditions.push(eq(supportTickets.status, filters.status));
+    if (filters.priority) conditions.push(eq(supportTickets.priority, filters.priority));
+    if (filters.category) conditions.push(eq(supportTickets.category, filters.category));
+    if (filters.tenantId) conditions.push(eq(supportTickets.tenantId, filters.tenantId));
+    if (filters.assignedTo) conditions.push(eq(supportTickets.assignedTo, filters.assignedTo));
+
+    const q = (filters.q || "").trim();
+    if (!q) {
+      const where = conditions.length ? and(...conditions) : undefined;
+      const query = where
+        ? db.select().from(supportTickets).where(where)
+        : db.select().from(supportTickets);
+      return await query.orderBy(desc(supportTickets.createdAt));
+    }
+
+    const pattern = `%${q.replace(/[%_]/g, (m) => `\\${m}`)}%`;
+    const ticketIdsFromReplies = await db
+      .select({ ticketId: supportTicketReplies.ticketId })
+      .from(supportTicketReplies)
+      .where(ilike(supportTicketReplies.message, pattern));
+    const replyTicketIds = Array.from(new Set(ticketIdsFromReplies.map((r) => r.ticketId)));
+
+    const textConditions: SQL<unknown>[] = [
+      ilike(supportTickets.subject, pattern),
+      ilike(supportTickets.description, pattern),
+    ];
+    if (replyTicketIds.length > 0) {
+      textConditions.push(inArray(supportTickets.id, replyTicketIds));
+    }
+    const orExpr = or(...textConditions);
+    if (orExpr) conditions.push(orExpr);
+
+    return await db.select().from(supportTickets)
+      .where(and(...conditions))
+      .orderBy(desc(supportTickets.createdAt));
   }
 
   async getOauthClientsByTenantId(tenantId: string): Promise<OauthClient[]> {

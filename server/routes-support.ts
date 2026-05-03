@@ -4,11 +4,27 @@ import { loadCurrentUser, requireTenantAccess } from "./middleware/rbac";
 import { hasPermission, PERMISSIONS, Role } from "@shared/rbac";
 import { z } from "zod";
 import { sendSupportTicketAcknowledgement, sendSupportTicketInternalNotification, sendSupportTicketReplyNotification } from "./email";
-import { TICKET_CATEGORIES, TICKET_PRIORITIES, TICKET_STATUSES } from "@shared/schema";
+import { TICKET_CATEGORIES, TICKET_PRIORITIES, TICKET_STATUSES, type SupportTicket, type SupportTicketHistory } from "@shared/schema";
 import { createNotification, isEmailEnabled } from "./services/notification-service";
 import fs from "fs";
 import path from "path";
 import OpenAI from "openai";
+
+type HistoryUserSummary = { id: string; firstName: string | null; lastName: string | null; email: string };
+type HistoryWithUser = SupportTicketHistory & { user: HistoryUserSummary | null };
+type TicketUpdates = Partial<Pick<SupportTicket, "status" | "priority" | "assignedTo" | "category" | "resolvedAt" | "resolvedBy">>;
+type TrackedField = "status" | "priority" | "assignedTo" | "category";
+
+async function buildHistoryWithUsers(history: SupportTicketHistory[]): Promise<HistoryWithUser[]> {
+  if (history.length === 0) return [];
+  const userIds = Array.from(new Set(history.map((h) => h.userId).filter((u): u is string => !!u)));
+  const userMap = new Map<string, HistoryUserSummary>();
+  for (const uid of userIds) {
+    const u = await storage.getUser(uid);
+    if (u) userMap.set(uid, { id: u.id, firstName: u.firstName, lastName: u.lastName, email: u.email });
+  }
+  return history.map((h) => ({ ...h, user: h.userId ? userMap.get(h.userId) || null : null }));
+}
 
 export const supportRouter = Router();
 
@@ -43,6 +59,15 @@ const updateTicketSchema = z.object({
   priority: z.enum(TICKET_PRIORITIES).optional(),
   assignedTo: z.string().optional(),
   category: z.enum(TICKET_CATEGORIES).optional(),
+});
+
+const bulkUpdateSchema = z.object({
+  ticketIds: z.array(z.string().min(1)).min(1).max(200),
+  status: z.enum(TICKET_STATUSES).optional(),
+  priority: z.enum(TICKET_PRIORITIES).optional(),
+  assignedTo: z.string().nullable().optional(),
+}).refine((d) => d.status !== undefined || d.priority !== undefined || d.assignedTo !== undefined, {
+  message: "At least one of status, priority, or assignedTo must be provided",
 });
 
 supportRouter.get("/staff", async (req: Request, res: Response) => {
@@ -149,17 +174,20 @@ supportRouter.get("/tickets", async (req: Request, res: Response) => {
     }
 
     if (isAdminRole(req.user.role)) {
-      const { status, priority, category, tenantId, assignedTo } = req.query as Record<string, string | undefined>;
+      const { status, priority, category, tenantId, assignedTo, q } = req.query as Record<string, string | undefined>;
+      const search = (q || "").trim();
 
       if (status === "pending") {
-        const openTickets = await storage.getAllSupportTickets({
+        const openTickets = await storage.searchAdminSupportTickets({
+          q: search || undefined,
           status: "open",
           priority: priority || undefined,
           category: category || undefined,
           tenantId: tenantId || undefined,
           assignedTo: assignedTo || undefined,
         });
-        const inProgressTickets = await storage.getAllSupportTickets({
+        const inProgressTickets = await storage.searchAdminSupportTickets({
+          q: search || undefined,
           status: "in_progress",
           priority: priority || undefined,
           category: category || undefined,
@@ -172,7 +200,8 @@ supportRouter.get("/tickets", async (req: Request, res: Response) => {
         return res.json(combined);
       }
 
-      const tickets = await storage.getAllSupportTickets({
+      const tickets = await storage.searchAdminSupportTickets({
+        q: search || undefined,
         status: status || undefined,
         priority: priority || undefined,
         category: category || undefined,
@@ -211,10 +240,13 @@ supportRouter.get("/tickets/:id", async (req: Request, res: Response) => {
     const replies = await storage.getSupportTicketReplies(ticket.id, isAdmin);
     const author = await storage.getUser(ticket.userId);
     const tenant = await storage.getTenantById(ticket.tenantId);
+    const history = isAdmin ? await storage.getSupportTicketHistory(ticket.id) : [];
+    const historyWithUsers = await buildHistoryWithUsers(history);
 
     return res.json({
       ...ticket,
       replies,
+      history: historyWithUsers,
       author: author ? { id: author.id, email: author.email, firstName: author.firstName, lastName: author.lastName } : null,
       tenant: tenant ? { id: tenant.id, name: tenant.name } : null,
     });
@@ -360,7 +392,7 @@ supportRouter.patch("/tickets/:id", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Ticket not found" });
     }
 
-    const updates: any = { ...parsed.data };
+    const updates: TicketUpdates = { ...parsed.data };
 
     if (updates.assignedTo === "") {
       updates.assignedTo = null;
@@ -372,6 +404,27 @@ supportRouter.patch("/tickets/:id", async (req: Request, res: Response) => {
     }
 
     const updated = await storage.updateSupportTicket(ticket.id, updates);
+
+    try {
+      const trackedFields: TrackedField[] = ["status", "priority", "assignedTo", "category"];
+      for (const field of trackedFields) {
+        if (field in updates) {
+          const fromVal: string | null = ticket[field] ?? null;
+          const toVal = updates[field] ?? null;
+          if (fromVal !== toVal) {
+            await storage.createSupportTicketHistory({
+              ticketId: ticket.id,
+              userId: req.user.id,
+              field,
+              fromValue: fromVal,
+              toValue: toVal == null ? null : String(toVal),
+            });
+          }
+        }
+      }
+    } catch (histErr) {
+      console.error("Failed to record ticket history:", histErr);
+    }
 
     try {
       if (updates.status && updates.status !== ticket.status) {
@@ -409,6 +462,117 @@ supportRouter.patch("/tickets/:id", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Error updating support ticket:", error);
     return res.status(500).json({ error: "Failed to update support ticket" });
+  }
+});
+
+supportRouter.get("/tickets/:id/history", async (req: Request, res: Response) => {
+  try {
+    if (!req.user || !isAdminRole(req.user.role)) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    const ticket = await storage.getSupportTicketById(req.params.id);
+    if (!ticket) return res.status(404).json({ error: "Ticket not found" });
+    const history = await storage.getSupportTicketHistory(ticket.id);
+    return res.json(await buildHistoryWithUsers(history));
+  } catch (error) {
+    console.error("Error fetching ticket history:", error);
+    return res.status(500).json({ error: "Failed to fetch ticket history" });
+  }
+});
+
+supportRouter.post("/tickets/bulk", async (req: Request, res: Response) => {
+  try {
+    if (!req.user || !isAdminRole(req.user.role)) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    const parsed = bulkUpdateSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({ error: "Validation failed", details: parsed.error.errors });
+    }
+    const { ticketIds, status, priority, assignedTo } = parsed.data;
+
+    const updatedIds: string[] = [];
+    const failedIds: string[] = [];
+
+    for (const id of ticketIds) {
+      try {
+        const ticket = await storage.getSupportTicketById(id);
+        if (!ticket) { failedIds.push(id); continue; }
+
+        const updates: TicketUpdates = {};
+        if (status !== undefined) updates.status = status;
+        if (priority !== undefined) updates.priority = priority;
+        if (assignedTo !== undefined) updates.assignedTo = assignedTo === "" ? null : assignedTo;
+
+        if (updates.status === "resolved" && ticket.status !== "resolved") {
+          updates.resolvedAt = new Date();
+          updates.resolvedBy = req.user.id;
+        }
+
+        await storage.updateSupportTicket(id, updates);
+        updatedIds.push(id);
+
+        const trackedFields: TrackedField[] = ["status", "priority", "assignedTo"];
+        for (const field of trackedFields) {
+          if (field in updates) {
+            const fromVal: string | null = ticket[field] ?? null;
+            const toVal = updates[field] ?? null;
+            if (fromVal !== toVal) {
+              try {
+                await storage.createSupportTicketHistory({
+                  ticketId: id,
+                  userId: req.user.id,
+                  field,
+                  fromValue: fromVal,
+                  toValue: toVal == null ? null : String(toVal),
+                });
+              } catch (histErr) {
+                console.error(`Failed to record bulk ticket history for ${id}:`, histErr);
+              }
+            }
+          }
+        }
+
+        try {
+          if (status && status !== ticket.status) {
+            await createNotification({
+              tenantId: ticket.tenantId,
+              userId: ticket.userId,
+              type: 'ticket_status',
+              title: `Ticket #${ticket.ticketNumber} ${status === 'in_progress' ? 'in progress' : status}`,
+              body: ticket.subject,
+              entityType: 'support_ticket',
+              entityId: ticket.id,
+              linkUrl: `/support?ticketId=${ticket.id}`,
+            });
+          }
+          if (assignedTo && assignedTo !== ticket.assignedTo) {
+            const assignee = await storage.getUser(assignedTo);
+            if (assignee) {
+              await createNotification({
+                tenantId: assignee.tenantId || ticket.tenantId,
+                userId: assignee.id,
+                type: 'assigned',
+                title: `Assigned ticket #${ticket.ticketNumber}`,
+                body: ticket.subject,
+                entityType: 'support_ticket',
+                entityId: ticket.id,
+                linkUrl: `/support?ticketId=${ticket.id}`,
+              });
+            }
+          }
+        } catch (notifErr) {
+          console.error("Bulk notification failure:", notifErr);
+        }
+      } catch (e) {
+        failedIds.push(id);
+      }
+    }
+
+    return res.json({ updated: updatedIds.length, updatedIds, failed: failedIds.length, failedIds });
+  } catch (error) {
+    console.error("Error in bulk ticket update:", error);
+    return res.status(500).json({ error: "Failed to perform bulk update" });
   }
 });
 
