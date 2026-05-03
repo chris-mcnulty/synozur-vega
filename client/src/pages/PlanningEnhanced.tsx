@@ -584,6 +584,29 @@ export default function PlanningEnhanced() {
     enabled: !!currentTenant?.id && selectedTab === 'hierarchy',
   });
 
+  // Drill-down: when the detail pane is open for an objective, load only
+  // that objective's branch instead of leaning on the full tenant
+  // hierarchy fetch above. This keeps detail-pane navigation fast even
+  // when the Outcomes hierarchy tab isn't mounted (or is filtered).
+  // We only run the subtree query for objective detail views — a key
+  // result's parent objective subtree is not the right data source for
+  // a KR-level "Aligned to" / linked big rocks display.
+  const detailObjectiveId =
+    detailPaneOpen && detailPaneEntityType === "objective"
+      ? detailPaneEntity?.id
+      : undefined;
+  const { data: detailPaneSubtreeRoot } = useQuery<any>({
+    queryKey: ["/api/okr/objectives", detailObjectiveId, "subtree"],
+    queryFn: async () => {
+      if (!detailObjectiveId) return null;
+      const res = await fetch(`/api/okr/objectives/${detailObjectiveId}/subtree`);
+      if (!res.ok) return null;
+      const data = await res.json();
+      return Array.isArray(data) ? (data[0] ?? null) : null;
+    },
+    enabled: !!detailObjectiveId,
+  });
+
   // Handle URL focus parameter - set active filter when URL changes
   useEffect(() => {
     if (urlFocus) {
@@ -6003,7 +6026,18 @@ export default function PlanningEnhanced() {
           alignedStrategies={strategies.filter((s: any) => 
             detailPaneEntity?.linkedStrategies?.includes(s.id)
           )}
-          linkedBigRocks={detailPaneEntity?.linkedBigRocks || []}
+          alignedObjectives={
+            detailPaneEntityType === "objective" &&
+            detailPaneSubtreeRoot?.id === detailPaneEntity?.id
+              ? (detailPaneSubtreeRoot?.alignedObjectives || [])
+              : []
+          }
+          linkedBigRocks={
+            detailPaneEntityType === "objective" &&
+            detailPaneSubtreeRoot?.id === detailPaneEntity?.id
+              ? (detailPaneSubtreeRoot.linkedBigRocks || [])
+              : (detailPaneEntity?.linkedBigRocks || [])
+          }
           onCheckIn={() => {
             if (detailPaneEntityType === "objective" && detailPaneEntity) {
               // Check if period has ended first (takes priority)

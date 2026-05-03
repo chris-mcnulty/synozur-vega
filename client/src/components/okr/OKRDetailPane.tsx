@@ -305,6 +305,13 @@ export function OKRDetailPane({
     enabled: !!entity?.id && open,
   });
 
+  // Aligned objectives and linked big rocks come from the page-level
+  // subtree query in the parent (PlanningEnhanced). The detail pane
+  // simply renders whatever the parent supplies — keeping the data
+  // ownership in one place avoids duplicate fetches and stale flashes.
+  const resolvedAlignedObjectives = alignedObjectives;
+  const resolvedLinkedBigRocks = linkedBigRocks;
+
   // Snapshot-backed trend series for the chart. Independent from the editable
   // check-in list above so chart/forecast history stays stable when users
   // edit or delete individual check-ins.
@@ -662,7 +669,7 @@ export function OKRDetailPane({
                   </Card>
                 )}
 
-                {(alignedStrategies.length > 0 || alignedObjectives.length > 0) && (
+                {(alignedStrategies.length > 0 || resolvedAlignedObjectives.length > 0) && (
                   <Card>
                     <CardHeader className="pb-2">
                       <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -680,7 +687,7 @@ export function OKRDetailPane({
                           <span>{strategy.title}</span>
                         </div>
                       ))}
-                      {alignedObjectives.map((obj) => (
+                      {resolvedAlignedObjectives.map((obj) => (
                         <div 
                           key={obj.id} 
                           className="flex items-center gap-2 text-sm p-2 rounded-md bg-muted/50"
@@ -914,13 +921,13 @@ export function OKRDetailPane({
                       <CardTitle className="text-sm font-medium">Linked Big Rocks</CardTitle>
                     </CardHeader>
                     <CardContent>
-                      {linkedBigRocks.length === 0 ? (
+                      {resolvedLinkedBigRocks.length === 0 ? (
                         <p className="text-sm text-muted-foreground text-center py-4">
                           No Big Rocks linked to this objective
                         </p>
                       ) : (
                         <div className="space-y-2">
-                          {linkedBigRocks.map((rock) => (
+                          {resolvedLinkedBigRocks.map((rock) => (
                             <div 
                               key={rock.id}
                               className="flex items-center justify-between p-3 rounded-md bg-muted/50"
