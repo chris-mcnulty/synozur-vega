@@ -170,6 +170,83 @@ function parseScope(value: unknown): DashboardScope {
   return value === "executive" || value === "team" ? value : "company";
 }
 
+// The Executive Dashboard consumes check-ins to compute (a) recent-activity
+// metrics (weekly check-in rate, "days since last check-in", staleness) that
+// are always relative to "now", and (b) per-objective metrics for the
+// objectives in the requested period (any-check-in count, pace/forecast).
+//
+// We bound the response by deriving a window from the requested quarter/year
+// (when supplied) plus a small buffer on each side, falling back to a fixed
+// lookback when no period is given. The filter runs on `createdAt` to match
+// the client's recency semantics — a backdated check-in recorded recently is
+// still considered recent activity by the client and must not be excluded.
+const EXECUTIVE_PERIOD_BUFFER_BEFORE_DAYS = 14;
+const EXECUTIVE_PERIOD_BUFFER_AFTER_DAYS = 30;
+const EXECUTIVE_FALLBACK_LOOKBACK_DAYS = 120;
+const EXECUTIVE_RECENT_LOOKBACK_DAYS = 30;
+
+function daysAgo(days: number): Date {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - days);
+  return d;
+}
+
+// Returns one or more disjoint date windows on `checkIns.createdAt` that
+// together cover everything the Executive Dashboard needs:
+//  - A "period" window around the requested quarter/year so per-objective
+//    metrics (e.g. checkInRate, pace/forecast) for those objectives have
+//    their relevant history. The upper bound is dropped when the period is
+//    current so newly-recorded check-ins are always included.
+//  - A "recent" window covering the last 30 days, so "recent activity"
+//    widgets (weekly rate, days-since-last-check-in, staleness) — which are
+//    always relative to "now" — keep working for historical and future
+//    period selections too.
+function executiveCheckInsWindows(
+  quarter: number | undefined,
+  year: number | undefined,
+): Array<{ from?: Date; to?: Date }> {
+  const recentWindow = { from: daysAgo(EXECUTIVE_RECENT_LOOKBACK_DAYS) };
+
+  // No period selected: just cap how far back we go from "now".
+  if (year == null) {
+    return [{ from: daysAgo(EXECUTIVE_FALLBACK_LOOKBACK_DAYS) }];
+  }
+
+  let periodStart: Date;
+  let periodEnd: Date;
+  if (quarter == null || quarter === 0) {
+    // Annual view (or year-only).
+    periodStart = new Date(Date.UTC(year, 0, 1));
+    periodEnd = new Date(Date.UTC(year, 11, 31, 23, 59, 59));
+  } else {
+    const startMonth = (quarter - 1) * 3;
+    periodStart = new Date(Date.UTC(year, startMonth, 1));
+    periodEnd = new Date(Date.UTC(year, startMonth + 3, 0, 23, 59, 59));
+  }
+
+  const periodFrom = new Date(periodStart);
+  periodFrom.setUTCDate(
+    periodFrom.getUTCDate() - EXECUTIVE_PERIOD_BUFFER_BEFORE_DAYS,
+  );
+  const periodTo = new Date(periodEnd);
+  periodTo.setUTCDate(
+    periodTo.getUTCDate() + EXECUTIVE_PERIOD_BUFFER_AFTER_DAYS,
+  );
+
+  const now = new Date();
+  // Upper bound is only applied when the period sits in the past. For the
+  // current period this collapses to the recent window; we still keep both
+  // entries (the storage helper ORs them) for consistency.
+  const periodWindow: { from?: Date; to?: Date } =
+    periodTo.getTime() < now.getTime()
+      ? { from: periodFrom, to: periodTo }
+      : { from: periodFrom };
+
+  return [periodWindow, recentWindow];
+}
+// Exported for use in tests.
+export const __executiveCheckInsWindowsForTests = executiveCheckInsWindows;
+
 function parseQuarter(value: unknown): number | undefined {
   if (typeof value !== "string" || value === "" || value === "all") return undefined;
   const n = Number(value);
@@ -241,7 +318,9 @@ dashboardRouter.get("/context", async (req: Request, res: Response) => {
       storage.getBigRocksByTenantId(tenantId, quarter, year),
       storage.getMeetingsByTenantId(tenantId),
       scope === "executive"
-        ? storage.getCheckInsByTenantId(tenantId)
+        ? storage.getCheckInsByTenantId(tenantId, {
+            createdAtWindows: executiveCheckInsWindows(quarter, year),
+          })
         : Promise.resolve<CheckIn[]>([]),
     ]);
 

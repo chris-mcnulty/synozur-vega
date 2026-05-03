@@ -216,7 +216,10 @@ export interface IStorage {
   
   getCheckInsByEntityId(entityType: string, entityId: string): Promise<CheckIn[]>;
   getCheckInsByEntityIds(entityType: string, entityIds: string[]): Promise<Map<string, CheckIn[]>>;
-  getCheckInsByTenantId(tenantId: string): Promise<CheckIn[]>;
+  getCheckInsByTenantId(
+    tenantId: string,
+    options?: { createdAtWindows?: Array<{ from?: Date; to?: Date }> },
+  ): Promise<CheckIn[]>;
   getCheckInById(id: string): Promise<CheckIn | undefined>;
   createCheckIn(checkIn: InsertCheckIn): Promise<CheckIn>;
   updateCheckIn(id: string, data: Partial<CheckIn>): Promise<CheckIn>;
@@ -2765,11 +2768,35 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(checkIns.asOfDate));
   }
 
-  async getCheckInsByTenantId(tenantId: string): Promise<CheckIn[]> {
+  async getCheckInsByTenantId(
+    tenantId: string,
+    options?: { createdAtWindows?: Array<{ from?: Date; to?: Date }> },
+  ): Promise<CheckIn[]> {
+    const tenantCond = eq(checkIns.tenantId, tenantId);
+    // Filter on `createdAt` (when the row was inserted) rather than
+    // `asOfDate` (a user-editable "as of" timestamp) so backdated check-ins
+    // recorded recently still appear in recency calculations on the client.
+    const windows = (options?.createdAtWindows ?? []).filter(
+      (w) => w.from || w.to,
+    );
+    let whereExpr;
+    if (windows.length === 0) {
+      whereExpr = tenantCond;
+    } else {
+      const windowExprs = windows.map((w) => {
+        const parts: SQL[] = [];
+        if (w.from) parts.push(gte(checkIns.createdAt, w.from));
+        if (w.to) parts.push(lte(checkIns.createdAt, w.to));
+        return parts.length === 1 ? parts[0] : (and(...parts) as SQL);
+      });
+      const windowOr =
+        windowExprs.length === 1 ? windowExprs[0] : (or(...windowExprs) as SQL);
+      whereExpr = and(tenantCond, windowOr);
+    }
     return await db
       .select()
       .from(checkIns)
-      .where(eq(checkIns.tenantId, tenantId))
+      .where(whereExpr)
       .orderBy(desc(checkIns.asOfDate));
   }
 
