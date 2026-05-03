@@ -95,10 +95,18 @@ embedAdminRouter.get('/', async (req: Request, res: Response) => {
   const tenantId = req.effectiveTenantId;
   if (!tenantId) return res.status(400).json({ error: 'tenant_required' });
   const allTokens = await storage.getEmbedTokensByTenantId(tenantId);
+
+  // Tenant admins see all tokens; other roles see only their own.
+  const userRole = req.user?.role as string | undefined;
+  const isAdmin = userRole ? EMBED_ADMIN_ROLES.has(userRole) : false;
+  const userId = req.user?.id;
+
   // Optional per-entity filter so EmbedDialog can list only tokens for a specific item.
   const filterType = typeof req.query.entityType === 'string' ? req.query.entityType : undefined;
   const filterId = typeof req.query.entityId === 'string' ? req.query.entityId : undefined;
+
   const tokens = allTokens.filter(t => {
+    if (!isAdmin && t.createdByUserId !== userId) return false;
     if (filterType && t.entityType !== filterType) return false;
     if (filterId && t.entityId !== filterId) return false;
     return true;
@@ -116,6 +124,7 @@ embedAdminRouter.get('/', async (req: Request, res: Response) => {
       accessCount: t.accessCount,
       createdAt: t.createdAt,
       revokedAt: t.revokedAt,
+      createdByUserId: t.createdByUserId,
     })),
   );
 });
@@ -192,6 +201,12 @@ embedAdminRouter.delete('/:id', async (req: Request, res: Response) => {
   const token = await storage.getEmbedTokenById(req.params.id);
   if (!token || token.tenantId !== tenantId) {
     return res.status(404).json({ error: 'not_found' });
+  }
+  // Tenant admins may revoke any token; others may only revoke their own.
+  const userRole = req.user?.role as string | undefined;
+  const isAdmin = userRole ? EMBED_ADMIN_ROLES.has(userRole) : false;
+  if (!isAdmin && token.createdByUserId !== req.user?.id) {
+    return res.status(403).json({ error: 'forbidden', message: 'Only the token creator or an admin may revoke this embed.' });
   }
   await storage.revokeEmbedToken(token.id, req.user?.id);
   res.status(204).end();
@@ -555,6 +570,11 @@ body {
             if (f && data.progress != null) f.style.width = Math.max(0, Math.min(100, data.progress)) + '%';
             var s = document.querySelector('[data-testid="embed-status"]');
             if (s && data.status) s.textContent = data.status.replace(/_/g,' ').replace(/\\b\\w/g,function(c){return c.toUpperCase();});
+            // Update the "Updated …" timestamp in the footer.
+            var footerSpans = document.querySelectorAll('.footer span');
+            if (footerSpans.length > 0 && data.updatedAt) {
+              footerSpans[0].textContent = 'Updated ' + new Date(data.updatedAt).toLocaleString();
+            }
           })
           .catch(function() { window.location.reload(); });
       } catch(e) { window.location.reload(); }

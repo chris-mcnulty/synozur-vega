@@ -19,9 +19,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
 import { usePermissions } from "@/hooks/use-permissions";
-import { Copy, Code, Trash2, ExternalLink, CheckCircle2 } from "lucide-react";
+import { Copy, Code, Trash2, ExternalLink, CheckCircle2, Monitor } from "lucide-react";
 import { format } from "date-fns";
 
 type EmbedEntityType = "objective" | "key_result" | "big_rock" | "executive_dashboard";
@@ -45,6 +46,7 @@ type EmbedTokenRow = {
   accessCount: number;
   createdAt: string;
   revokedAt: string | null;
+  createdByUserId: string | null;
 };
 
 type IssuedToken = {
@@ -54,14 +56,22 @@ type IssuedToken = {
   expiresAt: string | null;
 };
 
+// Expiry values in hours → ISO string helper
+function resolveExpiresAt(value: string): string | null {
+  if (value === "none") return null;
+  const hours = parseInt(value, 10);
+  return new Date(Date.now() + hours * 3600000).toISOString();
+}
+
 export function EmbedDialog({ open, onClose, entityType, entityId, entityTitle }: EmbedDialogProps) {
   const { toast } = useToast();
   const permissions = usePermissions();
 
   const [label, setLabel] = useState(`${entityTitle} embed`);
-  const [expiresInDays, setExpiresInDays] = useState<string>("30");
+  const [expiresInHours, setExpiresInHours] = useState<string>("720"); // 30 days default
   const [issued, setIssued] = useState<IssuedToken | null>(null);
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [previewSize, setPreviewSize] = useState<"sm" | "md" | "lg">("md");
 
   const qKey = entityId
     ? ["/api/embed-tokens", entityType, entityId]
@@ -81,10 +91,7 @@ export function EmbedDialog({ open, onClose, entityType, entityId, entityTitle }
 
   const createMutation = useMutation({
     mutationFn: async () => {
-      const expiresAt =
-        expiresInDays === "none" || !expiresInDays
-          ? null
-          : new Date(Date.now() + parseInt(expiresInDays, 10) * 86400000).toISOString();
+      const expiresAt = resolveExpiresAt(expiresInHours);
       const body: Record<string, unknown> = { entityType, label, expiresAt };
       if (entityId) body.entityId = entityId;
       const res = await apiRequest("POST", "/api/embed-tokens", body);
@@ -92,7 +99,12 @@ export function EmbedDialog({ open, onClose, entityType, entityId, entityTitle }
       return res.json();
     },
     onSuccess: (data) => {
-      setIssued({ token: data.token, embedPath: data.embedPath, iframeSnippet: data.iframeSnippet, expiresAt: data.expiresAt });
+      setIssued({
+        token: data.token,
+        embedPath: data.embedPath,
+        iframeSnippet: data.iframeSnippet,
+        expiresAt: data.expiresAt,
+      });
       queryClient.invalidateQueries({ queryKey: qKey });
     },
     onError: (err: any) => {
@@ -121,19 +133,32 @@ export function EmbedDialog({ open, onClose, entityType, entityId, entityTitle }
     });
   }
 
+  function handleClose() {
+    onClose();
+    setIssued(null);
+  }
+
   const activeTokens = (tokensQuery.data ?? []).filter((t) => !t.revokedAt);
   const origin = typeof window !== "undefined" ? window.location.origin : "";
 
+  // Expiry options: 24h, 30d, and no-expiry (admin only)
   const expiryOptions = [
-    { value: "1", label: "1 day" },
-    { value: "7", label: "7 days" },
-    { value: "30", label: "30 days" },
-    ...(permissions.isAdmin ? [{ value: "none", label: "No expiry" }] : []),
+    { value: "24", label: "24 hours" },
+    { value: "720", label: "30 days" },
+    ...(permissions.isAdmin ? [{ value: "none", label: "No expiry (admin)" }] : []),
   ];
 
+  const previewHeights: Record<string, number> = { sm: 160, md: 240, lg: 360 };
+  const previewHeight = previewHeights[previewSize];
+
+  const embedUrl = issued ? `${origin}${issued.embedPath}` : null;
+  const iframeSnippet = issued
+    ? `<iframe src="${embedUrl}" width="100%" height="${previewHeight}" frameborder="0" style="border:0"></iframe>`
+    : null;
+
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) { onClose(); setIssued(null); } }}>
-      <DialogContent className="max-w-lg" data-testid="dialog-embed">
+    <Dialog open={open} onOpenChange={(o) => { if (!o) handleClose(); }}>
+      <DialogContent className="max-w-xl" data-testid="dialog-embed">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Code className="h-4 w-4 text-primary" />
@@ -149,47 +174,83 @@ export function EmbedDialog({ open, onClose, entityType, entityId, entityTitle }
             <div className="flex items-center gap-2 text-sm text-green-600 dark:text-green-400 font-medium">
               <CheckCircle2 className="h-4 w-4" />
               Embed token created
+              {issued.expiresAt && (
+                <span className="text-muted-foreground font-normal ml-1">
+                  · Expires {format(new Date(issued.expiresAt), "MMM d, yyyy")}
+                </span>
+              )}
             </div>
-            {issued.expiresAt && (
-              <p className="text-xs text-muted-foreground">
-                Expires {format(new Date(issued.expiresAt), "MMM d, yyyy")}
-              </p>
-            )}
 
+            {/* Size selector + live preview */}
             <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Embed URL</Label>
-              <div className="flex gap-2">
-                <Input value={`${origin}${issued.embedPath}`} readOnly className="font-mono text-xs" data-testid="text-embed-url" />
-                <Button size="icon" variant="outline" onClick={() => copy(`${origin}${issued.embedPath}`, "url")} data-testid="button-copy-embed-url">
-                  {copiedField === "url" ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                </Button>
-                <Button size="icon" variant="outline" asChild>
-                  <a href={issued.embedPath} target="_blank" rel="noopener noreferrer" data-testid="link-open-embed">
-                    <ExternalLink className="h-4 w-4" />
-                  </a>
-                </Button>
+              <div className="flex items-center justify-between gap-2">
+                <Label className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Monitor className="h-3 w-3" /> Live preview
+                </Label>
+                <div className="flex gap-1">
+                  {(["sm", "md", "lg"] as const).map((s) => (
+                    <Button
+                      key={s}
+                      size="sm"
+                      variant={previewSize === s ? "default" : "outline"}
+                      onClick={() => setPreviewSize(s)}
+                      data-testid={`button-preview-size-${s}`}
+                    >
+                      {s === "sm" ? "Small" : s === "md" ? "Medium" : "Large"}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <div className="rounded-md border overflow-hidden bg-muted/20">
+                <iframe
+                  src={`${issued.embedPath}?theme=light`}
+                  width="100%"
+                  height={previewHeight}
+                  frameBorder="0"
+                  style={{ border: 0, display: "block" }}
+                  title="Embed preview"
+                  data-testid="embed-preview-iframe"
+                />
               </div>
             </div>
 
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">iframe snippet</Label>
-              <div className="flex gap-2">
-                <Input value={issued.iframeSnippet.replace(issued.embedPath, `${origin}${issued.embedPath}`)} readOnly className="font-mono text-xs" data-testid="text-embed-snippet" />
-                <Button size="icon" variant="outline" onClick={() => copy(issued.iframeSnippet.replace(issued.embedPath, `${origin}${issued.embedPath}`), "snippet")} data-testid="button-copy-snippet">
-                  {copiedField === "snippet" ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
+            <Tabs defaultValue="url">
+              <TabsList className="w-full">
+                <TabsTrigger value="url" className="flex-1">URL</TabsTrigger>
+                <TabsTrigger value="iframe" className="flex-1">iframe snippet</TabsTrigger>
+              </TabsList>
+              <TabsContent value="url" className="space-y-1 pt-2">
+                <div className="flex gap-2">
+                  <Input value={embedUrl ?? ""} readOnly className="font-mono text-xs" data-testid="text-embed-url" />
+                  <Button size="icon" variant="outline" onClick={() => copy(embedUrl ?? "", "url")} data-testid="button-copy-embed-url">
+                    {copiedField === "url" ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                  <Button size="icon" variant="outline" asChild>
+                    <a href={issued.embedPath} target="_blank" rel="noopener noreferrer" data-testid="link-open-embed">
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  </Button>
+                </div>
+              </TabsContent>
+              <TabsContent value="iframe" className="space-y-1 pt-2">
+                <div className="flex gap-2">
+                  <Input value={iframeSnippet ?? ""} readOnly className="font-mono text-xs" data-testid="text-embed-snippet" />
+                  <Button size="icon" variant="outline" onClick={() => copy(iframeSnippet ?? "", "snippet")} data-testid="button-copy-snippet">
+                    {copiedField === "snippet" ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  </Button>
+                </div>
+              </TabsContent>
+            </Tabs>
 
             <p className="text-xs text-amber-600 dark:text-amber-400">
-              Copy the snippet now — the token will not be shown again.
+              Copy the token now — it will not be shown again after you close this dialog.
             </p>
 
             <div className="flex justify-between gap-2">
               <Button variant="outline" size="sm" onClick={() => setIssued(null)} data-testid="button-create-another-embed">
                 Create another
               </Button>
-              <Button size="sm" onClick={onClose} data-testid="button-embed-done">
+              <Button size="sm" onClick={handleClose} data-testid="button-embed-done">
                 Done
               </Button>
             </div>
@@ -209,7 +270,7 @@ export function EmbedDialog({ open, onClose, entityType, entityId, entityTitle }
 
             <div className="space-y-2">
               <Label htmlFor="embed-expiry" className="text-sm">Expiry</Label>
-              <Select value={expiresInDays} onValueChange={setExpiresInDays}>
+              <Select value={expiresInHours} onValueChange={setExpiresInHours}>
                 <SelectTrigger id="embed-expiry" data-testid="select-embed-expiry">
                   <SelectValue />
                 </SelectTrigger>
@@ -220,7 +281,7 @@ export function EmbedDialog({ open, onClose, entityType, entityId, entityTitle }
                 </SelectContent>
               </Select>
               {!permissions.isAdmin && (
-                <p className="text-xs text-muted-foreground">Maximum 30 days for your role.</p>
+                <p className="text-xs text-muted-foreground">Maximum 30 days for your role. Admins may issue permanent tokens.</p>
               )}
             </div>
 
@@ -236,7 +297,7 @@ export function EmbedDialog({ open, onClose, entityType, entityId, entityTitle }
             {activeTokens.length > 0 && (
               <div className="space-y-2">
                 <Label className="text-xs text-muted-foreground">Active embeds for this item</Label>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
+                <div className="space-y-2 max-h-44 overflow-y-auto">
                   {activeTokens.map((t) => (
                     <div
                       key={t.id}

@@ -58,6 +58,8 @@ import { AIGoalsSuggestionDialog } from "@/components/AIGoalsSuggestionDialog";
 import { ProgressSummaryDialog } from "@/components/ProgressSummaryDialog";
 import { CloneObjectiveDialog } from "@/components/okr/CloneObjectiveDialog";
 import { CloneBigRockDialog } from "@/components/okr/CloneBigRockDialog";
+import { EmbedDialog } from "@/components/EmbedDialog";
+import { Code } from "lucide-react";
 import { OKRCreationWizard } from "@/components/okr/OKRCreationWizard";
 import { OKRQualityScore } from "@/components/okr/OKRQualityScore";
 import { BigRockTasks } from "@/components/okr/BigRockTasks";
@@ -802,6 +804,7 @@ export default function PlanningEnhanced() {
   const [cloneObjective, setCloneObjective] = useState<Objective | null>(null);
   const [cloneBigRockDialogOpen, setCloneBigRockDialogOpen] = useState(false);
   const [cloneBigRock, setCloneBigRock] = useState<BigRock | null>(null);
+  const [embedBigRock, setEmbedBigRock] = useState<BigRock | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ type: "objective" | "keyResult" | "bigRock"; id: string; title: string } | null>(null);
   const [savedSummary, setSavedSummary] = useState<{ content: string; dateRange: string } | null>(null);
@@ -4399,6 +4402,17 @@ export default function PlanningEnhanced() {
               />
             )}
             <DialogFooter>
+              {selectedBigRock && (
+                <Button
+                  variant="outline"
+                  onClick={() => setEmbedBigRock(selectedBigRock)}
+                  data-testid="button-embed-bigrock"
+                  className="mr-auto"
+                >
+                  <Code className="h-4 w-4 mr-2" />
+                  Embed
+                </Button>
+              )}
               <Button variant="outline" onClick={() => { 
                 setBigRockDialogOpen(false); 
                 setSelectedBigRockForLink(null);
@@ -5706,6 +5720,17 @@ export default function PlanningEnhanced() {
           currentQuarter={quarter || getCurrentQuarter()}
           currentYear={year}
         />
+
+        {/* Embed Big Rock Dialog */}
+        {embedBigRock && (
+          <EmbedDialog
+            open={!!embedBigRock}
+            onClose={() => setEmbedBigRock(null)}
+            entityType="big_rock"
+            entityId={embedBigRock.id}
+            entityTitle={embedBigRock.title}
+          />
+        )}
 
         {/* OKR Creation Wizard */}
         <OKRCreationWizard
