@@ -1644,23 +1644,26 @@ Phase 3: Recovery (Week 3-4)
 
 ### Support Ticket Finishing Pass
 
-**Status:** Scoped — ready to build  
+**Status:** Mostly complete — Week 1 ✅ Week 2 ✅ (SLA timers + chatbot deflection metric remain)
 **Effort:** 1-2 weeks (excluding Planner sync, which is tracked separately below)  
 **Priority:** Medium  
-**Added:** April 8, 2026
+**Added:** April 8, 2026  
+**Last updated:** May 2026
 
 **Note on scope:** A full comparison against Constellation's support system
 (`chris-mcnulty/synozur-scdp`) has been completed (April 8, 2026). Week 1
-items have been implemented. Week 2 items remain scoped and ready to build.
+and Week 2 items are all implemented (see below). Only SLA timer badges (item 3)
+and chatbot deflection metric (item 10) remain open.
 Aurora Visual System fully implemented — see "Aurora Visual System — Implemented"
 section below.
 
 #### What's shipped today
-- Schema: `supportTickets` + `supportTicketReplies` (`shared/schema.ts` ~2163)
-- API: `POST/GET/PATCH /api/support/tickets`, reply threads, help-chat stream (`server/routes-support.ts`)
-- User UI: `client/src/pages/Support.tsx` (list / new / detail with replies)
-- Admin UI: `client/src/components/admin/AdminSupportTab.tsx` (filters, status/priority dropdowns, internal notes)
-- Email: SendGrid acknowledgement + admin notification on create
+- Schema: `supportTickets` + `supportTicketReplies` + `supportTicketHistory` (`shared/schema.ts`)
+- API: `POST/GET/PATCH /api/support/tickets`, reply threads, bulk endpoint, help-chat stream (`server/routes-support.ts`)
+- `GET /api/support/staff` — returns `vega_admin` + `vega_consultant` users for assignment dropdown
+- User UI: `client/src/pages/Support.tsx` (list / new / detail with replies; category-to-priority auto-defaults)
+- Admin UI: `client/src/components/admin/AdminSupportTab.tsx` (filters, staff assignment, bulk actions, canned responses, status history timeline)
+- Email: SendGrid acknowledgement + admin notification on create + bidirectional reply notifications (`staff_to_user` / `user_to_staff`)
 - Help chatbot escalation: pre-fills ticket form from conversation summary
 
 #### Concrete gaps to close
