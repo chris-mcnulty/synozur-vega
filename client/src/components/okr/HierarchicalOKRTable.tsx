@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useCallback, useState, useMemo } from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -398,6 +398,8 @@ function ObjectiveRow({
   onCloneObjective,
   onManageWeights,
   onEditExcelLink,
+  expandedIds,
+  onToggleExpand,
 }: { 
   objective: HierarchyObjective; 
   depth?: number;
@@ -420,8 +422,10 @@ function ObjectiveRow({
   onCloneObjective?: (objective: HierarchyObjective) => void;
   onManageWeights?: (objectiveId: string) => void;
   onEditExcelLink?: (keyResult: KeyResult) => void;
+  expandedIds: Set<string>;
+  onToggleExpand: (objectiveId: string) => void;
 }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const isExpanded = expandedIds.has(objective.id);
   const [isHovered, setIsHovered] = useState(false);
   const permissions = usePermissions();
   
@@ -454,7 +458,7 @@ function ObjectiveRow({
                 className="h-6 w-6 flex-shrink-0"
                 onClick={(e) => {
                   e.stopPropagation();
-                  setIsExpanded(!isExpanded);
+                  onToggleExpand(objective.id);
                 }}
                 data-testid={`button-expand-${objective.id}`}
               >
@@ -822,6 +826,8 @@ function ObjectiveRow({
               onCloseKeyResult={onCloseKeyResult}
               onReopenKeyResult={onReopenKeyResult}
               onEditExcelLink={onEditExcelLink}
+              expandedIds={expandedIds}
+              onToggleExpand={onToggleExpand}
             />
           ))}
           
@@ -850,6 +856,8 @@ function ObjectiveRow({
               onCloseKeyResult={onCloseKeyResult}
               onReopenKeyResult={onReopenKeyResult}
               onEditExcelLink={onEditExcelLink}
+              expandedIds={expandedIds}
+              onToggleExpand={onToggleExpand}
             />
           ))}
         </>
@@ -1145,6 +1153,8 @@ function MobileObjectiveCard({
   onCloneObjective,
   onManageWeights,
   onEditExcelLink,
+  expandedIds,
+  onToggleExpand,
 }: {
   objective: HierarchyObjective;
   depth?: number;
@@ -1167,8 +1177,10 @@ function MobileObjectiveCard({
   onCloneObjective?: (objective: HierarchyObjective) => void;
   onManageWeights?: (objectiveId: string) => void;
   onEditExcelLink?: (keyResult: KeyResult) => void;
+  expandedIds: Set<string>;
+  onToggleExpand: (objectiveId: string) => void;
 }) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const isExpanded = expandedIds.has(objective.id);
   const permissions = usePermissions();
   const canModify = permissions.canModifyOKR(objective.ownerId, objective.createdBy) ||
                     permissions.canModifyByEmail(objective.ownerEmail);
@@ -1210,7 +1222,7 @@ function MobileObjectiveCard({
               size="icon"
               variant="ghost"
               className="!h-11 !w-11 flex-shrink-0"
-              onClick={() => setIsExpanded(!isExpanded)}
+              onClick={() => onToggleExpand(objective.id)}
               aria-label={isExpanded ? "Collapse" : "Expand"}
               data-testid={`mobile-button-expand-${objective.id}`}
             >
@@ -1463,6 +1475,8 @@ function MobileObjectiveCard({
               onCloneObjective={onCloneObjective}
               onManageWeights={onManageWeights}
               onEditExcelLink={onEditExcelLink}
+              expandedIds={expandedIds}
+              onToggleExpand={onToggleExpand}
             />
           ))}
           {alignedObjectives.map((aligned) => (
@@ -1489,6 +1503,8 @@ function MobileObjectiveCard({
               onCloneObjective={onCloneObjective}
               onManageWeights={onManageWeights}
               onEditExcelLink={onEditExcelLink}
+              expandedIds={expandedIds}
+              onToggleExpand={onToggleExpand}
             />
           ))}
         </>
@@ -1755,6 +1771,19 @@ export function HierarchicalOKRTable({
   onManageWeights,
   onEditExcelLink,
 }: HierarchicalOKRTableProps) {
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
+  const handleToggleExpand = useCallback((objectiveId: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(objectiveId)) {
+        next.delete(objectiveId);
+      } else {
+        next.add(objectiveId);
+      }
+      return next;
+    });
+  }, []);
+
   if (objectives.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -1805,6 +1834,8 @@ export function HierarchicalOKRTable({
                 onReopenKeyResult={onReopenKeyResult}
                 onManageWeights={onManageWeights}
                 onEditExcelLink={onEditExcelLink}
+                expandedIds={expandedIds}
+                onToggleExpand={handleToggleExpand}
               />
             ))}
           </TableBody>
@@ -1835,6 +1866,8 @@ export function HierarchicalOKRTable({
             onReopenKeyResult={onReopenKeyResult}
             onManageWeights={onManageWeights}
             onEditExcelLink={onEditExcelLink}
+            expandedIds={expandedIds}
+            onToggleExpand={handleToggleExpand}
           />
         ))}
       </div>
