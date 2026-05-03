@@ -1640,7 +1640,7 @@ ${changelogContent}`;
         }
       }
 
-      const { startDate, endDate, statusCode, statusClass, galaxyUserId, userId, limit } = req.query as Record<string, string | undefined>;
+      const { startDate, endDate, statusCode, statusClass, galaxyUserId, userId, method, reason, limit } = req.query as Record<string, string | undefined>;
       const filters: Parameters<typeof storage.getPortalAuditLogs>[1] = {};
       if (startDate) {
         const d = new Date(startDate);
@@ -1659,6 +1659,13 @@ ${changelogContent}`;
       }
       if (galaxyUserId) filters.galaxyUserId = galaxyUserId;
       if (userId) filters.userId = userId;
+      if (method) {
+        const m = method.toUpperCase();
+        if (['GET', 'POST', 'PATCH', 'PUT', 'DELETE'].includes(m)) {
+          filters.method = m;
+        }
+      }
+      if (reason) filters.reason = reason;
       if (limit) {
         const n = parseInt(limit, 10);
         if (!isNaN(n)) filters.limit = n;

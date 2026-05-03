@@ -485,7 +485,7 @@ export interface IStorage {
   getUserByGalaxyUserId(galaxyUserId: string, tenantId?: string): Promise<User | undefined>;
   createPortalAuditLog(log: InsertPortalAuditLog): Promise<PortalAuditLog>;
   getPortalAuthCount(tenantId: string, sinceDate: Date): Promise<number>;
-  getPortalAuditLogs(tenantId: string, filters?: { startDate?: Date; endDate?: Date; statusCode?: number; statusClass?: '2xx' | '3xx' | '4xx' | '5xx'; galaxyUserId?: string; userId?: string; limit?: number }): Promise<(PortalAuditLog & { userEmail?: string | null; userName?: string | null })[]>;
+  getPortalAuditLogs(tenantId: string, filters?: { startDate?: Date; endDate?: Date; statusCode?: number; statusClass?: '2xx' | '3xx' | '4xx' | '5xx'; galaxyUserId?: string; userId?: string; method?: string; reason?: string; limit?: number }): Promise<(PortalAuditLog & { userEmail?: string | null; userName?: string | null })[]>;
   
   // Support Tickets methods
   getSupportTicketsByTenantId(tenantId: string, status?: string): Promise<SupportTicket[]>;
@@ -4787,7 +4787,7 @@ export class DatabaseStorage implements IStorage {
 
   async getPortalAuditLogs(
     tenantId: string,
-    filters?: { startDate?: Date; endDate?: Date; statusCode?: number; statusClass?: '2xx' | '3xx' | '4xx' | '5xx'; galaxyUserId?: string; userId?: string; limit?: number },
+    filters?: { startDate?: Date; endDate?: Date; statusCode?: number; statusClass?: '2xx' | '3xx' | '4xx' | '5xx'; galaxyUserId?: string; userId?: string; method?: string; reason?: string; limit?: number },
   ): Promise<(PortalAuditLog & { userEmail?: string | null; userName?: string | null })[]> {
     const conditions: SQL[] = [eq(portalAuditLogs.tenantId, tenantId)];
     if (filters?.startDate) conditions.push(gte(portalAuditLogs.createdAt, filters.startDate));
@@ -4804,6 +4804,12 @@ export class DatabaseStorage implements IStorage {
     }
     if (filters?.userId) {
       conditions.push(eq(portalAuditLogs.userId, filters.userId));
+    }
+    if (filters?.method) {
+      conditions.push(eq(portalAuditLogs.method, filters.method));
+    }
+    if (filters?.reason) {
+      conditions.push(eq(portalAuditLogs.errorMessage, filters.reason));
     }
     const limit = Math.min(Math.max(filters?.limit ?? 200, 1), 1000);
 

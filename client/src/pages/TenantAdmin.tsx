@@ -2568,6 +2568,8 @@ function PortalAuditLogViewer({ tenants }: { tenants: Tenant[] }) {
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [methodFilter, setMethodFilter] = useState<string>("all");
+  const [reasonFilter, setReasonFilter] = useState<string>("all");
   const [galaxyUserId, setGalaxyUserId] = useState<string>("");
   const [appliedFilters, setAppliedFilters] = useState<Record<string, string>>({});
 
@@ -2598,6 +2600,8 @@ function PortalAuditLogViewer({ tenants }: { tenants: Tenant[] }) {
       else next.statusClass = statusFilter;
     }
     if (galaxyUserId.trim()) next.galaxyUserId = galaxyUserId.trim();
+    if (methodFilter && methodFilter !== "all") next.method = methodFilter;
+    if (reasonFilter && reasonFilter !== "all") next.reason = reasonFilter;
     setAppliedFilters(next);
   };
 
@@ -2605,6 +2609,8 @@ function PortalAuditLogViewer({ tenants }: { tenants: Tenant[] }) {
     setStartDate("");
     setEndDate("");
     setStatusFilter("all");
+    setMethodFilter("all");
+    setReasonFilter("all");
     setGalaxyUserId("");
     setAppliedFilters({});
   };
@@ -2669,6 +2675,41 @@ function PortalAuditLogViewer({ tenants }: { tenants: Tenant[] }) {
                 <SelectItem value="401">401 Unauthorized</SelectItem>
                 <SelectItem value="403">403 Forbidden</SelectItem>
                 <SelectItem value="429">429 Rate limited</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Method</Label>
+            <Select value={methodFilter} onValueChange={setMethodFilter}>
+              <SelectTrigger className="mt-1" data-testid="select-portal-audit-method">
+                <SelectValue placeholder="Any" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any method</SelectItem>
+                <SelectItem value="GET">GET (read)</SelectItem>
+                <SelectItem value="POST">POST (write)</SelectItem>
+                <SelectItem value="PATCH">PATCH (write)</SelectItem>
+                <SelectItem value="PUT">PUT (write)</SelectItem>
+                <SelectItem value="DELETE">DELETE (write)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Reason</Label>
+            <Select value={reasonFilter} onValueChange={setReasonFilter}>
+              <SelectTrigger className="mt-1" data-testid="select-portal-audit-reason">
+                <SelectValue placeholder="Any" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any reason</SelectItem>
+                <SelectItem value="write_rate_limited">Write rate limited</SelectItem>
+                <SelectItem value="rate_limited">Rate limited</SelectItem>
+                <SelectItem value="missing_bearer">Missing bearer</SelectItem>
+                <SelectItem value="empty_token">Empty token</SelectItem>
+                <SelectItem value="jwt_validation_failed">JWT validation failed</SelectItem>
+                <SelectItem value="jit_failed">JIT provisioning failed</SelectItem>
+                <SelectItem value="tenant_mismatch">Tenant mismatch</SelectItem>
+                <SelectItem value="invalid_role">Invalid role</SelectItem>
               </SelectContent>
             </Select>
           </div>
