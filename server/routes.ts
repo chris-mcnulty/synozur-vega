@@ -123,6 +123,15 @@ const adminWithOptionalTenant = [requireAuth, loadCurrentUser, requireTenantAcce
 const SERVER_START_TIME = new Date().toISOString();
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Global clickjacking protection — applied to every response by default.
+  // The /embed/v1 public router overrides these headers for its routes via its
+  // own per-router use() middleware (res.removeHeader + frame-ancestors *).
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
+    next();
+  });
+
   // Build info endpoint for version display
   app.get("/api/build-info", (req, res) => {
     res.json({
