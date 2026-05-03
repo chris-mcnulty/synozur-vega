@@ -1398,6 +1398,55 @@ ${changelogContent}`;
     }
   });
 
+  // Galaxy Portal: audit log viewer
+  app.get("/api/tenants/:id/portal-audit", ...adminWithOptionalTenant, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const userRole = req.user?.role as string;
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
+      if (!canAccessAny && id !== req.effectiveTenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
+      // Platform admins may pass any tenant id; verify it exists.
+      if (canAccessAny) {
+        const tenant = await storage.getTenantById(id);
+        if (!tenant) {
+          return res.status(404).json({ error: "Tenant not found" });
+        }
+      }
+
+      const { startDate, endDate, statusCode, statusClass, galaxyUserId, userId, limit } = req.query as Record<string, string | undefined>;
+      const filters: Parameters<typeof storage.getPortalAuditLogs>[1] = {};
+      if (startDate) {
+        const d = new Date(startDate);
+        if (!isNaN(d.getTime())) filters.startDate = d;
+      }
+      if (endDate) {
+        const d = new Date(endDate);
+        if (!isNaN(d.getTime())) filters.endDate = d;
+      }
+      if (statusCode) {
+        const n = parseInt(statusCode, 10);
+        if (!isNaN(n)) filters.statusCode = n;
+      }
+      if (statusClass && ['2xx', '3xx', '4xx', '5xx'].includes(statusClass)) {
+        filters.statusClass = statusClass as '2xx' | '3xx' | '4xx' | '5xx';
+      }
+      if (galaxyUserId) filters.galaxyUserId = galaxyUserId;
+      if (userId) filters.userId = userId;
+      if (limit) {
+        const n = parseInt(limit, 10);
+        if (!isNaN(n)) filters.limit = n;
+      }
+
+      const logs = await storage.getPortalAuditLogs(id, filters);
+      res.json(logs);
+    } catch (error) {
+      console.error("Error fetching portal audit logs:", error);
+      res.status(500).json({ error: "Failed to fetch portal audit logs" });
+    }
+  });
+
   app.delete("/api/tenants/:id", ...platformAdminOnly, async (req: Request, res: Response) => {
     try {
       const { id } = req.params;

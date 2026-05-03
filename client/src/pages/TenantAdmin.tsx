@@ -2141,6 +2141,257 @@ function GalaxyPortalCard({ tenant }: { tenant: Tenant }) {
   );
 }
 
+type PortalAuditLogEntry = {
+  id: string;
+  tenantId: string;
+  userId: string | null;
+  galaxyClientId: string | null;
+  galaxyUserId: string | null;
+  route: string;
+  method: string;
+  statusCode: number;
+  durationMs: number | null;
+  ipAddress: string | null;
+  userAgent: string | null;
+  errorMessage: string | null;
+  createdAt: string;
+  userEmail?: string | null;
+  userName?: string | null;
+};
+
+function statusVariant(code: number): "default" | "secondary" | "destructive" | "outline" {
+  if (code >= 500) return "destructive";
+  if (code === 429) return "destructive";
+  if (code >= 400) return "destructive";
+  if (code >= 300) return "secondary";
+  return "default";
+}
+
+function PortalAuditLogViewer({ tenants }: { tenants: Tenant[] }) {
+  const [selectedTenantId, setSelectedTenantId] = useState<string>(tenants[0]?.id ?? "");
+  const [startDate, setStartDate] = useState<string>("");
+  const [endDate, setEndDate] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [galaxyUserId, setGalaxyUserId] = useState<string>("");
+  const [appliedFilters, setAppliedFilters] = useState<Record<string, string>>({});
+
+  const queryString = (() => {
+    const params = new URLSearchParams();
+    Object.entries(appliedFilters).forEach(([k, v]) => {
+      if (v) params.set(k, v);
+    });
+    const s = params.toString();
+    return s ? `?${s}` : "";
+  })();
+
+  const { data: logs = [], isLoading, refetch, isFetching, isError, error } = useQuery<PortalAuditLogEntry[]>({
+    queryKey: ["/api/tenants", selectedTenantId, "portal-audit", appliedFilters],
+    queryFn: async () => {
+      const res = await apiRequest("GET", `/api/tenants/${selectedTenantId}/portal-audit${queryString}`);
+      return res.json();
+    },
+    enabled: !!selectedTenantId,
+  });
+
+  const handleApplyFilters = () => {
+    const next: Record<string, string> = {};
+    if (startDate) next.startDate = new Date(startDate).toISOString();
+    if (endDate) next.endDate = new Date(endDate).toISOString();
+    if (statusFilter && statusFilter !== "all") {
+      if (/^\d+$/.test(statusFilter)) next.statusCode = statusFilter;
+      else next.statusClass = statusFilter;
+    }
+    if (galaxyUserId.trim()) next.galaxyUserId = galaxyUserId.trim();
+    setAppliedFilters(next);
+  };
+
+  const handleClearFilters = () => {
+    setStartDate("");
+    setEndDate("");
+    setStatusFilter("all");
+    setGalaxyUserId("");
+    setAppliedFilters({});
+  };
+
+  return (
+    <Card data-testid="portal-audit-log-viewer">
+      <CardHeader>
+        <CardTitle className="text-base">Portal Audit Log</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Recent <code className="text-xs">/api/portal/*</code> requests with status, user, and errors.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
+          {tenants.length > 1 && (
+            <div className="lg:col-span-2">
+              <Label className="text-xs text-muted-foreground">Organization</Label>
+              <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
+                <SelectTrigger className="mt-1" data-testid="select-portal-audit-tenant">
+                  <SelectValue placeholder="Select organization" />
+                </SelectTrigger>
+                <SelectContent>
+                  {tenants.map((t) => (
+                    <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          <div>
+            <Label className="text-xs text-muted-foreground">Start date</Label>
+            <Input
+              type="datetime-local"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="mt-1"
+              data-testid="input-portal-audit-start-date"
+            />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">End date</Label>
+            <Input
+              type="datetime-local"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="mt-1"
+              data-testid="input-portal-audit-end-date"
+            />
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Status</Label>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="mt-1" data-testid="select-portal-audit-status">
+                <SelectValue placeholder="Any" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Any status</SelectItem>
+                <SelectItem value="2xx">2xx Success</SelectItem>
+                <SelectItem value="3xx">3xx Redirect</SelectItem>
+                <SelectItem value="4xx">4xx Client error</SelectItem>
+                <SelectItem value="5xx">5xx Server error</SelectItem>
+                <SelectItem value="401">401 Unauthorized</SelectItem>
+                <SelectItem value="403">403 Forbidden</SelectItem>
+                <SelectItem value="429">429 Rate limited</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label className="text-xs text-muted-foreground">Galaxy user ID</Label>
+            <Input
+              placeholder="galaxy user id"
+              value={galaxyUserId}
+              onChange={(e) => setGalaxyUserId(e.target.value)}
+              className="mt-1"
+              data-testid="input-portal-audit-galaxy-user"
+            />
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            size="sm"
+            onClick={handleApplyFilters}
+            disabled={!selectedTenantId}
+            data-testid="button-portal-audit-apply"
+          >
+            Apply filters
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={handleClearFilters}
+            data-testid="button-portal-audit-clear"
+          >
+            Clear
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => refetch()}
+            disabled={isFetching || !selectedTenantId}
+            data-testid="button-portal-audit-refresh"
+          >
+            <RefreshCw className={`h-3 w-3 mr-1 ${isFetching ? "animate-spin" : ""}`} />
+            Refresh
+          </Button>
+          <span className="text-xs text-muted-foreground ml-auto" data-testid="text-portal-audit-count">
+            {logs.length} {logs.length === 1 ? "entry" : "entries"}
+          </span>
+        </div>
+
+        <div className="rounded-md border overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Time</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Method</TableHead>
+                <TableHead>Route</TableHead>
+                <TableHead>User</TableHead>
+                <TableHead>Galaxy user</TableHead>
+                <TableHead className="text-right">Duration</TableHead>
+                <TableHead>Error</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-6">
+                    Loading audit logs...
+                  </TableCell>
+                </TableRow>
+              ) : isError ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-sm text-destructive py-6" data-testid="text-portal-audit-error">
+                    Failed to load audit logs{error instanceof Error && error.message ? `: ${error.message}` : ""}
+                  </TableCell>
+                </TableRow>
+              ) : logs.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-sm text-muted-foreground py-6" data-testid="text-portal-audit-empty">
+                    No audit log entries match the current filters.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                logs.map((log) => (
+                  <TableRow key={log.id} data-testid={`row-portal-audit-${log.id}`}>
+                    <TableCell className="whitespace-nowrap text-xs" data-testid={`text-portal-audit-time-${log.id}`}>
+                      {new Date(log.createdAt).toLocaleString()}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={statusVariant(log.statusCode)} data-testid={`badge-portal-audit-status-${log.id}`}>
+                        {log.statusCode}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-xs font-mono">{log.method}</TableCell>
+                    <TableCell className="text-xs font-mono max-w-[280px] truncate" title={log.route} data-testid={`text-portal-audit-route-${log.id}`}>
+                      {log.route}
+                    </TableCell>
+                    <TableCell className="text-xs" data-testid={`text-portal-audit-user-${log.id}`}>
+                      {log.userEmail || log.userName || (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-xs font-mono max-w-[180px] truncate" title={log.galaxyUserId ?? undefined}>
+                      {log.galaxyUserId || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell className="text-right text-xs">
+                      {log.durationMs !== null ? `${log.durationMs} ms` : "—"}
+                    </TableCell>
+                    <TableCell className="text-xs max-w-[260px] truncate text-destructive" title={log.errorMessage ?? undefined}>
+                      {log.errorMessage || <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ConsultantAccessCard({ 
   tenant, 
   onOpenGrantDialog, 
@@ -3740,6 +3991,11 @@ export default function TenantAdmin() {
               <GalaxyPortalCard key={tenant.id} tenant={tenant} />
             ))}
           </div>
+          {filteredTenants.length > 0 && ['tenant_admin', 'admin', 'vega_admin', 'global_admin'].includes(currentUser?.role || '') && (
+            <div className="mt-6">
+              <PortalAuditLogViewer tenants={filteredTenants} />
+            </div>
+          )}
         </div>
 
         {/* Microsoft 365 Integration */}

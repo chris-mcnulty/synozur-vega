@@ -447,6 +447,7 @@ export interface IStorage {
   getUserByGalaxyUserId(galaxyUserId: string, tenantId?: string): Promise<User | undefined>;
   createPortalAuditLog(log: InsertPortalAuditLog): Promise<PortalAuditLog>;
   getPortalAuthCount(tenantId: string, sinceDate: Date): Promise<number>;
+  getPortalAuditLogs(tenantId: string, filters?: { startDate?: Date; endDate?: Date; statusCode?: number; statusClass?: '2xx' | '3xx' | '4xx' | '5xx'; galaxyUserId?: string; userId?: string; limit?: number }): Promise<(PortalAuditLog & { userEmail?: string | null; userName?: string | null })[]>;
   
   // Support Tickets methods
   getSupportTicketsByTenantId(tenantId: string, status?: string): Promise<SupportTicket[]>;
@@ -4488,6 +4489,43 @@ export class DatabaseStorage implements IStorage {
         isNotNull(portalAuditLogs.userId),
       ));
     return rows.length;
+  }
+
+  async getPortalAuditLogs(
+    tenantId: string,
+    filters?: { startDate?: Date; endDate?: Date; statusCode?: number; statusClass?: '2xx' | '3xx' | '4xx' | '5xx'; galaxyUserId?: string; userId?: string; limit?: number },
+  ): Promise<(PortalAuditLog & { userEmail?: string | null; userName?: string | null })[]> {
+    const conditions: SQL[] = [eq(portalAuditLogs.tenantId, tenantId)];
+    if (filters?.startDate) conditions.push(gte(portalAuditLogs.createdAt, filters.startDate));
+    if (filters?.endDate) conditions.push(lte(portalAuditLogs.createdAt, filters.endDate));
+    if (filters?.statusCode !== undefined) {
+      conditions.push(eq(portalAuditLogs.statusCode, filters.statusCode));
+    } else if (filters?.statusClass) {
+      const min = parseInt(filters.statusClass[0], 10) * 100;
+      conditions.push(gte(portalAuditLogs.statusCode, min));
+      conditions.push(lte(portalAuditLogs.statusCode, min + 99));
+    }
+    if (filters?.galaxyUserId) {
+      conditions.push(eq(portalAuditLogs.galaxyUserId, filters.galaxyUserId));
+    }
+    if (filters?.userId) {
+      conditions.push(eq(portalAuditLogs.userId, filters.userId));
+    }
+    const limit = Math.min(Math.max(filters?.limit ?? 200, 1), 1000);
+
+    const rows = await db
+      .select({
+        log: portalAuditLogs,
+        userEmail: users.email,
+        userName: users.name,
+      })
+      .from(portalAuditLogs)
+      .leftJoin(users, eq(users.id, portalAuditLogs.userId))
+      .where(and(...conditions))
+      .orderBy(desc(portalAuditLogs.createdAt))
+      .limit(limit);
+
+    return rows.map((r) => ({ ...r.log, userEmail: r.userEmail, userName: r.userName }));
   }
 
   // ============================================
