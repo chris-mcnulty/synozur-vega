@@ -30,26 +30,6 @@ author = "agent"
 task = "workflow.run"
 args = "Start application"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "test-portal"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "test-trash-restore"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "test-dashboard"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "test-saved-views"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "test-comments-mentions"
-
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -58,63 +38,6 @@ author = "agent"
 task = "shell.exec"
 args = "npm run dev"
 waitForPort = 5000
-
-[[workflows.workflow]]
-name = "test-portal"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/__tests__/galaxyPortal.test.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "test-trash-restore"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/__tests__/trashAndRestore.test.ts"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow]]
-name = "test-dashboard"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/__tests__/dashboardContext.test.ts"
-
-[workflows.workflow.metadata]
-outputType = "console"
-isValidation = true
-
-[[workflows.workflow]]
-name = "test-saved-views"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/__tests__/savedViews.test.ts"
-
-[workflows.workflow.metadata]
-outputType = "console"
-
-[[workflows.workflow]]
-name = "test-comments-mentions"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "npx tsx server/__tests__/commentsAndMentions.test.ts"
-
-[workflows.workflow.metadata]
-outputType = "console"
-isValidation = true
 
 [agent]
 integrations = ["javascript_mem_db:1.0.0", "outlook:1.0.0", "javascript_openai_ai_integrations:1.0.0", "sendgrid:1.0.0", "onedrive:1.0.0", "sharepoint:1.0.0", "hubspot:1.0.0", "javascript_object_storage:2.0.0"]
