@@ -487,21 +487,31 @@ export default function MeetingDetail() {
               <TooltipContent>{meetingActive ? "Stop the timer and exit active mode" : "Start a timer and step through the agenda"}</TooltipContent>
             </Tooltip>
 
-            {/* Start Live Meeting (presentation mode) */}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setLocation(`/focus-rhythm/${meetingId}/live`)}
-                  data-testid="button-start-live-meeting"
-                >
-                  <Presentation className="w-4 h-4 mr-1" />
-                  Live Meeting
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Open full-screen presentation mode with per-topic timer and quick capture</TooltipContent>
-            </Tooltip>
+            {/* Start / Resume Live Meeting (presentation mode) */}
+            {(() => {
+              const ls = meeting?.liveState;
+              const canResume = !!ls && !ls.endedAt;
+              return (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setLocation(`/focus-rhythm/${meetingId}/live`)}
+                      data-testid={canResume ? "button-resume-live-meeting" : "button-start-live-meeting"}
+                    >
+                      <Presentation className="w-4 h-4 mr-1" />
+                      {canResume ? "Resume Live Mode" : "Live Meeting"}
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {canResume
+                      ? "Resume the in-progress live session for this meeting"
+                      : "Open full-screen presentation mode with per-topic timer and quick capture"}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })()}
 
             {linkedItemCount > 0 && (
               <Tooltip>
@@ -802,7 +812,7 @@ export default function MeetingDetail() {
                         Live Meeting Summary
                       </h3>
                       <Card className="p-3">
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm">
                           <div>
                             <div className="text-xs text-muted-foreground">Elapsed</div>
                             <div className="font-medium" data-testid="text-summary-elapsed">{mins}m {secs}s</div>
@@ -814,6 +824,10 @@ export default function MeetingDetail() {
                           <div>
                             <div className="text-xs text-muted-foreground">Decisions</div>
                             <div className="font-medium" data-testid="text-summary-decisions-count">{summary.decisionsCount}</div>
+                          </div>
+                          <div>
+                            <div className="text-xs text-muted-foreground">Risks</div>
+                            <div className="font-medium" data-testid="text-summary-risks-count">{summary.risksCount}</div>
                           </div>
                           <div>
                             <div className="text-xs text-muted-foreground">Action items</div>
