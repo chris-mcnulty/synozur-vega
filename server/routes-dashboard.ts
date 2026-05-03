@@ -11,8 +11,139 @@ import type {
   AnnualGoal,
 } from "@shared/schema";
 import { storage } from "./storage";
+import { addPacificDays } from "./services/progress-snapshots";
 
 export const dashboardRouter = Router();
+export const execRouter = Router();
+
+// ============================================
+// EXEC: Confidence Drops
+// ============================================
+//
+// Returns objectives + key results whose latest owner-reported confidence has
+// dropped at least 0.3 below the prior 4-week average. Requires data points in
+// at least 4 distinct prior weekly buckets so we don't fire on a single noisy
+// reading.
+execRouter.get("/confidence-drops", async (req: Request, res: Response) => {
+  try {
+    const tenantId = (req as any).effectiveTenantId as string | undefined;
+    if (!tenantId) {
+      return res.status(400).json({ error: "Tenant required" });
+    }
+
+    const today = new Date().toISOString().split("T")[0];
+    const fromDate = addPacificDays(today, -35);
+
+    const [objSnaps, krSnaps] = await Promise.all([
+      storage.getProgressSnapshotsByTenant(tenantId, "objective", fromDate),
+      storage.getProgressSnapshotsByTenant(tenantId, "key_result", fromDate),
+    ]);
+
+    type Drop = {
+      entityType: "objective" | "key_result";
+      entityId: string;
+      title: string;
+      latestConfidence: number;
+      averageConfidence: number;
+      delta: number;
+      bucketsObserved: number;
+      latestSnapshotDate: string;
+    };
+
+    const drops: Drop[] = [];
+
+    function bucketIndex(snapshotDate: string, anchor: string): number {
+      // Number of full pacific days between anchor and snapshotDate.
+      // Newest = bucket 0 (most recent 7 days); prior weeks = 1..4.
+      const a = new Date(anchor + "T00:00:00Z").getTime();
+      const b = new Date(snapshotDate + "T00:00:00Z").getTime();
+      const days = Math.floor((a - b) / (24 * 60 * 60 * 1000));
+      if (days < 0) return -1;
+      return Math.floor(days / 7);
+    }
+
+    async function processGroup(
+      entityType: "objective" | "key_result",
+      snaps: typeof objSnaps,
+    ) {
+      const byEntity = new Map<string, typeof snaps>();
+      for (const s of snaps) {
+        if (s.confidence == null) continue;
+        const list = byEntity.get(s.entityId) || [];
+        list.push(s);
+        byEntity.set(s.entityId, list);
+      }
+
+      for (const [entityId, list] of Array.from(byEntity.entries())) {
+        // Most recent snapshot must be within the last 7 days.
+        const sorted = list
+          .slice()
+          .sort((a, b) => (a.snapshotDate < b.snapshotDate ? 1 : -1));
+        const latest = sorted[0];
+        if (!latest || latest.confidence == null) continue;
+        const latestBucket = bucketIndex(latest.snapshotDate, today);
+        if (latestBucket !== 0) continue;
+
+        // Bucket prior 4 weeks (buckets 1..4): collect averages per bucket.
+        const bucketSums = new Map<number, { sum: number; count: number }>();
+        for (const s of list) {
+          if (s.confidence == null) continue;
+          const idx = bucketIndex(s.snapshotDate, today);
+          if (idx < 1 || idx > 4) continue;
+          const cur = bucketSums.get(idx) || { sum: 0, count: 0 };
+          cur.sum += Number(s.confidence);
+          cur.count += 1;
+          bucketSums.set(idx, cur);
+        }
+
+        if (bucketSums.size < 4) continue; // require ≥4 distinct weekly buckets
+
+        const bucketAverages = Array.from(bucketSums.values()).map(
+          (b) => b.sum / b.count,
+        );
+        const avg =
+          bucketAverages.reduce((a, b) => a + b, 0) / bucketAverages.length;
+
+        const latestVal = Number(latest.confidence);
+        if (latestVal > avg - 0.3) continue;
+
+        let title = entityId;
+        try {
+          if (entityType === "objective") {
+            const obj = await storage.getObjectiveById(entityId);
+            if (obj) title = obj.title;
+          } else {
+            const kr = await storage.getKeyResultById(entityId);
+            if (kr) title = kr.title;
+          }
+        } catch (_e) {
+          // best-effort title lookup
+        }
+
+        drops.push({
+          entityType,
+          entityId,
+          title,
+          latestConfidence: Math.round(latestVal * 100) / 100,
+          averageConfidence: Math.round(avg * 100) / 100,
+          delta: Math.round((latestVal - avg) * 100) / 100,
+          bucketsObserved: bucketSums.size,
+          latestSnapshotDate: latest.snapshotDate,
+        });
+      }
+    }
+
+    await processGroup("objective", objSnaps);
+    await processGroup("key_result", krSnaps);
+
+    drops.sort((a, b) => a.delta - b.delta);
+
+    res.json({ drops, count: drops.length });
+  } catch (error) {
+    console.error("[exec/confidence-drops] error:", error);
+    res.status(500).json({ error: "Failed to compute confidence drops" });
+  }
+});
 
 type DashboardScope = "company" | "executive" | "team";
 

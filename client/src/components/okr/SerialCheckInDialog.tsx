@@ -35,6 +35,7 @@ import {
   Save,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { ConfidenceSlider } from "@/components/check-in/ConfidenceSlider";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { format, formatDistanceToNow } from "date-fns";
@@ -170,6 +171,7 @@ export function SerialCheckInDialog({
   const [formProgress, setFormProgress] = useState(0);
   const [formStatus, setFormStatus] = useState("on_track");
   const [formNote, setFormNote] = useState("");
+  const [formConfidence, setFormConfidence] = useState<number | null>(null);
   const [formAsOfDate, setFormAsOfDate] = useState(
     new Date().toISOString().split("T")[0],
   );
@@ -195,6 +197,7 @@ export function SerialCheckInDialog({
     setFormProgress(entity?.progress ?? item.progress ?? 0);
     setFormStatus(entity?.status ?? item.status ?? "on_track");
     setFormNote("");
+    setFormConfidence(null);
     setFormAsOfDate(new Date().toISOString().split("T")[0]);
     setPendingTaskUpdates({});
     setAiRewriteSuggestion(null);
@@ -240,6 +243,7 @@ export function SerialCheckInDialog({
           newStatus: formStatus,
           note: formNote,
           asOfDate: formAsOfDate,
+          confidence: formConfidence,
         },
         valueInputDraft,
         pendingTaskUpdates,
@@ -262,6 +266,7 @@ export function SerialCheckInDialog({
     formProgress,
     formStatus,
     formNote,
+    formConfidence,
     formAsOfDate,
     valueInputDraft,
     pendingTaskUpdates,
@@ -280,6 +285,9 @@ export function SerialCheckInDialog({
     setFormProgress(draftForm.newProgress);
     setFormStatus(draftForm.newStatus);
     setFormNote(draftForm.note);
+    if (draftForm.confidence === null || typeof draftForm.confidence === "number") {
+      setFormConfidence(draftForm.confidence);
+    }
     if (draftForm.asOfDate) setFormAsOfDate(draftForm.asOfDate);
     if (typeof draftRestorePrompt.valueInputDraft === "string") {
       setValueInputDraft(draftRestorePrompt.valueInputDraft);
@@ -481,6 +489,7 @@ export function SerialCheckInDialog({
       nextSteps: [],
       asOfDate: formAsOfDate,
       previousProgress: item.entityData?.progress ?? item.progress ?? 0,
+      confidence: formConfidence,
     };
 
     if (item.type === "key_result" && item.entityData) {
@@ -756,6 +765,12 @@ export function SerialCheckInDialog({
               </SelectContent>
             </Select>
           </div>
+
+          <ConfidenceSlider
+            value={formConfidence}
+            onChange={setFormConfidence}
+            testIdPrefix="serial-confidence"
+          />
 
           {/* Big Rock Tasks */}
           {item.type === "big_rock" && bigRockTasks.length > 0 && (

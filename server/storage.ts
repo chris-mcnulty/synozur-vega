@@ -226,6 +226,7 @@ export interface IStorage {
   upsertProgressSnapshot(snapshot: InsertProgressSnapshot): Promise<ProgressSnapshot>;
   getProgressSnapshotsByEntity(entityType: string, entityId: string, fromDate?: string): Promise<ProgressSnapshot[]>;
   getProgressSnapshotsByEntityIds(entityType: string, entityIds: string[], fromDate?: string): Promise<Map<string, ProgressSnapshot[]>>;
+  getProgressSnapshotsByTenant(tenantId: string, entityType: string, fromDate: string): Promise<ProgressSnapshot[]>;
   countProgressSnapshotsForTenant(tenantId: string): Promise<number>;
   
   // Value tagging methods
@@ -2772,7 +2773,8 @@ export class DatabaseStorage implements IStorage {
         achievements: insertCheckIn.achievements ? [...insertCheckIn.achievements] : null,
         challenges: insertCheckIn.challenges ? [...insertCheckIn.challenges] : null,
         nextSteps: insertCheckIn.nextSteps ? [...insertCheckIn.nextSteps] : null,
-      } as any)
+        confidence: insertCheckIn.confidence ?? null,
+      })
       .returning();
     return checkIn;
   }
@@ -2821,6 +2823,7 @@ export class DatabaseStorage implements IStorage {
       progress: snapshot.progress ?? 0,
       status: snapshot.status ?? null,
       paceStatus: snapshot.paceStatus ?? null,
+      confidence: snapshot.confidence ?? null,
       source: snapshot.source ?? 'job',
     };
 
@@ -2838,6 +2841,7 @@ export class DatabaseStorage implements IStorage {
           progress: values.progress,
           status: values.status,
           paceStatus: values.paceStatus,
+          confidence: values.confidence,
           source: values.source,
         },
       })
@@ -2892,6 +2896,24 @@ export class DatabaseStorage implements IStorage {
       result.set(row.entityId, list);
     }
     return result;
+  }
+
+  async getProgressSnapshotsByTenant(
+    tenantId: string,
+    entityType: string,
+    fromDate: string,
+  ): Promise<ProgressSnapshot[]> {
+    return await db
+      .select()
+      .from(progressSnapshots)
+      .where(
+        and(
+          eq(progressSnapshots.tenantId, tenantId),
+          eq(progressSnapshots.entityType, entityType),
+          gte(progressSnapshots.snapshotDate, fromDate),
+        ),
+      )
+      .orderBy(asc(progressSnapshots.snapshotDate));
   }
 
   async countProgressSnapshotsForTenant(tenantId: string): Promise<number> {

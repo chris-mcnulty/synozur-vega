@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { format, formatDistanceToNow } from "date-fns";
 import { saveDraft, loadDraft, clearDraft, type CheckInDraft } from "@/lib/checkin-draft";
 import { ObjectiveStateBadge } from "@/components/ObjectiveStateBadge";
+import { ConfidenceSlider } from "@/components/check-in/ConfidenceSlider";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
@@ -149,6 +150,9 @@ interface CheckIn {
   nextSteps?: string[];
   createdBy: string;
   createdAt: Date;
+  // Owner-reported confidence (0.0–1.0) carried per check-in. Nullable when
+  // the owner hasn't recorded a confidence on this check-in yet.
+  confidence?: number | null;
 }
 
 // Type for items that can be weighted (Key Results or Child Objectives)
@@ -852,6 +856,11 @@ export default function PlanningEnhanced() {
     asOfDate: new Date().toISOString().split('T')[0], // Default to today, user-changeable
   });
 
+  // Owner-reported confidence (0.0-1.0) — null when not set on this check-in.
+  // Tracked separately from checkInForm to avoid threading through every reset
+  // callsite; reset to null whenever checkInEntity changes for a new check-in.
+  const [checkInConfidence, setCheckInConfidence] = useState<number | null>(null);
+
   // Separate draft state for value input (allows empty string during editing)
   const [valueInputDraft, setValueInputDraft] = useState<string>("");
 
@@ -1042,6 +1051,7 @@ export default function PlanningEnhanced() {
             challenges: checkInForm.challenges,
             nextSteps: checkInForm.nextSteps,
             asOfDate: checkInForm.asOfDate,
+            confidence: checkInConfidence,
           },
           valueInputDraft,
           pendingTaskUpdates,
@@ -1070,6 +1080,7 @@ export default function PlanningEnhanced() {
     checkInForm.newStatus,
     checkInForm.note,
     checkInForm.asOfDate,
+    checkInConfidence,
     valueInputDraft,
     pendingTaskUpdates,
   ]);
@@ -1137,8 +1148,23 @@ export default function PlanningEnhanced() {
     } else {
       initialCheckInBaselineRef.current = null;
       skipCheckInUnsavedPromptRef.current = false;
+      // Reset owner-reported confidence so the next check-in starts unset.
+      setCheckInConfidence(null);
     }
   }, [checkInDialogOpen]);
+
+  // When the check-in target changes, default confidence:
+  //   - Editing an existing CI → use its stored value (or null)
+  //   - New CI → null (unset)
+  useEffect(() => {
+    if (!checkInEntity?.id) return;
+    if (editingCheckIn) {
+      const c = editingCheckIn.confidence;
+      setCheckInConfidence(typeof c === "number" ? c : null);
+    } else {
+      setCheckInConfidence(null);
+    }
+  }, [checkInEntity?.id, checkInEntity?.type, editingCheckIn?.id]);
 
   const handleRestoreDraft = () => {
     if (!draftRestorePrompt) return;
@@ -1159,6 +1185,9 @@ export default function PlanningEnhanced() {
     }
     if (draftRestorePrompt.pendingTaskUpdates) {
       setPendingTaskUpdates(draftRestorePrompt.pendingTaskUpdates);
+    }
+    if (draftForm.confidence === null || typeof draftForm.confidence === "number") {
+      setCheckInConfidence(draftForm.confidence);
     }
     setDraftSavedAt(draftRestorePrompt.savedAt);
     setDraftRestorePrompt(null);
@@ -4878,6 +4907,11 @@ export default function PlanningEnhanced() {
                   </SelectContent>
                 </Select>
               </div>
+              <ConfidenceSlider
+                value={checkInConfidence}
+                onChange={setCheckInConfidence}
+                testIdPrefix="planning-confidence"
+              />
               {/* Task updates — only for big_rock check-ins */}
               {checkInEntity?.type === "big_rock" && checkInBigRockTasks.length > 0 && (
                 <div className="space-y-2" data-testid="section-task-updates">
@@ -5078,7 +5112,9 @@ export default function PlanningEnhanced() {
                 onClick={() => {
                   if (checkInEntity) {
                     // Prepare data for submission
-                    let submissionData = { ...checkInForm };
+                    let submissionData: typeof checkInForm & {
+                      confidence: number | null;
+                    } = { ...checkInForm, confidence: checkInConfidence };
                     
                     // Validate for Key Results: ensure we have a valid number from the draft input
                     if (checkInEntity.type === "key_result" && checkInEntity.current) {

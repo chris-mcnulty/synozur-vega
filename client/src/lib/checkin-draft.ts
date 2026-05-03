@@ -10,6 +10,7 @@ export interface CheckInDraftForm {
   challenges?: string[];
   nextSteps?: string[];
   asOfDate: string;
+  confidence?: number | null;
 }
 
 export interface CheckInDraft {

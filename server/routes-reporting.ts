@@ -574,7 +574,62 @@ router.get("/summary", requireValidatedTenant, async (req: Request, res: Respons
     const objectiveIds = objectives.map(obj => obj.id);
     const keyResultsMap = await storage.getKeyResultsByObjectiveIds(objectiveIds);
     const keyResults = Array.from(keyResultsMap.values()).flat();
-    
+
+    // Owner-reported confidence per objective: latest non-null check-in value
+    // and the trailing 4-week average from check-ins. Aggregated as the mean
+    // across objectives at the bottom of this block.
+    const objectiveConfidence: Array<{
+      objectiveId: string;
+      title: string;
+      confidenceLatest: number | null;
+      confidence4wAvg: number | null;
+    }> = [];
+    let averageConfidence: number | null = null;
+    if (objectives.length > 0) {
+      const FOUR_WEEKS_MS = 28 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      const latestValues: number[] = [];
+      for (const obj of objectives) {
+        const cis = await storage.getCheckInsByEntityId('objective', obj.id);
+        const sorted = (cis || []).slice().sort((a, b) => {
+          const da = new Date(a.asOfDate || a.createdAt || 0).getTime();
+          const db = new Date(b.asOfDate || b.createdAt || 0).getTime();
+          return db - da;
+        });
+        const latestWithConf = sorted.find((c) => c.confidence != null);
+        const latest =
+          latestWithConf && typeof latestWithConf.confidence === 'number'
+            ? Math.round(latestWithConf.confidence * 100) / 100
+            : null;
+
+        const recent = sorted.filter((c) => {
+          if (c.confidence == null) return false;
+          const t = new Date(c.asOfDate || c.createdAt || 0).getTime();
+          return now - t <= FOUR_WEEKS_MS;
+        });
+        let avg4w: number | null = null;
+        if (recent.length > 0) {
+          const sum = recent.reduce(
+            (acc, c) => acc + (c.confidence as number),
+            0,
+          );
+          avg4w = Math.round((sum / recent.length) * 100) / 100;
+        }
+
+        objectiveConfidence.push({
+          objectiveId: obj.id,
+          title: obj.title,
+          confidenceLatest: latest,
+          confidence4wAvg: avg4w,
+        });
+        if (latest != null) latestValues.push(latest);
+      }
+      if (latestValues.length > 0) {
+        const sum = latestValues.reduce((a, b) => a + b, 0);
+        averageConfidence = Math.round((sum / latestValues.length) * 100) / 100;
+      }
+    }
+
     const completedObjectives = objectives.filter(o => (o.progress || 0) >= 100).length;
     const completedKeyResults = keyResults.filter(kr => (kr.progress || 0) >= 100).length;
     const completedBigRocks = bigRocks.filter(br => br.status === 'completed').length;
@@ -595,12 +650,14 @@ router.get("/summary", requireValidatedTenant, async (req: Request, res: Respons
         totalObjectives: objectives.length,
         completedObjectives,
         averageProgress,
+        averageConfidence,
         totalKeyResults: keyResults.length,
         completedKeyResults,
         totalBigRocks: bigRocks.length,
         completedBigRocks,
       },
       objectivesByStatus,
+      objectiveConfidence,
       quarter,
       year,
     });

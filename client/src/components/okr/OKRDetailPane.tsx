@@ -54,6 +54,89 @@ import { CommentCountBadge } from "@/components/CommentCountBadge";
 import { WebhookTokensPanel } from "./WebhookTokensPanel";
 import { usePermissions } from "@/hooks/use-permissions";
 
+// Renders the owner-reported confidence as a small standalone sparkline plus
+// a "latest" colored chip. Kept separate from the progress chart so the two
+// signals (objective progress vs. owner confidence) don't visually collide.
+function ConfidenceTrendCard({
+  series,
+  hasSeries,
+}: {
+  series: Array<{ date: string; progress: number; confidence?: number | null }>;
+  hasSeries: boolean;
+}) {
+  if (!hasSeries) return null;
+
+  const points = series
+    .filter((p) => typeof p.confidence === "number")
+    .map((p) => ({
+      date: format(new Date(p.date), "MMM d"),
+      confidence: Math.round((p.confidence as number) * 100) / 100,
+    }));
+
+  const latest = points[points.length - 1]?.confidence ?? null;
+
+  // Bucketize the latest value into a colored chip.
+  function chipVariant(v: number): "default" | "secondary" | "destructive" {
+    if (v <= 0.4) return "destructive";
+    if (v <= 0.6) return "secondary";
+    return "default";
+  }
+  function chipLabel(v: number): string {
+    if (v <= 0.2) return "Very Low";
+    if (v <= 0.4) return "Low";
+    if (v <= 0.6) return "Medium";
+    if (v <= 0.8) return "High";
+    return "Very High";
+  }
+
+  return (
+    <Card data-testid="card-confidence-trend">
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-sm font-medium">
+            Owner Confidence
+          </CardTitle>
+          {latest != null && (
+            <Badge
+              variant={chipVariant(latest)}
+              data-testid="badge-confidence-latest"
+            >
+              {chipLabel(latest)}: {latest.toFixed(1)}
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        {points.length > 1 ? (
+          <div className="h-20">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={points}>
+                <XAxis dataKey="date" hide />
+                <YAxis domain={[0, 1]} hide />
+                <Tooltip
+                  formatter={(value: number) => [value.toFixed(1)]}
+                  labelStyle={{ fontSize: 12 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="confidence"
+                  stroke="#a78bfa"
+                  strokeWidth={2}
+                  dot={{ fill: "#a78bfa", r: 2 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            Not enough data yet for a trend.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 interface OKRDetailPaneProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -225,7 +308,7 @@ export function OKRDetailPane({
   // check-in list above so chart/forecast history stays stable when users
   // edit or delete individual check-ins.
   const trendPath = entityType === "key_result" ? "key-results" : "objectives";
-  const { data: trendSeries = [] } = useQuery<Array<{ date: string; progress: number }>>({
+  const { data: trendSeries = [] } = useQuery<Array<{ date: string; progress: number; confidence?: number | null }>>({
     queryKey: ["/api/okr", trendPath, entity?.id, "trend"],
     queryFn: async () => {
       if (!entity?.id) return [];
@@ -397,8 +480,16 @@ export function OKRDetailPane({
       date: format(pointDate, "MMM d"),
       actual: point.progress,
       expected: getExpectedProgress(pointDate),
+      // Render confidence on a 0-100 scale alongside actual/expected so it
+      // shares the same y-axis.
+      confidence:
+        typeof point.confidence === "number"
+          ? Math.round(point.confidence * 100)
+          : null,
     };
   });
+
+  const hasConfidenceSeries = chartData.some((d) => d.confidence != null);
 
   if (chartData.length === 0) {
     // No history yet: show from period start to today using current progress
@@ -406,11 +497,13 @@ export function OKRDetailPane({
       date: format(periodStart, "MMM d"),
       actual: 0,
       expected: 0,
+      confidence: null,
     });
     chartData.push({
       date: format(today, "MMM d"),
       actual: entity.progress,
       expected: getExpectedProgress(today),
+      confidence: null,
     });
   } else {
     // Anchor the line at period start when our first data point is well after it
@@ -420,6 +513,7 @@ export function OKRDetailPane({
         date: format(periodStart, "MMM d"),
         actual: 0,
         expected: 0,
+        confidence: null,
       });
     }
   }
@@ -550,6 +644,11 @@ export function OKRDetailPane({
                 )}
               </CardContent>
             </Card>
+
+            <ConfidenceTrendCard
+              series={trendSeries}
+              hasSeries={hasConfidenceSeries}
+            />
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="w-full justify-start">

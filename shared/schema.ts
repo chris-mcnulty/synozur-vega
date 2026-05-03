@@ -1181,7 +1181,11 @@ export const checkIns = pgTable("check_ins", {
   // Integration source
   source: text("source").default('manual'),
   integrationId: varchar("integration_id"),
-  
+
+  // Owner-reported confidence in hitting the target (0.0–1.0, 0.1 steps).
+  // Nullable: a check-in may omit confidence.
+  confidence: doublePrecision("confidence"),
+
   // User tracking
   userId: varchar("user_id").notNull().references(() => users.id),
   userEmail: text("user_email"),
@@ -1209,6 +1213,10 @@ export const progressSnapshots = pgTable("progress_snapshots", {
   progress: doublePrecision("progress").default(0),
   status: text("status"),
   paceStatus: text("pace_status"), // computed pace status at time of capture
+
+  // Owner-reported confidence (0.0-1.0) carried from the latest check-in
+  // active on the snapshot day. Nullable when no check-in supplied confidence.
+  confidence: doublePrecision("confidence"),
 
   // Optional source metadata (e.g. 'job', 'backfill', 'manual')
   source: text("source").default('job'),
@@ -1254,11 +1262,25 @@ export const insertBigRockSchema = createInsertSchema(bigRocks).omit({
 export type InsertBigRock = z.infer<typeof insertBigRockSchema>;
 export type BigRock = typeof bigRocks.$inferSelect;
 
+// Confidence is stored as a decimal in [0.0, 1.0] with 0.1 increments.
+// Nullable + optional so a check-in may omit confidence entirely.
+export const checkInConfidenceSchema = z
+  .number()
+  .min(0)
+  .max(1)
+  .refine(
+    (v) => Number.isFinite(v) && Math.abs(Math.round(v * 10) - v * 10) < 1e-6,
+    { message: "Confidence must be in 0.1 increments between 0.0 and 1.0" },
+  )
+  .nullable()
+  .optional();
+
 export const insertCheckInSchema = createInsertSchema(checkIns).omit({
   id: true,
   createdAt: true,
 }).extend({
   asOfDate: z.string().datetime().or(z.date()).optional(),
+  confidence: checkInConfidenceSchema,
 });
 
 export const updateCheckInSchema = z.object({
@@ -1270,6 +1292,7 @@ export const updateCheckInSchema = z.object({
   challenges: z.array(z.string()).optional(),
   nextSteps: z.array(z.string()).optional(),
   asOfDate: z.string().datetime().or(z.date()).optional(),
+  confidence: checkInConfidenceSchema,
 });
 
 export type InsertCheckIn = z.infer<typeof insertCheckInSchema>;

@@ -3555,8 +3555,9 @@ ${changelogContent}`;
   app.use("/api/custom-fields", ...authWithTenant, customFieldsRouter);
 
   // Combined dashboard context endpoint (single round trip for dashboards)
-  const { dashboardRouter } = await import("./routes-dashboard");
+  const { dashboardRouter, execRouter } = await import("./routes-dashboard");
   app.use("/api/dashboard", ...authWithTenant, dashboardRouter);
+  app.use("/api/exec", ...authWithTenant, execRouter);
 
   // Import and use value tagging routes
   const { registerValueRoutes } = await import("./routes-values");

@@ -56,6 +56,44 @@ import {
 } from "recharts";
 import { cn } from "@/lib/utils";
 
+// Renders the "Confidence Dropping" alert sourced from /api/exec/confidence-drops.
+// The endpoint returns objectives whose latest weekly confidence average is at
+// least 0.3 below the trailing 4-week average, so we just list them here.
+function ConfidenceDropsCard() {
+  const { data } = useQuery<{ drops: Array<{ entityId: string; entityType: string; title: string; latestConfidence: number; averageConfidence: number; delta: number }> }>({
+    queryKey: ["/api/exec/confidence-drops"],
+  });
+  const drops = data?.drops ?? [];
+  if (drops.length === 0) return null;
+  return (
+    <Card className="border-amber-200 dark:border-amber-800" data-testid="card-confidence-drops">
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+          <TrendingDown className="h-5 w-5" />
+          Confidence Dropping
+        </CardTitle>
+        <CardDescription>
+          Owner-reported confidence has fallen sharply on these items
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {drops.map((d) => (
+          <div
+            key={`${d.entityType}-${d.entityId}`}
+            className="flex items-center justify-between gap-2 rounded-md border p-2"
+            data-testid={`row-confidence-drop-${d.entityId}`}
+          >
+            <span className="truncate text-sm">{d.title}</span>
+            <Badge variant="destructive">
+              {d.latestConfidence.toFixed(1)} (−{Math.abs(d.delta).toFixed(1)})
+            </Badge>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
 function getProgressColor(progress: number, expectedProgress?: number): string {
   if (expectedProgress !== undefined) {
     const gap = progress - expectedProgress;
@@ -1322,6 +1360,8 @@ export default function ExecutiveDashboard() {
             )}
           </div>
           )}
+
+          <ConfidenceDropsCard />
 
           {metrics.behindPaceCount > 0 && (
             <Card className="border-amber-200 dark:border-amber-800" data-testid="card-behind-pace-alerts">

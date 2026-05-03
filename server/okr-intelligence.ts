@@ -22,6 +22,9 @@ export interface CheckInData {
   asOfDate: Date;
   newProgress: number;
   previousProgress: number;
+  // Owner-reported confidence (0.0-1.0); optional and ignored by pace math.
+  // Carried alongside the series so trend consumers can render a sparkline.
+  confidence?: number | null;
 }
 
 function getPacificNow(): Date {

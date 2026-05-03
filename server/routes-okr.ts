@@ -2029,6 +2029,7 @@ okrRouter.get("/objectives/:id/trend", async (req: any, res) => {
       series: series.map(p => ({
         date: p.asOfDate,
         progress: p.newProgress,
+        confidence: p.confidence ?? null,
       })),
     });
   } catch (error) {
@@ -2058,6 +2059,7 @@ okrRouter.get("/key-results/:id/trend", async (req: any, res) => {
       series: series.map(p => ({
         date: p.asOfDate,
         progress: p.newProgress,
+        confidence: p.confidence ?? null,
       })),
     });
   } catch (error) {

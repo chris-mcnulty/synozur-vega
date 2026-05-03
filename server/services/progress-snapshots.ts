@@ -18,6 +18,24 @@ export async function hasAnyProgressSnapshots(): Promise<boolean> {
 const PACIFIC_TZ = "America/Los_Angeles";
 
 /**
+ * Return the confidence value from the most-recent check-in (by asOfDate)
+ * that has a non-null confidence. Returns null when no check-in supplied one.
+ */
+function latestConfidence(checkInList: CheckIn[]): number | null {
+  let bestTs = -Infinity;
+  let best: number | null = null;
+  for (const c of checkInList) {
+    if (c.confidence == null) continue;
+    const ts = new Date(c.asOfDate || c.createdAt || 0).getTime();
+    if (ts >= bestTs) {
+      bestTs = ts;
+      best = c.confidence;
+    }
+  }
+  return best;
+}
+
+/**
  * Compute today's date string (YYYY-MM-DD) in America/Los_Angeles (Pacific Time).
  * Uses Intl APIs so it follows DST automatically.
  */
@@ -82,6 +100,7 @@ export async function captureEntitySnapshot(params: {
   year?: number | null;
   targetValue?: number;
   checkIns?: CheckInData[];
+  confidence?: number | null;
   source?: string;
   snapshotDate?: string;
 }): Promise<ProgressSnapshot> {
@@ -106,6 +125,7 @@ export async function captureEntitySnapshot(params: {
     progress: params.progress,
     status: params.status,
     paceStatus: pace.status,
+    confidence: params.confidence ?? null,
     source: params.source ?? 'job',
   });
 }
@@ -151,7 +171,9 @@ export async function runDailySnapshotJob(): Promise<{ summary: string; details:
               asOfDate: c.asOfDate || c.createdAt!,
               newProgress: c.newProgress ?? 0,
               previousProgress: c.previousProgress ?? 0,
+              confidence: c.confidence ?? null,
             })),
+            confidence: latestConfidence(checkIns),
             source: 'job',
             snapshotDate: today,
           });
@@ -188,7 +210,9 @@ export async function runDailySnapshotJob(): Promise<{ summary: string; details:
               asOfDate: c.asOfDate || c.createdAt!,
               newProgress: c.newProgress ?? 0,
               previousProgress: c.previousProgress ?? 0,
+              confidence: c.confidence ?? null,
             })),
+            confidence: latestConfidence(checkIns),
             source: 'job',
             snapshotDate: today,
           });
@@ -232,7 +256,7 @@ export async function runDailySnapshotJob(): Promise<{ summary: string; details:
  * resulting Pacific YYYY-MM-DD string. Anchored at noon Pacific to avoid DST
  * boundary issues.
  */
-function addPacificDays(dateStr: string, days: number): string {
+export function addPacificDays(dateStr: string, days: number): string {
   const anchor = new Date(`${dateStr}T12:00:00-08:00`);
   anchor.setUTCDate(anchor.getUTCDate() + days);
   return getPacificDateString(anchor);
@@ -325,6 +349,7 @@ export async function backfillSnapshotsFromCheckIns(opts?: {
             asOfDate: new Date(c.asOfDate || c.createdAt!),
             newProgress: c.newProgress ?? 0,
             previousProgress: c.previousProgress ?? 0,
+            confidence: c.confidence ?? null,
           }));
 
           // Resolve entity context (period dates / target / quarter) for pace calc
@@ -361,6 +386,7 @@ export async function backfillSnapshotsFromCheckIns(opts?: {
           // most recent check-in's progress when no check-in exists for that day.
           let currentStatus: string | null = null;
           let currentProgress = 0;
+          let currentConfidence: number | null = null;
           let dateStr = startDay;
           let safety = 0;
           while (safety++ < 4000) { // ~10y safety bound; far more than any realistic OKR period
@@ -368,6 +394,7 @@ export async function backfillSnapshotsFromCheckIns(opts?: {
             if (explicit) {
               currentProgress = explicit.newProgress ?? currentProgress;
               currentStatus = explicit.newStatus ?? currentStatus;
+              if (explicit.confidence != null) currentConfidence = explicit.confidence;
             }
 
             const existing = existingByDate.get(dateStr);
@@ -389,6 +416,7 @@ export async function backfillSnapshotsFromCheckIns(opts?: {
                 year,
                 targetValue,
                 checkIns: checkInsUpToDay,
+                confidence: currentConfidence,
                 source: 'backfill',
                 snapshotDate: dateStr,
               });
@@ -563,6 +591,7 @@ export function snapshotsToCheckInData(snapshots: ProgressSnapshot[]): CheckInDa
       asOfDate,
       newProgress,
       previousProgress: prev,
+      confidence: s.confidence ?? null,
     });
     prev = newProgress;
   }
@@ -590,6 +619,7 @@ export async function getTrendSeriesForEntity(
       asOfDate: c.asOfDate || c.createdAt!,
       newProgress: c.newProgress ?? 0,
       previousProgress: c.previousProgress ?? 0,
+      confidence: c.confidence ?? null,
     }))
     .sort((a, b) => new Date(a.asOfDate).getTime() - new Date(b.asOfDate).getTime());
 }
@@ -626,6 +656,7 @@ export async function getTrendSeriesForEntities(
             asOfDate: c.asOfDate || c.createdAt!,
             newProgress: c.newProgress ?? 0,
             previousProgress: c.previousProgress ?? 0,
+            confidence: c.confidence ?? null,
           }))
           .sort((a, b) => new Date(a.asOfDate).getTime() - new Date(b.asOfDate).getTime()),
       );

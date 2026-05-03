@@ -239,6 +239,7 @@ async function setUp(): Promise<void> {
     newProgress: 10,
     previousValue: 0,
     newValue: 10,
+    confidence: 0.7,
   }).returning();
   seeded.checkInAId = ciA.id;
 
@@ -347,7 +348,7 @@ interface MeResponse {
   tenant: { id: string; name: string; color: string | null };
 }
 
-interface IdRow { id: string }
+interface IdRow { id: string; confidence?: number | null }
 interface DashboardResponse {
   activeObjectivesCount: number;
   activeKeyResultsCount: number;
@@ -401,6 +402,11 @@ async function caseValidTokenReturnsTenantScopedData(): Promise<void> {
   assert(ci.status === 200, '/check-ins returns 200');
   const ciIds = (ci.body ?? []).map(c => c.id);
   assert(ciIds.includes(seeded.checkInAId), '/check-ins includes check-in for owned objective');
+  const ownedCi = (ci.body ?? []).find(c => c.id === seeded.checkInAId);
+  assert(
+    typeof ownedCi?.confidence === 'number' && Math.abs(ownedCi.confidence - 0.7) < 1e-9,
+    '/check-ins pass-through includes owner-reported confidence',
+  );
 
   const dash = await call<DashboardResponse>('/api/portal/dashboard', token);
   assert(dash.status === 200, '/dashboard returns 200');

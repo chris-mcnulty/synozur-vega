@@ -48,6 +48,92 @@ const STORAGE_KEYS = {
   TEAM_FILTER: 'vega-dashboard-team-filter',
 };
 
+// Per-objective confidence chip in the Outcomes table. Resolves the
+// objective-level latest confidence from the same /api/reporting/summary
+// payload (cached) so each row gets a colored badge without N+1 fetches.
+function ObjectiveConfidenceChip({
+  objectiveId,
+  tenantId,
+  quarter,
+  year,
+}: {
+  objectiveId: string;
+  tenantId: string | undefined;
+  quarter: number | undefined;
+  year: number | undefined;
+}) {
+  const { data } = useQuery<{
+    objectiveConfidence?: Array<{
+      objectiveId: string;
+      confidenceLatest: number | null;
+    }>;
+  }>({
+    queryKey: ["/api/reporting/summary", tenantId, quarter, year],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (quarter != null) params.set("quarter", String(quarter));
+      if (year != null) params.set("year", String(year));
+      const res = await fetch(`/api/reporting/summary?${params}`);
+      if (!res.ok) throw new Error("summary failed");
+      return res.json();
+    },
+    enabled: !!tenantId,
+  });
+
+  const row = data?.objectiveConfidence?.find((r) => r.objectiveId === objectiveId);
+  const latest = row?.confidenceLatest;
+  if (latest == null) return null;
+  const variant: "default" | "secondary" | "destructive" =
+    latest <= 0.4 ? "destructive" : latest <= 0.6 ? "secondary" : "default";
+  return (
+    <Badge
+      variant={variant}
+      className="text-xs"
+      data-testid={`badge-objective-confidence-${objectiveId}`}
+    >
+      C {latest.toFixed(1)}
+    </Badge>
+  );
+}
+
+// Compact owner-confidence chip for the Outcomes block. Reads the summary
+// endpoint and renders a single bucketed badge with the underlying value.
+function OutcomesConfidenceChip({
+  tenantId,
+  quarter,
+  year,
+}: {
+  tenantId: string | undefined;
+  quarter: number | undefined;
+  year: number | undefined;
+}) {
+  const { data } = useQuery<{ summary: { averageConfidence: number | null } }>({
+    queryKey: ["/api/reporting/summary", tenantId, quarter, year],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (quarter != null) params.set("quarter", String(quarter));
+      if (year != null) params.set("year", String(year));
+      const res = await fetch(`/api/reporting/summary?${params}`);
+      if (!res.ok) throw new Error("summary failed");
+      return res.json();
+    },
+    enabled: !!tenantId,
+  });
+
+  const avg = data?.summary?.averageConfidence;
+  if (avg == null) return null;
+  const display = Math.round(avg * 10) / 10;
+  const label =
+    avg <= 0.4 ? "Low confidence" : avg <= 0.6 ? "Medium confidence" : "High confidence";
+  const variant: "default" | "secondary" | "destructive" =
+    avg <= 0.4 ? "destructive" : avg <= 0.6 ? "secondary" : "default";
+  return (
+    <Badge variant={variant} data-testid="badge-outcomes-confidence">
+      {label}: {display.toFixed(1)}
+    </Badge>
+  );
+}
+
 export default function Dashboard() {
   const { currentTenant, isLoading: tenantLoading } = useTenant();
   const { t } = useVocabulary();
@@ -467,6 +553,11 @@ export default function Dashboard() {
           <div className="flex items-center gap-2">
             <Target className="h-5 w-5 text-primary" />
             <h2 className="text-xl font-semibold">Outcomes</h2>
+            <OutcomesConfidenceChip
+              tenantId={currentTenant?.id}
+              quarter={currentQuarter?.quarter}
+              year={currentQuarter?.year}
+            />
           </div>
           <Link href="/planning">
             <Button variant="ghost" size="sm" className="gap-2" data-testid="link-outcomes">
@@ -720,17 +811,25 @@ export default function Dashboard() {
                           <div className="flex-1 min-w-0">
                             <h4 className="font-medium text-sm truncate">{okr.title}</h4>
                           </div>
-                          <Badge 
-                            variant="secondary" 
-                            className={cn(
-                              "text-xs shrink-0",
-                              (okr.progress || 0) >= 100 && "bg-green-500/10 text-green-600",
-                              (okr.progress || 0) >= 70 && (okr.progress || 0) < 100 && "bg-blue-500/10 text-blue-600",
-                              (okr.progress || 0) < 70 && (okr.progress || 0) > 0 && "bg-yellow-500/10 text-yellow-600"
-                            )}
-                          >
-                            {okr.progress || 0}%
-                          </Badge>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <ObjectiveConfidenceChip
+                              objectiveId={okr.id}
+                              tenantId={currentTenant?.id}
+                              quarter={currentQuarter?.quarter}
+                              year={currentQuarter?.year}
+                            />
+                            <Badge
+                              variant="secondary"
+                              className={cn(
+                                "text-xs",
+                                (okr.progress || 0) >= 100 && "bg-green-500/10 text-green-600",
+                                (okr.progress || 0) >= 70 && (okr.progress || 0) < 100 && "bg-blue-500/10 text-blue-600",
+                                (okr.progress || 0) < 70 && (okr.progress || 0) > 0 && "bg-yellow-500/10 text-yellow-600"
+                              )}
+                            >
+                              {okr.progress || 0}%
+                            </Badge>
+                          </div>
                         </div>
                         <Progress value={Math.min(okr.progress || 0, 100)} className="h-1.5" />
                       </div>
