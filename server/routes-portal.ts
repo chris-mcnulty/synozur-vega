@@ -23,7 +23,8 @@ import {
   calculateObjectiveRollupProgress,
 } from './routes-okr';
 import { captureEntitySnapshot, getPacificDateString } from './services/progress-snapshots';
-import { createNotification } from './services/notification-service';
+import { createNotification, isEmailEnabled } from './services/notification-service';
+import { sendPortalCheckInEmail } from './email';
 
 /**
  * Build the portal router. Production calls this with no arguments and the
@@ -518,28 +519,68 @@ async function captureSnapshotForCheckIn(checkIn: CheckIn): Promise<void> {
 async function notifyOwnersOfCheckIn(checkIn: CheckIn, actorUserId: string): Promise<void> {
   try {
     let ownerIds: (string | null | undefined)[] = [];
+    let entityTitle = '';
     if (checkIn.entityType === 'objective') {
       const o = await storage.getObjectiveById(checkIn.entityId);
-      if (o) ownerIds = [o.ownerId, o.checkInOwnerId, ...(o.coOwnerIds || [])];
+      if (o) {
+        ownerIds = [o.ownerId, o.checkInOwnerId, ...(o.coOwnerIds || [])];
+        entityTitle = o.title;
+      }
     } else if (checkIn.entityType === 'key_result') {
       const k = await storage.getKeyResultById(checkIn.entityId);
-      if (k) ownerIds = [k.ownerId];
+      if (k) {
+        ownerIds = [k.ownerId];
+        entityTitle = k.title;
+      }
     } else if (checkIn.entityType === 'big_rock') {
       const b = await storage.getBigRockById(checkIn.entityId);
-      if (b) ownerIds = [b.ownerId, b.accountableId];
+      if (b) {
+        ownerIds = [b.ownerId, b.accountableId];
+        entityTitle = b.title;
+      }
     }
+    // Match the entity deep-link convention used by comment notifications
+    // (server/routes-comments.ts) so links open the right entity in the app.
+    const linkUrl = `/planning?entityType=${encodeURIComponent(checkIn.entityType)}&entityId=${encodeURIComponent(checkIn.entityId)}`;
     const recipients = Array.from(new Set(ownerIds.filter((id): id is string => !!id && id !== actorUserId)));
-    await Promise.all(recipients.map(userId =>
-      createNotification({
+    if (recipients.length === 0) return;
+
+    const entityTypeLabel = checkIn.entityType.replace('_', ' ');
+    const actor = await storage.getUser(actorUserId);
+    const actorName = actor?.name || actor?.email || checkIn.userEmail || 'A portal user';
+
+    await Promise.all(recipients.map(async (userId) => {
+      await createNotification({
         tenantId: checkIn.tenantId,
         userId,
         type: 'assigned',
         title: 'New check-in from Galaxy Portal',
-        body: checkIn.note || `A ${checkIn.entityType.replace('_', ' ')} was updated via Galaxy Portal.`,
+        body: checkIn.note || `A ${entityTypeLabel} was updated via Galaxy Portal.`,
         entityType: checkIn.entityType,
         entityId: checkIn.entityId,
-      }),
-    ));
+        linkUrl,
+      });
+      try {
+        if (await isEmailEnabled(userId, 'assigned')) {
+          const recipient = await storage.getUser(userId);
+          if (recipient?.email && !recipient.email.endsWith('@portal.invalid')) {
+            await sendPortalCheckInEmail(
+              recipient.email,
+              recipient.name || recipient.email,
+              actorName,
+              entityTypeLabel,
+              entityTitle || `your ${entityTypeLabel}`,
+              checkIn.note ?? null,
+              checkIn.newStatus ?? null,
+              checkIn.newProgress ?? null,
+              linkUrl,
+            );
+          }
+        }
+      } catch (e) {
+        console.error('[Portal] check-in email failed:', e);
+      }
+    }));
   } catch (err) {
     console.error('[Portal] Failed to send check-in notifications:', err);
   }

@@ -1100,6 +1100,104 @@ export async function sendCommentMentionEmail(
   }
 }
 
+export async function sendPortalCheckInEmail(
+  to: string,
+  recipientName: string,
+  authorName: string,
+  entityTypeLabel: string,
+  entityTitle: string,
+  note: string | null,
+  newStatus: string | null,
+  newProgress: number | null,
+  linkPath: string,
+) {
+  try {
+    const { client, fromEmail } = await getUncachableSendGridClient();
+    const linkUrl = linkPath.startsWith("http") ? linkPath : `${APP_URL}${linkPath}`;
+    const escape = (s: string) => s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+    const safeEntityTitle = escape(entityTitle);
+    const safeEntityType = escape(entityTypeLabel);
+    const safeAuthor = escape(authorName);
+    const safeRecipient = escape(recipientName);
+    const safeNote = note ? escape(note) : "";
+    const safeStatus = newStatus ? escape(newStatus.replace(/_/g, " ")) : null;
+    const progressDisplay = (newProgress !== null && newProgress !== undefined)
+      ? `${Math.round(newProgress)}%`
+      : null;
+
+    const detailsRows: string[] = [];
+    if (safeStatus) {
+      detailsRows.push(`<div style="margin:0 0 8px;font-size:14px;color:#cccccc;"><strong style="color:#ffffff;">Status:</strong> ${safeStatus}</div>`);
+    }
+    if (progressDisplay) {
+      detailsRows.push(`<div style="margin:0 0 8px;font-size:14px;color:#cccccc;"><strong style="color:#ffffff;">Progress:</strong> ${progressDisplay}</div>`);
+    }
+    const detailsBlock = detailsRows.length
+      ? `<div style="margin:16px 0;padding:12px 16px;background-color:#161616;border-radius:4px;">${detailsRows.join("")}</div>`
+      : "";
+    const noteBlock = safeNote
+      ? `<div style="margin:16px 0;padding:16px;background-color:#161616;border-left:3px solid #810FFB;border-radius:4px;color:#cccccc;font-size:14px;line-height:1.6;white-space:pre-wrap;">${safeNote}</div>`
+      : "";
+
+    const subject = `${authorName} checked in on “${entityTitle}”`;
+
+    const msg = {
+      to,
+      from: fromEmail,
+      subject,
+      html: `
+        <!DOCTYPE html>
+        <html>
+          <body style="margin:0;padding:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#0a0a0a;color:#ffffff;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#0a0a0a;">
+              <tr>
+                <td style="padding:40px 20px;">
+                  <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="max-width:600px;margin:0 auto;background:linear-gradient(135deg,#1a1a1a 0%,#0a0a0a 100%);border-radius:12px;border:1px solid #2a2a2a;">
+                    <tr>
+                      <td style="padding:40px 40px 20px;text-align:center;">
+                        <h1 style="margin:0;font-size:28px;font-weight:700;background:linear-gradient(135deg,#810FFB 0%,#E60CB3 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;">Vega</h1>
+                      </td>
+                    </tr>
+                    <tr>
+                      <td style="padding:20px 40px 40px;">
+                        <h2 style="margin:0 0 16px;font-size:20px;color:#ffffff;">Hi ${safeRecipient},</h2>
+                        <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#cccccc;">
+                          <strong style="color:#ffffff;">${safeAuthor}</strong> posted a check-in from the Galaxy portal on your ${safeEntityType}
+                          <strong style="color:#ffffff;">“${safeEntityTitle}”</strong>.
+                        </p>
+                        ${detailsBlock}
+                        ${noteBlock}
+                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" style="margin:30px 0;">
+                          <tr>
+                            <td style="border-radius:8px;background:linear-gradient(135deg,#810FFB 0%,#E60CB3 100%);">
+                              <a href="${linkUrl}" target="_blank" style="display:inline-block;padding:14px 32px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">View in Vega</a>
+                            </td>
+                          </tr>
+                        </table>
+                        <p style="margin:24px 0 0;font-size:12px;color:#777;">
+                          You're receiving this because you own this item in Vega.
+                          You can manage notification preferences in your account settings.
+                        </p>
+                      </td>
+                    </tr>
+                  </table>
+                </td>
+              </tr>
+            </table>
+          </body>
+        </html>
+      `,
+      text: `Hi ${recipientName},\n\n${authorName} posted a check-in from the Galaxy portal on your ${entityTypeLabel} "${entityTitle}".${safeStatus ? `\n\nStatus: ${newStatus?.replace(/_/g, ' ')}` : ''}${progressDisplay ? `\nProgress: ${progressDisplay}` : ''}${note ? `\n\nNote: ${note}` : ''}\n\nView: ${linkUrl}\n\n— Vega`,
+    };
+    await client.send(msg);
+  } catch (err) {
+    console.error("[email] sendPortalCheckInEmail failed:", err);
+  }
+}
+
 // Hash a token for secure storage (similar to password hashing)
 export function hashToken(token: string): string {
   return crypto.createHash('sha256').update(token).digest('hex');
