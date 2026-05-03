@@ -73,6 +73,7 @@ import {
   WORKSHOP_STATUS, type WorkshopSettings, type WorkshopDraftEntry,
   krWebhookTokens, type KrWebhookToken, type InsertKrWebhookToken,
   webhookIngestLogs, type WebhookIngestLog, type InsertWebhookIngestLog,
+  webhookRateLimits,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, count, ilike, asc, type SQL } from "drizzle-orm";
@@ -496,6 +497,7 @@ export interface IStorage {
   createWebhookIngestLog(log: InsertWebhookIngestLog): Promise<WebhookIngestLog>;
   getWebhookIngestLogsByTenantId(tenantId: string, limit?: number): Promise<WebhookIngestLog[]>;
   getWebhookIngestLogsByTokenId(tokenId: string, limit?: number): Promise<WebhookIngestLog[]>;
+  checkWebhookRateLimit(kind: string, key: string, limit: number, windowMs: number): Promise<boolean>;
 
   // Galaxy Portal methods
   getTenantByGalaxyClientId(galaxyClientId: string): Promise<Tenant | undefined>;
@@ -7460,6 +7462,43 @@ export class DatabaseStorage implements IStorage {
       .where(eq(webhookIngestLogs.tenantId, tenantId))
       .orderBy(desc(webhookIngestLogs.requestedAt))
       .limit(limit);
+  }
+
+  async checkWebhookRateLimit(
+    kind: string,
+    key: string,
+    limit: number,
+    windowMs: number,
+  ): Promise<boolean> {
+    // Postgres-backed token bucket, atomic across app instances. Capacity
+    // equals `limit`; tokens refill linearly at `limit / windowMs`. The
+    // upsert refills the existing bucket and consumes one token in a single
+    // statement; if the refilled bucket has < 1 token, the WHERE on the
+    // ON CONFLICT branch suppresses the update and RETURNING is empty,
+    // which we treat as "rate limited". This is a true sliding-rate
+    // implementation with no boundary bursting.
+    const refillRate = limit / (windowMs / 1000); // tokens per second
+    const result = await db.execute<{ tokens: number }>(sql`
+      INSERT INTO webhook_rate_limits (kind, key, tokens, last_refill)
+      VALUES (${kind}, ${key}, ${limit - 1}, NOW())
+      ON CONFLICT (kind, key) DO UPDATE SET
+        tokens = LEAST(
+          ${limit}::double precision,
+          webhook_rate_limits.tokens
+            + EXTRACT(EPOCH FROM (NOW() - webhook_rate_limits.last_refill))
+              * ${refillRate}::double precision
+        ) - 1,
+        last_refill = NOW()
+      WHERE LEAST(
+          ${limit}::double precision,
+          webhook_rate_limits.tokens
+            + EXTRACT(EPOCH FROM (NOW() - webhook_rate_limits.last_refill))
+              * ${refillRate}::double precision
+        ) >= 1
+      RETURNING tokens
+    `);
+    const rows = (result.rows ?? []) as Array<{ tokens: number }>;
+    return rows.length > 0;
   }
 
   async getWebhookIngestLogsByTokenId(tokenId: string, limit: number = 50): Promise<WebhookIngestLog[]> {

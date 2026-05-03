@@ -31,50 +31,27 @@ function paceToKrStatus(pace: PaceStatus): string | null {
 export const webhookIngestRouter = Router();
 
 // =============================================================================
-// In-memory sliding-window rate limiters
+// Rate limiters (Postgres-backed token bucket)
 //   - per-token:  60 requests / minute
 //   - per-tenant: 1000 requests / minute
-// Multi-instance deployments would need a shared store (e.g. Redis), but for a
-// single-instance app this is sufficient and avoids extra infrastructure.
+// State lives in the `webhook_rate_limits` table so buckets are shared across
+// every app instance — capacity equals the per-window limit and tokens refill
+// linearly at limit/window. On rate-limit-store failures we fail open (allow
+// the request) so a transient DB hiccup doesn't make ingest unavailable; the
+// downstream auth + signature checks still apply.
 // =============================================================================
 const PER_TOKEN_LIMIT = 60;
 const PER_TENANT_LIMIT = 1000;
 const WINDOW_MS = 60_000;
 
-const tokenWindows = new Map<string, number[]>();
-const tenantWindows = new Map<string, number[]>();
-
-function checkRateLimit(map: Map<string, number[]>, key: string, limit: number): boolean {
-  const now = Date.now();
-  const cutoff = now - WINDOW_MS;
-  const arr = map.get(key) ?? [];
-  // drop old entries
-  let i = 0;
-  while (i < arr.length && arr[i] < cutoff) i++;
-  const fresh = i > 0 ? arr.slice(i) : arr;
-  if (fresh.length >= limit) {
-    map.set(key, fresh);
-    return false;
+async function checkSharedRateLimit(kind: "token" | "tenant", key: string, limit: number): Promise<boolean> {
+  try {
+    return await storage.checkWebhookRateLimit(kind, key, limit, WINDOW_MS);
+  } catch (err) {
+    console.error("[webhook-ingest] rate limit store failure, failing open", err);
+    return true;
   }
-  fresh.push(now);
-  map.set(key, fresh);
-  return true;
 }
-
-// Periodic GC so the maps don't grow unbounded
-setInterval(() => {
-  const cutoff = Date.now() - WINDOW_MS;
-  for (const [k, v] of tokenWindows) {
-    const fresh = v.filter((t) => t >= cutoff);
-    if (fresh.length === 0) tokenWindows.delete(k);
-    else tokenWindows.set(k, fresh);
-  }
-  for (const [k, v] of tenantWindows) {
-    const fresh = v.filter((t) => t >= cutoff);
-    if (fresh.length === 0) tenantWindows.delete(k);
-    else tenantWindows.set(k, fresh);
-  }
-}, 5 * 60_000).unref?.();
 
 // =============================================================================
 // Helpers
@@ -188,11 +165,11 @@ webhookIngestRouter.post("/v1/kr/:token", async (req: Request, res: Response) =>
     }
 
     // Per-token rate limit
-    if (!checkRateLimit(tokenWindows, token.id, PER_TOKEN_LIMIT)) {
+    if (!(await checkSharedRateLimit("token", token.id, PER_TOKEN_LIMIT))) {
       return sendError(429, "rate_limit_token", "Per-token rate limit exceeded", { token });
     }
     // Per-tenant rate limit
-    if (!checkRateLimit(tenantWindows, token.tenantId, PER_TENANT_LIMIT)) {
+    if (!(await checkSharedRateLimit("tenant", token.tenantId, PER_TENANT_LIMIT))) {
       return sendError(429, "rate_limit_tenant", "Per-tenant rate limit exceeded", { token });
     }
 

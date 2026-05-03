@@ -349,6 +349,19 @@ async function ensureSchemaColumns() {
       );
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_kr_webhook_tokens_kr ON kr_webhook_tokens(key_result_id)`);
+
+    // Shared rate-limit state for the KR webhook ingest endpoint. Backstop
+    // matching shared/schema.ts so per-token / per-tenant limits stay
+    // consistent across multiple app instances even on fresh dev DBs.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS webhook_rate_limits (
+        kind text NOT NULL,
+        key text NOT NULL,
+        tokens double precision NOT NULL,
+        last_refill timestamptz NOT NULL,
+        PRIMARY KEY (kind, key)
+      );
+    `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_kr_webhook_tokens_tenant ON kr_webhook_tokens(tenant_id)`);
 
     await client.query(`

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, jsonb, unique, boolean, doublePrecision } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, jsonb, unique, boolean, doublePrecision, primaryKey } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -3216,3 +3216,17 @@ export const insertWebhookIngestLogSchema = createInsertSchema(webhookIngestLogs
 
 export type InsertWebhookIngestLog = z.infer<typeof insertWebhookIngestLogSchema>;
 export type WebhookIngestLog = typeof webhookIngestLogs.$inferSelect;
+
+// Shared, multi-instance rate limit state for the webhook ingest endpoint.
+// Implements a token bucket per (kind, key) — e.g. ('token', <tokenId>) or
+// ('tenant', <tenantId>). Bucket capacity equals the configured per-window
+// limit; tokens refill linearly at limit/window. Updates run as a single
+// atomic upsert so every app instance shares the same bucket state.
+export const webhookRateLimits = pgTable("webhook_rate_limits", {
+  kind: text("kind").notNull(),
+  key: text("key").notNull(),
+  tokens: doublePrecision("tokens").notNull(),
+  lastRefill: timestamp("last_refill", { withTimezone: true }).notNull(),
+}, (t) => ({
+  pk: primaryKey({ columns: [t.kind, t.key] }),
+}));
