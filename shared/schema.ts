@@ -3051,3 +3051,64 @@ export const insertWorkshopVoteSchema = createInsertSchema(workshopVotes).omit({
 
 export type InsertWorkshopVote = z.infer<typeof insertWorkshopVoteSchema>;
 export type WorkshopVote = typeof workshopVotes.$inferSelect;
+
+// ============================================
+// KR Webhook Tokens (inbound auto-update)
+// Allows external systems (Datadog, Snowflake, Zapier, cron jobs, etc.)
+// to POST a value into a key result via a per-token URL secured with HMAC.
+// ============================================
+export const krWebhookTokens = pgTable("kr_webhook_tokens", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  keyResultId: varchar("key_result_id").notNull().references(() => keyResults.id, { onDelete: 'cascade' }),
+  label: text("label").notNull(),
+  // SHA-256 hash of the public token (the URL slug). Public token is shown once at creation.
+  tokenHash: text("token_hash").notNull().unique(),
+  // SHA-256 hash of the HMAC shared secret. Secret is shown once at creation.
+  secretHash: text("secret_hash").notNull(),
+  enabled: boolean("enabled").notNull().default(true),
+  lastUsedAt: timestamp("last_used_at"),
+  failureCount: integer("failure_count").notNull().default(0),
+  successCount: integer("success_count").notNull().default(0),
+  createdByUserId: varchar("created_by_user_id").references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  revokedAt: timestamp("revoked_at"),
+  revokedByUserId: varchar("revoked_by_user_id").references(() => users.id, { onDelete: 'set null' }),
+});
+
+export const insertKrWebhookTokenSchema = createInsertSchema(krWebhookTokens).omit({
+  id: true,
+  createdAt: true,
+  lastUsedAt: true,
+  failureCount: true,
+  successCount: true,
+  revokedAt: true,
+  revokedByUserId: true,
+});
+
+export type InsertKrWebhookToken = z.infer<typeof insertKrWebhookTokenSchema>;
+export type KrWebhookToken = typeof krWebhookTokens.$inferSelect;
+
+// Per-attempt audit log for forensics. Records every ingest hit including
+// failures (signature mismatch, archived KR, disabled token, rate limit, etc.).
+export const webhookIngestLogs = pgTable("webhook_ingest_logs", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  tenantId: varchar("tenant_id").references(() => tenants.id, { onDelete: 'cascade' }),
+  tokenId: varchar("token_id").references(() => krWebhookTokens.id, { onDelete: 'set null' }),
+  keyResultId: varchar("key_result_id"),
+  statusCode: integer("status_code").notNull(),
+  errorCode: text("error_code"),
+  errorMessage: text("error_message"),
+  payloadSize: integer("payload_size"),
+  sourceIp: text("source_ip"),
+  userAgent: text("user_agent"),
+  requestedAt: timestamp("requested_at").defaultNow().notNull(),
+});
+
+export const insertWebhookIngestLogSchema = createInsertSchema(webhookIngestLogs).omit({
+  id: true,
+  requestedAt: true,
+});
+
+export type InsertWebhookIngestLog = z.infer<typeof insertWebhookIngestLogSchema>;
+export type WebhookIngestLog = typeof webhookIngestLogs.$inferSelect;

@@ -1,4 +1,5 @@
 import { Router, Request, Response, NextFunction } from "express";
+import crypto from "crypto";
 import { storage } from "./storage";
 import { 
   insertObjectiveSchema, 
@@ -14,6 +15,7 @@ import { requireValidatedTenant } from "./middleware/validateTenant";
 import { requireReadWriteLicense } from "./middleware/rbac";
 import { applyCustomFields, hydrateEntitiesWithCustomFields } from "./routes-custom-fields";
 import { createNotification, notifyMany } from "./services/notification-service";
+import { encryptToken } from "./utils/encryption";
 
 // Fields whose mutation on an `active` objective requires re-approval when
 // approvals are enabled (Task #59).
@@ -2283,5 +2285,253 @@ okrRouter.get("/forecasts", async (req, res) => {
   } catch (error) {
     console.error('[OKR Forecast] Failed to calculate forecasts:', error);
     res.status(500).json({ error: "Failed to calculate forecasts" });
+  }
+});
+
+// ============================================
+// KR Webhook Tokens — CRUD
+// Mounted under okrRouter so it inherits authWithTenant + license checks.
+// ============================================
+
+function sha256Hex(input: string): string {
+  return crypto.createHash("sha256").update(input).digest("hex");
+}
+
+function generateRandomHex(bytes: number): string {
+  return crypto.randomBytes(bytes).toString("hex");
+}
+
+function buildIngestUrl(req: Request, token: string): string {
+  const proto = (req.headers["x-forwarded-proto"] as string) || req.protocol || "https";
+  const host = (req.headers["x-forwarded-host"] as string) || req.get("host") || "";
+  const base = host ? `${proto}://${host}` : "";
+  return `${base}/api/ingest/v1/kr/${token}`;
+}
+
+// List tokens for a KR
+okrRouter.get("/key-results/:keyResultId/webhook-tokens", async (req: Request, res: Response) => {
+  try {
+    const { keyResultId } = req.params;
+    const kr = await storage.getKeyResultById(keyResultId);
+    if (!kr) return res.status(404).json({ error: "Key result not found" });
+    if (kr.tenantId !== req.effectiveTenantId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    const tokens = await storage.getKrWebhookTokensByKeyResultId(keyResultId);
+    // never expose hashes
+    const safe = tokens.map((t) => ({
+      id: t.id,
+      label: t.label,
+      enabled: t.enabled,
+      lastUsedAt: t.lastUsedAt,
+      failureCount: t.failureCount,
+      successCount: t.successCount,
+      createdAt: t.createdAt,
+      revokedAt: t.revokedAt,
+      createdByUserId: t.createdByUserId,
+    }));
+    res.json(safe);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Recent ingest activity for a single token (for the panel)
+okrRouter.get("/webhook-tokens/:id/logs", async (req: Request, res: Response) => {
+  try {
+    const token = await storage.getKrWebhookTokenById(req.params.id);
+    if (!token) return res.status(404).json({ error: "Token not found" });
+    if (token.tenantId !== req.effectiveTenantId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    const logs = await storage.getWebhookIngestLogsByTokenId(token.id, 25);
+    res.json(logs);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Create a new token (returns the public token + secret ONCE)
+okrRouter.post("/key-results/:keyResultId/webhook-tokens", async (req: Request, res: Response) => {
+  try {
+    const { keyResultId } = req.params;
+    const kr = await storage.getKeyResultById(keyResultId);
+    if (!kr) return res.status(404).json({ error: "Key result not found" });
+    if (kr.tenantId !== req.effectiveTenantId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    if (!canUserModifyOKR(req, kr.ownerId, kr.createdBy, null)) {
+      return res.status(403).json({ error: "You can only manage tokens for KRs you own or created." });
+    }
+
+    const label = (req.body?.label || "").toString().trim().slice(0, 120) || "Webhook";
+    const publicToken = generateRandomHex(32);
+    const secret = generateRandomHex(32);
+
+    const session = req.session as any;
+    const userId = session?.passport?.user?.id || session?.userId || req.user?.id || null;
+
+    const created = await storage.createKrWebhookToken({
+      tenantId: kr.tenantId,
+      keyResultId: kr.id,
+      label,
+      tokenHash: sha256Hex(publicToken),
+      // We store the HMAC secret material AES-256-GCM encrypted at rest using
+      // the project-wide TOKEN_ENCRYPTION_SECRET. The plaintext secret is shown
+      // exactly once at creation/rotation. (Column name is historical.)
+      secretHash: encryptToken(secret),
+      enabled: true,
+      createdByUserId: userId,
+    } as any);
+
+    res.json({
+      id: created.id,
+      label: created.label,
+      enabled: created.enabled,
+      createdAt: created.createdAt,
+      // Shown ONCE — caller must store these
+      token: publicToken,
+      secret,
+      url: buildIngestUrl(req, publicToken),
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Rotate: generate a new token+secret pair, revoke the old one.
+okrRouter.post("/webhook-tokens/:id/rotate", async (req: Request, res: Response) => {
+  try {
+    const old = await storage.getKrWebhookTokenById(req.params.id);
+    if (!old) return res.status(404).json({ error: "Token not found" });
+    if (old.tenantId !== req.effectiveTenantId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    const kr = await storage.getKeyResultById(old.keyResultId);
+    if (!kr || !canUserModifyOKR(req, kr.ownerId, kr.createdBy, null)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    const session = req.session as any;
+    const userId = session?.passport?.user?.id || session?.userId || req.user?.id || null;
+
+    // Revoke old
+    await storage.revokeKrWebhookToken(old.id, userId);
+
+    // Create new with same label
+    const publicToken = generateRandomHex(32);
+    const secret = generateRandomHex(32);
+    const created = await storage.createKrWebhookToken({
+      tenantId: old.tenantId,
+      keyResultId: old.keyResultId,
+      label: old.label,
+      tokenHash: sha256Hex(publicToken),
+      secretHash: encryptToken(secret),
+      enabled: true,
+      createdByUserId: userId,
+    } as any);
+
+    res.json({
+      id: created.id,
+      label: created.label,
+      enabled: created.enabled,
+      createdAt: created.createdAt,
+      token: publicToken,
+      secret,
+      url: buildIngestUrl(req, publicToken),
+      previousTokenId: old.id,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Toggle enabled
+okrRouter.patch("/webhook-tokens/:id", async (req: Request, res: Response) => {
+  try {
+    const tok = await storage.getKrWebhookTokenById(req.params.id);
+    if (!tok) return res.status(404).json({ error: "Token not found" });
+    if (tok.tenantId !== req.effectiveTenantId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    const kr = await storage.getKeyResultById(tok.keyResultId);
+    if (!kr || !canUserModifyOKR(req, kr.ownerId, kr.createdBy, null)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    const updates: any = {};
+    if (typeof req.body?.enabled === "boolean") updates.enabled = req.body.enabled;
+    if (typeof req.body?.label === "string") updates.label = req.body.label.slice(0, 120);
+    const updated = await storage.updateKrWebhookToken(tok.id, updates);
+    res.json({
+      id: updated.id,
+      label: updated.label,
+      enabled: updated.enabled,
+      lastUsedAt: updated.lastUsedAt,
+      failureCount: updated.failureCount,
+      successCount: updated.successCount,
+      createdAt: updated.createdAt,
+      revokedAt: updated.revokedAt,
+    });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Revoke (soft-delete: disabled + revokedAt)
+okrRouter.delete("/webhook-tokens/:id", async (req: Request, res: Response) => {
+  try {
+    const tok = await storage.getKrWebhookTokenById(req.params.id);
+    if (!tok) return res.status(404).json({ error: "Token not found" });
+    if (tok.tenantId !== req.effectiveTenantId) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    const kr = await storage.getKeyResultById(tok.keyResultId);
+    if (!kr || !canUserModifyOKR(req, kr.ownerId, kr.createdBy, null)) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    const session = req.session as any;
+    const userId = session?.passport?.user?.id || session?.userId || req.user?.id || null;
+    await storage.revokeKrWebhookToken(tok.id, userId);
+    res.json({ ok: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Tenant-wide ingest log viewer (admin only)
+okrRouter.get("/webhook-ingest-logs", async (req: Request, res: Response) => {
+  try {
+    const tenantId = req.effectiveTenantId;
+    if (!tenantId) return res.status(400).json({ error: "Tenant context required" });
+    const role = req.user?.role as string;
+    const ADMIN_ROLES = ["tenant_admin", "admin", "vega_admin", "global_admin", "vega_consultant"];
+    if (!ADMIN_ROLES.includes(role)) {
+      return res.status(403).json({ error: "Admin access required" });
+    }
+    const limit = Math.min(parseInt((req.query.limit as string) || "100", 10) || 100, 500);
+    const logs = await storage.getWebhookIngestLogsByTenantId(tenantId, limit);
+    // Enrich with token labels and KR titles where possible
+    const tokens = await storage.getKrWebhookTokensByTenantId(tenantId);
+    const tokenById = new Map(tokens.map((t) => [t.id, t]));
+    const enriched = await Promise.all(
+      logs.map(async (l) => {
+        const tok = l.tokenId ? tokenById.get(l.tokenId) : undefined;
+        let krTitle: string | null = null;
+        if (l.keyResultId) {
+          try {
+            const kr = await storage.getKeyResultById(l.keyResultId);
+            krTitle = kr?.title ?? null;
+          } catch {}
+        }
+        return {
+          ...l,
+          tokenLabel: tok?.label ?? null,
+          keyResultTitle: krTitle,
+        };
+      })
+    );
+    res.json(enriched);
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
   }
 });

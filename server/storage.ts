@@ -69,6 +69,8 @@ import {
   workshopCandidates, type WorkshopCandidate, type InsertWorkshopCandidate,
   workshopVotes, type WorkshopVote, type InsertWorkshopVote,
   WORKSHOP_STATUS, type WorkshopSettings, type WorkshopDraftEntry,
+  krWebhookTokens, type KrWebhookToken, type InsertKrWebhookToken,
+  webhookIngestLogs, type WebhookIngestLog, type InsertWebhookIngestLog,
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, count, ilike, asc, type SQL } from "drizzle-orm";
@@ -461,6 +463,20 @@ export interface IStorage {
   // MCP Audit Logs methods
   createMcpAuditLog(log: InsertMcpAuditLog): Promise<McpAuditLog>;
   getMcpAuditLogs(tenantId: string, limit?: number): Promise<McpAuditLog[]>;
+
+  // KR Webhook Tokens methods
+  getKrWebhookTokensByKeyResultId(keyResultId: string): Promise<KrWebhookToken[]>;
+  getKrWebhookTokensByTenantId(tenantId: string): Promise<KrWebhookToken[]>;
+  getKrWebhookTokenById(id: string): Promise<KrWebhookToken | undefined>;
+  getKrWebhookTokenByHash(tokenHash: string): Promise<KrWebhookToken | undefined>;
+  createKrWebhookToken(insert: InsertKrWebhookToken): Promise<KrWebhookToken>;
+  updateKrWebhookToken(id: string, updates: Partial<KrWebhookToken>): Promise<KrWebhookToken>;
+  revokeKrWebhookToken(id: string, userId?: string): Promise<void>;
+  incrementKrWebhookTokenSuccess(id: string): Promise<void>;
+  incrementKrWebhookTokenFailure(id: string): Promise<void>;
+  createWebhookIngestLog(log: InsertWebhookIngestLog): Promise<WebhookIngestLog>;
+  getWebhookIngestLogsByTenantId(tenantId: string, limit?: number): Promise<WebhookIngestLog[]>;
+  getWebhookIngestLogsByTokenId(tokenId: string, limit?: number): Promise<WebhookIngestLog[]>;
 
   // Galaxy Portal methods
   getTenantByGalaxyClientId(galaxyClientId: string): Promise<Tenant | undefined>;
@@ -7021,6 +7037,92 @@ export class DatabaseStorage implements IStorage {
       this.invalidateCache(`objectives:${tenantId}`);
       return { workshop: updated, createdObjectiveIds };
     });
+  }
+
+  // ============================================
+  // KR Webhook Tokens
+  // ============================================
+  async getKrWebhookTokensByKeyResultId(keyResultId: string): Promise<KrWebhookToken[]> {
+    return await db
+      .select()
+      .from(krWebhookTokens)
+      .where(eq(krWebhookTokens.keyResultId, keyResultId))
+      .orderBy(desc(krWebhookTokens.createdAt));
+  }
+
+  async getKrWebhookTokensByTenantId(tenantId: string): Promise<KrWebhookToken[]> {
+    return await db
+      .select()
+      .from(krWebhookTokens)
+      .where(eq(krWebhookTokens.tenantId, tenantId))
+      .orderBy(desc(krWebhookTokens.createdAt));
+  }
+
+  async getKrWebhookTokenById(id: string): Promise<KrWebhookToken | undefined> {
+    const [row] = await db.select().from(krWebhookTokens).where(eq(krWebhookTokens.id, id));
+    return row || undefined;
+  }
+
+  async getKrWebhookTokenByHash(tokenHash: string): Promise<KrWebhookToken | undefined> {
+    const [row] = await db.select().from(krWebhookTokens).where(eq(krWebhookTokens.tokenHash, tokenHash));
+    return row || undefined;
+  }
+
+  async createKrWebhookToken(insert: InsertKrWebhookToken): Promise<KrWebhookToken> {
+    const [row] = await db.insert(krWebhookTokens).values(insert).returning();
+    return row;
+  }
+
+  async updateKrWebhookToken(id: string, updates: Partial<KrWebhookToken>): Promise<KrWebhookToken> {
+    const [row] = await db.update(krWebhookTokens).set(updates).where(eq(krWebhookTokens.id, id)).returning();
+    return row;
+  }
+
+  async revokeKrWebhookToken(id: string, userId?: string): Promise<void> {
+    await db
+      .update(krWebhookTokens)
+      .set({ enabled: false, revokedAt: new Date(), revokedByUserId: userId ?? null })
+      .where(eq(krWebhookTokens.id, id));
+  }
+
+  async incrementKrWebhookTokenSuccess(id: string): Promise<void> {
+    await db
+      .update(krWebhookTokens)
+      .set({
+        successCount: sql`${krWebhookTokens.successCount} + 1`,
+        lastUsedAt: new Date(),
+      })
+      .where(eq(krWebhookTokens.id, id));
+  }
+
+  async incrementKrWebhookTokenFailure(id: string): Promise<void> {
+    await db
+      .update(krWebhookTokens)
+      .set({ failureCount: sql`${krWebhookTokens.failureCount} + 1` })
+      .where(eq(krWebhookTokens.id, id));
+  }
+
+  async createWebhookIngestLog(log: InsertWebhookIngestLog): Promise<WebhookIngestLog> {
+    const [row] = await db.insert(webhookIngestLogs).values(log).returning();
+    return row;
+  }
+
+  async getWebhookIngestLogsByTenantId(tenantId: string, limit: number = 100): Promise<WebhookIngestLog[]> {
+    return await db
+      .select()
+      .from(webhookIngestLogs)
+      .where(eq(webhookIngestLogs.tenantId, tenantId))
+      .orderBy(desc(webhookIngestLogs.requestedAt))
+      .limit(limit);
+  }
+
+  async getWebhookIngestLogsByTokenId(tokenId: string, limit: number = 50): Promise<WebhookIngestLog[]> {
+    return await db
+      .select()
+      .from(webhookIngestLogs)
+      .where(eq(webhookIngestLogs.tokenId, tokenId))
+      .orderBy(desc(webhookIngestLogs.requestedAt))
+      .limit(limit);
   }
 }
 

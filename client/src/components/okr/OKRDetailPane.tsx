@@ -51,6 +51,7 @@ import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapp
 import { PlannerTaskLinkPanel } from "@/components/planner/PlannerTaskLinkPanel";
 import { DiscussionPanel } from "@/components/DiscussionPanel";
 import { CommentCountBadge } from "@/components/CommentCountBadge";
+import { WebhookTokensPanel } from "./WebhookTokensPanel";
 import { usePermissions } from "@/hooks/use-permissions";
 
 interface OKRDetailPaneProps {
@@ -559,6 +560,9 @@ export function OKRDetailPane({
                 {entityType === "objective" && (
                   <TabsTrigger value="bigrocks" data-testid="tab-detail-bigrocks">Big Rocks</TabsTrigger>
                 )}
+                {entityType === "key_result" && (
+                  <TabsTrigger value="autoupdate" data-testid="tab-detail-autoupdate">Auto-update</TabsTrigger>
+                )}
               </TabsList>
 
               <TabsContent value="overview" className="space-y-4 mt-4">
@@ -871,6 +875,12 @@ export function OKRDetailPane({
                   </CardContent>
                 </Card>
               </TabsContent>
+
+              {entityType === "key_result" && (
+                <TabsContent value="autoupdate" className="mt-4">
+                  <WebhookTokensPanel keyResultId={entity.id} />
+                </TabsContent>
+              )}
 
               {entityType === "objective" && (
                 <TabsContent value="bigrocks" className="mt-4">

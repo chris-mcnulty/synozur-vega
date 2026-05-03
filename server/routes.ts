@@ -3540,6 +3540,12 @@ ${changelogContent}`;
     }
   });
 
+  // Public webhook ingest endpoint (no auth — secured by per-token HMAC).
+  // Mounted BEFORE the authenticated /api/okr router so it doesn't pick up
+  // session/tenant middleware. External systems POST `{value, note}` here.
+  const { webhookIngestRouter } = await import("./routes-webhook-ingest");
+  app.use("/api/ingest", webhookIngestRouter);
+
   // Import and use enhanced OKR routes (with auth + tenant isolation)
   const { okrRouter } = await import("./routes-okr");
   app.use("/api/okr", ...authWithTenant, okrRouter);

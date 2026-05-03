@@ -325,6 +325,46 @@ async function ensureSchemaColumns() {
     await client.query(`CREATE INDEX IF NOT EXISTS idx_workshop_candidates_workshop ON workshop_candidates(workshop_id)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_workshop_votes_workshop ON workshop_votes(workshop_id)`);
 
+    // KR webhook auto-update — defensive backstop matching shared/schema.ts.
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS kr_webhook_tokens (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        key_result_id varchar NOT NULL REFERENCES key_results(id) ON DELETE CASCADE,
+        label text NOT NULL,
+        token_hash text NOT NULL UNIQUE,
+        secret_hash text NOT NULL,
+        enabled boolean NOT NULL DEFAULT true,
+        last_used_at timestamp,
+        failure_count integer NOT NULL DEFAULT 0,
+        success_count integer NOT NULL DEFAULT 0,
+        created_by_user_id varchar REFERENCES users(id) ON DELETE SET NULL,
+        created_at timestamp NOT NULL DEFAULT now(),
+        revoked_at timestamp,
+        revoked_by_user_id varchar REFERENCES users(id) ON DELETE SET NULL
+      );
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_kr_webhook_tokens_kr ON kr_webhook_tokens(key_result_id)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_kr_webhook_tokens_tenant ON kr_webhook_tokens(tenant_id)`);
+
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS webhook_ingest_logs (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id varchar REFERENCES tenants(id) ON DELETE CASCADE,
+        token_id varchar REFERENCES kr_webhook_tokens(id) ON DELETE SET NULL,
+        key_result_id varchar REFERENCES key_results(id) ON DELETE SET NULL,
+        status_code integer NOT NULL,
+        error_code text,
+        error_message text,
+        payload_size integer,
+        source_ip text,
+        user_agent text,
+        requested_at timestamp NOT NULL DEFAULT now()
+      );
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_webhook_ingest_logs_tenant_time ON webhook_ingest_logs(tenant_id, requested_at DESC)`);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_webhook_ingest_logs_token_time ON webhook_ingest_logs(token_id, requested_at DESC)`);
+
     console.log("✓ Database schema verified");
   } catch (error) {
     console.error("Schema check error:", error);

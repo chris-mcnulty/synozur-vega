@@ -2240,6 +2240,112 @@ function statusVariant(code: number): "default" | "secondary" | "destructive" | 
   return "default";
 }
 
+type WebhookIngestLogRow = {
+  id: string;
+  tokenId: string | null;
+  keyResultId: string | null;
+  statusCode: number;
+  errorCode: string | null;
+  errorMessage: string | null;
+  payloadSize: number | null;
+  sourceIp: string | null;
+  userAgent: string | null;
+  requestedAt: string;
+  tokenLabel?: string | null;
+  keyResultTitle?: string | null;
+};
+
+function WebhookIngestAuditCard() {
+  const { data: logs = [], isLoading, refetch, isFetching } = useQuery<WebhookIngestLogRow[]>({
+    queryKey: ["/api/okr/webhook-ingest-logs"],
+  });
+
+  return (
+    <div>
+      <div className="mb-4 flex items-center justify-between gap-2 flex-wrap">
+        <div>
+          <h2 className="text-lg md:text-xl font-semibold flex items-center gap-2">
+            <KeyRound className="h-5 w-5" />
+            KR Webhook Auto-Update
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Audit log of inbound webhook calls from external systems updating key results.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="outline"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          data-testid="button-refresh-webhook-logs"
+        >
+          <RefreshCw className={`h-4 w-4 mr-1 ${isFetching ? "animate-spin" : ""}`} />
+          Refresh
+        </Button>
+      </div>
+      <Card>
+        <CardContent className="p-0">
+          {isLoading ? (
+            <p className="p-4 text-sm text-muted-foreground">Loading…</p>
+          ) : logs.length === 0 ? (
+            <p className="p-4 text-sm text-muted-foreground" data-testid="text-no-webhook-logs">
+              No webhook activity yet. Tokens are created from a key result's "Auto-update" tab.
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>When</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Token</TableHead>
+                    <TableHead>Key Result</TableHead>
+                    <TableHead>Source IP</TableHead>
+                    <TableHead>Error</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {logs.slice(0, 100).map((row) => (
+                    <TableRow key={row.id} data-testid={`row-webhook-log-${row.id}`}>
+                      <TableCell className="whitespace-nowrap text-xs">
+                        {new Date(row.requestedAt).toLocaleString()}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant={statusVariant(row.statusCode)} className="text-xs">
+                          {row.statusCode}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs">
+                        {row.tokenLabel ?? <span className="text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell className="text-xs max-w-[200px] truncate">
+                        {row.keyResultTitle ?? <span className="text-muted-foreground">—</span>}
+                      </TableCell>
+                      <TableCell className="text-xs font-mono">
+                        {row.sourceIp ?? "—"}
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-[260px] truncate">
+                        {row.errorCode ? (
+                          <span>
+                            <span className="font-medium">{row.errorCode}</span>
+                            {row.errorMessage ? `: ${row.errorMessage}` : ""}
+                          </span>
+                        ) : (
+                          ""
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function PortalAuditLogViewer({ tenants }: { tenants: Tenant[] }) {
   const [selectedTenantId, setSelectedTenantId] = useState<string>(tenants[0]?.id ?? "");
   const [startDate, setStartDate] = useState<string>("");
@@ -4030,6 +4136,9 @@ export default function TenantAdmin() {
 
         {/* Integrations Tab */}
         <TabsContent value="integrations" className="space-y-6">
+        {/* Webhook Ingest Audit Log */}
+        <WebhookIngestAuditCard />
+
         {/* External User Access - Read-only for tenant admins, full control for platform admins */}
         <div>
           <div className="mb-4">
