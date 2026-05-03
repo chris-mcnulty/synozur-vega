@@ -111,6 +111,10 @@ embedAdminRouter.get('/', async (req: Request, res: Response) => {
     if (filterId && t.entityId !== filterId) return false;
     return true;
   });
+
+  // 30-day access counts derived from access log table.
+  const counts30d = await storage.getEmbed30DayCounts(tenantId);
+
   // Never leak the hash — only the prefix.
   res.json(
     tokens.map(t => ({
@@ -122,6 +126,7 @@ embedAdminRouter.get('/', async (req: Request, res: Response) => {
       expiresAt: t.expiresAt,
       lastUsedAt: t.lastUsedAt,
       accessCount: t.accessCount,
+      accessCount30d: counts30d[t.id] ?? 0,
       createdAt: t.createdAt,
       revokedAt: t.revokedAt,
       createdByUserId: t.createdByUserId,
@@ -212,9 +217,15 @@ embedAdminRouter.delete('/:id', async (req: Request, res: Response) => {
   res.status(204).end();
 });
 
+// Access logs contain IP addresses, referrers and user-agents — restricted
+// to tenant/platform admins only to protect visitor privacy.
 embedAdminRouter.get('/access-logs', async (req: Request, res: Response) => {
   const tenantId = req.effectiveTenantId;
   if (!tenantId) return res.status(400).json({ error: 'tenant_required' });
+  const userRole = req.user?.role as string | undefined;
+  if (!userRole || !EMBED_ADMIN_ROLES.has(userRole)) {
+    return res.status(403).json({ error: 'forbidden', message: 'Embed access logs are restricted to tenant/platform admins.' });
+  }
   const tokenId = typeof req.query.tokenId === 'string' ? req.query.tokenId : undefined;
   const limit = Math.min(parseInt(String(req.query.limit ?? '100'), 10) || 100, 500);
   const logs = await storage.getEmbedAccessLogs(tenantId, { tokenId, limit });
@@ -453,7 +464,7 @@ function renderCardHtml(card: EmbedCardData, theme: 'light' | 'dark'): string {
 
   const metricsList = card.metrics?.length
     ? `<div class="metrics-grid">${card.metrics
-        .map(m => `<div class="metric-tile"><div class="metric-label">${escape(m.label)}</div><div class="metric-value">${escape(String(m.value))}</div></div>`)
+        .map((m, i) => `<div class="metric-tile"><div class="metric-label">${escape(m.label)}</div><div class="metric-value" data-testid="embed-metric-${i}">${escape(String(m.value))}</div></div>`)
         .join('')}</div>`
     : '';
 
@@ -574,6 +585,13 @@ body {
             var footerSpans = document.querySelectorAll('.footer span');
             if (footerSpans.length > 0 && data.updatedAt) {
               footerSpans[0].textContent = 'Updated ' + new Date(data.updatedAt).toLocaleString();
+            }
+            // Patch executive-dashboard metric tiles.
+            if (Array.isArray(data.metrics)) {
+              data.metrics.forEach(function(m, i) {
+                var el = document.querySelector('[data-testid="embed-metric-' + i + '"]');
+                if (el) el.textContent = String(m.value);
+              });
             }
           })
           .catch(function() { window.location.reload(); });

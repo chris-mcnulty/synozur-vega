@@ -510,6 +510,7 @@ export interface IStorage {
   recordEmbedTokenHit(id: string): Promise<void>;
   createEmbedAccessLog(log: InsertEmbedAccessLog): Promise<EmbedAccessLog>;
   getEmbedAccessLogs(tenantId: string, filters?: { tokenId?: string; limit?: number }): Promise<EmbedAccessLog[]>;
+  getEmbed30DayCounts(tenantId: string): Promise<Record<string, number>>;
 
   // Galaxy Portal methods
   getTenantByGalaxyClientId(galaxyClientId: string): Promise<Tenant | undefined>;
@@ -7583,6 +7584,28 @@ export class DatabaseStorage implements IStorage {
       .where(and(...conditions))
       .orderBy(desc(embedAccessLogs.createdAt))
       .limit(filters?.limit ?? 100);
+  }
+
+  async getEmbed30DayCounts(tenantId: string): Promise<Record<string, number>> {
+    const since = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const rows = await db
+      .select({
+        tokenId: embedAccessLogs.tokenId,
+        count: sql<number>`cast(count(*) as int)`,
+      })
+      .from(embedAccessLogs)
+      .where(
+        and(
+          eq(embedAccessLogs.tenantId, tenantId),
+          sql`${embedAccessLogs.createdAt} >= ${since}`,
+        ),
+      )
+      .groupBy(embedAccessLogs.tokenId);
+    const result: Record<string, number> = {};
+    for (const row of rows) {
+      if (row.tokenId) result[row.tokenId] = row.count;
+    }
+    return result;
   }
 }
 

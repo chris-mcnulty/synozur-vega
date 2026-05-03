@@ -2900,8 +2900,10 @@ type EmbedTokenRow = {
   expiresAt: string | null;
   lastUsedAt: string | null;
   accessCount: number;
+  accessCount30d: number;
   createdAt: string;
   revokedAt: string | null;
+  createdByUserId: string | null;
 };
 
 type EmbedAccessLogRow = {
@@ -3035,7 +3037,7 @@ function EmbedTokensCard() {
                   <TableHead>Label</TableHead>
                   <TableHead>Type</TableHead>
                   <TableHead>Token</TableHead>
-                  <TableHead>Hits</TableHead>
+                  <TableHead title="Views in the last 30 days">30d Views</TableHead>
                   <TableHead>Last used</TableHead>
                   <TableHead>Expires</TableHead>
                   <TableHead>Status</TableHead>
@@ -3055,7 +3057,7 @@ function EmbedTokensCard() {
                         </Badge>
                       </TableCell>
                       <TableCell className="font-mono text-xs">{t.tokenPrefix}</TableCell>
-                      <TableCell>{t.accessCount}</TableCell>
+                      <TableCell title={`${t.accessCount} total`}>{t.accessCount30d}</TableCell>
                       <TableCell className="text-muted-foreground text-xs">
                         {t.lastUsedAt ? new Date(t.lastUsedAt).toLocaleString() : "—"}
                       </TableCell>
