@@ -1123,6 +1123,7 @@ export class DatabaseStorage implements IStorage {
         decisions: insertMeeting.decisions ? [...insertMeeting.decisions] : null,
         actionItems: insertMeeting.actionItems ? [...insertMeeting.actionItems] : null,
         agenda: insertMeeting.agenda ? [...insertMeeting.agenda] : null,
+        agendaTimes: insertMeeting.agendaTimes ? { ...insertMeeting.agendaTimes } : null,
         risks: insertMeeting.risks ? [...insertMeeting.risks] : null,
         linkedObjectiveIds: insertMeeting.linkedObjectiveIds ? [...insertMeeting.linkedObjectiveIds] : null,
         linkedKeyResultIds: insertMeeting.linkedKeyResultIds ? [...insertMeeting.linkedKeyResultIds] : null,
@@ -1140,6 +1141,7 @@ export class DatabaseStorage implements IStorage {
     if (updateData.decisions !== undefined) setData.decisions = updateData.decisions ? [...updateData.decisions] : null;
     if (updateData.actionItems !== undefined) setData.actionItems = updateData.actionItems ? [...updateData.actionItems] : null;
     if (updateData.agenda !== undefined) setData.agenda = updateData.agenda ? [...updateData.agenda] : null;
+    if (updateData.agendaTimes !== undefined) setData.agendaTimes = updateData.agendaTimes ? { ...updateData.agendaTimes } : null;
     if (updateData.risks !== undefined) setData.risks = updateData.risks ? [...updateData.risks] : null;
     if (updateData.linkedObjectiveIds !== undefined) setData.linkedObjectiveIds = updateData.linkedObjectiveIds ? [...updateData.linkedObjectiveIds] : null;
     if (updateData.linkedKeyResultIds !== undefined) setData.linkedKeyResultIds = updateData.linkedKeyResultIds ? [...updateData.linkedKeyResultIds] : null;

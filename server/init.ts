@@ -167,6 +167,10 @@ async function ensureSchemaColumns() {
       await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS deleted_by VARCHAR`);
     }
 
+    // Defensive backstop — schema is owned by migrations/0009_add_meeting_agenda_times.sql.
+    // Per-topic target time budgets for Live Meeting Mode.
+    await client.query(`ALTER TABLE meetings ADD COLUMN IF NOT EXISTS agenda_times jsonb`);
+
     // Defensive backstop — schema is owned by migrations/0005_add_progress_snapshots.sql.
     // Kept here as IF NOT EXISTS so a fresh dev DB still boots if migrations
     // haven't been applied yet.

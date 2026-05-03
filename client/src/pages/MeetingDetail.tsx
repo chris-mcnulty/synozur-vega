@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 import {
@@ -221,6 +222,43 @@ export default function MeetingDetail() {
   );
 
   const agenda = useMemo(() => meeting?.agenda || [], [meeting?.agenda]);
+  const agendaTimes = useMemo<Record<string, number>>(
+    () => (meeting?.agendaTimes as Record<string, number> | null | undefined) || {},
+    [meeting?.agendaTimes]
+  );
+  // Local draft of per-topic target inputs so typing isn't fighting the network
+  const [agendaTimeDraft, setAgendaTimeDraft] = useState<Record<string, string>>({});
+  useEffect(() => {
+    const next: Record<string, string> = {};
+    Object.entries(agendaTimes).forEach(([k, v]) => {
+      next[k] = String(v);
+    });
+    setAgendaTimeDraft(next);
+  }, [agendaTimes]);
+
+  const saveAgendaTimesMutation = useMutation({
+    mutationFn: async (next: Record<string, number>) =>
+      apiRequest("PATCH", `/api/meetings/${meetingId}`, { agendaTimes: next }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/meeting', meetingId] });
+    },
+    onError: () => toast({ title: "Failed to save target time", variant: "destructive" }),
+  });
+
+  const commitAgendaTime = (idx: number, raw: string) => {
+    const trimmed = raw.trim();
+    const next: Record<string, number> = { ...agendaTimes };
+    const key = String(idx);
+    if (trimmed === "") {
+      delete next[key];
+    } else {
+      const parsed = parseInt(trimmed, 10);
+      if (!Number.isFinite(parsed) || parsed < 0) return;
+      next[key] = parsed;
+    }
+    if (JSON.stringify(next) === JSON.stringify(agendaTimes)) return;
+    saveAgendaTimesMutation.mutate(next);
+  };
   const agendaItems = useMemo(() =>
     agenda.map((text, idx) => ({
       idx,
@@ -790,6 +828,30 @@ export default function MeetingDetail() {
                           )}
                           <span className={`text-sm flex-1 ${isActive ? 'font-medium' : ''} ${item.isOkr ? 'text-primary' : ''}`}>
                             {item.display}
+                          </span>
+                          <span
+                            className="flex items-center gap-1 shrink-0"
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
+                          >
+                            <Input
+                              type="number"
+                              inputMode="numeric"
+                              min={0}
+                              placeholder="—"
+                              className="h-7 w-14 text-xs text-right"
+                              value={agendaTimeDraft[String(item.idx)] ?? ""}
+                              onChange={(e) => setAgendaTimeDraft(d => ({ ...d, [String(item.idx)]: e.target.value }))}
+                              onBlur={(e) => commitAgendaTime(item.idx, e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  (e.target as HTMLInputElement).blur();
+                                }
+                              }}
+                              aria-label={`Target minutes for ${item.display}`}
+                              data-testid={`input-agenda-target-${item.idx}`}
+                            />
+                            <span className="text-[10px] text-muted-foreground">min</span>
                           </span>
                         </button>
                       );

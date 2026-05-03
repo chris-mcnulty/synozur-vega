@@ -50,6 +50,7 @@ interface MeetingFormData {
   attendees: string[];
   facilitator: string;
   agenda: string[];
+  agendaTimes: Record<string, number>;
   summary: string;
   decisions: string[];
   actionItems: ActionItem[];
@@ -72,6 +73,7 @@ const initialFormData: MeetingFormData = {
   attendees: [],
   facilitator: "",
   agenda: [],
+  agendaTimes: {},
   summary: "",
   decisions: [],
   actionItems: [],
@@ -1579,6 +1581,7 @@ export default function FocusRhythm() {
       attendees: meeting.attendees || [],
       facilitator: meeting.facilitator || "",
       agenda: meeting.agenda || [],
+      agendaTimes: (meeting.agendaTimes as Record<string, number> | null | undefined) || {},
       summary: meeting.summary || "",
       decisions: meeting.decisions || [],
       actionItems: normalisedActions,

@@ -793,6 +793,9 @@ export const meetings = pgTable("meetings", {
   templateId: text("template_id"), // Reference to MeetingTemplate.id
   facilitator: text("facilitator"),
   agenda: jsonb("agenda").$type<string[]>(), // Meeting agenda items
+  // Per-topic target time budgets (minutes) keyed by agenda index as string
+  // (e.g. { "0": 5, "2": 10 }). Optional — items without a key have no target.
+  agendaTimes: jsonb("agenda_times").$type<Record<string, number>>(),
   risks: jsonb("risks").$type<string[]>(), // Risks identified in meeting
 
   // OKR linkage for Focus Rhythm
@@ -848,6 +851,7 @@ export const insertMeetingSchema = createInsertSchema(meetings).omit({
   duration: z.number().int().positive().nullable().optional(),
   actionItems: z.array(actionItemSchema).nullable().optional(),
   agenda: z.array(z.string()).nullable().optional(),
+  agendaTimes: z.record(z.string(), z.number().int().nonnegative()).nullable().optional(),
   risks: z.array(z.string()).nullable().optional(),
   linkedObjectiveIds: z.array(z.string()).nullable().optional(),
   linkedKeyResultIds: z.array(z.string()).nullable().optional(),

@@ -45,6 +45,12 @@ export default function MeetingLive() {
     enabled: !!meetingId,
   });
 
+  // Per-topic target time budgets (minutes) keyed by original agenda index
+  const agendaTimes = useMemo<Record<string, number>>(
+    () => (meeting?.agendaTimes as Record<string, number> | null | undefined) || {},
+    [meeting?.agendaTimes]
+  );
+
   // Build the list of agenda topics (skip section headers, keep original index)
   const topics = useMemo(() => {
     const all = meeting?.agenda || [];
@@ -59,9 +65,10 @@ export default function MeetingLive() {
           : text.startsWith("---")
             ? text.replace(/^---\s*/, "").replace(/\s*---$/, "")
             : text,
+        targetMinutes: typeof agendaTimes[String(idx)] === 'number' ? agendaTimes[String(idx)] : undefined,
       }))
       .filter((a) => !a.isSection);
-  }, [meeting?.agenda]);
+  }, [meeting?.agenda, agendaTimes]);
 
   // Live state: hydrate from server on first load, then drive locally and persist on transitions.
   const [liveState, setLiveState] = useState<LiveMeetingState | null>(null);
@@ -166,6 +173,9 @@ export default function MeetingLive() {
   }, [topics, liveState?.currentTopicIndex]);
 
   const currentTopic = currentPos >= 0 ? topics[currentPos] : null;
+  const currentTopicTargetSeconds = currentTopic?.targetMinutes != null ? currentTopic.targetMinutes * 60 : null;
+  const currentTopicRemainingSeconds = currentTopicTargetSeconds != null ? currentTopicTargetSeconds - currentTopicLiveSeconds : null;
+  const currentTopicOver = currentTopicRemainingSeconds != null && currentTopicRemainingSeconds < 0;
 
   // Append a decision / risk / action item, building on the latest cached
   // meeting and optimistically updating the cache so rapid successive captures
@@ -487,9 +497,29 @@ export default function MeetingLive() {
                 <span className="text-xs uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
                   <Timer className="w-3 h-3" /> Topic
                 </span>
-                <span className={`font-mono text-5xl md:text-6xl tabular-nums ${isPaused ? "text-muted-foreground" : ""}`}>
+                <span
+                  className={`font-mono text-5xl md:text-6xl tabular-nums ${
+                    currentTopicOver
+                      ? "text-red-600 dark:text-red-400"
+                      : isPaused
+                        ? "text-muted-foreground"
+                        : ""
+                  }`}
+                >
                   {formatElapsed(currentTopicLiveSeconds)}
                 </span>
+                {currentTopicTargetSeconds != null && (
+                  <span
+                    className={`text-xs mt-1 tabular-nums ${
+                      currentTopicOver ? "text-red-600 dark:text-red-400 font-medium" : "text-muted-foreground"
+                    }`}
+                    data-testid="text-topic-target"
+                  >
+                    {currentTopicOver
+                      ? `Over by ${formatElapsed(-(currentTopicRemainingSeconds || 0))} · target ${currentTopic?.targetMinutes}m`
+                      : `${formatElapsed(currentTopicRemainingSeconds || 0)} left of ${currentTopic?.targetMinutes}m`}
+                  </span>
+                )}
               </div>
               <div className="flex flex-col items-center" data-testid="timer-total-elapsed">
                 <span className="text-xs uppercase tracking-wider text-muted-foreground mb-1 flex items-center gap-1">
@@ -514,6 +544,16 @@ export default function MeetingLive() {
             )}
             {isEnded && (
               <Badge variant="outline" className="text-sm">Meeting ended</Badge>
+            )}
+            {!isEnded && currentTopicOver && (
+              <Badge
+                variant="outline"
+                className="text-sm border-red-500/40 text-red-700 dark:text-red-400 mt-2"
+                data-testid="badge-topic-overrun"
+              >
+                <AlertTriangle className="w-3.5 h-3.5 mr-1" />
+                Over time — consider moving on
+              </Badge>
             )}
           </div>
 
@@ -726,6 +766,9 @@ export default function MeetingLive() {
                   {topics.map((t, i) => {
                     const seconds = liveState.perTopicSeconds[String(t.idx)] || 0;
                     const isCurrent = t.idx === liveState.currentTopicIndex;
+                    const elapsed = isCurrent ? currentTopicLiveSeconds : seconds;
+                    const targetSec = t.targetMinutes != null ? t.targetMinutes * 60 : null;
+                    const isOver = targetSec != null && elapsed > targetSec;
                     return (
                       <div
                         key={t.idx}
@@ -734,8 +777,18 @@ export default function MeetingLive() {
                       >
                         <span className="text-xs text-muted-foreground w-5 text-right">{i + 1}</span>
                         <span className="flex-1 truncate">{t.display}</span>
-                        <span className="text-xs text-muted-foreground font-mono tabular-nums">
-                          {formatElapsed(isCurrent ? currentTopicLiveSeconds : seconds)}
+                        {t.targetMinutes != null && (
+                          <span
+                            className={`text-[10px] tabular-nums ${isOver ? "text-red-600 dark:text-red-400 font-medium" : "text-muted-foreground"}`}
+                            data-testid={`live-agenda-target-${i}`}
+                          >
+                            /{t.targetMinutes}m
+                          </span>
+                        )}
+                        <span
+                          className={`text-xs font-mono tabular-nums ${isOver ? "text-red-600 dark:text-red-400" : "text-muted-foreground"}`}
+                        >
+                          {formatElapsed(elapsed)}
                         </span>
                       </div>
                     );
