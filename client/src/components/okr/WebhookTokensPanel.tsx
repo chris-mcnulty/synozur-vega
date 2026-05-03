@@ -25,6 +25,8 @@ import {
   AlertTriangle,
   CheckCircle2,
   Activity,
+  ChevronDown,
+  ChevronRight,
 } from "lucide-react";
 import { format, formatDistanceToNow } from "date-fns";
 
@@ -47,8 +49,128 @@ interface IssuedTokenSecret {
   url: string;
 }
 
+interface WebhookIngestLog {
+  id: string;
+  statusCode: number;
+  errorCode: string | null;
+  errorMessage: string | null;
+  payloadSize: number | null;
+  sourceIp: string | null;
+  userAgent: string | null;
+  requestedAt: string;
+}
+
 interface WebhookTokensPanelProps {
   keyResultId: string;
+}
+
+function TokenLogsRow({ tokenId }: { tokenId: string }) {
+  const logsQuery = useQuery<WebhookIngestLog[]>({
+    queryKey: [`/api/okr/webhook-tokens/${tokenId}/logs`],
+  });
+  const allLogs = logsQuery.data ?? [];
+  const logs = allLogs.slice(0, 5);
+  const lastFailure = allLogs.find(
+    (l) => l.statusCode < 200 || l.statusCode >= 300,
+  );
+
+  if (logsQuery.isLoading) {
+    return <p className="text-xs text-muted-foreground mt-2">Loading recent attempts…</p>;
+  }
+  if (logsQuery.isError) {
+    return (
+      <p
+        className="text-xs text-destructive mt-2"
+        data-testid={`text-token-logs-error-${tokenId}`}
+      >
+        Couldn't load recent attempts. Try again later.
+      </p>
+    );
+  }
+  if (logs.length === 0) {
+    return (
+      <p
+        className="text-xs text-muted-foreground mt-2"
+        data-testid={`text-token-logs-empty-${tokenId}`}
+      >
+        No webhook attempts recorded yet.
+      </p>
+    );
+  }
+  return (
+    <div className="mt-2 space-y-2" data-testid={`list-token-logs-${tokenId}`}>
+      {lastFailure && (
+        <div
+          className="flex items-start gap-2 text-xs rounded-md border border-destructive/30 bg-destructive/5 p-2"
+          data-testid={`panel-last-failure-${tokenId}`}
+        >
+          <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0 mt-0.5" />
+          <div className="min-w-0 flex-1">
+            <div className="font-medium">
+              Last failure ·{" "}
+              <span className="font-mono">{lastFailure.statusCode}</span>
+              {lastFailure.errorCode && (
+                <span className="ml-1 font-mono">{lastFailure.errorCode}</span>
+              )}
+              <span className="ml-1 font-normal text-muted-foreground">
+                {formatDistanceToNow(new Date(lastFailure.requestedAt), { addSuffix: true })}
+              </span>
+            </div>
+            {lastFailure.errorMessage && (
+              <div className="text-muted-foreground mt-0.5 break-words">
+                {lastFailure.errorMessage}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      <p className="text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+        Last {logs.length} attempt{logs.length === 1 ? "" : "s"}
+      </p>
+      <div className="space-y-1">
+        {logs.map((log) => {
+          const ok = log.statusCode >= 200 && log.statusCode < 300;
+          return (
+            <div
+              key={log.id}
+              className="flex items-start gap-2 text-xs"
+              data-testid={`row-token-log-${log.id}`}
+            >
+              <Badge
+                variant={ok ? "outline" : "destructive"}
+                className="text-[10px] gap-1 shrink-0"
+              >
+                {ok ? (
+                  <CheckCircle2 className="h-3 w-3" />
+                ) : (
+                  <AlertTriangle className="h-3 w-3" />
+                )}
+                {log.statusCode}
+              </Badge>
+              <div className="min-w-0 flex-1">
+                <div className="text-muted-foreground">
+                  {format(new Date(log.requestedAt), "MMM d, HH:mm:ss")}
+                  {log.errorCode && (
+                    <span className="ml-1 font-mono text-destructive">
+                      {log.errorCode}
+                    </span>
+                  )}
+                </div>
+                {log.errorMessage && (
+                  <div
+                    className="text-muted-foreground/80 truncate"
+                    title={log.errorMessage}
+                  >
+                    {log.errorMessage}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export function WebhookTokensPanel({ keyResultId }: WebhookTokensPanelProps) {
@@ -56,6 +178,7 @@ export function WebhookTokensPanel({ keyResultId }: WebhookTokensPanelProps) {
   const [createOpen, setCreateOpen] = useState(false);
   const [newLabel, setNewLabel] = useState("");
   const [issued, setIssued] = useState<IssuedTokenSecret | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const tokensQuery = useQuery<WebhookTokenSummary[]>({
     queryKey: [`/api/okr/key-results/${keyResultId}/webhook-tokens`],
@@ -195,85 +318,121 @@ export function WebhookTokensPanel({ keyResultId }: WebhookTokensPanelProps) {
             </p>
           ) : (
             <div className="space-y-2">
-              {tokens.map((t) => (
-                <div
-                  key={t.id}
-                  className="flex flex-wrap items-center justify-between gap-2 p-3 rounded-md bg-muted/40"
-                  data-testid={`row-webhook-token-${t.id}`}
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="text-sm font-medium truncate" data-testid={`text-token-label-${t.id}`}>
-                        {t.label}
-                      </span>
-                      {t.revokedAt ? (
-                        <Badge variant="outline" className="text-xs">Revoked</Badge>
-                      ) : t.enabled ? (
-                        <Badge variant="default" className="text-xs">Active</Badge>
-                      ) : (
-                        <Badge variant="secondary" className="text-xs">Disabled</Badge>
-                      )}
-                      {t.failureCount > 0 && (
-                        <Badge variant="destructive" className="text-xs gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          {t.failureCount} failures
-                        </Badge>
-                      )}
-                      {t.successCount > 0 && (
-                        <Badge variant="outline" className="text-xs gap-1">
-                          <CheckCircle2 className="h-3 w-3" />
-                          {t.successCount} ok
-                        </Badge>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Created {format(new Date(t.createdAt), "MMM d, yyyy")}
-                      {t.lastUsedAt
-                        ? ` · last used ${format(new Date(t.lastUsedAt), "MMM d, yyyy HH:mm")}`
-                        : " · never used"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 flex-wrap">
-                    {!t.revokedAt && (
-                      <>
+              {tokens.map((t) => {
+                const totalAttempts = (t.successCount ?? 0) + (t.failureCount ?? 0);
+                const successRate =
+                  totalAttempts > 0
+                    ? Math.round(((t.successCount ?? 0) / totalAttempts) * 100)
+                    : null;
+                const isOpen = !!expanded[t.id];
+                return (
+                  <div
+                    key={t.id}
+                    className="p-3 rounded-md bg-muted/40"
+                    data-testid={`row-webhook-token-${t.id}`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm font-medium truncate" data-testid={`text-token-label-${t.id}`}>
+                            {t.label}
+                          </span>
+                          {t.revokedAt ? (
+                            <Badge variant="outline" className="text-xs">Revoked</Badge>
+                          ) : t.enabled ? (
+                            <Badge variant="default" className="text-xs">Active</Badge>
+                          ) : (
+                            <Badge variant="secondary" className="text-xs">Disabled</Badge>
+                          )}
+                          {successRate !== null && (
+                            <Badge
+                              variant={successRate >= 95 ? "outline" : successRate >= 50 ? "secondary" : "destructive"}
+                              className="text-xs"
+                              data-testid={`badge-success-rate-${t.id}`}
+                            >
+                              {successRate}% success
+                            </Badge>
+                          )}
+                          {t.failureCount > 0 && (
+                            <Badge variant="destructive" className="text-xs gap-1">
+                              <AlertTriangle className="h-3 w-3" />
+                              {t.failureCount} failed
+                            </Badge>
+                          )}
+                          {t.successCount > 0 && (
+                            <Badge variant="outline" className="text-xs gap-1">
+                              <CheckCircle2 className="h-3 w-3" />
+                              {t.successCount} ok
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Created {format(new Date(t.createdAt), "MMM d, yyyy")}
+                          {t.lastUsedAt
+                            ? ` · last used ${format(new Date(t.lastUsedAt), "MMM d, yyyy HH:mm")}`
+                            : " · never used"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 flex-wrap">
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="ghost"
+                          aria-expanded={isOpen}
                           onClick={() =>
-                            toggleMutation.mutate({ id: t.id, enabled: !t.enabled })
+                            setExpanded((prev) => ({ ...prev, [t.id]: !prev[t.id] }))
                           }
-                          disabled={toggleMutation.isPending}
-                          data-testid={`button-toggle-token-${t.id}`}
+                          data-testid={`button-toggle-logs-${t.id}`}
                         >
-                          {t.enabled ? "Disable" : "Enable"}
+                          {isOpen ? (
+                            <ChevronDown className="h-3 w-3 mr-1" />
+                          ) : (
+                            <ChevronRight className="h-3 w-3 mr-1" />
+                          )}
+                          Activity
                         </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => rotateMutation.mutate(t.id)}
-                          disabled={rotateMutation.isPending}
-                          data-testid={`button-rotate-token-${t.id}`}
-                        >
-                          <RotateCw className="h-3 w-3 mr-1" /> Rotate
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            if (confirm("Revoke this token? External callers using it will start failing.")) {
-                              revokeMutation.mutate(t.id);
-                            }
-                          }}
-                          disabled={revokeMutation.isPending}
-                          data-testid={`button-revoke-token-${t.id}`}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </>
-                    )}
+                        {!t.revokedAt && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() =>
+                                toggleMutation.mutate({ id: t.id, enabled: !t.enabled })
+                              }
+                              disabled={toggleMutation.isPending}
+                              data-testid={`button-toggle-token-${t.id}`}
+                            >
+                              {t.enabled ? "Disable" : "Enable"}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => rotateMutation.mutate(t.id)}
+                              disabled={rotateMutation.isPending}
+                              data-testid={`button-rotate-token-${t.id}`}
+                            >
+                              <RotateCw className="h-3 w-3 mr-1" /> Rotate
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                if (confirm("Revoke this token? External callers using it will start failing.")) {
+                                  revokeMutation.mutate(t.id);
+                                }
+                              }}
+                              disabled={revokeMutation.isPending}
+                              data-testid={`button-revoke-token-${t.id}`}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    {isOpen && <TokenLogsRow tokenId={t.id} />}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>
