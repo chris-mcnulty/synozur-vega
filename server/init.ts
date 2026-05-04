@@ -119,6 +119,7 @@ async function ensureSchemaColumns() {
     const meetingColumns = [
       { name: 'meeting_time', type: 'text' },
       { name: 'duration', type: 'integer' },
+      { name: 'live_state', type: 'jsonb' },
     ];
     
     for (const col of meetingColumns) {
@@ -476,6 +477,58 @@ async function ensureSchemaColumns() {
     `);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_embed_access_logs_tenant_time ON embed_access_logs(tenant_id, created_at DESC)`);
     await client.query(`CREATE INDEX IF NOT EXISTS idx_embed_access_logs_token_time ON embed_access_logs(token_id, created_at DESC)`);
+
+    // Admin alerts table (hierarchy depth warnings, etc.)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS admin_alerts (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        alert_type text NOT NULL,
+        fingerprint text NOT NULL,
+        severity text NOT NULL DEFAULT 'warning',
+        message text NOT NULL,
+        details jsonb,
+        occurrence_count integer NOT NULL DEFAULT 1,
+        first_seen_at timestamp NOT NULL DEFAULT now(),
+        last_seen_at timestamp NOT NULL DEFAULT now(),
+        acknowledged_at timestamp,
+        acknowledged_by varchar REFERENCES users(id) ON DELETE SET NULL,
+        CONSTRAINT admin_alerts_tenant_type_fp_unique UNIQUE (tenant_id, alert_type, fingerprint)
+      )
+    `);
+
+    // Custom field definitions + values (tenant-scoped extensible fields on OKR entities)
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS custom_field_defs (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        entity_type text NOT NULL,
+        key text NOT NULL,
+        label text NOT NULL,
+        field_type text NOT NULL,
+        description text,
+        options_json jsonb,
+        required boolean DEFAULT false,
+        sort_order integer DEFAULT 0,
+        archived_at timestamp,
+        created_at timestamp DEFAULT now(),
+        updated_at timestamp DEFAULT now(),
+        CONSTRAINT custom_field_defs_tenant_entity_key_unique UNIQUE (tenant_id, entity_type, key)
+      )
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS custom_field_values (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        field_def_id varchar NOT NULL REFERENCES custom_field_defs(id) ON DELETE CASCADE,
+        entity_type text NOT NULL,
+        entity_id varchar NOT NULL,
+        value_json jsonb NOT NULL,
+        created_at timestamp DEFAULT now(),
+        updated_at timestamp DEFAULT now(),
+        CONSTRAINT custom_field_values_entity_field_unique UNIQUE (entity_id, field_def_id)
+      )
+    `);
 
     console.log("✓ Database schema verified");
   } catch (error) {
