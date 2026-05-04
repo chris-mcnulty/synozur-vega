@@ -14,45 +14,6 @@ process.on('uncaughtException', (err: Error) => {
   console.error('[Process] Uncaught exception (non-fatal):', err.message);
 });
 
-// On graceful shutdown (SIGTERM), drop the 17 GIN pg_trgm indexes before
-// exiting.  drizzle-kit v0.31.4 introspects GIN indexes from pg_catalog
-// without preserving the operator class, then generates DROP + RECREATE
-// statements for any GIN index it finds in the DB that is not in schema.ts.
-// Replit's migration runner strips "gin_trgm_ops" from the RECREATE DDL,
-// causing the next deployment to fail with "no default operator class for
-// access method gin".  Dropping them here ensures drizzle-kit push starts
-// with a clean slate.  init.ts re-creates them correctly on the next
-// server startup using the runtime string-join trick.
-const TRGM_INDEXES = [
-  'idx_objectives_title_trgm',         'idx_objectives_description_trgm',
-  'idx_key_results_title_trgm',        'idx_key_results_description_trgm',
-  'idx_big_rocks_title_trgm',          'idx_big_rocks_description_trgm',
-  'idx_strategies_title_trgm',         'idx_strategies_description_trgm',
-  'idx_teams_name_trgm',               'idx_teams_description_trgm',
-  'idx_meetings_title_trgm',           'idx_meetings_summary_trgm',
-  'idx_support_tickets_subject_trgm',  'idx_support_tickets_description_trgm',
-  'idx_grounding_documents_title_trgm','idx_grounding_documents_description_trgm',
-  'idx_grounding_documents_content_trgm',
-];
-
-process.on('SIGTERM', async () => {
-  console.log('[Shutdown] SIGTERM — dropping GIN trgm indexes before exit');
-  try {
-    const client = await pool.connect();
-    try {
-      for (const idx of TRGM_INDEXES) {
-        await client.query(`DROP INDEX IF EXISTS ${idx}`);
-      }
-      console.log('[Shutdown] GIN trgm indexes dropped');
-    } finally {
-      client.release();
-    }
-  } catch (err) {
-    console.error('[Shutdown] Failed to drop trgm indexes (non-fatal):', err);
-  }
-  process.exit(0);
-});
-
 const app = express();
 const PgStore = connectPgSimple(session);
 
