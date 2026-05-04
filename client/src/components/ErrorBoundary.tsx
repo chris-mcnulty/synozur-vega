@@ -36,19 +36,29 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log error to console in development
     console.error("[ErrorBoundary] Caught error:", error);
     console.error("[ErrorBoundary] Error info:", errorInfo);
     
     this.setState({ errorInfo });
 
-    // Call optional error handler (e.g., for error reporting service)
     if (this.props.onError) {
       this.props.onError(error, errorInfo);
     }
 
-    // In production, you might want to send this to an error reporting service
-    // Example: sendToErrorReporting(error, errorInfo);
+    try {
+      fetch("/api/client-error", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          message: error.message,
+          stack: error.stack?.slice(0, 2000),
+          componentStack: errorInfo.componentStack?.slice(0, 2000),
+          url: window.location.href,
+          timestamp: new Date().toISOString(),
+        }),
+      }).catch(() => {});
+    } catch {}
   }
 
   handleRetry = () => {
@@ -141,10 +151,9 @@ export class RouteErrorBoundary extends ErrorBoundary {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {/* Show error in development */}
-              {process.env.NODE_ENV === "development" && this.state.error && (
+              {this.state.error && (
                 <div className="mb-4 rounded-md bg-muted p-3 text-sm">
-                  <p className="font-mono text-xs text-destructive">
+                  <p className="font-mono text-xs text-destructive" data-testid="text-error-message">
                     {this.state.error.message}
                   </p>
                 </div>

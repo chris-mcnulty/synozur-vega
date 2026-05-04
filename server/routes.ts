@@ -140,6 +140,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  app.post("/api/client-error", (req: Request, res: Response) => {
+    const { message, stack, componentStack, url, timestamp } = req.body || {};
+    console.error(`[ClientError] ${timestamp || new Date().toISOString()} | ${url || 'unknown'} | ${message || 'no message'}`);
+    if (stack) console.error(`[ClientError] Stack: ${String(stack).slice(0, 1500)}`);
+    if (componentStack) console.error(`[ClientError] Component: ${String(componentStack).slice(0, 1000)}`);
+    res.status(204).end();
+  });
+
   // User Guide route - serve the markdown file
   app.get("/api/user-guide", async (req, res) => {
     try {

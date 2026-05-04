@@ -530,10 +530,24 @@ async function ensureSchemaColumns() {
       )
     `);
 
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS weekly_digest_sends (
+        id varchar PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id varchar NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        user_id varchar NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        period_start timestamp NOT NULL,
+        period_end timestamp NOT NULL,
+        sent_at timestamp DEFAULT now(),
+        ai_summary text,
+        template_fallback boolean DEFAULT false,
+        CONSTRAINT weekly_digest_sends_unique UNIQUE (user_id, period_start)
+      )
+    `);
+    await client.query(`CREATE INDEX IF NOT EXISTS idx_weekly_digest_sends_tenant ON weekly_digest_sends(tenant_id, sent_at DESC)`);
+
     console.log("✓ Database schema verified");
   } catch (error) {
     console.error("Schema check error:", error);
-    // Don't throw - let the app continue and fail more gracefully if needed
   } finally {
     client.release();
   }
