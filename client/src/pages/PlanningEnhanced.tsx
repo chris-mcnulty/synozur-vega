@@ -6060,7 +6060,7 @@ export default function PlanningEnhanced() {
           linkedBigRocks={
             detailPaneEntityType === "objective" &&
             detailPaneSubtreeRoot?.id === detailPaneEntity?.id
-              ? (detailPaneSubtreeRoot.linkedBigRocks || [])
+              ? (detailPaneSubtreeRoot?.linkedBigRocks || [])
               : (detailPaneEntity?.linkedBigRocks || [])
           }
           onCheckIn={() => {
