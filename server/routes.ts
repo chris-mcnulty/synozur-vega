@@ -237,7 +237,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return highlights;
   }
 
-  app.get("/api/changelog/whats-new", authWithTenant, async (req: any, res) => {
+  app.get("/api/changelog/whats-new", authWithTenant, async (req: any, res: Response) => {
     try {
       const user = req.user;
       const tenantId = req.tenantId || user.tenantId;
@@ -377,7 +377,7 @@ ${changelogContent}`;
     }
   });
 
-  app.post("/api/changelog/dismiss", authWithTenant, async (req: any, res) => {
+  app.post("/api/changelog/dismiss", authWithTenant, async (req: any, res: Response) => {
     try {
       const user = req.user;
       const { version } = req.body;
@@ -710,7 +710,9 @@ ${changelogContent}`;
   // OAuth Client Management (admin only)
   app.get("/api/oauth/clients", ...adminOnly, async (req: Request, res: Response) => {
     try {
-      const clients = await storage.getOauthClientsByTenantId(req.user!.tenantId);
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) return res.status(403).json({ error: 'No tenant context' });
+      const clients = await storage.getOauthClientsByTenantId(tenantId);
       const sanitized = clients.map(c => ({
         ...c,
         clientSecretHash: undefined,
@@ -724,6 +726,8 @@ ${changelogContent}`;
 
   app.post("/api/oauth/clients", ...adminOnly, async (req: Request, res: Response) => {
     try {
+      const tenantId = req.user?.tenantId;
+      if (!tenantId) return res.status(403).json({ error: 'No tenant context' });
       const { name, redirectUris, scopes } = req.body;
       if (!name || !redirectUris || !Array.isArray(redirectUris) || !scopes || !Array.isArray(scopes)) {
         return res.status(400).json({ error: 'name, redirectUris (array), and scopes (array) are required' });
@@ -732,7 +736,7 @@ ${changelogContent}`;
       const { clientId, clientSecret, clientSecretHash } = generateOAuthClientCredentials();
 
       const client = await storage.createOauthClient({
-        tenantId: req.user!.tenantId,
+        tenantId,
         clientId,
         clientSecretHash,
         name,
@@ -4566,14 +4570,16 @@ ${changelogContent}`;
       const details: any[] = [];
 
       for (const kr of excelLinkedKRs) {
+        // Re-narrow nullable fields that the filter above already ruled out.
+        if (!kr.excelFileId || !kr.excelCellReference) continue;
         // Find a user in the tenant to use as the auth context.
         // Prefer the KR owner, then any tenant user with a graph token.
         let authUserId: string | undefined;
         try {
           const tenantUsers = await storage.getAllUsers(kr.tenantId);
-          // Try the KR's ownerEmail first
-          if (kr.ownerEmail) {
-            const owner = tenantUsers.find((u: any) => u.email === kr.ownerEmail);
+          // Try the KR's owner first (key_results stores ownerId, not ownerEmail)
+          if (kr.ownerId) {
+            const owner = tenantUsers.find((u: any) => u.id === kr.ownerId);
             if (owner) authUserId = owner.id;
           }
           // Fall back to any tenant user that has a graph token on record (try all service types)

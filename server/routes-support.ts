@@ -15,13 +15,28 @@ type HistoryWithUser = SupportTicketHistory & { user: HistoryUserSummary | null 
 type TicketUpdates = Partial<Pick<SupportTicket, "status" | "priority" | "assignedTo" | "category" | "resolvedAt" | "resolvedBy">>;
 type TrackedField = "status" | "priority" | "assignedTo" | "category";
 
+// The user schema stores a single `name` field, but the support UI and email
+// templates expect firstName/lastName separately. Split on the first whitespace
+// so "Jane Doe" -> { firstName: "Jane", lastName: "Doe" } and a single name
+// like "Cher" -> { firstName: "Cher", lastName: null }.
+function splitName(name: string | null | undefined): { firstName: string | null; lastName: string | null } {
+  const trimmed = name?.trim();
+  if (!trimmed) return { firstName: null, lastName: null };
+  const idx = trimmed.indexOf(" ");
+  if (idx === -1) return { firstName: trimmed, lastName: null };
+  return { firstName: trimmed.slice(0, idx), lastName: trimmed.slice(idx + 1).trim() || null };
+}
+
 async function buildHistoryWithUsers(history: SupportTicketHistory[]): Promise<HistoryWithUser[]> {
   if (history.length === 0) return [];
   const userIds = Array.from(new Set(history.map((h) => h.userId).filter((u): u is string => !!u)));
   const userMap = new Map<string, HistoryUserSummary>();
   for (const uid of userIds) {
     const u = await storage.getUser(uid);
-    if (u) userMap.set(uid, { id: u.id, firstName: u.firstName, lastName: u.lastName, email: u.email });
+    if (u) {
+      const { firstName, lastName } = splitName(u.name);
+      userMap.set(uid, { id: u.id, firstName, lastName, email: u.email });
+    }
   }
   return history.map((h) => ({ ...h, user: h.userId ? userMap.get(h.userId) || null : null }));
 }
@@ -76,13 +91,16 @@ supportRouter.get("/staff", async (req: Request, res: Response) => {
       return res.status(403).json({ error: "Admin access required" });
     }
     const staffUsers = await storage.getVegaAdminUsers();
-    return res.json(staffUsers.map(u => ({
-      id: u.id,
-      email: u.email,
-      firstName: u.firstName,
-      lastName: u.lastName,
-      role: u.role,
-    })));
+    return res.json(staffUsers.map(u => {
+      const { firstName, lastName } = splitName(u.name);
+      return {
+        id: u.id,
+        email: u.email,
+        firstName,
+        lastName,
+        role: u.role,
+      };
+    }));
   } catch (error) {
     console.error("Error fetching staff users:", error);
     return res.status(500).json({ error: "Failed to fetch staff users" });
@@ -115,7 +133,7 @@ supportRouter.post("/tickets", async (req: Request, res: Response) => {
     try {
       await sendSupportTicketAcknowledgement(
         req.user.email,
-        req.user.firstName || req.user.email,
+        req.user.name || req.user.email,
         ticket.ticketNumber,
         ticket.subject,
         ticket.category,
@@ -135,7 +153,7 @@ supportRouter.post("/tickets", async (req: Request, res: Response) => {
             await sendSupportTicketInternalNotification(
               admin.email,
               ticket.ticketNumber,
-              `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.email,
+              req.user.name || req.user.email,
               req.user.email,
               tenant?.name || 'Unknown',
               ticket.category,
@@ -247,7 +265,12 @@ supportRouter.get("/tickets/:id", async (req: Request, res: Response) => {
       ...ticket,
       replies,
       history: historyWithUsers,
-      author: author ? { id: author.id, email: author.email, firstName: author.firstName, lastName: author.lastName } : null,
+      author: author
+        ? (() => {
+            const { firstName, lastName } = splitName(author.name);
+            return { id: author.id, email: author.email, firstName, lastName };
+          })()
+        : null,
       tenant: tenant ? { id: tenant.id, name: tenant.name } : null,
     });
   } catch (error) {
@@ -288,7 +311,7 @@ supportRouter.post("/tickets/:id/replies", async (req: Request, res: Response) =
       isInternal: isAdmin && isInternal ? true : false,
     });
 
-    const replierName = `${req.user.firstName || ''} ${req.user.lastName || ''}`.trim() || req.user.email;
+    const replierName = req.user.name || req.user.email;
     const isInternalNote = isAdmin && isInternal;
 
     if (!isInternalNote) {
@@ -300,7 +323,7 @@ supportRouter.post("/tickets/:id/replies", async (req: Request, res: Response) =
             if (emailOk) {
               await sendSupportTicketReplyNotification(
                 ticketAuthor.email,
-                ticketAuthor.firstName || ticketAuthor.email,
+                ticketAuthor.name || ticketAuthor.email,
                 ticket.ticketNumber,
                 ticket.subject,
                 replierName,

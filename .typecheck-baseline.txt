@@ -3,7 +3,7 @@
 Captured by running `npm run check` (which runs `tsc`).
 
 - Baseline date: 2026-05-26
-- Total errors on this branch: 110
+- Total errors on this branch: 84
 - Pre-existing baseline on main: 260 (commit 812d98847c23047ec328cf2c9b896ce1a72abe01)
 
 This file exists so that future work can verify the "no new type errors"
@@ -14,7 +14,10 @@ split a file, update the table accordingly.
 
 Note: tsc's count was non-deterministic on the very first run immediately
 after `npm install`; subsequent runs are stable. Always run
-`npm run check` twice if the first run looks anomalous.
+`npm run check` twice if the first run looks anomalous. If the result
+still looks wrong, delete `node_modules/typescript/tsbuildinfo` (the
+incremental cache configured by `tsconfig.json`) and re-run — a stale
+cache can preserve errors that have already been fixed.
 
 To regenerate locally:
 
@@ -24,28 +27,23 @@ To regenerate locally:
 
   27 client/src/pages/PlanningEnhanced.tsx
   13 server/storage.ts
-  12 server/routes-support.ts
-   9 server/routes.ts
    6 shared/enhanced-okr-schema.ts
    6 server/mcp/tools.ts
    3 server/seed.ts
    3 server/init.ts
    3 client/src/pages/MeetingDetail.tsx
    2 server/routes-reporting.ts
-   2 server/routes-dashboard.ts
-   2 server/mcp/entra-jwt.ts
    2 client/src/pages/TenantAdmin.tsx
    2 client/src/pages/MyFocus.tsx
    2 client/src/pages/Dashboard.tsx
    2 client/src/components/okr/ForecastingPanel.tsx
-   1 server/services/notification-events.ts
    1 server/routes-portal.ts
    1 server/routes-outlook.ts
    1 server/routes-m365.ts
    1 server/routes-ai.ts
    1 server/middleware/rbac.ts
    1 server/mcp/server.ts
-   1 server/mcp/rateLimiter.ts
+   1 server/mcp/entra-jwt.ts
    1 client/src/pages/ResetPassword.tsx
    1 client/src/pages/Login.tsx
    1 client/src/pages/ForgotPassword.tsx
@@ -55,20 +53,18 @@ To regenerate locally:
 
 ## Error codes (informational)
 
-  38 TS2339   - Property does not exist on type
-  18 TS2345   - Argument type not assignable
-  16 TS2322   - Type not assignable
+  24 TS2339   - Property does not exist on type
+  16 TS2345   - Argument type not assignable
+  15 TS2322   - Type not assignable
   13 TS2769   - No overload matches this call
    6 TS2304   - Cannot find name
-   5 TS2802   - Iteration on Map/Set requires --downlevelIteration or target >= es2015
    4 TS2300   - Duplicate identifier
-   3 TS7006   - Parameter implicitly has 'any' type
-   2 TS1252   - Reserved word / decorator issue
-   1 TS18047  - Value is possibly 'null'
    1 TS7024   - Function lacks return-type annotation, implied any
    1 TS7022   - Variable implicitly has 'any' (circular reference)
+   1 TS7006   - Parameter implicitly has 'any' type
    1 TS2353   - Object literal may only specify known properties
    1 TS2305   - Module has no exported member
+   1 TS18047  - Value is possibly 'null'
 
 ## What changed on this branch
 
@@ -133,6 +129,49 @@ To regenerate locally:
    which fails the `Date` constructor overload resolution) — switched `||` to
    `??` and added a `?? 0` epoch sentinel. Cleared all 18 errors in this file.
 
+9. `server/routes-support.ts`: fixed another silent feature bug — every
+   support-ticket UI in the app (admin console + user Support page) displayed
+   empty initials and email-as-username because the routes accessed
+   `u.firstName` / `u.lastName` while the user schema only stores a single
+   `name` field. Patterns like `\${u.firstName || ''} \${u.lastName || ''}`
+   `.trim() || u.email` evaluated to `u.email` for every user. Added a
+   `splitName(name)` helper that splits the schema's `name` field on the
+   first whitespace and ships `firstName` / `lastName` on the API response
+   (keeping the API contract stable so the eight client-side usages in
+   `AdminSupportTab.tsx` and `Support.tsx` keep working). Display strings
+   inside the routes (acknowledgement / internal-notification / reply emails)
+   now use `req.user.name || req.user.email` directly. Cleared all 12 errors.
+
+10. `server/routes.ts`: fixed `kr.ownerEmail` access in the Excel auto-sync
+    job at line 4575 — the `key_results` table has `ownerId` but no
+    `ownerEmail` (unlike `objectives` and `big_rocks` which do). The
+    if-branch was dead code at runtime, always falling through to the
+    slower "scan all tenant users for a graph token" fallback. Switched
+    to a proper `ownerId` lookup so Excel sync prefers the KR owner's
+    token. Also added explicit `res: Response` annotations to two changelog
+    handlers using `req: any` (TypeScript can't infer `res` from the
+    Express overload when `req` is annotated `any`), and added explicit
+    tenant guards to the two OAuth-client admin endpoints (replacing
+    `req.user!.tenantId` with a `tenantId = req.user?.tenantId; if
+    (!tenantId) return res.status(403)` pattern, matching CLAUDE.md's
+    "don't proceed without tenant" rule). Added an inline narrowing
+    re-check inside the Excel sync loop so TypeScript carries the
+    nullability narrowing that the upstream filter already enforces.
+    Cleared all 9 errors.
+
+11. `tsconfig.json`: added `"target": "es2020"`. The previous config had no
+    explicit target, so it defaulted to ES3 while `lib` was already
+    `["esnext", "dom", "dom.iterable"]`. This mismatch caused 5 spurious
+    TS2802 errors at every Map / Set spread or iteration. Safe to change:
+    `noEmit: true`, so tsc isn't transpiling anything — esbuild/Vite does
+    the actual runtime compilation and already targets modern runtimes.
+
+    NOTE: the project uses `incremental: true` with
+    `tsBuildInfoFile: "./node_modules/typescript/tsbuildinfo"`. The stale
+    cache from before the target change preserved the TS2802 errors until
+    the file was deleted. The baseline-regen instructions above mention
+    this.
+
 ## Known remaining work (NOT mechanical)
 
 `client/src/pages/PlanningEnhanced.tsx` (27 errors remaining) has several real
@@ -154,6 +193,7 @@ expected `T | SQL<unknown> | PgColumn<...>` per-field union. These need
 per-callsite review; some likely need an explicit `Partial<typeof
 TABLE.$inferInsert>` annotation on the local `updateData`.
 
-`server/ai-tools.ts` (18 errors), `server/routes-support.ts` (12), `server/
-routes.ts` (9), `server/mcp/tools.ts` (6), `shared/enhanced-okr-schema.ts` (6)
-— not yet investigated.
+`server/mcp/tools.ts` (6) and `shared/enhanced-okr-schema.ts` (6) — not yet
+investigated. Given the pattern we've seen elsewhere (stale field names,
+type-safety holes hiding silent feature bugs), worth a careful look before
+declaring these "just typing noise".
