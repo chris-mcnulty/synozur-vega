@@ -3,7 +3,7 @@
 Captured by running `npm run check` (which runs `tsc`).
 
 - Baseline date: 2026-05-26
-- Total errors on this branch: 150
+- Total errors on this branch: 128
 - Pre-existing baseline on main: 260 (commit 812d98847c23047ec328cf2c9b896ce1a72abe01)
 
 This file exists so that future work can verify the "no new type errors"
@@ -22,7 +22,7 @@ To regenerate locally:
 
 ## Per-file counts
 
-  49 client/src/pages/PlanningEnhanced.tsx
+  27 client/src/pages/PlanningEnhanced.tsx
   18 server/ai-tools.ts
   13 server/storage.ts
   12 server/routes-support.ts
@@ -56,10 +56,9 @@ To regenerate locally:
 
 ## Error codes (informational)
 
-  44 TS2339   - Property does not exist on type
+  38 TS2339   - Property does not exist on type
   23 TS2769   - No overload matches this call
   18 TS2345   - Argument type not assignable
-  17 TS18047  - Value is possibly 'null'
   16 TS2322   - Type not assignable
    8 TS2551   - Property does not exist (did you mean ...)
    6 TS2304   - Cannot find name
@@ -67,6 +66,7 @@ To regenerate locally:
    4 TS2300   - Duplicate identifier
    3 TS7006   - Parameter implicitly has 'any' type
    2 TS1252   - Reserved word / decorator issue
+   1 TS18047  - Value is possibly 'null'
    1 TS7024   - Function lacks return-type annotation, implied any
    1 TS7022   - Variable implicitly has 'any' (circular reference)
    1 TS2353   - Object literal may only specify known properties
@@ -103,25 +103,39 @@ To regenerate locally:
    `string | string[] | ParsedQs | ParsedQs[]` to `string`, matching the
    pattern used throughout this file's other query-param handlers.
 
+6. `client/src/pages/PlanningEnhanced.tsx`: added `asOfDate?: string | Date |
+   null` to the locally-redefined `CheckIn` interface. The schema has had this
+   field for some time (check_ins.as_of_date), the API returns it, and the UI
+   was already rendering it via `new Date(checkIn.asOfDate)` with `createdAt`
+   as fallback — but the local interface omitted it, so TypeScript was
+   silently suppressing the field's usage. Runtime behavior unchanged; this
+   closes the type-safety hole so a future API change can't silently break
+   the date display.
+
+7. `client/src/pages/PlanningEnhanced.tsx`: added the standard component-level
+   "No Organization Access" early return (matching `Dashboard.tsx`,
+   `Planning.tsx`, `Strategy.tsx`, `Foundations.tsx`, `ExecutiveDashboard.tsx`)
+   before rendering the page. Added missing `if (!currentTenant?.id) throw`
+   guards to three unguarded mutation bodies (`createBigRockMutation`,
+   `updateObjectiveMutation`, `createCheckInMutation`). Changed
+   `currentTenant.id` to `currentTenant?.id` in 13 `queryClient.invalidateQueries`
+   calls, matching the pattern already used by every `useQuery` `queryKey` in
+   the file. Cleared all 16 `currentTenant is possibly null` errors.
+
 ## Known remaining work (NOT mechanical)
 
-`client/src/pages/PlanningEnhanced.tsx` (49 errors) has several real bugs
-mixed with typing issues — fixing them needs feature-level judgment:
+`client/src/pages/PlanningEnhanced.tsx` (27 errors remaining) has several real
+bugs mixed with typing issues — fixing them needs feature-level judgment:
 
 - `keyResultsByObjective` is referenced at lines 2158–2163 but never declared
   in scope. Looks like a dead/incomplete refactor.
-- `CheckIn` type is accessed via `.asOfDate` in 6 places (lines 2566, 2567,
-  5437, 5438, 5563, 5564) but `CheckIn` has no `asOfDate` field. Either the
-  schema is missing a field or the access is wrong.
-- `KeyResult` type accessed via `.objectiveId` (2995, 3009), `.initialValue`
-  (3006), `.quarter`/`.year` (3102, 3109, 3110) in code that flows from a
-  hierarchical query. Either the hierarchy projection is missing fields or
-  the callers should be using a wider type.
+- `KeyResult` type accessed via `.objectiveId`, `.initialValue`, `.quarter`,
+  `.year` in code that flows from a hierarchical query. Either the hierarchy
+  projection is missing fields or the callers should be using a wider type.
 - `Objective` type accessed via `.alignedToObjectiveIds`, `.linkedStrategies`,
-  `.linkedGoals` — the schema HAS these fields but the local `HierarchyObjective`
-  type that hydrates the page does not. Fix is to widen the local type.
-- 16 `currentTenant is possibly null` errors — the page renders without a
-  tenant guard. Fix is to add an early-return guard or use `currentTenant?.id`.
+  `.linkedGoals` — the schema HAS these fields but the local
+  `HierarchyObjective` type that hydrates the page does not. Fix is to widen
+  the local type.
 
 `server/storage.ts` (13 errors) — remaining issues are `db.update(...).set(...)`
 calls where the partial argument's inferred type is narrower than Drizzle's
