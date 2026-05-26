@@ -3,8 +3,8 @@
 Captured by running `npm run check` (which runs `tsc`).
 
 - Baseline date: 2026-05-26
-- Total errors on this branch: 223
-- Pre-existing baseline before this branch: 260 (commit 812d98847c23047ec328cf2c9b896ce1a72abe01)
+- Total errors on this branch: 150
+- Pre-existing baseline on main: 260 (commit 812d98847c23047ec328cf2c9b896ce1a72abe01)
 
 This file exists so that future work can verify the "no new type errors"
 claim concretely instead of by inspection. Treat the per-file counts below
@@ -13,9 +13,8 @@ fix errors, lower the count here in the same commit. If you delete or
 split a file, update the table accordingly.
 
 Note: tsc's count was non-deterministic on the very first run immediately
-after `npm install`; three subsequent runs all produced the stable
-baseline. Always run `npm run check` twice if the first run looks
-anomalous.
+after `npm install`; subsequent runs are stable. Always run
+`npm run check` twice if the first run looks anomalous.
 
 To regenerate locally:
 
@@ -23,19 +22,16 @@ To regenerate locally:
 
 ## Per-file counts
 
-  63 server/storage.ts
   49 client/src/pages/PlanningEnhanced.tsx
   18 server/ai-tools.ts
-  15 server/routes-okr.ts
+  13 server/storage.ts
   12 server/routes-support.ts
    9 server/routes.ts
-   7 server/routes-portal.ts
    6 shared/enhanced-okr-schema.ts
    6 server/mcp/tools.ts
    3 server/seed.ts
    3 server/init.ts
    3 client/src/pages/MeetingDetail.tsx
-   2 shared/schema.ts
    2 server/routes-reporting.ts
    2 server/routes-dashboard.ts
    2 server/mcp/entra-jwt.ts
@@ -44,6 +40,7 @@ To regenerate locally:
    2 client/src/pages/Dashboard.tsx
    2 client/src/components/okr/ForecastingPanel.tsx
    1 server/services/notification-events.ts
+   1 server/routes-portal.ts
    1 server/routes-outlook.ts
    1 server/routes-m365.ts
    1 server/routes-ai.ts
@@ -59,38 +56,79 @@ To regenerate locally:
 
 ## Error codes (informational)
 
-  73 TS2322   - Type not assignable
   44 TS2339   - Property does not exist on type
   23 TS2769   - No overload matches this call
-  20 TS2345   - Argument type not assignable
+  18 TS2345   - Argument type not assignable
   17 TS18047  - Value is possibly 'null'
-   9 TS2551   - Property does not exist (did you mean ...)
-   8 TS2740   - Type missing properties from type
+  16 TS2322   - Type not assignable
+   8 TS2551   - Property does not exist (did you mean ...)
    6 TS2304   - Cannot find name
    5 TS2802   - Iteration on Map/Set requires --downlevelIteration or target >= es2015
    4 TS2300   - Duplicate identifier
    3 TS7006   - Parameter implicitly has 'any' type
-   2 TS7024   - Function lacks return-type annotation, implied any
-   2 TS7022   - Variable implicitly has 'any' (circular reference)
-   2 TS2461   - Type is not an array type
-   2 TS2353   - Object literal may only specify known properties
    2 TS1252   - Reserved word / decorator issue
+   1 TS7024   - Function lacks return-type annotation, implied any
+   1 TS7022   - Variable implicitly has 'any' (circular reference)
+   1 TS2353   - Object literal may only specify known properties
    1 TS2305   - Module has no exported member
 
 ## What changed on this branch
 
-- Fixed 37 TS18046 "'error' is of type 'unknown'" errors in `server/routes-okr.ts`
-  by narrowing catch-block `error.message` access to
-  `error instanceof Error ? error.message : 'Unknown error'`, matching the
-  pattern already used in `server/routes-import.ts`, `server/routes-dashboard.ts`,
-  and `server/viva-goals-importer.ts`. Pure refactor — JSON response shape is
-  unchanged.
+1. `shared/schema.ts`: broke a self-referencing type-inference cycle on the
+   `objectives` table by typing the `parentId.references(() => objectives.id)`
+   lambda as returning `AnyPgColumn`. This is the canonical Drizzle pattern
+   for self-referencing foreign keys. Before this fix, the circular reference
+   made every `Partial<InsertObjective>` (and any other `Partial<Insert*>` that
+   transitively touched `objectives`) degenerate to a `Record<string, unknown[] |
+   [any, ...any[]] | null | undefined>` index signature, which broke about 70
+   downstream call sites. Pure typing fix — runtime behavior unchanged.
 
-## Known-tractable remaining work
+2. `server/routes-okr.ts`: fixed 37 TS18046 errors by narrowing catch-block
+   `error.message` access to `error instanceof Error ? error.message : 'Unknown
+   error'`, matching the pattern already used in `server/routes-import.ts` and
+   `server/viva-goals-importer.ts`. Pure refactor.
 
-- `server/routes-okr.ts` line 1709: `startValue` is referenced on a key-result
-  type that only has `targetValue` (TS2551). Likely a real bug, not a typing
-  issue — needs a human to decide intent before fixing.
-- Most remaining errors in `storage.ts` and `routes-okr.ts` are Drizzle ORM
-  `.values()` / `.set()` inference failures. These need per-callsite work to
-  give Drizzle enough type info to infer the row type. Not mechanical.
+3. `server/routes-okr.ts` line 1709: removed `keyResult.startValue` from a
+   null-coalescing chain. The schema has no `startValue` field (it has
+   `initialValue` and `targetValue`); the property access was always
+   unreachable dead code. Removed safely because `?? 0` already handles the
+   null/undefined case.
+
+4. `server/routes-okr.ts` line 1242: removed a `progress: 0` field from a
+   `createBigRock` call. The `big_rocks` table has no `progress` column — it
+   has `completionPercentage`, which defaults to 0 already. Drizzle was
+   silently dropping this field at runtime.
+
+5. `server/routes-okr.ts` line 2165: cast `tenantId` from Express's
+   `string | string[] | ParsedQs | ParsedQs[]` to `string`, matching the
+   pattern used throughout this file's other query-param handlers.
+
+## Known remaining work (NOT mechanical)
+
+`client/src/pages/PlanningEnhanced.tsx` (49 errors) has several real bugs
+mixed with typing issues — fixing them needs feature-level judgment:
+
+- `keyResultsByObjective` is referenced at lines 2158–2163 but never declared
+  in scope. Looks like a dead/incomplete refactor.
+- `CheckIn` type is accessed via `.asOfDate` in 6 places (lines 2566, 2567,
+  5437, 5438, 5563, 5564) but `CheckIn` has no `asOfDate` field. Either the
+  schema is missing a field or the access is wrong.
+- `KeyResult` type accessed via `.objectiveId` (2995, 3009), `.initialValue`
+  (3006), `.quarter`/`.year` (3102, 3109, 3110) in code that flows from a
+  hierarchical query. Either the hierarchy projection is missing fields or
+  the callers should be using a wider type.
+- `Objective` type accessed via `.alignedToObjectiveIds`, `.linkedStrategies`,
+  `.linkedGoals` — the schema HAS these fields but the local `HierarchyObjective`
+  type that hydrates the page does not. Fix is to widen the local type.
+- 16 `currentTenant is possibly null` errors — the page renders without a
+  tenant guard. Fix is to add an early-return guard or use `currentTenant?.id`.
+
+`server/storage.ts` (13 errors) — remaining issues are `db.update(...).set(...)`
+calls where the partial argument's inferred type is narrower than Drizzle's
+expected `T | SQL<unknown> | PgColumn<...>` per-field union. These need
+per-callsite review; some likely need an explicit `Partial<typeof
+TABLE.$inferInsert>` annotation on the local `updateData`.
+
+`server/ai-tools.ts` (18 errors), `server/routes-support.ts` (12), `server/
+routes.ts` (9), `server/mcp/tools.ts` (6), `shared/enhanced-okr-schema.ts` (6)
+— not yet investigated.

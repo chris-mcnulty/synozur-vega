@@ -1239,7 +1239,6 @@ okrRouter.post("/big-rocks/:id/clone", requireValidatedTenant, async (req, res) 
       quarter: targetQuarter,
       year: targetYear,
       status: "not_started",
-      progress: 0,
       ownerId: keepOriginalOwner ? originalBigRock.ownerId : (newOwnerId || user.id),
       ownerEmail: keepOriginalOwner ? originalBigRock.ownerEmail : null,
       objectiveId: keepLinkedOKR ? originalBigRock.objectiveId : null,
@@ -1706,7 +1705,7 @@ okrRouter.delete("/check-ins/:id", async (req, res) => {
         } else {
           // No remaining check-ins - restore to previous state, using initialValue as fallback
           await storage.updateKeyResult(entityId, {
-            currentValue: checkIn.previousValue ?? keyResult.initialValue ?? keyResult.startValue ?? 0,
+            currentValue: checkIn.previousValue ?? keyResult.initialValue ?? 0,
             progress: checkIn.previousProgress ?? 0,
             lastCheckInAt: null,
             lastCheckInNote: null,
@@ -2163,7 +2162,7 @@ okrRouter.get("/pace-metrics", async (req, res) => {
     }
     
     // Get objectives filtered by quarter/year if provided
-    let objectives = await storage.getObjectivesByTenantId(tenantId);
+    let objectives = await storage.getObjectivesByTenantId(tenantId as string);
     
     if (quarter && year) {
       objectives = objectives.filter(obj => 
