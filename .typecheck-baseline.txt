@@ -3,7 +3,7 @@
 Captured by running `npm run check` (which runs `tsc`).
 
 - Baseline date: 2026-05-26
-- Total errors on this branch: 128
+- Total errors on this branch: 110
 - Pre-existing baseline on main: 260 (commit 812d98847c23047ec328cf2c9b896ce1a72abe01)
 
 This file exists so that future work can verify the "no new type errors"
@@ -23,7 +23,6 @@ To regenerate locally:
 ## Per-file counts
 
   27 client/src/pages/PlanningEnhanced.tsx
-  18 server/ai-tools.ts
   13 server/storage.ts
   12 server/routes-support.ts
    9 server/routes.ts
@@ -57,10 +56,9 @@ To regenerate locally:
 ## Error codes (informational)
 
   38 TS2339   - Property does not exist on type
-  23 TS2769   - No overload matches this call
   18 TS2345   - Argument type not assignable
   16 TS2322   - Type not assignable
-   8 TS2551   - Property does not exist (did you mean ...)
+  13 TS2769   - No overload matches this call
    6 TS2304   - Cannot find name
    5 TS2802   - Iteration on Map/Set requires --downlevelIteration or target >= es2015
    4 TS2300   - Duplicate identifier
@@ -121,6 +119,19 @@ To regenerate locally:
    `currentTenant.id` to `currentTenant?.id` in 13 `queryClient.invalidateQueries`
    calls, matching the pattern already used by every `useQuery` `queryKey` in
    the file. Cleared all 16 `currentTenant is possibly null` errors.
+
+8. `server/ai-tools.ts`: fixed a silent feature bug — the AI team-health
+   summary code at lines 1167–1173 searched check-in `.notes` for keywords
+   like "block", "issue", "delay", "stuck" to populate `recentBlockers`, but
+   the schema field is singular `.note`. As a result `recentBlockers` was
+   *always empty* in every AI summary — the entire blocker-detection feature
+   silently produced no output. Also fixed two AI response payloads at lines
+   1003 and 1045 that emitted empty strings instead of the check-in note.
+   Renamed all 8 `.notes` → `.note` accesses to match the schema. Separately,
+   fixed 9 TS2769 errors at the `new Date(c.asOfDate || c.createdAt)` pattern
+   (both fields are `Date | null`, leaving the OR expression as `Date | null`
+   which fails the `Date` constructor overload resolution) — switched `||` to
+   `??` and added a `?? 0` epoch sentinel. Cleared all 18 errors in this file.
 
 ## Known remaining work (NOT mechanical)
 
