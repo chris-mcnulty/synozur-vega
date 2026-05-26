@@ -2964,12 +2964,11 @@ Current Issues:
 
 ---
 
-### TypeScript Circular Reference in Schema
+### TypeScript Circular Reference in Schema ✅ FIXED
 
-**Status:** Known  
-**Severity:** Low
+**Status:** Resolved (May 2026)
 
-Self-referencing types in `shared/schema.ts` cause implicit 'any' warnings. Does not affect runtime.
+The `objectives` table's self-reference via `parentId.references(() => objectives.id, ...)` was creating a circular TS inference cycle that degenerated `Partial<InsertObjective>` (and every Insert type that transitively touched objectives) into a `Record<string, unknown[] | [any, ...any[]] | null | undefined>` index signature. This poisoned ~70 type checks across `storage.ts`, `routes-okr.ts`, and `routes-portal.ts`. Fixed by annotating the self-reference lambda as `(): AnyPgColumn => objectives.id`, the canonical Drizzle pattern. Runtime behavior unchanged.
 
 ---
 
@@ -3384,6 +3383,15 @@ For future features requiring database changes:
 ## Technical Debt
 
 - **Remove ProgressDashboard component and related dead code from PlanningEnhanced.tsx** — The `ProgressDashboard` function component (currently at the bottom of `client/src/pages/PlanningEnhanced.tsx`) and its corresponding `TabsTrigger`/`TabsContent` entries have been commented out (hidden from users). The component code, including helper functions (`getProgressColor`, `getStatusIcon`, sorted objectives logic), should be fully deleted once confirmed no longer needed.
+
+- **Finish the TypeScript type-error burn-down** — `npm run check` was at 260 errors on main; current ceiling is 84 (see `.typecheck-baseline.txt` for per-file counts and regen instructions). Half of the original burn-down surfaced real silent bugs (asOfDate stale interface, blocker-detection always-empty, support tickets showing email-as-username, Excel sync owner fast-path dead code, etc.) — the remaining 84 are worth a careful read rather than a bulk fix. Highest-value targets:
+
+  - **`client/src/pages/PlanningEnhanced.tsx` (27 errors)** — Contains a likely real bug at lines 2158–2163 where `keyResultsByObjective` is referenced four times but never declared (incomplete refactor). Also has stale local `Objective` / `KeyResult` / `HierarchyObjective` interfaces missing `linkedStrategies`, `linkedGoals`, `alignedToObjectiveIds`, `objectiveId`, `initialValue`, `quarter`, `year` — same drift pattern that caused the asOfDate silent bug. Worth widening the local types to inherit from the shared schema instead of redeclaring.
+  - **`server/storage.ts` (13 errors)** — All `db.update(...).set(...)` callsites where the partial argument's inferred type is narrower than Drizzle's expected `T | SQL<unknown> | PgColumn<...>` per-field union. Most likely fix is an explicit `Partial<typeof TABLE.$inferInsert>` annotation on the local `updateData`. Per-callsite work.
+  - **`server/mcp/tools.ts` (6) and `shared/enhanced-okr-schema.ts` (6)** — Not investigated yet; given the silent-bug rate elsewhere these deserve a careful look rather than rubber-stamping as "typing noise".
+  - **Long tail (~32 errors across 22 files)** — Mostly 1–3 errors per file. Likely a mix of real fixes and minor narrowing. The `.typecheck-baseline.txt` has the full inventory.
+
+- **`PlanningEnhanced.tsx` cache invalidation keys are too narrow** — The `useQuery` keys on this page include `fetchQuarter`, `level`, `teamId`, and `selectedPeriods` (e.g. `['/api/okr/objectives', tenantId, fetchQuarter, year, level, teamId, selectedPeriods.join(',')]`), but the corresponding `queryClient.invalidateQueries` calls in mutation `onSuccess` callbacks use a shorter `['/api/okr/objectives', tenantId, quarter, year]` shape. The shorter key tuple does not match the longer composite key, so creating, updating, or deleting an OKR, key result, big rock, or check-in can leave the UI showing stale data until the user manually refreshes. Some mutations also mix in tenantless invalidations like `['/api/okr/objectives']` which risks cross-tenant cache effects. Fix is to switch every OKR-related invalidation on this page to the existing `invalidateOKRQueries` helper in `client/src/lib/queryClient.ts` (or use prefix-based invalidation via `invalidateQueriesStartingWith` / `exact: false` on a tenant-scoped prefix). Identified by Copilot review on PR #36; pre-existing, not introduced by that PR.
 
 ---
 

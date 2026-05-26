@@ -1,0 +1,199 @@
+# TypeScript Error Baseline
+
+Captured by running `npm run check` (which runs `tsc`).
+
+- Baseline date: 2026-05-26
+- Total errors on this branch: 84
+- Pre-existing baseline on main: 260 (commit 812d98847c23047ec328cf2c9b896ce1a72abe01)
+
+This file exists so that future work can verify the "no new type errors"
+claim concretely instead of by inspection. Treat the per-file counts below
+as a ceiling — a PR should never increase the count for any file. If you
+fix errors, lower the count here in the same commit. If you delete or
+split a file, update the table accordingly.
+
+Note: tsc's count was non-deterministic on the very first run immediately
+after `npm install`; subsequent runs are stable. Always run
+`npm run check` twice if the first run looks anomalous. If the result
+still looks wrong, delete `node_modules/typescript/tsbuildinfo` (the
+incremental cache configured by `tsconfig.json`) and re-run — a stale
+cache can preserve errors that have already been fixed.
+
+To regenerate locally:
+
+    npm run check 2>&1 | grep -E "error TS" | sed -E 's/\(.*$//' | sort | uniq -c | sort -rn
+
+## Per-file counts
+
+  27 client/src/pages/PlanningEnhanced.tsx
+  13 server/storage.ts
+   6 shared/enhanced-okr-schema.ts
+   6 server/mcp/tools.ts
+   3 server/seed.ts
+   3 server/init.ts
+   3 client/src/pages/MeetingDetail.tsx
+   2 server/routes-reporting.ts
+   2 client/src/pages/TenantAdmin.tsx
+   2 client/src/pages/MyFocus.tsx
+   2 client/src/pages/Dashboard.tsx
+   2 client/src/components/okr/ForecastingPanel.tsx
+   1 server/routes-portal.ts
+   1 server/routes-outlook.ts
+   1 server/routes-m365.ts
+   1 server/routes-ai.ts
+   1 server/middleware/rbac.ts
+   1 server/mcp/server.ts
+   1 server/mcp/entra-jwt.ts
+   1 client/src/pages/ResetPassword.tsx
+   1 client/src/pages/Login.tsx
+   1 client/src/pages/ForgotPassword.tsx
+   1 client/src/pages/FocusRhythm.tsx
+   1 client/src/components/UserPicker.tsx
+   1 client/src/components/ProgressSummaryDialog.tsx
+
+## Error codes (informational)
+
+  24 TS2339   - Property does not exist on type
+  16 TS2345   - Argument type not assignable
+  15 TS2322   - Type not assignable
+  13 TS2769   - No overload matches this call
+   6 TS2304   - Cannot find name
+   4 TS2300   - Duplicate identifier
+   1 TS7024   - Function lacks return-type annotation, implied any
+   1 TS7022   - Variable implicitly has 'any' (circular reference)
+   1 TS7006   - Parameter implicitly has 'any' type
+   1 TS2353   - Object literal may only specify known properties
+   1 TS2305   - Module has no exported member
+   1 TS18047  - Value is possibly 'null'
+
+## What changed on this branch
+
+1. `shared/schema.ts`: broke a self-referencing type-inference cycle on the
+   `objectives` table by typing the `parentId.references(() => objectives.id)`
+   lambda as returning `AnyPgColumn`. This is the canonical Drizzle pattern
+   for self-referencing foreign keys. Before this fix, the circular reference
+   made every `Partial<InsertObjective>` (and any other `Partial<Insert*>` that
+   transitively touched `objectives`) degenerate to a `Record<string, unknown[] |
+   [any, ...any[]] | null | undefined>` index signature, which broke about 70
+   downstream call sites. Pure typing fix — runtime behavior unchanged.
+
+2. `server/routes-okr.ts`: fixed 37 TS18046 errors by narrowing catch-block
+   `error.message` access to `error instanceof Error ? error.message : 'Unknown
+   error'`, matching the pattern already used in `server/routes-import.ts` and
+   `server/viva-goals-importer.ts`. Pure refactor.
+
+3. `server/routes-okr.ts` line 1709: removed `keyResult.startValue` from a
+   null-coalescing chain. The schema has no `startValue` field (it has
+   `initialValue` and `targetValue`); the property access was always
+   unreachable dead code. Removed safely because `?? 0` already handles the
+   null/undefined case.
+
+4. `server/routes-okr.ts` line 1242: removed a `progress: 0` field from a
+   `createBigRock` call. The `big_rocks` table has no `progress` column — it
+   has `completionPercentage`, which defaults to 0 already. Drizzle was
+   silently dropping this field at runtime.
+
+5. `server/routes-okr.ts` line 2165: cast `tenantId` from Express's
+   `string | string[] | ParsedQs | ParsedQs[]` to `string`, matching the
+   pattern used throughout this file's other query-param handlers.
+
+6. `client/src/pages/PlanningEnhanced.tsx`: added `asOfDate?: string | Date |
+   null` to the locally-redefined `CheckIn` interface. The schema has had this
+   field for some time (check_ins.as_of_date), the API returns it, and the UI
+   was already rendering it via `new Date(checkIn.asOfDate)` with `createdAt`
+   as fallback — but the local interface omitted it, so TypeScript was
+   silently suppressing the field's usage. Runtime behavior unchanged; this
+   closes the type-safety hole so a future API change can't silently break
+   the date display.
+
+7. `client/src/pages/PlanningEnhanced.tsx`: added the standard component-level
+   "No Organization Access" early return (matching `Dashboard.tsx`,
+   `Planning.tsx`, `Strategy.tsx`, `Foundations.tsx`, `ExecutiveDashboard.tsx`)
+   before rendering the page. Added missing `if (!currentTenant?.id) throw`
+   guards to three unguarded mutation bodies (`createBigRockMutation`,
+   `updateObjectiveMutation`, `createCheckInMutation`). Changed
+   `currentTenant.id` to `currentTenant?.id` in 13 `queryClient.invalidateQueries`
+   calls, matching the pattern already used by every `useQuery` `queryKey` in
+   the file. Cleared all 16 `currentTenant is possibly null` errors.
+
+8. `server/ai-tools.ts`: fixed a silent feature bug — the AI team-health
+   summary code at lines 1167–1173 searched check-in `.notes` for keywords
+   like "block", "issue", "delay", "stuck" to populate `recentBlockers`, but
+   the schema field is singular `.note`. As a result `recentBlockers` was
+   *always empty* in every AI summary — the entire blocker-detection feature
+   silently produced no output. Also fixed two AI response payloads at lines
+   1003 and 1045 that emitted empty strings instead of the check-in note.
+   Renamed all 8 `.notes` → `.note` accesses to match the schema. Separately,
+   fixed 9 TS2769 errors at the `new Date(c.asOfDate || c.createdAt)` pattern
+   (both fields are `Date | null`, leaving the OR expression as `Date | null`
+   which fails the `Date` constructor overload resolution) — switched `||` to
+   `??` and added a `?? 0` epoch sentinel. Cleared all 18 errors in this file.
+
+9. `server/routes-support.ts`: fixed another silent feature bug — every
+   support-ticket UI in the app (admin console + user Support page) displayed
+   empty initials and email-as-username because the routes accessed
+   `u.firstName` / `u.lastName` while the user schema only stores a single
+   `name` field. Patterns like `\${u.firstName || ''} \${u.lastName || ''}`
+   `.trim() || u.email` evaluated to `u.email` for every user. Added a
+   `splitName(name)` helper that splits the schema's `name` field on the
+   first whitespace and ships `firstName` / `lastName` on the API response
+   (keeping the API contract stable so the eight client-side usages in
+   `AdminSupportTab.tsx` and `Support.tsx` keep working). Display strings
+   inside the routes (acknowledgement / internal-notification / reply emails)
+   now use `req.user.name || req.user.email` directly. Cleared all 12 errors.
+
+10. `server/routes.ts`: fixed `kr.ownerEmail` access in the Excel auto-sync
+    job at line 4575 — the `key_results` table has `ownerId` but no
+    `ownerEmail` (unlike `objectives` and `big_rocks` which do). The
+    if-branch was dead code at runtime, always falling through to the
+    slower "scan all tenant users for a graph token" fallback. Switched
+    to a proper `ownerId` lookup so Excel sync prefers the KR owner's
+    token. Also added explicit `res: Response` annotations to two changelog
+    handlers using `req: any` (TypeScript can't infer `res` from the
+    Express overload when `req` is annotated `any`), and added explicit
+    tenant guards to the two OAuth-client admin endpoints (replacing
+    `req.user!.tenantId` with a `tenantId = req.user?.tenantId; if
+    (!tenantId) return res.status(403)` pattern, matching CLAUDE.md's
+    "don't proceed without tenant" rule). Added an inline narrowing
+    re-check inside the Excel sync loop so TypeScript carries the
+    nullability narrowing that the upstream filter already enforces.
+    Cleared all 9 errors.
+
+11. `tsconfig.json`: added `"target": "es2020"`. The previous config had no
+    explicit target, so it defaulted to ES3 while `lib` was already
+    `["esnext", "dom", "dom.iterable"]`. This mismatch caused 5 spurious
+    TS2802 errors at every Map / Set spread or iteration. Safe to change:
+    `noEmit: true`, so tsc isn't transpiling anything — esbuild/Vite does
+    the actual runtime compilation and already targets modern runtimes.
+
+    NOTE: the project uses `incremental: true` with
+    `tsBuildInfoFile: "./node_modules/typescript/tsbuildinfo"`. The stale
+    cache from before the target change preserved the TS2802 errors until
+    the file was deleted. The baseline-regen instructions above mention
+    this.
+
+## Known remaining work (NOT mechanical)
+
+`client/src/pages/PlanningEnhanced.tsx` (27 errors remaining) has several real
+bugs mixed with typing issues — fixing them needs feature-level judgment:
+
+- `keyResultsByObjective` is referenced at lines 2158–2163 but never declared
+  in scope. Looks like a dead/incomplete refactor.
+- `KeyResult` type accessed via `.objectiveId`, `.initialValue`, `.quarter`,
+  `.year` in code that flows from a hierarchical query. Either the hierarchy
+  projection is missing fields or the callers should be using a wider type.
+- `Objective` type accessed via `.alignedToObjectiveIds`, `.linkedStrategies`,
+  `.linkedGoals` — the schema HAS these fields but the local
+  `HierarchyObjective` type that hydrates the page does not. Fix is to widen
+  the local type.
+
+`server/storage.ts` (13 errors) — remaining issues are `db.update(...).set(...)`
+calls where the partial argument's inferred type is narrower than Drizzle's
+expected `T | SQL<unknown> | PgColumn<...>` per-field union. These need
+per-callsite review; some likely need an explicit `Partial<typeof
+TABLE.$inferInsert>` annotation on the local `updateData`.
+
+`server/mcp/tools.ts` (6) and `shared/enhanced-okr-schema.ts` (6) — not yet
+investigated. Given the pattern we've seen elsewhere (stale field names,
+type-safety holes hiding silent feature bugs), worth a careful look before
+declaring these "just typing noise".

@@ -963,7 +963,7 @@ export async function executeGenerateMeetingPrep(
     
     const objCheckIns = checkIns
       .filter(c => c.entityType === 'objective' && c.entityId === objId)
-      .sort((a, b) => new Date(b.asOfDate || b.createdAt).getTime() - new Date(a.asOfDate || a.createdAt).getTime())
+      .sort((a, b) => new Date(b.asOfDate ?? b.createdAt ?? 0).getTime() - new Date(a.asOfDate ?? a.createdAt ?? 0).getTime())
       .slice(0, 3);
     
     const { calculatePaceMetrics } = await import('./okr-intelligence');
@@ -972,7 +972,7 @@ export async function executeGenerateMeetingPrep(
       quarter: obj.quarter,
       year: obj.year,
       checkIns: objectiveTrendMap.get(objId) || objCheckIns.map(c => ({
-        asOfDate: new Date(c.asOfDate || c.createdAt),
+        asOfDate: new Date(c.asOfDate ?? c.createdAt ?? 0),
         newProgress: c.newProgress ?? 0,
         previousProgress: c.previousProgress ?? 0,
       })),
@@ -999,8 +999,8 @@ export async function executeGenerateMeetingPrep(
       paceStatus: paceMetrics.status,
       projectedProgress: paceMetrics.projectedEndProgress,
       recentCheckIns: objCheckIns.map(c => ({
-        date: new Date(c.asOfDate || c.createdAt).toLocaleDateString(),
-        note: c.notes || '',
+        date: new Date(c.asOfDate ?? c.createdAt ?? 0).toLocaleDateString(),
+        note: c.note || '',
         progressChange: (c.newProgress ?? 0) - (c.previousProgress ?? 0),
       })),
       needsDiscussion: !!discussionReason,
@@ -1019,7 +1019,7 @@ export async function executeGenerateMeetingPrep(
     
     const krCheckIns = checkIns
       .filter(c => c.entityType === 'key_result' && c.entityId === krId)
-      .sort((a, b) => new Date(b.asOfDate || b.createdAt).getTime() - new Date(a.asOfDate || a.createdAt).getTime())
+      .sort((a, b) => new Date(b.asOfDate ?? b.createdAt ?? 0).getTime() - new Date(a.asOfDate ?? a.createdAt ?? 0).getTime())
       .slice(0, 3);
     
     const isAtRisk = kr.status === 'at_risk';
@@ -1041,8 +1041,8 @@ export async function executeGenerateMeetingPrep(
       paceStatus: isAtRisk ? 'at_risk' : isBehind ? 'behind' : 'on_track',
       projectedProgress: kr.progress ?? 0,
       recentCheckIns: krCheckIns.map(c => ({
-        date: new Date(c.asOfDate || c.createdAt).toLocaleDateString(),
-        note: c.notes || '',
+        date: new Date(c.asOfDate ?? c.createdAt ?? 0).toLocaleDateString(),
+        note: c.note || '',
         progressChange: (c.newProgress ?? 0) - (c.previousProgress ?? 0),
       })),
       needsDiscussion: !!discussionReason,
@@ -1134,7 +1134,7 @@ export async function executeAnalyzeTeamHealth(
   for (const obj of objectives) {
     const objCheckIns = checkIns
       .filter(c => c.entityType === 'objective' && c.entityId === obj.id)
-      .sort((a, b) => new Date(b.asOfDate || b.createdAt).getTime() - new Date(a.asOfDate || a.createdAt).getTime());
+      .sort((a, b) => new Date(b.asOfDate ?? b.createdAt ?? 0).getTime() - new Date(a.asOfDate ?? a.createdAt ?? 0).getTime());
     
     const { calculatePaceMetrics } = await import('./okr-intelligence');
     const paceMetrics = calculatePaceMetrics({
@@ -1142,7 +1142,7 @@ export async function executeAnalyzeTeamHealth(
       quarter: obj.quarter,
       year: obj.year,
       checkIns: teamHealthTrendMap.get(obj.id) || objCheckIns.map(c => ({
-        asOfDate: new Date(c.asOfDate || c.createdAt),
+        asOfDate: new Date(c.asOfDate ?? c.createdAt ?? 0),
         newProgress: c.newProgress ?? 0,
         previousProgress: c.previousProgress ?? 0,
       })),
@@ -1164,13 +1164,13 @@ export async function executeAnalyzeTeamHealth(
       // Extract blockers from recent check-ins
       const recentNotes = objCheckIns.slice(0, 2);
       for (const checkIn of recentNotes) {
-        if (checkIn.notes && (
-          checkIn.notes.toLowerCase().includes('block') ||
-          checkIn.notes.toLowerCase().includes('issue') ||
-          checkIn.notes.toLowerCase().includes('delay') ||
-          checkIn.notes.toLowerCase().includes('stuck')
+        if (checkIn.note && (
+          checkIn.note.toLowerCase().includes('block') ||
+          checkIn.note.toLowerCase().includes('issue') ||
+          checkIn.note.toLowerCase().includes('delay') ||
+          checkIn.note.toLowerCase().includes('stuck')
         )) {
-          recentBlockers.push(`${obj.title}: ${checkIn.notes.slice(0, 100)}...`);
+          recentBlockers.push(`${obj.title}: ${checkIn.note.slice(0, 100)}...`);
         }
       }
     } else if (paceMetrics.status === 'on_track' || paceMetrics.status === 'ahead') {

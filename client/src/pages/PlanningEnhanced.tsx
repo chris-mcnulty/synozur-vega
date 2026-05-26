@@ -154,6 +154,9 @@ interface CheckIn {
   nextSteps?: string[];
   createdBy: string;
   createdAt: Date;
+  // When the check-in data is from (user-changeable). Distinct from createdAt
+  // (when the row was recorded). Falls back to createdAt for display.
+  asOfDate?: string | Date | null;
   // Owner-reported confidence (0.0–1.0) carried per check-in. Nullable when
   // the owner hasn't recorded a confidence on this check-in yet.
   confidence?: number | null;
@@ -1496,9 +1499,9 @@ export default function PlanningEnhanced() {
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant?.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant?.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
       setKeyResultDialogOpen(false);
       toast({ title: "Success", description: "Key Result created successfully" });
@@ -1513,9 +1516,9 @@ export default function PlanningEnhanced() {
       return apiRequest("PATCH", `/api/okr/key-results/${id}`, data);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant?.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant?.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
       setKeyResultDialogOpen(false);
       setSelectedKeyResult(null);
@@ -1531,9 +1534,9 @@ export default function PlanningEnhanced() {
       return apiRequest("DELETE", `/api/okr/key-results/${id}`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant?.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant?.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/hierarchy`], exact: false });
       toast({ title: "Success", description: "Key Result deleted successfully" });
     },
@@ -1580,6 +1583,9 @@ export default function PlanningEnhanced() {
 
   const createBigRockMutation = useMutation({
     mutationFn: async (data: any) => {
+      if (!currentTenant?.id) {
+        throw new Error("No organization selected. Please select an organization first.");
+      }
       // Convert empty objectiveId/keyResultId to null
       // Use form's quarter/year which can be different from page's quarter/year
       const cleanedData = {
@@ -1593,7 +1599,7 @@ export default function PlanningEnhanced() {
       return apiRequest("POST", "/api/okr/big-rocks", cleanedData);
     },
     onSuccess: async (response: any) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant?.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       setBigRockDialogOpen(false);
       setSelectedBigRock(null);
@@ -1612,7 +1618,7 @@ export default function PlanningEnhanced() {
       return apiRequest("PATCH", `/api/okr/big-rocks/${id}`, data);
     },
     onSuccess: async (response: any, variables: { id: string }) => {
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant?.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       setBigRockDialogOpen(false);
       setSelectedBigRock(null);
@@ -1630,7 +1636,7 @@ export default function PlanningEnhanced() {
       return apiRequest("DELETE", `/api/okr/big-rocks/${id}`, undefined);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant?.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
       toast({ title: "Success", description: "Big Rock deleted successfully" });
     },
@@ -1725,6 +1731,9 @@ export default function PlanningEnhanced() {
 
   const updateObjectiveMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: any }) => {
+      if (!currentTenant?.id) {
+        throw new Error("No organization selected. Please select an organization first.");
+      }
       // Normalize data like create mutation - convert empty parentId to null, include quarter/year and tenantId
       const cleanedData = {
         ...data,
@@ -1839,6 +1848,9 @@ export default function PlanningEnhanced() {
 
   const createCheckInMutation = useMutation({
     mutationFn: async (data: any) => {
+      if (!currentTenant?.id) {
+        throw new Error("No organization selected. Please select an organization first.");
+      }
       // Include userId and userEmail from current user, plus tenantId
       // Convert asOfDate string to ISO timestamp - add noon time to avoid UTC/local timezone shifts
       let asOfDateISO: string;
@@ -1862,9 +1874,9 @@ export default function PlanningEnhanced() {
     },
     onSuccess: () => {
       // Invalidate all related query keys that need to refresh
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant?.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant?.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/check-ins`] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
       // Also invalidate hierarchy to sync progress between views
@@ -1896,9 +1908,9 @@ export default function PlanningEnhanced() {
     },
     onSuccess: () => {
       // Invalidate all related query keys that need to refresh
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`, currentTenant?.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: ["/api/dashboard/context"] });
-      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant.id, quarter, year] });
+      queryClient.invalidateQueries({ queryKey: [`/api/okr/big-rocks`, currentTenant?.id, quarter, year] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/check-ins`] });
       queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
       // Also invalidate hierarchy to sync progress between views
@@ -2577,6 +2589,20 @@ export default function PlanningEnhanced() {
       toast({ title: "Error", description: "Failed to load check-in data", variant: "destructive" });
     }
   };
+
+  if (!currentTenant) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center max-w-md mx-auto p-8">
+          <div className="h-12 w-12 text-muted-foreground mx-auto mb-4">!</div>
+          <h2 className="text-xl font-semibold mb-2">No Organization Access</h2>
+          <p className="text-muted-foreground">
+            Your account is not yet associated with an organization. Please contact your administrator.
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   const isLoading = loadingObjectives || loadingBigRocks;
 

@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, integer, timestamp, jsonb, unique, boolean, doublePrecision, primaryKey } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, integer, timestamp, jsonb, unique, boolean, doublePrecision, primaryKey, type AnyPgColumn } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -904,7 +904,7 @@ export const objectives = pgTable("objectives", {
   description: text("description"),
   
   // Hierarchical fields
-  parentId: varchar("parent_id").references(() => objectives.id, { onDelete: 'set null' }),
+  parentId: varchar("parent_id").references((): AnyPgColumn => objectives.id, { onDelete: 'set null' }),
   level: text("level").notNull(), // 'organization', 'team', 'individual'
   
   // Ownership and alignment
