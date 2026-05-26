@@ -247,7 +247,7 @@ okrRouter.get("/teams", async (req, res) => {
     const teams = await storage.getTeamsByTenantId(tenantId as string);
     res.json(teams);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -279,7 +279,7 @@ okrRouter.get("/objectives", async (req, res) => {
     const hydrated = await hydrateEntitiesWithCustomFields(tenantId as string, 'objective', objectives);
     res.json(hydrated);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -292,7 +292,7 @@ okrRouter.get("/objectives/:id", async (req, res) => {
     const [hydrated] = await hydrateEntitiesWithCustomFields(objective.tenantId, 'objective', [objective]);
     res.json(hydrated);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -301,7 +301,7 @@ okrRouter.get("/objectives/:id/children", async (req, res) => {
     const children = await storage.getChildObjectives(req.params.id);
     res.json(children);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -365,7 +365,7 @@ okrRouter.post("/objectives", async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
     }
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -478,7 +478,7 @@ okrRouter.patch("/objectives/:id", async (req, res) => {
     
     res.json(objective);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -495,7 +495,7 @@ okrRouter.delete("/objectives/:id", async (req, res) => {
     await storage.deleteObjective(req.params.id, (req as any).user?.id);
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -514,7 +514,7 @@ okrRouter.get("/review-queue", async (req, res) => {
     const items = await storage.getApprovalQueueByTenantId(tenantId);
     res.json(items);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -528,7 +528,7 @@ okrRouter.get("/objectives/:id/approval-history", async (req, res) => {
     const history = await storage.getObjectiveApprovalHistory(req.params.id);
     res.json(history);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -549,7 +549,7 @@ okrRouter.post("/objectives/:id/submit", async (req, res) => {
     await notifyApproversOfSubmission(objective.tenantId, updated, userEmail);
     res.json(updated);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -593,7 +593,7 @@ okrRouter.post("/objectives/:id/approve", async (req, res) => {
     }
     res.json(updated);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -637,7 +637,7 @@ okrRouter.post("/objectives/:id/reject", async (req, res) => {
     }
     res.json(updated);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -667,7 +667,7 @@ okrRouter.post("/objectives/:id/clone", async (req, res) => {
     res.json(clonedObjective);
   } catch (error) {
     console.error("Error cloning objective:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -677,7 +677,7 @@ okrRouter.get("/objectives/:objectiveId/key-results", async (req, res) => {
     const keyResults = await storage.getKeyResultsByObjectiveId(req.params.objectiveId);
     res.json(keyResults);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -699,7 +699,7 @@ okrRouter.get("/key-results", async (req, res) => {
     const hydrated = await hydrateEntitiesWithCustomFields(tenantId as string, 'key_result', keyResults);
     res.json(hydrated);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -712,7 +712,7 @@ okrRouter.get("/key-results/:id", async (req, res) => {
     const [hydrated] = await hydrateEntitiesWithCustomFields(keyResult.tenantId, 'key_result', [keyResult]);
     res.json(hydrated);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -744,7 +744,7 @@ okrRouter.post("/key-results", async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
     }
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -822,7 +822,7 @@ okrRouter.patch("/key-results/:id", async (req, res) => {
 
     res.json(keyResult);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -851,7 +851,7 @@ okrRouter.delete("/key-results/:id", async (req, res) => {
 
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -866,7 +866,7 @@ okrRouter.post("/key-results/:id/promote-to-kpi", async (req, res) => {
     const kpi = await storage.promoteKeyResultToKpi(req.params.id, userId);
     res.json(kpi);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -875,7 +875,7 @@ okrRouter.post("/key-results/:id/unpromote-from-kpi", async (req, res) => {
     const keyResult = await storage.unpromoteKeyResultFromKpi(req.params.id);
     res.json(keyResult);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -896,7 +896,7 @@ okrRouter.get("/big-rocks", async (req, res) => {
     const hydrated = await hydrateEntitiesWithCustomFields(tenantId as string, 'big_rock', bigRocks);
     res.json(hydrated);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -909,7 +909,7 @@ okrRouter.get("/big-rocks/:id", async (req, res) => {
     const [hydrated] = await hydrateEntitiesWithCustomFields(bigRock.tenantId, 'big_rock', [bigRock]);
     res.json(hydrated);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -918,7 +918,7 @@ okrRouter.get("/objectives/:objectiveId/big-rocks", async (req, res) => {
     const bigRocks = await storage.getBigRocksByObjectiveId(req.params.objectiveId);
     res.json(bigRocks);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -927,7 +927,7 @@ okrRouter.get("/key-results/:keyResultId/big-rocks", async (req, res) => {
     const bigRocks = await storage.getBigRocksByKeyResultId(req.params.keyResultId);
     res.json(bigRocks);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -951,7 +951,7 @@ okrRouter.post("/big-rocks", async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
     }
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -988,7 +988,7 @@ okrRouter.patch("/big-rocks/:id", async (req, res) => {
     res.json(bigRock);
   } catch (error) {
     console.error('[Big Rock Update] Error:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1005,7 +1005,7 @@ okrRouter.delete("/big-rocks/:id", async (req, res) => {
     await storage.deleteBigRock(req.params.id, (req as any).user?.id);
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1017,7 +1017,7 @@ okrRouter.get("/big-rocks/:bigRockId/tasks", async (req, res) => {
     const tasks = await storage.getBigRockTasksByBigRockId(req.params.bigRockId);
     res.json(tasks);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1055,7 +1055,7 @@ okrRouter.post("/big-rocks/:bigRockId/tasks", requireValidatedTenant, async (req
     
     res.json(task);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1099,7 +1099,7 @@ okrRouter.patch("/big-rocks/:bigRockId/tasks/:taskId", requireValidatedTenant, a
     const task = await storage.updateBigRockTask(req.params.taskId, updateData);
     res.json(task);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1131,7 +1131,7 @@ okrRouter.delete("/big-rocks/:bigRockId/tasks/:taskId", requireValidatedTenant, 
     await storage.deleteBigRockTask(req.params.taskId);
     res.json({ success: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1162,7 +1162,7 @@ okrRouter.post("/big-rocks/:bigRockId/tasks/reorder", requireValidatedTenant, as
     await storage.reorderBigRockTasks(req.params.bigRockId, taskIds);
     res.json({ success: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1185,7 +1185,7 @@ okrRouter.post("/big-rocks/task-counts", async (req, res) => {
     
     res.json(result);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1206,7 +1206,7 @@ okrRouter.post("/big-rocks/linked-objectives", async (req, res) => {
     
     res.json(result);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1269,7 +1269,7 @@ okrRouter.post("/objectives/:id/link-big-rock", async (req, res) => {
     await storage.linkObjectiveToBigRock(req.params.id, bigRockId, tenantId);
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1278,7 +1278,7 @@ okrRouter.delete("/objectives/:id/link-big-rock/:bigRockId", async (req, res) =>
     await storage.unlinkObjectiveToBigRock(req.params.id, req.params.bigRockId);
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1287,7 +1287,7 @@ okrRouter.get("/objectives/:id/linked-big-rocks", async (req, res) => {
     const bigRocks = await storage.getBigRocksLinkedToObjective(req.params.id);
     res.json(bigRocks);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1302,7 +1302,7 @@ okrRouter.post("/key-results/:id/link-big-rock", async (req, res) => {
     await storage.linkKeyResultToBigRock(req.params.id, bigRockId, tenantId);
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1311,7 +1311,7 @@ okrRouter.delete("/key-results/:id/link-big-rock/:bigRockId", async (req, res) =
     await storage.unlinkKeyResultToBigRock(req.params.id, req.params.bigRockId);
     res.json({ success: true });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1320,7 +1320,7 @@ okrRouter.get("/key-results/:id/linked-big-rocks", async (req, res) => {
     const bigRocks = await storage.getBigRocksLinkedToKeyResult(req.params.id);
     res.json(bigRocks);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1342,7 +1342,7 @@ okrRouter.get("/hierarchy", async (req, res) => {
     
     res.json(hierarchy);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1365,7 +1365,7 @@ okrRouter.get("/objectives/:id/subtree", async (req, res) => {
     const subtree = await storage.getObjectiveSubtree(req.params.id, objective.tenantId);
     res.json(subtree);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1396,7 +1396,7 @@ okrRouter.get("/check-ins", async (req, res) => {
     
     res.json(checkIns);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1553,7 +1553,7 @@ okrRouter.post("/check-ins", async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
     }
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1648,7 +1648,7 @@ okrRouter.patch("/check-ins/:id", async (req, res) => {
     if (error instanceof z.ZodError) {
       return res.status(400).json({ error: error.errors });
     }
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1743,7 +1743,7 @@ okrRouter.delete("/check-ins/:id", async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error("Failed to delete check-in:", error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1768,7 +1768,7 @@ okrRouter.get("/objectives/:id/calculate-progress", async (req, res) => {
     
     res.json({ progress: calculatedProgress });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -1891,7 +1891,7 @@ okrRouter.post("/backfill-progress", async (req, res) => {
     });
   } catch (error) {
     console.error('[Backfill] Failed:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -2352,7 +2352,7 @@ okrRouter.get("/key-results/:keyResultId/webhook-tokens", async (req: Request, r
     }));
     res.json(safe);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -2367,7 +2367,7 @@ okrRouter.get("/webhook-tokens/:id/logs", async (req: Request, res: Response) =>
     const logs = await storage.getWebhookIngestLogsByTokenId(token.id, 25);
     res.json(logs);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -2415,7 +2415,7 @@ okrRouter.post("/key-results/:keyResultId/webhook-tokens", async (req: Request, 
       url: buildIngestUrl(req, publicToken),
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -2462,7 +2462,7 @@ okrRouter.post("/webhook-tokens/:id/rotate", async (req: Request, res: Response)
       previousTokenId: old.id,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -2493,7 +2493,7 @@ okrRouter.patch("/webhook-tokens/:id", async (req: Request, res: Response) => {
       revokedAt: updated.revokedAt,
     });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -2514,7 +2514,7 @@ okrRouter.delete("/webhook-tokens/:id", async (req: Request, res: Response) => {
     await storage.revokeKrWebhookToken(tok.id, userId);
     res.json({ ok: true });
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });
 
@@ -2552,6 +2552,6 @@ okrRouter.get("/webhook-ingest-logs", async (req: Request, res: Response) => {
     );
     res.json(enriched);
   } catch (error: any) {
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ error: error instanceof Error ? error.message : 'Unknown error' });
   }
 });

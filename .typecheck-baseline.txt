@@ -1,0 +1,96 @@
+# TypeScript Error Baseline
+
+Captured by running `npm run check` (which runs `tsc`).
+
+- Baseline date: 2026-05-26
+- Total errors on this branch: 223
+- Pre-existing baseline before this branch: 260 (commit 812d98847c23047ec328cf2c9b896ce1a72abe01)
+
+This file exists so that future work can verify the "no new type errors"
+claim concretely instead of by inspection. Treat the per-file counts below
+as a ceiling — a PR should never increase the count for any file. If you
+fix errors, lower the count here in the same commit. If you delete or
+split a file, update the table accordingly.
+
+Note: tsc's count was non-deterministic on the very first run immediately
+after `npm install`; three subsequent runs all produced the stable
+baseline. Always run `npm run check` twice if the first run looks
+anomalous.
+
+To regenerate locally:
+
+    npm run check 2>&1 | grep -E "error TS" | sed -E 's/\(.*$//' | sort | uniq -c | sort -rn
+
+## Per-file counts
+
+  63 server/storage.ts
+  49 client/src/pages/PlanningEnhanced.tsx
+  18 server/ai-tools.ts
+  15 server/routes-okr.ts
+  12 server/routes-support.ts
+   9 server/routes.ts
+   7 server/routes-portal.ts
+   6 shared/enhanced-okr-schema.ts
+   6 server/mcp/tools.ts
+   3 server/seed.ts
+   3 server/init.ts
+   3 client/src/pages/MeetingDetail.tsx
+   2 shared/schema.ts
+   2 server/routes-reporting.ts
+   2 server/routes-dashboard.ts
+   2 server/mcp/entra-jwt.ts
+   2 client/src/pages/TenantAdmin.tsx
+   2 client/src/pages/MyFocus.tsx
+   2 client/src/pages/Dashboard.tsx
+   2 client/src/components/okr/ForecastingPanel.tsx
+   1 server/services/notification-events.ts
+   1 server/routes-outlook.ts
+   1 server/routes-m365.ts
+   1 server/routes-ai.ts
+   1 server/middleware/rbac.ts
+   1 server/mcp/server.ts
+   1 server/mcp/rateLimiter.ts
+   1 client/src/pages/ResetPassword.tsx
+   1 client/src/pages/Login.tsx
+   1 client/src/pages/ForgotPassword.tsx
+   1 client/src/pages/FocusRhythm.tsx
+   1 client/src/components/UserPicker.tsx
+   1 client/src/components/ProgressSummaryDialog.tsx
+
+## Error codes (informational)
+
+  73 TS2322   - Type not assignable
+  44 TS2339   - Property does not exist on type
+  23 TS2769   - No overload matches this call
+  20 TS2345   - Argument type not assignable
+  17 TS18047  - Value is possibly 'null'
+   9 TS2551   - Property does not exist (did you mean ...)
+   8 TS2740   - Type missing properties from type
+   6 TS2304   - Cannot find name
+   5 TS2802   - Iteration on Map/Set requires --downlevelIteration or target >= es2015
+   4 TS2300   - Duplicate identifier
+   3 TS7006   - Parameter implicitly has 'any' type
+   2 TS7024   - Function lacks return-type annotation, implied any
+   2 TS7022   - Variable implicitly has 'any' (circular reference)
+   2 TS2461   - Type is not an array type
+   2 TS2353   - Object literal may only specify known properties
+   2 TS1252   - Reserved word / decorator issue
+   1 TS2305   - Module has no exported member
+
+## What changed on this branch
+
+- Fixed 37 TS18046 "'error' is of type 'unknown'" errors in `server/routes-okr.ts`
+  by narrowing catch-block `error.message` access to
+  `error instanceof Error ? error.message : 'Unknown error'`, matching the
+  pattern already used in `server/routes-import.ts`, `server/routes-dashboard.ts`,
+  and `server/viva-goals-importer.ts`. Pure refactor — JSON response shape is
+  unchanged.
+
+## Known-tractable remaining work
+
+- `server/routes-okr.ts` line 1709: `startValue` is referenced on a key-result
+  type that only has `targetValue` (TS2551). Likely a real bug, not a typing
+  issue — needs a human to decide intent before fixing.
+- Most remaining errors in `storage.ts` and `routes-okr.ts` are Drizzle ORM
+  `.values()` / `.set()` inference failures. These need per-callsite work to
+  give Drizzle enough type info to infer the row type. Not mechanical.
