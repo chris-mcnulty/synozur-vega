@@ -16,7 +16,7 @@ type TicketUpdates = Partial<Pick<SupportTicket, "status" | "priority" | "assign
 type TrackedField = "status" | "priority" | "assignedTo" | "category";
 
 // The user schema stores a single `name` field, but the support UI and email
-// templates expect firstName/lastName separately. Split on the first whitespace
+// templates expect firstName/lastName separately. Split on the first space
 // so "Jane Doe" -> { firstName: "Jane", lastName: "Doe" } and a single name
 // like "Cher" -> { firstName: "Cher", lastName: null }.
 function splitName(name: string | null | undefined): { firstName: string | null; lastName: string | null } {

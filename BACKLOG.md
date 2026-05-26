@@ -3391,6 +3391,8 @@ For future features requiring database changes:
   - **`server/mcp/tools.ts` (6) and `shared/enhanced-okr-schema.ts` (6)** — Not investigated yet; given the silent-bug rate elsewhere these deserve a careful look rather than rubber-stamping as "typing noise".
   - **Long tail (~32 errors across 22 files)** — Mostly 1–3 errors per file. Likely a mix of real fixes and minor narrowing. The `.typecheck-baseline.txt` has the full inventory.
 
+- **`PlanningEnhanced.tsx` cache invalidation keys are too narrow** — The `useQuery` keys on this page include `fetchQuarter`, `level`, `teamId`, and `selectedPeriods` (e.g. `['/api/okr/objectives', tenantId, fetchQuarter, year, level, teamId, selectedPeriods.join(',')]`), but the corresponding `queryClient.invalidateQueries` calls in mutation `onSuccess` callbacks use a shorter `['/api/okr/objectives', tenantId, quarter, year]` shape. The shorter key tuple does not match the longer composite key, so creating, updating, or deleting an OKR, key result, big rock, or check-in can leave the UI showing stale data until the user manually refreshes. Some mutations also mix in tenantless invalidations like `['/api/okr/objectives']` which risks cross-tenant cache effects. Fix is to switch every OKR-related invalidation on this page to the existing `invalidateOKRQueries` helper in `client/src/lib/queryClient.ts` (or use prefix-based invalidation via `invalidateQueriesStartingWith` / `exact: false` on a tenant-scoped prefix). Identified by Copilot review on PR #36; pre-existing, not introduced by that PR.
+
 ---
 
 **For questions about this backlog, consult replit.md for project architecture context.**
