@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "pbRP1rqAmn_TOVpggthaZ"
+uri = "file://Vega_Overview.md"
+type = "text"
+title = "Vega — Company Operating System Overview"
