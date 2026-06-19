@@ -39,8 +39,9 @@ export function clearAiConfigCache(): void {
 // Pricing estimates based on public pricing as of late 2025
 const COST_PER_1K_TOKENS: Record<string, { prompt: number; completion: number }> = {
   'gpt-5': { prompt: 50000, completion: 150000 },      // ~$5/$15 per 1M tokens
+  'gpt-5-mini': { prompt: 11000, completion: 44000 },  // ~$1.10/$4.40 per 1M tokens
   'gpt-4o': { prompt: 25000, completion: 100000 },     // ~$2.50/$10 per 1M tokens
-  'gpt-4o-mini': { prompt: 1500, completion: 6000 },   // ~$0.15/$0.60 per 1M tokens
+  'gpt-4o-mini': { prompt: 1500, completion: 6000 },   // ~$0.15/$0.60 per 1M tokens (retiring)
   'gpt-4-turbo': { prompt: 10000, completion: 30000 }, // ~$1/$3 per 1M tokens
   'gpt-4': { prompt: 30000, completion: 60000 },       // ~$3/$6 per 1M tokens
   'claude-sonnet-4': { prompt: 3000, completion: 15000 },    // ~$3/$15 per 1M tokens
@@ -1450,9 +1451,9 @@ JSON format:
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      // Use gpt-4o-mini for OKR scoring - more reliable for structured JSON output
+      // Use gpt-5-mini for OKR scoring - cost-effective and reliable for structured JSON output
       // gpt-5 has issues returning empty responses for this specific task
-      const scoringModel = "gpt-4o-mini";
+      const scoringModel = "gpt-5-mini";
       const response = await openai.chat.completions.create({
         model: scoringModel,
         messages: [

@@ -73,6 +73,7 @@ const getModelDisplayName = (model: string) => {
     "gpt-4": "GPT-4",
     "gpt-4-turbo": "GPT-4 Turbo",
     "gpt-4o": "GPT-4o",
+    "gpt-5-mini": "GPT-5 Mini",
     "gpt-4o-mini": "GPT-4o Mini",
     "gpt-5": "GPT-5",
     "claude-sonnet-4": "Claude Sonnet 4",

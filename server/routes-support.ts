@@ -668,7 +668,7 @@ ${userGuide}
     ];
 
     const stream = await openai.chat.completions.create({
-      model: process.env.AI_MODEL || "gpt-4o-mini",
+      model: process.env.AI_MODEL || "gpt-5-mini",
       messages: fullMessages,
       max_completion_tokens: 2048,
       stream: true,
