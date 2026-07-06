@@ -1626,8 +1626,12 @@ export default function PlanningEnhanced() {
       setBigRockDialogMode("create");
       toast({ title: "Success", description: "Big Rock updated successfully" });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to update Big Rock", variant: "destructive" });
+    onError: (error: any) => {
+      const status = error?.status ?? error?.response?.status;
+      const description = status === 403
+        ? "You can only edit Big Rocks you own or created. Ask your tenant admin to reassign ownership."
+        : "Failed to update Big Rock";
+      toast({ title: "Error", description, variant: "destructive" });
     },
   });
 
@@ -6397,6 +6401,7 @@ function BigRocksSection({ bigRocks, objectives, strategies, teams, activeQuarte
                 size="icon"
                 variant="ghost"
                 onClick={() => onEditBigRock(rock)}
+                title="Edit"
                 data-testid={`button-edit-bigrock-${rock.id}`}
               >
                 <Pencil className="h-4 w-4" />
@@ -6414,6 +6419,7 @@ function BigRocksSection({ bigRocks, objectives, strategies, teams, activeQuarte
                 size="icon"
                 variant="ghost"
                 onClick={() => onDeleteBigRock(rock.id)}
+                title="Delete"
                 data-testid={`button-delete-bigrock-${rock.id}`}
               >
                 <Trash2 className="h-4 w-4" />
