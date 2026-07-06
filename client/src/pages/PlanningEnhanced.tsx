@@ -1627,9 +1627,9 @@ export default function PlanningEnhanced() {
       toast({ title: "Success", description: "Big Rock updated successfully" });
     },
     onError: (error: any) => {
-      const status = error?.status ?? error?.response?.status;
+      const status = error?.status ?? error?.response?.status ?? parseInt(error?.message?.split(':')[0]);
       const description = status === 403
-        ? "You can only edit Big Rocks you own or created. Ask your tenant admin to reassign ownership."
+        ? "You don't have permission to edit this Big Rock. Ask your org admin to reassign ownership."
         : "Failed to update Big Rock";
       toast({ title: "Error", description, variant: "destructive" });
     },

@@ -725,7 +725,13 @@ okrRouter.post("/key-results", async (req, res) => {
     if (!effectiveTenantId) {
       return res.status(403).json({ error: "No tenant context available" });
     }
-    const keyResult = await storage.createKeyResult({ ...validatedData, tenantId: effectiveTenantId });
+    // Auto-set createdBy from authenticated user so the creator can always edit their own items
+    const keyResultData = {
+      ...validatedData,
+      tenantId: effectiveTenantId,
+      createdBy: validatedData.createdBy || req.user?.id || null,
+    };
+    const keyResult = await storage.createKeyResult(keyResultData);
     try {
       await applyCustomFields(effectiveTenantId, 'key_result', keyResult.id, customFields);
     } catch (cfError: any) {
@@ -940,7 +946,13 @@ okrRouter.post("/big-rocks", async (req, res) => {
     if (!effectiveTenantId) {
       return res.status(403).json({ error: "No tenant context available" });
     }
-    const bigRock = await storage.createBigRock({ ...validatedData, tenantId: effectiveTenantId });
+    // Auto-set createdBy from authenticated user so the creator can always edit their own items
+    const bigRockData = {
+      ...validatedData,
+      tenantId: effectiveTenantId,
+      createdBy: validatedData.createdBy || req.user?.id || null,
+    };
+    const bigRock = await storage.createBigRock(bigRockData);
     try {
       await applyCustomFields(effectiveTenantId, 'big_rock', bigRock.id, customFields);
     } catch (cfError: any) {
