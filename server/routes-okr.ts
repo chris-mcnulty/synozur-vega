@@ -1811,6 +1811,11 @@ export function calculateKeyResultProgress(
     } else {
       progress = currentValue >= targetValue ? 100 : (currentValue / targetValue) * 100;
     }
+  } else {
+    // Unknown / null metricType — fall back to a simple current/target ratio so
+    // KRs that were created without an explicit metric type still record non-zero
+    // progress when check-ins are submitted with a value.
+    progress = targetValue > 0 ? (currentValue / targetValue) * 100 : 0;
   }
   
   // Allow >100% for exceeding targets, only clamp negative to 0
