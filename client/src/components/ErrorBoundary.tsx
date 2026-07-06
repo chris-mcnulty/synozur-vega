@@ -38,7 +38,21 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("[ErrorBoundary] Caught error:", error);
     console.error("[ErrorBoundary] Error info:", errorInfo);
-    
+
+    // Stale-deploy chunk errors: the browser cached old HTML that references
+    // a chunk filename that no longer exists after a new deploy. Auto-reload
+    // once to pick up the fresh bundle. A sessionStorage flag prevents loops.
+    const isChunkError =
+      error.message.includes("Failed to fetch dynamically imported module") ||
+      error.message.includes("Loading chunk") ||
+      error.message.includes("Importing a module script failed");
+    const CHUNK_RELOAD_KEY = "vega_chunk_reload";
+    if (isChunkError && !sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+      sessionStorage.setItem(CHUNK_RELOAD_KEY, "1");
+      window.location.reload();
+      return;
+    }
+
     this.setState({ errorInfo });
 
     if (this.props.onError) {

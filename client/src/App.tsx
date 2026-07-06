@@ -47,40 +47,71 @@ import ResetPassword from "@/pages/ResetPassword";
 import NotFound from "@/pages/not-found";
 
 // ============================================
+// CHUNK LOAD RETRY
+// ============================================
+// After a new deploy the chunk filenames change. Users with the old HTML
+// cached will request a chunk that no longer exists on the server.
+// When that happens we do ONE forced reload so the browser fetches the
+// fresh HTML (and new chunk names). A sessionStorage flag prevents an
+// infinite-reload loop if the chunk is genuinely missing.
+const CHUNK_RELOAD_KEY = "vega_chunk_reload";
+function lazyWithChunkRetry<T extends React.ComponentType<unknown>>(
+  factory: () => Promise<{ default: T }>
+) {
+  return lazy(() =>
+    factory().catch((err: unknown) => {
+      const msg = err instanceof Error ? err.message : String(err);
+      const isChunkError =
+        msg.includes("Failed to fetch dynamically imported module") ||
+        msg.includes("Loading chunk") ||
+        msg.includes("Importing a module script failed");
+
+      if (isChunkError && !sessionStorage.getItem(CHUNK_RELOAD_KEY)) {
+        sessionStorage.setItem(CHUNK_RELOAD_KEY, "1");
+        window.location.reload();
+        // Suspend forever — the reload will take over
+        return new Promise<never>(() => {});
+      }
+      return Promise.reject(err);
+    })
+  );
+}
+
+// ============================================
 // LAZY LOADED PAGES (code-split)
 // ============================================
 // These are loaded on-demand when the user navigates to them,
 // reducing the initial bundle size significantly
 
-const Dashboard = lazy(() => import("@/pages/Dashboard"));
-const MyFocus = lazy(() => import("@/pages/MyFocus"));
-const ExecutiveDashboard = lazy(() => import("@/pages/ExecutiveDashboard"));
-const TeamDashboard = lazy(() => import("@/pages/TeamDashboard"));
-const Foundations = lazy(() => import("@/pages/Foundations"));
-const Strategy = lazy(() => import("@/pages/Strategy"));
-const PlanningEnhanced = lazy(() => import("@/pages/PlanningEnhanced"));
-const PlanningWorkshop = lazy(() => import("@/pages/PlanningWorkshop"));
-const FocusRhythm = lazy(() => import("@/pages/FocusRhythm"));
-const MeetingDetail = lazy(() => import("@/pages/MeetingDetail"));
-const MeetingLive = lazy(() => import("@/pages/MeetingLive"));
-const TenantAdmin = lazy(() => import("@/pages/TenantAdmin"));
-const SystemAdmin = lazy(() => import("@/pages/SystemAdmin"));
-const AIGroundingAdmin = lazy(() => import("@/pages/AIGroundingAdmin"));
-const Import = lazy(() => import("@/pages/Import"));
-const Reporting = lazy(() => import("@/pages/Reporting"));
-const Settings = lazy(() => import("@/pages/Settings"));
-const UserGuide = lazy(() => import("@/pages/UserGuide"));
-const Launchpad = lazy(() => import("@/pages/Launchpad"));
-const About = lazy(() => import("@/pages/About"));
-const Changelog = lazy(() => import("@/pages/Changelog"));
-const Roadmap = lazy(() => import("@/pages/Roadmap"));
-const Backlog = lazy(() => import("@/pages/Backlog"));
-const Support = lazy(() => import("@/pages/Support"));
-const Trash = lazy(() => import("@/pages/Trash"));
-const Notifications = lazy(() => import("@/pages/Notifications"));
-const NotificationPreferences = lazy(() => import("@/pages/NotificationPreferences"));
-const ReviewQueue = lazy(() => import("@/pages/ReviewQueue"));
-const SearchAnalytics = lazy(() => import("@/pages/SearchAnalytics"));
+const Dashboard = lazyWithChunkRetry(() => import("@/pages/Dashboard"));
+const MyFocus = lazyWithChunkRetry(() => import("@/pages/MyFocus"));
+const ExecutiveDashboard = lazyWithChunkRetry(() => import("@/pages/ExecutiveDashboard"));
+const TeamDashboard = lazyWithChunkRetry(() => import("@/pages/TeamDashboard"));
+const Foundations = lazyWithChunkRetry(() => import("@/pages/Foundations"));
+const Strategy = lazyWithChunkRetry(() => import("@/pages/Strategy"));
+const PlanningEnhanced = lazyWithChunkRetry(() => import("@/pages/PlanningEnhanced"));
+const PlanningWorkshop = lazyWithChunkRetry(() => import("@/pages/PlanningWorkshop"));
+const FocusRhythm = lazyWithChunkRetry(() => import("@/pages/FocusRhythm"));
+const MeetingDetail = lazyWithChunkRetry(() => import("@/pages/MeetingDetail"));
+const MeetingLive = lazyWithChunkRetry(() => import("@/pages/MeetingLive"));
+const TenantAdmin = lazyWithChunkRetry(() => import("@/pages/TenantAdmin"));
+const SystemAdmin = lazyWithChunkRetry(() => import("@/pages/SystemAdmin"));
+const AIGroundingAdmin = lazyWithChunkRetry(() => import("@/pages/AIGroundingAdmin"));
+const Import = lazyWithChunkRetry(() => import("@/pages/Import"));
+const Reporting = lazyWithChunkRetry(() => import("@/pages/Reporting"));
+const Settings = lazyWithChunkRetry(() => import("@/pages/Settings"));
+const UserGuide = lazyWithChunkRetry(() => import("@/pages/UserGuide"));
+const Launchpad = lazyWithChunkRetry(() => import("@/pages/Launchpad"));
+const About = lazyWithChunkRetry(() => import("@/pages/About"));
+const Changelog = lazyWithChunkRetry(() => import("@/pages/Changelog"));
+const Roadmap = lazyWithChunkRetry(() => import("@/pages/Roadmap"));
+const Backlog = lazyWithChunkRetry(() => import("@/pages/Backlog"));
+const Support = lazyWithChunkRetry(() => import("@/pages/Support"));
+const Trash = lazyWithChunkRetry(() => import("@/pages/Trash"));
+const Notifications = lazyWithChunkRetry(() => import("@/pages/Notifications"));
+const NotificationPreferences = lazyWithChunkRetry(() => import("@/pages/NotificationPreferences"));
+const ReviewQueue = lazyWithChunkRetry(() => import("@/pages/ReviewQueue"));
+const SearchAnalytics = lazyWithChunkRetry(() => import("@/pages/SearchAnalytics"));
 
 // Protected route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -663,6 +694,12 @@ function App() {
     "--sidebar-width": "16rem",
     "--sidebar-width-icon": "3rem",
   };
+
+  // Clear the chunk-reload guard once the app boots successfully so the next
+  // deploy can also trigger an auto-reload for stale-cache users.
+  React.useEffect(() => {
+    sessionStorage.removeItem("vega_chunk_reload");
+  }, []);
 
   return (
     <HelmetProvider>
