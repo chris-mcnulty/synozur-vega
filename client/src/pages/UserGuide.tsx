@@ -3,11 +3,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChevronUp, BookOpen, Search } from "lucide-react";
+import { ChevronUp, BookOpen, Search, TicketCheck, Mail, ExternalLink } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useState, useEffect, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "wouter";
 
 interface TableOfContentsItem {
   id: string;
@@ -16,6 +18,7 @@ interface TableOfContentsItem {
 }
 
 export default function UserGuide() {
+  const { isAuthenticated } = useAuth();
   const [searchTerm, setSearchTerm] = useState("");
   const [showScrollTop, setShowScrollTop] = useState(false);
 
@@ -133,6 +136,44 @@ export default function UserGuide() {
             data-testid="input-search-guide"
           />
         </div>
+      </div>
+
+      {/* Contact / support banner */}
+      <div className="mb-6 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md border bg-muted/50 px-4 py-3 text-sm">
+        {isAuthenticated ? (
+          <>
+            <TicketCheck className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <span className="text-muted-foreground">Need help beyond this guide?</span>
+            <Link href="/support/new">
+              <span className="text-primary hover:underline font-medium cursor-pointer" data-testid="link-guide-submit-ticket">
+                Submit a support ticket
+              </span>
+            </Link>
+          </>
+        ) : (
+          <>
+            <Mail className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+            <span className="text-muted-foreground">Need help? Contact us at</span>
+            <a
+              href="mailto:ContactUs@synozur.com"
+              className="text-primary hover:underline font-medium"
+              data-testid="link-guide-email"
+            >
+              ContactUs@synozur.com
+            </a>
+            <span className="text-muted-foreground">or visit</span>
+            <a
+              href="https://www.synozur.com/contact"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-primary hover:underline font-medium"
+              data-testid="link-guide-contact-page"
+            >
+              synozur.com/contact
+              <ExternalLink className="h-3 w-3" />
+            </a>
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">

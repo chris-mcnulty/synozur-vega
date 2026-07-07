@@ -1,6 +1,7 @@
 import { HelmetProvider } from "react-helmet-async";
-import { Switch, Route } from "wouter";
+import { Switch, Route, Link } from "wouter";
 import { cn } from "@/lib/utils";
+import synozurMark from "@/assets/brand/SynozurMark_color1400_1766606244412.png";
 import { queryClient } from "./lib/queryClient";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
@@ -495,6 +496,59 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * Public layout for pages accessible without login (e.g. User Guide).
+ * Renders the same sticky nav as the landing page.
+ */
+function PublicGuideLayout({ children }: { children: React.ReactNode }) {
+  const [isScrolled, setIsScrolled] = React.useState(false);
+
+  React.useEffect(() => {
+    const handleScroll = () => setIsScrolled(window.scrollY > 10);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-background">
+      <div className="fixed top-0 left-0 right-0 z-50">
+        <nav
+          className={`transition-all duration-200 border-b ${
+            isScrolled
+              ? "bg-background/95 backdrop-blur-md border-border"
+              : "bg-background/95 backdrop-blur-sm border-transparent"
+          }`}
+        >
+          <div className="max-w-6xl mx-auto px-4 md:px-6 h-16 flex items-center justify-between gap-4">
+            <Link href="/" className="flex items-center gap-2">
+              <img src={synozurMark} alt="Vega" className="h-8 object-contain" />
+              <span className="text-lg font-semibold text-foreground">Vega</span>
+            </Link>
+            <div className="flex items-center gap-2 md:gap-3">
+              <Link href="/login?mode=signup">
+                <Button size="sm" data-testid="button-guide-nav-get-started">
+                  Get started
+                </Button>
+              </Link>
+              <Link href="/login">
+                <Button size="sm" variant="outline" data-testid="button-guide-nav-login">
+                  Log in
+                </Button>
+              </Link>
+              <ThemeToggle />
+            </div>
+          </div>
+        </nav>
+      </div>
+      <div className="pt-16 p-4 md:p-8">
+        <Suspense fallback={<PageLoadingFallback />}>
+          {children}
+        </Suspense>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Wrapper for lazy-loaded protected routes
  * Combines Suspense for code-splitting with protected route logic
  */
@@ -628,9 +682,9 @@ function Router() {
         </LazyProtectedRoute>
       </Route>
       <Route path="/help">
-        <LazyProtectedRoute>
+        <PublicGuideLayout>
           <UserGuide />
-        </LazyProtectedRoute>
+        </PublicGuideLayout>
       </Route>
       <Route path="/about">
         <LazyProtectedRoute>
