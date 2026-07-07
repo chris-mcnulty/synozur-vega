@@ -549,6 +549,33 @@ function PublicGuideLayout({ children }: { children: React.ReactNode }) {
 }
 
 /**
+ * Auth-aware layout for the User Guide.
+ * Logged-in users get the full app shell (sidebar + header) so they can navigate back.
+ * Anonymous visitors get the public landing-style nav.
+ */
+function SmartGuideLayout({ children }: { children: React.ReactNode }) {
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) return <PageLoadingFallback />;
+
+  if (isAuthenticated) {
+    return (
+      <ModuleLayout>
+        <Suspense fallback={<PageLoadingFallback />}>
+          {children}
+        </Suspense>
+      </ModuleLayout>
+    );
+  }
+
+  return (
+    <PublicGuideLayout>
+      {children}
+    </PublicGuideLayout>
+  );
+}
+
+/**
  * Wrapper for lazy-loaded protected routes
  * Combines Suspense for code-splitting with protected route logic
  */
@@ -682,9 +709,9 @@ function Router() {
         </LazyProtectedRoute>
       </Route>
       <Route path="/help">
-        <PublicGuideLayout>
+        <SmartGuideLayout>
           <UserGuide />
-        </PublicGuideLayout>
+        </SmartGuideLayout>
       </Route>
       <Route path="/about">
         <LazyProtectedRoute>
