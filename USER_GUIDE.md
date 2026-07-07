@@ -2,7 +2,7 @@
 
 **Welcome to Vega - The Synozur Alliance Company Operating System**
 
-Version 1.9 | Last Updated: February 8, 2026
+Version 1.11 | Last Updated: July 7, 2026
 
 ---
 
@@ -16,16 +16,19 @@ Version 1.9 | Last Updated: February 8, 2026
 6. [Foundations Module](#foundations-module)
 7. [Strategy Module](#strategy-module)
 8. [Planning (OKRs)](#planning-okrs)
-9. [Focus Rhythm](#focus-rhythm)
-10. [AI Assistant & Intelligence](#ai-assistant)
-11. [Help & Support](#help--support)
-12. [Microsoft 365 Integration](#microsoft-365-integration)
-13. [Import & Export](#import--export)
-14. [Reporting](#reporting)
-15. [Launchpad (AI Kickstart Wizard)](#launchpad-ai-kickstart-wizard)
-16. [Settings & Administration](#settings--administration)
-17. [Best Practices](#best-practices)
-18. [Troubleshooting](#troubleshooting)
+9. [Soft Delete & Trash Recovery](#soft-delete--trash-recovery)
+10. [Focus Rhythm](#focus-rhythm)
+11. [AI Assistant & Intelligence](#ai-assistant)
+12. [Help & Support](#help--support)
+13. [MCP Server (AI Assistant Integration)](#mcp-server-ai-assistant-integration)
+14. [Microsoft 365 Integration](#microsoft-365-integration)
+15. [Galaxy Portal Integration](#galaxy-portal-integration)
+16. [Import & Export](#import--export)
+17. [Reporting](#reporting)
+18. [Launchpad (AI Kickstart Wizard)](#launchpad-ai-kickstart-wizard)
+19. [Settings & Administration](#settings--administration)
+20. [Best Practices](#best-practices)
+21. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -46,17 +49,22 @@ Vega is a comprehensive Company Operating System with the following capabilities
 
 ### Execution & Tracking
 - **Key Result Check-ins** - Regular progress updates with notes and status indicators
+- **Check-in Draft Auto-Save** - Drafts auto-save as you type and restore if you navigate away (New in v1.11)
 - **Pace & Velocity Tracking** - AI-powered analysis of progress trends and projections
 - **Behind Pace Alerts** - Automatic detection of at-risk objectives and key results
+- **Daily Progress Snapshots** - Automatic daily snapshots power historical trend lines and period-over-period comparisons (New in v1.11)
 - **Task Status Workflow** - Three-state task tracking (Open, In Progress, Completed)
 - **Due Date Management** - Set and track deadlines for Big Rocks and tasks
 - **Progress Visualization** - Progress bars, status indicators, and trend analysis
+- **Mobile-Responsive OKR Layout** - Hierarchical OKR tables collapse into a card-stack layout on phones and tablets (New in v1.11)
+- **Soft Delete & Trash Recovery** - Deleted items go to a 30-day Trash with admin restore capability (New in v1.11)
 
 ### Meetings & Rhythm
 - **Focus Rhythm** - Meeting management with four cadences (Weekly, Monthly, Quarterly, Annual)
 - **Meeting Templates** - Pre-built agendas for each meeting type
 - **OKR-Linked Meetings** - Connect objectives and key results to meeting agendas
 - **Meeting Notes** - Capture decisions, action items, and follow-ups
+- **Live Meeting Mode** - Facilitator-driven live mode with agenda timer, decision/risk capture, attendee tracking, and full session persistence (New in v1.11)
 
 ### AI & Intelligence
 - **AI Chat Assistant** - Context-aware AI for strategy and OKR guidance with function calling
@@ -75,13 +83,14 @@ Vega is a comprehensive Company Operating System with the following capabilities
 
 ### Integrations
 - **Microsoft SSO** - Single Sign-On with Azure AD / Entra ID
-- **Microsoft Planner** - Bidirectional task sync (coming soon for Big Rock Tasks)
+- **Microsoft Planner** - Bidirectional task sync for Big Rock Tasks
 - **Outlook Calendar** - Meeting and event integration
 - **Excel Data Binding** - Connect Key Results to Excel data sources
 - **OneDrive & SharePoint** - Document storage and access
 - **MCP Server** - AI assistant integration for Claude Desktop, Cursor, and other tools
 - **M365 Copilot Agent** - OpenAPI-based Copilot integration
 - **HubSpot CRM** - Automated deal creation for new signups
+- **Galaxy Portal Integration** - Read-only OKR access for Synozur Galaxy customer portal users via JWT trust (New in v1.11)
 
 ### Reporting & Export
 - **PDF Export** - Professional reports with customizable branding
@@ -92,16 +101,19 @@ Vega is a comprehensive Company Operating System with the following capabilities
 ### Help & Support (New in v1.9)
 - **Help Chatbot** - AI-powered help assistant grounded on the User Guide, accessible from the header
 - **Support Tickets** - Submit and track bug reports, feature requests, questions, and feedback
-- **Admin Support Dashboard** - Cross-tenant ticket management for platform admins
+- **Admin Support Dashboard** - Cross-tenant ticket management with bulk actions, staff assignment, status history, and full-text search (New in v1.10)
 
 ### Platform Updates
 - **What's New Modal** - AI-powered summary of recent platform updates shown on login (New in v1.8)
 - **Changelog Page** - Full history of platform updates with search and table of contents (New in v1.8)
+- **Global Search** - Header-level search across objectives, key results, big rocks, meetings, and people (New in v1.11)
+- **In-App Notification Center** - Bell icon with unread count, dropdown, and per-event read/unread tracking (New in v1.11)
 
 ### Administration
 - **Multi-Tenancy** - Isolated organizations with data security
-- **Role-Based Access Control** - Six roles with fine-grained permissions
+- **Role-Based Access Control** - Seven roles with fine-grained permissions including the read-only portal_user role (New in v1.11)
 - **User Management** - Invite, manage, and assign team members
+- **Bulk Reassignment** - Transfer all OKRs from one owner to another in a single admin action (New in v1.11)
 - **Custom Vocabulary** - Customize terminology (e.g., "Initiatives" vs "Big Rocks")
 - **Allowed Email Domains** - Control signup access by email domain
 - **Service Plans** - Manage subscription tiers and features
@@ -197,10 +209,14 @@ The left sidebar provides access to all major modules:
 - **Launchpad**: AI Kickstart Wizard for new organizations
 - **Support**: View and manage your support tickets (New in v1.9)
 - **Settings**: Personal and M365 connection settings
+- **Notifications** (New in v1.11): View all in-app notifications; mark as read
+- **Trash** (Admin only, New in v1.11): View and restore soft-deleted items
 - **Admin** (if authorized): Tenant administration
 
 #### Top Bar
 
+- **Global Search** (New in v1.11): Click the search bar in the header (or press **⌘K** / **Ctrl+K**) to search across objectives, key results, big rocks, meetings, and people in your organization. Results are grouped by entity type and are tenant-scoped, so you only see what you have permission to access. Clicking a result navigates directly to that item.
+- **Notification Bell** (New in v1.11): The bell icon shows a badge with your unread notification count. Click it to open a dropdown listing recent events — assignments, @mentions in comments, check-in reminders, and admin alerts. Click any notification to navigate to the relevant item, and mark individual notifications or all notifications as read with one click.
 - **Tenant Switcher**: If you have access to multiple organizations, switch between them here
 - **AI Chat**: Click the sparkle icon to open the AI Assistant
 - **Help**: Click the Help button to open the AI-powered Help Chatbot (New in v1.9)
@@ -604,6 +620,9 @@ Vega supports four levels of objectives:
 - **Hierarchy View**: See parent-child relationships
 - **List View**: Flat list of all objectives
 
+**Mobile Layout (New in v1.11):**
+On phones and tablets the hierarchical table automatically collapses into a card-stack layout. Tap any objective card to expand it and reveal its key results, owner, and progress details. This makes stand-up reviews from a phone practical without losing any information.
+
 ### Creating an Objective
 
 You have two ways to create an objective in Vega:
@@ -722,6 +741,9 @@ Regular check-ins update progress and add context.
 
 **Smart Check-In Prompts (Added Dec 16, 2025):**
 - If you check in on a Key Result that has exceeded its target (100%+), Vega will prompt you to close it by marking it as **Closed** to indicate completion, helping maintain clean data and focusing attention on active Key Results
+
+**Check-in Draft Auto-Save (New in v1.11):**
+The check-in dialog automatically saves your progress as you type. If you close the dialog, navigate away, or accidentally reload the page, your draft will be restored the next time you open the same check-in. A banner at the top of the dialog indicates when a draft has been restored, with a **"Discard draft"** option if you want to start fresh. Submitting a check-in clears the draft automatically. Drafts are tenant-scoped — they never carry over if you switch organizations.
 ![Expanded objective detail view with Key Results list](/guide-images/07-objective-detail-key-results.png)
 *Screenshot showing an expanded objective view with multiple Key Results, their progress bars, current vs target values, check-in buttons, and overall objective progress rollup*
 
@@ -865,6 +887,53 @@ Clone objectives to simplify recurring OKR creation and cross-team alignment—e
 
 ---
 
+## Soft Delete & Trash Recovery
+
+**New in v1.11**
+
+When you delete an objective, key result, big rock, meeting, ambition, or annual goal, Vega does not erase the item immediately. Instead, it moves to a tenant-scoped **Trash** with a 30-day retention window. An admin can restore any item before the window expires; after 30 days the item is permanently removed.
+
+### Why Soft Delete?
+
+Mistakes happen — an objective cloned to the wrong quarter, a key result deleted by accident, or a meeting removed prematurely. Soft delete gives you a safety net without requiring a backup restoration.
+
+### Accessing the Trash
+
+Navigate to **Trash** in the left sidebar (only visible to Tenant Admins and above).
+
+The Trash page lists all soft-deleted items for your organization grouped by type:
+- **Objectives** (with cascaded key results shown beneath each one)
+- **Key Results** (standalone deletions)
+- **Big Rocks**
+- **Meetings**
+- **Ambitions**
+- **Annual Goals**
+
+Each row shows the item's title, who deleted it, when it was deleted, and how many days remain before permanent purge.
+
+### Restoring an Item
+
+1. Open the Trash page
+2. Find the item you want to restore (use the type filter or scroll)
+3. Click **Restore**
+4. The item reappears in its original location with all its original data intact
+
+**Cascade restore:** When you restore a soft-deleted objective, its cascaded key results are automatically restored at the same time — you do not need to restore them one by one.
+
+### What Gets Cascaded
+
+When an objective is deleted, all its child key results are soft-deleted at the same moment (they share the same deletion timestamp). Restoring the parent objective restores all its cascaded children together.
+
+Big rocks linked to an objective are soft-deleted independently and must be restored separately if needed.
+
+### Automatic Purge
+
+A scheduled background job runs daily and permanently deletes any items whose deletion timestamp is older than 30 days. There is no way to recover an item after the purge window has passed.
+
+Platform admins can see the status of the purge job on the **Scheduled Jobs** tab in System Admin.
+
+---
+
 ## Focus Rhythm
 
 Focus Rhythm connects your strategy reviews to regular meeting cadences, ensuring continuous alignment and execution.
@@ -986,6 +1055,33 @@ Click any meeting to see:
 
 ![Focus Rhythm meeting detail page with agenda and linked OKRs](/guide-images/09-focus-rhythm-meeting.png)
 *Screenshot of a meeting detail page showing meeting type, date/time, agenda items, linked OKRs with their current progress, and notes section*
+
+### Live Meeting Mode (New in v1.11)
+
+Live Meeting Mode turns a Focus Rhythm meeting into an interactive facilitation experience. Once a meeting is in progress, the facilitator can launch Live Mode to run the meeting in real time — complete with a running agenda timer, live decision capture, risk logging, and attendee tracking.
+
+**Launching Live Mode:**
+
+1. Open a meeting from Focus Rhythm
+2. Click **"Start Live Meeting"** (available when the meeting date is today or in the past)
+3. The interface switches to full Live Mode
+
+**Live Mode features:**
+
+| Feature | Description |
+|---------|-------------|
+| **Agenda Timer** | A running clock shows how long the meeting has been active. Individual agenda items can be timed separately. |
+| **Decisions** | Click **"+ Decision"** to quick-capture a decision made during the meeting. Decisions are stored against the meeting record. |
+| **Risks** | Click **"+ Risk"** to log a risk or blocker surfaced during discussion. |
+| **Attendees** | Mark who is present. Attendance is saved to the meeting record. |
+
+**State persistence:**
+
+Live Meeting state is saved on the server as you go. If the facilitator reloads the page, loses connectivity, or someone joins from a different device, the meeting resumes exactly where it left off — the timer continues from where it stopped, and all captured decisions, risks, and attendees are intact.
+
+**Ending a meeting:**
+
+Click **"End Meeting"** to close Live Mode. All decisions, risks, and attendance data remain on the meeting record and are visible in the standard meeting detail view after the meeting ends.
 
 ---
 
@@ -1678,6 +1774,61 @@ Access and link files from SharePoint and OneDrive.
 
 ---
 
+## Galaxy Portal Integration
+
+**New in v1.11**
+
+The Galaxy Portal Integration allows users of Synozur's **Galaxy** customer portal to sign in to Vega automatically via a JWT trust relationship — without a separate Vega account or password. Once authenticated, Galaxy users have read-only visibility into their organization's OKRs, check-ins, and meetings directly from within the Galaxy experience.
+
+### How It Works
+
+When a Galaxy user opens Vega-connected content in Galaxy, the Galaxy portal generates a signed JWT token for that user. Vega validates the token's signature and issuer against the tenant's Galaxy configuration, then either finds the user's existing Vega account or creates a new one automatically (just-in-time provisioning). The user is logged in with the `portal_user` role, which grants read-only access.
+
+No password, no separate login step, no separate Vega invitation required.
+
+### What Portal Users Can Do
+
+Portal users (`portal_user` role) have access to a dedicated read-only API surface:
+
+| Endpoint | What it returns |
+|---------|----------------|
+| `/api/portal/objectives` | Objectives owned by or relevant to the user |
+| `/api/portal/key-results` | Key results for those objectives |
+| `/api/portal/big-rocks` | Big rocks linked to the user's objectives |
+| `/api/portal/check-ins` | Recent check-in history |
+| `/api/portal/meetings` | Meeting summaries |
+| `/api/portal/dashboard` | Summary metrics for the user's objectives |
+
+Portal users **cannot** create, edit, or delete any Vega content, and are excluded from all admin paths.
+
+### Enabling Galaxy Integration (Tenant Admins)
+
+1. Navigate to **Tenant Admin** → **Organization** tab → **Galaxy Integration** section
+2. Enable the **Galaxy Portal** toggle
+3. Configure the **Galaxy Issuer URL** — this is the `iss` claim Vega will require in every incoming JWT. Obtain this value from your Synozur Galaxy account manager.
+4. Save settings
+
+Once enabled, Galaxy portal links for your tenant will begin authenticating users automatically.
+
+### Just-in-Time User Provisioning
+
+The first time a Galaxy user accesses Vega, a new user record is created automatically:
+- **Email**: taken from the JWT `email` claim
+- **Role**: `portal_user` (read-only)
+- **Auth provider**: marked as `galaxy`
+- **Tenant**: resolved from the JWT issuer configuration
+
+Subsequent visits reuse the same account — no duplicate accounts are created.
+
+### Security
+
+- Tokens are validated for correct signature, issuer, and expiration on every request
+- If the Galaxy integration is disabled at the tenant level, all JWT tokens for that tenant are rejected with a 401 error
+- Portal users are rate-limited independently from regular users
+- Cross-tenant isolation is enforced — a Galaxy token for Tenant A cannot access Tenant B data under any circumstances
+
+---
+
 ## Import & Export
 
 Vega provides tools to import OKR data from other systems and export your Company OS data.
@@ -1847,6 +1998,19 @@ Generated reports include:
    - Check-in Highlights (recent notes)
    - AI Period Summary (AI insights)
 4. Click **"Download PPTX"**
+
+### Daily Progress Snapshots (New in v1.11)
+
+A background job runs every night at midnight Pacific and automatically captures a snapshot of every objective and key result's progress for that day. You do not need to do anything to trigger this — it runs automatically for every active tenant.
+
+**What snapshots enable:**
+- **Historical trend lines** on the Executive Dashboard showing how each objective's progress has changed over time
+- **Period-over-period comparisons** — compare this quarter's trajectory against last quarter at the same point in time
+- **Completion forecast accuracy** — the predictive analytics engine uses daily snapshots to calculate velocity and project where each objective will land at quarter end
+
+Snapshots are retained indefinitely and accumulate over the lifetime of an objective. They are read-only background data; there is no user action required.
+
+---
 
 ### Snapshots
 
@@ -2096,10 +2260,11 @@ View and manage users in your organization:
 
 **User Roles:**
 - **User (tenant_user)**: Standard user, can view and edit own OKRs
+- **Manager**: Can view and edit team OKRs
 - **Tenant Admin**: Can manage tenant settings and users
-- **Admin**: Full access to tenant management
 - **Vega Consultant**: Multi-tenant access (managed by platform admins)
 - **Vega Admin**: Platform-level access (managed by platform admins)
+- **Portal User** (New in v1.11): Read-only access via Galaxy Portal JWT trust; restricted to the `/api/portal/*` surface (OKRs, check-ins, meetings) and cannot access authoring or admin paths
 
 #### 2. Manage Teams
 
@@ -2257,6 +2422,29 @@ Configure M365 admin consent and connectors:
 
 - **Admin Consent**: Grant Azure AD consent for M365 API access
 - **Available Connectors**: View connector descriptions and capabilities
+
+---
+
+### Bulk Reassignment (New in v1.11)
+
+Bulk Reassignment lets a Tenant Admin transfer every objective, key result, and big rock owned by one user to another in a single action. This is designed for offboarding, team restructures, and consultant handoffs where a departing person owns dozens of OKR items.
+
+**Accessing Bulk Reassignment:**
+Navigate to **Tenant Admin** → **Users & Teams** tab → find the user → click **"Reassign All OKRs"**.
+
+**Steps:**
+
+1. Select the **source user** (the person whose items you are moving away from)
+2. Select the **target user** (the person who will receive ownership)
+3. Review the count of affected objectives, key results, and big rocks shown in the confirmation dialog
+4. Click **"Reassign All"**
+
+All items are updated in a single transaction. An audit log entry is created recording who performed the reassignment, from which user, to which user, and at what time.
+
+**Important notes:**
+- Only items where the source user is the direct owner are affected. Items assigned at the team or organization level are not moved.
+- The source user's account is not deleted or deactivated by this action — that is a separate step in user management.
+- The action cannot be undone automatically; if you need to reverse it, run the reassignment again in the opposite direction.
 
 ---
 
@@ -2660,6 +2848,18 @@ Vega uses role-based permissions to control access:
 
 **Weight**: The relative importance of a Key Result in contributing to its parent Objective's progress (used in weighted rollup calculations).
 
+**Bulk Reassignment**: An admin action that transfers all objectives, key results, and big rocks owned by one user to another in a single operation. Used for offboarding and restructures.
+
+**Galaxy Portal**: Synozur's Galaxy customer portal. Vega's Galaxy Portal Integration allows Galaxy users to access their OKRs in read-only mode via a JWT trust relationship, without a separate Vega login.
+
+**Live Meeting Mode**: A real-time facilitation view within Focus Rhythm. Provides a running agenda timer, quick-capture for decisions and risks, attendee tracking, and server-persisted state so sessions survive page reloads.
+
+**Portal User**: A read-only Vega role assigned to users who authenticate via the Galaxy Portal JWT trust. Portal users can view OKRs, check-ins, and meetings but cannot create or edit any content.
+
+**Soft Delete**: The behavior where deleted strategic items (objectives, key results, big rocks, meetings, etc.) are moved to a 30-day Trash instead of being immediately and permanently erased.
+
+**Trash**: The admin-only page where soft-deleted items are held for up to 30 days before automatic permanent purge. Admins can restore items from the Trash at any time within the retention window.
+
 ---
 
 ## Document Version History
@@ -2702,6 +2902,23 @@ Vega uses role-based permissions to control access:
   - Added "Using the OKR Creation Wizard" section with draft auto-save details
   - Added Monthly Release Workflow documentation under What's New & Changelog
   - Documented `POST /api/admin/changelog/refresh` endpoint for platform admins
+  - Documented all v1.10 Support Ticket improvements: staff assignment, reply email notifications, status history, bulk actions, quick reply templates, admin full-text search, Pending and My Assigned filters
+- **v1.7** (July 7, 2026): Version 1.11 updates:
+  - Updated guide version header to v1.11
+  - Updated Table of Contents to include Soft Delete & Trash Recovery and Galaxy Portal Integration sections
+  - Updated Feature Overview with all v1.11 additions across every category
+  - Added Global Search and Notification Bell to Top Bar section
+  - Added Notifications and Trash entries to Main Navigation section
+  - Added Mobile Layout note to Viewing OKRs
+  - Added Check-in Draft Auto-Save to Checking In on Key Results
+  - Added **Soft Delete & Trash Recovery** top-level section
+  - Added **Live Meeting Mode** section under Focus Rhythm
+  - Added **Daily Progress Snapshots** section under Reporting
+  - Added **Bulk Reassignment** section under Settings & Administration
+  - Added **Galaxy Portal Integration** top-level section
+  - Updated User Roles table to include Manager and Portal User roles
+  - Updated Administration feature list with Bulk Reassignment and seven-role RBAC
+  - Added glossary terms: Live Meeting Mode, Soft Delete, Trash, Bulk Reassignment, Portal User, Galaxy Portal
 
 ---
 
