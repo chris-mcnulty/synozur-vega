@@ -6,6 +6,7 @@ import { generateReportPDF } from "./pdf-service";
 import { generateReportPPTX, SlideOptions, DEFAULT_SLIDE_OPTIONS } from "./pptx-service";
 import { generatePeriodSummary } from "./ai";
 import { requireValidatedTenant, getValidatedTenantId } from "./middleware/validateTenant";
+import { canAccessAnyTenant } from "@shared/rbac";
 
 const router = Router();
 
@@ -15,14 +16,6 @@ const router = Router();
  */
 function normalizeProgress(progress: number): number {
   return Math.min(progress, 100);
-}
-
-// Middleware to check authentication
-function requireAuth(req: Request, res: Response, next: Function) {
-  if (!req.session?.userId) {
-    return res.status(401).json({ error: "Authentication required" });
-  }
-  next();
 }
 
 // ============================================
@@ -46,10 +39,13 @@ router.get("/snapshots", requireValidatedTenant, async (req: Request, res: Respo
 });
 
 // Get single snapshot
-router.get("/snapshots/:id", requireAuth, async (req: Request, res: Response) => {
+router.get("/snapshots/:id", requireValidatedTenant, async (req: Request, res: Response) => {
   try {
     const snapshot = await storage.getReviewSnapshotById(req.params.id);
     if (!snapshot) {
+      return res.status(404).json({ error: "Snapshot not found" });
+    }
+    if (snapshot.tenantId !== req.effectiveTenantId) {
       return res.status(404).json({ error: "Snapshot not found" });
     }
     res.json(snapshot);
@@ -122,12 +118,19 @@ router.post("/snapshots", requireValidatedTenant, async (req: Request, res: Resp
 });
 
 // Update snapshot
-router.patch("/snapshots/:id", requireAuth, async (req: Request, res: Response) => {
+router.patch("/snapshots/:id", requireValidatedTenant, async (req: Request, res: Response) => {
   try {
-    const user = await storage.getUser(req.session.userId!);
+    const existing = await storage.getReviewSnapshotById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ error: "Snapshot not found" });
+    }
+    if (existing.tenantId !== req.effectiveTenantId) {
+      return res.status(404).json({ error: "Snapshot not found" });
+    }
+    const { tenantId: _ignoreTenantId, ...updateBody } = req.body || {};
     const snapshot = await storage.updateReviewSnapshot(req.params.id, {
-      ...req.body,
-      updatedBy: user?.id,
+      ...updateBody,
+      updatedBy: req.user?.id,
     });
     res.json(snapshot);
   } catch (error) {
@@ -137,8 +140,15 @@ router.patch("/snapshots/:id", requireAuth, async (req: Request, res: Response) 
 });
 
 // Delete snapshot
-router.delete("/snapshots/:id", requireAuth, async (req: Request, res: Response) => {
+router.delete("/snapshots/:id", requireValidatedTenant, async (req: Request, res: Response) => {
   try {
+    const existing = await storage.getReviewSnapshotById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ error: "Snapshot not found" });
+    }
+    if (existing.tenantId !== req.effectiveTenantId) {
+      return res.status(404).json({ error: "Snapshot not found" });
+    }
     await storage.deleteReviewSnapshot(req.params.id);
     res.status(204).send();
   } catch (error) {
@@ -152,10 +162,9 @@ router.delete("/snapshots/:id", requireAuth, async (req: Request, res: Response)
 // ============================================
 
 // Get templates (global + tenant-specific)
-router.get("/templates", requireAuth, async (req: Request, res: Response) => {
+router.get("/templates", requireValidatedTenant, async (req: Request, res: Response) => {
   try {
-    const user = await storage.getUser(req.session.userId!);
-    const templates = await storage.getReportTemplates(user?.tenantId || undefined);
+    const templates = await storage.getReportTemplates(req.effectiveTenantId || undefined);
     res.json(templates);
   } catch (error) {
     console.error("Error fetching templates:", error);
@@ -163,11 +172,15 @@ router.get("/templates", requireAuth, async (req: Request, res: Response) => {
   }
 });
 
-// Get single template
-router.get("/templates/:id", requireAuth, async (req: Request, res: Response) => {
+// Get single template (tenant-specific templates or global templates)
+router.get("/templates/:id", requireValidatedTenant, async (req: Request, res: Response) => {
   try {
     const template = await storage.getReportTemplateById(req.params.id);
     if (!template) {
+      return res.status(404).json({ error: "Template not found" });
+    }
+    const isGlobal = template.tenantId === null || template.tenantId === undefined;
+    if (!isGlobal && template.tenantId !== req.effectiveTenantId) {
       return res.status(404).json({ error: "Template not found" });
     }
     res.json(template);
@@ -178,13 +191,20 @@ router.get("/templates/:id", requireAuth, async (req: Request, res: Response) =>
 });
 
 // Create template
-router.post("/templates", requireAuth, async (req: Request, res: Response) => {
+router.post("/templates", requireValidatedTenant, async (req: Request, res: Response) => {
   try {
-    const user = await storage.getUser(req.session.userId!);
+    const role = (req.user?.role || '') as string;
+    const canManageGlobal = canAccessAnyTenant(role as any);
+    // Non-platform-admins can only create templates scoped to their own tenant
+    const requestedTenantId = req.body.tenantId;
+    if (requestedTenantId && requestedTenantId !== req.effectiveTenantId && !canManageGlobal) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    const tenantId = canManageGlobal ? (requestedTenantId ?? req.effectiveTenantId) : req.effectiveTenantId;
     const validated = insertReportTemplateSchema.parse({
       ...req.body,
-      tenantId: req.body.tenantId || user?.tenantId,
-      createdBy: user?.id,
+      tenantId,
+      createdBy: req.user?.id,
     });
     const template = await storage.createReportTemplate(validated);
     res.status(201).json(template);
@@ -198,12 +218,25 @@ router.post("/templates", requireAuth, async (req: Request, res: Response) => {
 });
 
 // Update template
-router.patch("/templates/:id", requireAuth, async (req: Request, res: Response) => {
+router.patch("/templates/:id", requireValidatedTenant, async (req: Request, res: Response) => {
   try {
-    const user = await storage.getUser(req.session.userId!);
+    const existing = await storage.getReportTemplateById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ error: "Template not found" });
+    }
+    const role = (req.user?.role || '') as string;
+    const canManageGlobal = canAccessAnyTenant(role as any);
+    const isGlobal = existing.tenantId === null || existing.tenantId === undefined;
+    if (isGlobal && !canManageGlobal) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    if (!isGlobal && existing.tenantId !== req.effectiveTenantId) {
+      return res.status(404).json({ error: "Template not found" });
+    }
+    const { tenantId: _ignoreTenantId, ...updateBody } = req.body || {};
     const template = await storage.updateReportTemplate(req.params.id, {
-      ...req.body,
-      updatedBy: user?.id,
+      ...updateBody,
+      updatedBy: req.user?.id,
     });
     res.json(template);
   } catch (error) {
@@ -213,8 +246,21 @@ router.patch("/templates/:id", requireAuth, async (req: Request, res: Response) 
 });
 
 // Delete template
-router.delete("/templates/:id", requireAuth, async (req: Request, res: Response) => {
+router.delete("/templates/:id", requireValidatedTenant, async (req: Request, res: Response) => {
   try {
+    const existing = await storage.getReportTemplateById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ error: "Template not found" });
+    }
+    const role = (req.user?.role || '') as string;
+    const canManageGlobal = canAccessAnyTenant(role as any);
+    const isGlobal = existing.tenantId === null || existing.tenantId === undefined;
+    if (isGlobal && !canManageGlobal) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+    if (!isGlobal && existing.tenantId !== req.effectiveTenantId) {
+      return res.status(404).json({ error: "Template not found" });
+    }
     await storage.deleteReportTemplate(req.params.id);
     res.status(204).send();
   } catch (error) {
@@ -244,10 +290,13 @@ router.get("/reports", requireValidatedTenant, async (req: Request, res: Respons
 });
 
 // Get single report
-router.get("/reports/:id", requireAuth, async (req: Request, res: Response) => {
+router.get("/reports/:id", requireValidatedTenant, async (req: Request, res: Response) => {
   try {
     const report = await storage.getReportInstanceById(req.params.id);
     if (!report) {
+      return res.status(404).json({ error: "Report not found" });
+    }
+    if (report.tenantId !== req.effectiveTenantId) {
       return res.status(404).json({ error: "Report not found" });
     }
     res.json(report);
@@ -270,6 +319,9 @@ router.post("/reports/generate", requireValidatedTenant, async (req: Request, re
     
     if (snapshotId) {
       const snapshot = await storage.getReviewSnapshotById(snapshotId);
+      if (snapshot && snapshot.tenantId !== tenantId) {
+        return res.status(403).json({ error: "Access denied" });
+      }
       if (snapshot) {
         const snapshotObjectives = (snapshot.objectivesSnapshot as any[]) || [];
         const snapshotKeyResults = (snapshot.keyResultsSnapshot as any[]) || [];
@@ -437,8 +489,15 @@ router.post("/reports/generate", requireValidatedTenant, async (req: Request, re
 });
 
 // Delete report
-router.delete("/reports/:id", requireAuth, async (req: Request, res: Response) => {
+router.delete("/reports/:id", requireValidatedTenant, async (req: Request, res: Response) => {
   try {
+    const existing = await storage.getReportInstanceById(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ error: "Report not found" });
+    }
+    if (existing.tenantId !== req.effectiveTenantId) {
+      return res.status(404).json({ error: "Report not found" });
+    }
     await storage.deleteReportInstance(req.params.id);
     res.status(204).send();
   } catch (error) {
@@ -452,15 +511,13 @@ router.delete("/reports/:id", requireAuth, async (req: Request, res: Response) =
 // ============================================
 
 // Export report as PDF
-router.get("/reports/:id/pdf", requireAuth, async (req: Request, res: Response) => {
+router.get("/reports/:id/pdf", requireValidatedTenant, async (req: Request, res: Response) => {
   try {
-    const user = await storage.getUser(req.session.userId!);
-    if (!user?.tenantId) {
-      return res.status(403).json({ error: "No tenant access" });
-    }
-
     const report = await storage.getReportInstanceById(req.params.id);
     if (!report) {
+      return res.status(404).json({ error: "Report not found" });
+    }
+    if (report.tenantId !== req.effectiveTenantId) {
       return res.status(404).json({ error: "Report not found" });
     }
 
@@ -497,15 +554,13 @@ router.get("/reports/:id/pdf", requireAuth, async (req: Request, res: Response) 
 });
 
 // Export report as PPTX
-router.get("/reports/:id/pptx", requireAuth, async (req: Request, res: Response) => {
+router.get("/reports/:id/pptx", requireValidatedTenant, async (req: Request, res: Response) => {
   try {
-    const user = await storage.getUser(req.session.userId!);
-    if (!user?.tenantId) {
-      return res.status(403).json({ error: "No tenant access" });
-    }
-
     const report = await storage.getReportInstanceById(req.params.id);
     if (!report) {
+      return res.status(404).json({ error: "Report not found" });
+    }
+    if (report.tenantId !== req.effectiveTenantId) {
       return res.status(404).json({ error: "Report not found" });
     }
 
