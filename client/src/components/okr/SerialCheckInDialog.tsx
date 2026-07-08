@@ -488,7 +488,6 @@ export function SerialCheckInDialog({
       challenges: [],
       nextSteps: [],
       asOfDate: formAsOfDate,
-      previousProgress: item.entityData?.progress ?? item.progress ?? 0,
       confidence: formConfidence,
     };
 
@@ -500,7 +499,6 @@ export function SerialCheckInDialog({
         finalValue,
       );
       checkInPayload.newValue = finalValue;
-      checkInPayload.previousValue = item.entityData?.currentValue ?? 0;
     }
 
     createCheckInMutation.mutate(checkInPayload);

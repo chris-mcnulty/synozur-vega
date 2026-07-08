@@ -1453,10 +1453,6 @@ okrRouter.post("/check-ins", async (req, res) => {
       entityCurrentProgress = bigRock?.completionPercentage ?? null;
     }
     
-    // Default previousProgress to entity's current progress when not provided
-    if (validatedData.previousProgress === undefined || validatedData.previousProgress === null) {
-      validatedData.previousProgress = entityCurrentProgress ?? 0;
-    }
     // Default newProgress to entity's current progress when not provided (status/note-only check-ins)
     if (validatedData.newProgress === undefined || validatedData.newProgress === null) {
       validatedData.newProgress = entityCurrentProgress ?? 0;
@@ -1474,13 +1470,36 @@ okrRouter.post("/check-ins", async (req, res) => {
     if (validatedData.asOfDate && typeof validatedData.asOfDate === 'string') {
       validatedData.asOfDate = new Date(validatedData.asOfDate) as any;
     }
+    const asOfDate: Date = (validatedData.asOfDate as unknown as Date) || new Date();
+
+    // Determine previousProgress/previousValue from the check-in immediately preceding
+    // the selected asOfDate — NOT from the entity's current (possibly later) state.
+    // This overrides whatever the client sent so backdated entries reflect true history.
+    const priorCheckIn = await storage.getCheckInBefore(entityType, entityId, asOfDate);
+    if (priorCheckIn) {
+      validatedData.previousProgress = priorCheckIn.newProgress ?? 0;
+      validatedData.previousValue = priorCheckIn.newValue ?? undefined;
+    } else {
+      validatedData.previousProgress = 0;
+      if (entityType === "key_result") {
+        const keyResultForFallback = await storage.getKeyResultById(entityId);
+        validatedData.previousValue = keyResultForFallback?.initialValue ?? 0;
+      } else {
+        validatedData.previousValue = undefined;
+      }
+    }
     
     const checkIn = await storage.createCheckIn(validatedData);
+    
+    // Only the most recent check-in (by asOfDate) for an entity is authoritative for the
+    // entity's live state. Backdating a missed check-in must not clobber current values.
+    const latestCheckIn = await storage.getLatestCheckIn(entityType, entityId);
+    const isLatestCheckIn = latestCheckIn?.id === checkIn.id;
     
     // Update the entity with the latest check-in information
     // entityType and entityId already declared above
     
-    if (entityType === "objective") {
+    if (isLatestCheckIn && entityType === "objective") {
       const updateData: Record<string, unknown> = {
         lastCheckInAt: checkIn.createdAt,
         lastCheckInNote: checkIn.note || undefined,
@@ -1495,7 +1514,7 @@ okrRouter.post("/check-ins", async (req, res) => {
       }
       
       await storage.updateObjective(entityId, updateData);
-    } else if (entityType === "key_result") {
+    } else if (isLatestCheckIn && entityType === "key_result") {
       // Get the Key Result to recalculate progress from values
       const keyResult = await storage.getKeyResultById(entityId);
 
@@ -1546,7 +1565,7 @@ okrRouter.post("/check-ins", async (req, res) => {
           });
         }
       }
-    } else if (entityType === "big_rock") {
+    } else if (isLatestCheckIn && entityType === "big_rock") {
       const brUpdate: Record<string, unknown> = {
         status: checkIn.newStatus || undefined,
         lastCheckInAt: checkIn.createdAt,

@@ -875,6 +875,22 @@ export function OKRDetailPane({
                                 </div>
                               )}
                             </div>
+                            <div className="flex items-center gap-2 mt-2" data-testid={`progress-checkin-${checkIn.id}`}>
+                              <span className="text-xs text-muted-foreground w-8 text-right">
+                                {Math.round(checkIn.previousProgress || 0)}%
+                              </span>
+                              <Progress
+                                value={Math.min(100, Math.max(0, checkIn.previousProgress || 0))}
+                                className="h-1.5 flex-1 opacity-50"
+                              />
+                              <Progress
+                                value={Math.min(100, Math.max(0, checkIn.newProgress || 0))}
+                                className="h-1.5 flex-1"
+                              />
+                              <span className="text-xs text-muted-foreground w-8">
+                                {Math.round(checkIn.newProgress || 0)}%
+                              </span>
+                            </div>
                             {checkIn.note && (
                               <p className="text-sm text-muted-foreground mt-2">{checkIn.note}</p>
                             )}

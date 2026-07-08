@@ -78,7 +78,7 @@ import {
   embedAccessLogs, type EmbedAccessLog, type InsertEmbedAccessLog,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, count, ilike, asc, type SQL } from "drizzle-orm";
+import { eq, and, or, desc, sql, isNull, isNotNull, inArray, gte, lte, lt, count, ilike, asc, type SQL } from "drizzle-orm";
 import { hashPassword } from "./auth";
 
 export interface IStorage {
@@ -229,6 +229,7 @@ export interface IStorage {
   updateCheckIn(id: string, data: Partial<CheckIn>): Promise<CheckIn>;
   deleteCheckIn(id: string): Promise<void>;
   getLatestCheckIn(entityType: string, entityId: string): Promise<CheckIn | undefined>;
+  getCheckInBefore(entityType: string, entityId: string, beforeDate: Date): Promise<CheckIn | undefined>;
 
   // Progress snapshot methods (daily history protected from check-in edits/deletions)
   upsertProgressSnapshot(snapshot: InsertProgressSnapshot): Promise<ProgressSnapshot>;
@@ -2875,7 +2876,28 @@ export class DatabaseStorage implements IStorage {
         eq(checkIns.entityType, entityType),
         eq(checkIns.entityId, entityId)
       ))
-      .orderBy(desc(checkIns.asOfDate))
+      .orderBy(desc(checkIns.asOfDate), desc(checkIns.createdAt), desc(checkIns.id))
+      .limit(1);
+    return checkIn || undefined;
+  }
+
+  // Returns the check-in that chronologically precedes `beforeDate` for this entity, used to
+  // derive a new check-in's previousProgress/previousValue from history. Uses <= so that an
+  // existing same-day check-in is treated as the predecessor of a later-created check-in with
+  // the same asOfDate (this is always called before the new check-in row exists, so there is
+  // no risk of a check-in matching itself). Ties on asOfDate are broken deterministically by
+  // createdAt/id, matching the ordering used by getLatestCheckIn, so chains of same-day
+  // check-ins resolve consistently with which one is considered "latest".
+  async getCheckInBefore(entityType: string, entityId: string, beforeDate: Date): Promise<CheckIn | undefined> {
+    const [checkIn] = await db
+      .select()
+      .from(checkIns)
+      .where(and(
+        eq(checkIns.entityType, entityType),
+        eq(checkIns.entityId, entityId),
+        lte(checkIns.asOfDate, beforeDate)
+      ))
+      .orderBy(desc(checkIns.asOfDate), desc(checkIns.createdAt), desc(checkIns.id))
       .limit(1);
     return checkIn || undefined;
   }
