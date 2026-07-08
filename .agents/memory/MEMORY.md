@@ -1,0 +1,1 @@
+- [npm audit false-positive breaking suggestions](npm-audit-fix-caveats.md) — `npm audit fix --force` often suggests downgrades/major bumps for transitive deps nested inside an already-latest direct package; verify before applying.
