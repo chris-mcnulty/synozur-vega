@@ -1,5 +1,5 @@
 import { db, pool } from "./db";
-import { tenants, foundations, strategies, okrs, kpis, meetings, users, bigRocks, aiConfiguration } from "@shared/schema";
+import { tenants, foundations, strategies, okrs, kpis, meetings, users, bigRocks } from "@shared/schema";
 import { hashPassword } from "./auth";
 import { eq } from "drizzle-orm";
 
@@ -564,9 +564,10 @@ export async function initializeDatabase() {
     // Always ensure global admin users exist (safe with existing data)
     await ensureGlobalAdmins();
 
-    // Migrate AI config: gpt-5 is broken for streaming on Replit AI endpoint
-    // (returns 0 chunks). Auto-update any existing config row to gpt-4o.
-    await migrateAiModelFromGpt5();
+    // NOTE: gpt-5 streaming/empty-response issues previously seen here were caused by
+    // insufficient max_completion_tokens — gpt-5 consumes "reasoning tokens" out of that
+    // budget before producing visible output. Callers now pass generous token budgets,
+    // so gpt-5 is safe to use as the default model and no longer needs to be auto-downgraded.
 
     // Check if database is completely empty - if so, seed demo data
     const existingTenants = await db.select().from(tenants).limit(1);
@@ -579,20 +580,6 @@ export async function initializeDatabase() {
   } catch (error) {
     console.error("Database initialization error:", error);
     throw error;
-  }
-}
-
-async function migrateAiModelFromGpt5() {
-  try {
-    const rows = await db.select().from(aiConfiguration).limit(1);
-    if (rows.length > 0 && rows[0].activeModel === 'gpt-5') {
-      await db.update(aiConfiguration)
-        .set({ activeModel: 'gpt-4o' })
-        .where(eq(aiConfiguration.id, rows[0].id));
-      console.log("✓ Migrated AI model from gpt-5 to gpt-4o");
-    }
-  } catch (err) {
-    console.error("AI model migration (non-fatal):", err);
   }
 }
 

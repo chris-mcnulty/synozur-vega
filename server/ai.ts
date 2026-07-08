@@ -6,7 +6,7 @@ import { AI_PROVIDERS, AI_FEATURES, type AIFeature, type AIProvider } from "@sha
 import { AI_TOOLS, executeTool, formatToolResult } from "./ai-tools";
 
 // Default configuration (used when no config exists in database)
-const DEFAULT_MODEL = "gpt-4o";
+const DEFAULT_MODEL = "gpt-5";
 const DEFAULT_PROVIDER = AI_PROVIDERS.REPLIT;
 
 // Cache for AI configuration to avoid constant DB lookups
@@ -318,7 +318,7 @@ export async function getSimpleCompletion(
   options: { tenantId?: string; maxTokens?: number } = {},
   feature: AIFeature = AI_FEATURES.CHAT
 ): Promise<string> {
-  const { tenantId, maxTokens = 500 } = options;
+  const { tenantId, maxTokens = 1500 } = options; // GPT-5 reasoning tokens count against this budget
   const startTime = Date.now();
   
   // Get active model from config
@@ -1633,7 +1633,7 @@ INITIATIVES:
     const response = await getSimpleCompletion(
       systemPrompt,
       userPrompt,
-      { tenantId, maxTokens: 400 },
+      { tenantId, maxTokens: 1500 }, // Increased for GPT-5 reasoning tokens
       AI_FEATURES.OTHER
     );
     

@@ -1,2 +1,3 @@
 - [npm audit false-positive breaking suggestions](npm-audit-fix-caveats.md) — `npm audit fix --force` often suggests downgrades/major bumps for transitive deps nested inside an already-latest direct package; verify before applying.
 - [Deterministic ordering for "latest by date" queries](latest-by-date-tie-breaking.md) — sorting only by a user-editable date column (e.g. asOfDate) is nondeterministic on ties; always add a secondary sort key.
+- [GPT-5 empty responses from low token budgets](gpt5-reasoning-token-budget.md) — reasoning tokens eat max_completion_tokens; retest with a high budget before assuming the model is broken.

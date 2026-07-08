@@ -3765,7 +3765,7 @@ ${changelogContent}`;
       // Return default values if no configuration exists
       res.json(config || {
         activeProvider: 'replit_ai',
-        activeModel: 'gpt-4o',
+        activeModel: 'gpt-5',
         enableStreaming: true,
         enableFunctionCalling: true,
         maxTokensPerRequest: 4000,

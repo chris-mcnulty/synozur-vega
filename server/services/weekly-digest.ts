@@ -368,7 +368,7 @@ export async function buildDigestForUser(params: {
     const aiText = await getSimpleCompletion(
       systemPrompt,
       userMessage,
-      { tenantId: tenant.id, maxTokens: 180 },
+      { tenantId: tenant.id, maxTokens: 1000 }, // Increased for GPT-5 reasoning tokens
       AI_FEATURES.CHAT
     );
     narrative = (aiText || '').trim();

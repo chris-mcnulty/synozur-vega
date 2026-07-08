@@ -396,7 +396,7 @@ Return valid JSON with your proposed Company OS structure.`;
     const userPrompt = isStructuredOKR ? extractionUserPrompt : inferenceUserPrompt;
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-5",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
