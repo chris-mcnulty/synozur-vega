@@ -531,6 +531,9 @@ router.get('/onedrive/status', async (req: Request, res: Response) => {
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
+    }
     
     const connected = await checkOneDriveConnection();
     res.json({ connected });
@@ -545,12 +548,15 @@ router.get('/onedrive/files', async (req: Request, res: Response) => {
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
+    }
     
     const { folderId } = req.query;
     
     const files = folderId 
-      ? await listOneDriveFolder(folderId as string)
-      : await listOneDriveRoot();
+      ? await listOneDriveFolder(folderId as string, user.id)
+      : await listOneDriveRoot(user.id);
     
     res.json(files);
   } catch (error: any) {
@@ -565,8 +571,11 @@ router.get('/onedrive/files/:itemId', async (req: Request, res: Response) => {
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
+    }
     
-    const item = await getOneDriveItem(req.params.itemId);
+    const item = await getOneDriveItem(req.params.itemId, user.id);
     res.json(item);
   } catch (error: any) {
     console.error('Failed to get OneDrive item:', error);
@@ -580,13 +589,16 @@ router.get('/onedrive/search', async (req: Request, res: Response) => {
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
+    }
     
     const { q } = req.query;
     if (!q) {
       return res.status(400).json({ error: 'Search query required' });
     }
     
-    const results = await searchOneDrive(q as string);
+    const results = await searchOneDrive(q as string, user.id);
     res.json(results);
   } catch (error: any) {
     console.error('Failed to search OneDrive:', error);
@@ -600,13 +612,16 @@ router.post('/onedrive/folders', async (req: Request, res: Response) => {
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
+    }
     
     const { name, parentFolderId } = req.body;
     if (!name) {
       return res.status(400).json({ error: 'Folder name required' });
     }
     
-    const folder = await createOneDriveFolder(parentFolderId || null, name);
+    const folder = await createOneDriveFolder(parentFolderId || null, name, user.id);
     res.json(folder);
   } catch (error: any) {
     console.error('Failed to create OneDrive folder:', error);
@@ -620,8 +635,11 @@ router.delete('/onedrive/files/:itemId', async (req: Request, res: Response) => 
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
+    }
     
-    await deleteOneDriveItem(req.params.itemId);
+    await deleteOneDriveItem(req.params.itemId, user.id);
     res.json({ success: true });
   } catch (error: any) {
     console.error('Failed to delete OneDrive item:', error);
@@ -637,6 +655,9 @@ router.get('/sharepoint/status', async (req: Request, res: Response) => {
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
+    }
     
     const connected = await checkSharePointConnection(user.id);
     res.json({ connected });
@@ -650,6 +671,9 @@ router.get('/sharepoint/sites', async (req: Request, res: Response) => {
     const user = (req as any).user;
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
+    }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
     }
     
     const sites = await listSharePointSites(user.id);
@@ -666,6 +690,9 @@ router.post('/sharepoint/resolve-url', async (req: Request, res: Response) => {
     const user = (req as any).user;
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
+    }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
     }
     
     const { siteUrl } = req.body;
@@ -699,6 +726,9 @@ router.post('/sharepoint/resolve-file', async (req: Request, res: Response) => {
     const user = (req as any).user;
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
+    }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
     }
     
     const { fileUrl } = req.body;
@@ -742,8 +772,11 @@ router.get('/drives', async (req: Request, res: Response) => {
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
+    }
     
-    const drives = await getUserDrives();
+    const drives = await getUserDrives(user.id);
     res.json(drives);
   } catch (error: any) {
     console.error('Failed to get user drives:', error);
@@ -757,6 +790,9 @@ router.get('/drives/:driveId/files', async (req: Request, res: Response) => {
     const user = (req as any).user;
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
+    }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
     }
     
     const { driveId } = req.params;
@@ -777,6 +813,9 @@ router.get('/drives/:driveId/search', async (req: Request, res: Response) => {
     const user = (req as any).user;
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
+    }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
     }
     
     const { driveId } = req.params;
@@ -801,6 +840,9 @@ router.get('/sharepoint/sites/:siteId', async (req: Request, res: Response) => {
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
+    }
     
     const site = await getSharePointSite(req.params.siteId, user.id);
     res.json(site);
@@ -815,6 +857,9 @@ router.get('/sharepoint/sites/:siteId/lists', async (req: Request, res: Response
     const user = (req as any).user;
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
+    }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
     }
     
     const lists = await listSharePointLists(req.params.siteId, user.id);
@@ -831,6 +876,9 @@ router.get('/sharepoint/sites/:siteId/lists/:listId/items', async (req: Request,
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
+    }
     
     const items = await getSharePointListItems(req.params.siteId, req.params.listId, true, user.id);
     res.json(items);
@@ -845,6 +893,9 @@ router.get('/sharepoint/sites/:siteId/documents', async (req: Request, res: Resp
     const user = (req as any).user;
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
+    }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
     }
     
     const { driveId, folderId } = req.query;
@@ -868,6 +919,9 @@ router.get('/sharepoint/sites/:siteId/drives', async (req: Request, res: Respons
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
+    }
     
     const drives = await listSharePointDrives(req.params.siteId, user.id);
     res.json(drives);
@@ -883,6 +937,9 @@ router.get('/sharepoint/sites/:siteId/excel-search', async (req: Request, res: R
     const user = (req as any).user;
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
+    }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
     }
     
     const { q } = req.query;
@@ -902,9 +959,12 @@ router.get('/excel/search', async (req: Request, res: Response) => {
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
+    }
     
     const { q } = req.query;
-    const files = await searchExcelFiles(q as string || '');
+    const files = await searchExcelFiles(q as string || '', user.id);
     res.json(files);
   } catch (error: any) {
     console.error('Failed to search Excel files:', error);
@@ -917,6 +977,9 @@ router.get('/excel/files/:fileId/worksheets', async (req: Request, res: Response
     const user = (req as any).user;
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
+    }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
     }
     
     const { sourceType, siteId, driveId } = req.query;
@@ -940,6 +1003,9 @@ router.get('/excel/files/:fileId/cell', async (req: Request, res: Response) => {
     const user = (req as any).user;
     if (!user) {
       return res.status(401).json({ error: 'Not authenticated' });
+    }
+    if (!checkM365Permission(req)) {
+      return res.status(403).json({ error: 'You do not have permission to use Microsoft 365 features' });
     }
     
     const { cell, sourceType, siteId, driveId } = req.query;

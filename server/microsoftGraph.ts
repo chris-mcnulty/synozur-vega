@@ -352,22 +352,39 @@ async function getAccessToken(connectorType: ConnectorType = 'outlook'): Promise
   return accessToken;
 }
 
-async function getMicrosoftClient(connectorType: ConnectorType = 'outlook', userId?: string): Promise<Client> {
-  console.log(`[Graph] getMicrosoftClient called for ${connectorType}, userId: ${userId || 'none'}`);
-  
+interface GetMicrosoftClientOptions {
+  // When true, this call is for user-specific personal/organizational content
+  // (e.g. a user's own OneDrive files or SharePoint sites reached via their own
+  // permissions). In that case we must NOT fall back to the deployment-wide
+  // Entra app credentials or shared Replit connector, because those grant
+  // access to the service account's/tenant's shared M365 content regardless
+  // of whether this particular user ever connected their own account. Doing
+  // so would let any authenticated user reach the shared connector's OneDrive/
+  // SharePoint data. Instead we require a valid per-user delegated token and
+  // throw a clear, actionable error if one isn't available.
+  requireDelegated?: boolean;
+}
+
+async function getMicrosoftClient(
+  connectorType: ConnectorType = 'outlook',
+  userId?: string,
+  options: GetMicrosoftClientOptions = {}
+): Promise<Client> {
+  console.log(`[Graph] getMicrosoftClient called for ${connectorType}, userId: ${userId || 'none'}, requireDelegated: ${!!options.requireDelegated}`);
+
+  // Map connector type to the primary and fallback services to try.
+  // Entra SSO tokens are stored under 'planner'; OneDrive/SharePoint tokens may be stored
+  // separately. Try the most specific match first, then broader fallbacks.
+  const serviceOrder: string[] =
+    connectorType === 'outlook'
+      ? ['outlook', 'planner']
+      : connectorType === 'sharepoint'
+      ? ['sharepoint', 'onedrive', 'planner']
+      : ['onedrive', 'sharepoint', 'planner']; // onedrive + excel
+
   // If userId is provided, try user's delegated token first (for multi-tenant access)
   if (userId) {
     console.log(`[Graph] Attempting user delegated token for ${connectorType}...`);
-
-    // Map connector type to the primary and fallback services to try.
-    // Entra SSO tokens are stored under 'planner'; OneDrive/SharePoint tokens may be stored
-    // separately. Try the most specific match first, then broader fallbacks.
-    const serviceOrder: string[] =
-      connectorType === 'outlook'
-        ? ['outlook', 'planner']
-        : connectorType === 'sharepoint'
-        ? ['sharepoint', 'onedrive', 'planner']
-        : ['onedrive', 'sharepoint', 'planner']; // onedrive + excel
 
     for (const service of serviceOrder) {
       const userClient = await getUserGraphClient(userId, service);
@@ -376,9 +393,22 @@ async function getMicrosoftClient(connectorType: ConnectorType = 'outlook', user
         return userClient;
       }
     }
-    console.log(`[Graph] User token not available for any service, trying Entra app fallback for ${connectorType}`);
+    console.log(`[Graph] User token not available for any service for ${connectorType}`);
   }
-  
+
+  if (options.requireDelegated) {
+    // Never fall back to deployment-wide credentials for user-scoped content -
+    // that would expose the shared service account's/connector's OneDrive or
+    // SharePoint data to a user who never connected their own Microsoft account.
+    const error = new Error(
+      'Your Microsoft 365 account is not connected. Please go to Settings and connect your Microsoft 365 account to access OneDrive/SharePoint files.'
+    );
+    (error as any).code = 'M365_NOT_CONNECTED';
+    throw error;
+  }
+
+  console.log(`[Graph] Trying Entra app fallback for ${connectorType}`);
+
   // Try Entra app credentials as second priority (for tenant-level access)
   if (hasEntraAppCredentials()) {
     try {
@@ -1132,31 +1162,38 @@ export async function checkOneDriveConnection(): Promise<boolean> {
   }
 }
 
-export async function listOneDriveRoot(): Promise<OneDriveItem[]> {
-  const client = await getMicrosoftClient('onedrive');
+// NOTE: All of the OneDrive helpers below operate against `/me/drive/...`, i.e.
+// the *caller's own* OneDrive. They therefore always require the calling
+// user's own delegated Graph token (requireDelegated: true) - falling back to
+// the deployment's shared Entra app or Replit connector credentials would let
+// any authenticated user browse/modify the service account's OneDrive instead
+// of their own, even if they never connected a Microsoft account.
+
+export async function listOneDriveRoot(userId: string): Promise<OneDriveItem[]> {
+  const client = await getMicrosoftClient('onedrive', userId, { requireDelegated: true });
   const response = await client.api('/me/drive/root/children')
     .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
     .get();
   return response.value;
 }
 
-export async function listOneDriveFolder(folderId: string): Promise<OneDriveItem[]> {
-  const client = await getMicrosoftClient('onedrive');
+export async function listOneDriveFolder(folderId: string, userId: string): Promise<OneDriveItem[]> {
+  const client = await getMicrosoftClient('onedrive', userId, { requireDelegated: true });
   const response = await client.api(`/me/drive/items/${folderId}/children`)
     .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
     .get();
   return response.value;
 }
 
-export async function getOneDriveItem(itemId: string): Promise<OneDriveItem> {
-  const client = await getMicrosoftClient('onedrive');
+export async function getOneDriveItem(itemId: string, userId: string): Promise<OneDriveItem> {
+  const client = await getMicrosoftClient('onedrive', userId, { requireDelegated: true });
   return await client.api(`/me/drive/items/${itemId}`)
     .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
     .get();
 }
 
-export async function downloadOneDriveFile(itemId: string): Promise<Buffer> {
-  const client = await getMicrosoftClient('onedrive');
+export async function downloadOneDriveFile(itemId: string, userId: string): Promise<Buffer> {
+  const client = await getMicrosoftClient('onedrive', userId, { requireDelegated: true });
   const stream = await client.api(`/me/drive/items/${itemId}/content`).get();
   
   // Convert stream/response to buffer
@@ -1170,9 +1207,10 @@ export async function uploadOneDriveFile(
   parentFolderId: string | null,
   fileName: string,
   content: Buffer | string,
-  mimeType: string = 'application/octet-stream'
+  mimeType: string = 'application/octet-stream',
+  userId?: string
 ): Promise<OneDriveItem> {
-  const client = await getMicrosoftClient('onedrive');
+  const client = await getMicrosoftClient('onedrive', userId, { requireDelegated: !!userId });
   
   const path = parentFolderId 
     ? `/me/drive/items/${parentFolderId}:/${fileName}:/content`
@@ -1187,9 +1225,10 @@ export async function uploadOneDriveFile(
 
 export async function createOneDriveFolder(
   parentFolderId: string | null,
-  folderName: string
+  folderName: string,
+  userId: string
 ): Promise<OneDriveItem> {
-  const client = await getMicrosoftClient('onedrive');
+  const client = await getMicrosoftClient('onedrive', userId, { requireDelegated: true });
   
   const path = parentFolderId
     ? `/me/drive/items/${parentFolderId}/children`
@@ -1204,13 +1243,13 @@ export async function createOneDriveFolder(
   return folder;
 }
 
-export async function deleteOneDriveItem(itemId: string): Promise<void> {
-  const client = await getMicrosoftClient('onedrive');
+export async function deleteOneDriveItem(itemId: string, userId: string): Promise<void> {
+  const client = await getMicrosoftClient('onedrive', userId, { requireDelegated: true });
   await client.api(`/me/drive/items/${itemId}`).delete();
 }
 
-export async function searchOneDrive(query: string): Promise<OneDriveItem[]> {
-  const client = await getMicrosoftClient('onedrive');
+export async function searchOneDrive(query: string, userId: string): Promise<OneDriveItem[]> {
+  const client = await getMicrosoftClient('onedrive', userId, { requireDelegated: true });
   const response = await client.api(`/me/drive/root/search(q='${encodeURIComponent(query)}')`)
     .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
     .get();
@@ -1304,8 +1343,8 @@ export async function checkSharePointConnection(userId?: string): Promise<boolea
   }
 }
 
-export async function listSharePointSites(userId?: string): Promise<SharePointSite[]> {
-  const client = await getMicrosoftClient('sharepoint', userId);
+export async function listSharePointSites(userId: string): Promise<SharePointSite[]> {
+  const client = await getMicrosoftClient('sharepoint', userId, { requireDelegated: true });
   const sites: SharePointSite[] = [];
   
   // With Sites.Selected permission, we can't list all sites
@@ -1360,10 +1399,10 @@ export async function listSharePointSites(userId?: string): Promise<SharePointSi
 }
 
 // Parse a SharePoint URL to get the site ID
-export async function getSharePointSiteFromUrl(siteUrl: string, userId?: string): Promise<SharePointSite | null> {
+export async function getSharePointSiteFromUrl(siteUrl: string, userId: string): Promise<SharePointSite | null> {
   let client;
   try {
-    client = await getMicrosoftClient('sharepoint', userId);
+    client = await getMicrosoftClient('sharepoint', userId, { requireDelegated: true });
   } catch (e: any) {
     if (e.message?.includes('expired') || e.message?.includes('token')) {
       const error = new Error('Your session has expired. Please log out and log back in to reconnect to SharePoint.');
@@ -1403,15 +1442,15 @@ export async function getSharePointSiteFromUrl(siteUrl: string, userId?: string)
   }
 }
 
-export async function getSharePointSite(siteId: string, userId?: string): Promise<SharePointSite> {
-  const client = await getMicrosoftClient('sharepoint', userId);
+export async function getSharePointSite(siteId: string, userId: string): Promise<SharePointSite> {
+  const client = await getMicrosoftClient('sharepoint', userId, { requireDelegated: true });
   return await client.api(`/sites/${siteId}`)
     .select('id,name,displayName,webUrl,createdDateTime')
     .get();
 }
 
-export async function listSharePointLists(siteId: string, userId?: string): Promise<SharePointList[]> {
-  const client = await getMicrosoftClient('sharepoint', userId);
+export async function listSharePointLists(siteId: string, userId: string): Promise<SharePointList[]> {
+  const client = await getMicrosoftClient('sharepoint', userId, { requireDelegated: true });
   const response = await client.api(`/sites/${siteId}/lists`)
     .select('id,name,displayName,webUrl,createdDateTime,lastModifiedDateTime,list')
     .get();
@@ -1424,7 +1463,7 @@ export async function getSharePointListItems(
   expandFields: boolean = true,
   userId?: string
 ): Promise<SharePointListItem[]> {
-  const client = await getMicrosoftClient('sharepoint', userId);
+  const client = await getMicrosoftClient('sharepoint', userId, { requireDelegated: !!userId });
   
   let request = client.api(`/sites/${siteId}/lists/${listId}/items`);
   if (expandFields) {
@@ -1483,8 +1522,8 @@ export interface SharePointDrive {
 }
 
 // List all document libraries (drives) in a SharePoint site
-export async function listSharePointDrives(siteId: string, userId?: string): Promise<SharePointDrive[]> {
-  const client = await getMicrosoftClient('sharepoint', userId);
+export async function listSharePointDrives(siteId: string, userId: string): Promise<SharePointDrive[]> {
+  const client = await getMicrosoftClient('sharepoint', userId, { requireDelegated: true });
   const response = await client.api(`/sites/${siteId}/drives`)
     .select('id,name,description,webUrl,driveType,createdDateTime,lastModifiedDateTime')
     .get();
@@ -1492,8 +1531,8 @@ export async function listSharePointDrives(siteId: string, userId?: string): Pro
 }
 
 // Search for Excel files in SharePoint
-export async function searchSharePointExcelFiles(siteId: string, query?: string, userId?: string): Promise<OneDriveItem[]> {
-  const client = await getMicrosoftClient('sharepoint', userId);
+export async function searchSharePointExcelFiles(siteId: string, query: string | undefined, userId: string): Promise<OneDriveItem[]> {
+  const client = await getMicrosoftClient('sharepoint', userId, { requireDelegated: true });
   
   // Get all drives in the site
   const drives = await listSharePointDrives(siteId, userId);
@@ -1530,11 +1569,11 @@ export async function searchSharePointExcelFiles(siteId: string, query?: string,
 // Get document library items (files/folders) from a SharePoint site
 export async function listSharePointDocuments(
   siteId: string,
-  driveId?: string,
-  folderId?: string,
-  userId?: string
+  driveId: string | undefined,
+  folderId: string | undefined,
+  userId: string
 ): Promise<OneDriveItem[]> {
-  const client = await getMicrosoftClient('sharepoint', userId);
+  const client = await getMicrosoftClient('sharepoint', userId, { requireDelegated: true });
   
   let path: string;
   if (driveId && folderId) {
@@ -1585,8 +1624,11 @@ export async function resolveFileFromUrl(fileUrl: string): Promise<OneDriveItem 
 }
 
 // Get file metadata and content info from a sharing URL
-// userId: optional - if provided, uses user's delegated token (for multi-tenant access)
-export async function getSharePointFileFromUrl(fileUrl: string, userId?: string): Promise<{
+// This must use the requesting user's own delegated token: falling back to the
+// deployment's shared Entra app / Replit connector credentials would let any
+// authenticated user resolve arbitrary sharing URLs against the shared service
+// account's tenant, regardless of whether they personally have access to the file.
+export async function getSharePointFileFromUrl(fileUrl: string, userId: string): Promise<{
   item: OneDriveItem;
   driveId: string;
   siteId?: string;
@@ -1594,93 +1636,51 @@ export async function getSharePointFileFromUrl(fileUrl: string, userId?: string)
   const shareId = encodeShareUrl(fileUrl);
   console.log('[SharePoint] Resolving file URL:', fileUrl);
   console.log('[SharePoint] Encoded shareId:', shareId);
-  if (userId) {
-    console.log('[SharePoint] Using user delegated token for userId:', userId);
-  }
-  
-  const isSharePointUrl = fileUrl.includes('.sharepoint.com');
-  let lastError: any = null;
-  
-  // PRIORITY 1: Use user's delegated token (best for multi-tenant SharePoint access)
-  if (userId) {
-    try {
-      console.log('[SharePoint] Trying user delegated token...');
-      const userClient = await getUserGraphClient(userId);
-      
-      if (userClient) {
-        const response = await userClient.api(`/shares/${shareId}/driveItem`)
-          .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
-          .get();
-        
-        if (response) {
-          console.log('[SharePoint] Successfully resolved file via user token:', response.name);
-          return {
-            item: response,
-            driveId: response.parentReference?.driveId || '',
-            siteId: response.parentReference?.siteId,
-          };
-        }
-      } else {
-        console.log('[SharePoint] No user token available, will try other methods');
-      }
-    } catch (error: any) {
-      console.log('[SharePoint] User delegated token failed:', error.code, error.message);
-      lastError = error;
-      // Fall through to try other methods
+  console.log('[SharePoint] Using user delegated token for userId:', userId);
+
+  try {
+    const userClient = await getUserGraphClient(userId);
+
+    if (!userClient) {
+      const error = new Error(
+        'Your Microsoft 365 account is not connected. Please go to Settings and connect your Microsoft 365 account to access this file.'
+      );
+      (error as any).code = 'M365_NOT_CONNECTED';
+      throw error;
     }
-  }
-  
-  // PRIORITY 2: Fall back to Replit connectors
-  const connectorOrder: ConnectorType[] = isSharePointUrl 
-    ? ['sharepoint', 'onedrive'] 
-    : ['onedrive', 'sharepoint'];
-  
-  for (const connectorType of connectorOrder) {
-    try {
-      console.log(`[SharePoint] Trying ${connectorType} connector...`);
-      const client = await getMicrosoftClient(connectorType);
-      
-      const response = await client.api(`/shares/${shareId}/driveItem`)
-        .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
-        .get();
-      
-      if (!response) {
-        console.log(`[SharePoint] No response from ${connectorType} Shares API`);
-        continue;
-      }
-      
-      console.log(`[SharePoint] Successfully resolved file via ${connectorType}:`, response.name);
-      
-      return {
-        item: response,
-        driveId: response.parentReference?.driveId || '',
-        siteId: response.parentReference?.siteId,
-      };
-    } catch (error: any) {
-      console.log(`[SharePoint] ${connectorType} connector failed:`, error.code, error.message);
-      lastError = error;
+
+    const response = await userClient.api(`/shares/${shareId}/driveItem`)
+      .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
+      .get();
+
+    if (!response) {
+      return null;
     }
-  }
-  
-  // All methods failed
-  if (lastError) {
-    console.error('[SharePoint] All methods failed to resolve file');
-    if (lastError.body) {
+
+    console.log('[SharePoint] Successfully resolved file via user token:', response.name);
+    return {
+      item: response,
+      driveId: response.parentReference?.driveId || '',
+      siteId: response.parentReference?.siteId,
+    };
+  } catch (error: any) {
+    console.log('[SharePoint] Failed to resolve file via user delegated token:', error.code, error.message);
+    if (error.body) {
       try {
-        const body = JSON.parse(lastError.body);
+        const body = JSON.parse(error.body);
         console.error('[SharePoint] Error details:', body.error?.message || body);
-      } catch (e) {
-        console.error('[SharePoint] Error body:', lastError.body);
+      } catch {
+        console.error('[SharePoint] Error body:', error.body);
       }
     }
-    throw lastError;
+    throw error;
   }
-  
-  return null;
 }
 
 // Get all drives the user has access to (OneDrive + SharePoint document libraries)
-export async function getUserDrives(): Promise<Array<{
+// Always uses the caller's own delegated token - never falls back to the shared
+// Entra app/connector credentials, since this exposes the caller's own drives.
+export async function getUserDrives(userId: string): Promise<Array<{
   id: string;
   name: string;
   driveType: string;
@@ -1698,7 +1698,7 @@ export async function getUserDrives(): Promise<Array<{
   }> = [];
   
   try {
-    const client = await getMicrosoftClient('onedrive');
+    const client = await getMicrosoftClient('onedrive', userId, { requireDelegated: true });
     
     // Get personal OneDrive drives
     try {
@@ -1715,14 +1715,14 @@ export async function getUserDrives(): Promise<Array<{
     
     // Get SharePoint sites using existing function that handles permission fallbacks
     try {
-      const sites = await listSharePointSites();
+      const sites = await listSharePointSites(userId);
       console.log(`[SharePoint] Found ${sites.length} sites to check for document libraries`);
       
       // For each site, get document libraries
       for (const site of sites) {
         try {
           console.log(`[SharePoint] Fetching drives for site: ${site.displayName || site.name} (${site.id})`);
-          const spClient = await getMicrosoftClient('sharepoint');
+          const spClient = await getMicrosoftClient('sharepoint', userId, { requireDelegated: true });
           const drivesResponse = await spClient.api(`/sites/${site.id}/drives`)
             .select('id,name,driveType,webUrl,description')
             .get();
@@ -1758,10 +1758,13 @@ export async function getUserDrives(): Promise<Array<{
 }
 
 // Browse files in any drive (OneDrive or SharePoint document library)
-export async function getDriveFiles(driveId: string, folderId?: string, userId?: string): Promise<OneDriveItem[]> {
+// Requires the caller's own delegated token - a driveId is opaque to the caller,
+// so falling back to shared credentials would let any authenticated user browse
+// any drive the shared service account/connector can reach.
+export async function getDriveFiles(driveId: string, folderId: string | undefined, userId: string): Promise<OneDriveItem[]> {
   try {
     // Use sharepoint client type to use user's delegated token for SharePoint drives
-    const client = await getMicrosoftClient('sharepoint', userId);
+    const client = await getMicrosoftClient('sharepoint', userId, { requireDelegated: true });
     
     const path = folderId 
       ? `/drives/${driveId}/items/${folderId}/children`
@@ -1781,10 +1784,10 @@ export async function getDriveFiles(driveId: string, folderId?: string, userId?:
 }
 
 // Search for Excel files across all drives
-export async function searchDriveForExcel(driveId: string, query: string, userId?: string): Promise<OneDriveItem[]> {
+export async function searchDriveForExcel(driveId: string, query: string, userId: string): Promise<OneDriveItem[]> {
   try {
     // Use sharepoint client type to use user's delegated token
-    const client = await getMicrosoftClient('sharepoint', userId);
+    const client = await getMicrosoftClient('sharepoint', userId, { requireDelegated: true });
     
     const response = await client.api(`/drives/${driveId}/root/search(q='${query}')`)
       .select('id,name,size,createdDateTime,lastModifiedDateTime,webUrl,folder,file,parentReference')
@@ -2010,8 +2013,8 @@ export async function getExcelRange(
 }
 
 // Search for Excel files in OneDrive
-export async function searchExcelFiles(query: string = ''): Promise<OneDriveItem[]> {
-  const client = await getMicrosoftClient('onedrive');
+export async function searchExcelFiles(query: string, userId: string): Promise<OneDriveItem[]> {
+  const client = await getMicrosoftClient('onedrive', userId, { requireDelegated: true });
   
   // Search for xlsx files
   const searchQuery = query ? `${query} .xlsx` : '.xlsx';
