@@ -264,6 +264,59 @@ user_dashboard_preferences table:
 
 ---
 
+### 6. Section 508 / WCAG 2.1 AA Accessibility Remediation
+
+**Status:** Planned — audit complete, remediation not started (July 2026)
+**Priority:** High (procurement/VPAT requirement)
+**Target conformance:** WCAG 2.1 Level AA (superset of Revised Section 508, which incorporates WCAG 2.0 A+AA)
+**In-scope surfaces (first pass):** Authenticated core app (Dashboards, Foundations, Strategy, Planning/OKRs, Focus Rhythm, Reporting, Settings) + public/marketing pages (Landing, Pricing, Login, verify/forgot/reset).
+**Deferred to a later pass:** Admin surfaces (Tenant Admin, System Admin, AI Grounding, Import, Trash), embeddable public cards (`/embed/v1`). Their gaps are the same classes below at higher density.
+**Conformance report:** Draft VPAT 2.5 (Rev 508) authored at `docs/accessibility/VPAT.md`; update its per-criterion status as each phase lands.
+
+**Context:** App is shadcn/ui (Radix) + react-hook-form, so the base UI primitives are largely accessible. Gaps are in custom application code that bypasses the primitives or renders raw markup. No a11y tooling exists today (no ESLint config, no `eslint-plugin-jsx-a11y`, no axe).
+
+#### Audit findings (baseline, July 2026)
+
+Systemic issues (repeat across many files):
+
+| # | Issue | WCAG SC | Scale |
+|---|-------|---------|-------|
+| S1 | Icon-only buttons with no accessible name (`size="icon"` + lucide icon; ~82 rely on weak `title=` only) | 1.1.1, 4.1.2 | 192 across 45 files |
+| S2 | `SelectTrigger` with no accessible name — `<Label htmlFor>` does not bind to the Radix trigger button, so labels are orphaned | 1.3.1, 4.1.2 | 145 across 36 files |
+| S3 | Validation surfaced via transient `toast()` only, not tied to the field (`aria-invalid`/`aria-describedby`); correct `Form`/`FormControl` primitive used in only 2 files | 3.3.1, 4.1.3 | ~178 validation toasts |
+| S4 | Clickable `<div>`/`<span>`/`<li>` with no role/tabIndex/keyboard handler — includes core OKR name spans that open detail panes (`HierarchicalOKRTable.tsx`) | 2.1.1, 4.1.2 | 67 across 13 files |
+| S5 | Recharts charts purely visual — no `accessibilityLayer`, `aria-label`, or data-table alternative | 1.1.1 | 26 chart containers |
+
+Discrete high-value issues:
+
+| Issue | WCAG SC | Location |
+|-------|---------|----------|
+| No skip-to-content link; `<main>` has no `id` target | 2.4.1 | `App.tsx:475` |
+| `maximum-scale=1` in viewport disables pinch-zoom | 1.4.4, 1.4.10 | `client/index.html:5` |
+| AI Chat / Help panels are plain conditional `<div>`s (not Radix Sheet) — no focus trap, initial focus, Escape, or focus restore | 2.4.3, 2.1.2, 4.1.2 | `App.tsx:480-489`, `AIChatPanel.tsx:309`, `HelpChatPanel.tsx:231` |
+| No live regions — live meeting timers, check-in autosave ("Draft saved"), notification count, streaming AI text are silent to AT (toasts DO announce via Radix) | 4.1.3 | `MeetingLive.tsx:496-540`, `SerialCheckInDialog.tsx:945`, `NotificationBell.tsx:46` |
+| Aurora animations (blob, nebula-shimmer, infinite border-spin) ignore `prefers-reduced-motion` (respected for scroll-reveals only) | 2.3.3, 2.2.2 | `index.css:416-527` |
+| Per-route `<title>` set on only 3 of ~35 pages (`react-helmet-async` already wired) | 2.4.2 | most pages |
+| Use of color alone — required `*`, over-target meeting timers red-only; `aria-required` used nowhere | 1.4.1, 3.3.2 | `MeetingLive.tsx:502`, `FocusRhythm.tsx:1961`, etc. |
+| Focus outline removed with no replacement ring on header search | 2.4.7 | `App.tsx:438` |
+| Global keydown hijacks bare Space/arrow keys page-wide | 2.1.1 | `MeetingLive.tsx:363-392` |
+
+Already in good shape (no action): `<img>` alt coverage (all ~30 tags have alt), semantic heading usage (real h1–h6, ~1 h1/page), landmark structure in shell + marketing pages, no positive `tabIndex`, `Form` primitive's ARIA wiring is correct (just under-adopted). Color contrast needs measured verification but token values look plausible for AA.
+
+#### Remediation plan (phased)
+
+**Phase 0 — Guardrails (prevents regression).** Add `eslint-plugin-jsx-a11y` + an ESLint config; add `@axe-core/react` in dev; add Playwright + `@axe-core/playwright` smoke tests over key in-scope routes; gate violations in CI.
+
+**Phase 1 — Systemic, high-coverage sweeps.** Skip link + `id="main-content"` on `<main>`; remove `maximum-scale=1`; `aria-label` sweep for the 192 icon buttons; `aria-label`/bound `id` for the 145 SelectTriggers; migrate AI/Help panels to Radix `Sheet`; add global `prefers-reduced-motion` handling for Aurora animations.
+
+**Phase 2 — Interaction & feedback.** Convert clickable divs/spans to buttons (esp. OKR navigation); move validation off toast-only onto `Form`/`FormControl` (or manual `aria-invalid`+`aria-describedby`); add `aria-live` regions for meeting timers, autosave status, and notification count; add `aria-required` + non-color required indicators.
+
+**Phase 3 — Data viz & polish.** Recharts `accessibilityLayer` + visually-hidden data-table alternatives; per-route `<title>` via Helmet on all in-scope pages; fix focus-visible ring on header search; scope the `MeetingLive` global key handler; run a measured color-contrast audit against WCAG AA.
+
+**Phase 4 — Verification & VPAT finalization.** Manual screen-reader passes (NVDA + VoiceOver), keyboard-only walkthroughs of each in-scope flow, then finalize `docs/accessibility/VPAT.md` criterion-by-criterion.
+
+---
+
 ## MEDIUM PRIORITY FEATURES
 
 ### Consulting Partner Mode Features
