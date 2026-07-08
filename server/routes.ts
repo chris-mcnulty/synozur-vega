@@ -902,7 +902,11 @@ ${changelogContent}`;
       console.log('[reCAPTCHA Debug] Server - Secret configured:', recaptchaSecret ? `${recaptchaSecret.substring(0, 10)}...` : 'NOT SET');
       console.log('[reCAPTCHA Debug] Server - Token received:', recaptchaToken ? `${recaptchaToken.substring(0, 20)}...` : 'NOT PROVIDED');
       
-      if (recaptchaSecret && recaptchaToken) {
+      if (recaptchaSecret) {
+        if (!recaptchaToken) {
+          console.log('[reCAPTCHA Debug] Server - Rejecting: secret configured but no token provided');
+          return res.status(400).json({ error: "reCAPTCHA verification failed. Please try again." });
+        }
         try {
           console.log('[reCAPTCHA Debug] Server - Verifying with Google...');
           const recaptchaResponse = await fetch('https://www.google.com/recaptcha/api/siteverify', {
@@ -920,9 +924,10 @@ ${changelogContent}`;
           console.log('[reCAPTCHA Debug] Server - Verification PASSED');
         } catch (recaptchaError) {
           console.error("[reCAPTCHA Debug] Server - Verification error:", recaptchaError);
+          return res.status(400).json({ error: "reCAPTCHA verification failed. Please try again." });
         }
       } else {
-        console.log('[reCAPTCHA Debug] Server - Skipping verification (secret or token missing)');
+        console.log('[reCAPTCHA Debug] Server - Skipping verification (no secret configured)');
       }
 
       // Extract domain from email
@@ -954,15 +959,12 @@ ${changelogContent}`;
       let isNewTenant = false;
       let servicePlan: any = null;
 
-      // If using a public domain and trying to join an existing invite-only tenant, reject
-      if (!tenant && !isPublicDomain) {
-        // Check if there's a tenant that has this domain but is invite-only
-        const existingTenant = await storage.getTenantByDomain(domain);
-        if (existingTenant?.inviteOnly) {
-          return res.status(403).json({ 
-            error: "This organization requires an invitation to join. Please contact your administrator for an invite." 
-          });
-        }
+      // If a tenant already exists for this domain and it is invite-only, reject
+      // self-service signup regardless of whether the requester controls the domain.
+      if (tenant?.inviteOnly) {
+        return res.status(403).json({ 
+          error: "This organization requires an invitation to join. Please contact your administrator for an invite." 
+        });
       }
 
       if (!tenant) {
