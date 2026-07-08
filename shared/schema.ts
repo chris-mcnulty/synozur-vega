@@ -2048,9 +2048,9 @@ export type AIProviderConfig = {
 
 // Available models per provider
 export const AI_MODELS = {
-  replit_ai: ['gpt-5', 'gpt-5-mini', 'gpt-4o', 'gpt-4o-mini', 'claude-sonnet-4', 'claude-opus-4', 'claude-opus-4-5'],
-  azure_openai: ['gpt-5', 'gpt-5-mini', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4'],
-  openai: ['gpt-5', 'gpt-5-mini', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-4'],
+  replit_ai: ['gpt-5', 'gpt-5-mini', 'gpt-4o', 'claude-sonnet-4', 'claude-opus-4', 'claude-opus-4-5'],
+  azure_openai: ['gpt-5', 'gpt-5-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-4'],
+  openai: ['gpt-5', 'gpt-5-mini', 'gpt-4o', 'gpt-4-turbo', 'gpt-4'],
   anthropic: ['claude-opus-4-5', 'claude-sonnet-4', 'claude-opus-4', 'claude-3.5-sonnet', 'claude-3.5-haiku', 'claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
 } as const;
 
@@ -2068,7 +2068,6 @@ export const AI_MODEL_INFO: Record<string, {
   'gpt-5': { name: 'GPT-5', description: 'Most capable OpenAI model', costTier: 'high', providers: ['replit_ai', 'openai', 'azure_openai'], contextWindow: 128000, costPer1kPrompt: 0.005, costPer1kCompletion: 0.015 },
   'gpt-5-mini': { name: 'GPT-5 Mini', description: 'Cost-effective GPT-5 for routine tasks', costTier: 'low', providers: ['replit_ai', 'openai', 'azure_openai'], contextWindow: 128000, costPer1kPrompt: 0.0011, costPer1kCompletion: 0.0044 },
   'gpt-4o': { name: 'GPT-4o', description: 'Fast, multimodal model', costTier: 'medium', providers: ['replit_ai', 'openai', 'azure_openai'], contextWindow: 128000, costPer1kPrompt: 0.0025, costPer1kCompletion: 0.01 },
-  'gpt-4o-mini': { name: 'GPT-4o Mini (retiring)', description: 'Being replaced by GPT-5 Mini', costTier: 'low', providers: ['replit_ai', 'openai', 'azure_openai'], contextWindow: 128000, costPer1kPrompt: 0.00015, costPer1kCompletion: 0.0006 },
   'gpt-4-turbo': { name: 'GPT-4 Turbo', description: 'Enhanced GPT-4 with vision', costTier: 'medium', providers: ['openai', 'azure_openai'], contextWindow: 128000, costPer1kPrompt: 0.01, costPer1kCompletion: 0.03 },
   'gpt-4': { name: 'GPT-4', description: 'Original GPT-4 model', costTier: 'medium', providers: ['openai', 'azure_openai'], contextWindow: 8192, costPer1kPrompt: 0.03, costPer1kCompletion: 0.06 },
   'claude-sonnet-4': { name: 'Claude Sonnet 4', description: 'Fast, balanced Anthropic model', costTier: 'medium', providers: ['replit_ai', 'anthropic'], contextWindow: 200000, costPer1kPrompt: 0.003, costPer1kCompletion: 0.015 },
