@@ -69,39 +69,52 @@ const ALL_WRITE_SCOPES = [
   'write:okrs', 'write:big_rocks',
 ];
 
+const ALL_MCP_SCOPES = [...ALL_READ_SCOPES, ...ALL_WRITE_SCOPES];
+
+// Only explicit, unambiguous MCP grant claims are honored. Broad substring
+// matching (e.g. any claim containing "read") previously allowed ordinary
+// Microsoft Graph/sign-in tokens to be silently upgraded into full MCP
+// access. Tokens must carry one of these exact MCP-specific scope/role
+// values, or one (or more) of the literal Vega MCP scope strings, to be
+// granted any MCP permissions.
+const MCP_READ_GRANT_CLAIMS = new Set(['mcp.read', 'mcp.read.all', 'vega.mcp.read']);
+const MCP_READWRITE_GRANT_CLAIMS = new Set(['mcp.readwrite', 'mcp.readwrite.all', 'vega.mcp.readwrite']);
+const VALID_MCP_SCOPE_VALUES = new Set(ALL_MCP_SCOPES);
+
 function mapEntraScopes(claims: EntraJwtClaims): string[] {
-  const scopes: string[] = [];
+  const scopes = new Set<string>();
 
+  const claimValues: string[] = [];
   if (claims.scp) {
-    const entraScopes = claims.scp.split(' ');
-    for (const s of entraScopes) {
-      const lower = s.toLowerCase();
-      if (lower.includes('read') || lower.includes('access')) {
-        scopes.push(...ALL_READ_SCOPES);
-      }
-      if (lower.includes('write') || lower.includes('invoke')) {
-        scopes.push(...ALL_READ_SCOPES, ...ALL_WRITE_SCOPES);
-      }
-    }
+    claimValues.push(...claims.scp.split(' '));
   }
-
   if (claims.roles) {
-    for (const role of claims.roles) {
-      const lower = role.toLowerCase();
-      if (lower.includes('read') || lower.includes('access')) {
-        scopes.push(...ALL_READ_SCOPES);
-      }
-      if (lower.includes('write') || lower.includes('invoke')) {
-        scopes.push(...ALL_READ_SCOPES, ...ALL_WRITE_SCOPES);
-      }
+    claimValues.push(...claims.roles);
+  }
+
+  for (const raw of claimValues) {
+    const trimmed = raw.trim();
+    const lower = trimmed.toLowerCase();
+
+    // Explicit, exact MCP grant claim.
+    if (MCP_READWRITE_GRANT_CLAIMS.has(lower)) {
+      ALL_MCP_SCOPES.forEach(s => scopes.add(s));
+      continue;
+    }
+    if (MCP_READ_GRANT_CLAIMS.has(lower)) {
+      ALL_READ_SCOPES.forEach(s => scopes.add(s));
+      continue;
+    }
+
+    // Exact literal Vega MCP scope string (e.g. "read:okrs").
+    if (VALID_MCP_SCOPE_VALUES.has(trimmed)) {
+      scopes.add(trimmed);
     }
   }
 
-  if (scopes.length === 0) {
-    scopes.push(...ALL_READ_SCOPES);
-  }
-
-  return [...new Set(scopes)];
+  // No fallback: a token without any explicit MCP scope/role claim is
+  // granted zero MCP permissions rather than defaulting to broad read access.
+  return [...scopes];
 }
 
 export async function validateEntraJwt(token: string): Promise<McpAuthContext | null> {
@@ -193,6 +206,11 @@ export async function validateEntraJwt(token: string): Promise<McpAuthContext | 
     }
 
     const scopes = mapEntraScopes(verified);
+
+    if (scopes.length === 0) {
+      console.error(`[Entra JWT] Token for user=${user.email} (oid=${verified.oid}) has no explicit MCP scope/role grant; denying MCP access`);
+      return null;
+    }
 
     console.log(`[Entra JWT] Authenticated user=${user.email} via Entra JWT (oid=${verified.oid}, tid=${verified.tid})`);
 

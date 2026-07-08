@@ -8,11 +8,11 @@ import { checkMcpRateLimit, checkTokenExchangeRateLimit, getRateLimitHeaders } f
 import { mcpTools } from './tools';
 
 function getClientIp(req: Request): string {
-  const forwarded = req.headers['x-forwarded-for'];
-  if (typeof forwarded === 'string') {
-    return forwarded.split(',')[0].trim();
-  }
-  return req.socket.remoteAddress || 'unknown';
+  // req.ip is derived by Express/proxy-addr using the app's configured
+  // `trust proxy` hop count (see server/index.ts). This ignores any
+  // additional, client-supplied entries prepended to X-Forwarded-For,
+  // preventing spoofing of the address used for IP allowlists/rate limits.
+  return req.ip || req.socket.remoteAddress || 'unknown';
 }
 
 const router = Router();

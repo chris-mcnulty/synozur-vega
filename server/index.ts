@@ -17,8 +17,11 @@ process.on('uncaughtException', (err: Error) => {
 const app = express();
 const PgStore = connectPgSimple(session);
 
-// Trust entire proxy chain (required for secure cookies behind Replit's reverse proxy)
-app.set('trust proxy', true);
+// Trust exactly one hop (Replit's reverse proxy) so Express derives req.ip from the
+// single trusted X-Forwarded-For entry it appends, rather than trusting the entire
+// (attacker-controllable) header chain. This keeps secure cookies working behind the
+// proxy while preventing clients from spoofing their apparent source IP.
+app.set('trust proxy', 1);
 
 declare module 'http' {
   interface IncomingMessage {

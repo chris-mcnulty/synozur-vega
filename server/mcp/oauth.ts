@@ -93,6 +93,11 @@ router.get('/authorize', async (req: Request, res: Response) => {
       return res.redirect(loginUrl);
     }
 
+    if (client.tenantId !== user.tenantId) {
+      console.error(`[OAuth] Cross-tenant authorize attempt: client ${client.clientId} (tenant ${client.tenantId}) requested by user in tenant ${user.tenantId}`);
+      return res.status(403).json({ error: 'access_denied', error_description: 'This OAuth client is not authorized for your organization' });
+    }
+
     const requestedScopes = scope ? scope.split(' ') : client.scopes;
     const allowedScopes = requestedScopes.filter(s => client.scopes.includes(s));
 
@@ -157,6 +162,11 @@ router.post('/token', async (req: Request, res: Response) => {
       }
 
       if (authCode.clientId !== client_id) {
+        return res.status(400).json({ error: 'invalid_grant', error_description: 'Client mismatch' });
+      }
+
+      if (authCode.tenantId !== client.tenantId) {
+        console.error(`[OAuth] Tenant mismatch redeeming code for client ${client_id}: code tenant ${authCode.tenantId} vs client tenant ${client.tenantId}`);
         return res.status(400).json({ error: 'invalid_grant', error_description: 'Client mismatch' });
       }
 
