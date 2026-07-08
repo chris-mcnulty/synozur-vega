@@ -1319,11 +1319,27 @@ ${changelogContent}`;
   // Note: This endpoint uses only auth without tenant validation since it's used to discover tenants
   app.get("/api/tenants", requireAuth, loadCurrentUser, async (req: Request, res: Response) => {
     try {
-      // Platform admins can see all tenants, others only see their own
+      // Platform admins can see all tenants. Consultants only see their home tenant plus
+      // tenants they have an active, non-expired grant for (never every tenant on the
+      // platform). Everyone else only sees their own tenant.
       const userRole = req.user?.role;
-      if (userRole === ROLES.VEGA_ADMIN || userRole === ROLES.GLOBAL_ADMIN || userRole === ROLES.VEGA_CONSULTANT) {
+      if (userRole === ROLES.VEGA_ADMIN || userRole === ROLES.GLOBAL_ADMIN) {
         const allTenants = await storage.getAllTenants();
         res.json(allTenants);
+      } else if (userRole === ROLES.VEGA_CONSULTANT) {
+        const userId = req.user!.id;
+        const userTenantId = req.user?.tenantId;
+        const grants = await storage.getConsultantTenantAccess(userId);
+        const now = new Date();
+        const grantedTenantIds = grants
+          .filter((g) => !g.expiresAt || new Date(g.expiresAt) >= now)
+          .map((g) => g.tenantId);
+        const accessibleTenantIds = new Set<string>(grantedTenantIds);
+        if (userTenantId) accessibleTenantIds.add(userTenantId);
+        const tenants = await Promise.all(
+          Array.from(accessibleTenantIds).map((id) => storage.getTenantById(id))
+        );
+        res.json(tenants.filter((t): t is NonNullable<typeof t> => !!t));
       } else {
         // Regular users only see their own tenant (from their user record, not header)
         const userTenantId = req.user?.tenantId;
@@ -1342,7 +1358,7 @@ ${changelogContent}`;
       
       // Check access: must be own tenant or have cross-tenant permission
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       
       if (!canAccessAny && id !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
@@ -1718,7 +1734,7 @@ ${changelogContent}`;
       
       // Check access
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       
       if (!canAccessAny && tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
@@ -1865,7 +1881,7 @@ ${changelogContent}`;
     try {
       const { tenantId } = req.query;
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       
       // Enforce tenant isolation - admins can only see their tenant's users unless they have cross-tenant access
       const effectiveTenantId = canAccessAny ? (tenantId as string | undefined) : req.effectiveTenantId;
@@ -1891,7 +1907,7 @@ ${changelogContent}`;
       
       // Check tenant access
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       
       if (!canAccessAny && user.tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
@@ -2585,7 +2601,7 @@ ${changelogContent}`;
       
       // Enforce tenant isolation
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       
       if (!canAccessAny && tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
@@ -2650,7 +2666,7 @@ ${changelogContent}`;
       
       // Enforce tenant isolation
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       
       if (!canAccessAny && validatedData.tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
@@ -2681,7 +2697,7 @@ ${changelogContent}`;
       
       // Enforce tenant isolation
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       
       if (!canAccessAny && tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
@@ -2701,7 +2717,7 @@ ${changelogContent}`;
       
       // Enforce tenant isolation
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       
       if (!canAccessAny && validatedData.tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
@@ -2748,7 +2764,7 @@ ${changelogContent}`;
       
       // Enforce tenant isolation
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       
       if (!canAccessAny && tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
@@ -2773,7 +2789,7 @@ ${changelogContent}`;
       
       // Enforce tenant isolation
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       
       if (!canAccessAny && validatedData.tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
@@ -2847,7 +2863,7 @@ ${changelogContent}`;
       
       // Enforce tenant isolation
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       
       if (!canAccessAny && tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
@@ -2910,7 +2926,7 @@ ${changelogContent}`;
       
       // Enforce tenant isolation
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       
       if (!canAccessAny && tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
@@ -2934,7 +2950,7 @@ ${changelogContent}`;
       
       // Enforce tenant isolation
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       
       if (!canAccessAny && team.tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
@@ -2953,7 +2969,7 @@ ${changelogContent}`;
       
       // Enforce tenant isolation
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       
       if (!canAccessAny && validatedData.tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
@@ -2989,7 +3005,7 @@ ${changelogContent}`;
       
       // Enforce tenant isolation
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       
       if (!canAccessAny && existingTeam.tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
@@ -3057,7 +3073,7 @@ ${changelogContent}`;
       
       // Enforce tenant isolation
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       
       if (!canAccessAny && team.tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
@@ -3113,7 +3129,7 @@ ${changelogContent}`;
       
       // Enforce tenant isolation
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       
       if (!canAccessAny && tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
@@ -3138,7 +3154,7 @@ ${changelogContent}`;
       // Tenant isolation: only users from the meeting's tenant may read it,
       // unless they have a cross-tenant admin/consultant role.
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       if (!canAccessAny && meeting.tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
       }
@@ -3156,7 +3172,7 @@ ${changelogContent}`;
       
       // Enforce tenant isolation
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
       
       if (!canAccessAny && validatedData.tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });
@@ -3187,7 +3203,7 @@ ${changelogContent}`;
 
       // Tenant isolation: a user with broad update permission in one tenant must
       // not be able to modify a meeting in another tenant. Cross-tenant roles bypass.
-      const crossTenantRoles: string[] = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT];
+      const crossTenantRoles: string[] = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN];
       const userRoleStr = req.user?.role as string;
       const isCrossTenant = crossTenantRoles.includes(userRoleStr);
       if (!isCrossTenant && existingMeeting.tenantId !== req.effectiveTenantId) {
@@ -3414,7 +3430,7 @@ ${changelogContent}`;
     try {
       const { tenantId, ambitionId } = req.params;
       const userRole = req.user?.role as string;
-      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN, ROLES.VEGA_CONSULTANT].includes(userRole as any);
+      const canAccessAny = [ROLES.VEGA_ADMIN, ROLES.GLOBAL_ADMIN].includes(userRole as any);
 
       if (!canAccessAny && tenantId !== req.effectiveTenantId) {
         return res.status(403).json({ error: "Access denied" });

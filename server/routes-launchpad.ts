@@ -30,15 +30,20 @@ function checkLaunchpadPermission(user: any): { error: string; message: string }
 
 /**
  * Check if user can access a specific Launchpad session.
- * Allows access if: user owns session, session is in current tenant context, or user has cross-tenant access.
+ * Access requires that the session's tenant matches the caller's currently-validated
+ * tenant context (req.effectiveTenantId, already grant-checked by requireTenantAccess),
+ * or that the caller's role has unconditional cross-tenant access (e.g. platform admin).
+ *
+ * Session ownership (isOwnSession) is intentionally NOT sufficient on its own: a consultant
+ * who created a session while they had a tenant grant, but has since had that grant revoked,
+ * must not retain access to the session just because they are its creator.
  */
 function canAccessSession(session: any, user: any, effectiveTenantId: string): boolean {
   const userRole = user.role as Role;
-  const isOwnSession = session.userId === user.id;
   const hasCrossTenantAccess = canAccessAnyTenant(userRole);
   const isSameTenant = session.tenantId === effectiveTenantId;
-  
-  return isSameTenant || isOwnSession || hasCrossTenantAccess;
+
+  return isSameTenant || hasCrossTenantAccess;
 }
 
 const upload = multer({

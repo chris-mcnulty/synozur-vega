@@ -56,6 +56,35 @@ const isAdminRole = (role: string): boolean => {
   return role === "vega_admin" || role === "vega_consultant";
 };
 
+// vega_admin is a true platform admin with unrestricted cross-tenant access.
+// vega_consultant is only granted access to specific tenants (home tenant + explicit,
+// non-expired grants) and must never see/modify tickets for tenants outside that scope,
+// even though both roles pass isAdminRole() for the "is staff" gate above.
+const isPlatformAdmin = (role: string): boolean => role === "vega_admin";
+
+/**
+ * Returns the set of tenant IDs a staff user may access support tickets for.
+ * Returns null for platform admins (unrestricted / all tenants).
+ * Returns a Set<string> of accessible tenant IDs for consultants (home tenant plus
+ * any active, non-expired consultant tenant grants).
+ */
+async function getAccessibleTenantIds(user: { id: string; role: string; tenantId?: string | null }): Promise<Set<string> | null> {
+  if (isPlatformAdmin(user.role)) {
+    return null;
+  }
+  const accessible = new Set<string>();
+  if (user.tenantId) {
+    accessible.add(user.tenantId);
+  }
+  const grants = await storage.getConsultantTenantAccess(user.id);
+  const now = new Date();
+  for (const grant of grants) {
+    if (grant.expiresAt && new Date(grant.expiresAt) < now) continue;
+    accessible.add(grant.tenantId);
+  }
+  return accessible;
+}
+
 const createTicketSchema = z.object({
   category: z.enum(TICKET_CATEGORIES),
   subject: z.string().min(3),
@@ -194,38 +223,47 @@ supportRouter.get("/tickets", async (req: Request, res: Response) => {
     if (isAdminRole(req.user.role)) {
       const { status, priority, category, tenantId, assignedTo, q } = req.query as Record<string, string | undefined>;
       const search = (q || "").trim();
+      const accessibleTenantIds = await getAccessibleTenantIds(req.user);
+
+      // Consultants (accessibleTenantIds !== null) may only ever query tenants they
+      // have home/granted access to. If they explicitly requested a tenantId outside
+      // that scope, deny rather than silently ignoring it.
+      if (accessibleTenantIds !== null) {
+        if (tenantId && !accessibleTenantIds.has(tenantId)) {
+          return res.status(403).json({ error: "Access denied for this tenant" });
+        }
+        if (accessibleTenantIds.size === 0) {
+          return res.json([]);
+        }
+      }
+      const scopeTenantIds = tenantId ? [tenantId] : (accessibleTenantIds ? Array.from(accessibleTenantIds) : [undefined]);
+
+      const runSearch = async (statusFilter?: string) => {
+        const results = await Promise.all(scopeTenantIds.map((tid) =>
+          storage.searchAdminSupportTickets({
+            q: search || undefined,
+            status: statusFilter,
+            priority: priority || undefined,
+            category: category || undefined,
+            tenantId: tid,
+            assignedTo: assignedTo || undefined,
+          })
+        ));
+        return results.flat();
+      };
 
       if (status === "pending") {
-        const openTickets = await storage.searchAdminSupportTickets({
-          q: search || undefined,
-          status: "open",
-          priority: priority || undefined,
-          category: category || undefined,
-          tenantId: tenantId || undefined,
-          assignedTo: assignedTo || undefined,
-        });
-        const inProgressTickets = await storage.searchAdminSupportTickets({
-          q: search || undefined,
-          status: "in_progress",
-          priority: priority || undefined,
-          category: category || undefined,
-          tenantId: tenantId || undefined,
-          assignedTo: assignedTo || undefined,
-        });
+        const openTickets = await runSearch("open");
+        const inProgressTickets = await runSearch("in_progress");
         const combined = [...openTickets, ...inProgressTickets].sort(
           (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
         );
         return res.json(combined);
       }
 
-      const tickets = await storage.searchAdminSupportTickets({
-        q: search || undefined,
-        status: status || undefined,
-        priority: priority || undefined,
-        category: category || undefined,
-        tenantId: tenantId || undefined,
-        assignedTo: assignedTo || undefined,
-      });
+      const tickets = (await runSearch(status || undefined)).sort(
+        (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
       return res.json(tickets);
     }
 
@@ -253,6 +291,13 @@ supportRouter.get("/tickets/:id", async (req: Request, res: Response) => {
 
     if (!isOwner && !isAdmin) {
       return res.status(403).json({ error: "Access denied" });
+    }
+
+    if (isAdmin && !isOwner) {
+      const accessibleTenantIds = await getAccessibleTenantIds(req.user);
+      if (accessibleTenantIds !== null && !accessibleTenantIds.has(ticket.tenantId)) {
+        return res.status(404).json({ error: "Ticket not found" });
+      }
     }
 
     const replies = await storage.getSupportTicketReplies(ticket.id, isAdmin);
@@ -300,6 +345,13 @@ supportRouter.post("/tickets/:id/replies", async (req: Request, res: Response) =
 
     if (!isOwner && !isAdmin) {
       return res.status(403).json({ error: "Access denied" });
+    }
+
+    if (isAdmin && !isOwner) {
+      const accessibleTenantIds = await getAccessibleTenantIds(req.user);
+      if (accessibleTenantIds !== null && !accessibleTenantIds.has(ticket.tenantId)) {
+        return res.status(404).json({ error: "Ticket not found" });
+      }
     }
 
     const { message, isInternal } = parsed.data;
@@ -415,6 +467,11 @@ supportRouter.patch("/tickets/:id", async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Ticket not found" });
     }
 
+    const accessibleTenantIds = await getAccessibleTenantIds(req.user);
+    if (accessibleTenantIds !== null && !accessibleTenantIds.has(ticket.tenantId)) {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
+
     const updates: TicketUpdates = { ...parsed.data };
 
     if (updates.assignedTo === "") {
@@ -495,6 +552,10 @@ supportRouter.get("/tickets/:id/history", async (req: Request, res: Response) =>
     }
     const ticket = await storage.getSupportTicketById(req.params.id);
     if (!ticket) return res.status(404).json({ error: "Ticket not found" });
+    const accessibleTenantIds = await getAccessibleTenantIds(req.user);
+    if (accessibleTenantIds !== null && !accessibleTenantIds.has(ticket.tenantId)) {
+      return res.status(404).json({ error: "Ticket not found" });
+    }
     const history = await storage.getSupportTicketHistory(ticket.id);
     return res.json(await buildHistoryWithUsers(history));
   } catch (error) {
@@ -513,6 +574,7 @@ supportRouter.post("/tickets/bulk", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Validation failed", details: parsed.error.errors });
     }
     const { ticketIds, status, priority, assignedTo } = parsed.data;
+    const accessibleTenantIds = await getAccessibleTenantIds(req.user);
 
     const updatedIds: string[] = [];
     const failedIds: string[] = [];
@@ -521,6 +583,10 @@ supportRouter.post("/tickets/bulk", async (req: Request, res: Response) => {
       try {
         const ticket = await storage.getSupportTicketById(id);
         if (!ticket) { failedIds.push(id); continue; }
+        if (accessibleTenantIds !== null && !accessibleTenantIds.has(ticket.tenantId)) {
+          failedIds.push(id);
+          continue;
+        }
 
         const updates: TicketUpdates = {};
         if (status !== undefined) updates.status = status;

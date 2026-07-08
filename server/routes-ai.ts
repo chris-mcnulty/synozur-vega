@@ -204,13 +204,16 @@ const chatRequestSchema = z.object({
   tenantId: z.string().optional(),
 });
 
-aiRouter.post("/chat", requireAIChat, async (req: Request, res: Response) => {
+aiRouter.post("/chat", requireAIChat, requireTenantAccess, async (req: Request, res: Response) => {
   try {
-    const { messages, tenantId } = chatRequestSchema.parse(req.body);
-    const user = (req as any).user;
-    
-    // Use user's tenant if not specified
-    const effectiveTenantId = tenantId || user.tenantId;
+    const { messages } = chatRequestSchema.parse(req.body);
+
+    // Tenant is resolved and access-checked by requireTenantAccess (honors
+    // consultant grants and denies cross-tenant access for regular users).
+    const effectiveTenantId = req.effectiveTenantId;
+    if (!effectiveTenantId) {
+      return res.status(400).json({ error: "No tenant context available" });
+    }
 
     const response = await getChatCompletion(messages as ChatMessage[], {
       tenantId: effectiveTenantId,
@@ -227,29 +230,17 @@ aiRouter.post("/chat", requireAIChat, async (req: Request, res: Response) => {
 });
 
 // Streaming chat endpoint (Server-Sent Events) - WITH TOOL SUPPORT
-aiRouter.post("/chat/stream", requireAIChat, async (req: Request, res: Response) => {
+aiRouter.post("/chat/stream", requireAIChat, requireTenantAccess, async (req: Request, res: Response) => {
   console.log("[AI Chat Stream] Request received");
   try {
-    const { messages, tenantId } = chatRequestSchema.parse(req.body);
+    const { messages } = chatRequestSchema.parse(req.body);
     const user = (req as any).user;
     console.log("[AI Chat Stream] User:", user.email, "Messages count:", messages.length);
-    
-    // Security: Validate tenant access
-    // Admin/consultant roles can access any tenant, regular users only their own
-    const adminRoles = ["admin", "global_admin", "vega_admin", "vega_consultant"];
-    const canAccessAnyTenant = adminRoles.includes(user.role);
-    
-    let effectiveTenantId = user.tenantId; // Default to user's own tenant
-    
-    if (tenantId) {
-      if (tenantId === user.tenantId || canAccessAnyTenant) {
-        effectiveTenantId = tenantId;
-      } else {
-        console.warn("[AI Chat Stream] Tenant access denied for user:", user.email, "attempted:", tenantId);
-        return res.status(403).json({ error: "Access denied to specified tenant" });
-      }
-    }
-    
+
+    // Tenant is resolved and access-checked by requireTenantAccess (honors
+    // consultant grants and denies cross-tenant access for regular users).
+    const effectiveTenantId = req.effectiveTenantId;
+
     if (!effectiveTenantId) {
       return res.status(400).json({ error: "No tenant context available" });
     }
@@ -294,13 +285,15 @@ aiRouter.post("/chat/stream", requireAIChat, async (req: Request, res: Response)
 });
 
 // Legacy streaming chat endpoint (without tools) - for backwards compatibility
-aiRouter.post("/chat/stream-legacy", requireAIChat, async (req: Request, res: Response) => {
+aiRouter.post("/chat/stream-legacy", requireAIChat, requireTenantAccess, async (req: Request, res: Response) => {
   console.log("[AI Chat Stream Legacy] Request received");
   try {
-    const { messages, tenantId } = chatRequestSchema.parse(req.body);
-    const user = (req as any).user;
-    
-    const effectiveTenantId = tenantId || user.tenantId;
+    const { messages } = chatRequestSchema.parse(req.body);
+
+    const effectiveTenantId = req.effectiveTenantId;
+    if (!effectiveTenantId) {
+      return res.status(400).json({ error: "No tenant context available" });
+    }
 
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
@@ -339,10 +332,11 @@ const okrSuggestionSchema = z.object({
   year: z.number().optional(),
 });
 
-aiRouter.post("/suggest/okrs", requireAIChat, async (req: Request, res: Response) => {
+aiRouter.post("/suggest/okrs", requireAIChat, requireTenantAccess, async (req: Request, res: Response) => {
   try {
-    const { tenantId, focusArea, quarter, year } = okrSuggestionSchema.parse(req.body);
-    
+    const { focusArea, quarter, year } = okrSuggestionSchema.parse(req.body);
+    const tenantId = req.effectiveTenantId!;
+
     // Get existing strategies and objectives for context
     const strategies = await storage.getStrategiesByTenantId(tenantId);
     const existingObjectives = await storage.getObjectivesByTenantId(tenantId, quarter, year);
@@ -372,12 +366,13 @@ const bigRockSuggestionSchema = z.object({
   objectiveId: z.string(),
 });
 
-aiRouter.post("/suggest/big-rocks", requireAIChat, async (req: Request, res: Response) => {
+aiRouter.post("/suggest/big-rocks", requireAIChat, requireTenantAccess, async (req: Request, res: Response) => {
   try {
-    const { tenantId, objectiveId } = bigRockSuggestionSchema.parse(req.body);
-    
+    const { objectiveId } = bigRockSuggestionSchema.parse(req.body);
+    const tenantId = req.effectiveTenantId!;
+
     const objective = await storage.getObjectiveById(objectiveId);
-    if (!objective) {
+    if (!objective || objective.tenantId !== tenantId) {
       return res.status(404).json({ error: "Objective not found" });
     }
 
@@ -423,10 +418,10 @@ const progressSummarySchema = z.object({
   customPrompt: z.string().optional(),
 });
 
-aiRouter.post("/progress-summary/stream", requireAIChat, async (req: Request, res: Response) => {
+aiRouter.post("/progress-summary/stream", requireAIChat, requireTenantAccess, async (req: Request, res: Response) => {
   console.log("[Progress Summary] Request received");
   try {
-    const parsed = progressSummarySchema.parse(req.body);
+    const parsed = { ...progressSummarySchema.parse(req.body), tenantId: req.effectiveTenantId! };
     const user = (req as any).user;
     console.log("[Progress Summary] User:", user.email, "Objectives count:", parsed.objectives.length);
     
@@ -564,10 +559,11 @@ const goalSuggestionSchema = z.object({
   tenantId: z.string(),
 });
 
-aiRouter.post("/suggest/goals/stream", requireAIChat, async (req: Request, res: Response) => {
+aiRouter.post("/suggest/goals/stream", requireAIChat, requireTenantAccess, async (req: Request, res: Response) => {
   console.log("[Goal Suggestions] Request received");
   try {
-    const { tenantId } = goalSuggestionSchema.parse(req.body);
+    goalSuggestionSchema.parse(req.body);
+    const tenantId = req.effectiveTenantId!;
     const user = (req as any).user;
     console.log("[Goal Suggestions] User:", user.email, "Tenant:", tenantId);
 
@@ -630,10 +626,11 @@ const strategyDraftSchema = z.object({
   prompt: z.string().min(10, "Please provide a more detailed description of the strategy you want to create"),
 });
 
-aiRouter.post("/strategy-draft/stream", requireAIChat, async (req: Request, res: Response) => {
+aiRouter.post("/strategy-draft/stream", requireAIChat, requireTenantAccess, async (req: Request, res: Response) => {
   console.log("[Strategy Draft] Request received");
   try {
-    const { tenantId, prompt } = strategyDraftSchema.parse(req.body);
+    const { prompt } = strategyDraftSchema.parse(req.body);
+    const tenantId = req.effectiveTenantId!;
     const user = (req as any).user;
     console.log("[Strategy Draft] User:", user.email, "Tenant:", tenantId);
 
@@ -700,10 +697,11 @@ const meetingRecapSchema = z.object({
   })).optional(),
 });
 
-aiRouter.post("/parse-meeting-recap", requireAIChat, async (req: Request, res: Response) => {
+aiRouter.post("/parse-meeting-recap", requireAIChat, requireTenantAccess, async (req: Request, res: Response) => {
   try {
-    const { meetingNotes, tenantId, meetingTitle, meetingType, linkedOKRs } = meetingRecapSchema.parse(req.body);
-    
+    const { meetingNotes, meetingTitle, meetingType, linkedOKRs } = meetingRecapSchema.parse(req.body);
+    const tenantId = req.effectiveTenantId!;
+
     console.log("[Meeting Recap] Parsing notes for meeting:", meetingTitle || "Untitled");
     console.log("[Meeting Recap] Notes length:", meetingNotes.length);
 
@@ -747,9 +745,9 @@ const generateAgendaSchema = z.object({
   atRiskItems: z.array(z.string()).optional(),
 });
 
-aiRouter.post("/generate-agenda", requireAIChat, async (req: Request, res: Response) => {
+aiRouter.post("/generate-agenda", requireAIChat, requireTenantAccess, async (req: Request, res: Response) => {
   try {
-    const params = generateAgendaSchema.parse(req.body);
+    const params = { ...generateAgendaSchema.parse(req.body), tenantId: req.effectiveTenantId };
     console.log("[Meeting Agenda] Generating agenda for type:", params.meetingType, "| linked OKRs:", params.linkedOKRs?.length ?? 0);
 
     const result = await generateMeetingAgenda(params);
@@ -782,7 +780,7 @@ const okrQualityScoreSchema = z.object({
   alignedObjectives: z.array(z.string()).optional(),
 });
 
-aiRouter.post("/score-okr", requireAIChat, async (req: Request, res: Response) => {
+aiRouter.post("/score-okr", requireAIChat, requireTenantAccess, async (req: Request, res: Response) => {
   try {
     const input = okrQualityScoreSchema.parse(req.body);
     const user = (req as any).user;
@@ -792,7 +790,7 @@ aiRouter.post("/score-okr", requireAIChat, async (req: Request, res: Response) =
 
     const result = await scoreOKRQuality({
       ...input,
-      tenantId: input.tenantId || user.tenantId,
+      tenantId: req.effectiveTenantId,
     });
 
     console.log("[OKR Quality Score] Score:", result.score);
