@@ -317,6 +317,10 @@ Already in good shape (no action): `<img>` alt coverage (all ~30 tags have alt),
 
 **Phase 3 — Data viz & polish.** Recharts `accessibilityLayer` + visually-hidden data-table alternatives; per-route `<title>` via Helmet on all in-scope pages; fix focus-visible ring on header search; scope the `MeetingLive` global key handler; run a measured color-contrast audit against WCAG AA.
 
+> **Phase 3 status (done):** Recharts charts given `accessibilityLayer` + `role="img"`/`aria-label` (ExecutiveDashboard ×3, TrendChart, ForecastingPanel, OKRDetailPane; AIUsageWidget/AppSidebar use non-Recharts visuals, Reporting uses a heatmap). Per-route `<title>` added to all in-scope pages (26 pages) via `react-helmet-async`. Header-search focus ring was already fixed in Phase 1. `MeetingLive` single-key shortcuts no longer intercept keys when a form field or interactive control has focus (WCAG 2.1.4). Color contrast measured with axe (dark theme) — the safe Pricing `/60` fine-print fixed.
+>
+> **Open decision — brand color contrast:** The remaining AA contrast failures are all in the Aurora brand purple `#ac2bfd`: white text on the primary-purple CTA button = **4.33:1** (needs 4.5), purple text links on dark = **3.8:1**, and inline links distinguished by color only (link-in-text-block). Fixing these means adjusting brand tokens (slightly darker purple for button backgrounds, lighter/underlined links) — a design/brand decision that needs sign-off before changing `replit.md`'s Aurora palette. Options: (a) minimal token adjustments to reach AA, or (b) keep the palette and record these as documented exceptions in the VPAT. Pending user decision.
+
 **Phase 4 — Verification & VPAT finalization.** Manual screen-reader passes (NVDA + VoiceOver), keyboard-only walkthroughs of each in-scope flow, then finalize `docs/accessibility/VPAT.md` criterion-by-criterion.
 
 ---

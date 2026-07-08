@@ -87,7 +87,7 @@ Where a criterion is only partially supported or not supported, the Remarks colu
 | **1.2.5 Audio Description (Prerecorded)** | Not Applicable | No prerecorded synchronized media. |
 | **1.3.4 Orientation** | Supports | Responsive layout; no orientation lock. |
 | **1.3.5 Identify Input Purpose** | Partially Supports | `autocomplete` attributes are not consistently set on inputs that collect user information (e.g., name, email). Not yet verified across all in-scope forms. |
-| **1.4.3 Contrast (Minimum)** | Not Evaluated | Design tokens appear plausible for AA but a measured contrast audit against the 4.5:1 / 3:1 thresholds has not yet been performed (planned Phase 3). |
+| **1.4.3 Contrast (Minimum)** | Partially Supports | Measured with axe-core (dark theme). Most body text passes. Remaining failures stem from the brand purple `#ac2bfd`: white text on the primary-purple CTA button measures **4.33:1** (needs 4.5) on nav/pricing/login CTAs; purple text links on the dark background measure **3.8–3.87:1**; a Pricing fine-print `/60`-opacity item (3.76) was fixed in Phase 3. These are brand-token decisions pending sign-off (see BACKLOG Feature #6 Phase 3 note). |
 | **1.4.4 Resize Text** | Partially Supports | The viewport meta sets `maximum-scale=1`, which suppresses pinch-zoom (`client/index.html:5`); browser text zoom may still function. To be corrected in Phase 1. |
 | **1.4.5 Images of Text** | Supports | Text is rendered as live text with web fonts, not images. |
 | **1.4.10 Reflow** | Partially Supports | Layout is responsive and mobile-adapted, but the `maximum-scale=1` restriction and behavior at 400% zoom have not been verified. |

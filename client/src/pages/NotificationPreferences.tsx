@@ -9,6 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { NOTIFICATION_TYPES, type NotificationType } from "@shared/schema";
+import { Helmet } from "react-helmet-async";
 
 interface PrefRow {
   eventType: NotificationType;
@@ -78,6 +79,7 @@ export default function NotificationPreferences() {
 
   return (
     <div className="flex-1 max-w-3xl mx-auto w-full space-y-4">
+      <Helmet><title>Notification Preferences | Vega</title></Helmet>
       <div className="flex items-center gap-3">
         <Button
           size="icon"

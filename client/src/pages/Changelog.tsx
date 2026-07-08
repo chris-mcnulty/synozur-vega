@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { useState, useEffect, useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Helmet } from "react-helmet-async";
 
 interface TableOfContentsItem {
   id: string;
@@ -112,6 +113,7 @@ export default function Changelog() {
 
   return (
     <div className="max-w-6xl mx-auto">
+      <Helmet><title>Changelog | Vega</title></Helmet>
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-6 flex-wrap">
         <div className="flex items-center gap-3">
           <FileText className="h-8 w-8 text-primary" />

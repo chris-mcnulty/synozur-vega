@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Lock } from "lucide-react";
 import { apiRequest } from "@/lib/queryClient";
+import { Helmet } from "react-helmet-async";
 
 export default function ResetPassword() {
   const [, setLocation] = useLocation();
@@ -64,6 +65,7 @@ export default function ResetPassword() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+      <Helmet><title>Reset Password | Vega</title></Helmet>
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-secondary/5 to-background" />
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />

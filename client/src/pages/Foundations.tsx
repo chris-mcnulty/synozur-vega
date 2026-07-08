@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -471,6 +472,7 @@ export default function Foundations() {
 
   return (
     <div className="max-w-6xl mx-auto">
+      <Helmet><title>Foundations | Vega</title></Helmet>
       <div className="mb-8 flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-semibold mb-2">Foundations</h1>

@@ -363,7 +363,19 @@ export default function MeetingLive() {
     const handler = (e: KeyboardEvent) => {
       if (!liveState || liveState.endedAt) return;
       const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      // Single-key shortcuts must not intercept keys when a form field or any
+      // interactive control has focus (WCAG 2.1.4 Character Key Shortcuts).
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable ||
+          target.closest(
+            'button, a, select, [role="button"], [role="menuitem"], [role="menuitemradio"], [contenteditable="true"]',
+          ))
+      ) {
+        return;
+      }
       if (activeCapture) return;
       if (e.key === "ArrowRight" || e.key === " ") {
         e.preventDefault();

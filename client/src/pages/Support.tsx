@@ -15,6 +15,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { Helmet } from "react-helmet-async";
 
 const ticketFormSchema = z.object({
   category: z.enum(["bug", "feature_request", "question", "feedback"]),
@@ -531,6 +532,7 @@ export default function Support() {
 
   return (
     <div className="flex-1 p-6 max-w-3xl mx-auto">
+      <Helmet><title>Support | Vega</title></Helmet>
       {activeView === "list" && (
         <TicketList onSelectTicket={handleSelectTicket} onNewTicket={handleNewTicket} />
       )}

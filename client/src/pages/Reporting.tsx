@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { QuarterlyHeatmap } from "@/components/QuarterlyHeatmap";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -384,6 +385,7 @@ export default function Reporting() {
 
   return (
     <div className="container mx-auto p-6 max-w-7xl">
+      <Helmet><title>Reports | Vega</title></Helmet>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold" data-testid="text-page-title">Reporting</h1>

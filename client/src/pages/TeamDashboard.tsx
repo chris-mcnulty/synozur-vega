@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, Component, type ErrorInfo, type ReactNode } from "react";
+import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -914,6 +915,7 @@ Status: ${checkInForm.newStatus}`;
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
+      <Helmet><title>Team Dashboard | Vega</title></Helmet>
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-semibold mb-2">Team Mode</h1>

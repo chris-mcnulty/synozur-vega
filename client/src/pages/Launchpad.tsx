@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -304,6 +305,7 @@ export default function Launchpad() {
 
   return (
     <div className="container max-w-4xl mx-auto py-8 px-4">
+      <Helmet><title>Launchpad | Vega</title></Helmet>
       <div className="flex items-center gap-3 mb-6">
         <Rocket className="h-8 w-8 text-primary" />
         <div>

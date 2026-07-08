@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -466,6 +467,7 @@ export default function MeetingDetail() {
 
   return (
     <TooltipProvider>
+      <Helmet><title>Meeting | Vega</title></Helmet>
       <div className={`flex flex-col ${isFullscreen ? 'fixed inset-0 z-50 bg-background' : 'h-full'}`}>
 
         {/* ── Top Bar ── */}

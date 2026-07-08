@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { useLocation, useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -365,6 +366,7 @@ function WorkshopDetail({ workshopId }: { workshopId: string }) {
 
   return (
     <div className="p-6 max-w-[1400px] mx-auto space-y-4">
+      <Helmet><title>Planning Workshop | Vega</title></Helmet>
       {/* Header */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>

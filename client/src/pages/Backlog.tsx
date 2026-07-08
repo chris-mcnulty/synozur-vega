@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Link } from "wouter";
 import { useState } from "react";
+import { Helmet } from "react-helmet-async";
 
 type Status = "completed" | "in_progress" | "proposed" | "future";
 type Category = "ai" | "integration" | "ux" | "analytics" | "platform" | "business" | "design" | "bug" | "technical";
@@ -686,6 +687,7 @@ export default function Backlog() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
+      <Helmet><title>Backlog | Vega</title></Helmet>
       <div className="flex items-center gap-4 flex-wrap">
         <Link href="/about">
           <Button variant="ghost" size="sm" data-testid="button-back-about">

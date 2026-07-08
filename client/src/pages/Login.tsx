@@ -16,6 +16,7 @@ import vegaLogo from "@/assets/brand/VegaTight_1766605018223.png";
 import vegaLogoWhite from "@/assets/brand/Vega_-_White_1767549184769.png";
 import ReCAPTCHA from "react-google-recaptcha";
 import { Aurora } from "@/components/aurora";
+import { Helmet } from "react-helmet-async";
 
 const ORGANIZATION_SIZES = [
   { value: "1-10", label: "1-10 employees" },
@@ -324,7 +325,8 @@ export default function Login() {
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center p-4">
-      <div 
+      <Helmet><title>Log in | Vega</title></Helmet>
+      <div
         className="fixed inset-0 z-0"
         style={{
           backgroundImage: `url(${starTrailsBg})`,

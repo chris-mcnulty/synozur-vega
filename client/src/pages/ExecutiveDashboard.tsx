@@ -1,4 +1,5 @@
 import { useMemo, useCallback, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -718,6 +719,7 @@ export default function ExecutiveDashboard() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6 p-6">
+      <Helmet><title>Executive Dashboard | Vega</title></Helmet>
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-semibold mb-2 cosmic-text" data-testid="text-executive-title">Executive Dashboard</h1>
@@ -1199,23 +1201,25 @@ export default function ExecutiveDashboard() {
               </CardHeader>
               <CardContent>
                 {metrics.teamMetrics.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={300}>
-                    <BarChart data={metrics.teamMetrics} layout="vertical">
-                      <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                      <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                      <YAxis type="category" dataKey="name" width={100} />
-                      <Tooltip 
-                        formatter={(value: number) => [`${value}%`, 'Progress']}
-                        contentStyle={{ backgroundColor: 'var(--background)', border: '1px solid var(--border)' }}
-                      />
-                      <Bar 
-                        dataKey="progress" 
-                        fill="#8b5cf6" 
-                        radius={[0, 4, 4, 0]}
-                        name="Progress"
-                      />
-                    </BarChart>
-                  </ResponsiveContainer>
+                  <div role="img" aria-label="Bar chart: progress comparison across teams">
+                    <ResponsiveContainer width="100%" height={300}>
+                      <BarChart accessibilityLayer data={metrics.teamMetrics} layout="vertical">
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                        <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                        <YAxis type="category" dataKey="name" width={100} />
+                        <Tooltip
+                          formatter={(value: number) => [`${value}%`, 'Progress']}
+                          contentStyle={{ backgroundColor: 'var(--background)', border: '1px solid var(--border)' }}
+                        />
+                        <Bar
+                          dataKey="progress"
+                          fill="#8b5cf6"
+                          radius={[0, 4, 4, 0]}
+                          name="Progress"
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
                 ) : (
                   <div className="flex items-center justify-center h-[300px] text-muted-foreground">
                     <p>No team data available</p>
@@ -1234,26 +1238,28 @@ export default function ExecutiveDashboard() {
               </CardHeader>
               <CardContent>
                 {metrics.statusBreakdown.length > 0 ? (
-                  <ResponsiveContainer width="100%" height={250}>
-                    <PieChart>
-                      <Pie
-                        data={metrics.statusBreakdown}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={50}
-                        outerRadius={80}
-                        paddingAngle={2}
-                        dataKey="value"
-                        label={({ name, value }) => `${name}: ${value}`}
-                        labelLine={false}
-                      >
-                        {metrics.statusBreakdown.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
+                  <div role="img" aria-label="Pie chart: objective status distribution">
+                    <ResponsiveContainer width="100%" height={250}>
+                      <PieChart accessibilityLayer>
+                        <Pie
+                          data={metrics.statusBreakdown}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={50}
+                          outerRadius={80}
+                          paddingAngle={2}
+                          dataKey="value"
+                          label={({ name, value }) => `${name}: ${value}`}
+                          labelLine={false}
+                        >
+                          {metrics.statusBreakdown.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
                 ) : (
                   <div className="flex items-center justify-center h-[250px] text-muted-foreground">
                     <p>No status data</p>
@@ -1616,28 +1622,30 @@ export default function ExecutiveDashboard() {
                 <CardDescription>Weekly average progress from key result check-ins</CardDescription>
               </CardHeader>
               <CardContent>
-                <ResponsiveContainer width="100%" height={250}>
-                  <LineChart data={metrics.trendData}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="week" />
-                    <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
-                    <Tooltip 
-                      formatter={(value: number, name: string) => [
-                        name === 'progress' ? `${value}%` : value,
-                        name === 'progress' ? 'Avg Progress' : 'Check-ins'
-                      ]}
-                      contentStyle={{ backgroundColor: 'var(--background)', border: '1px solid var(--border)' }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="progress" 
-                      stroke="#8b5cf6" 
-                      strokeWidth={2}
-                      dot={{ fill: '#8b5cf6', strokeWidth: 2 }}
-                      name="progress"
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
+                <div role="img" aria-label="Line chart: weekly average progress from key result check-ins">
+                  <ResponsiveContainer width="100%" height={250}>
+                    <LineChart accessibilityLayer data={metrics.trendData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="week" />
+                      <YAxis domain={[0, 100]} tickFormatter={(v) => `${v}%`} />
+                      <Tooltip
+                        formatter={(value: number, name: string) => [
+                          name === 'progress' ? `${value}%` : value,
+                          name === 'progress' ? 'Avg Progress' : 'Check-ins'
+                        ]}
+                        contentStyle={{ backgroundColor: 'var(--background)', border: '1px solid var(--border)' }}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="progress"
+                        stroke="#8b5cf6"
+                        strokeWidth={2}
+                        dot={{ fill: '#8b5cf6', strokeWidth: 2 }}
+                        name="progress"
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
               </CardContent>
             </Card>
           )}

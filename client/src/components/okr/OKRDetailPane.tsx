@@ -111,9 +111,9 @@ function ConfidenceTrendCard({
       </CardHeader>
       <CardContent>
         {points.length > 1 ? (
-          <div className="h-20">
+          <div className="h-20" role="img" aria-label="Line chart: owner confidence trend over time">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={points}>
+              <LineChart accessibilityLayer data={points}>
                 <XAxis dataKey="date" hide />
                 <YAxis domain={[0, 1]} hide />
                 <Tooltip

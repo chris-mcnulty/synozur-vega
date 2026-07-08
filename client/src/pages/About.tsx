@@ -19,6 +19,7 @@ import {
   Map,
   ListTodo
 } from "lucide-react";
+import { Helmet } from "react-helmet-async";
 import vegaLogo from "@/assets/brand/VegaTight_1766605018223.png";
 
 const VERSION_MAJOR = 1;
@@ -48,6 +49,7 @@ export default function About() {
 
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
+      <Helmet><title>About | Vega</title></Helmet>
       <div className="text-center space-y-4">
         <div className="flex justify-center">
           <img src={vegaLogo} alt="Vega Company OS" className="h-20 object-contain" />
