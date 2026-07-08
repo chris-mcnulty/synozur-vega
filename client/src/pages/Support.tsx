@@ -226,7 +226,7 @@ function NewTicketForm({ onBack, initialDescription }: { onBack: () => void; ini
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={onBack} data-testid="button-back-to-list">
+        <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to ticket list" data-testid="button-back-to-list">
           <ArrowLeft />
         </Button>
         <div>
@@ -253,7 +253,7 @@ function NewTicketForm({ onBack, initialDescription }: { onBack: () => void; ini
                       }}
                     >
                       <FormControl>
-                        <SelectTrigger data-testid="select-category">
+                        <SelectTrigger data-testid="select-category" aria-label="Category">
                           <SelectValue placeholder="Select category" />
                         </SelectTrigger>
                       </FormControl>
@@ -316,7 +316,7 @@ function NewTicketForm({ onBack, initialDescription }: { onBack: () => void; ini
                       }}
                     >
                       <FormControl>
-                        <SelectTrigger data-testid="select-priority">
+                        <SelectTrigger data-testid="select-priority" aria-label="Priority">
                           <SelectValue placeholder="Select priority" />
                         </SelectTrigger>
                       </FormControl>
@@ -382,7 +382,7 @@ function TicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () => vo
   if (!ticket) {
     return (
       <div className="space-y-4">
-        <Button variant="ghost" size="icon" onClick={onBack} data-testid="button-back-to-list">
+        <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to ticket list" data-testid="button-back-to-list">
           <ArrowLeft />
         </Button>
         <p className="text-muted-foreground">Ticket not found.</p>
@@ -393,7 +393,7 @@ function TicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () => vo
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={onBack} data-testid="button-back-to-list">
+        <Button variant="ghost" size="icon" onClick={onBack} aria-label="Back to ticket list" data-testid="button-back-to-list">
           <ArrowLeft />
         </Button>
         <div className="min-w-0 flex-1">
@@ -489,6 +489,7 @@ function TicketDetail({ ticketId, onBack }: { ticketId: string; onBack: () => vo
             size="icon"
             disabled={!replyText.trim() || sendReply.isPending}
             onClick={() => sendReply.mutate(replyText.trim())}
+            aria-label="Send reply"
             data-testid="button-send-reply"
           >
             {sendReply.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send />}

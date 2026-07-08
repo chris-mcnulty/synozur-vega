@@ -188,6 +188,7 @@ function MentionComposer({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search teammates…"
+              aria-label="Search teammates"
               className="flex h-8 w-full rounded-md border border-input bg-background px-2 py-1 text-sm mb-2"
               data-testid={`${testIdPrefix}-mention-search`}
             />
@@ -335,6 +336,7 @@ function CommentItem(props: CommentItemProps) {
                   onClick={() => onReply(c.id)}
                   data-testid={`button-reply-comment-${c.id}`}
                   title="Reply"
+                  aria-label="Reply"
                 >
                   <Reply className="h-3 w-3" />
                 </Button>
@@ -347,6 +349,7 @@ function CommentItem(props: CommentItemProps) {
                   onClick={() => onEdit(c)}
                   data-testid={`button-edit-comment-${c.id}`}
                   title="Edit (within 15 min)"
+                  aria-label="Edit comment"
                 >
                   <Pencil className="h-3 w-3" />
                 </Button>
@@ -359,6 +362,7 @@ function CommentItem(props: CommentItemProps) {
                   onClick={() => onDelete(c)}
                   data-testid={`button-delete-comment-${c.id}`}
                   title="Delete"
+                  aria-label="Delete comment"
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>

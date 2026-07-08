@@ -229,11 +229,11 @@ export function EmbedDialog({ open, onClose, entityType, entityId, entityTitle }
               <TabsContent value="url" className="space-y-1 pt-2">
                 <div className="flex gap-2">
                   <Input value={embedUrl ?? ""} readOnly className="font-mono text-xs" data-testid="text-embed-url" />
-                  <Button size="icon" variant="outline" onClick={() => copy(embedUrl ?? "", "url")} data-testid="button-copy-embed-url">
+                  <Button size="icon" variant="outline" onClick={() => copy(embedUrl ?? "", "url")} data-testid="button-copy-embed-url" aria-label="Copy embed URL">
                     {copiedField === "url" ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                   </Button>
                   <Button size="icon" variant="outline" asChild>
-                    <a href={issued.embedPath} target="_blank" rel="noopener noreferrer" data-testid="link-open-embed">
+                    <a href={issued.embedPath} target="_blank" rel="noopener noreferrer" data-testid="link-open-embed" aria-label="Open embed in new tab">
                       <ExternalLink className="h-4 w-4" />
                     </a>
                   </Button>
@@ -242,7 +242,7 @@ export function EmbedDialog({ open, onClose, entityType, entityId, entityTitle }
               <TabsContent value="iframe" className="space-y-1 pt-2">
                 <div className="flex gap-2">
                   <Input value={iframeSnippet ?? ""} readOnly className="font-mono text-xs" data-testid="text-embed-snippet" />
-                  <Button size="icon" variant="outline" onClick={() => copy(iframeSnippet ?? "", "snippet")} data-testid="button-copy-snippet">
+                  <Button size="icon" variant="outline" onClick={() => copy(iframeSnippet ?? "", "snippet")} data-testid="button-copy-snippet" aria-label="Copy iframe snippet">
                     {copiedField === "snippet" ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
                   </Button>
                 </div>
@@ -278,7 +278,7 @@ export function EmbedDialog({ open, onClose, entityType, entityId, entityTitle }
             <div className="space-y-2">
               <Label htmlFor="embed-expiry" className="text-sm">Expiry</Label>
               <Select value={expiresInHours} onValueChange={setExpiresInHours}>
-                <SelectTrigger id="embed-expiry" data-testid="select-embed-expiry">
+                <SelectTrigger id="embed-expiry" data-testid="select-embed-expiry" aria-label="Expiry">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -334,6 +334,7 @@ export function EmbedDialog({ open, onClose, entityType, entityId, entityTitle }
                         onClick={() => revokeMutation.mutate(t.id)}
                         disabled={revokeMutation.isPending}
                         data-testid={`button-revoke-embed-${t.id}`}
+                        aria-label="Revoke embed"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>

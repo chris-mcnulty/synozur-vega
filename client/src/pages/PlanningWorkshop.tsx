@@ -174,7 +174,7 @@ function InviteParticipantDialog({
           <div className="space-y-1">
             <Label>Role</Label>
             <Select value={role} onValueChange={(v) => setRole(v as any)}>
-              <SelectTrigger data-testid="select-invite-role"><SelectValue /></SelectTrigger>
+              <SelectTrigger aria-label="Role" data-testid="select-invite-role"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="participant">Participant</SelectItem>
                 <SelectItem value="facilitator">Facilitator</SelectItem>
@@ -635,7 +635,7 @@ function DraftCard({
         <div className="flex items-center gap-1 flex-shrink-0">
           <Badge variant="outline" className="text-[10px]"><ThumbsUp className="h-3 w-3 mr-1" />{candidate.voteCount}</Badge>
           {included ? (
-            <Button size="icon" variant="ghost" disabled={disabled} onClick={onRemove} data-testid={`button-exclude-${candidate.id}`}>
+            <Button size="icon" variant="ghost" aria-label="Exclude candidate" disabled={disabled} onClick={onRemove} data-testid={`button-exclude-${candidate.id}`}>
               <Trash2 className="h-4 w-4" />
             </Button>
           ) : (
@@ -652,7 +652,7 @@ function DraftCard({
             onValueChange={(v) => update({ level: v as WorkshopDraftEntry["level"] })}
             disabled={disabled}
           >
-            <SelectTrigger data-testid={`select-level-${candidate.id}`}><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label="Level" data-testid={`select-level-${candidate.id}`}><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="organization">Organization</SelectItem>
               <SelectItem value="team">Team</SelectItem>
@@ -665,6 +665,7 @@ function DraftCard({
               <Button
                 size="sm"
                 variant="outline"
+                aria-label="Add key result"
                 disabled={disabled}
                 onClick={() => update({
                   keyResults: [
@@ -700,7 +701,7 @@ function DraftCard({
                       update({ keyResults: next });
                     }}
                   >
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger aria-label="Metric type"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="increase">↑</SelectItem>
                       <SelectItem value="decrease">↓</SelectItem>
@@ -875,7 +876,7 @@ export function CreateWorkshopDialog({
             <div className="space-y-1">
               <Label>Period</Label>
               <Select value={String(quarter)} onValueChange={(v) => setQuarter(Number(v))}>
-                <SelectTrigger data-testid="select-workshop-quarter"><SelectValue /></SelectTrigger>
+                <SelectTrigger aria-label="Period" data-testid="select-workshop-quarter"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="0">Annual</SelectItem>
                   <SelectItem value="1">Q1</SelectItem>

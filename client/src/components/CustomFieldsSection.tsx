@@ -113,7 +113,7 @@ export function CustomFieldsSection({ entityType, values, onChange, initialValue
                   value={v || "__unset"}
                   onValueChange={(val) => setVal(def.key, val === "__unset" ? null : val)}
                 >
-                  <SelectTrigger id={testId} data-testid={`select-${testId}`}>
+                  <SelectTrigger id={testId} data-testid={`select-${testId}`} aria-label={def.label}>
                     <SelectValue placeholder="Select..." />
                   </SelectTrigger>
                   <SelectContent>

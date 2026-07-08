@@ -117,7 +117,7 @@ export function UnifiedDateSelector({
           onValueChange={(v) => handleTypeChange(v as PeriodType)}
           disabled={disabled}
         >
-          <SelectTrigger className={cn("w-[120px]", compact && "h-8")}>
+          <SelectTrigger className={cn("w-[120px]", compact && "h-8")} aria-label="Period type">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -135,7 +135,7 @@ export function UnifiedDateSelector({
         onValueChange={handlePeriodChange}
         disabled={disabled}
       >
-        <SelectTrigger className={cn("min-w-[160px]", compact && "h-8")} data-testid="select-period-value">
+        <SelectTrigger className={cn("min-w-[160px]", compact && "h-8")} data-testid="select-period-value" aria-label="Period">
           <div className="flex items-center gap-2">
             <Icon className="h-4 w-4 text-muted-foreground" />
             <SelectValue placeholder={`Select ${TYPE_LABELS[selectedType].toLowerCase()}`} />
@@ -198,6 +198,7 @@ export function MultiDateSelector({
             className="h-4 w-4 p-0 hover:bg-transparent"
             onClick={() => handleRemovePeriod(period.id)}
             data-testid={`remove-period-${period.id}`}
+            aria-label="Remove period"
           >
             <X className="h-3 w-3" />
           </Button>
@@ -227,7 +228,7 @@ export function MultiDateSelector({
                 value={addingType}
                 onValueChange={(v) => setAddingType(v as PeriodType)}
               >
-                <SelectTrigger className="h-8">
+                <SelectTrigger className="h-8" aria-label="Comparison period type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -240,7 +241,7 @@ export function MultiDateSelector({
               </Select>
               
               <Select onValueChange={handleAddPeriod}>
-                <SelectTrigger className="h-8">
+                <SelectTrigger className="h-8" aria-label="Comparison period">
                   <SelectValue placeholder={`Select ${addingType}`} />
                 </SelectTrigger>
                 <SelectContent>

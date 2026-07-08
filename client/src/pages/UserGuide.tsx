@@ -273,6 +273,7 @@ export default function UserGuide() {
           className="fixed bottom-6 right-6 shadow-lg"
           onClick={scrollToTop}
           data-testid="button-scroll-top"
+          aria-label="Scroll to top"
         >
           <ChevronUp className="h-5 w-5" />
         </Button>

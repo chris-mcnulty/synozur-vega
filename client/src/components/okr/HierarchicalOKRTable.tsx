@@ -465,6 +465,7 @@ function ObjectiveRow({
                   e.stopPropagation();
                   onToggleExpand(objective.id);
                 }}
+                aria-label={isExpanded ? "Collapse objective" : "Expand objective"}
                 data-testid={`button-expand-${objective.id}`}
               >
                 {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -671,6 +672,7 @@ function ObjectiveRow({
                   className="h-7 w-7"
                   onClick={() => onCheckInObjective?.(objective)}
                   title="Check-in"
+                  aria-label="Check-in"
                   data-testid={`button-checkin-objective-${objective.id}`}
                 >
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -681,6 +683,7 @@ function ObjectiveRow({
                   className="h-7 w-7"
                   onClick={() => onAddKeyResult?.(objective.id)}
                   title="Add Key Result"
+                  aria-label="Add Key Result"
                   data-testid={`button-add-kr-${objective.id}`}
                 >
                   <Plus className="h-4 w-4" />
@@ -693,6 +696,7 @@ function ObjectiveRow({
                   size="icon"
                   variant="ghost"
                   className="h-7 w-7"
+                  aria-label="Objective actions menu"
                   data-testid={`button-menu-objective-${objective.id}`}
                 >
                   <MoreHorizontal className="h-4 w-4" />
@@ -1084,6 +1088,7 @@ function KeyResultRow({
               className="h-7 w-7"
               onClick={() => onCheckInKeyResult?.(keyResult)}
               title="Check-in"
+              aria-label="Check-in"
               data-testid={`button-checkin-kr-${keyResult.id}`}
             >
               <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -1095,6 +1100,7 @@ function KeyResultRow({
                 size="icon"
                 variant="ghost"
                 className="h-7 w-7"
+                aria-label="Key result actions menu"
                 data-testid={`button-menu-kr-${keyResult.id}`}
               >
                 <MoreHorizontal className="h-4 w-4" />

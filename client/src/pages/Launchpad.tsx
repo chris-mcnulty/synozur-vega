@@ -365,7 +365,7 @@ export default function Launchpad() {
                 <div>
                   <Label htmlFor="target-year">Target Year</Label>
                   <Select value={targetYear.toString()} onValueChange={(v) => setTargetYear(parseInt(v))}>
-                    <SelectTrigger id="target-year" data-testid="select-target-year">
+                    <SelectTrigger id="target-year" data-testid="select-target-year" aria-label="Target Year">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -378,7 +378,7 @@ export default function Launchpad() {
                 <div>
                   <Label htmlFor="target-quarter">OKR Quarter (optional)</Label>
                   <Select value={targetQuarter} onValueChange={setTargetQuarter}>
-                    <SelectTrigger id="target-quarter" data-testid="select-target-quarter">
+                    <SelectTrigger id="target-quarter" data-testid="select-target-quarter" aria-label="OKR Quarter">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -640,6 +640,7 @@ export default function Launchpad() {
                                 setEditedProposal({ ...editedProposal, values: newValues });
                               }}
                               data-testid={`button-remove-value-${idx}`}
+                              aria-label="Remove value"
                             >
                               <X className="h-4 w-4" />
                             </Button>
@@ -713,6 +714,7 @@ export default function Launchpad() {
                           setEditedProposal({ ...editedProposal, ambitions: newAmbitions });
                         }}
                         data-testid={`button-remove-ambition-${idx}`}
+                        aria-label="Remove ambition"
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -795,6 +797,7 @@ export default function Launchpad() {
                           setEditedProposal({ ...editedProposal, goals: newGoals });
                         }}
                         data-testid={`button-remove-goal-${idx}`}
+                        aria-label="Remove goal"
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -877,6 +880,7 @@ export default function Launchpad() {
                           setEditedProposal({ ...editedProposal, strategies: newStrategies });
                         }}
                         data-testid={`button-remove-strategy-${idx}`}
+                        aria-label="Remove strategy"
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -960,6 +964,7 @@ export default function Launchpad() {
                           setEditedProposal({ ...editedProposal, objectives: newObjectives });
                         }}
                         data-testid={`button-remove-objective-${idx}`}
+                        aria-label="Remove objective"
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -1060,6 +1065,7 @@ export default function Launchpad() {
                           setEditedProposal({ ...editedProposal, bigRocks: newBigRocks });
                         }}
                         data-testid={`button-remove-bigrock-${idx}`}
+                        aria-label="Remove big rock"
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -1130,7 +1136,7 @@ export default function Launchpad() {
               </DialogHeader>
               <div className="py-4">
                 <Select value={bigRockQuarter} onValueChange={setBigRockQuarter}>
-                  <SelectTrigger data-testid="select-big-rock-quarter">
+                  <SelectTrigger data-testid="select-big-rock-quarter" aria-label="Big Rock quarter">
                     <SelectValue placeholder="Select quarter" />
                   </SelectTrigger>
                   <SelectContent>

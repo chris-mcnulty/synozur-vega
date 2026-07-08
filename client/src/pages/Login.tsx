@@ -366,6 +366,7 @@ export default function Login() {
                   size="icon"
                   className="h-8 w-8 -mt-1 -mr-2"
                   onClick={() => setAdminConsentError(null)}
+                  aria-label="Dismiss"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -425,6 +426,7 @@ export default function Login() {
                   className="h-8 w-8 -mt-1 -mr-2"
                   onClick={() => setInviteOnlyError(null)}
                   data-testid="button-dismiss-invite-error"
+                  aria-label="Dismiss"
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -572,6 +574,7 @@ export default function Login() {
                             onClick={() => setShowLoginPassword(!showLoginPassword)}
                             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                             data-testid="button-toggle-login-password"
+                            aria-label={showLoginPassword ? "Hide password" : "Show password"}
                           >
                             {showLoginPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                           </button>
@@ -633,6 +636,7 @@ export default function Login() {
                         onClick={() => setShowSignupPassword(!showSignupPassword)}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                         data-testid="button-toggle-signup-password"
+                        aria-label={showSignupPassword ? "Hide password" : "Show password"}
                       >
                         {showSignupPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                       </button>
@@ -641,7 +645,7 @@ export default function Login() {
                   <div className="space-y-2">
                     <Label htmlFor="signup-org-size">Organization Size</Label>
                     <Select value={signupOrgSize} onValueChange={setSignupOrgSize}>
-                      <SelectTrigger id="signup-org-size" data-testid="select-signup-org-size">
+                      <SelectTrigger id="signup-org-size" data-testid="select-signup-org-size" aria-label="Organization Size">
                         <SelectValue placeholder="Select size" />
                       </SelectTrigger>
                       <SelectContent>
@@ -656,7 +660,7 @@ export default function Login() {
                   <div className="space-y-2">
                     <Label htmlFor="signup-industry">Industry</Label>
                     <Select value={signupIndustry} onValueChange={setSignupIndustry}>
-                      <SelectTrigger id="signup-industry" data-testid="select-signup-industry">
+                      <SelectTrigger id="signup-industry" data-testid="select-signup-industry" aria-label="Industry">
                         <SelectValue placeholder="Select industry" />
                       </SelectTrigger>
                       <SelectContent>
@@ -671,7 +675,7 @@ export default function Login() {
                   <div className="space-y-2">
                     <Label htmlFor="signup-location">Location</Label>
                     <Select value={signupLocation} onValueChange={setSignupLocation}>
-                      <SelectTrigger id="signup-location" data-testid="select-signup-location">
+                      <SelectTrigger id="signup-location" data-testid="select-signup-location" aria-label="Location">
                         <SelectValue placeholder="Select region" />
                       </SelectTrigger>
                       <SelectContent>

@@ -177,6 +177,7 @@ export function OKRTreeView({
                 size="sm"
                 className="h-6 w-6 p-0"
                 onClick={() => toggleNode(objective.id)}
+                aria-label={isExpanded ? "Collapse objective" : "Expand objective"}
                 data-testid={`button-expand-${objective.id}`}
               >
                 {hasChildren ? (
@@ -252,6 +253,7 @@ export function OKRTreeView({
                           variant="ghost"
                           size="icon"
                           onClick={() => onCreateKeyResult(objective.id)}
+                          aria-label="Add Key Result"
                           data-testid={`button-add-kr-quick-${objective.id}`}
                         >
                           <Plus className="h-4 w-4" />
@@ -266,6 +268,7 @@ export function OKRTreeView({
                     variant="ghost"
                     size="icon"
                     onClick={() => onCheckIn("objective", objective.id)}
+                    aria-label="Check in"
                     data-testid={`button-checkin-${objective.id}`}
                   >
                     <Leaf className="h-4 w-4 text-teal-500" />
@@ -276,6 +279,7 @@ export function OKRTreeView({
                     variant="ghost"
                     size="icon"
                     onClick={() => onEditObjective(objective)}
+                    aria-label="Edit objective"
                     data-testid={`button-edit-${objective.id}`}
                   >
                     <Edit2 className="h-4 w-4" />
@@ -286,6 +290,7 @@ export function OKRTreeView({
                     variant="ghost"
                     size="icon"
                     onClick={() => onDeleteObjective(objective.id)}
+                    aria-label="Delete objective"
                     data-testid={`button-delete-${objective.id}`}
                   >
                     <Trash2 className="h-4 w-4" />
@@ -424,6 +429,7 @@ export function OKRTreeView({
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => onCheckIn("key_result", kr.id)}
+                                aria-label="Check in"
                                 data-testid={`button-checkin-kr-${kr.id}`}
                               >
                                 <Leaf className="h-3 w-3 text-teal-500" />
@@ -434,6 +440,7 @@ export function OKRTreeView({
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => onViewHistory("key_result", kr)}
+                                aria-label="View key result history"
                                 data-testid={`button-history-kr-${kr.id}`}
                               >
                                 <History className="h-3 w-3" />
@@ -444,6 +451,7 @@ export function OKRTreeView({
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => onEditKeyResult(kr, objective.id)}
+                                aria-label="Edit key result"
                                 data-testid={`button-edit-kr-${kr.id}`}
                               >
                                 <Edit2 className="h-3 w-3" />
@@ -454,6 +462,7 @@ export function OKRTreeView({
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => onDeleteKeyResult(kr.id, objective.id)}
+                                aria-label="Delete key result"
                                 data-testid={`button-delete-kr-${kr.id}`}
                               >
                                 <Trash2 className="h-3 w-3" />
@@ -511,6 +520,7 @@ export function OKRTreeView({
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => onCheckIn("big_rock", rock.id)}
+                                aria-label="Check in"
                                 data-testid={`button-checkin-bigrock-${rock.id}`}
                               >
                                 <Leaf className="h-3 w-3 text-teal-500" />
@@ -521,6 +531,7 @@ export function OKRTreeView({
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => onEditBigRock(rock)}
+                                aria-label="Edit big rock"
                                 data-testid={`button-edit-bigrock-${rock.id}`}
                               >
                                 <Edit2 className="h-3 w-3" />
@@ -531,6 +542,7 @@ export function OKRTreeView({
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => onDeleteBigRock(rock.id)}
+                                aria-label="Delete big rock"
                                 data-testid={`button-delete-bigrock-${rock.id}`}
                               >
                                 <Trash2 className="h-3 w-3" />

@@ -421,6 +421,7 @@ export function WebhookTokensPanel({ keyResultId }: WebhookTokensPanelProps) {
                                 }
                               }}
                               disabled={revokeMutation.isPending}
+                              aria-label="Revoke token"
                               data-testid={`button-revoke-token-${t.id}`}
                             >
                               <Trash2 className="h-3 w-3" />
@@ -515,7 +516,7 @@ export function WebhookTokensPanel({ keyResultId }: WebhookTokensPanelProps) {
                 <Label className="text-xs">Webhook URL</Label>
                 <div className="flex gap-2 mt-1">
                   <Input readOnly value={issued.url} className="font-mono text-xs" data-testid="text-issued-url" />
-                  <Button size="icon" variant="outline" onClick={() => copy(issued.url, "URL")}>
+                  <Button size="icon" variant="outline" aria-label="Copy URL" onClick={() => copy(issued.url, "URL")}>
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>
@@ -529,7 +530,7 @@ export function WebhookTokensPanel({ keyResultId }: WebhookTokensPanelProps) {
                     className="font-mono text-xs"
                     data-testid="text-issued-secret"
                   />
-                  <Button size="icon" variant="outline" onClick={() => copy(issued.secret, "Secret")}>
+                  <Button size="icon" variant="outline" aria-label="Copy secret" onClick={() => copy(issued.secret, "Secret")}>
                     <Copy className="h-4 w-4" />
                   </Button>
                 </div>

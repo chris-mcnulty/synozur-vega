@@ -191,7 +191,7 @@ export function ScheduleToOutlookDialog({ open, onOpenChange, meeting, onConfirm
           <div className="flex items-center gap-3">
             <Label htmlFor="duration-select" className="shrink-0">Duration</Label>
             <Select value={String(durationMinutes)} onValueChange={(v) => handleDurationChange(Number(v))}>
-              <SelectTrigger id="duration-select" className="w-40" data-testid="select-duration">
+              <SelectTrigger id="duration-select" className="w-40" data-testid="select-duration" aria-label="Duration">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

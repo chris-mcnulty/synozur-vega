@@ -177,7 +177,7 @@ export function AIUsageWidget() {
           </CardTitle>
           <div className="flex items-center gap-2">
             <Select value={periodType} onValueChange={(v) => setPeriodType(v as "daily" | "monthly")}>
-              <SelectTrigger className="w-28 h-8" data-testid="select-period-type">
+              <SelectTrigger className="w-28 h-8" data-testid="select-period-type" aria-label="Usage period">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -190,6 +190,7 @@ export function AIUsageWidget() {
               size="icon"
               onClick={() => refetch()}
               data-testid="button-refresh-usage"
+              aria-label="Refresh usage"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
@@ -399,7 +400,7 @@ export function PlatformAIUsageWidget() {
           </CardTitle>
           <div className="flex items-center gap-2">
             <Select value={periodType} onValueChange={(v) => setPeriodType(v as "daily" | "monthly")}>
-              <SelectTrigger className="w-28 h-8" data-testid="select-platform-period-type">
+              <SelectTrigger className="w-28 h-8" data-testid="select-platform-period-type" aria-label="Usage period">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -412,6 +413,7 @@ export function PlatformAIUsageWidget() {
               size="icon"
               onClick={() => refetch()}
               data-testid="button-refresh-platform-usage"
+              aria-label="Refresh platform usage"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>
@@ -639,7 +641,7 @@ export function ModelComparisonWidget() {
           </div>
           <div className="flex items-center gap-2">
             <Select value={days} onValueChange={setDays}>
-              <SelectTrigger className="w-32 h-8" data-testid="select-comparison-days">
+              <SelectTrigger className="w-32 h-8" data-testid="select-comparison-days" aria-label="Comparison range">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -655,6 +657,7 @@ export function ModelComparisonWidget() {
               size="icon"
               onClick={() => refetch()}
               data-testid="button-refresh-comparison"
+              aria-label="Refresh comparison"
             >
               <RefreshCw className="h-4 w-4" />
             </Button>

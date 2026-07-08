@@ -162,7 +162,7 @@ function JobRow({ job, onRun, onPause, onResume, onEdit, isRunning, canControlJo
       <TableRow className="hover-elevate">
         <TableCell>
           <CollapsibleTrigger asChild>
-            <Button variant="ghost" size="sm" className="p-0 h-auto" data-testid={`toggle-job-${job.name}`}>
+            <Button variant="ghost" size="sm" className="p-0 h-auto" data-testid={`toggle-job-${job.name}`} aria-label="Toggle run history">
               {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
             </Button>
           </CollapsibleTrigger>
@@ -191,6 +191,7 @@ function JobRow({ job, onRun, onPause, onResume, onEdit, isRunning, canControlJo
                   size="icon"
                   onClick={onEdit}
                   title="Edit schedule"
+                  aria-label="Edit schedule"
                   data-testid={`edit-job-${job.name}`}
                 >
                   <Settings2 className="h-4 w-4" />
@@ -203,6 +204,7 @@ function JobRow({ job, onRun, onPause, onResume, onEdit, isRunning, canControlJo
                   onClick={onRun}
                   disabled={isRunning}
                   title="Run now"
+                  aria-label="Run now"
                   data-testid={`run-job-${job.name}`}
                 >
                   {isRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4" />}
@@ -214,6 +216,7 @@ function JobRow({ job, onRun, onPause, onResume, onEdit, isRunning, canControlJo
                   size="icon"
                   onClick={onPause}
                   title="Pause"
+                  aria-label="Pause"
                   data-testid={`pause-job-${job.name}`}
                 >
                   <Pause className="h-4 w-4" />
@@ -224,6 +227,7 @@ function JobRow({ job, onRun, onPause, onResume, onEdit, isRunning, canControlJo
                   size="icon"
                   onClick={onResume}
                   title="Resume"
+                  aria-label="Resume"
                   data-testid={`resume-job-${job.name}`}
                 >
                   <RefreshCw className="h-4 w-4" />
@@ -632,6 +636,7 @@ export function ScheduledJobsManager() {
                               onClick={() => handleKillRun(run)}
                               disabled={killingRunId === run.id}
                               title="Kill stuck run"
+                              aria-label="Kill stuck run"
                               className="text-red-600 hover:text-red-700 hover:bg-red-100"
                               data-testid={`kill-run-${run.id}`}
                             >
@@ -673,7 +678,7 @@ export function ScheduledJobsManager() {
             <div className="space-y-2">
               <Label htmlFor="schedule">Schedule Frequency</Label>
               <Select value={selectedSchedule} onValueChange={setSelectedSchedule}>
-                <SelectTrigger id="schedule" data-testid="select-schedule">
+                <SelectTrigger id="schedule" data-testid="select-schedule" aria-label="Schedule Frequency">
                   <SelectValue placeholder="Select a schedule" />
                 </SelectTrigger>
                 <SelectContent>

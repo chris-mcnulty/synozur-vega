@@ -372,6 +372,7 @@ function OKRLinkingModal({
           <input
             className="w-full rounded-md border bg-background pl-9 pr-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             placeholder="Search by title, owner, or parent…"
+            aria-label="Search by title, owner, or parent"
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
             data-testid="input-okr-search"
@@ -688,10 +689,11 @@ function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResu
           </div>
           <div className="flex gap-1">
             <Link href={`/focus-rhythm/${meeting.id}`}>
-              <Button 
-                variant="ghost" 
+              <Button
+                variant="ghost"
                 size="icon"
                 title="Open meeting dashboard"
+                aria-label="Open meeting dashboard"
                 data-testid={`button-open-meeting-${meeting.id}`}
               >
                 <ExternalLink className="w-4 h-4" />
@@ -701,6 +703,7 @@ function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResu
               variant="ghost"
               size="icon"
               title={outlookConnected ? "Schedule in Outlook" : "Connect Outlook in Settings to schedule"}
+              aria-label="Schedule in Outlook"
               data-testid={`button-schedule-outlook-${meeting.id}`}
               onClick={() => {
                 if (outlookConnected) {
@@ -721,6 +724,7 @@ function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResu
               size="icon"
               onClick={() => onCopyBrief(meeting)}
               title="Copy meeting brief"
+              aria-label="Copy meeting brief"
               data-testid={`button-copy-brief-${meeting.id}`}
             >
               <Copy className="w-4 h-4" />
@@ -729,6 +733,7 @@ function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResu
               variant="ghost" 
               size="icon"
               onClick={() => onEdit(meeting)}
+              aria-label="Edit meeting"
               data-testid={`button-edit-meeting-${meeting.id}`}
             >
               <Pencil className="w-4 h-4" />
@@ -738,6 +743,7 @@ function MeetingCard({ meeting, onEdit, onDelete, canDelete, objectives, keyResu
                 variant="ghost" 
                 size="icon"
                 onClick={() => onDelete(meeting)}
+                aria-label="Delete meeting"
                 data-testid={`button-delete-meeting-${meeting.id}`}
               >
                 <Trash2 className="w-4 h-4" />
@@ -1944,7 +1950,7 @@ export default function FocusRhythm() {
               value={formData.meetingType}
               onValueChange={(value) => setFormData({ ...formData, meetingType: value })}
             >
-              <SelectTrigger data-testid="select-meeting-type">
+              <SelectTrigger data-testid="select-meeting-type" aria-label="Meeting Type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1995,7 +2001,7 @@ export default function FocusRhythm() {
                   value={formData.recurrencePattern}
                   onValueChange={(value) => setFormData({ ...formData, recurrencePattern: value })}
                 >
-                  <SelectTrigger data-testid="select-recurrence-pattern">
+                  <SelectTrigger data-testid="select-recurrence-pattern" aria-label="Recurrence Pattern">
                     <SelectValue placeholder="Select pattern" />
                   </SelectTrigger>
                   <SelectContent>
@@ -2197,11 +2203,12 @@ export default function FocusRhythm() {
                       </span>
                       <div className="h-px bg-border flex-1" />
                     </div>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       className="h-6 w-6 opacity-0 group-hover:opacity-100"
                       onClick={() => removeListItem('agenda', index)}
+                      aria-label="Remove agenda item"
                     >
                       <X className="w-3 h-3" />
                     </Button>
@@ -2219,11 +2226,12 @@ export default function FocusRhythm() {
                   <span className={`flex-1 text-sm ${isOkrItem ? 'text-primary font-medium' : ''}`}>
                     {displayText}
                   </span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     className="h-6 w-6 opacity-0 group-hover:opacity-100"
                     onClick={() => removeListItem('agenda', index)}
+                    aria-label="Remove agenda item"
                   >
                     <X className="w-3 h-3" />
                   </Button>
@@ -2725,6 +2733,7 @@ export default function FocusRhythm() {
                                     size="icon"
                                     className="h-7 w-7"
                                     title={outlookStatus?.connected ? "Schedule in Outlook" : "Connect Outlook in Settings to schedule"}
+                                    aria-label="Schedule in Outlook"
                                     onClick={() => {
                                       setSelectedMeeting(meeting);
                                       if (outlookStatus?.connected) {
@@ -2736,11 +2745,11 @@ export default function FocusRhythm() {
                                   >
                                     <CalendarCheck className={`h-3.5 w-3.5 ${!outlookStatus?.connected ? "opacity-40" : ""}`} />
                                   </Button>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit meeting" onClick={() => openEditDialog(meeting)}>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7" title="Edit meeting" aria-label="Edit meeting" onClick={() => openEditDialog(meeting)}>
                                     <Pencil className="h-3 w-3" />
                                   </Button>
                                   {canDeleteMeeting && (
-                                    <Button variant="ghost" size="icon" className="h-7 w-7" title="Delete meeting" onClick={() => openDeleteDialog(meeting)}>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" title="Delete meeting" aria-label="Delete meeting" onClick={() => openDeleteDialog(meeting)}>
                                       <Trash2 className="h-3 w-3" />
                                     </Button>
                                   )}

@@ -135,6 +135,7 @@ export function ImageUpload({
           onClick={() => fileInputRef.current?.click()}
           disabled={isUploading}
           data-testid={`${testId}-button`}
+          aria-label="Upload image"
         >
           {isUploading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -150,6 +151,7 @@ export function ImageUpload({
             onClick={handleClear}
             disabled={isUploading}
             data-testid={`${testId}-clear`}
+            aria-label="Remove image"
           >
             <X className="h-4 w-4" />
           </Button>

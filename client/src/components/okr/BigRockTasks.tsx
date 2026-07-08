@@ -183,6 +183,7 @@ function InlineDatePicker({
       <PopoverTrigger asChild>
         <button
           className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors rounded px-1 -mx-1 hover:bg-muted/50"
+          aria-label="Set due date"
           data-testid="button-inline-date"
         >
           {value ? (
@@ -218,6 +219,7 @@ function InlineDatePicker({
               variant="ghost"
               onClick={() => { onClear(); setOpen(false); }}
               className="h-8 w-8 text-muted-foreground"
+              aria-label="Clear date"
               data-testid="button-clear-date"
             >
               <X className="w-3 h-3" />
@@ -455,6 +457,7 @@ export function BigRockTasks({ bigRockId, canModify, plannerMapped, plannerPlanI
                     disabled={!taskCanBeUpdated || updateMutation.isPending}
                     className="mt-0.5 flex-shrink-0 h-6 w-6"
                     title={`Status: ${status.label}. Click to change.`}
+                    aria-label={`Status: ${status.label}. Click to change.`}
                     data-testid={`button-toggle-status-${task.id}`}
                   >
                     <StatusIcon className={`w-4 h-4 ${status.color}`} />
@@ -498,6 +501,7 @@ export function BigRockTasks({ bigRockId, canModify, plannerMapped, plannerPlanI
                             onClick={() => pushSingleTaskMutation.mutate(task.id)}
                             disabled={pushSingleTaskMutation.isPending}
                             title="Push to Planner"
+                            aria-label="Push to Planner"
                             data-testid={`button-push-task-${task.id}`}
                           >
                             <ArrowUpFromLine className="w-3 h-3" />
@@ -509,6 +513,7 @@ export function BigRockTasks({ bigRockId, canModify, plannerMapped, plannerPlanI
                             variant="ghost"
                             className="text-destructive"
                             onClick={() => { setSelectedTask(task); setDeleteDialogOpen(true); }}
+                            aria-label="Delete task"
                             data-testid={`button-delete-task-${task.id}`}
                           >
                             <Trash2 className="w-3 h-3" />

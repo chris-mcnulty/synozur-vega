@@ -150,6 +150,7 @@ export function SavedViewBar({ page, controller, currentUserId, isAdmin }: Saved
                   className="h-5 w-5"
                   onClick={() => handleSetDefault(v)}
                   data-testid={`button-toggle-default-${v.id}`}
+                  aria-label={v.isDefault ? "Remove default" : "Make default"}
                 >
                   {v.isDefault ? <StarOff className="h-3 w-3" /> : <Star className="h-3 w-3" />}
                 </Button>
@@ -165,6 +166,7 @@ export function SavedViewBar({ page, controller, currentUserId, isAdmin }: Saved
                   className="h-5 w-5"
                   onClick={() => handleDelete(v)}
                   data-testid={`button-delete-view-${v.id}`}
+                  aria-label="Delete view"
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>

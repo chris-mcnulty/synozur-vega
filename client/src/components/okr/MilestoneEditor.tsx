@@ -239,7 +239,7 @@ export function MilestoneEditor({
           <div className="flex items-center gap-4">
             <Label htmlFor="interval" className="whitespace-nowrap">Interval:</Label>
             <Select value={interval} onValueChange={(v) => setInterval(v as any)}>
-              <SelectTrigger id="interval" className="w-40" data-testid="select-milestone-interval">
+              <SelectTrigger id="interval" className="w-40" aria-label="Interval" data-testid="select-milestone-interval">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -309,6 +309,7 @@ export function MilestoneEditor({
                         size="icon"
                         onClick={() => handleRemoveMilestone(index)}
                         className="opacity-0 group-hover:opacity-100 transition-opacity"
+                        aria-label="Remove milestone"
                         data-testid={`button-remove-milestone-${index}`}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />

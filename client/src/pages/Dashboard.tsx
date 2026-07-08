@@ -273,7 +273,7 @@ export default function Dashboard() {
             }
           />
           <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-            <SelectTrigger className="w-44" data-testid="select-team">
+            <SelectTrigger className="w-44" aria-label="Team" data-testid="select-team">
               <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
               <SelectValue placeholder="All Teams" />
             </SelectTrigger>

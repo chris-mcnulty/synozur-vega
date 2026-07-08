@@ -138,7 +138,7 @@ function SharePointSiteSelector({
             value={selectedSiteId || ''} 
             onValueChange={onSiteSelect}
           >
-            <SelectTrigger data-testid="select-sharepoint-site">
+            <SelectTrigger data-testid="select-sharepoint-site" aria-label="SharePoint site">
               <SelectValue placeholder={sitesLoading ? 'Loading sites...' : 'Choose a site'} />
             </SelectTrigger>
             <SelectContent>
@@ -852,7 +852,7 @@ export function ExcelFilePicker({
                         setFolderStack([]);
                       }}
                     >
-                      <SelectTrigger data-testid="select-drive" className="w-full">
+                      <SelectTrigger data-testid="select-drive" className="w-full" aria-label="Document Library">
                         <SelectValue placeholder={siteDrivesLoading ? "Loading document libraries..." : "Select a document library"} />
                       </SelectTrigger>
                       <SelectContent>
@@ -1005,7 +1005,7 @@ export function ExcelFilePicker({
                   onValueChange={setSelectedSheet}
                   disabled={worksheetsLoading}
                 >
-                  <SelectTrigger id="worksheet" data-testid="select-worksheet">
+                  <SelectTrigger id="worksheet" data-testid="select-worksheet" aria-label="Worksheet">
                     <SelectValue placeholder={worksheetsLoading ? 'Loading...' : 'Select worksheet'} />
                   </SelectTrigger>
                   <SelectContent>
@@ -1035,6 +1035,7 @@ export function ExcelFilePicker({
                     onClick={previewCellValue}
                     disabled={previewLoading || !selectedSheet}
                     data-testid="button-preview-cell"
+                    aria-label="Preview cell value"
                   >
                     {previewLoading ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

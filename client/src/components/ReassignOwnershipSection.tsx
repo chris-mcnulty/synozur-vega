@@ -368,7 +368,7 @@ export function ReassignOwnershipSection({ users, selectedTenantId }: Props) {
                 onValueChange={setFromUserId}
                 disabled={!selectedTenantId || reassignMutation.isPending}
               >
-                <SelectTrigger id="select-from-user" data-testid="select-from-user">
+                <SelectTrigger id="select-from-user" aria-label="From user" data-testid="select-from-user">
                   <SelectValue placeholder="Select source user" />
                 </SelectTrigger>
                 <SelectContent>
@@ -397,7 +397,7 @@ export function ReassignOwnershipSection({ users, selectedTenantId }: Props) {
                 onValueChange={setToUserId}
                 disabled={!selectedTenantId || reassignMutation.isPending}
               >
-                <SelectTrigger id="select-to-user" data-testid="select-to-user">
+                <SelectTrigger id="select-to-user" aria-label="To user" data-testid="select-to-user">
                   <SelectValue placeholder="Select destination user" />
                 </SelectTrigger>
                 <SelectContent>

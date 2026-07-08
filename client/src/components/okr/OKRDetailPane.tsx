@@ -525,6 +525,7 @@ export function OKRDetailPane({
                 variant="outline"
                 onClick={() => setEmbedOpen(true)}
                 title="Embed this item"
+                aria-label="Embed this item"
                 data-testid="button-detail-embed"
               >
                 <Code className="h-4 w-4" />
@@ -840,6 +841,7 @@ export function OKRDetailPane({
                                     onClick={() => handleEditCheckIn(checkIn)}
                                     data-testid={`button-edit-checkin-${checkIn.id}`}
                                     title="Edit check-in"
+                                    aria-label="Edit check-in"
                                   >
                                     <Edit2 className="h-3 w-3" />
                                   </Button>
@@ -852,6 +854,7 @@ export function OKRDetailPane({
                                     onClick={() => handleDeleteCheckIn(checkIn)}
                                     data-testid={`button-delete-checkin-${checkIn.id}`}
                                     title="Delete check-in"
+                                    aria-label="Delete check-in"
                                   >
                                     <Trash2 className="h-3 w-3" />
                                   </Button>

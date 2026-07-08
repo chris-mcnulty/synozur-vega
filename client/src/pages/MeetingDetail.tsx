@@ -1032,6 +1032,7 @@ export default function MeetingDetail() {
                       variant="ghost"
                       className="shrink-0 opacity-60 hover:opacity-100"
                       title="Check in this item"
+                      aria-label="Check in this item"
                       data-testid={`button-checkin-${queueItem.type}-${queueItem.id}`}
                       onClick={() => startSingleItemCheckIn(queueItem)}
                     >

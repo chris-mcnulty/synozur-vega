@@ -923,7 +923,7 @@ Status: ${checkInForm.newStatus}`;
         </div>
         <div className="flex gap-2 flex-wrap">
           <Select value={selectedTeamId || ''} onValueChange={setSelectedTeamId}>
-            <SelectTrigger className="w-48" data-testid="select-team">
+            <SelectTrigger className="w-48" aria-label="Team" data-testid="select-team">
               <Users className="h-4 w-4 mr-2 text-muted-foreground" />
               <SelectValue placeholder="Select Team" />
             </SelectTrigger>
@@ -1163,6 +1163,7 @@ Status: ${checkInForm.newStatus}`;
                             size="icon"
                             onClick={() => openCheckInDialog(kr)}
                             title="Check in"
+                            aria-label="Check in"
                             data-testid={`button-checkin-${kr.id}`}
                           >
                             <Edit3 className="h-4 w-4" />
@@ -1172,6 +1173,7 @@ Status: ${checkInForm.newStatus}`;
                             size="icon"
                             onClick={() => openHistoryDialog(kr)}
                             title="View history"
+                            aria-label="View history"
                             data-testid={`button-history-${kr.id}`}
                           >
                             <History className="h-4 w-4" />
@@ -1284,6 +1286,7 @@ Status: ${checkInForm.newStatus}`;
                           size="icon"
                           onClick={() => openBigRockCheckIn(rock)}
                           title="Check in"
+                          aria-label="Check in"
                           data-testid={`button-checkin-bigrock-${rock.id}`}
                         >
                           <Edit3 className="h-4 w-4" />
@@ -1293,6 +1296,7 @@ Status: ${checkInForm.newStatus}`;
                           size="icon"
                           onClick={() => openBigRockHistory(rock)}
                           title="View history"
+                          aria-label="View history"
                           data-testid={`button-history-bigrock-${rock.id}`}
                         >
                           <History className="h-4 w-4" />
@@ -1302,6 +1306,7 @@ Status: ${checkInForm.newStatus}`;
                           size="icon"
                           onClick={() => openBigRockEdit(rock)}
                           title="Edit"
+                          aria-label="Edit"
                           data-testid={`button-edit-bigrock-${rock.id}`}
                         >
                           <Pencil className="h-4 w-4" />
@@ -1311,6 +1316,7 @@ Status: ${checkInForm.newStatus}`;
                           size="icon"
                           onClick={() => openBigRockClone(rock)}
                           title="Clone to another period"
+                          aria-label="Clone to another period"
                           data-testid={`button-clone-bigrock-${rock.id}`}
                         >
                           <Copy className="h-4 w-4" />
@@ -1320,6 +1326,7 @@ Status: ${checkInForm.newStatus}`;
                           size="icon"
                           onClick={() => openBigRockDelete(rock)}
                           title="Delete"
+                          aria-label="Delete"
                           data-testid={`button-delete-bigrock-${rock.id}`}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -1430,7 +1437,7 @@ Status: ${checkInForm.newStatus}`;
                 value={checkInForm.newStatus}
                 onValueChange={(value) => setCheckInForm({ ...checkInForm, newStatus: value })}
               >
-                <SelectTrigger data-testid="select-checkin-status">
+                <SelectTrigger aria-label="Status" data-testid="select-checkin-status">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1452,7 +1459,7 @@ Status: ${checkInForm.newStatus}`;
                       setAiRewriteState(prev => ({ ...prev, mode: value }))
                     }
                   >
-                    <SelectTrigger className="w-[110px] h-7 text-xs" data-testid="select-rewrite-mode">
+                    <SelectTrigger className="w-[110px] h-7 text-xs" aria-label="AI rewrite mode" data-testid="select-rewrite-mode">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1734,7 +1741,7 @@ Status: ${checkInForm.newStatus}`;
                 value={bigRockCheckInForm.newStatus}
                 onValueChange={(value) => setBigRockCheckInForm(prev => ({ ...prev, newStatus: value }))}
               >
-                <SelectTrigger data-testid="select-bigrock-checkin-status">
+                <SelectTrigger aria-label="Status" data-testid="select-bigrock-checkin-status">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -1787,7 +1794,7 @@ Status: ${checkInForm.newStatus}`;
                       setBigRockAiRewriteState(prev => ({ ...prev, mode: value }))
                     }
                   >
-                    <SelectTrigger className="w-[130px] h-8 text-xs" data-testid="select-bigrock-rewrite-mode">
+                    <SelectTrigger className="w-[130px] h-8 text-xs" aria-label="AI rewrite mode" data-testid="select-bigrock-rewrite-mode">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -2007,7 +2014,7 @@ Status: ${checkInForm.newStatus}`;
                   value={bigRockEditForm.status}
                   onValueChange={(value) => setBigRockEditForm(prev => ({ ...prev, status: value }))}
                 >
-                  <SelectTrigger data-testid="select-bigrock-edit-status">
+                  <SelectTrigger aria-label="Status" data-testid="select-bigrock-edit-status">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

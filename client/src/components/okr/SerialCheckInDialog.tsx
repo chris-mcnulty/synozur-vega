@@ -714,7 +714,7 @@ export function SerialCheckInDialog({
                 setFormProgress(100);
               }
             }}>
-              <SelectTrigger>
+              <SelectTrigger aria-label="Status">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="z-[60]">
@@ -813,6 +813,7 @@ export function SerialCheckInDialog({
                         }
                         className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
                         title={`Status: ${currentStatus.replace("_", " ")} — click to advance`}
+                        aria-label={`Status: ${currentStatus.replace("_", " ")} — click to advance`}
                       >
                         {currentStatus === "completed" ? (
                           <CheckCircle className="w-5 h-5 text-green-500" />
@@ -868,7 +869,7 @@ export function SerialCheckInDialog({
                   value={aiRewriteMode}
                   onValueChange={(v: any) => setAiRewriteMode(v)}
                 >
-                  <SelectTrigger className="h-7 w-[130px] text-xs">
+                  <SelectTrigger className="h-7 w-[130px] text-xs" aria-label="AI rewrite mode">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="z-[60]">

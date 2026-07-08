@@ -268,6 +268,7 @@ function PlannerProgressMappingInner({
                   onClick={() => syncProgressMutation.mutate()}
                   disabled={syncProgressMutation.isPending}
                   data-testid="button-sync-planner-progress"
+                  aria-label="Sync Planner progress"
                 >
                   <RefreshCw className={`h-4 w-4 ${syncProgressMutation.isPending ? "animate-spin" : ""}`} />
                 </Button>
@@ -277,6 +278,7 @@ function PlannerProgressMappingInner({
                 size="icon"
                 onClick={() => setConfigDialogOpen(true)}
                 data-testid="button-configure-planner-mapping"
+                aria-label="Configure Planner mapping"
               >
                 <Settings2 className="h-4 w-4" />
               </Button>
@@ -403,7 +405,7 @@ function PlannerProgressMappingInner({
                     }
                   }}
                 >
-                  <SelectTrigger data-testid="select-planner-plan">
+                  <SelectTrigger data-testid="select-planner-plan" aria-label="Plan">
                     <SelectValue placeholder="Select a plan" />
                   </SelectTrigger>
                   <SelectContent>
@@ -436,7 +438,7 @@ function PlannerProgressMappingInner({
                     console.log('[PlannerProgressMapping] Bucket selected:', value);
                     setSelectedBucketId(value === "__all__" ? "" : value);
                   }}>
-                    <SelectTrigger data-testid="select-planner-bucket">
+                    <SelectTrigger data-testid="select-planner-bucket" aria-label="Bucket">
                       <SelectValue placeholder="All tasks in plan" />
                     </SelectTrigger>
                     <SelectContent>

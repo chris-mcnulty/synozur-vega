@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { apiRequest } from "@/lib/queryClient";
 import { useTenant } from "@/contexts/TenantContext";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDialogPanel } from "@/hooks/use-dialog-panel";
 import { useLocation } from "wouter";
 
 type QuickAction = {
@@ -109,6 +110,7 @@ export function AIChatPanel({ onClose }: AIChatPanelProps) {
   const { currentTenant } = useTenant();
   const { user } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const panelRef = useDialogPanel<HTMLDivElement>(onClose);
   const [, setLocation] = useLocation();
   
   const [messages, setMessages] = useState<Message[]>([
@@ -307,7 +309,14 @@ export function AIChatPanel({ onClose }: AIChatPanelProps) {
   }
 
   return (
-    <div className="w-[400px] h-full flex flex-col bg-card border-l">
+    <div
+      ref={panelRef}
+      role="dialog"
+      aria-modal="false"
+      aria-label="Vega AI assistant"
+      tabIndex={-1}
+      className="w-[400px] h-full flex flex-col bg-card border-l"
+    >
       <div className="flex items-center justify-between p-4 border-b">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -326,6 +335,7 @@ export function AIChatPanel({ onClose }: AIChatPanelProps) {
             size="icon"
             onClick={clearChat}
             title="Clear chat"
+            aria-label="Clear chat"
             data-testid="button-clear-chat"
           >
             <RefreshCw className="h-4 w-4" />
@@ -334,6 +344,7 @@ export function AIChatPanel({ onClose }: AIChatPanelProps) {
             variant="ghost"
             size="icon"
             onClick={onClose}
+            aria-label="Close AI chat"
             data-testid="button-close-chat"
           >
             <X className="h-4 w-4" />
@@ -464,6 +475,7 @@ export function AIChatPanel({ onClose }: AIChatPanelProps) {
             onClick={sendMessage}
             disabled={!input.trim() || isLoading}
             data-testid="button-send-message"
+            aria-label="Send message"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
