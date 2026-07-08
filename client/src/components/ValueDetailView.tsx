@@ -8,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Target, TrendingUp, Loader2, Plus, X, Link2 } from "lucide-react";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { activateOnKey } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import type { Objective, Strategy } from "@shared/schema";
 
@@ -317,8 +318,11 @@ export function ValueDetailView({ open, onOpenChange, valueTitle, valueDescripti
                 allStrategies.map((strategy) => (
                   <div
                     key={strategy.id}
-                    className="flex items-start gap-3 p-3 rounded-md border hover-elevate cursor-pointer"
+                    className="flex items-start gap-3 p-3 rounded-md border hover-elevate cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => toggleStrategy(strategy.id)}
+                    onKeyDown={activateOnKey(() => toggleStrategy(strategy.id))}
                     data-testid={`item-strategy-${strategy.id}`}
                   >
                     <Checkbox
@@ -376,8 +380,11 @@ export function ValueDetailView({ open, onOpenChange, valueTitle, valueDescripti
                 allObjectives.map((objective) => (
                   <div
                     key={objective.id}
-                    className="flex items-start gap-3 p-3 rounded-md border hover-elevate cursor-pointer"
+                    className="flex items-start gap-3 p-3 rounded-md border hover-elevate cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
+                    role="button"
+                    tabIndex={0}
                     onClick={() => toggleObjective(objective.id)}
+                    onKeyDown={activateOnKey(() => toggleObjective(objective.id))}
                     data-testid={`item-objective-${objective.id}`}
                   >
                     <Checkbox

@@ -38,6 +38,7 @@ import { format } from "date-fns";
 import { getQuarterDateRange, getMeetingQuarterYear } from "@/lib/quarters";
 import { hasPermission, PERMISSIONS, ROLES, type Role } from "@shared/rbac";
 import { useTimePeriod } from "@/contexts/TimePeriodContext";
+import { activateOnKey } from "@/lib/utils";
 import { SerialCheckInDialog, type CheckInQueueItem } from "@/components/okr/SerialCheckInDialog";
 import { ScheduleToOutlookDialog } from "@/components/meetings/ScheduleToOutlookDialog";
 import { DeletedItemDialog } from "@/components/DeletedItemDialog";
@@ -2086,11 +2087,14 @@ export default function FocusRhythm() {
                       filteredMembers.slice(0, 8).map((member) => (
                         <div
                           key={member.id}
-                          className="flex items-center gap-2 px-3 py-2 hover:bg-muted cursor-pointer text-sm"
+                          role="button"
+                          tabIndex={0}
+                          className="flex items-center gap-2 px-3 py-2 hover:bg-muted cursor-pointer text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
                           onMouseDown={(e) => {
                             e.preventDefault();
                             addAttendee(member.displayName + ' (' + member.email + ')');
                           }}
+                          onKeyDown={activateOnKey(() => addAttendee(member.displayName + ' (' + member.email + ')'))}
                           data-testid={`attendee-option-${member.id}`}
                         >
                           <Users className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -2102,11 +2106,14 @@ export default function FocusRhythm() {
                       ))
                     ) : newAttendeeInput.trim() ? (
                       <div
-                        className="flex items-center gap-2 px-3 py-2 hover:bg-muted cursor-pointer text-sm"
+                        role="button"
+                        tabIndex={0}
+                        className="flex items-center gap-2 px-3 py-2 hover:bg-muted cursor-pointer text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
                         onMouseDown={(e) => {
                           e.preventDefault();
                           addAttendee(newAttendeeInput);
                         }}
+                        onKeyDown={activateOnKey(() => addAttendee(newAttendeeInput))}
                         data-testid="attendee-option-custom"
                       >
                         <Plus className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -2956,7 +2963,9 @@ export default function FocusRhythm() {
                     return (
                       <div
                         key={event.id}
-                        className={`p-3 rounded-lg border cursor-pointer hover-elevate ${hasBody ? '' : 'opacity-50'}`}
+                        role="button"
+                        tabIndex={0}
+                        className={`p-3 rounded-lg border cursor-pointer hover-elevate focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm ${hasBody ? '' : 'opacity-50'}`}
                         onClick={() => {
                           if (event.body?.content) {
                             const tempDiv = document.createElement('div');
@@ -2974,6 +2983,23 @@ export default function FocusRhythm() {
                             toast({ title: "No content", description: "This event has no body content to import.", variant: "destructive" });
                           }
                         }}
+                        onKeyDown={activateOnKey(() => {
+                          if (event.body?.content) {
+                            const tempDiv = document.createElement('div');
+                            tempDiv.innerHTML = event.body.content;
+                            const textContent = tempDiv.textContent || tempDiv.innerText || '';
+                            const cleanedText = textContent.replace(/\s+/g, ' ').trim();
+                            const existingNotes = formData.meetingNotes ? formData.meetingNotes + '\n\n---\n\n' : '';
+                            setFormData({
+                              ...formData,
+                              meetingNotes: existingNotes + `Imported from: ${event.subject}\nDate: ${eventDate ? format(eventDate, 'PPP p') : 'N/A'}\n\n${cleanedText}`,
+                            });
+                            setOutlookImportDialogOpen(false);
+                            toast({ title: "Notes imported", description: `Imported notes from "${event.subject}"` });
+                          } else {
+                            toast({ title: "No content", description: "This event has no body content to import.", variant: "destructive" });
+                          }
+                        })}
                         data-testid={`outlook-event-${event.id}`}
                       >
                         <div className="flex items-start justify-between gap-2">

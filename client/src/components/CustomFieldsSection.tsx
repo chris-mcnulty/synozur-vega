@@ -76,7 +76,12 @@ export function CustomFieldsSection({ entityType, values, onChange, initialValue
             <div key={def.id} className="space-y-1.5">
               <Label htmlFor={testId} className="flex items-center gap-1">
                 {def.label}
-                {def.required ? <span className="text-destructive">*</span> : null}
+                {def.required ? (
+                  <>
+                    <span className="text-destructive" aria-hidden="true">*</span>
+                    <span className="sr-only">(required)</span>
+                  </>
+                ) : null}
               </Label>
               {def.description ? (
                 <p className="text-xs text-muted-foreground">{def.description}</p>

@@ -15,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Upload, Rocket, FileText, Sparkles, Check, ChevronRight, Target, Flag, Lightbulb, CheckCircle2, Loader2, AlertCircle, X, Edit2, SkipForward, Info } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
+import { activateOnKey } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useTenant } from '@/contexts/TenantContext';
 import type { LaunchpadSession, LaunchpadProposal, LaunchpadExistingData } from '@shared/schema';
@@ -334,9 +335,12 @@ export default function Launchpad() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div 
-                className="border-2 border-dashed rounded-lg p-8 text-center hover-elevate cursor-pointer transition-colors"
+              <div
+                role="button"
+                tabIndex={0}
+                className="border-2 border-dashed rounded-lg p-8 text-center hover-elevate cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
                 onClick={() => fileInputRef.current?.click()}
+                onKeyDown={activateOnKey(() => fileInputRef.current?.click())}
                 data-testid="dropzone-upload"
               >
                 <input
@@ -423,10 +427,13 @@ export default function Launchpad() {
               <CardContent>
                 <div className="space-y-2">
                   {sessions.slice(0, 5).map(session => (
-                    <div 
-                      key={session.id} 
-                      className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer"
+                    <div
+                      key={session.id}
+                      role="button"
+                      tabIndex={0}
+                      className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
                       onClick={() => resumeSession(session)}
+                      onKeyDown={activateOnKey(() => resumeSession(session))}
                       data-testid={`session-${session.id}`}
                     >
                       <div className="flex items-center gap-3">

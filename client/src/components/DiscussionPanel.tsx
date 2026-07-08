@@ -183,6 +183,7 @@ function MentionComposer({
           </PopoverTrigger>
           <PopoverContent className="w-72 p-2 z-[100]" align="start">
             <input
+              // eslint-disable-next-line jsx-a11y/no-autofocus -- focuses the search field when the user opens the mention popover
               autoFocus
               type="text"
               value={search}
@@ -252,6 +253,7 @@ function CommentBody({ body }: { body: string }) {
         unwrapDisallowed
         components={{
           a: ({ node, ...props }) => (
+            // eslint-disable-next-line jsx-a11y/anchor-has-content -- content is supplied by react-markdown children via {...props}
             <a {...props} target="_blank" rel="noopener noreferrer nofollow" />
           ),
         }}

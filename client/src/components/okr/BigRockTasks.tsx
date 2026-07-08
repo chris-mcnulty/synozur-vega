@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
+import { activateOnKey } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -111,8 +112,11 @@ function InlineEditableTitle({
 
   return (
     <span
-      className={`text-sm cursor-text rounded px-1 -mx-1 hover:bg-muted/50 transition-colors ${completed ? 'line-through text-muted-foreground' : ''} ${disabled ? 'cursor-default' : ''}`}
+      className={`text-sm cursor-text rounded px-1 -mx-1 hover:bg-muted/50 transition-colors ${completed ? 'line-through text-muted-foreground' : ''} ${disabled ? 'cursor-default' : ''} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm`}
+      role="button"
+      tabIndex={0}
       onClick={() => !disabled && setEditing(true)}
+      onKeyDown={activateOnKey(() => !disabled && setEditing(true))}
       data-testid="text-task-title"
     >
       {value}

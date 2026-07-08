@@ -28,6 +28,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission, PERMISSIONS, ROLES, type Role } from "@shared/rbac";
 import { format, formatDistanceToNow } from "date-fns";
 import { getMeetingQuarterYear } from "@/lib/quarters";
+import { activateOnKey } from "@/lib/utils";
 import { SerialCheckInDialog } from "@/components/okr/SerialCheckInDialog";
 import type { CheckInQueueItem } from "@/components/okr/SerialCheckInDialog";
 import { ScheduleToOutlookDialog } from "@/components/meetings/ScheduleToOutlookDialog";
@@ -830,7 +831,9 @@ export default function MeetingDetail() {
                             {item.display}
                           </span>
                           <span
-                            className="flex items-center gap-1 shrink-0"
+                            role="button"
+                            tabIndex={0}
+                            className="flex items-center gap-1 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
                             onClick={(e) => e.stopPropagation()}
                             onKeyDown={(e) => e.stopPropagation()}
                           >

@@ -539,6 +539,17 @@ export default function MeetingLive() {
               )}
             </div>
 
+            {/* Announce meaningful timer transitions to assistive tech without
+                reading the per-second countdown (WCAG 4.1.3). Text changes only
+                when the over-time or paused state flips, so it is not chatty. */}
+            <span className="sr-only" role="status" aria-live="polite">
+              {isPaused
+                ? "Meeting timer paused"
+                : currentTopicOver
+                  ? `Current topic is over its allotted time${currentTopic?.display ? `: ${currentTopic.display}` : ""}`
+                  : ""}
+            </span>
+
             {isPaused && !isEnded && (
               <Badge variant="secondary" className="text-sm">Paused</Badge>
             )}

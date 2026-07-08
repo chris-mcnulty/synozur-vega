@@ -943,17 +943,24 @@ export function SerialCheckInDialog({
         <DialogFooter className="flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div
             className="text-xs text-muted-foreground"
+            role="status"
+            aria-live="polite"
             data-testid="text-serial-draft-saved-indicator"
           >
             {draftSavedAt !== null && (
-              <span>
-                Draft saved ·{" "}
-                {draftNow - draftSavedAt < 5000
-                  ? "just now"
-                  : formatDistanceToNow(new Date(draftSavedAt), {
-                      addSuffix: true,
-                    })}
-              </span>
+              <>
+                {/* Announced to assistive tech (stable so it doesn't repeat every second) */}
+                <span className="sr-only">Draft saved</span>
+                {/* Visible ticking time hidden from AT to avoid per-second announcements */}
+                <span aria-hidden="true">
+                  Draft saved ·{" "}
+                  {draftNow - draftSavedAt < 5000
+                    ? "just now"
+                    : formatDistanceToNow(new Date(draftSavedAt), {
+                        addSuffix: true,
+                      })}
+                </span>
+              </>
             )}
           </div>
           <div className="flex items-center gap-2">

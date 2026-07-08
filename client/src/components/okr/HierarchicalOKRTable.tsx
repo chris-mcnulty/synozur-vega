@@ -38,7 +38,7 @@ import {
   Clock
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn, activateOnKey } from "@/lib/utils";
 import { format, differenceInDays, endOfQuarter } from "date-fns";
 import { CircularProgress } from "./CircularProgress";
 import { CommentCountsProvider } from "@/hooks/use-comment-counts";
@@ -478,9 +478,12 @@ function ObjectiveRow({
             ) : (
               <Target className="h-4 w-4 text-primary flex-shrink-0" />
             )}
-            <span 
-              className="font-medium cursor-pointer hover:text-primary hover:underline truncate" 
+            <span
+              role="button"
+              tabIndex={0}
+              className="font-medium cursor-pointer hover:text-primary hover:underline truncate rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() => onSelectObjective?.(objective)}
+              onKeyDown={activateOnKey(() => onSelectObjective?.(objective))}
               data-testid={`link-objective-${objective.id}`}
             >
               {objective.title}
@@ -937,9 +940,12 @@ function KeyResultRow({
         <div className="flex items-center gap-2">
           <div className="w-6 flex-shrink-0" />
           <Gauge className="h-4 w-4 text-primary flex-shrink-0" />
-          <span 
-            className="text-sm cursor-pointer hover:text-primary hover:underline truncate"
+          <span
+            role="button"
+            tabIndex={0}
+            className="text-sm cursor-pointer hover:text-primary hover:underline truncate rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => onSelectKeyResult?.(keyResult, parentObjective)}
+            onKeyDown={activateOnKey(() => onSelectKeyResult?.(keyResult, parentObjective))}
             data-testid={`link-keyresult-${keyResult.id}`}
           >
             {keyResult.title}
@@ -1288,8 +1294,11 @@ function MobileObjectiveCard({
                 <Target className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
               )}
               <span
-                className="font-medium text-sm leading-snug cursor-pointer hover:underline break-words"
+                role="button"
+                tabIndex={0}
+                className="font-medium text-sm leading-snug cursor-pointer hover:underline break-words rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => onSelectObjective?.(objective)}
+                onKeyDown={activateOnKey(() => onSelectObjective?.(objective))}
                 data-testid={`mobile-link-objective-${objective.id}`}
               >
                 {objective.title}
@@ -1609,8 +1618,11 @@ function MobileKeyResultCard({
           <div className="flex items-start gap-1.5 mb-1.5">
             <Gauge className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
             <span
-              className="text-sm leading-snug cursor-pointer hover:underline break-words"
+              role="button"
+              tabIndex={0}
+              className="text-sm leading-snug cursor-pointer hover:underline break-words rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() => onSelectKeyResult?.(keyResult, parentObjective)}
+              onKeyDown={activateOnKey(() => onSelectKeyResult?.(keyResult, parentObjective))}
               data-testid={`mobile-link-keyresult-${keyResult.id}`}
             >
               {keyResult.title}

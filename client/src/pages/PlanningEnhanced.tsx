@@ -48,7 +48,7 @@ import { ExcelFilePicker } from "@/components/ExcelFilePicker";
 import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
 import { PlannerCreatePlanDialog } from "@/components/planner/PlannerCreatePlanDialog";
 import { PlannerTaskLinkPanel } from "@/components/planner/PlannerTaskLinkPanel";
-import { cn } from "@/lib/utils";
+import { cn, activateOnKey } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Foundation, CompanyValue, AnnualGoal, Ambition, BigRockTask, PageFilterState } from "@shared/schema";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -4638,7 +4638,7 @@ export default function PlanningEnhanced() {
                   {continueInNextPeriod === false && (
                     <div className="space-y-2">
                       <Label htmlFor="closing-note" className="text-sm font-medium flex items-center gap-1">
-                        Closing Note <span className="text-destructive">*</span>
+                        Closing Note <span className="text-destructive" aria-hidden="true">*</span><span className="sr-only">(required)</span>
                       </Label>
                       <Textarea
                         id="closing-note"
@@ -5907,45 +5907,50 @@ export default function PlanningEnhanced() {
                   )
                   .map((obj) => {
                     const isAligned = obj.alignedToObjectiveIds?.includes(alignmentTargetObjective || '');
+                    const handleAlignmentToggle = async () => {
+                      // Toggle alignment
+                      const currentAligned = obj.alignedToObjectiveIds || [];
+                      let newAligned: string[];
+                      if (isAligned) {
+                        newAligned = currentAligned.filter(id => id !== alignmentTargetObjective);
+                      } else {
+                        newAligned = [...currentAligned, alignmentTargetObjective!];
+                      }
+
+                      // Update the objective
+                      try {
+                        await apiRequest(`/api/okr/objectives/${obj.id}`, {
+                          method: 'PATCH',
+                          body: JSON.stringify({ alignedToObjectiveIds: newAligned }),
+                        });
+                        queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/okr/hierarchy'] });
+                        toast({
+                          title: isAligned ? "Alignment removed" : "Objective aligned",
+                          description: isAligned
+                            ? `"${obj.title}" is no longer aligned to this objective`
+                            : `"${obj.title}" now supports this objective`,
+                        });
+                      } catch (error) {
+                        toast({
+                          title: "Error",
+                          description: "Failed to update alignment",
+                          variant: "destructive",
+                        });
+                      }
+                    };
                     return (
                       <div
                         key={obj.id}
                         className={cn(
                           "flex items-center justify-between p-3 rounded-md mb-2 hover-elevate cursor-pointer",
-                          isAligned ? "bg-purple-100 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700" : "border"
+                          isAligned ? "bg-purple-100 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700" : "border",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
                         )}
-                        onClick={async () => {
-                          // Toggle alignment
-                          const currentAligned = obj.alignedToObjectiveIds || [];
-                          let newAligned: string[];
-                          if (isAligned) {
-                            newAligned = currentAligned.filter(id => id !== alignmentTargetObjective);
-                          } else {
-                            newAligned = [...currentAligned, alignmentTargetObjective!];
-                          }
-                          
-                          // Update the objective
-                          try {
-                            await apiRequest(`/api/okr/objectives/${obj.id}`, {
-                              method: 'PATCH',
-                              body: JSON.stringify({ alignedToObjectiveIds: newAligned }),
-                            });
-                            queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
-                            queryClient.invalidateQueries({ queryKey: ['/api/okr/hierarchy'] });
-                            toast({
-                              title: isAligned ? "Alignment removed" : "Objective aligned",
-                              description: isAligned 
-                                ? `"${obj.title}" is no longer aligned to this objective`
-                                : `"${obj.title}" now supports this objective`,
-                            });
-                          } catch (error) {
-                            toast({
-                              title: "Error",
-                              description: "Failed to update alignment",
-                              variant: "destructive",
-                            });
-                          }
-                        }}
+                        role="button"
+                        tabIndex={0}
+                        onClick={handleAlignmentToggle}
+                        onKeyDown={activateOnKey(handleAlignmentToggle)}
                         data-testid={`alignment-option-${obj.id}`}
                       >
                         <div className="flex items-center gap-3">

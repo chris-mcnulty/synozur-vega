@@ -311,6 +311,10 @@ Already in good shape (no action): `<img>` alt coverage (all ~30 tags have alt),
 
 **Phase 2 — Interaction & feedback.** Convert clickable divs/spans to buttons (esp. OKR navigation); move validation off toast-only onto `Form`/`FormControl` (or manual `aria-invalid`+`aria-describedby`); add `aria-live` regions for meeting timers, autosave status, and notification count; add `aria-required` + non-color required indicators.
 
+> **Phase 2 status (done):** All in-scope clickable non-interactive elements made keyboard-operable via `role="button"`/`tabIndex`/`onKeyDown` (shared `activateOnKey` helper in `lib/utils.ts`), including the core OKR/KR name spans in `HierarchicalOKRTable`. Removed incorrect `role="combobox"` from the Tenant/User pickers. Live regions added: notification unread count (in the bell's accessible name), check-in autosave ("Draft saved", non-chatty), and MeetingLive over-time/paused transitions. Color-only required `*` indicators fixed (`CustomFieldsSection`, PlanningEnhanced closing note). ESLint a11y gate is green on in-scope code; `components/ui/**` (vendored shadcn) and admin surfaces are `ignores`d as a later pass.
+>
+> **Deferred (tracked):** Migrating the ~178 `toast()`-only validations in useState-based forms to per-field `aria-invalid`/`aria-describedby` is a large, test-heavy refactor across ~38 files and is deferred to a dedicated pass — toasts already announce via Radix `role="status"` (a 3.3.1/4.1.3 baseline), and the accessible `Form`/`FormControl` primitive remains the target pattern for new/edited forms. Nested-interactive (mark-read control inside a row button in `NotificationBell`) also deferred.
+
 **Phase 3 — Data viz & polish.** Recharts `accessibilityLayer` + visually-hidden data-table alternatives; per-route `<title>` via Helmet on all in-scope pages; fix focus-visible ring on header search; scope the `MeetingLive` global key handler; run a measured color-contrast audit against WCAG AA.
 
 **Phase 4 — Verification & VPAT finalization.** Manual screen-reader passes (NVDA + VoiceOver), keyboard-only walkthroughs of each in-scope flow, then finalize `docs/accessibility/VPAT.md` criterion-by-criterion.

@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { activateOnKey } from "@/lib/utils";
 import { ListTodo, Link2, Unlink, ExternalLink, RefreshCw, CheckCircle, AlertCircle, Clock, Loader2 } from "lucide-react";
 
 interface PlannerTask {
@@ -345,10 +346,13 @@ export function PlannerTaskLinkPanel({ entityType, entityId, entityTitle }: Plan
                         return (
                           <div
                             key={task.id}
-                            className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer ${
+                            role="button"
+                            tabIndex={0}
+                            className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm ${
                               isAlreadyLinked ? "opacity-50" : "hover-elevate"
                             }`}
                             onClick={() => !isAlreadyLinked && linkMutation.mutate(task.id)}
+                            onKeyDown={activateOnKey(() => { if (!isAlreadyLinked) linkMutation.mutate(task.id); })}
                             data-testid={`task-option-${task.id}`}
                           >
                             <div className="flex-1 min-w-0">
