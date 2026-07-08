@@ -294,7 +294,7 @@ Discrete high-value issues:
 | No skip-to-content link; `<main>` has no `id` target | 2.4.1 | `App.tsx:475` |
 | `maximum-scale=1` in viewport disables pinch-zoom | 1.4.4, 1.4.10 | `client/index.html:5` |
 | AI Chat / Help panels are plain conditional `<div>`s (not Radix Sheet) — no focus trap, initial focus, Escape, or focus restore | 2.4.3, 2.1.2, 4.1.2 | `App.tsx:480-489`, `AIChatPanel.tsx:309`, `HelpChatPanel.tsx:231` |
-| No live regions — live meeting timers, check-in autosave ("Draft saved"), notification count, streaming AI text are silent to AT (toasts DO announce via Radix) | 4.1.3 | `MeetingLive.tsx:496-540`, `SerialCheckInDialog.tsx:945`, `NotificationBell.tsx:46` |
+| No live regions — live meeting timers, check-in autosave ("Draft saved"), notification count, streaming AI text are silent to AT (toasts DO announce via Radix) | 4.1.3 | `MeetingLive.tsx:496-540`, `SerialCheckInDialog.tsx:949`, `NotificationBell.tsx:46` |
 | Aurora animations (blob, nebula-shimmer, infinite border-spin) ignore `prefers-reduced-motion` (respected for scroll-reveals only) | 2.3.3, 2.2.2 | `index.css:416-527` |
 | Per-route `<title>` set on only 3 of ~35 pages (`react-helmet-async` already wired) | 2.4.2 | most pages |
 | Use of color alone — required `*`, over-target meeting timers red-only; `aria-required` used nowhere | 1.4.1, 3.3.2 | `MeetingLive.tsx:502`, `FocusRhythm.tsx:1961`, etc. |
