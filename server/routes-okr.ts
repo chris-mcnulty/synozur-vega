@@ -1935,25 +1935,71 @@ okrRouter.post("/backfill-progress", async (req, res) => {
 // ============================================
 
 import { calculatePaceMetrics, formatPaceDescription, calculateCompletionForecast, type PaceMetrics, type CompletionForecast, type TrendDirection, type CheckInData } from './okr-intelligence';
-import { getTrendSeriesForEntity, getTrendSeriesForEntities } from './services/progress-snapshots';
+import { getTrendSeriesForEntity, getTrendSeriesForEntities, getPacificDateString } from './services/progress-snapshots';
 
 // Build a trend series for the OKR detail chart that includes paceStatus per
 // point. Pulls from progress_snapshots (which carry paceStatus captured at
 // the time the snapshot was taken) and falls back to raw check-ins (without
 // paceStatus) when no snapshots exist for the entity yet.
+//
+// Always injects a "live today" point from the most recent check-in so the
+// chart reflects check-ins submitted since the last midnight snapshot without
+// waiting until the next nightly run.
 async function getTrendSeriesWithPace(
   entityType: 'objective' | 'key_result',
   entityId: string,
 ): Promise<Array<{ date: string; progress: number; confidence: number | null; paceStatus: string | null }>> {
   const snapshots = await storage.getProgressSnapshotsByEntity(entityType, entityId);
+
   if (snapshots.length > 0) {
-    return snapshots.map(s => ({
+    const series = snapshots.map(s => ({
       date: s.snapshotDate,
       progress: s.progress ?? 0,
       confidence: s.confidence ?? null,
       paceStatus: s.paceStatus ?? null,
     }));
+
+    // Inject a live "today" point from the most recent check-in so that a
+    // check-in submitted after today's midnight snapshot is visible immediately
+    // in the chart rather than waiting until the next nightly run.
+    try {
+      const checkIns = await storage.getCheckInsByEntityId(entityType, entityId);
+      if (checkIns.length > 0) {
+        // getCheckInsByEntityId returns descending by date; take the first.
+        const latest = checkIns[0];
+        const todayStr = getPacificDateString();
+        const lastSnapshotDate = series[series.length - 1].date.substring(0, 10);
+        const latestCheckInDate = getPacificDateString(
+          new Date(latest.asOfDate || latest.createdAt || Date.now()),
+        );
+
+        // Inject when the latest check-in is as recent as (or newer than) the
+        // last snapshot — this covers: (a) check-in submitted today before the
+        // midnight job ran, and (b) check-in submitted after today's snapshot.
+        if (latestCheckInDate >= lastSnapshotDate) {
+          const livePoint = {
+            date: todayStr,
+            progress: latest.newProgress ?? series[series.length - 1].progress,
+            confidence: latest.confidence ?? null,
+            // Carry forward the last known pace status so the dot is still coloured.
+            paceStatus: series[series.length - 1].paceStatus,
+          };
+          if (series[series.length - 1].date.substring(0, 10) === todayStr) {
+            // Replace today's snapshot point with the more up-to-date check-in.
+            series[series.length - 1] = livePoint;
+          } else {
+            series.push(livePoint);
+          }
+        }
+      }
+    } catch {
+      // Non-fatal — chart degrades gracefully to snapshot-only data.
+    }
+
+    return series;
   }
+
+  // Fallback: no snapshots yet — use raw check-ins directly (already current).
   const series = await getTrendSeriesForEntity(entityType, entityId);
   return series.map(p => ({
     date: typeof p.asOfDate === 'string' ? p.asOfDate : new Date(p.asOfDate).toISOString(),
