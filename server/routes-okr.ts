@@ -2174,7 +2174,8 @@ okrRouter.get("/key-results/:id/pace", async (req, res) => {
       quarter: objective?.quarter,
       year: objective?.year,
       checkIns: trendSeries,
-      targetValue: keyResult.targetValue || 100,
+      // progress is already a 0-100 percentage; targetValue must match that scale
+      targetValue: 100,
     });
     
     res.json({

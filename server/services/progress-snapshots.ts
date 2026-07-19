@@ -207,7 +207,9 @@ export async function runDailySnapshotJob(opts?: { tenantId?: string }): Promise
             endDate: parent?.endDate,
             quarter: parent?.quarter,
             year: parent?.year,
-            targetValue: kr.targetValue ?? 100,
+            // kr.progress is already a 0-100 percentage; use 100 so pace math
+            // operates on the same scale as the progress value.
+            targetValue: 100,
             checkIns: checkIns.map(c => ({
               asOfDate: c.asOfDate || c.createdAt!,
               newProgress: c.newProgress ?? 0,
@@ -380,7 +382,9 @@ export async function backfillSnapshotsFromCheckIns(opts?: {
           } else {
             const kr = krById.get(entityId);
             if (!kr) continue;
-            targetValue = kr.targetValue ?? 100;
+            // progress (from check-ins) is already a 0-100 percentage, so
+            // targetValue must also be 100 so the pace gap math is on the same scale.
+            targetValue = 100;
             const parent = kr.objectiveId ? objectiveById.get(kr.objectiveId) : undefined;
             periodStart = parent?.startDate;
             periodEnd = parent?.endDate;
