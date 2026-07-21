@@ -90,8 +90,9 @@ function LiveDotShape(props: {
 // so users can see when an OKR slipped from "on track" to "behind" historically.
 //
 // The live today point (flagged isLive=true from the server) is shown as a
-// distinct ring marker and is NOT connected to the historical line, preventing
-// a jarring spike when the live check-in value differs from recent snapshots.
+// distinct ring marker. The Line uses a null-gap strategy: live points get
+// `lineActual=null` so recharts naturally creates a gap there rather than
+// drawing a connecting segment to the live check-in value (which could spike).
 export function TrendChart({
   series,
   periodStart,
@@ -111,7 +112,14 @@ export function TrendChart({
 
   type ChartRow = {
     date: string;
+    /** Raw progress value — always the real number (used by Scatter + Tooltip). */
     actual: number;
+    /**
+     * Progress value for the Line series. Set to `null` for live points so
+     * recharts creates a natural gap instead of connecting the historical line
+     * to the live check-in value (which avoids jarring spikes).
+     */
+    lineActual: number | null;
     expected: number;
     paceStatus: string | null;
     isLive?: boolean;
@@ -122,6 +130,7 @@ export function TrendChart({
     return {
       date: format(pointDate, "MMM d"),
       actual: point.progress,
+      lineActual: point.isLive ? null : point.progress,
       expected: getExpectedProgress(pointDate),
       paceStatus: point.paceStatus ?? null,
       isLive: point.isLive,
@@ -132,12 +141,14 @@ export function TrendChart({
     chartData.push({
       date: format(periodStart, "MMM d"),
       actual: 0,
+      lineActual: 0,
       expected: 0,
       paceStatus: null,
     });
     chartData.push({
       date: format(today, "MMM d"),
       actual: fallbackProgress,
+      lineActual: fallbackProgress,
       expected: getExpectedProgress(today),
       paceStatus: null,
     });
@@ -147,6 +158,7 @@ export function TrendChart({
       chartData.unshift({
         date: format(periodStart, "MMM d"),
         actual: 0,
+        lineActual: 0,
         expected: 0,
         paceStatus: null,
       });
@@ -156,16 +168,12 @@ export function TrendChart({
       chartData.push({
         date: format(today, "MMM d"),
         actual: chartData[0].actual,
+        lineActual: chartData[0].actual,
         expected: getExpectedProgress(today),
         paceStatus: null,
       });
     }
   }
-
-  // The progress line only draws through historical (non-live) points so there
-  // is no spike connecting the last snapshot to a live check-in at a very
-  // different value. The live point is rendered separately as a ring marker.
-  const lineData = chartData.filter((r) => !r.isLive);
 
   // Group historical (non-live) points by pace status for separate scatter layers.
   const paceLayers: Record<string, Array<{ date: string; pace: number }>> = {};
@@ -241,17 +249,17 @@ export function TrendChart({
               name="Expected"
               isAnimationActive={false}
             />
-            {/* Historical progress line: subtle gray shape guide; does NOT connect
-                to the live today point to avoid a jarring spike when the live
-                check-in value differs from the most recent snapshot. */}
+            {/* Historical progress line: uses `lineActual` which is null for live
+                points so recharts creates a natural gap rather than connecting
+                the line to the live check-in value (avoids jarring spikes). */}
             <Line
               type="monotone"
-              data={lineData}
-              dataKey="actual"
+              dataKey="lineActual"
               stroke="#9ca3af"
               strokeWidth={1.5}
               dot={false}
               name="Actual"
+              connectNulls={false}
               isAnimationActive={false}
             />
             {/* Pace-status dots for historical snapshots (one Scatter layer per colour). */}
