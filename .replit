@@ -143,7 +143,6 @@ MCP_ENTRA_CLIENT_ID = "8e7d9752-beae-461e-b041-d2ee9dea0051"
 RUN_PROGRESS_SNAPSHOT_BACKFILL = "force"
 
 [userenv.production]
-RUN_PROGRESS_SNAPSHOT_BACKFILL = "force"
 
 [postMerge]
 path = "scripts/post-merge.sh"
