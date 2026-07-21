@@ -1948,11 +1948,11 @@ import { getTrendSeriesForEntity, getTrendSeriesForEntities, getPacificDateStrin
 async function getTrendSeriesWithPace(
   entityType: 'objective' | 'key_result',
   entityId: string,
-): Promise<Array<{ date: string; progress: number; confidence: number | null; paceStatus: string | null }>> {
+): Promise<Array<{ date: string; progress: number; confidence: number | null; paceStatus: string | null; isLive?: boolean }>> {
   const snapshots = await storage.getProgressSnapshotsByEntity(entityType, entityId);
 
   if (snapshots.length > 0) {
-    const series = snapshots.map(s => ({
+    const series: Array<{ date: string; progress: number; confidence: number | null; paceStatus: string | null; isLive?: boolean }> = snapshots.map(s => ({
       date: s.snapshotDate,
       progress: s.progress ?? 0,
       confidence: s.confidence ?? null,
@@ -1983,6 +1983,9 @@ async function getTrendSeriesWithPace(
             confidence: latest.confidence ?? null,
             // Carry forward the last known pace status so the dot is still coloured.
             paceStatus: series[series.length - 1].paceStatus,
+            // Flag so the chart can render this differently from historical snapshots
+            // (no connecting line to the historical series — avoids a jarring spike).
+            isLive: true,
           };
           if (series[series.length - 1].date.substring(0, 10) === todayStr) {
             // Replace today's snapshot point with the more up-to-date check-in.

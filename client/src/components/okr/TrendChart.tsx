@@ -16,6 +16,8 @@ export type TrendPoint = {
   progress: number;
   confidence?: number | null;
   paceStatus?: string | null;
+  /** True when this point comes from a live check-in injected after the last snapshot. */
+  isLive?: boolean;
 };
 
 interface TrendChartProps {
@@ -57,10 +59,39 @@ export function parseTrendDate(input: string): Date {
   return new Date(input);
 }
 
+// Custom shape for the "live today" point — a ring with a filled centre so it
+// stands out clearly from the historical pace dots.
+function LiveDotShape(props: {
+  cx?: number;
+  cy?: number;
+  payload?: { paceStatus?: string | null };
+}) {
+  const { cx = 0, cy = 0, payload } = props;
+  const color = PACE_COLORS[payload?.paceStatus ?? "no_data"] ?? "#9ca3af";
+  return (
+    <g>
+      <circle
+        cx={cx}
+        cy={cy}
+        r={7}
+        fill={color}
+        fillOpacity={0.18}
+        stroke={color}
+        strokeWidth={2}
+      />
+      <circle cx={cx} cy={cy} r={3} fill={color} />
+    </g>
+  );
+}
+
 // Renders the daily progress trend (snapshot-backed) for an objective or key
 // result. Plots the actual progress line, an "expected" linear-pace reference
 // line, and colored markers indicating the pace status captured for each day —
 // so users can see when an OKR slipped from "on track" to "behind" historically.
+//
+// The live today point (flagged isLive=true from the server) is shown as a
+// distinct ring marker and is NOT connected to the historical line, preventing
+// a jarring spike when the live check-in value differs from recent snapshots.
 export function TrendChart({
   series,
   periodStart,
@@ -83,6 +114,7 @@ export function TrendChart({
     actual: number;
     expected: number;
     paceStatus: string | null;
+    isLive?: boolean;
   };
 
   const chartData: ChartRow[] = series.map((point) => {
@@ -92,6 +124,7 @@ export function TrendChart({
       actual: point.progress,
       expected: getExpectedProgress(pointDate),
       paceStatus: point.paceStatus ?? null,
+      isLive: point.isLive,
     };
   });
 
@@ -129,13 +162,21 @@ export function TrendChart({
     }
   }
 
-  // Group points by pace status for separate scatter layers (one color each)
+  // The progress line only draws through historical (non-live) points so there
+  // is no spike connecting the last snapshot to a live check-in at a very
+  // different value. The live point is rendered separately as a ring marker.
+  const lineData = chartData.filter((r) => !r.isLive);
+
+  // Group historical (non-live) points by pace status for separate scatter layers.
   const paceLayers: Record<string, Array<{ date: string; pace: number }>> = {};
   for (const row of chartData) {
-    if (!row.paceStatus) continue;
+    if (!row.paceStatus || row.isLive) continue;
     if (!paceLayers[row.paceStatus]) paceLayers[row.paceStatus] = [];
     paceLayers[row.paceStatus].push({ date: row.date, pace: row.actual });
   }
+
+  // Separate scatter layer for the live today point.
+  const liveRows = chartData.filter((r) => r.isLive);
 
   const presentPaceStatuses = Object.keys(paceLayers);
 
@@ -166,7 +207,12 @@ export function TrendChart({
                 if (!row) return null;
                 return (
                   <div className="rounded-md border bg-popover px-2 py-1 text-xs shadow-md">
-                    <div className="font-medium">{label}</div>
+                    <div className="font-medium">
+                      {label}
+                      {row.isLive && (
+                        <span className="ml-1 text-muted-foreground">(live)</span>
+                      )}
+                    </div>
                     <div className="text-muted-foreground">
                       Actual: {Math.round(row.actual)}%
                     </div>
@@ -195,15 +241,20 @@ export function TrendChart({
               name="Expected"
               isAnimationActive={false}
             />
+            {/* Historical progress line: subtle gray shape guide; does NOT connect
+                to the live today point to avoid a jarring spike when the live
+                check-in value differs from the most recent snapshot. */}
             <Line
               type="monotone"
+              data={lineData}
               dataKey="actual"
-              stroke="hsl(var(--primary))"
-              strokeWidth={2}
+              stroke="#9ca3af"
+              strokeWidth={1.5}
               dot={false}
               name="Actual"
               isAnimationActive={false}
             />
+            {/* Pace-status dots for historical snapshots (one Scatter layer per colour). */}
             {presentPaceStatuses.map((status) => (
               <Scatter
                 key={status}
@@ -218,10 +269,25 @@ export function TrendChart({
                 legendType="none"
               />
             ))}
+            {/* Live today point — distinct ring marker, not connected to the line. */}
+            {liveRows.length > 0 && (
+              <Scatter
+                data={liveRows.map((r) => ({
+                  date: r.date,
+                  actual: r.actual,
+                  paceStatus: r.paceStatus,
+                }))}
+                dataKey="actual"
+                fill={PACE_COLORS[liveRows[0].paceStatus ?? "no_data"] ?? "#9ca3af"}
+                shape={<LiveDotShape />}
+                isAnimationActive={false}
+                legendType="none"
+              />
+            )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      {presentPaceStatuses.length > 0 && (
+      {(presentPaceStatuses.length > 0 || liveRows.length > 0) && (
         <div
           className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground"
           data-testid="legend-pace-status"
@@ -240,6 +306,23 @@ export function TrendChart({
               {PACE_LABELS[status] ?? status}
             </span>
           ))}
+          {liveRows.length > 0 && (
+            <span className="inline-flex items-center gap-1" data-testid="legend-pace-live">
+              <span
+                className="relative inline-flex h-3 w-3 items-center justify-center"
+              >
+                <span
+                  className="absolute inline-block h-3 w-3 rounded-full opacity-20"
+                  style={{ backgroundColor: PACE_COLORS[liveRows[0].paceStatus ?? "no_data"] ?? "#9ca3af" }}
+                />
+                <span
+                  className="inline-block h-1.5 w-1.5 rounded-full"
+                  style={{ backgroundColor: PACE_COLORS[liveRows[0].paceStatus ?? "no_data"] ?? "#9ca3af" }}
+                />
+              </span>
+              Live
+            </span>
+          )}
         </div>
       )}
     </div>
