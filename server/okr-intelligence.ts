@@ -47,9 +47,11 @@ export function calculatePaceMetrics(params: {
   year?: number | null;
   checkIns?: CheckInData[];
   targetValue?: number;
+  /** Override "now" for historical backfill calculations. Defaults to the current instant. */
+  now?: Date;
 }): PaceMetrics {
   const { progress, checkIns = [], targetValue = 100 } = params;
-  const now = getPacificNow();
+  const now = params.now ?? getPacificNow();
   
   let startDate: Date | null = null;
   let endDate: Date | null = null;

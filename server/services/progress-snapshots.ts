@@ -103,10 +103,13 @@ export async function captureEntitySnapshot(params: {
   confidence?: number | null;
   source?: string;
   snapshotDate?: string;
+  /** Override "now" for historical backfill so pace is evaluated as of the snapshot date, not today. */
+  now?: Date;
 }): Promise<ProgressSnapshot> {
   const date = params.snapshotDate || getPacificDateString();
 
-  // Compute paceStatus at capture time so historical pace is preserved
+  // Compute paceStatus as of the snapshot date (not today) so historical
+  // dots reflect where the entity stood relative to expected pace *on that day*.
   const pace = calculatePaceMetrics({
     progress: params.progress,
     startDate: params.startDate,
@@ -115,6 +118,7 @@ export async function captureEntitySnapshot(params: {
     year: params.year,
     checkIns: params.checkIns ?? [],
     targetValue: params.targetValue,
+    now: params.now,
   });
 
   return storage.upsertProgressSnapshot({
@@ -418,6 +422,11 @@ export async function backfillSnapshotsFromCheckIns(opts?: {
             if (shouldWrite) {
               const dayEndMs = new Date(`${dateStr}T23:59:59.999-08:00`).getTime();
               const checkInsUpToDay = allCheckInData.filter(c => c.asOfDate.getTime() <= dayEndMs);
+              // Use noon Pacific on the snapshot day as "now" so pace is evaluated
+              // as of that historical date, not today. Without this, backfilled
+              // April snapshots would use July's elapsed-time percentage, making
+              // on-track historical progress incorrectly appear as "at_risk".
+              const snapshotNow = new Date(`${dateStr}T12:00:00-08:00`);
 
               await captureEntitySnapshot({
                 tenantId: tenant.id,
@@ -434,6 +443,7 @@ export async function backfillSnapshotsFromCheckIns(opts?: {
                 confidence: currentConfidence,
                 source: 'backfill',
                 snapshotDate: dateStr,
+                now: snapshotNow,
               });
               if (existing) updated++;
               else inserted++;
@@ -549,6 +559,7 @@ export async function backfillSnapshotsFromCheckIns(opts?: {
                   checkIns: [], // pace metrics fall back to status-only when no series available
                   source: 'backfill_derived',
                   snapshotDate: day,
+                  now: new Date(`${day}T12:00:00-08:00`),
                 });
                 if (existing) updated++; else inserted++;
               } catch (err: any) {
