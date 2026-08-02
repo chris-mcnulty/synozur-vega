@@ -266,7 +266,7 @@ user_dashboard_preferences table:
 
 ### 6. Section 508 / WCAG 2.1 AA Accessibility Remediation
 
-**Status:** Planned — audit complete, remediation not started (July 2026)
+**Status:** In progress — code remediation Phases 0–4 complete; manual assistive-technology verification and the deferred follow-ups (see Phase notes below) remain. The "Audit findings (baseline, July 2026)" section below records the ORIGINAL pre-remediation state; the per-phase "status" call-outs record what has since been fixed.
 **Priority:** High (procurement/VPAT requirement)
 **Target conformance:** WCAG 2.1 Level AA (superset of Revised Section 508, which incorporates WCAG 2.0 A+AA)
 **In-scope surfaces (first pass):** Authenticated core app (Dashboards, Foundations, Strategy, Planning/OKRs, Focus Rhythm, Reporting, Settings) + public/marketing pages (Landing, Pricing, Login, verify/forgot/reset).

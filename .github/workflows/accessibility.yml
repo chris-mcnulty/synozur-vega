@@ -22,8 +22,9 @@ jobs:
   axe-e2e:
     name: axe smoke (public routes)
     runs-on: ubuntu-latest
-    # Informational until Phase 4: the public pages still carry violations that
-    # are remediated in Phases 1-3. Flip to a hard gate once they are clear.
+    # Informational for now: the public pages still report axe violations that
+    # are documented brand-palette exceptions (see docs/accessibility/VPAT.md).
+    # Flip to a hard gate if/when those are resolved.
     continue-on-error: true
     steps:
       - uses: actions/checkout@v4

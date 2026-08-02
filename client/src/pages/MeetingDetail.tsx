@@ -832,19 +832,14 @@ export default function MeetingDetail() {
                           <span className={`text-sm flex-1 ${isActive ? 'font-medium' : ''} ${item.isOkr ? 'text-primary' : ''}`}>
                             {item.display}
                           </span>
-                          <span
-                            role="button"
-                            tabIndex={0}
-                            className="flex items-center gap-1 shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
-                            onClick={(e) => e.stopPropagation()}
-                            onKeyDown={(e) => e.stopPropagation()}
-                          >
+                          <span className="flex items-center gap-1 shrink-0">
                             <Input
                               type="number"
                               inputMode="numeric"
                               min={0}
                               placeholder="—"
                               className="h-7 w-14 text-xs text-right"
+                              onClick={(e) => e.stopPropagation()}
                               value={agendaTimeDraft[String(item.idx)] ?? ""}
                               onChange={(e) => setAgendaTimeDraft(d => ({ ...d, [String(item.idx)]: e.target.value }))}
                               onBlur={(e) => commitAgendaTime(item.idx, e.target.value)}
