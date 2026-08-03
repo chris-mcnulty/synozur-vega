@@ -22,3 +22,11 @@ This is a multi-tenant SaaS platform. Every data access must be tenant-scoped.
 - Do not create new files when editing an existing one will do
 - Do not add features, refactoring, or comments beyond what was asked
 - Match the patterns already used in the file being edited
+
+## Pull request handling (standing policy)
+
+Owner's explicit instruction — this OVERRIDES the default "be frugal with GitHub comments" guidance:
+
+- **Subscribe to every pull request** you open or are asked to work on (`subscribe_pr_activity`); stay subscribed until it is merged or closed.
+- **Address every review comment** — investigate each one and either fix it, or reply explaining why no change is made (e.g. pre-existing / out of scope).
+- **Attach a reply to every comment you fix**, for tracking — note the fixing commit SHA in the reply. Reply on each comment individually rather than a single summary.
