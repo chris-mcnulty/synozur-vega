@@ -346,9 +346,9 @@ export function ForecastingPanel({ entity, checkIns }: ForecastingPanelProps) {
           <CardDescription className="text-xs">Actual progress vs expected pace and projected outcome</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="h-40">
+          <div className="h-40" role="img" aria-label="Line chart: progress trajectory — actual progress vs expected pace and projected outcome">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} margin={{ top: 4, right: 4, bottom: 4, left: -20 }}>
+              <LineChart accessibilityLayer data={chartData} margin={{ top: 4, right: 4, bottom: 4, left: -20 }}>
                 <XAxis
                   dataKey="day"
                   tick={{ fontSize: 10 }}

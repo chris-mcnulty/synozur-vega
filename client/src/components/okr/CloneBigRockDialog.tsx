@@ -119,7 +119,7 @@ export function CloneBigRockDialog({
                     value={targetQuarter === null ? "annual" : targetQuarter.toString()}
                     onValueChange={(v) => setTargetQuarter(v === "annual" ? null : parseInt(v))}
                   >
-                    <SelectTrigger id="target-quarter" data-testid="select-bigrock-target-quarter">
+                    <SelectTrigger id="target-quarter" aria-label="Target Period" data-testid="select-bigrock-target-quarter">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -138,7 +138,7 @@ export function CloneBigRockDialog({
                     value={targetYear.toString()}
                     onValueChange={(v) => setTargetYear(parseInt(v))}
                   >
-                    <SelectTrigger id="target-year" data-testid="select-bigrock-target-year">
+                    <SelectTrigger id="target-year" aria-label="Target Year" data-testid="select-bigrock-target-year">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -175,7 +175,7 @@ export function CloneBigRockDialog({
                       value={newOwnerId}
                       onValueChange={setNewOwnerId}
                     >
-                      <SelectTrigger id="new-owner" data-testid="select-bigrock-new-owner">
+                      <SelectTrigger id="new-owner" aria-label="Assign new owner" data-testid="select-bigrock-new-owner">
                         <SelectValue placeholder="Select owner" />
                       </SelectTrigger>
                       <SelectContent>

@@ -456,7 +456,7 @@ export function OKRCreationWizard({
         <div>
           <Label>Level</Label>
           <Select value={objective.level} onValueChange={v => setObjective(prev => ({ ...prev, level: v }))}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label="Level"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="organization">Organization</SelectItem>
               <SelectItem value="team">Team</SelectItem>
@@ -479,7 +479,7 @@ export function OKRCreationWizard({
         <div>
           <Label>Quarter</Label>
           <Select value={String(objective.quarter)} onValueChange={v => setObjective(prev => ({ ...prev, quarter: parseInt(v) }))}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label="Quarter"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="1">Q1</SelectItem>
               <SelectItem value="2">Q2</SelectItem>
@@ -492,7 +492,7 @@ export function OKRCreationWizard({
         <div>
           <Label>Year</Label>
           <Select value={String(objective.year)} onValueChange={v => setObjective(prev => ({ ...prev, year: parseInt(v) }))}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectTrigger aria-label="Year"><SelectValue /></SelectTrigger>
             <SelectContent>
               {[year - 1, year, year + 1].map(y => (
                 <SelectItem key={y} value={String(y)}>{y}</SelectItem>
@@ -509,7 +509,7 @@ export function OKRCreationWizard({
             value={objective.teamId || "none"}
             onValueChange={v => setObjective(prev => ({ ...prev, teamId: v === "none" ? "" : v }))}
           >
-            <SelectTrigger><SelectValue placeholder="No team" /></SelectTrigger>
+            <SelectTrigger aria-label="Team"><SelectValue placeholder="No team" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="none">No team</SelectItem>
               {teamsData.map(t => (
@@ -544,6 +544,7 @@ export function OKRCreationWizard({
                     size="icon"
                     className="h-6 w-6"
                     onClick={() => removeKeyResult(idx)}
+                    aria-label="Remove key result"
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>
@@ -567,7 +568,7 @@ export function OKRCreationWizard({
                 <div>
                   <Label className="text-xs">Type</Label>
                   <Select value={kr.metricType} onValueChange={v => updateKeyResult(idx, "metricType", v)}>
-                    <SelectTrigger className="h-8 text-xs"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-xs" aria-label="Type"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="increase">Increase</SelectItem>
                       <SelectItem value="decrease">Decrease</SelectItem>
@@ -631,6 +632,7 @@ export function OKRCreationWizard({
                     size="icon"
                     className="h-6 w-6"
                     onClick={() => removeBigRock(idx)}
+                    aria-label="Remove big rock"
                   >
                     <Trash2 className="h-3 w-3" />
                   </Button>
@@ -655,7 +657,7 @@ export function OKRCreationWizard({
                   <div>
                     <Label className="text-xs">Priority</Label>
                     <Select value={br.priority} onValueChange={v => updateBigRock(idx, "priority", v)}>
-                      <SelectTrigger className="h-9 text-xs"><SelectValue /></SelectTrigger>
+                      <SelectTrigger className="h-9 text-xs" aria-label="Priority"><SelectValue /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="critical">Critical</SelectItem>
                         <SelectItem value="high">High</SelectItem>

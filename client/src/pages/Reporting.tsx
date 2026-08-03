@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { QuarterlyHeatmap } from "@/components/QuarterlyHeatmap";
 import { apiRequest, queryClient } from "@/lib/queryClient";
@@ -384,6 +385,7 @@ export default function Reporting() {
 
   return (
     <div className="container mx-auto p-6 max-w-7xl">
+      <Helmet><title>Reports | Vega</title></Helmet>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-3xl font-bold" data-testid="text-page-title">Reporting</h1>
@@ -627,6 +629,7 @@ export default function Reporting() {
                             setSelectedSnapshot(snapshot);
                             setViewSnapshotOpen(true);
                           }}
+                          aria-label="View snapshot"
                           data-testid={`button-view-snapshot-${snapshot.id}`}
                         >
                           <Eye className="h-4 w-4" />
@@ -639,6 +642,7 @@ export default function Reporting() {
                               deleteSnapshotMutation.mutate(snapshot.id);
                             }
                           }}
+                          aria-label="Delete snapshot"
                           data-testid={`button-delete-snapshot-${snapshot.id}`}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -722,6 +726,7 @@ export default function Reporting() {
                             setSelectedReport(report);
                             setViewReportOpen(true);
                           }}
+                          aria-label="View report"
                           data-testid={`button-view-report-${report.id}`}
                         >
                           <Eye className="h-4 w-4" />
@@ -732,6 +737,7 @@ export default function Reporting() {
                           onClick={() => {
                             window.open(`/api/reporting/reports/${report.id}/pdf`, '_blank');
                           }}
+                          aria-label="Download PDF"
                           data-testid={`button-download-pdf-${report.id}`}
                           title="Download PDF"
                         >
@@ -744,6 +750,7 @@ export default function Reporting() {
                             setPptxReportId(report.id);
                             setPptxDialogOpen(true);
                           }}
+                          aria-label="Download PowerPoint"
                           data-testid={`button-download-pptx-${report.id}`}
                           title="Download PowerPoint"
                         >
@@ -757,6 +764,7 @@ export default function Reporting() {
                               deleteReportMutation.mutate(report.id);
                             }
                           }}
+                          aria-label="Delete report"
                           data-testid={`button-delete-report-${report.id}`}
                         >
                           <Trash2 className="h-4 w-4" />
@@ -830,7 +838,7 @@ export default function Reporting() {
               <div>
                 <Label htmlFor="reviewType">Review Type</Label>
                 <Select name="reviewType" defaultValue="quarterly">
-                  <SelectTrigger data-testid="select-review-type">
+                  <SelectTrigger aria-label="Review Type" data-testid="select-review-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -898,7 +906,7 @@ export default function Reporting() {
               <div>
                 <Label htmlFor="periodType">Report Type</Label>
                 <Select value={reportPeriodType} onValueChange={setReportPeriodType}>
-                  <SelectTrigger data-testid="select-period-type">
+                  <SelectTrigger aria-label="Report Type" data-testid="select-period-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -915,7 +923,7 @@ export default function Reporting() {
                 <div>
                   <Label>Select Week</Label>
                   <Select value={selectedWeek} onValueChange={setSelectedWeek}>
-                    <SelectTrigger data-testid="select-week">
+                    <SelectTrigger aria-label="Select Week" data-testid="select-week">
                       <SelectValue placeholder="Select week" />
                     </SelectTrigger>
                     <SelectContent>
@@ -933,7 +941,7 @@ export default function Reporting() {
                 <div>
                   <Label>Select Month</Label>
                   <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-                    <SelectTrigger data-testid="select-month">
+                    <SelectTrigger aria-label="Select Month" data-testid="select-month">
                       <SelectValue placeholder="Select month" />
                     </SelectTrigger>
                     <SelectContent>
@@ -963,7 +971,7 @@ export default function Reporting() {
                 <div>
                   <Label>Select Year</Label>
                   <Select value={selectedReportYear} onValueChange={setSelectedReportYear}>
-                    <SelectTrigger data-testid="select-report-year">
+                    <SelectTrigger aria-label="Select Year" data-testid="select-report-year">
                       <SelectValue placeholder="Select year" />
                     </SelectTrigger>
                     <SelectContent>
@@ -998,7 +1006,7 @@ export default function Reporting() {
                 <div>
                   <Label htmlFor="snapshotId">Use Snapshot (optional)</Label>
                   <Select name="snapshotId" defaultValue="current">
-                    <SelectTrigger data-testid="select-snapshot">
+                    <SelectTrigger aria-label="Use Snapshot" data-testid="select-snapshot">
                       <SelectValue placeholder="Use current state" />
                     </SelectTrigger>
                     <SelectContent>

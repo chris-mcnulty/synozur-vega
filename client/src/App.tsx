@@ -408,6 +408,13 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex h-screen w-full bg-background">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:rounded-md focus:border focus:bg-background focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-foreground focus:shadow-md focus:outline-none focus:ring-2 focus:ring-ring"
+        data-testid="link-skip-to-content"
+      >
+        Skip to main content
+      </a>
       <AppSidebar />
       <div className="flex flex-col flex-1 overflow-hidden">
         <AnnouncementBanner />
@@ -435,7 +442,7 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
                   setCommandOpen(true);
                 }}
                 onClick={() => setCommandOpen(true)}
-                className="h-9 w-56 rounded-md border bg-background pl-8 pr-12 text-sm text-muted-foreground placeholder:text-muted-foreground hover-elevate cursor-pointer focus:outline-none"
+                className="h-9 w-56 rounded-md border bg-background pl-8 pr-12 text-sm text-muted-foreground placeholder:text-muted-foreground hover-elevate cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 data-testid="input-header-search"
                 aria-label="Open global search"
               />
@@ -472,7 +479,7 @@ function ModuleLayout({ children }: { children: React.ReactNode }) {
         </div>
         <ContextualBreadcrumbs />
         <div className="flex flex-1 overflow-hidden bg-background">
-          <main className="flex-1 overflow-auto p-4 md:p-8 bg-background">
+          <main id="main-content" tabIndex={-1} className="flex-1 overflow-auto p-4 md:p-8 bg-background">
             <RouteErrorBoundary>
               {children}
             </RouteErrorBoundary>

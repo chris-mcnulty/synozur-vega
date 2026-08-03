@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { NOTIFICATION_TYPES, type Notification } from "@shared/schema";
+import { Helmet } from "react-helmet-async";
 
 const TYPE_LABELS: Record<string, string> = {
   assigned: "Assignments",
@@ -103,6 +104,7 @@ export default function Notifications() {
 
   return (
     <div className="flex-1 max-w-4xl mx-auto w-full space-y-4">
+      <Helmet><title>Notifications | Vega</title></Helmet>
       <div className="flex items-center justify-between gap-4 flex-wrap">
         <div className="flex items-center gap-2">
           <Bell className="h-5 w-5" />

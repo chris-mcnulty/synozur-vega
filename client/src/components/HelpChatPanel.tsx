@@ -5,6 +5,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { X, Send, HelpCircle, Loader2, AlertCircle, RefreshCw, LifeBuoy, Trash2 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDialogPanel } from "@/hooks/use-dialog-panel";
 
 type Message = {
   id: string;
@@ -60,6 +61,7 @@ function getConversationSummary(messages: Message[]): string {
 export function HelpChatPanel({ onClose, onOpenTicket }: HelpChatPanelProps) {
   const { user } = useAuth();
   const scrollRef = useRef<HTMLDivElement>(null);
+  const panelRef = useDialogPanel<HTMLDivElement>(onClose);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -230,6 +232,11 @@ export function HelpChatPanel({ onClose, onOpenTicket }: HelpChatPanelProps) {
 
   return (
     <div
+      ref={panelRef}
+      role="dialog"
+      aria-modal="false"
+      aria-label="Help assistant"
+      tabIndex={-1}
       className="fixed right-0 top-0 h-full z-50 w-[400px] flex flex-col bg-background border-l"
       data-testid="help-chat-panel"
     >
@@ -249,6 +256,7 @@ export function HelpChatPanel({ onClose, onOpenTicket }: HelpChatPanelProps) {
             size="icon"
             onClick={clearChat}
             title="Clear chat"
+            aria-label="Clear chat"
             data-testid="button-clear-help-chat"
           >
             <Trash2 className="h-4 w-4" />
@@ -257,6 +265,7 @@ export function HelpChatPanel({ onClose, onOpenTicket }: HelpChatPanelProps) {
             variant="ghost"
             size="icon"
             onClick={onClose}
+            aria-label="Close help assistant"
             data-testid="button-close-help-chat"
           >
             <X className="h-4 w-4" />
@@ -381,6 +390,7 @@ export function HelpChatPanel({ onClose, onOpenTicket }: HelpChatPanelProps) {
             onClick={sendMessage}
             disabled={!input.trim() || isLoading}
             data-testid="button-send-help-message"
+            aria-label="Send message"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />

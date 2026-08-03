@@ -170,8 +170,8 @@ export function UserPicker({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          role="combobox"
           aria-expanded={open}
+          aria-haspopup="dialog"
           disabled={disabled || !tenantId}
           className={cn("w-full justify-between font-normal", className)}
           data-testid="button-user-picker"

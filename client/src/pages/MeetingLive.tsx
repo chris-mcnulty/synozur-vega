@@ -363,7 +363,19 @@ export default function MeetingLive() {
     const handler = (e: KeyboardEvent) => {
       if (!liveState || liveState.endedAt) return;
       const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === "INPUT" || target.tagName === "TEXTAREA")) return;
+      // Single-key shortcuts must not intercept keys when a form field or any
+      // interactive control has focus (WCAG 2.1.4 Character Key Shortcuts).
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable ||
+          target.closest(
+            'button, a, select, [role="button"], [role="menuitem"], [role="menuitemradio"], [contenteditable="true"]',
+          ))
+      ) {
+        return;
+      }
       if (activeCapture) return;
       if (e.key === "ArrowRight" || e.key === " ") {
         e.preventDefault();
@@ -538,6 +550,17 @@ export default function MeetingLive() {
                 </div>
               )}
             </div>
+
+            {/* Announce meaningful timer transitions to assistive tech without
+                reading the per-second countdown (WCAG 4.1.3). Text changes only
+                when the over-time or paused state flips, so it is not chatty. */}
+            <span className="sr-only" role="status" aria-live="polite">
+              {isPaused
+                ? "Meeting timer paused"
+                : currentTopicOver
+                  ? `Current topic is over its allotted time${currentTopic?.display ? `: ${currentTopic.display}` : ""}`
+                  : ""}
+            </span>
 
             {isPaused && !isEnded && (
               <Badge variant="secondary" className="text-sm">Paused</Badge>

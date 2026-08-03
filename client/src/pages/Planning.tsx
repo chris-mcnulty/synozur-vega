@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -144,6 +145,7 @@ export default function Planning() {
 
   return (
     <div className="p-8">
+      <Helmet><title>Planning | Vega</title></Helmet>
       <div className="max-w-6xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -369,7 +371,7 @@ function OkrsSection({ okrs, quarter, year, foundation, strategies = [] }: { okr
                     value={formData.assignedTo}
                     onValueChange={(value) => setFormData({ ...formData, assignedTo: value })}
                   >
-                    <SelectTrigger data-testid="select-assigned-to">
+                    <SelectTrigger aria-label="Assigned To" data-testid="select-assigned-to">
                       <SelectValue placeholder="Select person" />
                     </SelectTrigger>
                     <SelectContent>
@@ -513,6 +515,7 @@ function OkrsSection({ okrs, quarter, year, foundation, strategies = [] }: { okr
                     <Button
                       variant="ghost"
                       size="icon"
+                      aria-label="Edit OKR"
                       onClick={() => openEditDialog(okr)}
                       data-testid={`button-edit-okr-${okr.id}`}
                     >
@@ -521,6 +524,7 @@ function OkrsSection({ okrs, quarter, year, foundation, strategies = [] }: { okr
                     <Button
                       variant="ghost"
                       size="icon"
+                      aria-label="Delete OKR"
                       onClick={() => { setSelectedOkr(okr); setDeleteDialogOpen(true); }}
                       data-testid={`button-delete-okr-${okr.id}`}
                     >
@@ -618,7 +622,7 @@ function OkrsSection({ okrs, quarter, year, foundation, strategies = [] }: { okr
                   value={formData.assignedTo}
                   onValueChange={(value) => setFormData({ ...formData, assignedTo: value })}
                 >
-                  <SelectTrigger data-testid="select-edit-assigned-to">
+                  <SelectTrigger aria-label="Assigned To" data-testid="select-edit-assigned-to">
                     <SelectValue placeholder="Select person" />
                   </SelectTrigger>
                   <SelectContent>
@@ -968,6 +972,7 @@ function KpisSection({ kpis, quarter, year, foundation }: { kpis: Kpi[]; quarter
                     <Button
                       variant="ghost"
                       size="icon"
+                      aria-label="Edit KPI"
                       onClick={() => openEditDialog(kpi)}
                       data-testid={`button-edit-kpi-${kpi.id}`}
                     >
@@ -976,6 +981,7 @@ function KpisSection({ kpis, quarter, year, foundation }: { kpis: Kpi[]; quarter
                     <Button
                       variant="ghost"
                       size="icon"
+                      aria-label="Delete KPI"
                       onClick={() => { setSelectedKpi(kpi); setDeleteDialogOpen(true); }}
                       data-testid={`button-delete-kpi-${kpi.id}`}
                     >
@@ -1293,7 +1299,7 @@ function RocksSection({
                     value={formData.status}
                     onValueChange={(value) => setFormData({ ...formData, status: value })}
                   >
-                    <SelectTrigger data-testid="select-rock-status">
+                    <SelectTrigger aria-label="Status" data-testid="select-rock-status">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -1402,6 +1408,7 @@ function RocksSection({
                     <Button
                       variant="ghost"
                       size="icon"
+                      aria-label="Edit rock"
                       onClick={() => openEditDialog(rock)}
                       data-testid={`button-edit-rock-${rock.id}`}
                     >
@@ -1410,6 +1417,7 @@ function RocksSection({
                     <Button
                       variant="ghost"
                       size="icon"
+                      aria-label="Delete rock"
                       onClick={() => { setSelectedRock(rock); setDeleteDialogOpen(true); }}
                       data-testid={`button-delete-rock-${rock.id}`}
                     >
@@ -1466,7 +1474,7 @@ function RocksSection({
                   value={formData.status}
                   onValueChange={(value) => setFormData({ ...formData, status: value })}
                 >
-                  <SelectTrigger data-testid="select-edit-rock-status">
+                  <SelectTrigger aria-label="Status" data-testid="select-edit-rock-status">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>

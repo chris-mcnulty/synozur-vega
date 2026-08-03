@@ -10,6 +10,7 @@ import { CheckCircle2, XCircle, Clock, History } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Objective, OkrApprovalHistory } from "@shared/schema";
+import { Helmet } from "react-helmet-async";
 
 function formatDate(d: string | Date | null | undefined) {
   if (!d) return "—";
@@ -71,6 +72,7 @@ export default function ReviewQueue() {
 
   return (
     <div className="container mx-auto p-6 space-y-6 max-w-5xl">
+      <Helmet><title>Review Queue | Vega</title></Helmet>
       <div>
         <h1 className="text-2xl font-semibold">Review Queue</h1>
         <p className="text-sm text-muted-foreground">

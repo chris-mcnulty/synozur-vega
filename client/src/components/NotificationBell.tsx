@@ -146,7 +146,7 @@ export function NotificationBell() {
           variant="ghost"
           className="relative"
           data-testid="button-notification-bell"
-          aria-label="Notifications"
+          aria-label={unread > 0 ? `Notifications, ${unread} unread` : "Notifications"}
         >
           <Bell className="h-4 w-4" />
           {unread > 0 && (
@@ -217,12 +217,20 @@ export function NotificationBell() {
                       {!n.isRead && (
                         <span
                           role="button"
+                          tabIndex={0}
                           aria-label="Mark read"
                           onClick={(e) => {
                             e.stopPropagation();
                             markRead.mutate(n.id);
                           }}
-                          className="opacity-60 hover:opacity-100 p-1"
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              markRead.mutate(n.id);
+                            }
+                          }}
+                          className="opacity-60 hover:opacity-100 p-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           data-testid={`button-mark-read-${n.id}`}
                         >
                           <Check className="h-3.5 w-3.5" />

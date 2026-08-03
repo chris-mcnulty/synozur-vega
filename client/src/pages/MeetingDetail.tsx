@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useRoute, useLocation } from "wouter";
 import { Card } from "@/components/ui/card";
@@ -28,6 +29,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission, PERMISSIONS, ROLES, type Role } from "@shared/rbac";
 import { format, formatDistanceToNow } from "date-fns";
 import { getMeetingQuarterYear } from "@/lib/quarters";
+import { activateOnKey } from "@/lib/utils";
 import { SerialCheckInDialog } from "@/components/okr/SerialCheckInDialog";
 import type { CheckInQueueItem } from "@/components/okr/SerialCheckInDialog";
 import { ScheduleToOutlookDialog } from "@/components/meetings/ScheduleToOutlookDialog";
@@ -465,6 +467,7 @@ export default function MeetingDetail() {
 
   return (
     <TooltipProvider>
+      <Helmet><title>Meeting | Vega</title></Helmet>
       <div className={`flex flex-col ${isFullscreen ? 'fixed inset-0 z-50 bg-background' : 'h-full'}`}>
 
         {/* ── Top Bar ── */}
@@ -829,17 +832,14 @@ export default function MeetingDetail() {
                           <span className={`text-sm flex-1 ${isActive ? 'font-medium' : ''} ${item.isOkr ? 'text-primary' : ''}`}>
                             {item.display}
                           </span>
-                          <span
-                            className="flex items-center gap-1 shrink-0"
-                            onClick={(e) => e.stopPropagation()}
-                            onKeyDown={(e) => e.stopPropagation()}
-                          >
+                          <span className="flex items-center gap-1 shrink-0">
                             <Input
                               type="number"
                               inputMode="numeric"
                               min={0}
                               placeholder="—"
                               className="h-7 w-14 text-xs text-right"
+                              onClick={(e) => e.stopPropagation()}
                               value={agendaTimeDraft[String(item.idx)] ?? ""}
                               onChange={(e) => setAgendaTimeDraft(d => ({ ...d, [String(item.idx)]: e.target.value }))}
                               onBlur={(e) => commitAgendaTime(item.idx, e.target.value)}
@@ -1032,6 +1032,7 @@ export default function MeetingDetail() {
                       variant="ghost"
                       className="shrink-0 opacity-60 hover:opacity-100"
                       title="Check in this item"
+                      aria-label="Check in this item"
                       data-testid={`button-checkin-${queueItem.type}-${queueItem.id}`}
                       onClick={() => startSingleItemCheckIn(queueItem)}
                     >

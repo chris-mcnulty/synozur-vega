@@ -30,8 +30,8 @@ export function TenantSwitcher() {
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          role="combobox"
           aria-expanded={open}
+          aria-haspopup="dialog"
           className="w-[200px] justify-between"
           data-testid="button-tenant-switcher"
         >

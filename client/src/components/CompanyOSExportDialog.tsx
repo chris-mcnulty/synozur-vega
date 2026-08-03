@@ -255,7 +255,7 @@ export function CompanyOSExportDialog({ trigger }: CompanyOSExportDialogProps) {
                   value={getPeriodValue()}
                   onValueChange={handlePeriodChange}
                 >
-                  <SelectTrigger data-testid="select-export-period">
+                  <SelectTrigger aria-label="Time Period" data-testid="select-export-period">
                     <SelectValue placeholder="All Time" />
                   </SelectTrigger>
                   <SelectContent>
@@ -275,7 +275,7 @@ export function CompanyOSExportDialog({ trigger }: CompanyOSExportDialogProps) {
                     setOptions(prev => ({ ...prev, teamId: value === "all" ? undefined : value }))
                   }
                 >
-                  <SelectTrigger data-testid="select-export-team">
+                  <SelectTrigger aria-label="Team" data-testid="select-export-team">
                     <SelectValue placeholder="All Teams" />
                   </SelectTrigger>
                   <SelectContent>
@@ -299,7 +299,7 @@ export function CompanyOSExportDialog({ trigger }: CompanyOSExportDialogProps) {
                 setOptions(prev => ({ ...prev, format: value }))
               }
             >
-              <SelectTrigger data-testid="select-export-format">
+              <SelectTrigger aria-label="Format" data-testid="select-export-format">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

@@ -9,6 +9,7 @@ import {
   Wand2, Navigation, UserSearch, LayoutDashboard
 } from "lucide-react";
 import { Link } from "wouter";
+import { Helmet } from "react-helmet-async";
 
 interface RoadmapItem {
   title: string;
@@ -307,6 +308,7 @@ const statusConfig = {
 export default function Roadmap() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
+      <Helmet><title>Roadmap | Vega</title></Helmet>
       <div className="flex items-center gap-4 flex-wrap">
         <Link href="/about">
           <Button variant="ghost" size="sm" data-testid="button-back-about">

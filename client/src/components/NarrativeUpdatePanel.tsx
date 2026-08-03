@@ -303,6 +303,7 @@ export function NarrativeUpdatePanel({ open, onClose, quarter, year, tenantId }:
                               data-testid={`button-edit-suggestion-${idx}`}
                               onClick={() => toggleEditMode(idx)}
                               title={suggestion.editMode ? "Done editing" : "Edit"}
+                              aria-label={suggestion.editMode ? "Done editing" : "Edit suggestion"}
                             >
                               {suggestion.editMode ? <Check className="h-4 w-4" /> : <Pencil className="h-4 w-4" />}
                             </Button>
@@ -312,6 +313,7 @@ export function NarrativeUpdatePanel({ open, onClose, quarter, year, tenantId }:
                               data-testid={`button-discard-suggestion-${idx}`}
                               onClick={() => discardSuggestion(idx)}
                               title="Discard"
+                              aria-label="Discard suggestion"
                             >
                               <X className="h-4 w-4" />
                             </Button>

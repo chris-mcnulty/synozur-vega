@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { Helmet } from "react-helmet-async";
 import { useQuery, useQueries } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -448,6 +449,7 @@ export default function MyFocus() {
 
   return (
     <div className="space-y-6 max-w-4xl">
+      <Helmet><title>My Focus | Vega</title></Helmet>
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">

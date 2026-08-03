@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react';
+import { Helmet } from 'react-helmet-async';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,6 +16,7 @@ import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { Upload, Rocket, FileText, Sparkles, Check, ChevronRight, Target, Flag, Lightbulb, CheckCircle2, Loader2, AlertCircle, X, Edit2, SkipForward, Info } from 'lucide-react';
 import { apiRequest, queryClient } from '@/lib/queryClient';
+import { activateOnKey } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { useTenant } from '@/contexts/TenantContext';
 import type { LaunchpadSession, LaunchpadProposal, LaunchpadExistingData } from '@shared/schema';
@@ -303,6 +305,7 @@ export default function Launchpad() {
 
   return (
     <div className="container max-w-4xl mx-auto py-8 px-4">
+      <Helmet><title>Launchpad | Vega</title></Helmet>
       <div className="flex items-center gap-3 mb-6">
         <Rocket className="h-8 w-8 text-primary" />
         <div>
@@ -334,9 +337,12 @@ export default function Launchpad() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
-              <div 
-                className="border-2 border-dashed rounded-lg p-8 text-center hover-elevate cursor-pointer transition-colors"
+              <div
+                role="button"
+                tabIndex={0}
+                className="border-2 border-dashed rounded-lg p-8 text-center hover-elevate cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
                 onClick={() => fileInputRef.current?.click()}
+                onKeyDown={activateOnKey(() => fileInputRef.current?.click())}
                 data-testid="dropzone-upload"
               >
                 <input
@@ -365,7 +371,7 @@ export default function Launchpad() {
                 <div>
                   <Label htmlFor="target-year">Target Year</Label>
                   <Select value={targetYear.toString()} onValueChange={(v) => setTargetYear(parseInt(v))}>
-                    <SelectTrigger id="target-year" data-testid="select-target-year">
+                    <SelectTrigger id="target-year" data-testid="select-target-year" aria-label="Target Year">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -378,7 +384,7 @@ export default function Launchpad() {
                 <div>
                   <Label htmlFor="target-quarter">OKR Quarter (optional)</Label>
                   <Select value={targetQuarter} onValueChange={setTargetQuarter}>
-                    <SelectTrigger id="target-quarter" data-testid="select-target-quarter">
+                    <SelectTrigger id="target-quarter" data-testid="select-target-quarter" aria-label="OKR Quarter">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -423,10 +429,13 @@ export default function Launchpad() {
               <CardContent>
                 <div className="space-y-2">
                   {sessions.slice(0, 5).map(session => (
-                    <div 
-                      key={session.id} 
-                      className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer"
+                    <div
+                      key={session.id}
+                      role="button"
+                      tabIndex={0}
+                      className="flex items-center justify-between p-3 rounded-lg border hover-elevate cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
                       onClick={() => resumeSession(session)}
+                      onKeyDown={activateOnKey(() => resumeSession(session))}
                       data-testid={`session-${session.id}`}
                     >
                       <div className="flex items-center gap-3">
@@ -640,6 +649,7 @@ export default function Launchpad() {
                                 setEditedProposal({ ...editedProposal, values: newValues });
                               }}
                               data-testid={`button-remove-value-${idx}`}
+                              aria-label="Remove value"
                             >
                               <X className="h-4 w-4" />
                             </Button>
@@ -713,6 +723,7 @@ export default function Launchpad() {
                           setEditedProposal({ ...editedProposal, ambitions: newAmbitions });
                         }}
                         data-testid={`button-remove-ambition-${idx}`}
+                        aria-label="Remove ambition"
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -795,6 +806,7 @@ export default function Launchpad() {
                           setEditedProposal({ ...editedProposal, goals: newGoals });
                         }}
                         data-testid={`button-remove-goal-${idx}`}
+                        aria-label="Remove goal"
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -877,6 +889,7 @@ export default function Launchpad() {
                           setEditedProposal({ ...editedProposal, strategies: newStrategies });
                         }}
                         data-testid={`button-remove-strategy-${idx}`}
+                        aria-label="Remove strategy"
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -960,6 +973,7 @@ export default function Launchpad() {
                           setEditedProposal({ ...editedProposal, objectives: newObjectives });
                         }}
                         data-testid={`button-remove-objective-${idx}`}
+                        aria-label="Remove objective"
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -1060,6 +1074,7 @@ export default function Launchpad() {
                           setEditedProposal({ ...editedProposal, bigRocks: newBigRocks });
                         }}
                         data-testid={`button-remove-bigrock-${idx}`}
+                        aria-label="Remove big rock"
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -1130,7 +1145,7 @@ export default function Launchpad() {
               </DialogHeader>
               <div className="py-4">
                 <Select value={bigRockQuarter} onValueChange={setBigRockQuarter}>
-                  <SelectTrigger data-testid="select-big-rock-quarter">
+                  <SelectTrigger data-testid="select-big-rock-quarter" aria-label="Big Rock quarter">
                     <SelectValue placeholder="Select quarter" />
                   </SelectTrigger>
                   <SelectContent>

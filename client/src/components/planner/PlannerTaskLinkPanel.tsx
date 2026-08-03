@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
+import { activateOnKey } from "@/lib/utils";
 import { ListTodo, Link2, Unlink, ExternalLink, RefreshCw, CheckCircle, AlertCircle, Clock, Loader2 } from "lucide-react";
 
 interface PlannerTask {
@@ -216,6 +217,7 @@ export function PlannerTaskLinkPanel({ entityType, entityId, entityTitle }: Plan
                 onClick={() => syncMutation.mutate()}
                 disabled={syncMutation.isPending}
                 data-testid="button-sync-planner"
+                aria-label="Sync Planner"
               >
                 <RefreshCw className={`h-4 w-4 ${syncMutation.isPending ? "animate-spin" : ""}`} />
               </Button>
@@ -224,6 +226,7 @@ export function PlannerTaskLinkPanel({ entityType, entityId, entityTitle }: Plan
                 size="icon"
                 onClick={() => setLinkDialogOpen(true)}
                 data-testid="button-link-task"
+                aria-label="Link task"
               >
                 <Link2 className="h-4 w-4" />
               </Button>
@@ -270,6 +273,7 @@ export function PlannerTaskLinkPanel({ entityType, entityId, entityTitle }: Plan
                     onClick={() => unlinkMutation.mutate(task.id)}
                     disabled={unlinkMutation.isPending}
                     data-testid={`button-unlink-task-${task.id}`}
+                    aria-label="Unlink task"
                   >
                     <Unlink className="h-4 w-4" />
                   </Button>
@@ -296,7 +300,7 @@ export function PlannerTaskLinkPanel({ entityType, entityId, entityTitle }: Plan
                 setSelectedPlanId(v);
                 setSelectedBucketId("");
               }}>
-                <SelectTrigger data-testid="select-plan">
+                <SelectTrigger data-testid="select-plan" aria-label="Select Plan">
                   <SelectValue placeholder="Choose a plan..." />
                 </SelectTrigger>
                 <SelectContent>
@@ -313,7 +317,7 @@ export function PlannerTaskLinkPanel({ entityType, entityId, entityTitle }: Plan
               <div className="space-y-2">
                 <label className="text-sm font-medium">Select Bucket</label>
                 <Select value={selectedBucketId} onValueChange={setSelectedBucketId}>
-                  <SelectTrigger data-testid="select-bucket">
+                  <SelectTrigger data-testid="select-bucket" aria-label="Select Bucket">
                     <SelectValue placeholder="Choose a bucket..." />
                   </SelectTrigger>
                   <SelectContent>
@@ -342,10 +346,13 @@ export function PlannerTaskLinkPanel({ entityType, entityId, entityTitle }: Plan
                         return (
                           <div
                             key={task.id}
-                            className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer ${
+                            role="button"
+                            tabIndex={0}
+                            className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm ${
                               isAlreadyLinked ? "opacity-50" : "hover-elevate"
                             }`}
                             onClick={() => !isAlreadyLinked && linkMutation.mutate(task.id)}
+                            onKeyDown={activateOnKey(() => { if (!isAlreadyLinked) linkMutation.mutate(task.id); })}
                             data-testid={`task-option-${task.id}`}
                           >
                             <div className="flex-1 min-w-0">

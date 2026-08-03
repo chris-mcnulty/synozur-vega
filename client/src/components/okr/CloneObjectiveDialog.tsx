@@ -122,7 +122,7 @@ export function CloneObjectiveDialog({
                     value={targetQuarter === null ? "annual" : targetQuarter.toString()}
                     onValueChange={(v) => setTargetQuarter(v === "annual" ? null : parseInt(v))}
                   >
-                    <SelectTrigger id="target-quarter" data-testid="select-target-quarter">
+                    <SelectTrigger id="target-quarter" aria-label="Target Period" data-testid="select-target-quarter">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -141,7 +141,7 @@ export function CloneObjectiveDialog({
                     value={targetYear.toString()}
                     onValueChange={(v) => setTargetYear(parseInt(v))}
                   >
-                    <SelectTrigger id="target-year" data-testid="select-target-year">
+                    <SelectTrigger id="target-year" aria-label="Target Year" data-testid="select-target-year">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -221,7 +221,7 @@ export function CloneObjectiveDialog({
                       value={newOwnerId}
                       onValueChange={setNewOwnerId}
                     >
-                      <SelectTrigger id="new-owner" data-testid="select-new-owner">
+                      <SelectTrigger id="new-owner" aria-label="Assign new owner" data-testid="select-new-owner">
                         <SelectValue placeholder="Select owner" />
                       </SelectTrigger>
                       <SelectContent>

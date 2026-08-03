@@ -114,7 +114,7 @@ function PlanCard({ plan }: { plan: PricingPlan }) {
               )}
               <span
                 className={`text-sm leading-snug ${
-                  f.included ? "text-foreground" : "text-muted-foreground/60"
+                  f.included ? "text-foreground" : "text-muted-foreground"
                 }`}
               >
                 {f.label}

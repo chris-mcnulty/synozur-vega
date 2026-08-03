@@ -584,7 +584,7 @@ export function PlannerCreatePlanDialog({
                     }
                   }}
                 >
-                  <SelectTrigger data-testid="select-bucket">
+                  <SelectTrigger data-testid="select-bucket" aria-label="Filter to specific bucket">
                     <SelectValue placeholder="All buckets" />
                   </SelectTrigger>
                   <SelectContent>

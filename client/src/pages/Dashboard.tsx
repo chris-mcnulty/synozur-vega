@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -253,6 +254,7 @@ export default function Dashboard() {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
+      <Helmet><title>Dashboard | Vega</title></Helmet>
       <WelcomeDialog isNewUser={isNewUser} />
       {/* Header with Quarter Selector */}
       <div className="flex items-start justify-between gap-4 flex-wrap">
@@ -273,7 +275,7 @@ export default function Dashboard() {
             }
           />
           <Select value={selectedTeam} onValueChange={setSelectedTeam}>
-            <SelectTrigger className="w-44" data-testid="select-team">
+            <SelectTrigger className="w-44" aria-label="Team" data-testid="select-team">
               <Building2 className="h-4 w-4 mr-2 text-muted-foreground" />
               <SelectValue placeholder="All Teams" />
             </SelectTrigger>

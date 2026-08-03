@@ -190,9 +190,9 @@ export function TrendChart({
 
   return (
     <div className="space-y-2" data-testid="chart-trend">
-      <div style={{ height }}>
+      <div style={{ height }} role="img" aria-label="Line chart: daily progress trend versus expected pace with pace-status markers">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={chartData}>
+          <ComposedChart accessibilityLayer data={chartData}>
             <XAxis
               dataKey="date"
               tick={{ fontSize: 11 }}

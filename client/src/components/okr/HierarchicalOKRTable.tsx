@@ -38,7 +38,7 @@ import {
   Clock
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn, activateOnKey } from "@/lib/utils";
 import { format, differenceInDays, endOfQuarter } from "date-fns";
 import { CircularProgress } from "./CircularProgress";
 import { CommentCountsProvider } from "@/hooks/use-comment-counts";
@@ -465,6 +465,7 @@ function ObjectiveRow({
                   e.stopPropagation();
                   onToggleExpand(objective.id);
                 }}
+                aria-label={isExpanded ? "Collapse objective" : "Expand objective"}
                 data-testid={`button-expand-${objective.id}`}
               >
                 {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
@@ -477,9 +478,12 @@ function ObjectiveRow({
             ) : (
               <Target className="h-4 w-4 text-primary flex-shrink-0" />
             )}
-            <span 
-              className="font-medium cursor-pointer hover:text-primary hover:underline truncate" 
+            <span
+              role="button"
+              tabIndex={0}
+              className="font-medium cursor-pointer hover:text-primary hover:underline truncate rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() => onSelectObjective?.(objective)}
+              onKeyDown={activateOnKey(() => onSelectObjective?.(objective))}
               data-testid={`link-objective-${objective.id}`}
             >
               {objective.title}
@@ -671,6 +675,7 @@ function ObjectiveRow({
                   className="h-7 w-7"
                   onClick={() => onCheckInObjective?.(objective)}
                   title="Check-in"
+                  aria-label="Check-in"
                   data-testid={`button-checkin-objective-${objective.id}`}
                 >
                   <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -681,6 +686,7 @@ function ObjectiveRow({
                   className="h-7 w-7"
                   onClick={() => onAddKeyResult?.(objective.id)}
                   title="Add Key Result"
+                  aria-label="Add Key Result"
                   data-testid={`button-add-kr-${objective.id}`}
                 >
                   <Plus className="h-4 w-4" />
@@ -693,6 +699,7 @@ function ObjectiveRow({
                   size="icon"
                   variant="ghost"
                   className="h-7 w-7"
+                  aria-label="Objective actions menu"
                   data-testid={`button-menu-objective-${objective.id}`}
                 >
                   <MoreHorizontal className="h-4 w-4" />
@@ -933,9 +940,12 @@ function KeyResultRow({
         <div className="flex items-center gap-2">
           <div className="w-6 flex-shrink-0" />
           <Gauge className="h-4 w-4 text-primary flex-shrink-0" />
-          <span 
-            className="text-sm cursor-pointer hover:text-primary hover:underline truncate"
+          <span
+            role="button"
+            tabIndex={0}
+            className="text-sm cursor-pointer hover:text-primary hover:underline truncate rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => onSelectKeyResult?.(keyResult, parentObjective)}
+            onKeyDown={activateOnKey(() => onSelectKeyResult?.(keyResult, parentObjective))}
             data-testid={`link-keyresult-${keyResult.id}`}
           >
             {keyResult.title}
@@ -1084,6 +1094,7 @@ function KeyResultRow({
               className="h-7 w-7"
               onClick={() => onCheckInKeyResult?.(keyResult)}
               title="Check-in"
+              aria-label="Check-in"
               data-testid={`button-checkin-kr-${keyResult.id}`}
             >
               <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -1095,6 +1106,7 @@ function KeyResultRow({
                 size="icon"
                 variant="ghost"
                 className="h-7 w-7"
+                aria-label="Key result actions menu"
                 data-testid={`button-menu-kr-${keyResult.id}`}
               >
                 <MoreHorizontal className="h-4 w-4" />
@@ -1282,8 +1294,11 @@ function MobileObjectiveCard({
                 <Target className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
               )}
               <span
-                className="font-medium text-sm leading-snug cursor-pointer hover:underline break-words"
+                role="button"
+                tabIndex={0}
+                className="font-medium text-sm leading-snug cursor-pointer hover:underline break-words rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 onClick={() => onSelectObjective?.(objective)}
+                onKeyDown={activateOnKey(() => onSelectObjective?.(objective))}
                 data-testid={`mobile-link-objective-${objective.id}`}
               >
                 {objective.title}
@@ -1603,8 +1618,11 @@ function MobileKeyResultCard({
           <div className="flex items-start gap-1.5 mb-1.5">
             <Gauge className="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
             <span
-              className="text-sm leading-snug cursor-pointer hover:underline break-words"
+              role="button"
+              tabIndex={0}
+              className="text-sm leading-snug cursor-pointer hover:underline break-words rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() => onSelectKeyResult?.(keyResult, parentObjective)}
+              onKeyDown={activateOnKey(() => onSelectKeyResult?.(keyResult, parentObjective))}
               data-testid={`mobile-link-keyresult-${keyResult.id}`}
             >
               {keyResult.title}

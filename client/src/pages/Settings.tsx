@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { Helmet } from "react-helmet-async";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ export default function Settings() {
 
   return (
     <div className="flex-1 p-6 space-y-6 max-w-4xl mx-auto">
+      <Helmet><title>Settings | Vega</title></Helmet>
       <div>
         <h1 className="text-2xl font-semibold">Settings</h1>
         <p className="text-muted-foreground">Manage your account and integrations</p>

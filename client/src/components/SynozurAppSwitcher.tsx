@@ -196,6 +196,7 @@ export function SynozurAppSwitcher({ currentApp = "vega", forceDark = false }: S
               const isCurrent = app.id === currentApp;
               const brandColor = BRAND_COLORS[index];
               return (
+                // eslint-disable-next-line jsx-a11y/anchor-is-valid -- the current app is a non-navigable menuitem (activated via onClick to close the menu)
                 <a
                   key={app.id}
                   href={isCurrent ? undefined : app.url}

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Helmet } from "react-helmet-async";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -471,6 +472,7 @@ export default function Foundations() {
 
   return (
     <div className="max-w-6xl mx-auto">
+      <Helmet><title>Foundations | Vega</title></Helmet>
       <div className="mb-8 flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-semibold mb-2">Foundations</h1>
@@ -829,6 +831,7 @@ export default function Foundations() {
                             setValueDetailOpen(true);
                           }}
                           data-testid={`button-view-value-${index}`}
+                          aria-label="View tagged items"
                           title="View tagged items"
                         >
                           <Eye className="h-3 w-3" />
@@ -837,6 +840,7 @@ export default function Foundations() {
                           size="icon"
                           variant="ghost"
                           onClick={() => handleOpenValueDialog(index)}
+                          aria-label="Edit value"
                           data-testid={`button-edit-value-${index}`}
                         >
                           <Edit className="h-3 w-3" />
@@ -845,6 +849,7 @@ export default function Foundations() {
                           size="icon"
                           variant="ghost"
                           onClick={() => handleRemoveValue(index)}
+                          aria-label="Remove value"
                           data-testid={`button-remove-value-${index}`}
                         >
                           <X className="h-3 w-3 text-destructive" />
@@ -945,6 +950,7 @@ export default function Foundations() {
                                 size="icon"
                                 variant="ghost"
                                 onClick={() => handleOpenAmbitionDialog(ambition.id)}
+                                aria-label="Edit ambition"
                                 data-testid={`button-edit-ambition-${ambition.id}`}
                               >
                                 <Edit className="h-3 w-3" />
@@ -954,6 +960,7 @@ export default function Foundations() {
                                 variant="ghost"
                                 onClick={() => handleOpenCloseAmbitionDialog(ambition.id)}
                                 data-testid={`button-close-ambition-${ambition.id}`}
+                                aria-label="Close ambition"
                                 title="Close ambition"
                               >
                                 <CheckCircle2 className="h-3 w-3 text-green-600" />
@@ -996,6 +1003,7 @@ export default function Foundations() {
                               variant="ghost"
                               onClick={() => handleReopenAmbition(ambition.id)}
                               data-testid={`button-reopen-ambition-${ambition.id}`}
+                              aria-label="Reopen ambition"
                               title="Reopen ambition"
                             >
                               <Plus className="h-3 w-3" />
@@ -1137,7 +1145,7 @@ export default function Foundations() {
                 value={ambitionTargetYear.toString()}
                 onValueChange={(value) => setAmbitionTargetYear(parseInt(value))}
               >
-                <SelectTrigger data-testid="select-ambition-target-year">
+                <SelectTrigger aria-label="Target Year" data-testid="select-ambition-target-year">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>

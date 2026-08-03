@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { Helmet } from "react-helmet-async";
 import { useSearch, useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -48,7 +49,7 @@ import { ExcelFilePicker } from "@/components/ExcelFilePicker";
 import { PlannerProgressMapping } from "@/components/planner/PlannerProgressMapping";
 import { PlannerCreatePlanDialog } from "@/components/planner/PlannerCreatePlanDialog";
 import { PlannerTaskLinkPanel } from "@/components/planner/PlannerTaskLinkPanel";
-import { cn } from "@/lib/utils";
+import { cn, activateOnKey } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { Foundation, CompanyValue, AnnualGoal, Ambition, BigRockTask, PageFilterState } from "@shared/schema";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -2624,6 +2625,7 @@ export default function PlanningEnhanced() {
 
   return (
     <div className="p-8">
+      <Helmet><title>Planning | Vega</title></Helmet>
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="flex items-center justify-between">
           <div>
@@ -2641,7 +2643,7 @@ export default function PlanningEnhanced() {
           <div className="flex flex-wrap gap-2">
             <div className="hidden md:flex flex-wrap gap-2">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-32" data-testid="select-status">
+                <SelectTrigger className="w-32" aria-label="Status" data-testid="select-status">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2667,7 +2669,7 @@ export default function PlanningEnhanced() {
                 </SelectContent>
               </Select>
               <Select value={level} onValueChange={setLevel}>
-                <SelectTrigger className="w-36" data-testid="select-level">
+                <SelectTrigger className="w-36" aria-label="Level" data-testid="select-level">
                   <SelectValue placeholder="Level" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2677,7 +2679,7 @@ export default function PlanningEnhanced() {
                 </SelectContent>
               </Select>
               <Select value={teamId} onValueChange={setTeamId}>
-                <SelectTrigger className="w-40" data-testid="select-team">
+                <SelectTrigger className="w-40" aria-label="Team" data-testid="select-team">
                   <SelectValue placeholder="Team" />
                 </SelectTrigger>
                 <SelectContent>
@@ -2725,7 +2727,7 @@ export default function PlanningEnhanced() {
                   <div className="flex flex-col gap-2">
                     <Label>Status</Label>
                     <Select value={statusFilter} onValueChange={setStatusFilter}>
-                      <SelectTrigger data-testid="select-status-mobile">
+                      <SelectTrigger aria-label="Status" data-testid="select-status-mobile">
                         <SelectValue placeholder="Status" />
                       </SelectTrigger>
                       <SelectContent>
@@ -2754,7 +2756,7 @@ export default function PlanningEnhanced() {
                   <div className="flex flex-col gap-2">
                     <Label>Level</Label>
                     <Select value={level} onValueChange={setLevel}>
-                      <SelectTrigger data-testid="select-level-mobile">
+                      <SelectTrigger aria-label="Level" data-testid="select-level-mobile">
                         <SelectValue placeholder="Level" />
                       </SelectTrigger>
                       <SelectContent>
@@ -2767,7 +2769,7 @@ export default function PlanningEnhanced() {
                   <div className="flex flex-col gap-2">
                     <Label>Team</Label>
                     <Select value={teamId} onValueChange={setTeamId}>
-                      <SelectTrigger data-testid="select-team-mobile">
+                      <SelectTrigger aria-label="Team" data-testid="select-team-mobile">
                         <SelectValue placeholder="Team" />
                       </SelectTrigger>
                       <SelectContent>
@@ -3220,7 +3222,7 @@ export default function PlanningEnhanced() {
                   data-testid="input-big-rocks-search"
                 />
                 <Select value={bigRocksStatusFilter} onValueChange={setBigRocksStatusFilter}>
-                  <SelectTrigger className="w-[180px]" data-testid="select-big-rocks-status">
+                  <SelectTrigger className="w-[180px]" aria-label="Status" data-testid="select-big-rocks-status">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
@@ -3289,7 +3291,7 @@ export default function PlanningEnhanced() {
                     value={goalsYearFilter.toString()}
                     onValueChange={(value) => setGoalsYearFilter(parseInt(value))}
                   >
-                    <SelectTrigger className="w-24" data-testid="select-goals-year-filter">
+                    <SelectTrigger className="w-24" aria-label="Filter goals by year" data-testid="select-goals-year-filter">
                       <Calendar className="w-3 h-3 mr-1" />
                       <SelectValue />
                     </SelectTrigger>
@@ -3360,7 +3362,7 @@ export default function PlanningEnhanced() {
                                       value={goal.year?.toString() || currentYear.toString()}
                                       onValueChange={(value) => handleUpdateGoalYear(originalIndex, parseInt(value))}
                                     >
-                                      <SelectTrigger className="w-16 h-7 text-xs" data-testid={`select-goal-year-${originalIndex}`}>
+                                      <SelectTrigger className="w-16 h-7 text-xs" aria-label="Goal year" data-testid={`select-goal-year-${originalIndex}`}>
                                         <SelectValue />
                                       </SelectTrigger>
                                       <SelectContent>
@@ -3374,7 +3376,7 @@ export default function PlanningEnhanced() {
                                     <Select
                                       onValueChange={(targetYear) => handleCloneGoal(goal, parseInt(targetYear))}
                                     >
-                                      <SelectTrigger className="w-7 h-7 p-0" data-testid={`button-clone-goal-${originalIndex}`}>
+                                      <SelectTrigger className="w-7 h-7 p-0" aria-label="Clone goal to year" data-testid={`button-clone-goal-${originalIndex}`}>
                                         <Copy className="h-3 w-3 mx-auto" />
                                       </SelectTrigger>
                                       <SelectContent>
@@ -3394,6 +3396,7 @@ export default function PlanningEnhanced() {
                                       variant="ghost"
                                       size="icon"
                                       className="h-7 w-7"
+                                      aria-label="Remove goal"
                                       onClick={() => handleRemoveGoal(originalIndex)}
                                       data-testid={`button-remove-goal-${originalIndex}`}
                                     >
@@ -3410,7 +3413,7 @@ export default function PlanningEnhanced() {
                                       value={goal.linkedAmbitionId || "none"}
                                       onValueChange={(value) => handleUpdateGoalAmbition(originalIndex, value === "none" ? undefined : value)}
                                     >
-                                      <SelectTrigger className="h-6 text-xs w-auto min-w-[120px]" data-testid={`select-goal-ambition-${originalIndex}`}>
+                                      <SelectTrigger className="h-6 text-xs w-auto min-w-[120px]" aria-label="Linked ambition" data-testid={`select-goal-ambition-${originalIndex}`}>
                                         <SelectValue placeholder="No ambition linked" />
                                       </SelectTrigger>
                                       <SelectContent>
@@ -3439,7 +3442,7 @@ export default function PlanningEnhanced() {
                           value={(cloneSourceYear ?? uniqueGoalYears[0])?.toString()}
                           onValueChange={(value) => setCloneSourceYear(parseInt(value))}
                         >
-                          <SelectTrigger className="w-20 h-7 text-xs" data-testid="select-clone-source-year">
+                          <SelectTrigger className="w-20 h-7 text-xs" aria-label="Clone source year" data-testid="select-clone-source-year">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
@@ -3457,7 +3460,7 @@ export default function PlanningEnhanced() {
                             handleCloneAllGoals(sourceYear, parseInt(targetYear));
                           }}
                         >
-                          <SelectTrigger className="w-20 h-7 text-xs" data-testid="select-clone-target-year">
+                          <SelectTrigger className="w-20 h-7 text-xs" aria-label="Clone all goals to year" data-testid="select-clone-target-year">
                             <SelectValue placeholder="Year" />
                           </SelectTrigger>
                           <SelectContent>
@@ -3609,7 +3612,7 @@ export default function PlanningEnhanced() {
                         value={objectiveForm.teamId || "none"}
                         onValueChange={(value) => setObjectiveForm({ ...objectiveForm, teamId: value === "none" ? "" : value })}
                       >
-                        <SelectTrigger data-testid="select-objective-team">
+                        <SelectTrigger aria-label="Assign to Team" data-testid="select-objective-team">
                           <SelectValue placeholder="Select team..." />
                         </SelectTrigger>
                         <SelectContent className="z-[60]">
@@ -3629,7 +3632,7 @@ export default function PlanningEnhanced() {
                         value={objectiveForm.level}
                         onValueChange={(value) => setObjectiveForm({ ...objectiveForm, level: value })}
                       >
-                        <SelectTrigger data-testid="select-objective-level">
+                        <SelectTrigger aria-label="Level" data-testid="select-objective-level">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="z-[60]">
@@ -3645,7 +3648,7 @@ export default function PlanningEnhanced() {
                         value={String(objectiveForm.quarter)}
                         onValueChange={(value) => setObjectiveForm({ ...objectiveForm, quarter: parseInt(value) })}
                       >
-                        <SelectTrigger data-testid="select-objective-quarter">
+                        <SelectTrigger aria-label="Time Period" data-testid="select-objective-quarter">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="z-[60]">
@@ -3663,7 +3666,7 @@ export default function PlanningEnhanced() {
                         value={String(objectiveForm.year)}
                         onValueChange={(value) => setObjectiveForm({ ...objectiveForm, year: parseInt(value) })}
                       >
-                        <SelectTrigger data-testid="select-objective-year">
+                        <SelectTrigger aria-label="Year" data-testid="select-objective-year">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="z-[60]">
@@ -3785,7 +3788,7 @@ export default function PlanningEnhanced() {
                         value={alignmentGoalYear.toString()}
                         onValueChange={(value) => setAlignmentGoalYear(parseInt(value))}
                       >
-                        <SelectTrigger className="w-20 h-7 text-xs" data-testid="select-alignment-goal-year">
+                        <SelectTrigger className="w-20 h-7 text-xs" aria-label="Annual goal year" data-testid="select-alignment-goal-year">
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
@@ -3927,7 +3930,7 @@ export default function PlanningEnhanced() {
                   value={keyResultForm.metricType}
                   onValueChange={(value) => setKeyResultForm({ ...keyResultForm, metricType: value })}
                 >
-                  <SelectTrigger data-testid="select-kr-metric-type">
+                  <SelectTrigger aria-label="Metric Type" data-testid="select-kr-metric-type">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="z-[60]">
@@ -4224,7 +4227,7 @@ export default function PlanningEnhanced() {
                     value={bigRockForm.objectiveId || "none"}
                     onValueChange={(value) => setBigRockForm({ ...bigRockForm, objectiveId: value === "none" ? "" : value })}
                   >
-                    <SelectTrigger data-testid="select-bigrock-objective">
+                    <SelectTrigger aria-label="Linked Objective" data-testid="select-bigrock-objective">
                       <SelectValue placeholder="Select an objective (optional)" />
                     </SelectTrigger>
                     <SelectContent className="z-[60]">
@@ -4247,7 +4250,7 @@ export default function PlanningEnhanced() {
                         setBigRockForm({ ...bigRockForm, quarter: q, year: y });
                       }}
                     >
-                      <SelectTrigger data-testid="select-bigrock-period">
+                      <SelectTrigger aria-label="Period" data-testid="select-bigrock-period">
                         <SelectValue placeholder="Select period" />
                       </SelectTrigger>
                       <SelectContent className="z-[60]">
@@ -4274,7 +4277,7 @@ export default function PlanningEnhanced() {
                       value={bigRockForm.teamId || "none"}
                       onValueChange={(value) => setBigRockForm({ ...bigRockForm, teamId: value === "none" ? "" : value })}
                     >
-                      <SelectTrigger data-testid="select-bigrock-team">
+                      <SelectTrigger aria-label="Assign to Team" data-testid="select-bigrock-team">
                         <SelectValue placeholder="Select team" />
                       </SelectTrigger>
                       <SelectContent className="z-[60]">
@@ -4637,7 +4640,7 @@ export default function PlanningEnhanced() {
                   {continueInNextPeriod === false && (
                     <div className="space-y-2">
                       <Label htmlFor="closing-note" className="text-sm font-medium flex items-center gap-1">
-                        Closing Note <span className="text-destructive">*</span>
+                        Closing Note <span className="text-destructive" aria-hidden="true">*</span><span className="sr-only">(required)</span>
                       </Label>
                       <Textarea
                         id="closing-note"
@@ -5051,7 +5054,7 @@ export default function PlanningEnhanced() {
                   value={checkInForm.newStatus}
                   onValueChange={(value) => setCheckInForm({ ...checkInForm, newStatus: value })}
                 >
-                  <SelectTrigger data-testid="select-checkin-status">
+                  <SelectTrigger aria-label="Status" data-testid="select-checkin-status">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent className="z-[60]">
@@ -5127,6 +5130,7 @@ export default function PlanningEnhanced() {
                             onClick={() => setPendingTaskUpdates(prev => ({ ...prev, [task.id]: cycleStatus(currentStatus) }))}
                             className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
                             data-testid={`button-task-status-${task.id}`}
+                            aria-label={`Status: ${currentStatus.replace('_', ' ')} — click to advance`}
                             title={`Status: ${currentStatus.replace('_', ' ')} — click to advance`}
                           >
                             {currentStatus === 'completed' ? (
@@ -5215,7 +5219,7 @@ export default function PlanningEnhanced() {
                         setAiRewriteState(prev => ({ ...prev, mode: value }))
                       }
                     >
-                      <SelectTrigger className="w-[130px] h-8 text-xs" data-testid="select-rewrite-mode">
+                      <SelectTrigger className="w-[130px] h-8 text-xs" aria-label="AI rewrite mode" data-testid="select-rewrite-mode">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className="z-[60]">
@@ -5505,6 +5509,7 @@ export default function PlanningEnhanced() {
                             <Button
                               size="icon"
                               variant="ghost"
+                              aria-label="Edit check-in"
                               onClick={() => handleEditCheckIn(checkIn)}
                               data-testid={`button-edit-checkin-${checkIn.id}`}
                             >
@@ -5626,6 +5631,7 @@ export default function PlanningEnhanced() {
                             <Button
                               size="icon"
                               variant="ghost"
+                              aria-label="Edit check-in"
                               onClick={() => {
                                 setCheckInEntity({
                                   type: "big_rock",
@@ -5903,45 +5909,50 @@ export default function PlanningEnhanced() {
                   )
                   .map((obj) => {
                     const isAligned = obj.alignedToObjectiveIds?.includes(alignmentTargetObjective || '');
+                    const handleAlignmentToggle = async () => {
+                      // Toggle alignment
+                      const currentAligned = obj.alignedToObjectiveIds || [];
+                      let newAligned: string[];
+                      if (isAligned) {
+                        newAligned = currentAligned.filter(id => id !== alignmentTargetObjective);
+                      } else {
+                        newAligned = [...currentAligned, alignmentTargetObjective!];
+                      }
+
+                      // Update the objective
+                      try {
+                        await apiRequest(`/api/okr/objectives/${obj.id}`, {
+                          method: 'PATCH',
+                          body: JSON.stringify({ alignedToObjectiveIds: newAligned }),
+                        });
+                        queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
+                        queryClient.invalidateQueries({ queryKey: ['/api/okr/hierarchy'] });
+                        toast({
+                          title: isAligned ? "Alignment removed" : "Objective aligned",
+                          description: isAligned
+                            ? `"${obj.title}" is no longer aligned to this objective`
+                            : `"${obj.title}" now supports this objective`,
+                        });
+                      } catch (error) {
+                        toast({
+                          title: "Error",
+                          description: "Failed to update alignment",
+                          variant: "destructive",
+                        });
+                      }
+                    };
                     return (
                       <div
                         key={obj.id}
                         className={cn(
                           "flex items-center justify-between p-3 rounded-md mb-2 hover-elevate cursor-pointer",
-                          isAligned ? "bg-purple-100 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700" : "border"
+                          isAligned ? "bg-purple-100 dark:bg-purple-900/30 border border-purple-200 dark:border-purple-700" : "border",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-sm"
                         )}
-                        onClick={async () => {
-                          // Toggle alignment
-                          const currentAligned = obj.alignedToObjectiveIds || [];
-                          let newAligned: string[];
-                          if (isAligned) {
-                            newAligned = currentAligned.filter(id => id !== alignmentTargetObjective);
-                          } else {
-                            newAligned = [...currentAligned, alignmentTargetObjective!];
-                          }
-                          
-                          // Update the objective
-                          try {
-                            await apiRequest(`/api/okr/objectives/${obj.id}`, {
-                              method: 'PATCH',
-                              body: JSON.stringify({ alignedToObjectiveIds: newAligned }),
-                            });
-                            queryClient.invalidateQueries({ queryKey: [`/api/okr/objectives`] });
-                            queryClient.invalidateQueries({ queryKey: ['/api/okr/hierarchy'] });
-                            toast({
-                              title: isAligned ? "Alignment removed" : "Objective aligned",
-                              description: isAligned 
-                                ? `"${obj.title}" is no longer aligned to this objective`
-                                : `"${obj.title}" now supports this objective`,
-                            });
-                          } catch (error) {
-                            toast({
-                              title: "Error",
-                              description: "Failed to update alignment",
-                              variant: "destructive",
-                            });
-                          }
-                        }}
+                        role="button"
+                        tabIndex={0}
+                        onClick={handleAlignmentToggle}
+                        onKeyDown={activateOnKey(handleAlignmentToggle)}
                         data-testid={`alignment-option-${obj.id}`}
                       >
                         <div className="flex items-center gap-3">
@@ -6381,6 +6392,7 @@ function BigRocksSection({ bigRocks, objectives, strategies, teams, activeQuarte
                 <Button
                   size="icon"
                   variant="ghost"
+                  aria-label="Check In"
                   onClick={() => onCheckIn(rock)}
                   title="Check In"
                   data-testid={`button-checkin-bigrock-${rock.id}`}
@@ -6391,6 +6403,7 @@ function BigRocksSection({ bigRocks, objectives, strategies, teams, activeQuarte
               <Button
                 size="icon"
                 variant="ghost"
+                aria-label="View History"
                 onClick={() => onViewHistory(rock)}
                 title="View History"
                 data-testid={`button-history-bigrock-${rock.id}`}
@@ -6400,6 +6413,7 @@ function BigRocksSection({ bigRocks, objectives, strategies, teams, activeQuarte
               <Button
                 size="icon"
                 variant="ghost"
+                aria-label="Edit"
                 onClick={() => onEditBigRock(rock)}
                 title="Edit"
                 data-testid={`button-edit-bigrock-${rock.id}`}
@@ -6409,6 +6423,7 @@ function BigRocksSection({ bigRocks, objectives, strategies, teams, activeQuarte
               <Button
                 size="icon"
                 variant="ghost"
+                aria-label="Clone to another quarter"
                 onClick={() => onCloneBigRock(rock)}
                 title="Clone to another quarter"
                 data-testid={`button-clone-bigrock-${rock.id}`}
@@ -6418,6 +6433,7 @@ function BigRocksSection({ bigRocks, objectives, strategies, teams, activeQuarte
               <Button
                 size="icon"
                 variant="ghost"
+                aria-label="Delete"
                 onClick={() => onDeleteBigRock(rock.id)}
                 title="Delete"
                 data-testid={`button-delete-bigrock-${rock.id}`}

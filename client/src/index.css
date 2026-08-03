@@ -643,3 +643,22 @@
   }
 
 }
+
+/* ============================================================
+ * Reduced motion (WCAG 2.3.3 / 2.2.2)
+ * The scroll-reveal utilities above already guard on
+ * prefers-reduced-motion, but the Aurora system animations (blob,
+ * nebula-shimmer, nebula-border-spin) and Tailwind animate-* utilities
+ * run unconditionally. This global reset neutralizes continuous motion
+ * for users who request reduced motion, while leaving layout intact.
+ * ============================================================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
