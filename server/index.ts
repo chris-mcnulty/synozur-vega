@@ -155,5 +155,20 @@ app.use((req, res, next) => {
     initializeDatabase()
       .then(() => log("Database initialization complete"))
       .catch((err) => console.error("Database initialization error (non-fatal):", err));
+
+    // Log TLS certificate expiry for vega.synozur.com at startup so it is
+    // visible in deployment logs without requiring a separate request.
+    import("./utils/certExpiry").then(({ getCertExpiry }) => {
+      getCertExpiry("vega.synozur.com")
+        .then((result) => {
+          log(
+            `[TLS] vega.synozur.com certificate expires ${result.expiresAt} ` +
+            `(${result.daysRemaining} days remaining, status: ${result.status})`
+          );
+        })
+        .catch((err) => {
+          console.error("[TLS] Could not retrieve certificate expiry (non-fatal):", err?.message);
+        });
+    });
   });
 })();

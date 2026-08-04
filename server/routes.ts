@@ -5082,6 +5082,24 @@ ${changelogContent}`;
     }
   });
 
+  // TLS certificate expiry health check (platform-admin only)
+  // Returns 200 when ≥ 30 days remain, 503 when < 30 days.
+  app.get("/health/tls", ...platformAdminOnly, async (_req: Request, res: Response) => {
+    const { getCertExpiry } = await import("./utils/certExpiry");
+    const domain = "vega.synozur.com";
+    try {
+      const result = await getCertExpiry(domain);
+      const httpStatus = result.status === "ok" ? 200 : 503;
+      return res.status(httpStatus).json(result);
+    } catch (err: any) {
+      return res.status(503).json({
+        domain,
+        error: err?.message || "Failed to retrieve certificate information",
+        status: "critical",
+      });
+    }
+  });
+
   const httpServer = createServer(app);
 
   return httpServer;
