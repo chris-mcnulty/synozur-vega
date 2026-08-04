@@ -24,13 +24,25 @@
     <meta name="twitter:description" content="Vega delivers the ultimate Company Operating System experience. Designed by former Microsoft Viva product leadership." />
     <meta name="twitter:image" content="https://vega.synozur.com/og-image.png?v=2" />
     <meta name="twitter:image:alt" content="Vega - Company Operating System | The Synozur Alliance" />
+    <!--
+      Google Ads conversion tracking (gtag.js / GAESA cookie) — Security note:
+      CWE-614 (missing Secure flag): Mitigated by passing cookie_flags: 'SameSite=Lax;Secure'
+        to gtag('config', ...) below. This ensures the GAESA cookie is only transmitted over HTTPS.
+      CWE-1004 (missing HttpOnly flag): ACCEPTED RISK. The GAESA cookie is written by Google's
+        client-side JavaScript (gtag.js) and must remain readable by that script to function.
+        Setting HttpOnly on a JS-written cookie is not possible — doing so would require a
+        server-side proxy tagging approach (e.g. Google Tag Manager server-side) which is out of
+        scope. This is a known, accepted limitation for all client-side analytics/conversion cookies.
+    -->
     <!-- Google tag (gtag.js) -->
     <script async src="https://www.googletagmanager.com/gtag/js?id=AW-16740929164"></script>
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
       gtag('js', new Date());
-      gtag('config', 'AW-16740929164');
+      gtag('config', 'AW-16740929164', {
+        cookie_flags: 'SameSite=Lax;Secure'
+      });
     </script>
     <script>
       (function() {
