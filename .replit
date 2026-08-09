@@ -54,6 +54,10 @@ args = "test-comments-mentions"
 task = "workflow.run"
 args = "test-reporting-access"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test-gclid-cookie"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -125,6 +129,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/__tests__/reportingAccessControl.test.ts"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "test-gclid-cookie"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/__tests__/gclidCookie.test.ts"
 
 [workflows.workflow.metadata]
 outputType = "console"

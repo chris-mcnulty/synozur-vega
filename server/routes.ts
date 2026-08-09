@@ -54,6 +54,7 @@ import { portalRouter } from "./routes-portal";
 import { embedAdminRouter, embedPublicRouter } from "./routes-embed";
 import { createTrashRouter } from "./routes-trash";
 import { createSavedViewsRouter } from "./routes-saved-views";
+import { gtagRouter, gclidCookieMiddleware } from "./routes-gtag";
 import { assertSafeJwksUri } from "./portal/jwks-url-validator";
 import { MCP_SCOPES } from "@shared/schema";
 
@@ -131,6 +132,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.setHeader('Content-Security-Policy', "frame-ancestors 'self'");
     next();
   });
+
+  // Google Ads click-ID middleware: when a request arrives with ?gclid= in the
+  // URL (user clicked a Google Ad), set the _gcl_aw (GAESA) cookie server-side
+  // with HttpOnly + Secure flags. This resolves CWE-1004 by ensuring the cookie
+  // is never written by client-side JavaScript.
+  app.use(gclidCookieMiddleware);
+
+  // Server-side Google Ads conversion proxy — resolves CWE-1004.
+  app.use("/api/gtag", gtagRouter);
 
   // Build info endpoint for version display
   app.get("/api/build-info", (req, res) => {
@@ -1153,6 +1163,13 @@ ${changelogContent}`;
     }
   }, 60 * 1000);
 
+  // Idempotency guard for Google Ads conversion uploads: tracks user IDs whose
+  // conversion has already been uploaded in this process lifetime. Prevents
+  // a second upload if the user clicks the verification link more than once.
+  // (Durable idempotency across restarts requires a DB column; this covers the
+  // common case of double-click / page refresh on the verification page.)
+  const convertedUserIds = new Set<string>();
+
   // Email verification
   app.post("/api/auth/verify-email", async (req, res) => {
     try {
@@ -1189,6 +1206,32 @@ ${changelogContent}`;
       
       // Remember this token was just verified (for 5 minutes)
       recentlyVerifiedTokens.set(tokenHash, { email: user.email, timestamp: Date.now() });
+
+      // Upload Google Ads click conversion — fired here rather than at signup so
+      // the conversion is tied to a verified, confirmed user. The gclid is read
+      // from the HttpOnly _gcl_aw cookie set by gclidCookieMiddleware on the
+      // landing page visit (same browser that clicked the verification link).
+      // Idempotent: convertedUserIds marks success-only uploads; partial failures
+      // and errors are not retained so the next verification attempt can retry.
+      if (!convertedUserIds.has(user.id)) {
+        try {
+          const { sendGoogleAdsConversion } = await import('./routes-gtag');
+          const adsResult = await sendGoogleAdsConversion(req);
+          if (adsResult.sent) {
+            // Mark only on confirmed success so partial failures are retryable
+            convertedUserIds.add(user.id);
+            console.log(`[Verify Email] Google Ads conversion uploaded for user ${user.id}`);
+          } else {
+            console.log(
+              `[Verify Email] Google Ads conversion not uploaded for user ${user.id}: ` +
+              `${adsResult.reason}${adsResult.partialFailures ? ' (partial failure — will retry)' : ''}`
+            );
+          }
+        } catch (adsErr) {
+          // Non-fatal: tracking failure must never block email verification
+          console.error('[Verify Email] Google Ads conversion upload error (non-fatal — will retry):', adsErr);
+        }
+      }
 
       res.json({ message: "Email verified successfully! You can now log in." });
     } catch (error) {

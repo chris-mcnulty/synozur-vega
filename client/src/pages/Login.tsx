@@ -293,12 +293,12 @@ export default function Login() {
         location: signupLocation || undefined,
       });
       
-      // Track signup conversion in Google Ads
-      if (typeof window !== 'undefined' && (window as any).gtag) {
-        (window as any).gtag('event', 'conversion', {
-          'send_to': 'AW-16740929164/vEQ2CJ3c2dwbEIyd2a4-',
-        });
-      }
+      // Google Ads conversion tracking is handled server-side.
+      // sendGoogleAdsConversion() is called in POST /api/auth/verify-email
+      // after the user confirms their email address, using the gclid stored
+      // in the HttpOnly _gcl_aw cookie set by gclidCookieMiddleware on landing.
+      // The client-side gtag.js script has been removed (see client/index.html)
+      // so no JavaScript writes to _gcl_aw — resolving CWE-1004.
       
       toast({
         title: "Account Created!",
