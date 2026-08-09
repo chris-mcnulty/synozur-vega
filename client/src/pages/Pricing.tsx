@@ -264,7 +264,7 @@ export default function Pricing() {
       </div>
 
       {/* ── Hero ── */}
-      <div className="pt-16">
+      <main className="pt-16">
         <section
           className="relative w-full min-h-[40vh] flex items-center justify-center py-16 md:py-24"
           style={{
@@ -303,6 +303,8 @@ export default function Pricing() {
         {/* ── Plan cards ── */}
         <section className="py-16 md:py-20 bg-background border-t" data-testid="section-plans">
           <div className="max-w-6xl mx-auto px-4 md:px-6">
+            {/* a11y: sr-only heading bridges h1 hero to h3 plan-card headings, satisfying heading hierarchy (WCAG 1.3.1) */}
+            <h2 className="sr-only">Available plans</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
               {PRICING_PLANS.map((plan) => (
                 <PlanCard key={plan.planName} plan={plan} />
@@ -332,7 +334,7 @@ export default function Pricing() {
                 Still have questions?{" "}
                 <a
                   href="mailto:sales@synozur.com"
-                  className="text-primary hover:underline"
+                  className="text-primary underline"
                   data-testid="link-faq-contact"
                 >
                   Reach out to our team.
@@ -426,7 +428,7 @@ export default function Pricing() {
             </div>
           </div>
         </footer>
-      </div>
+      </main>
     </div>
   );
 }

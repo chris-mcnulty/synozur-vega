@@ -170,8 +170,9 @@ export function AppSidebar() {
   // Show tenant logo only if URL exists and hasn't errored
   const showTenantLogo = tenantLogo && !logoError;
 
+  // a11y: role+aria-label promote the shadcn div-based Sidebar to a nav landmark (WCAG 1.3.1, 2.4.1)
   return (
-    <Sidebar>
+    <Sidebar role="navigation" aria-label="Main navigation">
       <SidebarHeader className="p-4">
         <div className="flex items-center gap-2 flex-shrink-0">
           <SynozurAppSwitcher currentApp="vega" />

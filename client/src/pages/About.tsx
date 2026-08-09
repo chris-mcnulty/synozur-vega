@@ -50,6 +50,8 @@ export default function About() {
   return (
     <div className="space-y-6 max-w-4xl mx-auto">
       <Helmet><title>About | Vega</title></Helmet>
+      {/* a11y: visible heading provided by the logo image; sr-only h1 satisfies WCAG 2.4.6 landmark heading */}
+      <h1 className="sr-only">About Vega</h1>
       <div className="text-center space-y-4">
         <div className="flex justify-center">
           <img src={vegaLogo} alt="Vega Company OS" className="h-20 object-contain" />

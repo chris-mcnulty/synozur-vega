@@ -190,7 +190,7 @@ export default function Landing() {
         </nav>
       </div>
       {/* Main Content - account for header + potential banner */}
-      <div className="pt-16">
+      <main className="pt-16">
         <LandingHero />
 
         {/* AI-Powered Tools Section */}
@@ -329,7 +329,7 @@ export default function Landing() {
             </div>
           </div>
         </footer>
-      </div>
+      </main>
     </div>
   );
 }

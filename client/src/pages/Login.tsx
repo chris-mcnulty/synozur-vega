@@ -324,7 +324,7 @@ export default function Login() {
   };
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center p-4">
+    <main className="relative min-h-screen w-full flex items-center justify-center p-4">
       <Helmet><title>Log in | Vega</title></Helmet>
       <div
         className="fixed inset-0 z-0"
@@ -399,7 +399,7 @@ export default function Login() {
               </div>
 
               <p className="text-muted-foreground">
-                Need help? Contact <a href="mailto:ContactUs@synozur.com" className="text-primary hover:underline">ContactUs@synozur.com</a>
+                Need help? Contact <a href="mailto:ContactUs@synozur.com" className="text-primary underline">ContactUs@synozur.com</a>
               </p>
 
               <Button
@@ -449,7 +449,7 @@ export default function Login() {
               </div>
 
               <p className="text-muted-foreground">
-                If you believe this is an error, contact <a href="mailto:ContactUs@synozur.com" className="text-primary hover:underline">ContactUs@synozur.com</a>
+                If you believe this is an error, contact <a href="mailto:ContactUs@synozur.com" className="text-primary underline">ContactUs@synozur.com</a>
               </p>
 
               <Button
@@ -494,7 +494,8 @@ export default function Login() {
             <p className="text-xs text-muted-foreground text-center mb-4">
               Uses your existing Microsoft identity. No credit card required.
               <br />
-              <span className="text-muted-foreground/70">No tenant changes or device management needed.</span>
+              {/* a11y: lifted from /70 to full muted-foreground to meet 4.5:1 contrast (WCAG 1.4.3) */}
+              <span className="text-muted-foreground">No tenant changes or device management needed.</span>
             </p>
             
             <div className="relative my-4">
@@ -551,9 +552,10 @@ export default function Login() {
                         <div className="flex items-center justify-between">
                           <Label htmlFor="login-password">Password</Label>
                           <Link href="/forgot-password">
+                            {/* a11y: py-1 ensures ≥24px touch target (WCAG 2.5.8); underline always visible (WCAG 1.4.1) */}
                             <button
                               type="button"
-                              className="text-xs text-primary hover:underline"
+                              className="text-xs text-primary underline py-1 inline-flex items-center"
                               data-testid="link-forgot-password"
                             >
                               Forgot password?
@@ -571,10 +573,11 @@ export default function Login() {
                             className="pr-10"
                             required
                           />
+                          {/* a11y: size-6 (24×24px) satisfies WCAG 2.5.8 touch-target minimum */}
                           <button
                             type="button"
                             onClick={() => setShowLoginPassword(!showLoginPassword)}
-                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors size-6 flex items-center justify-center"
                             data-testid="button-toggle-login-password"
                             aria-label={showLoginPassword ? "Hide password" : "Show password"}
                           >
@@ -633,10 +636,11 @@ export default function Login() {
                         className="pr-10"
                         required
                       />
+                      {/* a11y: size-6 (24×24px) satisfies WCAG 2.5.8 touch-target minimum */}
                       <button
                         type="button"
                         onClick={() => setShowSignupPassword(!showSignupPassword)}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors size-6 flex items-center justify-center"
                         data-testid="button-toggle-signup-password"
                         aria-label={showSignupPassword ? "Hide password" : "Show password"}
                       >
@@ -717,11 +721,12 @@ export default function Login() {
             
             <p className="text-xs text-muted-foreground text-center mt-4 pt-4 border-t">
               By logging in or creating an account, you agree to the Synozur{" "}
+              {/* a11y: permanent underline so links are distinguishable without colour alone (WCAG 1.4.1) */}
               <a 
                 href="https://www.synozur.com/privacy" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-primary hover:underline"
+                className="text-primary underline"
               >
                 Privacy Policy
               </a>{" "}
@@ -730,14 +735,14 @@ export default function Login() {
                 href="https://www.synozur.com/terms" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-primary hover:underline"
+                className="text-primary underline"
               >
                 Terms of Service
               </a>.
             </p>
           </CardContent>
         </Card>
-        
+
         <div className="text-center">
           {!showDemoForm ? (
             <button
@@ -791,6 +796,6 @@ export default function Login() {
           )}
         </div>
       </div>
-    </div>
+    </main>
   );
 }
