@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import helmet from "helmet";
 import session from "express-session";
 import connectPgSimple from "connect-pg-simple";
 import { registerRoutes } from "./routes";
@@ -22,6 +23,30 @@ const PgStore = connectPgSimple(session);
 // (attacker-controllable) header chain. This keeps secure cookies working behind the
 // proxy while preventing clients from spoofing their apparent source IP.
 app.set('trust proxy', 1);
+
+// ── Security headers (pen-test findings #4–7) ────────────────────────────────
+// Helmet sets X-Content-Type-Options, Referrer-Policy, Strict-Transport-Security,
+// X-Frame-Options, X-DNS-Prefetch-Control, and removes X-Powered-By.
+//
+// contentSecurityPolicy: disabled — managed route-by-route in routes.ts
+//   (frame-ancestors 'self' + embed-router override)
+// crossOriginEmbedderPolicy: disabled — would block Microsoft Graph / cloud asset
+//   requests that load cross-origin resources without CORP headers
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  })
+);
+
+// Permissions-Policy — Helmet v8 does not set this header; add it explicitly.
+// Opts out of camera, microphone, and geolocation for all browsing contexts.
+app.use((_req, res, next) => {
+  res.setHeader("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
+  next();
+});
+// ─────────────────────────────────────────────────────────────────────────────
 
 declare module 'http' {
   interface IncomingMessage {
