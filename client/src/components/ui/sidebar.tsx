@@ -26,7 +26,6 @@ import {
 } from "@/components/ui/tooltip"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
-const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7
 const SIDEBAR_WIDTH = "16rem"
 const SIDEBAR_WIDTH_MOBILE = "18rem"
 const SIDEBAR_WIDTH_ICON = "3rem"
@@ -71,7 +70,12 @@ function SidebarProvider({
 
   // This is the internal state of the sidebar.
   // We use openProp and setOpenProp for control from outside the component.
-  const [_open, _setOpen] = React.useState(defaultOpen)
+  // State is persisted in localStorage (not a cookie) to avoid exposing a
+  // JS-only cookie that would fail HttpOnly/Secure/SameSite security checks.
+  const [_open, _setOpen] = React.useState(() => {
+    const stored = localStorage.getItem(SIDEBAR_COOKIE_NAME)
+    return stored !== null ? stored === "true" : defaultOpen
+  })
   const open = openProp ?? _open
   const setOpen = React.useCallback(
     (value: boolean | ((value: boolean) => boolean)) => {
@@ -82,8 +86,10 @@ function SidebarProvider({
         _setOpen(openState)
       }
 
-      // This sets the cookie to keep the sidebar state.
-      document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+      // Persist sidebar state in localStorage instead of a cookie so that no
+      // JS-set cookie appears in the browser (eliminating the HttpOnly/Secure/
+      // SameSite findings from the pen test).
+      localStorage.setItem(SIDEBAR_COOKIE_NAME, String(openState))
     },
     [setOpenProp, open]
   )

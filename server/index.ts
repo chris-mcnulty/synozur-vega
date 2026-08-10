@@ -48,6 +48,20 @@ app.use((_req, res, next) => {
 });
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Sensitive-path guard (pen-test finding #1) ────────────────────────────────
+// The SPA catch-all returns HTTP 200 for every unmatched path, which causes
+// scanners to flag /.env (and similar paths) as a critical exposure even when
+// no real file exists. Return 404 for these paths before any other handler.
+app.use((req, res, next) => {
+  if (/^\/(\.env(\..*)?)$/.test(req.path) ||
+      /^\/\.git(\/|$)/.test(req.path) ||
+      /^\/(\.gitignore|\.htaccess)$/.test(req.path)) {
+    return res.status(404).end();
+  }
+  next();
+});
+// ─────────────────────────────────────────────────────────────────────────────
+
 declare module 'http' {
   interface IncomingMessage {
     rawBody: unknown
