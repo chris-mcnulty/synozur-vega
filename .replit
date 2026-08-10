@@ -58,6 +58,10 @@ args = "test-reporting-access"
 task = "workflow.run"
 args = "test-gclid-cookie"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "test-sensitive-path-guard"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -140,6 +144,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "npx tsx server/__tests__/gclidCookie.test.ts"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "test-sensitive-path-guard"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npx tsx server/__tests__/sensitivePathGuard.test.ts"
 
 [workflows.workflow.metadata]
 outputType = "console"

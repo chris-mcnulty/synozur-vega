@@ -49,36 +49,11 @@ app.use((_req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Sensitive-path guard (pen-test finding #1) ────────────────────────────────
-// The SPA catch-all returns HTTP 200 for every unmatched path, which causes
-// scanners to flag /.env (and similar paths) as a critical exposure even when
-// no real file exists. Return 404 for these paths before any other handler.
-//
-// Covered probe paths (extend this list as new scanner findings arise):
-//   Dot-files / VCS   : /.env, /.env.*, /.git/*, /.gitignore, /.htaccess,
-//                       /.DS_Store, /.svn/*
-//   CMS / PHP configs : /wp-config.php, /config.php, /configuration.php,
-//                       /wp-login.php, /wp-admin/*, /xmlrpc.php,
-//                       /administrator/*, /admin.php
-//   Server internals  : /server-status, /server-info
-//   Common backups    : /backup/*, /db.sql, /dump.sql
-const SENSITIVE_PATH_RE = [
-  /^\/(\.env(\..*)?)$/,
-  /^\/\.git(\/|$)/,
-  /^\/(\.gitignore|\.htaccess|\.DS_Store)$/,
-  /^\/\.svn(\/|$)/,
-  /^\/(wp-config\.php|config\.php|configuration\.php|admin\.php|xmlrpc\.php|wp-login\.php)$/i,
-  /^\/(wp-admin|administrator)(\/|$)/i,
-  /^\/(server-status|server-info)$/i,
-  /^\/backup(\/|$)/i,
-  /^\/(db|dump)\.sql$/i,
-];
-
-app.use((req, res, next) => {
-  if (SENSITIVE_PATH_RE.some((re) => re.test(req.path))) {
-    return res.status(404).end();
-  }
-  next();
-});
+// See server/middleware/sensitivePathGuard.ts for the full pattern list and
+// rationale. The middleware is extracted there so tests can import and exercise
+// the exact production implementation rather than a duplicated copy.
+import { sensitivePathGuard } from "./middleware/sensitivePathGuard";
+app.use(sensitivePathGuard);
 // ─────────────────────────────────────────────────────────────────────────────
 
 declare module 'http' {
